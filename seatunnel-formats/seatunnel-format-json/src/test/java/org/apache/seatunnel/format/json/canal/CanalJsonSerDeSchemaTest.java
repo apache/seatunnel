@@ -63,8 +63,8 @@ public class CanalJsonSerDeSchemaTest {
             createCanalJsonDeserializationSchema(null, null);
         final SimpleCollector collector = new SimpleCollector();
 
-        deserializationSchema.deserialize(null, collector);
-        deserializationSchema.deserialize(new byte[0], collector);
+        deserializationSchema.collect(null, collector);
+        deserializationSchema.collect(new byte[0], collector);
         assertEquals(0, collector.list.size());
     }
 
@@ -72,7 +72,7 @@ public class CanalJsonSerDeSchemaTest {
         throws Exception {
         SimpleCollector collector = new SimpleCollector();
         for (String line : lines) {
-            deserializationSchema.deserialize(line.getBytes(StandardCharsets.UTF_8), collector);
+            deserializationSchema.collect(line.getBytes(StandardCharsets.UTF_8), collector);
         }
 
         List<String> expected =

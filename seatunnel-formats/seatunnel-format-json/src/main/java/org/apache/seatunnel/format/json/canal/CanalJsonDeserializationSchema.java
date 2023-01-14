@@ -27,11 +27,14 @@ import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
+import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 public class CanalJsonDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
@@ -68,11 +71,14 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
 
     private final JsonDeserializationSchema jsonDeserializer;
 
+    private final SeaTunnelRowType physicalRowType;
+
     public CanalJsonDeserializationSchema(SeaTunnelRowType physicalRowType,
                                           String database,
                                           String table,
                                           boolean ignoreParseErrors
                                           ) {
+        this.physicalRowType = physicalRowType;
         final SeaTunnelRowType jsonRowType = createJsonRowType(physicalRowType);
         this.jsonDeserializer = new JsonDeserializationSchema(
             false,
@@ -90,80 +96,93 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
 
     @Override
     public SeaTunnelRow deserialize(byte[] message) throws IOException {
-        return null;
-    }
-
-    @Override
-    public void deserialize(byte[] message, Collector<SeaTunnelRow> out) throws IOException {
-        if (message == null || message.length == 0) {
-            return;
+        if (message == null) {
+            return null;
         }
-        try {
-            final JsonNode root = jsonDeserializer.deserializeToJsonNode(message);
-            if (database != null) {
-                if (!databasePattern
-                    .matcher(root.get("database").asText())
-                    .matches()) {
-                    return;
-                }
-            }
-            if (table != null) {
-                if (!tablePattern
-                    .matcher(root.get("table").asText())
-                    .matches()) {
-                    return;
-                }
-            }
-            SeaTunnelRow row = jsonDeserializer.convertToRowData(root);
-            SeaTunnelRow data = (SeaTunnelRow) row.getField(0);
-            String type = row.getField(2).toString();
-            if (OP_INSERT.equals(type)) {
-                out.collect(row);
-            } else if (OP_UPDATE.equals(type)) {
-                SeaTunnelRow after = (SeaTunnelRow) row.getField(0);
-                SeaTunnelRow before = (SeaTunnelRow) row.getField(1);
-                final JsonNode oldField = root.get(FIELD_OLD);
-                for (int f = 0; f < fieldCount; f++) {
-                    if (before.isNullAt(f) && oldField.findValue(fieldNames[f]) == null) {
-                        // fields in "old" (before) means the fields are changed
-                        // fields not in "old" (before) means the fields are not changed
-                        // so we just copy the not changed fields into before
-                        before.setField(f, after.getField(f));
-                    }
-                }
-                before.setRowKind(RowKind.UPDATE_BEFORE);
-                after.setRowKind(RowKind.UPDATE_AFTER);
-                out.collect(before);
-                out.collect(after);
-            } else if (OP_DELETE.equals(type)) {
-                // "data" field is an array of row, contains deleted rows
-                data.setRowKind(RowKind.DELETE);
-                out.collect(data);
-            } else if (OP_CREATE.equals(type)) {
-                // "data" field is null and "type" is "CREATE" which means
-                // this is a DDL change event, and we should skip it.
-                return;
-            } else {
-                if (!ignoreParseErrors) {
-                    throw new IOException(
-                        format(
-                            "Unknown \"type\" value \"%s\". The Canal JSON message is '%s'",
-                            type, new String(message)));
-                }
-            }
-
-        } catch (Throwable t) {
-            // a big try catch to protect the processing.
-            if (!ignoreParseErrors) {
-                throw new IOException(
-                    format("Corrupt Canal JSON message '%s'.", new String(message)), t);
-            }
-        }
+        return convertJsonNode(convertBytes(message));
     }
 
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return null;
+        return this.physicalRowType;
+    }
+
+    public void collect(byte[] message, Collector<SeaTunnelRow> out) throws IOException {
+        if (message == null) {
+            return;
+        }
+        JsonNode root = convertBytes(message);
+        SeaTunnelRow row = convertJsonNode(root);
+
+        if (!Optional.ofNullable(row).isPresent()){
+            return;
+        }
+        SeaTunnelRow data = (SeaTunnelRow) row.getField(0);
+        String type = row.getField(2).toString();
+        if (OP_INSERT.equals(type)) {
+            out.collect(row);
+        } else if (OP_UPDATE.equals(type)) {
+            SeaTunnelRow after = (SeaTunnelRow) row.getField(0);
+            SeaTunnelRow before = (SeaTunnelRow) row.getField(1);
+            final JsonNode oldField = root.get(FIELD_OLD);
+            for (int f = 0; f < fieldCount; f++) {
+                if (before.isNullAt(f) && oldField.findValue(fieldNames[f]) == null) {
+                    // fields in "old" (before) means the fields are changed
+                    // fields not in "old" (before) means the fields are not changed
+                    // so we just copy the not changed fields into before
+                    before.setField(f, after.getField(f));
+                }
+            }
+            before.setRowKind(RowKind.UPDATE_BEFORE);
+            after.setRowKind(RowKind.UPDATE_AFTER);
+            out.collect(before);
+            out.collect(after);
+        } else if (OP_DELETE.equals(type)) {
+            // "data" field is an array of row, contains deleted rows
+            data.setRowKind(RowKind.DELETE);
+            out.collect(data);
+        } else if (OP_CREATE.equals(type)) {
+            // "data" field is null and "type" is "CREATE" which means
+            // this is a DDL change event, and we should skip it.
+        } else {
+            if (!ignoreParseErrors) {
+                throw new SeaTunnelJsonFormatException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                    format(
+                        "Unknown \"type\" value \"%s\". The Canal JSON message is '%s'",
+                        type, new String(message)));
+            }
+        }
+    }
+
+    private JsonNode convertBytes(byte[] message) {
+        try {
+            final JsonNode root = jsonDeserializer.deserializeToJsonNode(message);
+            return root;
+        } catch (Throwable t) {
+            if (ignoreParseErrors) {
+                return null;
+            }
+            throw new SeaTunnelJsonFormatException(CommonErrorCode.JSON_OPERATION_FAILED,
+                String.format("Failed to deserialize JSON '%s'.", new String(message)), t);
+        }
+    }
+
+    private SeaTunnelRow convertJsonNode(JsonNode root) throws IOException {
+        if (database != null) {
+            if (!databasePattern
+                .matcher(root.get("database").asText())
+                .matches()) {
+                return null;
+            }
+        }
+        if (table != null) {
+            if (!tablePattern
+                .matcher(root.get("table").asText())
+                .matches()) {
+                return null;
+            }
+        }
+        return jsonDeserializer.convertToRowData(root);
     }
 
     private static SeaTunnelRowType createJsonRowType(
