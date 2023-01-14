@@ -183,4 +183,49 @@ public class FakeOption {
             .doubleType()
             .defaultValue(Double.MAX_VALUE)
             .withDescription("The max value of double type data");
+
+    public static final Option<FakeMode> STRING_FAKE_MODE = Options.key("string.fake.mode")
+            .enumType(FakeMode.class)
+            .defaultValue(FakeMode.RANGE)
+            .withDescription("The fake mode of generating string data");
+
+    public static final Option<FakeMode> TINYINT_FAKE_MODE = Options.key("tinyint.fake.mode")
+            .enumType(FakeMode.class)
+            .defaultValue(FakeMode.RANGE)
+            .withDescription("The fake mode of generating tinyint data");
+
+
+    public static final Option<FakeMode> SMALLINT_FAKE_MODE = Options.key("smallint.fake.mode")
+            .enumType(FakeMode.class)
+            .defaultValue(FakeMode.RANGE)
+            .withDescription("The fake mode of generating smallint data");
+
+    public static final Option<FakeMode> INT_FAKE_MODE = Options.key("int.fake.mode")
+            .enumType(FakeMode.class)
+            .defaultValue(FakeMode.RANGE)
+            .withDescription("The fake mode of generating int data");
+
+    public static final Option<FakeMode> BIGINT_FAKE_MODE = Options.key("bigint.fake.mode")
+            .enumType(FakeMode.class)
+            .defaultValue(FakeMode.RANGE)
+            .withDescription("The fake mode of generating bigint data");
+
+    public static final Option<FakeMode> FLOAT_FAKE_MODE = Options.key("float.fake.mode")
+            .enumType(FakeMode.class)
+            .defaultValue(FakeMode.RANGE)
+            .withDescription("The fake mode of generating float data");
+
+    public static final Option<FakeMode> DOUBLE_FAKE_MODE = Options.key("double.fake.mode")
+            .enumType(FakeMode.class)
+            .defaultValue(FakeMode.RANGE)
+            .withDescription("The fake mode of generating double data");
+
+    public enum FakeMode {
+        RANGE,
+        TEMPLATE;
+
+        public static FakeMode parse(String s) {
+            return FakeMode.valueOf(s.toUpperCase());
+        }
+    }
 }

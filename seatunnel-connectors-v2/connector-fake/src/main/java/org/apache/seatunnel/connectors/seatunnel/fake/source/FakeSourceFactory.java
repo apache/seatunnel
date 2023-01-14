@@ -18,37 +18,31 @@
 package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.ARRAY_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.BIGINT_MAX;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.BIGINT_MIN;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.BIGINT_FAKE_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.BIGINT_TEMPLATE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.BYTES_LENGTH;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.DATE_DAY_TEMPLATE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.DATE_MONTH_TEMPLATE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.DATE_YEAR_TEMPLATE;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.DOUBLE_MAX;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.DOUBLE_MIN;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.DOUBLE_FAKE_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.DOUBLE_TEMPLATE;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.FLOAT_MAX;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.FLOAT_MIN;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.FLOAT_FAKE_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.FLOAT_TEMPLATE;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.INT_MAX;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.INT_MIN;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.INT_FAKE_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.INT_TEMPLATE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.MAP_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.ROWS;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.ROW_NUM;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.SMALLINT_MAX;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.SMALLINT_MIN;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.SMALLINT_FAKE_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.SMALLINT_TEMPLATE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.SPLIT_NUM;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.SPLIT_READ_INTERVAL;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.STRING_LENGTH;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.STRING_FAKE_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.STRING_TEMPLATE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.TIME_HOUR_TEMPLATE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.TIME_MINUTE_TEMPLATE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.TIME_SECOND_TEMPLATE;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.TINYINT_MAX;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.TINYINT_MIN;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.TINYINT_FAKE_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.TINYINT_TEMPLATE;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
@@ -56,6 +50,7 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption;
 
 import com.google.auto.service.AutoService;
 
@@ -70,19 +65,13 @@ public class FakeSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(SeaTunnelSchema.SCHEMA)
-                .exclusive(STRING_LENGTH, STRING_TEMPLATE)
-                .exclusive(TINYINT_MIN, TINYINT_TEMPLATE)
-                .exclusive(TINYINT_MAX, TINYINT_TEMPLATE)
-                .exclusive(SMALLINT_MIN, SMALLINT_TEMPLATE)
-                .exclusive(SMALLINT_MAX, SMALLINT_TEMPLATE)
-                .exclusive(INT_MIN, INT_TEMPLATE)
-                .exclusive(INT_MAX, INT_TEMPLATE)
-                .exclusive(BIGINT_MIN, BIGINT_TEMPLATE)
-                .exclusive(BIGINT_MAX, BIGINT_TEMPLATE)
-                .exclusive(FLOAT_MIN, FLOAT_TEMPLATE)
-                .exclusive(FLOAT_MAX, FLOAT_TEMPLATE)
-                .exclusive(DOUBLE_MIN, DOUBLE_TEMPLATE)
-                .exclusive(DOUBLE_MAX, DOUBLE_TEMPLATE)
+                .conditional(STRING_FAKE_MODE, FakeOption.FakeMode.TEMPLATE, STRING_TEMPLATE)
+                .conditional(TINYINT_FAKE_MODE, FakeOption.FakeMode.TEMPLATE, TINYINT_TEMPLATE)
+                .conditional(SMALLINT_FAKE_MODE, FakeOption.FakeMode.TEMPLATE, SMALLINT_TEMPLATE)
+                .conditional(INT_FAKE_MODE, FakeOption.FakeMode.TEMPLATE, INT_TEMPLATE)
+                .conditional(BIGINT_FAKE_MODE, FakeOption.FakeMode.TEMPLATE, BIGINT_TEMPLATE)
+                .conditional(FLOAT_FAKE_MODE, FakeOption.FakeMode.TEMPLATE, FLOAT_TEMPLATE)
+                .conditional(DOUBLE_FAKE_MODE, FakeOption.FakeMode.TEMPLATE, DOUBLE_TEMPLATE)
                 .optional(
                         ROWS,
                         ROW_NUM,
@@ -91,14 +80,6 @@ public class FakeSourceFactory implements TableSourceFactory {
                         MAP_SIZE,
                         ARRAY_SIZE,
                         BYTES_LENGTH,
-                        STRING_LENGTH,
-                        STRING_TEMPLATE,
-                        TINYINT_MIN, TINYINT_MAX, TINYINT_TEMPLATE,
-                        SMALLINT_MIN, SMALLINT_MAX, SMALLINT_TEMPLATE,
-                        INT_MIN, INT_MAX, INT_TEMPLATE,
-                        BIGINT_MIN, BIGINT_MAX, BIGINT_TEMPLATE,
-                        FLOAT_MIN, FLOAT_MAX, FLOAT_TEMPLATE,
-                        DOUBLE_MIN, DOUBLE_MAX, DOUBLE_TEMPLATE,
                         DATE_YEAR_TEMPLATE, DATE_MONTH_TEMPLATE, DATE_DAY_TEMPLATE,
                         TIME_HOUR_TEMPLATE, TIME_MINUTE_TEMPLATE, TIME_SECOND_TEMPLATE)
                 .build();
