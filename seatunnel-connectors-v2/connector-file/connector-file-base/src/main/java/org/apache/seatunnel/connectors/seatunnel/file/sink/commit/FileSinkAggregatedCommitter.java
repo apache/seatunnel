@@ -54,7 +54,11 @@ public class FileSinkAggregatedCommitter implements SinkAggregatedCommitter<File
                 errorAggregatedCommitInfoList.add(aggregatedCommitInfo);
             }
         });
-        return errorAggregatedCommitInfoList;
+        if (errorAggregatedCommitInfoList.size() == 0){
+            return errorAggregatedCommitInfoList;
+        } else {
+            throw new IOException("commit FileSinkAggregatedCommitter error");
+        }
     }
 
     /**
