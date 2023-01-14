@@ -70,7 +70,7 @@ public class CanalJsonSerializationSchema implements SerializationSchema {
                 return OP_DELETE;
             default:
                 throw new SeaTunnelJsonFormatException(CommonErrorCode.UNSUPPORTED_OPERATION,
-                    String.format("Unsupported operation %s for row kind.",rowKind));
+                    String.format("Unsupported operation %s for row kind.", rowKind));
         }
     }
 
