@@ -44,9 +44,6 @@ public interface SupportDataSaveMode {
                 throw new SeaTunnelRuntimeException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     "This connector don't support save mode: " + dataSaveMode);
             }
-        } else {
-            throw new SeaTunnelRuntimeException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                SinkCommonOptions.DATA_SAVE_MODE + " must in config");
         }
     }
 
