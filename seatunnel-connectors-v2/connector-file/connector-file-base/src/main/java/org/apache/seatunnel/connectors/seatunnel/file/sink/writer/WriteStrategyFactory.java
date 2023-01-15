@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -29,17 +29,17 @@ public class WriteStrategyFactory {
 
     private WriteStrategyFactory() {}
 
-    public static WriteStrategy of(String fileType, TextFileSinkConfig textFileSinkConfig) {
+    public static WriteStrategy of(String fileType, FileSinkConfig fileSinkConfig) {
         try {
             FileFormat fileFormat = FileFormat.valueOf(fileType.toUpperCase());
-            return fileFormat.getWriteStrategy(textFileSinkConfig);
+            return fileFormat.getWriteStrategy(fileSinkConfig);
         } catch (IllegalArgumentException e) {
             String errorMsg = String.format("File sink connector not support this file type [%s], please check your config", fileType);
             throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, errorMsg);
         }
     }
 
-    public static WriteStrategy of(FileFormat fileFormat, TextFileSinkConfig textFileSinkConfig) {
-        return fileFormat.getWriteStrategy(textFileSinkConfig);
+    public static WriteStrategy of(FileFormat fileFormat, FileSinkConfig fileSinkConfig) {
+        return fileFormat.getWriteStrategy(fileSinkConfig);
     }
 }

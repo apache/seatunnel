@@ -25,30 +25,30 @@ public class CheckpointException extends Exception {
 
     private static final long serialVersionUID = 3257526119022486948L;
 
-    private final CheckpointFailureReason checkpointFailureReason;
+    private final CheckpointCloseReason checkpointCloseReason;
 
-    public CheckpointException(CheckpointFailureReason failureReason) {
+    public CheckpointException(CheckpointCloseReason failureReason) {
         super(failureReason.message());
-        this.checkpointFailureReason = checkNotNull(failureReason);
+        this.checkpointCloseReason = checkNotNull(failureReason);
     }
 
-    public CheckpointException(String message, CheckpointFailureReason failureReason) {
+    public CheckpointException(String message, CheckpointCloseReason failureReason) {
         super(message + " Failure reason: " + failureReason.message());
-        this.checkpointFailureReason = checkNotNull(failureReason);
+        this.checkpointCloseReason = checkNotNull(failureReason);
     }
 
-    public CheckpointException(CheckpointFailureReason failureReason, Throwable cause) {
+    public CheckpointException(CheckpointCloseReason failureReason, Throwable cause) {
         super(failureReason.message(), cause);
-        this.checkpointFailureReason = checkNotNull(failureReason);
+        this.checkpointCloseReason = checkNotNull(failureReason);
     }
 
     public CheckpointException(
-            String message, CheckpointFailureReason failureReason, Throwable cause) {
+        String message, CheckpointCloseReason failureReason, Throwable cause) {
         super(message + " Failure reason: " + failureReason.message(), cause);
-        this.checkpointFailureReason = checkNotNull(failureReason);
+        this.checkpointCloseReason = checkNotNull(failureReason);
     }
 
-    public CheckpointFailureReason getCheckpointFailureReason() {
-        return checkpointFailureReason;
+    public CheckpointCloseReason getCheckpointFailureReason() {
+        return checkpointCloseReason;
     }
 }

@@ -17,26 +17,20 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.AUTO_COMMIT;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.BATCH_INTERVAL_MS;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.CONNECTION_CHECK_TIMEOUT_SEC;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.DRIVER;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.IS_EXACTLY_ONCE;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.MAX_COMMIT_ATTEMPTS;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.MAX_RETRIES;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.FETCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.PARTITION_COLUMN;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.PARTITION_LOWER_BOUND;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.PARTITION_NUM;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.PARTITION_UPPER_BOUND;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.QUERY;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.TRANSACTION_TIMEOUT_SEC;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.URL;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.USER;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.XA_DATA_SOURCE_CLASS_NAME;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
@@ -51,9 +45,25 @@ public class JdbcSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(URL, DRIVER, QUERY).optional(USER, PASSWORD, MAX_RETRIES, CONNECTION_CHECK_TIMEOUT_SEC, BATCH_SIZE,
-                BATCH_INTERVAL_MS, IS_EXACTLY_ONCE, XA_DATA_SOURCE_CLASS_NAME, MAX_COMMIT_ATTEMPTS, TRANSACTION_TIMEOUT_SEC, AUTO_COMMIT,
-                PARTITION_COLUMN, PARTITION_UPPER_BOUND, PARTITION_LOWER_BOUND, PARTITION_NUM)
-                .build();
+        return OptionRule.builder()
+            .required(
+                URL,
+                DRIVER,
+                QUERY)
+            .optional(
+                USER,
+                PASSWORD,
+                CONNECTION_CHECK_TIMEOUT_SEC,
+                FETCH_SIZE,
+                PARTITION_COLUMN,
+                PARTITION_UPPER_BOUND,
+                PARTITION_LOWER_BOUND,
+                PARTITION_NUM)
+            .build();
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return JdbcSource.class;
     }
 }

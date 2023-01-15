@@ -66,6 +66,7 @@ public class ClientJobProxy implements Job {
      *
      * @return The job final status
      */
+    @Override
     public JobStatus waitForJobComplete() {
         JobStatus jobStatus;
         try {

@@ -33,6 +33,9 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import org.w3c.dom.Node;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor {
     private static final ILogger LOGGER = Logger.getLogger(YamlSeaTunnelDomConfigProcessor.class);
 
@@ -141,11 +144,28 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             } else if (ServerConfigOptions.CHECKPOINT_STORAGE_MAX_RETAINED.key().equals(name)) {
                 checkpointStorageConfig.setMaxRetainedCheckpoints(getIntegerValue(ServerConfigOptions.CHECKPOINT_STORAGE_MAX_RETAINED.key(),
                     getTextContent(node)));
+            } else if (ServerConfigOptions.CHECKPOINT_STORAGE_PLUGIN_CONFIG.key().equals(name)) {
+                Map<String, String> pluginConfig = parseCheckpointPluginConfig(node);
+                checkpointStorageConfig.setStoragePluginConfig(pluginConfig);
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }
         }
         return checkpointStorageConfig;
+    }
+
+    /**
+     * Parse checkpoint plugin config.
+     * @param checkpointPluginConfigNode checkpoint plugin config node
+     * @return checkpoint plugin config
+     */
+    private Map<String, String> parseCheckpointPluginConfig(Node checkpointPluginConfigNode) {
+        Map<String, String> checkpointPluginConfig = new HashMap<>();
+        for (Node node : childElements(checkpointPluginConfigNode)) {
+            String name = cleanNodeName(node);
+            checkpointPluginConfig.put(name, getTextContent(node));
+        }
+        return checkpointPluginConfig;
     }
 
 }

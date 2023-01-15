@@ -20,8 +20,6 @@
 
 package org.apache.seatunnel.engine.checkpoint.storage.localfile;
 
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFactory;
 
@@ -32,18 +30,16 @@ import java.util.Map;
 /**
  * Local file storage plug-in, use local file storage,
  * only suitable for single-machine testing or small data scale use, use with caution in production environment
+ * <p>
+ * deprecated: use @see org.apache.seatunnel.engine.checkpoint.storage.hdfs.HdfsStorageFactory instead
  */
-@AutoService(Factory.class)
+@Deprecated
+@AutoService(CheckpointStorageFactory.class)
 public class LocalFileStorageFactory implements CheckpointStorageFactory {
 
     @Override
     public String factoryIdentifier() {
         return "localfile";
-    }
-
-    @Override
-    public OptionRule optionRule() {
-        return OptionRule.builder().build();
     }
 
     @Override

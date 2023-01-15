@@ -235,13 +235,12 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
      * Loads the connector's persistent offset (if present) via the given loader.
      */
     private MySqlOffsetContext loadStartingOffsetState(
-        OffsetContext.Loader loader, SourceSplitBase mySqlSplit) {
+        MySqlOffsetContext.Loader loader, SourceSplitBase mySqlSplit) {
         Offset offset =
             mySqlSplit.isSnapshotSplit() ? BinlogOffset.INITIAL_OFFSET
                 : mySqlSplit.asIncrementalSplit().getStartupOffset();
 
-        MySqlOffsetContext mySqlOffsetContext =
-            (MySqlOffsetContext) loader.load(offset.getOffset());
+        MySqlOffsetContext mySqlOffsetContext = loader.load(offset.getOffset());
 
         if (!isBinlogAvailable(mySqlOffsetContext)) {
             throw new IllegalStateException(

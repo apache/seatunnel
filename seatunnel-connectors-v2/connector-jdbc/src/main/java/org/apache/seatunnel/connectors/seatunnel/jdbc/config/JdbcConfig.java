@@ -26,6 +26,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import java.io.Serializable;
 import java.util.List;
 
+@SuppressWarnings("checkstyle:MagicNumber")
 public class JdbcConfig implements Serializable {
     private static final int DEFAULT_CONNECTION_CHECK_TIMEOUT_SEC = 30;
     private static final boolean DEFAULT_AUTO_COMMIT = true;
@@ -36,7 +37,7 @@ public class JdbcConfig implements Serializable {
 
     public static final Option<Integer> CONNECTION_CHECK_TIMEOUT_SEC = Options.key("connection_check_timeout_sec").intType().defaultValue(DEFAULT_CONNECTION_CHECK_TIMEOUT_SEC).withDescription("connection check time second");
 
-    public static final Option<Integer> MAX_RETRIES = Options.key("max_retries").intType().noDefaultValue().withDescription("max_retired");
+    public static final Option<Integer> MAX_RETRIES = Options.key("max_retries").intType().defaultValue(0).withDescription("max_retired");
 
     public static final Option<String> USER = Options.key("user").stringType().noDefaultValue().withDescription("user");
 
@@ -46,26 +47,27 @@ public class JdbcConfig implements Serializable {
 
     public static final Option<Boolean> AUTO_COMMIT = Options.key("auto_commit").booleanType().defaultValue(DEFAULT_AUTO_COMMIT).withDescription("auto commit");
 
-    public static final Option<Integer> BATCH_SIZE = Options.key("batch_size").intType().noDefaultValue().withDescription("batch size");
+    public static final Option<Integer> BATCH_SIZE = Options.key("batch_size").intType().defaultValue(1000).withDescription("batch size");
 
     public static final Option<Integer> FETCH_SIZE = Options.key("fetch_size").intType().defaultValue(0).withDescription("For queries that return a large number of objects, " +
         "you can configure the row fetch size used in the query to improve performance by reducing the number database hits required to satisfy the selection criteria. Zero means use jdbc default value.");
 
-    public static final Option<Integer> BATCH_INTERVAL_MS = Options.key("batch_interval_ms").intType().noDefaultValue().withDescription("batch interval milliSecond");
+    public static final Option<Integer> BATCH_INTERVAL_MS = Options.key("batch_interval_ms").intType().defaultValue(1000).withDescription("batch interval milliSecond");
 
-
-    public static final Option<String> IS_EXACTLY_ONCE = Options.key("is_exactly_once").stringType().noDefaultValue().withDescription("exactly once");
+    public static final Option<Boolean> IS_EXACTLY_ONCE = Options.key("is_exactly_once").booleanType().defaultValue(true).withDescription("exactly once");
 
     public static final Option<String> XA_DATA_SOURCE_CLASS_NAME = Options.key("xa_data_source_class_name").stringType().noDefaultValue().withDescription("data source class name");
 
+    public static final Option<Integer> MAX_COMMIT_ATTEMPTS = Options.key("max_commit_attempts").intType().defaultValue(3).withDescription("max commit attempts");
 
-    public static final Option<String> MAX_COMMIT_ATTEMPTS = Options.key("max_commit_attempts").stringType().noDefaultValue().withDescription("max commit attempts");
-
-    public static final Option<String> TRANSACTION_TIMEOUT_SEC = Options.key("transaction_timeout_sec").stringType().noDefaultValue().withDescription("transaction timeout (second)");
+    public static final Option<Integer> TRANSACTION_TIMEOUT_SEC = Options.key("transaction_timeout_sec").intType().defaultValue(-1).withDescription("transaction timeout (second)");
 
     public static final Option<String> TABLE = Options.key("table").stringType().noDefaultValue().withDescription("table");
 
     public static final Option<List<String>> PRIMARY_KEYS = Options.key("primary_keys").listType().noDefaultValue().withDescription("primary keys");
+
+    public static final Option<Boolean> SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST = Options.key("support_upsert_by_query_primary_key_exist")
+        .booleanType().defaultValue(false).withDescription("support upsert by query primary_key exist");
 
     //source config
     public static final Option<String> PARTITION_COLUMN = Options.key("partition_column").stringType().noDefaultValue().withDescription("partition column");
@@ -102,7 +104,7 @@ public class JdbcConfig implements Serializable {
             jdbcOptions.batchIntervalMs = config.getInt(JdbcConfig.BATCH_INTERVAL_MS.key());
         }
 
-        if (config.hasPath(JdbcConfig.IS_EXACTLY_ONCE.key())) {
+        if (config.hasPath(JdbcConfig.IS_EXACTLY_ONCE.key()) && config.getBoolean(JdbcConfig.IS_EXACTLY_ONCE.key())) {
             jdbcOptions.xaDataSourceClassName = config.getString(JdbcConfig.XA_DATA_SOURCE_CLASS_NAME.key());
             if (config.hasPath(JdbcConfig.MAX_COMMIT_ATTEMPTS.key())) {
                 jdbcOptions.maxCommitAttempts = config.getInt(JdbcConfig.MAX_COMMIT_ATTEMPTS.key());

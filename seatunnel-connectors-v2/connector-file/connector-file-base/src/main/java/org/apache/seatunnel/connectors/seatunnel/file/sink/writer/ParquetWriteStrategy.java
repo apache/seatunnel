@@ -27,7 +27,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 
 import lombok.NonNull;
 import org.apache.avro.Conversions;
@@ -78,19 +78,20 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
         }
     }
 
-    public ParquetWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
-        super(textFileSinkConfig);
+    public ParquetWriteStrategy(FileSinkConfig fileSinkConfig) {
+        super(fileSinkConfig);
         this.beingWrittenWriter = new HashMap<>();
     }
 
     @Override
-    public void init(HadoopConf conf, String jobId, int subTaskIndex) {
-        super.init(conf, jobId, subTaskIndex);
+    public void init(HadoopConf conf, String jobId, String uuidPrefix, int subTaskIndex) {
+        super.init(conf, jobId, uuidPrefix, subTaskIndex);
         schemaConverter = new AvroSchemaConverter(getConfiguration(hadoopConf));
     }
 
     @Override
     public void write(@NonNull SeaTunnelRow seaTunnelRow) {
+        super.write(seaTunnelRow);
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);
         ParquetWriter<GenericRecord> writer = getOrCreateWriter(filePath);
         GenericRecordBuilder recordBuilder = new GenericRecordBuilder(schema);
