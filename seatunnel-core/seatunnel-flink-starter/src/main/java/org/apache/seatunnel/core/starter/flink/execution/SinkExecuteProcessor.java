@@ -83,7 +83,7 @@ public class SinkExecuteProcessor extends FlinkAbstractPluginExecuteProcessor
             SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable> seaTunnelSink = plugins.get(i);
             DataStream<Row> stream = fromSourceTable(sinkConfig).orElse(input);
             seaTunnelSink.setTypeInfo((SeaTunnelRowType) TypeConverterUtils.convert(stream.getType()));
-            if (seaTunnelSink.getClass().isAssignableFrom(SupportDataSaveMode.class)) {
+            if (SupportDataSaveMode.class.isAssignableFrom(seaTunnelSink.getClass())) {
                 SupportDataSaveMode saveModeSink = (SupportDataSaveMode) seaTunnelSink;
                 DataSaveMode dataSaveMode = saveModeSink.getDataSaveMode();
                 saveModeSink.handleSaveMode(dataSaveMode);

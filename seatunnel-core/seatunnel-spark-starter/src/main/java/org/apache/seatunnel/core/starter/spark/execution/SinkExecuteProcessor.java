@@ -91,7 +91,7 @@ public class SinkExecuteProcessor extends SparkAbstractPluginExecuteProcessor<Se
             dataset.sparkSession().read().option(SinkCommonOptions.PARALLELISM.key(), parallelism);
             // TODO modify checkpoint location
             seaTunnelSink.setTypeInfo((SeaTunnelRowType) TypeConverterUtils.convert(dataset.schema()));
-            if (seaTunnelSink.getClass().isAssignableFrom(SupportDataSaveMode.class)) {
+            if (SupportDataSaveMode.class.isAssignableFrom(seaTunnelSink.getClass())) {
                 SupportDataSaveMode saveModeSink = (SupportDataSaveMode) seaTunnelSink;
                 DataSaveMode dataSaveMode = saveModeSink.getDataSaveMode();
                 saveModeSink.handleSaveMode(dataSaveMode);
