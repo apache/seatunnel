@@ -160,7 +160,7 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     @Override
     public List<KafkaSourceSplit> snapshotState(long checkpointId) {
         checkpointOffsetMap.put(checkpointId, sourceSplits.stream()
-            .collect(Collectors.toMap(KafkaSourceSplit::getTopicPartition, KafkaSourceSplit::getEndOffset)));
+            .collect(Collectors.toMap(KafkaSourceSplit::getTopicPartition, KafkaSourceSplit::getStartOffset)));
         return sourceSplits.stream().map(KafkaSourceSplit::copy).collect(Collectors.toList());
     }
 
