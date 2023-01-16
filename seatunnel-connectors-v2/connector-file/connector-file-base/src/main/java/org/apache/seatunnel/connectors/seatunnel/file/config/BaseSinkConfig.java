@@ -23,6 +23,7 @@ import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 
+import java.util.Arrays;
 import java.util.List;
 
 public class BaseSinkConfig {
@@ -41,6 +42,24 @@ public class BaseSinkConfig {
             .enumType(CompressFormat.class)
             .defaultValue(CompressFormat.NONE)
             .withDescription("Compression codec");
+
+    public static final Option<CompressFormat> TXT_COMPRESS = Options.key("compress_codec")
+            .singleChoice(CompressFormat.class, Arrays.asList(CompressFormat.NONE, CompressFormat.LZO))
+            .defaultValue(CompressFormat.NONE)
+            .withDescription("Txt file supported compression");
+
+    public static final Option<CompressFormat> PARQUET_COMPRESS = Options.key("compress_codec")
+            .singleChoice(CompressFormat.class, Arrays.asList(CompressFormat.NONE, CompressFormat.LZO,
+                    CompressFormat.SNAPPY, CompressFormat.LZ4, CompressFormat.GZIP,
+                    CompressFormat.BROTLI, CompressFormat.ZSTD))
+            .defaultValue(CompressFormat.NONE)
+            .withDescription("Parquet file supported compression");
+
+    public static final Option<CompressFormat> ORC_COMPRESS = Options.key("compress_codec")
+            .singleChoice(CompressFormat.class, Arrays.asList(CompressFormat.NONE, CompressFormat.LZO,
+                    CompressFormat.SNAPPY, CompressFormat.LZ4, CompressFormat.ZLIB))
+            .defaultValue(CompressFormat.NONE)
+            .withDescription("Orc file supported compression");
 
     public static final Option<DateUtils.Formatter> DATE_FORMAT = Options.key("date_format")
             .enumType(DateUtils.Formatter.class)
