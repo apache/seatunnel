@@ -24,19 +24,17 @@ import org.apache.seatunnel.engine.server.task.group.disruptor.RecordEvent;
 import org.apache.seatunnel.engine.server.task.group.disruptor.RecordEventHandler;
 import org.apache.seatunnel.engine.server.task.group.disruptor.RecordEventProducer;
 
-import com.lmax.disruptor.RingBuffer;
 import com.lmax.disruptor.dsl.Disruptor;
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
 
 public class IntermediateQueueFlowLifeCycle extends AbstractFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>>,
     OneOutputFlowLifeCycle<Record<?>> {
 
     private final Disruptor<RecordEvent> disruptor;
 
-    private final CountDownLatch latch = new CountDownLatch(1);
+    private volatile boolean isExecuted;
 
     public IntermediateQueueFlowLifeCycle(SeaTunnelTask runningTask,
                                           CompletableFuture<Void> completableFuture,
@@ -47,18 +45,16 @@ public class IntermediateQueueFlowLifeCycle extends AbstractFlowLifeCycle implem
 
     @Override
     public void received(Record<?> record) {
-        RingBuffer<RecordEvent> ringBuffer = disruptor.getRingBuffer();
-        RecordEventProducer recordEventProducer = new RecordEventProducer(ringBuffer, this);
-        recordEventProducer.onData(record);
+        RecordEventProducer.onData(record, disruptor.getRingBuffer(), this);
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void collect(Collector<Record<?>> collector) throws Exception {
-        if (latch.getCount() == 1) {
+        if (!isExecuted) {
             disruptor.handleEventsWith(new RecordEventHandler(runningTask, collector, this));
             disruptor.start();
-            latch.countDown();
+            isExecuted = true;
         } else {
             Thread.sleep(100);
         }
