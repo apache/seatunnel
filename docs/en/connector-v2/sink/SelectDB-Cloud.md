@@ -11,19 +11,19 @@ The internal implementation of SelectDB Cloud sink connector upload after batch 
 
 ## Options
 
-| name                        | type   | required | default value   |
-|-----------------------------|--------|----------|-----------------|
-| load-url                    | string | yes      | -               |
-| jdbc-url                    | string | yes      | -               |
-| cluster-name                | string | yes      | -               |
-| username                    | string | yes      | -               |
-| password                    | string | yes      | -               |
-| table.identifier            | string | yes      | -               |
-| sink.properties             | string | yes      | -               |
-| sink.buffer-size            | int    | no       | 1024*1024 (1MB) |
-| sink.buffer-count           | int    | no       | 3               |
-| sink.max-retries            | int    | no       | 1               |
-| sink.check-interval         | int    | no       | 10000           |
+| name                | type   | required | default value   |
+|---------------------|--------|----------|-----------------|
+| load-url            | string | yes      | -               |
+| jdbc-url            | string | yes      | -               |
+| cluster-name        | string | yes      | -               |
+| username            | string | yes      | -               |
+| password            | string | yes      | -               |
+| table.identifier    | string | yes      | -               |
+| sink.properties.*   | string | yes      | -               |
+| sink.buffer-size    | int    | no       | 1024*1024 (1MB) |
+| sink.buffer-count   | int    | no       | 3               |
+| sink.max-retries    | int    | no       | 1               |
+| sink.check-interval | int    | no       | 10000           |
 
 ### load-url [string]
 

@@ -25,8 +25,8 @@ import java.util.Properties;
 import java.util.StringJoiner;
 
 public class CopySQLBuilder {
-    private final static String COPY_SYNC = "copy.async";
-    private final static String COPY_DELETE = "copy.use_delete_sign";
+    private static final  String COPY_SYNC = "copy.async";
+    private static final  String COPY_DELETE = "copy.use_delete_sign";
     private final SelectDBConfig selectdbConfig;
     private final List<String> fileList;
     private Properties properties;

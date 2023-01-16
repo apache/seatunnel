@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connector.selectdb.serialize;
 
-import lombok.Builder;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
@@ -25,6 +24,8 @@ import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorException;
+
+import lombok.Builder;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;

@@ -17,11 +17,12 @@
 
 package org.apache.seatunnel.connector.selectdb.util;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import org.apache.commons.codec.binary.Base64;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.client.methods.HttpPost;
-import com.google.common.base.Preconditions;
 
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -59,8 +60,8 @@ public class HttpPostBuilder {
     }
 
     public HttpPost build() {
-        Preconditions.checkNotNull(url);
-        Preconditions.checkNotNull(httpEntity);
+        checkNotNull(url);
+        checkNotNull(httpEntity);
         HttpPost put = new HttpPost(url);
         header.forEach(put::setHeader);
         put.setEntity(httpEntity);

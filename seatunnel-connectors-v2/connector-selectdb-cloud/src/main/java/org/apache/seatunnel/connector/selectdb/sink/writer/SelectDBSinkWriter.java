@@ -17,8 +17,12 @@
 
 package org.apache.seatunnel.connector.selectdb.sink.writer;
 
-import com.google.common.base.Preconditions;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadConstants.FIELD_DELIMITER_KEY;
+import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadConstants.FORMAT_KEY;
+import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadConstants.LINE_DELIMITER_DEFAULT;
+import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadConstants.LINE_DELIMITER_KEY;
+import static com.google.common.base.Preconditions.checkState;
+
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -28,33 +32,28 @@ import org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorExcept
 import org.apache.seatunnel.connector.selectdb.serialize.SelectDBCsvSerializer;
 import org.apache.seatunnel.connector.selectdb.serialize.SelectDBJsonSerializer;
 import org.apache.seatunnel.connector.selectdb.serialize.SelectDBSerializer;
-import org.apache.seatunnel.connector.selectdb.util.HttpUtil;
 import org.apache.seatunnel.connector.selectdb.sink.committer.SelectDBCommitInfo;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.seatunnel.connector.selectdb.util.HttpUtil;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Collections;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadConstants.FORMAT_KEY;
-import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadConstants.FIELD_DELIMITER_KEY;
-import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadConstants.LINE_DELIMITER_KEY;
-import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadConstants.LINE_DELIMITER_DEFAULT;
-
+@Slf4j
 public class SelectDBSinkWriter implements SinkWriter<SeaTunnelRow, SelectDBCommitInfo, SelectDBSinkState> {
-
-    private static final Logger LOG = LoggerFactory.getLogger(SelectDBSinkWriter.class);
     private final SelectDBConfig selectdbConfig;
     private final long lastCheckpointId;
     private volatile long currentCheckpointId;
@@ -75,17 +74,16 @@ public class SelectDBSinkWriter implements SinkWriter<SeaTunnelRow, SelectDBComm
     private int cacheCnt = 0;
 
     private static final long MAX_CACHE_SIZE = 1024 * 1024L;
-
-
+    private static final int INITIAL_DELAY = 1000;
     public SelectDBSinkWriter(SinkWriter.Context context,
                               List<SelectDBSinkState> state,
                               SeaTunnelRowType seaTunnelRowType,
                               Config pluginConfig) {
         this.selectdbConfig = SelectDBConfig.loadConfig(pluginConfig);
         this.lastCheckpointId = context.getIndexOfSubtask();
-        LOG.info("restore checkpointId {}", lastCheckpointId);
+        log.info("restore checkpointId {}", lastCheckpointId);
         this.currentCheckpointId = lastCheckpointId;
-        LOG.info("labelPrefix " + selectdbConfig.getLabelPrefix());
+        log.info("labelPrefix " + selectdbConfig.getLabelPrefix());
         this.selectdbSinkState = new SelectDBSinkState(selectdbConfig.getLabelPrefix());
         this.labelPrefix = selectdbConfig.getLabelPrefix() + "_" + context.getIndexOfSubtask();
         this.lineDelimiter = selectdbConfig.getStreamLoadProps().getProperty(LINE_DELIMITER_KEY, LINE_DELIMITER_DEFAULT).getBytes();
@@ -101,7 +99,7 @@ public class SelectDBSinkWriter implements SinkWriter<SeaTunnelRow, SelectDBComm
         this.selectdbCopyInto = new SelectDBCopyInto(selectdbConfig,
                 labelGenerator, new HttpUtil().getHttpClient());
         currentCheckpointId = lastCheckpointId + 1;
-        scheduledExecutorService.scheduleWithFixedDelay(this::checkDone, 1000, intervalTime, TimeUnit.MILLISECONDS);
+        scheduledExecutorService.scheduleWithFixedDelay(this::checkDone, INITIAL_DELAY, intervalTime, TimeUnit.MILLISECONDS);
         serializer.open();
     }
 
@@ -124,7 +122,7 @@ public class SelectDBSinkWriter implements SinkWriter<SeaTunnelRow, SelectDBComm
 
     public synchronized void flush(byte[] serialize) throws IOException {
         if (!loading) {
-            LOG.info("start load by cache full, cnt {}, size {}", cacheCnt, cacheSize);
+            log.info("start load by cache full, cnt {}, size {}", cacheCnt, cacheSize);
             startLoad();
         }
         this.selectdbCopyInto.writeRecord(serialize);
@@ -132,13 +130,13 @@ public class SelectDBSinkWriter implements SinkWriter<SeaTunnelRow, SelectDBComm
 
     @Override
     public synchronized Optional<SelectDBCommitInfo> prepareCommit() throws IOException {
-        Preconditions.checkState(selectdbCopyInto != null);
+        checkState(selectdbCopyInto != null);
         if (!loading) {
             //No data was written during the entire checkpoint period
-            LOG.info("start load by checkpoint, cnt {} size {} ", cacheCnt, cacheSize);
+            log.info("start load by checkpoint, cnt {} size {} ", cacheCnt, cacheSize);
             startLoad();
         }
-        LOG.info("stop load by checkpoint");
+        log.info("stop load by checkpoint");
         stopLoad();
         CopySQLBuilder copySQLBuilder = new CopySQLBuilder(selectdbConfig, selectdbCopyInto.getFileList());
         String copySql = copySQLBuilder.buildCopySQL();
@@ -147,10 +145,10 @@ public class SelectDBSinkWriter implements SinkWriter<SeaTunnelRow, SelectDBComm
 
     @Override
     public synchronized List<SelectDBSinkState> snapshotState(long checkpointId) throws IOException {
-        Preconditions.checkState(selectdbCopyInto != null);
+        checkState(selectdbCopyInto != null);
         this.currentCheckpointId = checkpointId + 1;
 
-        LOG.info("clear the file list {}", selectdbCopyInto.getFileList());
+        log.info("clear the file list {}", selectdbCopyInto.getFileList());
         this.fileNum.set(0);
         this.selectdbCopyInto.clearFileList();
         return Collections.singletonList(selectdbSinkState);
@@ -188,19 +186,19 @@ public class SelectDBSinkWriter implements SinkWriter<SeaTunnelRow, SelectDBComm
 
     private synchronized void checkDone() {
         // s3 can't keep http long links, generate data files regularly
-        LOG.info("start timer checker, interval {} ms", intervalTime);
+        log.info("start timer checker, interval {} ms", intervalTime);
         try {
             if (!loading) {
-                LOG.info("not loading, skip timer checker");
+                log.info("not loading, skip timer checker");
                 return;
             }
             if (selectdbCopyInto.getPendingLoadFuture() != null
                     && !selectdbCopyInto.getPendingLoadFuture().isDone()) {
-                LOG.info("stop load by timer checker");
+                log.info("stop load by timer checker");
                 stopLoad();
             }
         } catch (Exception ex) {
-            LOG.error("upload file failed, thread exited:", ex);
+            log.error("upload file failed, thread exited:", ex);
             loadException = ex;
         }
     }

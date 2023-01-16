@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.connector.selectdb.serialize;
 
-import com.google.common.base.Strings;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorException;
+
+import com.google.common.base.Strings;
 
 import java.io.StringWriter;
 

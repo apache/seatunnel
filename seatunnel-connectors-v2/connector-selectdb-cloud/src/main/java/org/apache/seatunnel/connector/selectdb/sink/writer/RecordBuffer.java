@@ -17,10 +17,9 @@
 
 package org.apache.seatunnel.connector.selectdb.sink.writer;
 
+import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.base.Preconditions;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -28,11 +27,8 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 
-/**
- * Channel of record stream and HTTP data stream.
- */
+@Slf4j
 public class RecordBuffer {
-    private static final Logger LOG = LoggerFactory.getLogger(RecordBuffer.class);
     BlockingQueue<ByteBuffer> writeQueue;
     BlockingQueue<ByteBuffer> readQueue;
     int bufferCapacity;
@@ -41,9 +37,9 @@ public class RecordBuffer {
     ByteBuffer currentReadBuffer;
 
     public RecordBuffer(int capacity, int queueSize) {
-        LOG.info("init RecordBuffer capacity {}, count {}", capacity, queueSize);
-        Preconditions.checkState(capacity > 0);
-        Preconditions.checkState(queueSize > 1);
+        log.info("init RecordBuffer capacity {}, count {}", capacity, queueSize);
+        checkState(capacity > 0);
+        checkState(queueSize > 1);
         this.writeQueue = new ArrayBlockingQueue<>(queueSize);
         for (int index = 0; index < queueSize; index++) {
             this.writeQueue.add(ByteBuffer.allocate(capacity));
@@ -54,12 +50,12 @@ public class RecordBuffer {
     }
 
     public void startBufferData() {
-        LOG.info("start buffer data, read queue size {}, write queue size {}", readQueue.size(), writeQueue.size());
-        Preconditions.checkState(readQueue.size() == 0);
-        Preconditions.checkState(writeQueue.size() == queueSize);
+        log.info("start buffer data, read queue size {}, write queue size {}", readQueue.size(), writeQueue.size());
+        checkState(readQueue.size() == 0);
+        checkState(writeQueue.size() == queueSize);
         for (ByteBuffer byteBuffer : writeQueue) {
-            Preconditions.checkState(byteBuffer.position() == 0);
-            Preconditions.checkState(byteBuffer.remaining() == bufferCapacity);
+            checkState(byteBuffer.position() == 0);
+            checkState(byteBuffer.remaining() == bufferCapacity);
         }
     }
 
@@ -77,7 +73,7 @@ public class RecordBuffer {
             if (!isEmpty) {
                 ByteBuffer byteBuffer = writeQueue.take();
                 byteBuffer.flip();
-                Preconditions.checkState(byteBuffer.limit() == 0);
+                checkState(byteBuffer.limit() == 0);
                 readQueue.put(byteBuffer);
             }
         } catch (Exception e) {
@@ -111,7 +107,7 @@ public class RecordBuffer {
         if (currentReadBuffer.limit() == 0) {
             recycleBuffer(currentReadBuffer);
             currentReadBuffer = null;
-            Preconditions.checkState(readQueue.size() == 0);
+            checkState(readQueue.size() == 0);
             return -1;
         }
         int available = currentReadBuffer.remaining();

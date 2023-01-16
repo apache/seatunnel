@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.connector.selectdb.util;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import org.apache.commons.codec.binary.Base64;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
@@ -74,8 +75,8 @@ public class HttpPutBuilder {
     }
 
     public HttpPut build() {
-        Preconditions.checkNotNull(url);
-        Preconditions.checkNotNull(httpEntity);
+        checkNotNull(url);
+        checkNotNull(httpEntity);
         HttpPut put = new HttpPut(url);
         header.forEach(put::setHeader);
         put.setEntity(httpEntity);

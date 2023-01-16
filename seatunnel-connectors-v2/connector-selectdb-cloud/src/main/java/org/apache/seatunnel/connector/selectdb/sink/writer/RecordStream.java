@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.connector.selectdb.sink.writer;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -27,7 +24,6 @@ import java.io.InputStream;
  * Record Stream for writing record.
  */
 public class RecordStream extends InputStream {
-    private static final Logger LOG = LoggerFactory.getLogger(RecordStream.class);
     private final RecordBuffer recordBuffer;
 
     @Override

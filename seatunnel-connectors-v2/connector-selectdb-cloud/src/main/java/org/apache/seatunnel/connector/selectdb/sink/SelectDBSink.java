@@ -17,7 +17,12 @@
 
 package org.apache.seatunnel.connector.selectdb.sink;
 
-import com.google.auto.service.AutoService;
+import static org.apache.seatunnel.connector.selectdb.config.SelectDBConfig.CLUSTER_NAME;
+import static org.apache.seatunnel.connector.selectdb.config.SelectDBConfig.JDBC_URL;
+import static org.apache.seatunnel.connector.selectdb.config.SelectDBConfig.LOAD_URL;
+import static org.apache.seatunnel.connector.selectdb.config.SelectDBConfig.TABLE_IDENTIFIER;
+import static org.apache.seatunnel.connector.selectdb.config.SelectDBConfig.USERNAME;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.serialization.Serializer;
@@ -35,16 +40,13 @@ import org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorExcept
 import org.apache.seatunnel.connector.selectdb.sink.committer.SelectDBCommitInfo;
 import org.apache.seatunnel.connector.selectdb.sink.committer.SelectDBCommitInfoSerializer;
 import org.apache.seatunnel.connector.selectdb.sink.committer.SelectDBCommitter;
+import org.apache.seatunnel.connector.selectdb.sink.writer.SelectDBSinkState;
 import org.apache.seatunnel.connector.selectdb.sink.writer.SelectDBSinkStateSerializer;
 import org.apache.seatunnel.connector.selectdb.sink.writer.SelectDBSinkWriter;
-import org.apache.seatunnel.connector.selectdb.sink.writer.SelectDBSinkState;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import static org.apache.seatunnel.connector.selectdb.config.SelectDBConfig.JDBC_URL;
-import static org.apache.seatunnel.connector.selectdb.config.SelectDBConfig.LOAD_URL;
-import static org.apache.seatunnel.connector.selectdb.config.SelectDBConfig.CLUSTER_NAME;
-import static org.apache.seatunnel.connector.selectdb.config.SelectDBConfig.USERNAME;
-import static org.apache.seatunnel.connector.selectdb.config.SelectDBConfig.TABLE_IDENTIFIER;
+import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 import java.util.Collections;

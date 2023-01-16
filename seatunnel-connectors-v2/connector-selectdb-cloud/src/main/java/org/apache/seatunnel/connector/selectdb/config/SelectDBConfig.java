@@ -17,23 +17,27 @@
 
 package org.apache.seatunnel.connector.selectdb.config;
 
-import java.util.Properties;
-import java.util.UUID;
-
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
+import java.util.Properties;
+import java.util.UUID;
+
 @Setter
 @Getter
 @ToString
 public class SelectDBConfig {
-
+    private static final int DEFAULT_SINK_CHECK_INTERVAL = 10000;
+    private static final int DEFAULT_SINK_MAX_RETRIES = 3;
+    private static final int DEFAULT_SINK_BUFFER_SIZE = 1024 * 1024;
+    private static final int DEFAULT_SINK_BUFFER_COUNT = 3;
     // common option
     public static final Option<String> LOAD_URL = Options
             .key("load-url").stringType()
@@ -76,22 +80,22 @@ public class SelectDBConfig {
     public static final Option<Integer> SINK_CHECK_INTERVAL = Options
             .key("sink.check-interval")
             .intType()
-            .defaultValue(10000)
+            .defaultValue(DEFAULT_SINK_CHECK_INTERVAL)
             .withDescription("check exception with the interval while loading");
     public static final Option<Integer> SINK_MAX_RETRIES = Options
             .key("sink.max-retries")
             .intType()
-            .defaultValue(3)
+            .defaultValue(DEFAULT_SINK_MAX_RETRIES)
             .withDescription("the max retry times if writing records to database failed.");
     public static final Option<Integer> SINK_BUFFER_SIZE = Options
             .key("sink.buffer-size")
             .intType()
-            .defaultValue(1024 * 1024)
+            .defaultValue(DEFAULT_SINK_BUFFER_SIZE)
             .withDescription("the buffer size to cache data for stream load.");
     public static final Option<Integer> SINK_BUFFER_COUNT = Options
             .key("sink.buffer-count")
             .intType()
-            .defaultValue(3)
+            .defaultValue(DEFAULT_SINK_BUFFER_COUNT)
             .withDescription("the buffer count to cache data for stream load.");
     public static final Option<String> SINK_LABEL_PREFIX = Options
             .key("sink.label-prefix")
@@ -103,9 +107,6 @@ public class SelectDBConfig {
             .booleanType()
             .defaultValue(false)
             .withDescription("whether to enable the delete function");
-
-    // Prefix for SelectDB CopyInto specific properties.
-//    public static final String STREAM_LOAD_PROP_PREFIX = "sink.properties.";
 
     public static final Option<String> SELECTDB_SINK_CONFIG_PREFIX = Options
             .key("sink.properties.")
@@ -176,7 +177,6 @@ public class SelectDBConfig {
         }
         return selectdbConfig;
     }
-
 
     public static Properties parseCopyIntoProperties(Config pluginConfig) {
         Properties streamLoadProps = new Properties();

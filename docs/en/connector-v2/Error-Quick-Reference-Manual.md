@@ -160,6 +160,13 @@ problems encountered by users.
 |----------|-------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
 | Doris-01 | Writing records to Doris failed.          | When users encounter this error code, it means that writing records to Doris failed, please check data from files whether is correct     |
 
+## SelectDB Cloud Connector Error Codes
+
+| code        | description                  | solution                                                                                                                               |
+|-------------|------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|
+| SelectDB-01 | upload file to stage failed. | When users encounter this error code, it means that upload file to SelectDB Cloud failed, please check the configuration and network.  |
+| SelectDB-01 | commit copy into sql failed. | When users encounter this error code, it means that commit copy into sql to SelectDB Cloud failed, please check the configuration.     |
+
 ## Clickhouse Connector Error Codes
 
 | code          | description                                                               | solution                                                                                                                                                                |

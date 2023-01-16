@@ -17,45 +17,47 @@
 
 package org.apache.seatunnel.connector.selectdb.sink.writer;
 
+import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadConstants.LINE_DELIMITER_DEFAULT;
+import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadConstants.LINE_DELIMITER_KEY;
+import static com.google.common.base.Preconditions.checkState;
+
+import org.apache.seatunnel.connector.selectdb.config.SelectDBConfig;
+import org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorErrorCode;
+import org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorException;
+import org.apache.seatunnel.connector.selectdb.rest.BaseResponse;
+import org.apache.seatunnel.connector.selectdb.util.HttpPutBuilder;
+import org.apache.seatunnel.connector.selectdb.util.HttpUtil;
+import org.apache.seatunnel.connector.selectdb.util.StringUtil;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
-import org.apache.seatunnel.connector.selectdb.config.SelectDBConfig;
-import org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorErrorCode;
-import org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorException;
-import org.apache.seatunnel.connector.selectdb.rest.BaseResponse;
-import org.apache.seatunnel.connector.selectdb.util.HttpUtil;
-import org.apache.seatunnel.connector.selectdb.util.HttpPutBuilder;
-import org.apache.seatunnel.connector.selectdb.util.StringUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.List;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
-import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadConstants.LINE_DELIMITER_DEFAULT;
-import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadConstants.LINE_DELIMITER_KEY;
-
+@Slf4j
 public class SelectDBCopyInto implements Serializable {
-    private static final Logger LOG = LoggerFactory.getLogger(SelectDBCopyInto.class);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final int HTTP_TEMPORARY_REDIRECT = 200;
+    private static final int HTTP_SUCCESS = 307;
     private final LabelGenerator labelGenerator;
     private final byte[] lineDelimiter;
     private static final String UPLOAD_URL_PATTERN = "http://%s/copy/upload";
@@ -92,8 +94,8 @@ public class SelectDBCopyInto implements Serializable {
         this.streamLoadProp = selectdbConfig.getStreamLoadProps();
         this.httpClient = httpClient;
         this.executorService = new ThreadPoolExecutor(1, 1,
-                0L, TimeUnit.MILLISECONDS,
-                new LinkedBlockingQueue<>(), new ThreadFactoryBuilder().setNameFormat("file-load-upload").build());
+            0L, TimeUnit.MILLISECONDS,
+            new LinkedBlockingQueue<>(), new ThreadFactoryBuilder().setNameFormat("file-load-upload").build());
         this.recordStream = new RecordStream(selectdbConfig.getBufferSize(), selectdbConfig.getBufferCount());
         lineDelimiter = streamLoadProp.getProperty(LINE_DELIMITER_KEY, LINE_DELIMITER_DEFAULT).getBytes();
         loadBatchFirstRecord = true;
@@ -123,12 +125,6 @@ public class SelectDBCopyInto implements Serializable {
         fileList.clear();
     }
 
-    /**
-     * write record into stream.
-     *
-     * @param record
-     * @throws IOException
-     */
     public void writeRecord(byte[] record) throws IOException {
         if (loadBatchFirstRecord) {
             loadBatchFirstRecord = false;
@@ -146,12 +142,12 @@ public class SelectDBCopyInto implements Serializable {
     public BaseResponse<HashMap<String, String>> handleResponse(CloseableHttpResponse response) throws IOException {
         try {
             final int statusCode = response.getStatusLine().getStatusCode();
-            if (statusCode == 200 && response.getEntity() != null) {
+            if (statusCode == HTTP_TEMPORARY_REDIRECT && response.getEntity() != null) {
                 String loadResult = EntityUtils.toString(response.getEntity());
                 if (StringUtil.isNullOrWhitespaceOnly(loadResult)) {
                     return null;
                 }
-                LOG.info("response result {}", loadResult);
+                log.info("response result {}", loadResult);
                 BaseResponse<HashMap<String, String>> baseResponse = OBJECT_MAPPER.readValue(loadResult, new TypeReference<BaseResponse<HashMap<String, String>>>() {
                 });
                 if (baseResponse.getCode() == 0) {
@@ -170,44 +166,37 @@ public class SelectDBCopyInto implements Serializable {
 
     public void stopLoad() throws IOException {
         recordStream.endInput();
-        LOG.info("file {} write stopped.", fileName);
-        Preconditions.checkState(pendingLoadFuture != null);
+        log.info("file {} write stopped.", fileName);
+        checkState(pendingLoadFuture != null);
         try {
             handleResponse(pendingLoadFuture.get());
-            LOG.info("upload file {} finished", fileName);
+            log.info("upload file {} finished", fileName);
             fileList.add(fileName);
         } catch (Exception e) {
             throw new SelectDBConnectorException(SelectDBConnectorErrorCode.UPLOAD_FAILED, e);
         }
     }
 
-    /**
-     * start write data for new checkpoint.
-     *
-     * @param fileName
-     * @throws IOException
-     */
     public void startLoad(String fileName) throws IOException {
         this.fileName = fileName;
         loadBatchFirstRecord = true;
         recordStream.startInput();
-        LOG.info("file write started for {}", fileName);
+        log.info("file write started for {}", fileName);
         try {
             String address = getUploadAddress(fileName);
-            LOG.info("redirect to s3 address:{}", address);
+            log.info("redirect to s3 address:{}", address);
             InputStreamEntity entity = new InputStreamEntity(recordStream);
             HttpPutBuilder putBuilder = new HttpPutBuilder();
             putBuilder.setUrl(address)
-                    .addCommonHeader()
-                    .setEntity(entity);
+                .addCommonHeader()
+                .setEntity(entity);
             pendingLoadFuture = executorService.submit(() -> {
-                LOG.info("start execute load {}", fileName);
+                log.info("start execute load {}", fileName);
                 return new HttpUtil().getHttpClient().execute(putBuilder.build());
-//                return httpClient.execute(putBuilder.build());
             });
         } catch (Exception e) {
             String err = "failed to write data with fileName: " + fileName;
-            LOG.warn(err, e);
+            log.warn(err, e);
             throw e;
         }
     }
@@ -218,22 +207,22 @@ public class SelectDBCopyInto implements Serializable {
     public String getUploadAddress(String fileName) throws IOException {
         HttpPutBuilder putBuilder = new HttpPutBuilder();
         putBuilder.setUrl(uploadUrl)
-                .addFileName(fileName)
-                .addCommonHeader()
-                .setEmptyEntity()
-                .baseAuth(user, passwd);
+            .addFileName(fileName)
+            .addCommonHeader()
+            .setEmptyEntity()
+            .baseAuth(user, passwd);
 
         try (CloseableHttpResponse execute = httpClient.execute(putBuilder.build())) {
             int statusCode = execute.getStatusLine().getStatusCode();
             String reason = execute.getStatusLine().getReasonPhrase();
-            if (statusCode == 307) {
+            if (statusCode == HTTP_SUCCESS) {
                 Header location = execute.getFirstHeader("location");
                 String uploadAddress = location.getValue();
                 return uploadAddress;
             } else {
                 HttpEntity entity = execute.getEntity();
                 String result = entity == null ? null : EntityUtils.toString(entity);
-                LOG.error("Failed get the redirected address, status {}, reason {}, response {}", statusCode, reason, result);
+                log.error("Failed get the redirected address, status {}, reason {}, response {}", statusCode, reason, result);
                 throw new RuntimeException("Could not get the redirected address.");
             }
         }

@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import java.io.IOException;
 import java.io.Serializable;
 
-
 public interface SelectDBSerializer extends Serializable {
 
     void open() throws IOException;

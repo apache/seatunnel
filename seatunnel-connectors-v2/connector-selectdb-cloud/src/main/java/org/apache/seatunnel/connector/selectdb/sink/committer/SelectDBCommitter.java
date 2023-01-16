@@ -17,24 +17,28 @@
 
 package org.apache.seatunnel.connector.selectdb.sink.committer;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.util.EntityUtils;
+import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadStatus.FAIL;
+import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadStatus.SUCCESS;
+
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.connector.selectdb.config.SelectDBConfig;
 import org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorErrorCode;
 import org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorException;
 import org.apache.seatunnel.connector.selectdb.rest.BaseResponse;
 import org.apache.seatunnel.connector.selectdb.rest.CopyIntoResp;
-import org.apache.seatunnel.connector.selectdb.util.HttpUtil;
 import org.apache.seatunnel.connector.selectdb.util.HttpPostBuilder;
+import org.apache.seatunnel.connector.selectdb.util.HttpUtil;
 import org.apache.seatunnel.connector.selectdb.util.ResponseUtil;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.util.EntityUtils;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -42,12 +46,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadStatus.SUCCESS;
-import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadStatus.FAIL;
-
+@Slf4j
 public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
-    private static final Logger LOG = LoggerFactory.getLogger(SelectDBCommitter.class);
-    private static final String commitPattern = "http://%s/copy/query";
+    private static final String COMMIT_PATTERN = "http://%s/copy/query";
+    private static final int HTTP_TEMPORARY_REDIRECT = 200;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final CloseableHttpClient httpClient;
     private final SelectDBConfig selectdbConfig;
@@ -80,7 +82,7 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
         String hostPort = committable.getHostPort();
         String clusterName = committable.getClusterName();
         String copySQL = committable.getCopySQL();
-        LOG.info("commit to cluster {} with copy sql: {}", clusterName, copySQL);
+        log.info("commit to cluster {} with copy sql: {}", clusterName, copySQL);
 
         int statusCode = -1;
         String reasonPhrase = null;
@@ -93,33 +95,33 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
         String loadResult = "";
         while (retry++ <= maxRetry) {
             HttpPostBuilder postBuilder = new HttpPostBuilder();
-            postBuilder.setUrl(String.format(commitPattern, hostPort))
+            postBuilder.setUrl(String.format(COMMIT_PATTERN, hostPort))
                     .baseAuth(selectdbConfig.getUsername(), selectdbConfig.getPassword())
                     .setEntity(new StringEntity(objectMapper.writeValueAsString(params)));
             try {
                 response = httpClient.execute(postBuilder.build());
             } catch (IOException e) {
-                LOG.error("commit error : ", e);
+                log.error("commit error : ", e);
                 continue;
             }
             statusCode = response.getStatusLine().getStatusCode();
             reasonPhrase = response.getStatusLine().getReasonPhrase();
-            if (statusCode != 200) {
-                LOG.warn("commit failed with status {} {}, reason {}", statusCode, hostPort, reasonPhrase);
+            if (statusCode != HTTP_TEMPORARY_REDIRECT) {
+                log.warn("commit failed with status {} {}, reason {}", statusCode, hostPort, reasonPhrase);
             } else if (response.getEntity() != null) {
                 loadResult = EntityUtils.toString(response.getEntity());
                 success = handleCommitResponse(loadResult);
                 if (success) {
-                    LOG.info("commit success cost {}ms, response is {}", System.currentTimeMillis() - start, loadResult);
+                    log.info("commit success cost {}ms, response is {}", System.currentTimeMillis() - start, loadResult);
                     break;
                 } else {
-                    LOG.warn("commit failed, retry again");
+                    log.warn("commit failed, retry again");
                 }
             }
         }
 
         if (!success) {
-            LOG.error("commit error with status {}, reason {}, response {}", statusCode, reasonPhrase, loadResult);
+            log.error("commit error with status {}, reason {}, response {}", statusCode, reasonPhrase, loadResult);
             throw new SelectDBConnectorException(SelectDBConnectorErrorCode.COMMIT_FAILED, committable.getCopySQL());
         }
     }
@@ -130,19 +132,19 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
         if (baseResponse.getCode() == SUCCESS) {
             CopyIntoResp dataResp = baseResponse.getData();
             if (FAIL.equals(dataResp.getDataCode())) {
-                LOG.error("copy into execute failed, reason:{}", loadResult);
+                log.error("copy into execute failed, reason:{}", loadResult);
                 return false;
             } else {
                 Map<String, String> result = dataResp.getResult();
                 if (!result.get("state").equals("FINISHED") && !ResponseUtil.isCommitted(result.get("msg"))) {
-                    LOG.error("copy into load failed, reason:{}", loadResult);
+                    log.error("copy into load failed, reason:{}", loadResult);
                     return false;
                 } else {
                     return true;
                 }
             }
         } else {
-            LOG.error("commit failed, reason:{}", loadResult);
+            log.error("commit failed, reason:{}", loadResult);
             return false;
         }
     }
