@@ -19,11 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.file.config;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -35,9 +33,9 @@ import java.io.Serializable;
 import java.util.Locale;
 
 @Data
-public class BaseFileSinkConfig implements DelimiterConfig, CompressConfig, Serializable {
+public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
     private static final long serialVersionUID = 1L;
-    protected String compressCodec;
+    protected CompressFormat compressFormat = BaseSinkConfig.COMPRESS_CODEC.defaultValue();
     protected String fieldDelimiter = BaseSinkConfig.FIELD_DELIMITER.defaultValue();
     protected String rowDelimiter = BaseSinkConfig.ROW_DELIMITER.defaultValue();
     protected int batchSize = BaseSinkConfig.BATCH_SIZE.defaultValue();
@@ -50,15 +48,8 @@ public class BaseFileSinkConfig implements DelimiterConfig, CompressConfig, Seri
 
     public BaseFileSinkConfig(@NonNull Config config) {
         if (config.hasPath(BaseSinkConfig.COMPRESS_CODEC.key())) {
-            CompressFormat compressFormat = CompressFormat.valueOf(config.getString(BaseSinkConfig.COMPRESS_CODEC.key()).toUpperCase(Locale.ROOT));
-            switch (compressFormat) {
-                case LZO:
-                    this.compressCodec = compressFormat.getCompressCodec();
-                    break;
-                default:
-                    throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
-                            "Compress not supported this compress code by SeaTunnel file connector now");
-            }
+            String compressCodec = config.getString(BaseSinkConfig.COMPRESS_CODEC.key());
+            this.compressFormat = CompressFormat.valueOf(compressCodec.toUpperCase());
         }
         if (config.hasPath(BaseSinkConfig.BATCH_SIZE.key())) {
             this.batchSize = config.getInt(BaseSinkConfig.BATCH_SIZE.key());
