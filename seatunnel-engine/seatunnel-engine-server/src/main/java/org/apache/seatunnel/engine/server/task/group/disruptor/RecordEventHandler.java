@@ -38,7 +38,6 @@ public class RecordEventHandler implements EventHandler<RecordEvent> {
         this.runningTask = runningTask;
         this.collector = collector;
         this.intermediateQueueFlowLifeCycle = intermediateQueueFlowLifeCycle;
-        this.intermediateQueueFlowLifeCycle.prepareClose = false;
     }
 
     @Override
@@ -47,15 +46,15 @@ public class RecordEventHandler implements EventHandler<RecordEvent> {
     }
 
     private void handleRecord(Record<?> record, Collector<Record<?>> collector) throws Exception {
-        if (record != null){
+        if (record != null) {
             if (record.getData() instanceof Barrier) {
                 CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
                 runningTask.ack(barrier);
                 if (barrier.prepareClose()) {
-                    this.intermediateQueueFlowLifeCycle.prepareClose = true;
+                    this.intermediateQueueFlowLifeCycle.setPrepareClose(true);
                 }
             } else {
-                if (this.intermediateQueueFlowLifeCycle.prepareClose) {
+                if (this.intermediateQueueFlowLifeCycle.getPrepareClose()) {
                     return;
                 }
             }
