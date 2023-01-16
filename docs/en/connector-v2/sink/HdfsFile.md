@@ -254,3 +254,4 @@ HdfsFile {
 - [Improve] Support setting batch size for every file ([3625](https://github.com/apache/incubator-seatunnel/pull/3625))
 - [Improve] Support lzo compression for text in file format ([3782](https://github.com/apache/incubator-seatunnel/pull/3782))
 - [Improve] Support kerberos authentication ([3840](https://github.com/apache/incubator-seatunnel/pull/3840))
+- [Improve] Support file compress ([3899](https://github.com/apache/incubator-seatunnel/pull/3899))

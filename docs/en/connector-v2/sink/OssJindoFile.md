@@ -236,6 +236,10 @@ For orc file format simple config
 
 ## Changelog
 
-### Next version
+### 2.3.0 2022-12-30
 
 - Add OSS Jindo File Sink Connector
+
+### Next version
+
+- [Improve] Support file compress ([3899](https://github.com/apache/incubator-seatunnel/pull/3899))

@@ -265,7 +265,7 @@ For orc file format simple config with `org.apache.hadoop.fs.s3a.SimpleAWSCreden
 
 - Add S3File Sink Connector
 
-### Next version
+### 2.3.0 2022-12-30
 - [BugFix] Fixed the following bugs that failed to write data to files ([3258](https://github.com/apache/incubator-seatunnel/pull/3258))
   - When field from upstream is null it will throw NullPointerException
   - Sink columns mapping failed
@@ -276,3 +276,7 @@ For orc file format simple config with `org.apache.hadoop.fs.s3a.SimpleAWSCreden
   - Decouple hadoop-aws dependencies
 - [Improve] Support setting batch size for every file ([3625](https://github.com/apache/incubator-seatunnel/pull/3625))
 - [Feature]Set S3 AK to optional ([3688](https://github.com/apache/incubator-seatunnel/pull/))
+
+### Next version
+
+- ​	[Improve] Support file compress ([3899](https://github.com/apache/incubator-seatunnel/pull/3899))
