@@ -81,13 +81,13 @@ public class IoTDBSource implements SeaTunnelSource<SeaTunnelRow, IoTDBSourceSpl
         try {
             Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
             this.typeInfo = SeaTunnelSchema.buildWithConfig(schemaConfig).getSeaTunnelRowType();
+            pluginConfig.entrySet().forEach(entry -> configParams.put(entry.getKey(), entry.getValue().unwrapped()));
         } catch (Exception e) {
             throw new IotdbConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                 String.format("PluginName: %s, PluginType: %s, Message: %s",
                     getPluginName(), PluginType.SOURCE, e)
             );
         }
-        pluginConfig.entrySet().forEach(entry -> configParams.put(entry.getKey(), entry.getValue().unwrapped()));
     }
 
     @Override
