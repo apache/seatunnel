@@ -33,6 +33,7 @@ import org.apache.seatunnel.engine.client.job.JobMetricsRunner;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 
 import com.hazelcast.client.config.ClientConfig;
@@ -56,6 +57,8 @@ import java.util.concurrent.TimeUnit;
 public class ClientExecuteCommand implements Command<ClientCommandArgs> {
 
     private final ClientCommandArgs clientCommandArgs;
+
+    private JobStatus jobStatus;
 
     public ClientExecuteCommand(ClientCommandArgs clientCommandArgs) {
         this.clientCommandArgs = clientCommandArgs;
@@ -122,7 +125,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 executorService.scheduleAtFixedRate(jobMetricsRunner, 0,
                     seaTunnelConfig.getEngineConfig().getPrintJobMetricsInfoInterval(), TimeUnit.SECONDS);
                 // wait for job complete
-                clientJobProxy.waitForJobComplete();
+                jobStatus = clientJobProxy.waitForJobComplete();
                 // get job end time
                 endTime = LocalDateTime.now();
                 // get job statistic information when job finished
@@ -180,8 +183,10 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
     }
 
     private void shutdownHook(ClientJobProxy clientJobProxy) {
-        log.warn("Task will be closed due to client shutdown.");
-        clientJobProxy.cancelJob();
+        if (jobStatus == null || !jobStatus.isEndState()) {
+            log.warn("Task will be closed due to client shutdown.");
+            clientJobProxy.cancelJob();
+        }
     }
 
 }
