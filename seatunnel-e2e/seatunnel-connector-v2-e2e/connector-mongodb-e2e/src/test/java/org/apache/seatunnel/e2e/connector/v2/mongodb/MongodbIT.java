@@ -85,13 +85,13 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testMongodb(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/mongodb/mongodb_source_and_sink.conf");
+        Container.ExecResult execResult = container.executeJob("/mongodb_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
     @TestTemplate
     public void testMongodbMatchQuery(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/mongodb/mongodb_source_matchQuery_and_sink.conf");
+        Container.ExecResult execResult = container.executeJob("/mongodb_source_matchQuery_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
