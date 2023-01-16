@@ -78,6 +78,12 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
     private MongoClient client;
 
     @TestTemplate
+    public void testMongodbSourceToAssertSink(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/mongodb_source_to_assert.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
     public void testMongodb(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/mongodb/mongodb_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
