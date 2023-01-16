@@ -68,8 +68,7 @@ public class BaseFileSinkConfig implements DelimiterConfig, CompressConfig, Seri
             this.fieldDelimiter = config.getString(BaseSinkConfig.FIELD_DELIMITER.key());
         }
 
-        if (config.hasPath(BaseSinkConfig.ROW_DELIMITER.key()) &&
-                StringUtils.isNotEmpty(config.getString(BaseSinkConfig.ROW_DELIMITER.key()))) {
+        if (config.hasPath(BaseSinkConfig.ROW_DELIMITER.key())) {
             this.rowDelimiter = config.getString(BaseSinkConfig.ROW_DELIMITER.key());
         }
 
