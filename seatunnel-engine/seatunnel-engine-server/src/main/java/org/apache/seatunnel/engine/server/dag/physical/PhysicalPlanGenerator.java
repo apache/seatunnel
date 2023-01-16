@@ -17,7 +17,10 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
+import static org.apache.seatunnel.engine.common.config.server.QueueType.BLOCKINGQUEUE;
+
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
+import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -58,7 +61,6 @@ import com.hazelcast.jet.datamodel.Tuple2;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import lombok.NonNull;
-import org.apache.commons.lang3.StringUtils;
 
 import java.io.IOException;
 import java.net.URL;
@@ -123,7 +125,7 @@ public class PhysicalPlanGenerator {
 
     private final IMap<Object, Object> runningJobStateTimestampsIMap;
 
-    private final String queueType;
+    private final QueueType queueType;
 
     public PhysicalPlanGenerator(@NonNull ExecutionPlan executionPlan,
                                  @NonNull NodeEngine nodeEngine,
@@ -133,7 +135,7 @@ public class PhysicalPlanGenerator {
                                  @NonNull FlakeIdGenerator flakeIdGenerator,
                                  @NonNull IMap runningJobStateIMap,
                                  @NonNull IMap runningJobStateTimestampsIMap,
-                                 @NonNull String queueType) {
+                                 @NonNull QueueType queueType) {
         this.pipelines = executionPlan.getPipelines();
         this.nodeEngine = nodeEngine;
         this.jobImmutableInformation = jobImmutableInformation;
@@ -384,8 +386,8 @@ public class PhysicalPlanGenerator {
 
                     if (taskList.stream().anyMatch(TransformSeaTunnelTask.class::isInstance)) {
                         // contains IntermediateExecutionFlow in task group
-                        TaskGroupDefaultImpl taskGroup = null;
-                        if (StringUtils.equals("blockingQueue", queueType)) {
+                        TaskGroupDefaultImpl taskGroup;
+                        if (queueType.equals(BLOCKINGQUEUE)) {
                             taskGroup = new TaskGroupWithIntermediateBlockingQueue(taskGroupLocation, flow.getAction().getName() +
                                 "-SourceTask",
                                 taskList.stream().map(task -> (Task) task).collect(Collectors.toList()));

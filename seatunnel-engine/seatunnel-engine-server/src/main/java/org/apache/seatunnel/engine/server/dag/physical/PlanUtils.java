@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
+import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
@@ -42,7 +43,7 @@ public class PlanUtils {
                                                                                     @NonNull FlakeIdGenerator flakeIdGenerator,
                                                                                     @NonNull IMap runningJobStateIMap,
                                                                                     @NonNull IMap runningJobStateTimestampsIMap,
-                                                                                    @NonNull String queueType) {
+                                                                                    @NonNull QueueType queueType) {
         return new PhysicalPlanGenerator(
             new ExecutionPlanGenerator(logicalDag, jobImmutableInformation).generate(),
             nodeEngine,
