@@ -108,7 +108,8 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
             Executors.newCachedThreadPool(),
             instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME),
             runningJobState,
-            runningJobStateTimestamp).f0();
+            runningJobStateTimestamp,
+            "blockingQueue").f0();
 
         Assertions.assertEquals(physicalPlan.getPipelineList().size(), 1);
         Assertions.assertEquals(physicalPlan.getPipelineList().get(0).getCoordinatorVertexList().size(), 1);

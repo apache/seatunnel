@@ -95,6 +95,8 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                 engineConfig.setBackupCount(
                     getIntegerValue(ServerConfigOptions.BACKUP_COUNT.key(), getTextContent(node))
                 );
+            } else if (ServerConfigOptions.QUEUE_TYPE.key().equals(name)) {
+                engineConfig.setQueueType(getTextContent(node));
             } else if (ServerConfigOptions.PRINT_EXECUTION_INFO_INTERVAL.key().equals(name)) {
                 engineConfig.setPrintExecutionInfoInterval(getIntegerValue(ServerConfigOptions.PRINT_EXECUTION_INFO_INTERVAL.key(),
                     getTextContent(node)));
@@ -159,6 +161,7 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
 
     /**
      * Parse checkpoint plugin config.
+     *
      * @param checkpointPluginConfigNode checkpoint plugin config node
      * @return checkpoint plugin config
      */

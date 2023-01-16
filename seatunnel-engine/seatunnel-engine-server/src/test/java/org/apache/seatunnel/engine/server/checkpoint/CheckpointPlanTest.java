@@ -67,7 +67,8 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
             Executors.newCachedThreadPool(),
             instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME),
             runningJobState,
-            runningJobStateTimestamp).f1();
+            runningJobStateTimestamp,
+            "blockingQueue").f1();
         Assertions.assertNotNull(checkpointPlans);
         Assertions.assertEquals(2, checkpointPlans.size());
         // enum(1) + reader(2) + writer(2)

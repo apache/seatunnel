@@ -49,6 +49,7 @@ import org.apache.seatunnel.engine.server.task.SinkAggregatedCommitterTask;
 import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 import org.apache.seatunnel.engine.server.task.TransformSeaTunnelTask;
+import org.apache.seatunnel.engine.server.task.group.TaskGroupWithIntermediateBlockingQueue;
 import org.apache.seatunnel.engine.server.task.group.TaskGroupWithIntermediateDisruptor;
 
 import com.google.common.collect.Lists;
@@ -57,6 +58,7 @@ import com.hazelcast.jet.datamodel.Tuple2;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import lombok.NonNull;
+import org.apache.commons.lang3.StringUtils;
 
 import java.io.IOException;
 import java.net.URL;
@@ -121,6 +123,8 @@ public class PhysicalPlanGenerator {
 
     private final IMap<Object, Object> runningJobStateTimestampsIMap;
 
+    private final String queueType;
+
     public PhysicalPlanGenerator(@NonNull ExecutionPlan executionPlan,
                                  @NonNull NodeEngine nodeEngine,
                                  @NonNull JobImmutableInformation jobImmutableInformation,
@@ -128,7 +132,8 @@ public class PhysicalPlanGenerator {
                                  @NonNull ExecutorService executorService,
                                  @NonNull FlakeIdGenerator flakeIdGenerator,
                                  @NonNull IMap runningJobStateIMap,
-                                 @NonNull IMap runningJobStateTimestampsIMap) {
+                                 @NonNull IMap runningJobStateTimestampsIMap,
+                                 @NonNull String queueType) {
         this.pipelines = executionPlan.getPipelines();
         this.nodeEngine = nodeEngine;
         this.jobImmutableInformation = jobImmutableInformation;
@@ -141,6 +146,7 @@ public class PhysicalPlanGenerator {
         this.subtaskActions = new HashMap<>();
         this.runningJobStateIMap = runningJobStateIMap;
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
+        this.queueType = queueType;
     }
 
     public Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> generate() {
@@ -378,14 +384,21 @@ public class PhysicalPlanGenerator {
 
                     if (taskList.stream().anyMatch(TransformSeaTunnelTask.class::isInstance)) {
                         // contains IntermediateExecutionFlow in task group
+                        TaskGroupDefaultImpl taskGroup = null;
+                        if (StringUtils.equals("blockingQueue", queueType)) {
+                            taskGroup = new TaskGroupWithIntermediateBlockingQueue(taskGroupLocation, flow.getAction().getName() +
+                                "-SourceTask",
+                                taskList.stream().map(task -> (Task) task).collect(Collectors.toList()));
+                        } else {
+                            taskGroup = new TaskGroupWithIntermediateDisruptor(taskGroupLocation, flow.getAction().getName() +
+                                "-SourceTask",
+                                taskList.stream().map(task -> (Task) task).collect(Collectors.toList()));
+                        }
                         t.add(new PhysicalVertex(
                             i,
                             executorService,
                             flow.getAction().getParallelism(),
-                            //TODO Through configuration decided to use the queue.
-                            new TaskGroupWithIntermediateDisruptor(taskGroupLocation, flow.getAction().getName() +
-                                "-SourceTask",
-                                taskList.stream().map(task -> (Task) task).collect(Collectors.toList())),
+                            taskGroup,
                             flakeIdGenerator,
                             pipelineIndex,
                             totalPipelineNum,

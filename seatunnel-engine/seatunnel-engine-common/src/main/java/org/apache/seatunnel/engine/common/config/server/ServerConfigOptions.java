@@ -49,6 +49,8 @@ public class ServerConfigOptions {
 
     public static final Option<Integer> CHECKPOINT_STORAGE_MAX_RETAINED = Options.key("max-retained").intType().defaultValue(1).withDescription("The maximum number of retained checkpoints.");
 
+    public static final Option<String> QUEUE_TYPE = Options.key("queue_type").stringType().defaultValue("blockingQueue").withDescription("The internal data cache queue type.");
+
     public static final Option<CheckpointStorageConfig> CHECKPOINT_STORAGE = Options.key("storage").type(new TypeReference<CheckpointStorageConfig>() {
     }).defaultValue(new CheckpointStorageConfig()).withDescription("The checkpoint storage configuration.");
 
