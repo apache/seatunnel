@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task.group.disruptor;
+package org.apache.seatunnel.engine.server.task.group.queue.disruptor;
 
-import com.lmax.disruptor.EventFactory;
+import org.apache.seatunnel.api.table.type.Record;
 
-public class RecordEventFactory implements EventFactory<RecordEvent> {
-    @Override
-    public RecordEvent newInstance() {
-        return new RecordEvent();
-    }
+import lombok.Data;
+
+@Data
+public class RecordEvent {
+    private Record<?> record;
 }

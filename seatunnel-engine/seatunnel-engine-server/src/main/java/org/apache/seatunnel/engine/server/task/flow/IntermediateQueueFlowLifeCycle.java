@@ -20,40 +20,37 @@ package org.apache.seatunnel.engine.server.task.flow;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
-import org.apache.seatunnel.engine.server.task.group.disruptor.RecordEvent;
-import org.apache.seatunnel.engine.server.task.group.disruptor.RecordEventHandler;
-import org.apache.seatunnel.engine.server.task.group.disruptor.RecordEventProducer;
-
-import com.lmax.disruptor.dsl.Disruptor;
+import org.apache.seatunnel.engine.server.task.group.queue.AbstractIntermediateQueue;
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
-public class IntermediateQueueFlowLifeCycle extends AbstractFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>>,
+public class IntermediateQueueFlowLifeCycle<T extends AbstractIntermediateQueue<?>> extends AbstractFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>>,
     OneOutputFlowLifeCycle<Record<?>> {
 
-    private final Disruptor<RecordEvent> disruptor;
+    private final AbstractIntermediateQueue<?> queue;
 
     private volatile boolean isExecuted;
 
     public IntermediateQueueFlowLifeCycle(SeaTunnelTask runningTask,
                                           CompletableFuture<Void> completableFuture,
-                                          Disruptor<RecordEvent> disruptor) {
+                                          AbstractIntermediateQueue<?> queue) {
         super(runningTask, completableFuture);
-        this.disruptor = disruptor;
+        this.queue = queue;
+        queue.setIntermediateQueueFlowLifeCycle(this);
+        queue.setRunningTask(runningTask);
     }
 
     @Override
     public void received(Record<?> record) {
-        RecordEventProducer.onData(record, disruptor.getRingBuffer(), this);
+        queue.received(record);
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void collect(Collector<Record<?>> collector) throws Exception {
         if (!isExecuted) {
-            disruptor.handleEventsWith(new RecordEventHandler(runningTask, collector, this));
-            disruptor.start();
+            queue.collect(collector);
             isExecuted = true;
         } else {
             Thread.sleep(100);
@@ -62,7 +59,7 @@ public class IntermediateQueueFlowLifeCycle extends AbstractFlowLifeCycle implem
 
     @Override
     public void close() throws IOException {
-        disruptor.shutdown();
+        queue.close();
         super.close();
     }
 }

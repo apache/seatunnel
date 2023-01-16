@@ -60,7 +60,7 @@ import org.apache.seatunnel.engine.server.task.flow.PartitionTransformSourceFlow
 import org.apache.seatunnel.engine.server.task.flow.SinkFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.TransformFlowLifeCycle;
-import org.apache.seatunnel.engine.server.task.group.TaskGroupWithIntermediateQueue;
+import org.apache.seatunnel.engine.server.task.group.AbstractTaskGroupWithIntermediateQueue;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
@@ -226,8 +226,8 @@ public abstract class SeaTunnelTask extends AbstractTask {
             IntermediateQueueConfig config =
                 ((IntermediateExecutionFlow<IntermediateQueueConfig>) flow).getConfig();
             lifeCycle = new IntermediateQueueFlowLifeCycle(this, completableFuture,
-                ((TaskGroupWithIntermediateQueue) taskBelongGroup)
-                    .getDisruptor(config.getQueueID()));
+                ((AbstractTaskGroupWithIntermediateQueue) taskBelongGroup)
+                    .getQueueCache(config.getQueueID()));
             outputs = flowLifeCycles;
         } else {
             throw new UnknownFlowException(flow);
@@ -305,7 +305,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
         tryClose(checkpointId);
     }
 
-    public void notifyAllAction(ConsumerWithException<InternalCheckpointListener> consumer){
+    public void notifyAllAction(ConsumerWithException<InternalCheckpointListener> consumer) {
         allCycles.stream()
             .filter(cycle -> cycle instanceof InternalCheckpointListener)
             .map(cycle -> (InternalCheckpointListener) cycle)
