@@ -46,5 +46,11 @@ public abstract class BaseHdfsFileSink extends BaseFileSink {
         if (pluginConfig.hasPath(BaseSinkConfig.HDFS_SITE_PATH.key())) {
             hadoopConf.setHdfsSitePath(pluginConfig.getString(BaseSinkConfig.HDFS_SITE_PATH.key()));
         }
+        if (pluginConfig.hasPath(BaseSinkConfig.KERBEROS_PRINCIPAL.key())) {
+            hadoopConf.setKerberosPrincipal(pluginConfig.getString(BaseSinkConfig.KERBEROS_PRINCIPAL.key()));
+        }
+        if (pluginConfig.hasPath(BaseSinkConfig.KERBEROS_KEYTAB_PATH.key())) {
+            hadoopConf.setKerberosKeytabPath(pluginConfig.getString(BaseSinkConfig.KERBEROS_KEYTAB_PATH.key()));
+        }
     }
 }

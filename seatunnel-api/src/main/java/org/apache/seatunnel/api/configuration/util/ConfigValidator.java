@@ -21,8 +21,12 @@ import static org.apache.seatunnel.api.configuration.util.OptionUtil.getOptionKe
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.SingleChoiceOption;
+
+import org.apache.commons.collections4.CollectionUtils;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -41,6 +45,38 @@ public class ConfigValidator {
         List<RequiredOption> requiredOptions = rule.getRequiredOptions();
         for (RequiredOption requiredOption : requiredOptions) {
             validate(requiredOption);
+            requiredOption.getOptions().forEach(option -> {
+                if (SingleChoiceOption.class.isAssignableFrom(option.getClass())) {
+                    validateSingleChoice(option);
+                }
+            });
+        }
+
+        for (Option option : rule.getOptionalOptions()) {
+            if (SingleChoiceOption.class.isAssignableFrom(option.getClass())) {
+                validateSingleChoice(option);
+            }
+        }
+    }
+
+    void validateSingleChoice(Option option) {
+        SingleChoiceOption singleChoiceOption = (SingleChoiceOption) option;
+        List optionValues = singleChoiceOption.getOptionValues();
+        if (CollectionUtils.isEmpty(optionValues)) {
+            throw new OptionValidationException("These options(%s) are SingleChoiceOption, the optionValues must not be null.", getOptionKeys(
+                Arrays.asList(singleChoiceOption)));
+        }
+
+        Object o = singleChoiceOption.defaultValue();
+        if (o != null && !optionValues.contains(o)) {
+            throw new OptionValidationException("These options(%s) are SingleChoiceOption, the defaultValue(%s) must be one of the optionValues.", getOptionKeys(
+                Arrays.asList(singleChoiceOption)), o);
+        }
+
+        Object value = config.get(option);
+        if (value != null && !optionValues.contains(value)) {
+            throw new OptionValidationException("These options(%s) are SingleChoiceOption, the value(%s) must be one of the optionValues.", getOptionKeys(
+                Arrays.asList(singleChoiceOption)), value);
         }
     }
 

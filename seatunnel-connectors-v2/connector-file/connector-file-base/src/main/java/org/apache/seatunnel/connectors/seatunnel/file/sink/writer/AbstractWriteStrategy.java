@@ -43,6 +43,7 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,6 +63,7 @@ import java.util.stream.Collectors;
 public abstract class AbstractWriteStrategy implements WriteStrategy {
     protected final Logger log = LoggerFactory.getLogger(this.getClass());
     protected final FileSinkConfig fileSinkConfig;
+    protected final CompressFormat compressFormat;
     protected final List<Integer> sinkColumnsIndexInRow;
     protected String jobId;
     protected int subTaskIndex;
@@ -83,11 +85,13 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     protected int partId = 0;
     protected int batchSize;
     protected int currentBatchSize = 0;
+    protected boolean isKerberosAuthorization = false;
 
     public AbstractWriteStrategy(FileSinkConfig fileSinkConfig) {
         this.fileSinkConfig = fileSinkConfig;
         this.sinkColumnsIndexInRow = fileSinkConfig.getSinkColumnsIndexInRow();
         this.batchSize = fileSinkConfig.getBatchSize();
+        this.compressFormat = fileSinkConfig.getCompressFormat();
     }
 
     /**
@@ -129,6 +133,27 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         configuration.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, hadoopConf.getHdfsNameKey());
         configuration.set(String.format("fs.%s.impl", hadoopConf.getSchema()), hadoopConf.getFsHdfsImpl());
         this.hadoopConf.setExtraOptionsForConfiguration(configuration);
+        String principal = hadoopConf.getKerberosPrincipal();
+        String keytabPath = hadoopConf.getKerberosKeytabPath();
+        if (!isKerberosAuthorization && StringUtils.isNotBlank(principal)) {
+            // kerberos authentication and only once
+            if (StringUtils.isBlank(keytabPath)) {
+                throw new FileConnectorException(CommonErrorCode.KERBEROS_AUTHORIZED_FAILED,
+                        "Kerberos keytab path is blank, please check this parameter that in your config file");
+            }
+            configuration.set("hadoop.security.authentication", "kerberos");
+            UserGroupInformation.setConfiguration(configuration);
+            try {
+                log.info("Start Kerberos authentication using principal {} and keytab {}", principal, keytabPath);
+                UserGroupInformation.loginUserFromKeytab(principal, keytabPath);
+                log.info("Kerberos authentication successful");
+            } catch (IOException e) {
+                String errorMsg = String.format("Kerberos authentication failed using this " +
+                                "principal [%s] and keytab path [%s]", principal, keytabPath);
+                throw new FileConnectorException(CommonErrorCode.KERBEROS_AUTHORIZED_FAILED, errorMsg, e);
+            }
+            isKerberosAuthorization = true;
+        }
         return configuration;
     }
 
@@ -199,9 +224,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         String fileNameExpression = fileSinkConfig.getFileNameExpression();
         FileFormat fileFormat = fileSinkConfig.getFileFormat();
         String suffix = fileFormat.getSuffix();
-        if (CompressFormat.LZO.getCompressCodec().equals(fileSinkConfig.getCompressCodec())) {
-            suffix = "." + CompressFormat.LZO.getCompressCodec() + "." + suffix;
-        }
+        suffix = compressFormat.getCompressCodec() + suffix;
         if (StringUtils.isBlank(fileNameExpression)) {
             return transactionId + suffix;
         }

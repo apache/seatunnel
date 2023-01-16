@@ -21,8 +21,7 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 import org.apache.seatunnel.connectors.seatunnel.fake.state.FakeSourceState;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -33,9 +32,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+@Slf4j
 public class FakeSourceSplitEnumerator implements SourceSplitEnumerator<FakeSourceSplit, FakeSourceState> {
-
-    private static final Logger LOG = LoggerFactory.getLogger(FakeSourceSplitEnumerator.class);
     private final SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext;
     private final Map<Integer, Set<FakeSourceSplit>> pendingSplits;
 
@@ -102,7 +100,7 @@ public class FakeSourceSplitEnumerator implements SourceSplitEnumerator<FakeSour
 
     private void discoverySplits() {
         Set<FakeSourceSplit> allSplit = new HashSet<>();
-        LOG.info("Starting to calculate splits.");
+        log.info("Starting to calculate splits.");
         int numReaders = enumeratorContext.currentParallelism();
         int readerRowNum = fakeConfig.getRowNum();
         int splitNum  = fakeConfig.getSplitNum();
@@ -116,8 +114,8 @@ public class FakeSourceSplitEnumerator implements SourceSplitEnumerator<FakeSour
 
         assignedSplits.forEach(allSplit::remove);
         addSplitChangeToPendingAssignments(allSplit);
-        LOG.debug("Assigned {} to {} readers.", allSplit, numReaders);
-        LOG.info("Calculated splits successfully, the size of splits is {}.", allSplit.size());
+        log.debug("Assigned {} to {} readers.", allSplit, numReaders);
+        log.info("Calculated splits successfully, the size of splits is {}.", allSplit.size());
     }
 
     private void addSplitChangeToPendingAssignments(Collection<FakeSourceSplit> newSplits) {
@@ -139,7 +137,7 @@ public class FakeSourceSplitEnumerator implements SourceSplitEnumerator<FakeSour
                 // Mark pending splits as already assigned
                 assignedSplits.addAll(pendingAssignmentForReader);
                 // Assign pending splits to reader
-                LOG.info("Assigning splits to readers {} {}", pendingReader, pendingAssignmentForReader);
+                log.info("Assigning splits to readers {} {}", pendingReader, pendingAssignmentForReader);
                 enumeratorContext.assignSplit(pendingReader, new ArrayList<>(pendingAssignmentForReader));
                 enumeratorContext.signalNoMoreSplits(pendingReader);
             }
