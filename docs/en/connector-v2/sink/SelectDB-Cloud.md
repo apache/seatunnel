@@ -115,8 +115,6 @@ sink {
 
 ## Changelog
 
-### 2.3.0-beta 2022-10-20
-- Add Doris Sink Connector
+### next version
 
-### Next version
-- [Improve] Change Doris Config Prefix [3856](https://github.com/apache/incubator-seatunnel/pull/3856)
+- Add SelectDB Cloud Sink Connector
