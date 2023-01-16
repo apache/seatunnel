@@ -18,8 +18,10 @@
 package org.apache.seatunnel.engine.core.parse;
 
 import org.apache.seatunnel.api.env.EnvCommonOptions;
+import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkCommonOptions;
+import org.apache.seatunnel.api.sink.SupportDataSaveMode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceCommonOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -200,7 +202,13 @@ public class JobConfigParser {
             } else {
                 dataType = transformAnalyze(sourceTableName, sinkAction);
             }
-            sinkListImmutablePair.getLeft().setTypeInfo((SeaTunnelRowType) dataType);
+            SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable> seaTunnelSink = sinkListImmutablePair.getLeft();
+            seaTunnelSink.setTypeInfo((SeaTunnelRowType) dataType);
+            if (SupportDataSaveMode.class.isAssignableFrom(seaTunnelSink.getClass())) {
+                SupportDataSaveMode saveModeSink = (SupportDataSaveMode) seaTunnelSink;
+                DataSaveMode dataSaveMode = saveModeSink.getDataSaveMode();
+                saveModeSink.handleSaveMode(dataSaveMode);
+            }
         }
     }
 
@@ -353,8 +361,14 @@ public class JobConfigParser {
             sinkListImmutablePair.getLeft(),
             sinkListImmutablePair.getRight()
         );
-        sinkAction.getSink().setTypeInfo((SeaTunnelRowType) dataType);
+        SeaTunnelSink<?, ?, ?, ?> seaTunnelSink = sinkAction.getSink();
+        seaTunnelSink.setTypeInfo((SeaTunnelRowType) dataType);
         sinkAction.setParallelism(sinkUpstreamAction.getParallelism());
+        if (SupportDataSaveMode.class.isAssignableFrom(seaTunnelSink.getClass())) {
+            SupportDataSaveMode saveModeSink = (SupportDataSaveMode) seaTunnelSink;
+            DataSaveMode dataSaveMode = saveModeSink.getDataSaveMode();
+            saveModeSink.handleSaveMode(dataSaveMode);
+        }
         actions.add(sinkAction);
     }
 

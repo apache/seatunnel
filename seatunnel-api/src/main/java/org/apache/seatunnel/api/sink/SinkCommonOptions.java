@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.configuration.Options;
 
 public class SinkCommonOptions {
 
+    public static final String DATA_SAVE_MODE = "save_mode";
+
     public static final Option<String> SOURCE_TABLE_NAME =
         Options.key("source_table_name")
             .stringType()
