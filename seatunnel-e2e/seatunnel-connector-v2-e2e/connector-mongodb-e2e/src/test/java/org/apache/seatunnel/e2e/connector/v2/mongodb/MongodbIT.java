@@ -80,7 +80,7 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testMongodbSourceToAssertSink(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/mongodb_source_to_assert.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
     @TestTemplate
