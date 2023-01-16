@@ -33,11 +33,13 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 
 ## Options
 
-| name           | type   | required | default value |
-|----------------|--------|----------|---------------|
-| table_name     | string | yes      | -             |
-| metastore_uri  | string | yes      | -             |
-| common-options |        | no       | -             |
+| name                 | type   | required | default value |
+|----------------------|--------|----------|---------------|
+| table_name           | string | yes      | -             |
+| metastore_uri        | string | yes      | -             |
+| kerberos_principal   | string | no       | -             |
+| kerberos_keytab_path | string | no       | -             | 
+| common-options       |        | no       | -             |
 
 ### table_name [string]
 
@@ -67,3 +69,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 ### 2.2.0-beta 2022-09-26
 
 - Add Hive Source Connector
+
+### Next version
+
+- [Improve] Support kerberos authentication ([3840](https://github.com/apache/incubator-seatunnel/pull/3840))
