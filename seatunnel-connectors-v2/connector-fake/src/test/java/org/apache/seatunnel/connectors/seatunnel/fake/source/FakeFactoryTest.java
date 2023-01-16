@@ -15,9 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.fake;
-
-import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSourceFactory;
+package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
