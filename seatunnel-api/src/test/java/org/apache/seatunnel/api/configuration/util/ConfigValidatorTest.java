@@ -63,6 +63,18 @@ public class ConfigValidatorTest {
             .noDefaultValue()
             .withDescription("base64 encoded kerberos ticket of the Neo4j. for Auth.");
 
+    public static final Option<String> SINGLE_CHOICE_TEST =
+        Options.key("single_choice_test")
+            .singleChoice(String.class, Arrays.asList("A", "B", "C"))
+            .defaultValue("M")
+            .withDescription("test single choice error");
+
+    public static final Option<String> SINGLE_CHOICE_VALUE_TEST =
+        Options.key("single_choice_test")
+            .singleChoice(String.class, Arrays.asList("A", "B", "C"))
+            .defaultValue("A")
+            .withDescription("test single choice value");
+
     void validate(Map<String, Object> config, OptionRule rule) {
         ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(rule);
     }
@@ -244,5 +256,29 @@ public class ConfigValidatorTest {
         // Expression mismatch
         config.put(KEY_USERNAME.key(), "asuka111");
         Assertions.assertDoesNotThrow(executable);
+    }
+
+    @Test
+    public void testSingleChoiceOptionDefaultValueValidator() {
+        OptionRule optionRule = OptionRule.builder().required(SINGLE_CHOICE_TEST).build();
+        Map<String, Object> config = new HashMap<>();
+        config.put(SINGLE_CHOICE_TEST.key(), "A");
+        Executable executable = () -> validate(config, optionRule);
+        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options('single_choice_test') are SingleChoiceOption, the defaultValue(M) must be one of the optionValues.",
+            assertThrows(OptionValidationException.class, executable).getMessage());
+    }
+
+    @Test
+    public void testSingleChoiceOptionValueValidator() {
+        OptionRule optionRule = OptionRule.builder().required(SINGLE_CHOICE_VALUE_TEST).build();
+        Map<String, Object> config = new HashMap<>();
+        config.put(SINGLE_CHOICE_VALUE_TEST.key(), "A");
+        Executable executable = () -> validate(config, optionRule);
+        Assertions.assertDoesNotThrow(executable);
+
+        config.put(SINGLE_CHOICE_VALUE_TEST.key(), "N");
+        executable = () -> validate(config, optionRule);
+        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options('single_choice_test') are SingleChoiceOption, the value(N) must be one of the optionValues.",
+            assertThrows(OptionValidationException.class, executable).getMessage());
     }
 }

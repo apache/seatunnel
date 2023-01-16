@@ -19,8 +19,10 @@ package org.apache.seatunnel.core.starter.spark.execution;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.env.EnvCommonOptions;
+import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkCommonOptions;
+import org.apache.seatunnel.api.sink.SupportDataSaveMode;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
@@ -54,16 +56,20 @@ public class SinkExecuteProcessor extends SparkAbstractPluginExecuteProcessor<Se
         SeaTunnelSinkPluginDiscovery sinkPluginDiscovery = new SeaTunnelSinkPluginDiscovery();
         List<URL> pluginJars = new ArrayList<>();
         List<SeaTunnelSink<?, ?, ?, ?>> sinks = pluginConfigs.stream()
-                .map(sinkConfig -> {
-                    PluginIdentifier pluginIdentifier = PluginIdentifier.of(ENGINE_TYPE, PLUGIN_TYPE, sinkConfig.getString(PLUGIN_NAME));
-                    pluginJars.addAll(sinkPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
-                    SeaTunnelSink<?, ?, ?, ?> seaTunnelSink = sinkPluginDiscovery.createPluginInstance(pluginIdentifier);
-                    seaTunnelSink.prepare(sinkConfig);
-                    seaTunnelSink.setJobContext(jobContext);
-                    return seaTunnelSink;
-                })
-                .distinct()
-                .collect(Collectors.toList());
+            .map(sinkConfig -> {
+                PluginIdentifier pluginIdentifier = PluginIdentifier.of(ENGINE_TYPE, PLUGIN_TYPE, sinkConfig.getString(PLUGIN_NAME));
+                pluginJars.addAll(sinkPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
+                SeaTunnelSink<?, ?, ?, ?> seaTunnelSink = sinkPluginDiscovery.createPluginInstance(pluginIdentifier);
+                seaTunnelSink.prepare(sinkConfig);
+                seaTunnelSink.setJobContext(jobContext);
+                if (SupportDataSaveMode.class.isAssignableFrom(seaTunnelSink.getClass())) {
+                    SupportDataSaveMode saveModeSink = (SupportDataSaveMode) seaTunnelSink;
+                    saveModeSink.checkOptions(sinkConfig);
+                }
+                return seaTunnelSink;
+            })
+            .distinct()
+            .collect(Collectors.toList());
         sparkRuntimeEnvironment.registerPlugin(pluginJars);
         return sinks;
     }
@@ -80,14 +86,20 @@ public class SinkExecuteProcessor extends SparkAbstractPluginExecuteProcessor<Se
                 parallelism = sinkConfig.getInt(SinkCommonOptions.PARALLELISM.key());
             } else {
                 parallelism = sparkRuntimeEnvironment.getSparkConf()
-                        .getInt(EnvCommonOptions.PARALLELISM.key(), EnvCommonOptions.PARALLELISM.defaultValue());
+                    .getInt(EnvCommonOptions.PARALLELISM.key(), EnvCommonOptions.PARALLELISM.defaultValue());
             }
             dataset.sparkSession().read().option(SinkCommonOptions.PARALLELISM.key(), parallelism);
             // TODO modify checkpoint location
             seaTunnelSink.setTypeInfo((SeaTunnelRowType) TypeConverterUtils.convert(dataset.schema()));
+            if (SupportDataSaveMode.class.isAssignableFrom(seaTunnelSink.getClass())) {
+                SupportDataSaveMode saveModeSink = (SupportDataSaveMode) seaTunnelSink;
+                DataSaveMode dataSaveMode = saveModeSink.getDataSaveMode();
+                saveModeSink.handleSaveMode(dataSaveMode);
+            }
             SparkSinkInjector.inject(dataset.write(), seaTunnelSink).option("checkpointLocation", "/tmp").save();
         }
         // the sink is the last stream
         return null;
     }
+
 }
