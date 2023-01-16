@@ -35,7 +35,7 @@ public abstract class AbstractIntermediateQueue<T> {
 
     @Getter
     @Setter
-    private IntermediateQueueFlowLifeCycle intermediateQueueFlowLifeCycle;
+    private IntermediateQueueFlowLifeCycle<?> intermediateQueueFlowLifeCycle;
 
     private final T queue;
 
