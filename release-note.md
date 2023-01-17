@@ -19,6 +19,7 @@
 - [JDBC]Improve option check rule
 - [JDBC]Support SAP HANA. (#3017)
 - [MongoDB]Add source query capability #3697
+- [IoTDB]Unified schema parameter, update IoTDB source fields to schema #3823
 - [InfluxDB]Unifie InfluxDB source fields to schema #3897
 - [File]Fix file source connector option rule bug #3804
 - [File]Add lzo compression way
