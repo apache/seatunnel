@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.BOOTSTRAP_SERVERS;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CANNAL_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.COMMIT_ON_CHECKPOINT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CONSUMER_GROUP;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FIELD_DELIMITER;
@@ -56,6 +57,7 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
+import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 
@@ -209,6 +211,10 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
                 deserializationSchema = TextDeserializationSchema.builder()
                     .seaTunnelRowType(typeInfo)
                     .delimiter(delimiter)
+                    .build();
+            } else if(CANNAL_FORMAT.equals(format)){
+                deserializationSchema = CanalJsonDeserializationSchema.builder(typeInfo)
+                    .setIgnoreParseErrors(false)
                     .build();
             } else {
                 // TODO: use format SPI

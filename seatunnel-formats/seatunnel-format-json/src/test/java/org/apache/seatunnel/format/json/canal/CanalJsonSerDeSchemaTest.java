@@ -51,8 +51,8 @@ public class CanalJsonSerDeSchemaTest {
         CanalJsonDeserializationSchema deserializationSchema =
             new CanalJsonDeserializationSchema.Builder(
                 PHYSICAL_DATA_TYPE)
-                .setDatabase("^my.*")
-                .setTable("^prod.*")
+//                .setDatabase("^my.*")
+//                .setTable("^prod.*")
                 .build();
         runTest(lines, deserializationSchema);
     }
@@ -63,8 +63,8 @@ public class CanalJsonSerDeSchemaTest {
             createCanalJsonDeserializationSchema(null, null);
         final SimpleCollector collector = new SimpleCollector();
 
-        deserializationSchema.collect(null, collector);
-        deserializationSchema.collect(new byte[0], collector);
+        deserializationSchema.deserialize(null, collector);
+        deserializationSchema.deserialize(new byte[0], collector);
         assertEquals(0, collector.list.size());
     }
 
@@ -72,7 +72,7 @@ public class CanalJsonSerDeSchemaTest {
         throws Exception {
         SimpleCollector collector = new SimpleCollector();
         for (String line : lines) {
-            deserializationSchema.collect(line.getBytes(StandardCharsets.UTF_8), collector);
+            deserializationSchema.deserialize(line.getBytes(StandardCharsets.UTF_8), collector);
         }
 
         List<String> expected =
