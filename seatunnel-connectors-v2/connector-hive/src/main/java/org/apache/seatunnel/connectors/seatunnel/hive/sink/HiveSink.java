@@ -37,6 +37,7 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink.BaseHdfsFileSink;
@@ -69,7 +70,6 @@ public class HiveSink extends BaseHdfsFileSink {
     private String dbName;
     private String tableName;
     private Table tableInformation;
-    private boolean isContainPartitionName = false;
 
     @Override
     public String getPluginName() {
@@ -110,8 +110,13 @@ public class HiveSink extends BaseHdfsFileSink {
             throw new HiveConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
                     "Hive connector only support [text parquet orc] table now");
         }
-        if (pluginConfig.hasPath(HiveConfig.IS_CONTAIN_PARTITION_NAME) && StringUtils.isNotBlank(pluginConfig.getString(HiveConfig.IS_CONTAIN_PARTITION_NAME))) {
-            isContainPartitionName = pluginConfig.getBoolean(HiveConfig.IS_CONTAIN_PARTITION_NAME);
+        String partDirExpression = pluginConfig.getString(BaseSinkConfig.PARTITION_DIR_EXPRESSION.key());
+        if (StringUtils.isNotBlank(partDirExpression)){
+            for (String part:partitionKeys){
+                if (!partDirExpression.contains(part)){
+                    throw new HiveConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION, "partition_dir_expression parameter configuration must contain the partition name, otherwise the partition loading will fail");
+                }
+            }
         }
         pluginConfig = pluginConfig
                 .withValue(IS_PARTITION_FIELD_WRITE_IN_FILE.key(), ConfigValueFactory.fromAnyRef(false))
@@ -135,6 +140,6 @@ public class HiveSink extends BaseHdfsFileSink {
 
     @Override
     public Optional<SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo>> createAggregatedCommitter() throws IOException {
-        return Optional.of(new HiveSinkAggregatedCommitter(pluginConfig, dbName, tableName, fileSystemUtils, isContainPartitionName));
+        return Optional.of(new HiveSinkAggregatedCommitter(pluginConfig, dbName, tableName, fileSystemUtils));
     }
 }

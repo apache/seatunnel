@@ -33,7 +33,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
 import org.apache.hadoop.hive.metastore.api.MetaException;
-import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.thrift.TException;
@@ -108,10 +107,6 @@ public class HiveMetaStoreProxy {
         for (String partition : partitions) {
             hiveMetaStoreClient.appendPartition(dbName, tableName, partition);
         }
-    }
-
-    public void addPartition(@NonNull Partition partition) throws TException {
-        hiveMetaStoreClient.add_partition(partition);
     }
 
     public void dropPartitions(@NonNull String dbName,
