@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdb.source;
 
+import static org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema.SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.CommonConfig.NODE_URLS;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.CommonConfig.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.CommonConfig.USERNAME;
@@ -36,7 +37,6 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 
 import com.google.auto.service.AutoService;
 
@@ -50,7 +50,7 @@ public class IoTDBSourceFactory implements TableSourceFactory{
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(NODE_URLS, USERNAME, PASSWORD, SQL, SeaTunnelSchema.SCHEMA)
+                .required(NODE_URLS, USERNAME, PASSWORD, SQL, SCHEMA)
                 .optional(HOST, PORT, FETCH_SIZE, THRIFT_DEFAULT_BUFFER_SIZE, THRIFT_MAX_FRAME_SIZE,
                         ENABLE_CACHE_LEADER, VERSION, LOWER_BOUND, UPPER_BOUND, NUM_PARTITIONS)
                 .build();
