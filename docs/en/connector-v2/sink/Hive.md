@@ -165,4 +165,4 @@ sink {
 ### Next version
 
 - [Improve] Support kerberos authentication ([3840](https://github.com/apache/incubator-seatunnel/pull/3840))
-
+- [Improve] Added partition_dir_expression validation logic ([3886](https://github.com/apache/incubator-seatunnel/pull/3886))
