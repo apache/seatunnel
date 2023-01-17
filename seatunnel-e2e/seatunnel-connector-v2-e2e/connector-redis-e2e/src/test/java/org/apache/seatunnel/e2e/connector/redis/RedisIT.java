@@ -53,6 +53,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 import scala.Tuple2;
@@ -72,7 +73,7 @@ public class RedisIT extends TestSuiteBase implements TestResource {
 
     @BeforeAll
     @Override
-    public void startUp() throws Exception {
+    public void startUp() {
         this.redisContainer = new GenericContainer<>(DockerImageName.parse(IMAGE))
             .withNetwork(NETWORK)
             .withNetworkAliases(HOST)
@@ -167,9 +168,14 @@ public class RedisIT extends TestSuiteBase implements TestResource {
 
     @AfterAll
     @Override
-    public void tearDown() throws Exception {
-        jedis.close();
-        redisContainer.close();
+    public void tearDown() {
+        if (Objects.nonNull(jedis)) {
+            jedis.close();
+        }
+
+        if (Objects.nonNull(redisContainer)) {
+            redisContainer.close();
+        }
     }
 
     @TestTemplate
