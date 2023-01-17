@@ -161,7 +161,6 @@ sink {
   - When field from upstream is null it will throw NullPointerException
   - Sink columns mapping failed
   - When restore writer from states getting transaction directly failed
-  - If user sets 'partition_dir_expression = "${v0}"' in hive-sink,it means that the partition directory does not have a partition name. Then the partition loading will fail.([3886](https://github.com/apache/incubator-seatunnel/pull/3886))
 
 ### Next version
 
