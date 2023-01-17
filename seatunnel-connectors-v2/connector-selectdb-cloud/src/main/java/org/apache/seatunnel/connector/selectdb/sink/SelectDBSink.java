@@ -57,8 +57,6 @@ import java.util.Optional;
 public class SelectDBSink implements SeaTunnelSink<SeaTunnelRow, SelectDBSinkState, SelectDBCommitInfo, SelectDBCommitInfo> {
     private Config pluginConfig;
     private SeaTunnelRowType seaTunnelRowType;
-
-
     @Override
     public String getPluginName() {
         return "SelectDBSink";
@@ -85,7 +83,6 @@ public class SelectDBSink implements SeaTunnelSink<SeaTunnelRow, SelectDBSinkSta
         return this.seaTunnelRowType;
     }
 
-
     @Override
     public SinkWriter<SeaTunnelRow, SelectDBCommitInfo, SelectDBSinkState> createWriter(SinkWriter.Context context) throws IOException {
         SelectDBSinkWriter dorisWriter = new SelectDBSinkWriter(context, Collections.emptyList(), seaTunnelRowType, pluginConfig);
@@ -109,7 +106,6 @@ public class SelectDBSink implements SeaTunnelSink<SeaTunnelRow, SelectDBSinkSta
     public Optional<SinkCommitter<SelectDBCommitInfo>> createCommitter() throws IOException {
         return Optional.of(new SelectDBCommitter(pluginConfig));
     }
-
 
     @Override
     public Optional<Serializer<SelectDBCommitInfo>> getCommitInfoSerializer() {

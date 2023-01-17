@@ -17,44 +17,21 @@
 
 package org.apache.seatunnel.connector.selectdb.sink.writer;
 
-import java.io.Serializable;
-import java.util.Objects;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
-/**
- * hold state for SelectDBWriter.
- */
+import java.io.Serializable;
+
+@Setter
+@Getter
+@ToString
+@EqualsAndHashCode
 public class SelectDBSinkState implements Serializable {
     String labelPrefix;
 
     public SelectDBSinkState(String labelPrefix) {
         this.labelPrefix = labelPrefix;
-    }
-
-    public String getLabelPrefix() {
-        return labelPrefix;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        SelectDBSinkState that = (SelectDBSinkState) o;
-        return Objects.equals(labelPrefix, that.labelPrefix);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(labelPrefix);
-    }
-
-    @Override
-    public String toString() {
-        return "DorisWriterState{" +
-                "labelPrefix='" + labelPrefix + '\'' +
-                '}';
     }
 }

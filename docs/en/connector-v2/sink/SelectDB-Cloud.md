@@ -89,8 +89,10 @@ sink {
     table.identifier="test.test"
     username="admin"
     password="******"
-    sink.properties.file.type="json"
-    sink.properties.file.strip_outer_array="false"
+    selectdb.config {
+        file.type="json"
+        file.strip_outer_array="false"
+    }
   }
 }
 ```
@@ -106,9 +108,11 @@ sink {
     table.identifier="test.test"
     username="admin"
     password="******"
-    sink.properties.file.type='csv' 
-    sink.properties.file.column_separator=',' 
-    sink.properties.file.line_delimiter='\n' 
+    selectdb.config {
+        file.type='csv' 
+        file.column_separator=',' 
+        file.line_delimiter='\n' 
+    }
   }
 }
 ```
@@ -117,4 +121,5 @@ sink {
 
 ### next version
 
-- Add SelectDB Cloud Sink Connector
+- [Feature] Support SelectDB Cloud Sink Connector [3958](https://github.com/apache/incubator-seatunnel/pull/3958)
+  

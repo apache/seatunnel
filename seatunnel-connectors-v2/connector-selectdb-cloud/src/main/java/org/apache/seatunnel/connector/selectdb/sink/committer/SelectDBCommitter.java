@@ -77,11 +77,11 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
     public void abort(List<SelectDBCommitInfo> commitInfos) throws IOException {
     }
 
-    private void commitTransaction(SelectDBCommitInfo committable) throws IOException {
+    private void commitTransaction(SelectDBCommitInfo commitInfo) throws IOException {
         long start = System.currentTimeMillis();
-        String hostPort = committable.getHostPort();
-        String clusterName = committable.getClusterName();
-        String copySQL = committable.getCopySQL();
+        String hostPort = commitInfo.getHostPort();
+        String clusterName = commitInfo.getClusterName();
+        String copySQL = commitInfo.getCopySQL();
         log.info("commit to cluster {} with copy sql: {}", clusterName, copySQL);
 
         int statusCode = -1;
@@ -122,7 +122,7 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
 
         if (!success) {
             log.error("commit error with status {}, reason {}, response {}", statusCode, reasonPhrase, loadResult);
-            throw new SelectDBConnectorException(SelectDBConnectorErrorCode.COMMIT_FAILED, committable.getCopySQL());
+            throw new SelectDBConnectorException(SelectDBConnectorErrorCode.COMMIT_FAILED, commitInfo.getCopySQL());
         }
     }
 

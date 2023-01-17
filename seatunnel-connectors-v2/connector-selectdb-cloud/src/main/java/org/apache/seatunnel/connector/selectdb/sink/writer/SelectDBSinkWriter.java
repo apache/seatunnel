@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connector.selectdb.sink.writer;
 
+import static org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorErrorCode.WHILE_LOADING_FAILED;
 import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadConstants.FIELD_DELIMITER_KEY;
 import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadConstants.FORMAT_KEY;
 import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadConstants.LINE_DELIMITER_DEFAULT;
@@ -205,7 +206,7 @@ public class SelectDBSinkWriter implements SinkWriter<SeaTunnelRow, SelectDBComm
 
     private void checkLoadException() {
         if (loadException != null) {
-            throw new RuntimeException("error while loading data.", loadException);
+            throw new SelectDBConnectorException(WHILE_LOADING_FAILED, loadException);
         }
     }
 

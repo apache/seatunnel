@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connector.selectdb.sink.writer;
 
+import static org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorErrorCode.CLOSE_HTTP_FAILED;
+import static org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorErrorCode.REDIRECTED_FAILED;
 import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadConstants.LINE_DELIMITER_DEFAULT;
 import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadConstants.LINE_DELIMITER_KEY;
 import static com.google.common.base.Preconditions.checkState;
@@ -153,10 +155,10 @@ public class SelectDBCopyInto implements Serializable {
                 if (baseResponse.getCode() == 0) {
                     return baseResponse;
                 } else {
-                    throw new RuntimeException("upload file error: " + baseResponse.getMsg());
+                    throw new SelectDBConnectorException(SelectDBConnectorErrorCode.UPLOAD_FAILED, baseResponse.getMsg());
                 }
             }
-            throw new RuntimeException("upload file error: " + response.getStatusLine().toString());
+            throw new SelectDBConnectorException(SelectDBConnectorErrorCode.UPLOAD_FAILED, response.getStatusLine().toString());
         } finally {
             if (response != null) {
                 response.close();
@@ -223,7 +225,7 @@ public class SelectDBCopyInto implements Serializable {
                 HttpEntity entity = execute.getEntity();
                 String result = entity == null ? null : EntityUtils.toString(entity);
                 log.error("Failed get the redirected address, status {}, reason {}, response {}", statusCode, reason, result);
-                throw new RuntimeException("Could not get the redirected address.");
+                throw new SelectDBConnectorException(REDIRECTED_FAILED, "Could not get the redirected address.");
             }
         }
     }
@@ -233,7 +235,7 @@ public class SelectDBCopyInto implements Serializable {
             try {
                 httpClient.close();
             } catch (IOException e) {
-                throw new IOException("Closing httpClient failed.", e);
+                throw new SelectDBConnectorException(CLOSE_HTTP_FAILED, e);
             }
         }
         if (null != executorService) {

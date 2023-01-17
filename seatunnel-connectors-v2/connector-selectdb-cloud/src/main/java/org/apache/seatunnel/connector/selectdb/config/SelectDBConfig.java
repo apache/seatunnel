@@ -19,7 +19,7 @@ package org.apache.seatunnel.connector.selectdb.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.common.config.TypesafeConfigUtils;
+import org.apache.seatunnel.common.config.CheckConfigUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -27,6 +27,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
+import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
 
@@ -108,12 +109,12 @@ public class SelectDBConfig {
             .defaultValue(false)
             .withDescription("whether to enable the delete function");
 
-    public static final Option<String> SELECTDB_SINK_CONFIG_PREFIX = Options
-            .key("sink.properties.")
-            .stringType()
+    public static final Option<Map<String, String>> SELECTDB_SINK_CONFIG_PREFIX = Options
+            .key("selectdb.config")
+            .mapType()
             .noDefaultValue()
-            .withDescription("The parameter of the stream load data_desc. " +
-                    "The way to specify the parameter is to add the prefix `sink.properties.` to the original load parameter name ");
+            .withDescription("The parameter of the Copy Into data_desc. " +
+                    "The way to specify the parameter is to add the prefix `selectdb.config` to the original load parameter name ");
 
     private String loadUrl;
     private String jdbcUrl;
@@ -178,14 +179,14 @@ public class SelectDBConfig {
         return selectdbConfig;
     }
 
-    public static Properties parseCopyIntoProperties(Config pluginConfig) {
+    private static Properties parseCopyIntoProperties(Config pluginConfig) {
         Properties streamLoadProps = new Properties();
-        Config selectdbConfig = TypesafeConfigUtils.extractSubConfig(pluginConfig,
-                SELECTDB_SINK_CONFIG_PREFIX.key(), false);
-        selectdbConfig.entrySet().forEach(entry -> {
-            final String configKey = entry.getKey().toLowerCase();
-            streamLoadProps.put(configKey, entry.getValue().unwrapped());
-        });
+        if (CheckConfigUtil.isValidParam(pluginConfig, SELECTDB_SINK_CONFIG_PREFIX.key())) {
+            pluginConfig.getObject(SELECTDB_SINK_CONFIG_PREFIX.key()).forEach((key, value) -> {
+                final String configKey = key.toLowerCase();
+                streamLoadProps.put(configKey, value.unwrapped().toString());
+            });
+        }
         return streamLoadProps;
     }
 

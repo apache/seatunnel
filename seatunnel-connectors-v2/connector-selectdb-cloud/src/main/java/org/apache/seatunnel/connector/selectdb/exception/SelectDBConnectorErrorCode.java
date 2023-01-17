@@ -20,9 +20,11 @@ package org.apache.seatunnel.connector.selectdb.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum SelectDBConnectorErrorCode implements SeaTunnelErrorCode {
-    UPLOAD_FAILED("SelectDB-01", "upload failed "),
-
-    COMMIT_FAILED("SelectDB-02", "commit error with ");
+    UPLOAD_FAILED("SelectDB-01", "upload file error"),
+    COMMIT_FAILED("SelectDB-02", "commit error"),
+    CLOSE_HTTP_FAILED("SelectDB-03", "Closing httpClient failed"),
+    REDIRECTED_FAILED("SelectDB-04", "Get the redirected s3 address filed"),
+    WHILE_LOADING_FAILED("SelectDB-05", "error while loading data");
 
     private final String code;
     private final String description;

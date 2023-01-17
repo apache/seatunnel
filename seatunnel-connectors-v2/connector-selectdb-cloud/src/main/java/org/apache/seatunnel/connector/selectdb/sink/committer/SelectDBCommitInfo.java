@@ -17,9 +17,17 @@
 
 package org.apache.seatunnel.connector.selectdb.sink.committer;
 
-import java.io.Serializable;
-import java.util.Objects;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
+import java.io.Serializable;
+
+@Setter
+@Getter
+@ToString
+@EqualsAndHashCode
 public class SelectDBCommitInfo implements Serializable {
     private final String hostPort;
     private final String clusterName;
@@ -29,45 +37,5 @@ public class SelectDBCommitInfo implements Serializable {
         this.hostPort = hostPort;
         this.clusterName = clusterName;
         this.copySQL = copySQL;
-    }
-
-    public String getHostPort() {
-        return hostPort;
-    }
-
-    public String getClusterName() {
-        return clusterName;
-    }
-
-    public String getCopySQL() {
-        return copySQL;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        SelectDBCommitInfo that = (SelectDBCommitInfo) o;
-        return hostPort.equals(that.hostPort) &&
-                clusterName.equals(that.clusterName) &&
-                copySQL.equals(that.copySQL);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(hostPort, clusterName, copySQL);
-    }
-
-    @Override
-    public String toString() {
-        return "SelectDBCommittable{" +
-                "hostPort='" + hostPort + '\'' +
-                ", clusterName='" + clusterName + '\'' +
-                ", copySQL='" + copySQL + '\'' +
-                '}';
     }
 }
