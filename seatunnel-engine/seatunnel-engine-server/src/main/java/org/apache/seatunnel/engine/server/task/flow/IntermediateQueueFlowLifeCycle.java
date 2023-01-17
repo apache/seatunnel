@@ -30,8 +30,6 @@ public class IntermediateQueueFlowLifeCycle<T extends AbstractIntermediateQueue<
 
     private final AbstractIntermediateQueue<?> queue;
 
-    private volatile boolean isExecuted;
-
     public IntermediateQueueFlowLifeCycle(SeaTunnelTask runningTask,
                                           CompletableFuture<Void> completableFuture,
                                           AbstractIntermediateQueue<?> queue) {
@@ -49,12 +47,7 @@ public class IntermediateQueueFlowLifeCycle<T extends AbstractIntermediateQueue<
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void collect(Collector<Record<?>> collector) throws Exception {
-        if (!isExecuted) {
-            queue.collect(collector);
-            isExecuted = true;
-        } else {
-            Thread.sleep(100);
-        }
+        queue.collect(collector);
     }
 
     @Override

@@ -33,16 +33,24 @@ public class IntermediateDisruptor extends AbstractIntermediateQueue<Disruptor<R
         super(queue);
     }
 
+    private volatile boolean isExecuted;
+
     @Override
     public void received(Record<?> record) {
         getIntermediateQueue().getRingBuffer();
         RecordEventProducer.onData(record, getIntermediateQueue().getRingBuffer(), getIntermediateQueueFlowLifeCycle());
     }
 
+    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void collect(Collector<Record<?>> collector) throws Exception {
-        getIntermediateQueue().handleEventsWith(new RecordEventHandler(getRunningTask(), collector, getIntermediateQueueFlowLifeCycle()));
-        getIntermediateQueue().start();
+        if (!isExecuted) {
+            getIntermediateQueue().handleEventsWith(new RecordEventHandler(getRunningTask(), collector, getIntermediateQueueFlowLifeCycle()));
+            getIntermediateQueue().start();
+            isExecuted = true;
+        } else {
+            Thread.sleep(100);
+        }
     }
 
     @Override
