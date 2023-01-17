@@ -52,7 +52,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
 import com.google.auto.service.AutoService;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Table;
@@ -85,6 +84,11 @@ public class HiveSink extends BaseHdfsFileSink {
                     String.format("PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SINK, result.getMsg()));
         }
+        if (pluginConfig.hasPath(BaseSinkConfig.PARTITION_DIR_EXPRESSION.key())) {
+            throw new HiveConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED, String.format(
+                    "Hive sink connector does not support setting %s", BaseSinkConfig.PARTITION_DIR_EXPRESSION.key()
+            ));
+        }
         Pair<String[], Table> tableInfo = HiveConfig.getTableInfo(pluginConfig);
         dbName = tableInfo.getLeft()[0];
         tableName = tableInfo.getLeft()[1];
@@ -109,14 +113,6 @@ public class HiveSink extends BaseHdfsFileSink {
         } else {
             throw new HiveConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
                     "Hive connector only support [text parquet orc] table now");
-        }
-        String partDirExpression = pluginConfig.getString(BaseSinkConfig.PARTITION_DIR_EXPRESSION.key());
-        if (StringUtils.isNotBlank(partDirExpression)){
-            for (String part:partitionKeys){
-                if (!partDirExpression.contains(part)){
-                    throw new HiveConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION, "partition_dir_expression parameter configuration must contain the partition name, otherwise the partition loading will fail");
-                }
-            }
         }
         pluginConfig = pluginConfig
                 .withValue(IS_PARTITION_FIELD_WRITE_IN_FILE.key(), ConfigValueFactory.fromAnyRef(false))
