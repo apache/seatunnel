@@ -3,6 +3,7 @@
 ## New Feature
 ### Zeta Engine
 - [Script]Add support close engine instance shell
+- [Client]Add Zeta Client ShutdownHook To Cancel Job
 ### Core
 - [Starter][Flink]Support transform-v2 for flink #3396
 ### Transformer
