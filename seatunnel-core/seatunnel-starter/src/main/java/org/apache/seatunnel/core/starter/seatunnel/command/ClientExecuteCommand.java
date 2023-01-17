@@ -20,6 +20,7 @@ package org.apache.seatunnel.core.starter.seatunnel.command;
 import static org.apache.seatunnel.core.starter.utils.FileUtils.checkConfigExist;
 
 import org.apache.seatunnel.common.utils.DateTimeUtils;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.enums.MasterType;
@@ -33,6 +34,7 @@ import org.apache.seatunnel.engine.client.job.JobMetricsRunner;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 
@@ -116,7 +118,13 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
                 // register cancelJob hook
                 if (clientCommandArgs.isCloseJob()) {
-                    Runtime.getRuntime().addShutdownHook(new Thread(() -> shutdownHook(clientJobProxy)));
+                    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                        try {
+                            shutdownHook(clientJobProxy);
+                        } catch (Exception e) {
+                            throw new SeaTunnelEngineException(String.format("Cancel job exception and error is %s", ExceptionUtils.getMessage(e)));
+                        }
+                    }));
                 }
                 // get job id
                 long jobId = clientJobProxy.getJobId();
