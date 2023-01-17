@@ -5,6 +5,7 @@
 - [Script]Add support close engine instance shell
 ### Core
 - [Starter][Flink]Support transform-v2 for flink #3396
+- [Flink] Support flink 1.14.x #3963
 ### Transformer
 - [Spark] Support transform-v2 for spark (#3409)
 - [ALL]Add FieldMapper Transform #3781
