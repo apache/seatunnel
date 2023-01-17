@@ -17,60 +17,14 @@
 
 package org.apache.seatunnel.e2e.connector.http;
 
-import org.apache.seatunnel.e2e.common.TestResource;
-import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.TestContainer;
-
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.TestTemplate;
-import org.testcontainers.containers.Container;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
-import org.testcontainers.lifecycle.Startables;
-import org.testcontainers.utility.DockerImageName;
-import org.testcontainers.utility.DockerLoggerFactory;
-import org.testcontainers.utility.MountableFile;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.stream.Stream;
-
-public class HttpContentJsonIT extends TestSuiteBase implements TestResource {
-
-    private static final String IMAGE = "mockserver/mockserver:5.14.0";
-
-    private GenericContainer<?> mockserverContainer;
-
-    @BeforeAll
+public class HttpContentJsonIT extends HttpIT {
     @Override
-    public void startUp() {
-        this.mockserverContainer = new GenericContainer<>(DockerImageName.parse(IMAGE))
-            .withNetwork(NETWORK)
-            .withNetworkAliases("mockserver")
-            .withExposedPorts(1080)
-            .withCopyFileToContainer(MountableFile.forHostPath(new File(HttpContentJsonIT.class.getResource(
-                    "/mockserver-contentjson-config.json").getPath()).getAbsolutePath()),
-                "/tmp/mockserver-contentjson-config.json")
-            .withEnv("MOCKSERVER_INITIALIZATION_JSON_PATH", "/tmp/mockserver-contentjson-config.json")
-            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
-            .waitingFor(new HttpWaitStrategy().forPath("/").forStatusCode(404));
-        Startables.deepStart(Stream.of(mockserverContainer)).join();
+    public String getITTestConf() {
+        return "/http_contentjson_to_assert.conf";
     }
 
-    @AfterAll
     @Override
-    public void tearDown() {
-        if (mockserverContainer != null) {
-            mockserverContainer.stop();
-        }
-    }
-
-    @TestTemplate
-    public void testHttpContentJsonSourceToAssertSink(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/http_contentjson_to_assert.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+    public String getMockServerConfig() {
+        return "/mockserver-contentjson-config.json";
     }
 }
