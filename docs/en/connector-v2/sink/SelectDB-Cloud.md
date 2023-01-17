@@ -7,7 +7,9 @@ Used to send data to SelectDB Cloud. Both support streaming and batch mode.
 The internal implementation of SelectDB Cloud sink connector upload after batch caching and commit the CopyInto sql to load data into the table.
 ## Key features
 
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [exactly-once](../../concept/connector-v2-features.md)
+
+By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
@@ -19,7 +21,7 @@ The internal implementation of SelectDB Cloud sink connector upload after batch 
 | username            | string | yes      | -               |
 | password            | string | yes      | -               |
 | table.identifier    | string | yes      | -               |
-| sink.properties.*   | string | yes      | -               |
+| selectdb.config     | map    | yes      | -               |
 | sink.buffer-size    | int    | no       | 1024*1024 (1MB) |
 | sink.buffer-count   | int    | no       | 3               |
 | sink.max-retries    | int    | no       | 1               |
@@ -53,12 +55,16 @@ The name of `SelectDB Cloud` table, the format is `database.table`
 
 Write property configuration
 CSV Write：
-    sink.properties.file.type='csv' 
-    sink.properties.file.column_separator=',' 
-    sink.properties.file.line_delimiter='\n' 
-JSON Write: 
-    sink.properties.file.type='json' 
-    sink.properties.file.strip_outer_array='false'
+    selectdb.config {
+        sink.properties.file.type='csv'
+        sink.properties.file.column_separator=','
+        sink.properties.file.line_delimiter='\n'
+    }
+JSON Write:
+    selectdb.config {
+        file.type="json"
+        file.strip_outer_array="false"
+    }
 
 ### sink.buffer-size [string]
 
