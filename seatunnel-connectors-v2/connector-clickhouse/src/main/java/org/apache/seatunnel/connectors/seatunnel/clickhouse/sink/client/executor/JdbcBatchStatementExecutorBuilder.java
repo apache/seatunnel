@@ -43,6 +43,7 @@ public class JdbcBatchStatementExecutorBuilder {
     private Map<String, String> clickhouseTableSchema;
     private boolean supportUpsert;
     private boolean allowExperimentalLightweightDelete;
+    private boolean clickhouseServerEnableExperimentalLightweightDelete;
     private String[] orderByKeys;
 
     private boolean supportMergeTreeEngineExperimentalLightweightDelete() {
@@ -88,7 +89,7 @@ public class JdbcBatchStatementExecutorBuilder {
             boolean convertUpdateBeforeEventToDeleteAction;
             // DELETE: delete sql
             JdbcBatchStatementExecutor deleteExecutor = createDeleteExecutor(
-                table, primaryKeys, pkRowConverter);
+                table, primaryKeys, pkRowConverter, !clickhouseServerEnableExperimentalLightweightDelete);
             JdbcBatchStatementExecutor updateExecutor;
             if (supportReplacingMergeTreeTableUpsert()) {
                 // ReplacingMergeTree Update Row: upsert row by order-by-keys(update_after event)
@@ -138,8 +139,12 @@ public class JdbcBatchStatementExecutorBuilder {
                                                                            String[] pkNames,
                                                                            JdbcRowConverter rowConverter) {
         return new InsertOrUpdateBatchStatementExecutor(
-            connection -> connection.prepareStatement(SqlUtils.getInsertIntoStatement(table, rowType.getFieldNames())),
-            connection -> connection.prepareStatement(SqlUtils.getAlterTableUpdateStatement(table, rowType.getFieldNames(), pkNames)),
+            connection -> FieldNamedPreparedStatement.prepareStatement(connection,
+                SqlUtils.getInsertIntoStatement(table, rowType.getFieldNames()),
+                rowType.getFieldNames()),
+            connection -> FieldNamedPreparedStatement.prepareStatement(connection,
+                SqlUtils.getAlterTableUpdateStatement(table, rowType.getFieldNames(), pkNames),
+                rowType.getFieldNames()),
             rowConverter);
     }
 
@@ -150,9 +155,15 @@ public class JdbcBatchStatementExecutorBuilder {
                                                                    JdbcRowConverter keyConverter,
                                                                    JdbcRowConverter valueConverter) {
         return new InsertOrUpdateBatchStatementExecutor(
-            connection -> connection.prepareStatement(SqlUtils.getRowExistsStatement(table, pkNames)),
-            connection -> connection.prepareStatement(SqlUtils.getInsertIntoStatement(table, rowType.getFieldNames())),
-            connection -> connection.prepareStatement(SqlUtils.getAlterTableUpdateStatement(table, rowType.getFieldNames(), pkNames)),
+            connection -> FieldNamedPreparedStatement.prepareStatement(connection,
+                SqlUtils.getRowExistsStatement(table, pkNames),
+                pkNames),
+            connection -> FieldNamedPreparedStatement.prepareStatement(connection,
+                SqlUtils.getInsertIntoStatement(table, rowType.getFieldNames()),
+                rowType.getFieldNames()),
+            connection -> FieldNamedPreparedStatement.prepareStatement(connection,
+                SqlUtils.getAlterTableUpdateStatement(table, rowType.getFieldNames(), pkNames),
+                rowType.getFieldNames()),
             keyExtractor,
             keyConverter,
             valueConverter);
@@ -162,27 +173,30 @@ public class JdbcBatchStatementExecutorBuilder {
                                                                    SeaTunnelRowType rowType,
                                                                    JdbcRowConverter rowConverter) {
         String insertSQL = SqlUtils.getInsertIntoStatement(table, rowType.getFieldNames());
-        return createSimpleExecutor(insertSQL, rowConverter);
+        return new SimpleBatchStatementExecutor(
+            connection -> FieldNamedPreparedStatement.prepareStatement(
+                connection, insertSQL, rowType.getFieldNames()),
+            rowConverter);
     }
 
     private static JdbcBatchStatementExecutor createDeleteExecutor(String table,
                                                                    String[] primaryKeys,
-                                                                   JdbcRowConverter rowConverter) {
-        String deleteSQL = SqlUtils.getDeleteStatement(table, primaryKeys);
-        return createSimpleExecutor(deleteSQL, rowConverter);
+                                                                   JdbcRowConverter rowConverter,
+                                                                   boolean enableExperimentalLightweightDelete) {
+        String deleteSQL = SqlUtils.getDeleteStatement(table, primaryKeys, enableExperimentalLightweightDelete);
+        return new SimpleBatchStatementExecutor(
+            connection -> FieldNamedPreparedStatement.prepareStatement(
+                connection, deleteSQL, primaryKeys),
+            rowConverter);
     }
 
     private static JdbcBatchStatementExecutor createAlterTableDeleteExecutor(String table,
                                                                              String[] primaryKeys,
                                                                              JdbcRowConverter rowConverter) {
         String alterTableDeleteSQL = SqlUtils.getAlterTableDeleteStatement(table, primaryKeys);
-        return createSimpleExecutor(alterTableDeleteSQL, rowConverter);
-    }
-
-    private static JdbcBatchStatementExecutor createSimpleExecutor(String sql,
-                                                                   JdbcRowConverter rowConverter) {
         return new SimpleBatchStatementExecutor(
-            connection -> connection.prepareStatement(sql),
+            connection -> FieldNamedPreparedStatement.prepareStatement(
+                connection, alterTableDeleteSQL, primaryKeys),
             rowConverter);
     }
 
