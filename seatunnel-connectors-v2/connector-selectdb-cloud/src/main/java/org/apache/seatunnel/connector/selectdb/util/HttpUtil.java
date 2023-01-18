@@ -28,7 +28,7 @@ public class HttpUtil {
     public HttpUtil() {
     }
 
-    private final static HttpClientBuilder HTTP_CLIENT_BUILDER = HttpClients
+    private static final HttpClientBuilder HTTP_CLIENT_BUILDER = HttpClients
             .custom()
             .disableRedirectHandling();
 

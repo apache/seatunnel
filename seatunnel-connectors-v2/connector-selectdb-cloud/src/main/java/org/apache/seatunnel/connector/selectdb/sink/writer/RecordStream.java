@@ -17,13 +17,13 @@
 
 package org.apache.seatunnel.connector.selectdb.sink.writer;
 
+import static org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorErrorCode.BUFFER_READ_FAILED;
+import static org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorErrorCode.BUFFER_WRITE_FAILED;
+
 import org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorException;
 
 import java.io.IOException;
 import java.io.InputStream;
-
-import static org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorErrorCode.BUFFER_READ_FAILED;
-import static org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorErrorCode.BUFFER_WRITE_FAILED;
 
 /**
  * Record Stream for writing record.
