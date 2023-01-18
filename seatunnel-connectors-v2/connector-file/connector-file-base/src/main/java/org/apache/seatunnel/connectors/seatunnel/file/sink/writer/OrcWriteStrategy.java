@@ -30,7 +30,6 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig
 
 import lombok.NonNull;
 import org.apache.hadoop.fs.Path;
-import org.apache.orc.CompressionKind;
 import org.apache.orc.OrcFile;
 import org.apache.orc.TypeDescription;
 import org.apache.orc.Writer;
@@ -113,8 +112,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
             try {
                 OrcFile.WriterOptions options = OrcFile.writerOptions(getConfiguration(hadoopConf))
                     .setSchema(schema)
-                    // temporarily used snappy
-                    .compress(CompressionKind.SNAPPY)
+                    .compress(compressFormat.getOrcCompression())
                     // use orc version 0.12
                     .version(OrcFile.Version.V_0_12)
                     .overwrite(true);

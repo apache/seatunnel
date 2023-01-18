@@ -25,6 +25,8 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorException;
 
 import lombok.NonNull;
 import org.apache.iceberg.types.Type;
@@ -68,7 +70,8 @@ public class IcebergTypeMapper {
             case MAP:
                 return mappingMapType((Types.MapType) icebergType);
             default:
-                throw new UnsupportedOperationException(
+                throw new IcebergConnectorException(
+                    CommonErrorCode.UNSUPPORTED_DATA_TYPE,
                     "Unsupported iceberg data type: " + icebergType.typeId());
         }
     }
@@ -100,8 +103,10 @@ public class IcebergTypeMapper {
             case STRING:
                 return ArrayType.STRING_ARRAY_TYPE;
             default:
-                throw new UnsupportedOperationException(
-                    "Unsupported iceberg list element type: " + listType.elementType().typeId());
+                throw new IcebergConnectorException(
+                    CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                    "Unsupported iceberg list element type: " +
+                        listType.elementType().typeId());
         }
     }
 

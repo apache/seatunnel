@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.reader;
 
-import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isLowWatermarkEvent;
+import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isHighWatermarkEvent;
 import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isWatermarkEvent;
 import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.isDataChangeRecord;
 import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.isSchemaChangeEvent;
@@ -75,7 +75,7 @@ public class IncrementalSourceRecordEmitter<T>
         throws Exception {
         if (isWatermarkEvent(element)) {
             Offset watermark = getWatermark(element);
-            if (isLowWatermarkEvent(element) && splitState.isSnapshotSplitState()) {
+            if (isHighWatermarkEvent(element) && splitState.isSnapshotSplitState()) {
                 splitState.asSnapshotSplitState().setHighWatermark(watermark);
             }
         } else if (isSchemaChangeEvent(element) && splitState.isIncrementalSplitState()) {

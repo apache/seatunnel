@@ -17,49 +17,23 @@
 
 package org.apache.seatunnel.core.starter.seatunnel.args;
 
+import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.command.CommandArgs;
+import org.apache.seatunnel.core.starter.seatunnel.command.ServerExecuteCommand;
 
 import com.beust.jcommander.Parameter;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
-import java.util.List;
-
-public class ServerCommandArgs implements CommandArgs {
-
-    /**
-     * Undefined parameters parsed will be stored here as seatunnel engine command parameters.
-     */
-    private List<String> seatunnelParams;
-
+@EqualsAndHashCode(callSuper = true)
+@Data
+public class ServerCommandArgs extends CommandArgs {
     @Parameter(names = {"-cn", "--cluster"},
         description = "The name of cluster")
     private String clusterName = "seatunnel_default_cluster";
 
-    @Parameter(names = {"-h", "--help"},
-        help = true,
-        description = "Show the usage message")
-    private boolean help = false;
-
-    public boolean isHelp() {
-        return help;
-    }
-
-    public void setHelp(boolean help) {
-        this.help = help;
-    }
-
-    public String getClusterName() {
-        return clusterName;
-    }
-
-    public void setClusterName(String clusterName) {
-        this.clusterName = clusterName;
-    }
-
-    public List<String> getSeatunnelParams() {
-        return seatunnelParams;
-    }
-
-    public void setSeatunnelParams(List<String> seatunnelParams) {
-        this.seatunnelParams = seatunnelParams;
+    @Override
+    public Command<?> buildCommand() {
+        return new ServerExecuteCommand(this);
     }
 }

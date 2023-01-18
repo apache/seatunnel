@@ -20,7 +20,9 @@ package org.apache.seatunnel.engine.server.dag.physical;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.core.job.JobResult;
 import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.core.job.PipelineExecutionState;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 
@@ -33,6 +35,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 public class PhysicalPlan {
@@ -67,7 +70,12 @@ public class PhysicalPlan {
      * when job status turn to end, complete this future. And then the waitForCompleteByPhysicalPlan
      * in {@link org.apache.seatunnel.engine.server.scheduler.JobScheduler} whenComplete method will be called.
      */
-    private CompletableFuture<JobStatus> jobEndFuture;
+    private CompletableFuture<JobResult> jobEndFuture;
+
+    /**
+     * The error throw by subPlan, should be set when subPlan throw error.
+     */
+    private final AtomicReference<String> errorBySubPlan = new AtomicReference<>();
 
     private final String jobFullName;
 
@@ -125,20 +133,20 @@ public class PhysicalPlan {
         pipelineList.forEach(pipeline -> pipeline.setJobMaster(jobMaster));
     }
 
-    public PassiveCompletableFuture<JobStatus> initStateFuture() {
+    public PassiveCompletableFuture<JobResult> initStateFuture() {
         jobEndFuture = new CompletableFuture<>();
         pipelineList.forEach(this::addPipelineEndCallback);
         return new PassiveCompletableFuture<>(jobEndFuture);
     }
 
     public void addPipelineEndCallback(SubPlan subPlan) {
-        PassiveCompletableFuture<PipelineStatus> future = subPlan.initStateFuture();
+        PassiveCompletableFuture<PipelineExecutionState> future = subPlan.initStateFuture();
         future.thenAcceptAsync(pipelineState -> {
             try {
                 // Notify checkpoint manager when the pipeline end, Whether the pipeline will be restarted or not
                 jobMaster.getCheckpointManager()
                     .listenPipelineRetry(subPlan.getPipelineLocation().getPipelineId(), subPlan.getPipelineState()).join();
-                if (PipelineStatus.CANCELED.equals(pipelineState)) {
+                if (PipelineStatus.CANCELED.equals(pipelineState.getPipelineStatus())) {
                     if (canRestorePipeline(subPlan)) {
                         subPlan.restorePipeline();
                         return;
@@ -149,12 +157,13 @@ public class PhysicalPlan {
                         cancelJob();
                     }
                     LOGGER.info(String.format("release the pipeline %s resource", subPlan.getPipelineFullName()));
-                } else if (PipelineStatus.FAILED.equals(pipelineState)) {
+                } else if (PipelineStatus.FAILED.equals(pipelineState.getPipelineStatus())) {
                     if (canRestorePipeline(subPlan)) {
                         subPlan.restorePipeline();
                         return;
                     }
                     failedPipelineNum.incrementAndGet();
+                    errorBySubPlan.compareAndSet(null, pipelineState.getThrowableMsg());
                     if (makeJobEndWhenPipelineEnded) {
                         cancelJob();
                     }
@@ -170,7 +179,7 @@ public class PhysicalPlan {
                     } else {
                         turnToEndState(JobStatus.FINISHED);
                     }
-                    jobEndFuture.complete((JobStatus) runningJobStateIMap.get(jobId));
+                    jobEndFuture.complete(new JobResult((JobStatus) runningJobStateIMap.get(jobId), errorBySubPlan.get()));
                 }
             } catch (Throwable e) {
                 // Because only cancelJob or releasePipelineResource can throw exception, so we only output log here

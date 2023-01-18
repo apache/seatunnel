@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.server.operation.GetJobInfoOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
+import org.apache.seatunnel.engine.server.operation.SavePointJobOperation;
 import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
 import org.apache.seatunnel.engine.server.operation.WaitForJobCompleteOperation;
 
@@ -54,6 +55,8 @@ public final class ClientToServerOperationDataSerializerHook implements DataSeri
     public static final int GET_JOB_STATE_OPERATION = 6;
 
     public static final int GET_JOB_INFO_OPERATION = 7;
+
+    public static final int SAVEPOINT_JOB_OPERATOR = 8;
 
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
         SeaTunnelFactoryIdConstant.SEATUNNEL_OPERATION_DATA_SERIALIZER_FACTORY,
@@ -91,6 +94,8 @@ public final class ClientToServerOperationDataSerializerHook implements DataSeri
                     return new GetJobDetailStatusOperation();
                 case GET_JOB_INFO_OPERATION:
                     return new GetJobInfoOperation();
+                case SAVEPOINT_JOB_OPERATOR:
+                    return new SavePointJobOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

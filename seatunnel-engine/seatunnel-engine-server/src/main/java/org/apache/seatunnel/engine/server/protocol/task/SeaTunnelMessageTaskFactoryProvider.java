@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobMetricsCod
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobStatusCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelListJobStatusCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelSavePointJobCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelSubmitJobCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelWaitForJobCompleteCodec;
 
@@ -67,5 +68,7 @@ public class SeaTunnelMessageTaskFactoryProvider implements MessageTaskFactoryPr
             (clientMessage, connection) -> new GetJobMetricsTask(clientMessage, node, connection));
         factories.put(SeaTunnelGetJobInfoCodec.REQUEST_MESSAGE_TYPE,
             (clientMessage, connection) -> new GetJobInfoTask(clientMessage, node, connection));
+        factories.put(SeaTunnelSavePointJobCodec.REQUEST_MESSAGE_TYPE,
+            (clientMessage, connection) -> new SavePointJobTask(clientMessage, node, connection));
     }
 }

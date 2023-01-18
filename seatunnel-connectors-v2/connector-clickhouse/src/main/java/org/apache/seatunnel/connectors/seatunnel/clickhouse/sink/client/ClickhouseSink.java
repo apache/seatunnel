@@ -142,6 +142,7 @@ public class ClickhouseSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSin
             metadata = new ShardMetadata(
                 shardKey,
                 shardKeyType,
+                table.getSortingKey(),
                 config.getString(DATABASE.key()),
                 config.getString(TABLE.key()),
                 table.getEngine(),
@@ -151,6 +152,7 @@ public class ClickhouseSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSin
             metadata = new ShardMetadata(
                 shardKey,
                 shardKeyType,
+                table.getSortingKey(),
                 config.getString(DATABASE.key()),
                 config.getString(TABLE.key()),
                 table.getEngine(),

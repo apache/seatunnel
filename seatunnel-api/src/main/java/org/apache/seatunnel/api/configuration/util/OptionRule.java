@@ -195,8 +195,9 @@ public class OptionRule {
 
         public <T> Builder conditional(@NonNull Option<T> conditionalOption, @NonNull T expectValue, @NonNull Option<?>... requiredOptions) {
             for (Option<?> o : requiredOptions) {
-                verifyDuplicate(o, "ConditionalOption");
-                //verifyRequiredOptionDefaultValue(o);
+                // temporarily cancel this logic, need to find a way to verify that the options is duplicated
+                // verifyDuplicate(o, "ConditionalOption");
+                // verifyRequiredOptionDefaultValue(o);
             }
 
             verifyConditionalExists(conditionalOption);
