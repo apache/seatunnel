@@ -39,7 +39,6 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.shaded.org.apache.commons.lang3.tuple.ImmutablePair;
 
@@ -54,7 +53,6 @@ import java.util.concurrent.TimeUnit;
  * Cluster fault tolerance test. Test the job recovery capability and data consistency assurance capability in case of cluster node failure
  */
 @Slf4j
-@Disabled
 public class ClusterFaultToleranceIT {
 
     public static final String DYNAMIC_TEST_CASE_NAME = "dynamic_test_case_name";
@@ -108,7 +106,6 @@ public class ClusterFaultToleranceIT {
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
             CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
-
             Awaitility.await().atMost(200000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> {
                     Thread.sleep(2000);
