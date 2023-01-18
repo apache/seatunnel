@@ -34,7 +34,7 @@ public class JdbcSourceOptions extends SourceOptions {
     public static final Option<Integer> PORT =
             Options.key("port")
                     .intType()
-                    .defaultValue(3306)
+                    .noDefaultValue()
                     .withDescription("Integer port number of the database server.");
 
     public static final Option<String> USERNAME =
