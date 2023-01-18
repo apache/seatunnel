@@ -23,11 +23,11 @@ import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.utils.ObjectUtils;
 
 import java.lang.reflect.Field;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 /** A {@link SourceConfig.Factory} to provide {@link SourceConfig} of JDBC data source. */
@@ -189,7 +189,6 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         return this;
     }
 
-
     /**
      * Returns an immutable map
      */
@@ -207,7 +206,6 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
                     ObjectUtils.getValueByFieldName(field.getName(), this));
         }
     }
-
 
     public JdbcSourceConfigFactory fromReadonlyConfig(ReadonlyConfig config) {
         this.port = config.get(JdbcSourceOptions.PORT);

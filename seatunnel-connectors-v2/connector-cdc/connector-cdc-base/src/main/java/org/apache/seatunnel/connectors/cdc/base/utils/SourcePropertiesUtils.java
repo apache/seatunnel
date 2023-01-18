@@ -14,14 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.connectors.cdc.base.utils;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.EmbeddedDatabaseHistory;
 
-import java.util.*;
-
-import static com.google.common.base.Preconditions.checkNotNull;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.UUID;
 
 /**
  * When a subclass inherits the {@link JdbcSourceConfigFactory} class to implement the create method,
@@ -29,7 +33,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
  */
 public class SourcePropertiesUtils {
 
-    public static Properties getProperties(JdbcSourceConfigFactory sourceConfigFactory,Integer subtaskId){
+    /**
+     * Extract public properties here
+     */
+    public static Properties getProperties(JdbcSourceConfigFactory sourceConfigFactory, Integer subtaskId) {
         Map<String, Object> sourceConfig = sourceConfigFactory.getSourceConfig();
         Properties props = new Properties();
 
@@ -50,11 +57,10 @@ public class SourcePropertiesUtils {
 
         if (sourceConfig.get("databaseList") != null){
             props.setProperty("database.include.list",
-                    String.join(",",(List<String>) sourceConfig.get("databaseList")));
+                    String.join(",", (List<String>) sourceConfig.get("databaseList")));
         }
 
         return props;
     }
-
 
 }

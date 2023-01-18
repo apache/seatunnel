@@ -17,14 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.config;
 
-import io.debezium.connector.sqlserver.SqlServerConnector;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
 import org.apache.seatunnel.connectors.cdc.base.utils.SourcePropertiesUtils;
 
+import io.debezium.connector.sqlserver.SqlServerConnector;
+
 import java.util.Properties;
 import java.util.stream.Collectors;
-
-import static com.google.common.base.Preconditions.checkNotNull;
 
 /** Factory for creating {@link SqlServerSourceConfig}. */
 public class SqlServerSourceConfigFactory extends JdbcSourceConfigFactory {

@@ -17,10 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config;
 
-import io.debezium.config.Configuration;
-import io.debezium.connector.mysql.MySqlConnectorConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
 import org.apache.seatunnel.connectors.cdc.base.utils.SourcePropertiesUtils;
+
+import io.debezium.config.Configuration;
+import io.debezium.connector.mysql.MySqlConnectorConfig;
 
 import java.util.Properties;
 

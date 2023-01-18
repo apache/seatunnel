@@ -17,12 +17,9 @@
 
 package org.apache.seatunnel.connectors.cdc.base.utils;
 
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.util.HashMap;
-import java.util.Map;
 
 /** Utilities for operation on {@link Object}. */
 public class ObjectUtils {
@@ -102,15 +99,14 @@ public class ObjectUtils {
         BigDecimal bigDecimal2 = BigDecimal.valueOf(arg2);
         return bigDecimal1.compareTo(bigDecimal2);
     }
+
     /**
      * Get the value of this attribute according to the attribute name
-     * @param fieldName
-     * @param object
-     * @return
      */
-    public static Object getValueByFieldName(String fieldName,Object object){
-        String firstLetter=fieldName.substring(0,1).toUpperCase();
-        String getter = "get"+firstLetter+fieldName.substring(1);
+    public static Object getValueByFieldName(String fieldName, Object object){
+        String firstLetter = fieldName.substring(0, 1).toUpperCase();
+        String getter = "get" + firstLetter + fieldName.substring(1);
+
         try {
             Method method = object.getClass().getMethod(getter, new Class[]{});
             Object value = method.invoke(object, new Object[] {});
