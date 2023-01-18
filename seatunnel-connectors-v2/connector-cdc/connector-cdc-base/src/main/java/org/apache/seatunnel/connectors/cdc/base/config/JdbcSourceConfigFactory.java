@@ -20,7 +20,11 @@ package org.apache.seatunnel.connectors.cdc.base.config;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.utils.ObjectUtils;
 
+import java.lang.reflect.Field;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -50,6 +54,7 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
     protected int connectMaxRetries = JdbcSourceOptions.CONNECT_MAX_RETRIES.defaultValue();
     protected int connectionPoolSize = JdbcSourceOptions.CONNECTION_POOL_SIZE.defaultValue();
     protected Properties dbzProperties;
+    protected HashMap<String, Object> sourceConfig = new HashMap<>(16);
 
     /** Integer port number of the database server. */
     public JdbcSourceConfigFactory hostname(String hostname) {
@@ -184,6 +189,26 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         return this;
     }
 
+
+    /**
+     * Returns an immutable map
+     */
+    public Map<String, Object> getSourceConfig() {
+        return Collections.unmodifiableMap(this.sourceConfig);
+    }
+
+    /**
+     * Add some attributes of this class to the map in the form of k and v
+     */
+    private void buildSourceConfig() {
+        Field[] fields = this.getClass().getFields();
+        for (Field field : fields) {
+            this.sourceConfig.put(field.getName(),
+                    ObjectUtils.getValueByFieldName(field.getName(), this));
+        }
+    }
+
+
     public JdbcSourceConfigFactory fromReadonlyConfig(ReadonlyConfig config) {
         this.port = config.get(JdbcSourceOptions.PORT);
         this.hostname = config.get(JdbcSourceOptions.HOSTNAME);
@@ -203,6 +228,7 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         this.connectionPoolSize = config.get(JdbcSourceOptions.CONNECTION_POOL_SIZE);
         this.dbzProperties = new Properties();
         config.getOptional(SourceOptions.DEBEZIUM_PROPERTIES).ifPresent(map -> dbzProperties.putAll(map));
+        buildSourceConfig();
         return this;
     }
 

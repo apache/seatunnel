@@ -17,16 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.config;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
-import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
-import org.apache.seatunnel.connectors.cdc.debezium.EmbeddedDatabaseHistory;
-
 import io.debezium.connector.sqlserver.SqlServerConnector;
+import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
+import org.apache.seatunnel.connectors.cdc.base.utils.SourcePropertiesUtils;
 
 import java.util.Properties;
-import java.util.UUID;
 import java.util.stream.Collectors;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /** Factory for creating {@link SqlServerSourceConfig}. */
 public class SqlServerSourceConfigFactory extends JdbcSourceConfigFactory {
@@ -36,8 +34,7 @@ public class SqlServerSourceConfigFactory extends JdbcSourceConfigFactory {
 
     @Override
     public SqlServerSourceConfig create(int subtask) {
-        Properties props = new Properties();
-        props.setProperty("connector.class", SqlServerConnector.class.getCanonicalName());
+        Properties props = SourcePropertiesUtils.getProperties(this, subtask);
 
         // hard code server name, because we don't need to distinguish it, docs:
         // Logical name that identifies and provides a namespace for the SQL Server database
@@ -45,21 +42,11 @@ public class SqlServerSourceConfigFactory extends JdbcSourceConfigFactory {
         // all other connectors, since it is used as a prefix for all Kafka topic names
         // emanating from this connector. Only alphanumeric characters and underscores should be
         // used.
+
         props.setProperty("database.server.name", DATABASE_SERVER_NAME);
-        props.setProperty("database.hostname", checkNotNull(hostname));
-        props.setProperty("database.user", checkNotNull(username));
-        props.setProperty("database.password", checkNotNull(password));
-        props.setProperty("database.port", String.valueOf(port));
+        props.setProperty("connector.class", SqlServerConnector.class.getCanonicalName());
         props.setProperty("database.history.skip.unparseable.ddl", String.valueOf(true));
         props.setProperty("database.dbname", checkNotNull(databaseList.get(0)));
-
-        props.setProperty("database.history", EmbeddedDatabaseHistory.class.getCanonicalName());
-        props.setProperty("database.history.instance.name", UUID.randomUUID() + "_" + subtask);
-        props.setProperty("database.history.skip.unparseable.ddl", String.valueOf(true));
-        props.setProperty("database.history.refer.ddl", String.valueOf(true));
-
-        //TODO Not yet supported
-        props.setProperty("include.schema.changes", String.valueOf(false));
 
         if (databaseList != null) {
             props.setProperty("database.include.list", String.join(",", databaseList));

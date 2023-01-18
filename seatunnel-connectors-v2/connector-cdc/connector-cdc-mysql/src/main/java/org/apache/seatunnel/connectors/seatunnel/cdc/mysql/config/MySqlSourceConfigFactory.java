@@ -17,20 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
-import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
-import org.apache.seatunnel.connectors.cdc.debezium.EmbeddedDatabaseHistory;
-
 import io.debezium.config.Configuration;
 import io.debezium.connector.mysql.MySqlConnectorConfig;
+import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
+import org.apache.seatunnel.connectors.cdc.base.utils.SourcePropertiesUtils;
 
 import java.util.Properties;
-import java.util.UUID;
 
 /** A factory to initialize {@link MySqlSourceConfig}. */
 public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
 
+    private static final String DATABASE_SERVER_NAME = "mysql_binlog_source";
     private ServerIdRange serverIdRange;
 
     /**
@@ -49,27 +46,19 @@ public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
 
     /** Creates a new {@link MySqlSourceConfig} for the given subtask {@code subtaskId}. */
     public MySqlSourceConfig create(int subtaskId) {
-        Properties props = new Properties();
+        Properties props = SourcePropertiesUtils.getProperties(this, subtaskId);
+
         // hard code server name, because we don't need to distinguish it, docs:
         // Logical name that identifies and provides a namespace for the particular
         // MySQL database server/cluster being monitored. The logical name should be
         // unique across all other connectors, since it is used as a prefix for all
         // Kafka topic names emanating from this connector.
         // Only alphanumeric characters and underscores should be used.
-        props.setProperty("database.server.name", "mysql_binlog_source");
-        props.setProperty("database.hostname", checkNotNull(hostname));
-        props.setProperty("database.user", checkNotNull(username));
-        props.setProperty("database.password", checkNotNull(password));
-        props.setProperty("database.port", String.valueOf(port));
+
+        props.setProperty("database.server.name", DATABASE_SERVER_NAME);
         props.setProperty("database.fetchSize", String.valueOf(fetchSize));
         props.setProperty("database.responseBuffering", "adaptive");
         props.setProperty("database.serverTimezone", serverTimeZone);
-
-        // database history
-        props.setProperty("database.history", EmbeddedDatabaseHistory.class.getCanonicalName());
-        props.setProperty("database.history.instance.name", UUID.randomUUID() + "_" + subtaskId);
-        props.setProperty("database.history.skip.unparseable.ddl", String.valueOf(true));
-        props.setProperty("database.history.refer.ddl", String.valueOf(true));
 
         props.setProperty("connect.timeout.ms", String.valueOf(connectTimeoutMillis));
         // the underlying debezium reader should always capture the schema changes and forward them.
@@ -77,7 +66,7 @@ public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
         // only DataStream API program need to emit the schema record, the Table API need not
 
         //TODO Not yet supported
-        props.setProperty("include.schema.changes", String.valueOf(false));
+
         // disable the offset flush totally
         props.setProperty("offset.flush.interval.ms", String.valueOf(Long.MAX_VALUE));
         // disable tombstones
@@ -92,9 +81,7 @@ public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
             int serverId = serverIdRange.getServerId(subtaskId);
             props.setProperty("database.server.id", String.valueOf(serverId));
         }
-        if (databaseList != null) {
-            props.setProperty("database.include.list", String.join(",", databaseList));
-        }
+
         if (tableList != null) {
             props.setProperty("table.include.list", String.join(",", tableList));
         }
