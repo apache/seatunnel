@@ -152,16 +152,10 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
     }
 
     private void createStreamTableEnvironment() {
-        // use blink and streammode
-        EnvironmentSettings.Builder envBuilder = EnvironmentSettings.newInstance().inStreamingMode();
-        if (this.config.hasPath(ConfigKeyName.PLANNER) && "blink"
-                .equals(this.config.getString(ConfigKeyName.PLANNER))) {
-            envBuilder.useBlinkPlanner();
-        } else {
-            envBuilder.useOldPlanner();
-        }
-        EnvironmentSettings environmentSettings = envBuilder.build();
-
+        EnvironmentSettings environmentSettings = EnvironmentSettings.newInstance()
+                .inStreamingMode()
+                .useBlinkPlanner()
+                .build();
         tableEnvironment = StreamTableEnvironment.create(getStreamExecutionEnvironment(), environmentSettings);
         TableConfig config = tableEnvironment.getConfig();
         if (this.config.hasPath(ConfigKeyName.MAX_STATE_RETENTION_TIME) && this.config
