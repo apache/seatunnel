@@ -35,6 +35,7 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.data.IcebergTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.IcebergBatchSplitEnumerator;
@@ -99,10 +100,10 @@ public class IcebergSource implements SeaTunnelSource<SeaTunnelRow, IcebergFileS
             columnNames.toArray(new String[0]),
             columnDataTypes.toArray(new SeaTunnelDataType[0]));
 
-        CheckResult checkResult = CheckConfigUtil.checkAllExists(pluginConfig, SeaTunnelSchema.SCHEMA.key());
+        CheckResult checkResult = CheckConfigUtil.checkAtLeastOneExists(pluginConfig,  CommonConfig.KEY_FIELDS.key(), SeaTunnelSchema.SCHEMA.key());
         if (checkResult.isSuccess()) {
-            Config schema = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
-            SeaTunnelSchema configSchema = SeaTunnelSchema.buildWithConfig(schema);
+            Config config = pluginConfig.hasPath(SeaTunnelSchema.SCHEMA.key()) ? pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key()) : pluginConfig;
+            SeaTunnelSchema configSchema = SeaTunnelSchema.buildWithConfig(config);
             SeaTunnelRowType projectedRowType = configSchema.getSeaTunnelRowType();
             for (int i = 0; i < projectedRowType.getFieldNames().length; i++) {
                 String fieldName = projectedRowType.getFieldName(i);
