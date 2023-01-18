@@ -62,7 +62,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
     public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         super.setSeaTunnelRowTypeInfo(seaTunnelRowType);
         this.serializationSchema = TextSerializationSchema.builder()
-                .seaTunnelRowType(seaTunnelRowType)
+                .seaTunnelRowType(buildSchemaWithRowType(seaTunnelRowType, sinkColumnsIndexInRow))
                 .delimiter(fieldDelimiter)
                 .dateFormatter(dateFormat)
                 .dateTimeFormatter(dateTimeFormat)
@@ -81,7 +81,9 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
             } else {
                 fsDataOutputStream.write(rowDelimiter.getBytes());
             }
-            fsDataOutputStream.write(serializationSchema.serialize(seaTunnelRow));
+            fsDataOutputStream.write(serializationSchema.serialize(seaTunnelRow.copy(sinkColumnsIndexInRow.stream()
+                .mapToInt(Integer::intValue)
+                .toArray())));
         } catch (IOException e) {
             throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED,
                     String.format("Write data to file [%s] failed", filePath), e);

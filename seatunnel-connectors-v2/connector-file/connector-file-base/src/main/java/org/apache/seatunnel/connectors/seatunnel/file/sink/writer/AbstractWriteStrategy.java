@@ -22,6 +22,7 @@ import static org.apache.parquet.avro.AvroSchemaConverter.ADD_LIST_ELEMENT_RECOR
 import static org.apache.parquet.avro.AvroWriteSupport.WRITE_FIXED_AS_INT96;
 import static org.apache.parquet.avro.AvroWriteSupport.WRITE_OLD_LIST_STRUCTURE;
 
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.Constants;
@@ -115,6 +116,20 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
             beingWrittenFile.clear();
         }
         currentBatchSize++;
+    }
+
+    protected SeaTunnelRowType buildSchemaWithRowType(SeaTunnelRowType seaTunnelRowType, List<Integer> sinkColumnsIndex) {
+        SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
+        String[] fieldNames = seaTunnelRowType.getFieldNames();
+        List<String> newFieldNames = new ArrayList<>();
+        List<SeaTunnelDataType<?>> newFieldTypes = new ArrayList<>();
+        sinkColumnsIndex.forEach(index -> {
+            newFieldNames.add(fieldNames[index]);
+            newFieldTypes.add(fieldTypes[index]);
+        });
+        return new SeaTunnelRowType(
+            newFieldNames.toArray(new String[0]),
+            newFieldTypes.toArray(new SeaTunnelDataType[0]));
     }
 
     /**
