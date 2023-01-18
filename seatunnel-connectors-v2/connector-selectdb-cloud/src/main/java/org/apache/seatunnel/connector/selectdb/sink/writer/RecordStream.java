@@ -22,8 +22,8 @@ import org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorExcept
 import java.io.IOException;
 import java.io.InputStream;
 
-import static org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorErrorCode.STREAM_READ_FAILED;
-import static org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorErrorCode.STREAM_WRITE_FAILED;
+import static org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorErrorCode.BUFFER_READ_FAILED;
+import static org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorErrorCode.BUFFER_WRITE_FAILED;
 
 /**
  * Record Stream for writing record.
@@ -53,7 +53,7 @@ public class RecordStream extends InputStream {
         try {
             return recordBuffer.read(buff);
         } catch (InterruptedException e) {
-            throw new SelectDBConnectorException(STREAM_READ_FAILED, e);
+            throw new SelectDBConnectorException(BUFFER_READ_FAILED, e);
         }
     }
 
@@ -61,7 +61,7 @@ public class RecordStream extends InputStream {
         try {
             recordBuffer.write(buff);
         } catch (InterruptedException e) {
-            throw new SelectDBConnectorException(STREAM_WRITE_FAILED, e);
+            throw new SelectDBConnectorException(BUFFER_WRITE_FAILED, e);
         }
     }
 }

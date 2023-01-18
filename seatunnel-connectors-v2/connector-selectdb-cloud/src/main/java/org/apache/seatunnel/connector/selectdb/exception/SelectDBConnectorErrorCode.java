@@ -26,8 +26,8 @@ public enum SelectDBConnectorErrorCode implements SeaTunnelErrorCode {
     REDIRECTED_FAILED("SelectDB-04", "Get the redirected s3 address filed"),
     WHILE_LOADING_FAILED("SelectDB-05", "error while loading data"),
     BUFFER_STOP_FAILED("SelectDB-06", "buffer stop failed"),
-    STREAM_READ_FAILED("SelectDB-07", "stream read failed"),
-    STREAM_WRITE_FAILED("SelectDB-08", "stream write failed");
+    BUFFER_READ_FAILED("SelectDB-07", "buffer read failed"),
+    BUFFER_WRITE_FAILED("SelectDB-08", "buffer write failed");
 
     private final String code;
     private final String description;
