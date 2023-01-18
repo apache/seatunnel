@@ -101,6 +101,9 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             } else if (ServerConfigOptions.PRINT_JOB_METRICS_INFO_INTERVAL.key().equals(name)) {
                 engineConfig.setPrintJobMetricsInfoInterval(getIntegerValue(ServerConfigOptions.PRINT_JOB_METRICS_INFO_INTERVAL.key(),
                     getTextContent(node)));
+            } else if (ServerConfigOptions.JOB_METRICS_BACKUP_INTERVAL.key().equals(name)) {
+                engineConfig.setJobMetricsBackupInterval(getIntegerValue(ServerConfigOptions.JOB_METRICS_BACKUP_INTERVAL.key(),
+                    getTextContent(node)));
             } else if (ServerConfigOptions.SLOT_SERVICE.key().equals(name)) {
                 engineConfig.setSlotServiceConfig(parseSlotServiceConfig(node));
             } else if (ServerConfigOptions.CHECKPOINT.key().equals(name)) {

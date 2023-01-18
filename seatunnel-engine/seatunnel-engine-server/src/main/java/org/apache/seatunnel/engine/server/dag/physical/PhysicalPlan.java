@@ -169,7 +169,7 @@ public class PhysicalPlan {
                     }
                     LOGGER.severe("Pipeline Failed, Begin to cancel other pipelines in this job.");
                 }
-                subPlanDone(subPlan);
+                subPlanDone(subPlan, pipelineState.getPipelineStatus());
 
                 if (finishedPipelineNum.incrementAndGet() == this.pipelineList.size()) {
                     if (failedPipelineNum.get() > 0) {
@@ -188,8 +188,9 @@ public class PhysicalPlan {
         });
     }
 
-    private void subPlanDone(SubPlan subPlan) {
+    private void subPlanDone(SubPlan subPlan, PipelineStatus pipelineStatus) {
         jobMaster.savePipelineMetricsToHistory(subPlan.getPipelineLocation());
+        jobMaster.removeMetricsContext(subPlan.getPipelineLocation(), pipelineStatus);
         jobMaster.releasePipelineResource(subPlan);
         notifyCheckpointManagerPipelineEnd(subPlan);
     }

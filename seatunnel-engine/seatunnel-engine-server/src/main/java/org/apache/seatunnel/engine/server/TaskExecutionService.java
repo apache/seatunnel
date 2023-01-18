@@ -32,6 +32,9 @@ import static java.util.stream.Collectors.toList;
 
 import org.apache.seatunnel.api.common.metrics.MetricTags;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.ConfigProvider;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.loader.SeatunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
@@ -45,6 +48,8 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.execution.TaskTracker;
+import org.apache.seatunnel.engine.server.metrics.MetricsContext;
+import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperation;
 
@@ -56,6 +61,7 @@ import com.hazelcast.internal.metrics.MetricsRegistry;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.logging.ILogger;
+import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import com.hazelcast.spi.properties.HazelcastProperties;
@@ -76,9 +82,12 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -101,8 +110,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     private final ConcurrentMap<TaskGroupLocation, TaskGroupContext> finishedExecutionContexts = new ConcurrentHashMap<>();
     private final ConcurrentMap<TaskGroupLocation, CompletableFuture<Void>> cancellationFutures =
         new ConcurrentHashMap<>();
+    private final SeaTunnelConfig seaTunnelConfig;
+
+    private final ScheduledExecutorService scheduledExecutorService;
 
     public TaskExecutionService(NodeEngineImpl nodeEngine, HazelcastProperties properties) {
+        seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         this.hzInstanceName = nodeEngine.getHazelcastInstance().getName();
         this.nodeEngine = nodeEngine;
         this.logger = nodeEngine.getLoggingService().getLogger(TaskExecutionService.class);
@@ -111,6 +124,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         MetricDescriptor descriptor = registry.newMetricDescriptor()
             .withTag(MetricTags.SERVICE, this.getClass().getSimpleName());
         registry.registerStaticMetrics(descriptor, this);
+        scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+        scheduledExecutorService.scheduleAtFixedRate(this::updateMetricsContextInImap, 0, seaTunnelConfig.getEngineConfig().getJobMetricsBackupInterval(), TimeUnit.SECONDS);
     }
 
     public void start() {
@@ -120,6 +135,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     public void shutdown() {
         isRunning = false;
         executorService.shutdownNow();
+        scheduledExecutorService.shutdown();
     }
 
     public TaskGroupContext getExecutionContext(TaskGroupLocation taskGroupLocation) {
@@ -325,10 +341,30 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                     task.provideDynamicMetrics(copy3, context);
                 });
             });
+            updateMetricsContextInImap();
         } catch (Throwable t) {
             logger.warning("Dynamic metric collection failed", t);
             throw t;
         }
+    }
+
+    private synchronized void updateMetricsContextInImap() {
+        Map<TaskGroupLocation, TaskGroupContext> contextMap = new HashMap<>();
+        contextMap.putAll(executionContexts);
+        contextMap.putAll(finishedExecutionContexts);
+        IMap<TaskLocation, MetricsContext> map =
+            nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
+        contextMap.forEach((taskGroupLocation, taskGroupContext) -> {
+            taskGroupContext.getTaskGroup().getTasks().forEach(task -> {
+                // MetricsContext only exists in SeaTunnelTask
+                if (task instanceof SeaTunnelTask) {
+                    SeaTunnelTask seaTunnelTask = (SeaTunnelTask) task;
+                    if (null != seaTunnelTask.getMetricsContext()) {
+                        map.put(seaTunnelTask.getTaskLocation(), seaTunnelTask.getMetricsContext());
+                    }
+                }
+            });
+        });
     }
 
     private final class BlockingWorker implements Runnable {
