@@ -33,9 +33,10 @@ import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelListJobStatusCod
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelSavePointJobCodec;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.logging.ILogger;
 import lombok.NonNull;
@@ -81,9 +82,7 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
     }
 
     public void shutdown() {
-        if (hazelcastClient != null) {
-            hazelcastClient.shutdown();
-        }
+        hazelcastClient.shutdown();
     }
 
     /**

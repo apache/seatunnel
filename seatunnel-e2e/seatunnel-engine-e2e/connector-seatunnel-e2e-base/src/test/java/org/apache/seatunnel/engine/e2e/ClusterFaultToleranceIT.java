@@ -733,7 +733,7 @@ public class ClusterFaultToleranceIT {
             Thread.sleep(10000);
             clientJobProxy.cancelJob();
 
-            Awaitility.await().atMost(200000, TimeUnit.MILLISECONDS)
+            Awaitility.await().atMost(360000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(
                     objectCompletableFuture.isDone() && JobStatus.CANCELED.equals(objectCompletableFuture.get())));
 

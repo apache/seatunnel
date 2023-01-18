@@ -54,7 +54,7 @@ public abstract class BaseSeaTunnelSourceFunction extends RichSourceFunction<Row
     protected transient volatile BaseSourceFunction<SeaTunnelRow> internalSource;
 
     protected transient ListState<Map<Integer, List<byte[]>>> sourceState;
-    protected transient volatile Map<Integer, List<byte[]>> restoredState = new HashMap<>();
+    protected transient volatile Map<Integer, List<byte[]>> restoredState;
 
     protected final AtomicLong latestCompletedCheckpointId = new AtomicLong(0);
     protected final AtomicLong latestTriggerCheckpointId = new AtomicLong(0);
@@ -142,6 +142,7 @@ public abstract class BaseSeaTunnelSourceFunction extends RichSourceFunction<Row
 
     @Override
     public void initializeState(FunctionInitializationContext initializeContext) throws Exception {
+        this.restoredState = new HashMap<>();
         this.sourceState = initializeContext.getOperatorStateStore()
             .getListState(
                 new ListStateDescriptor<>(

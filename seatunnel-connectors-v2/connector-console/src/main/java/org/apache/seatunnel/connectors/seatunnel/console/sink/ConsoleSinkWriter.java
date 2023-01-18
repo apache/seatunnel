@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
 import java.lang.reflect.Array;
@@ -31,6 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
+@Slf4j
 public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private final SeaTunnelRowType seaTunnelRowType;
@@ -40,8 +42,7 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     public ConsoleSinkWriter(SeaTunnelRowType seaTunnelRowType, SinkWriter.Context context) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.context = context;
-        System.out.printf("fields : %s%n", StringUtils.join(seaTunnelRowType.getFieldNames(), ", "));
-        System.out.printf("types : %s%n", StringUtils.join(seaTunnelRowType.getFieldTypes(), ", "));
+        log.info("output rowType: {}", fieldsInfo(seaTunnelRowType));
     }
 
     @Override
@@ -53,12 +54,20 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         for (int i = 0; i < fieldTypes.length; i++) {
             arr[i] = fieldToString(fieldTypes[i], fields[i]);
         }
-        System.out.format("subtaskIndex=%s: row=%s : %s%n", context.getIndexOfSubtask(), CNT.incrementAndGet(), StringUtils.join(arr, ", "));
+        log.info("subtaskIndex={}  rowIndex={}:  SeaTunnelRow#tableId={} SeaTunnelRow#kind={} : {}", context.getIndexOfSubtask(), CNT.incrementAndGet(), element.getTableId(), element.getRowKind(), StringUtils.join(arr, ", "));
     }
 
     @Override
     public void close() {
         // nothing
+    }
+
+    private String fieldsInfo(SeaTunnelRowType seaTunnelRowType) {
+        String[] fieldsInfo = new String[seaTunnelRowType.getTotalFields()];
+        for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
+            fieldsInfo[i] = String.format("%s<%s>", seaTunnelRowType.getFieldName(i), seaTunnelRowType.getFieldType(i));
+        }
+        return StringUtils.join(fieldsInfo, ", ");
     }
 
     private String fieldToString(SeaTunnelDataType<?> type, Object value) {

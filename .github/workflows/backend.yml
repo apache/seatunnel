@@ -304,14 +304,14 @@ jobs:
         run: |
           ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates
         env:
-          MAVEN_OPTS: -Xmx2048m
+          MAVEN_OPTS: -Xmx4096m
 
       - name: run updated modules unit test
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != ''
         run: |
           ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl ${{needs.changes.outputs.ut-modules}} -am -Pci
         env:
-          MAVEN_OPTS: -Xmx2048m
+          MAVEN_OPTS: -Xmx4096m
 
   updated-modules-integration-test:
     needs: [ changes, sanity-check ]
@@ -412,7 +412,7 @@ jobs:
           run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module $sub_modules 3 0`
           ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
-          MAVEN_OPTS: -Xmx2048m
+          MAVEN_OPTS: -Xmx4096m
 
   all-connectors-it-2:
     needs: [ changes, sanity-check ]
@@ -441,7 +441,7 @@ jobs:
           run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module $sub_modules 3 1`
           ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
-          MAVEN_OPTS: -Xmx2048m
+          MAVEN_OPTS: -Xmx4096m
 
   all-connectors-it-3:
     needs: [ changes, sanity-check ]
@@ -470,4 +470,4 @@ jobs:
           run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module $sub_modules 3 2`
           ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
-          MAVEN_OPTS: -Xmx2048m
+          MAVEN_OPTS: -Xmx4096m
