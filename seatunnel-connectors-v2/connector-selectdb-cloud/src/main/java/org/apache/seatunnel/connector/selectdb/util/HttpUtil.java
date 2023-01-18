@@ -25,12 +25,14 @@ import org.apache.http.impl.client.HttpClients;
  * util to build http client.
  */
 public class HttpUtil {
-    private final HttpClientBuilder httpClientBuilder = HttpClients
+    public HttpUtil() {
+    }
+
+    private final static HttpClientBuilder HTTP_CLIENT_BUILDER = HttpClients
             .custom()
             .disableRedirectHandling();
 
-    public CloseableHttpClient getHttpClient() {
-        return httpClientBuilder.build();
+    public static CloseableHttpClient getHttpClient() {
+        return HTTP_CLIENT_BUILDER.build();
     }
-
 }

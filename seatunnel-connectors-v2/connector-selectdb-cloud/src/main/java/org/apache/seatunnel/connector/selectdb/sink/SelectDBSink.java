@@ -59,7 +59,7 @@ public class SelectDBSink implements SeaTunnelSink<SeaTunnelRow, SelectDBSinkSta
     private SeaTunnelRowType seaTunnelRowType;
     @Override
     public String getPluginName() {
-        return "SelectDBSink";
+        return "SelectDBCloud";
     }
 
     @Override

@@ -24,7 +24,10 @@ public enum SelectDBConnectorErrorCode implements SeaTunnelErrorCode {
     COMMIT_FAILED("SelectDB-02", "commit error"),
     CLOSE_HTTP_FAILED("SelectDB-03", "Closing httpClient failed"),
     REDIRECTED_FAILED("SelectDB-04", "Get the redirected s3 address filed"),
-    WHILE_LOADING_FAILED("SelectDB-05", "error while loading data");
+    WHILE_LOADING_FAILED("SelectDB-05", "error while loading data"),
+    BUFFER_STOP_FAILED("SelectDB-06", "buffer stop failed"),
+    STREAM_READ_FAILED("SelectDB-07", "stream read failed"),
+    STREAM_WRITE_FAILED("SelectDB-08", "stream write failed");
 
     private final String code;
     private final String description;

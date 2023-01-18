@@ -18,8 +18,10 @@
 package org.apache.seatunnel.connector.selectdb.sink.writer;
 
 import static com.google.common.base.Preconditions.checkState;
+import static org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorErrorCode.BUFFER_STOP_FAILED;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorException;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -77,7 +79,7 @@ public class RecordBuffer {
                 readQueue.put(byteBuffer);
             }
         } catch (Exception e) {
-            throw new IOException(e);
+            throw new SelectDBConnectorException(BUFFER_STOP_FAILED,e);
         }
     }
 

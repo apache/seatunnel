@@ -88,7 +88,7 @@ Use JSON format to import data
 
 ```
 sink {
-  SelectDBSink {
+  SelectDBCloud {
     load-url="warehouse_ip:http_port"
     jdbc-url="warehouse_ip:mysql_port"
     cluster-name="Cluster"
@@ -107,7 +107,7 @@ Use CSV format to import data
 
 ```
 sink {
-  SelectDBSink {
+  SelectDBCloud {
     load-url="warehouse_ip:http_port"
     jdbc-url="warehouse_ip:mysql_port"
     cluster-name="Cluster"
