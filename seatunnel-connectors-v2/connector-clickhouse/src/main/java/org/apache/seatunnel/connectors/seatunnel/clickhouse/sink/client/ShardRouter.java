@@ -24,6 +24,7 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.ShardMetadata;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.DistributedEngine;
 
 import com.clickhouse.client.ClickHouseRequest;
+import lombok.Getter;
 import net.jpountz.xxhash.XXHash64;
 import net.jpountz.xxhash.XXHashFactory;
 import org.apache.commons.lang3.StringUtils;
@@ -47,6 +48,8 @@ public class ShardRouter implements Serializable {
     private final TreeMap<Integer, Shard> shards;
     private final String shardKey;
     private final String shardKeyType;
+    @Getter
+    private final String sortingKey;
     private final boolean splitMode;
 
     private static final XXHash64 HASH_INSTANCE = XXHashFactory.fastestInstance().hash64();
@@ -56,6 +59,7 @@ public class ShardRouter implements Serializable {
         this.shards = new TreeMap<>();
         this.shardKey = shardMetadata.getShardKey();
         this.shardKeyType = shardMetadata.getShardKeyType();
+        this.sortingKey = shardMetadata.getSortingKey();
         this.splitMode = shardMetadata.isSplitMode();
         this.table = shardMetadata.getTable();
         this.tableEngine = shardMetadata.getTableEngine();

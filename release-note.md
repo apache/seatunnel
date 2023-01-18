@@ -3,8 +3,10 @@
 ## New Feature
 ### Zeta Engine
 - [Script]Add support close engine instance shell
+- [Client]Add Zeta Client ShutdownHook To Cancel Job
 ### Core
 - [Starter][Flink]Support transform-v2 for flink #3396
+- [Flink] Support flink 1.14.x #3963
 ### Transformer
 - [Spark] Support transform-v2 for spark (#3409)
 - [ALL]Add FieldMapper Transform #3781
@@ -19,6 +21,8 @@
 - [JDBC]Improve option check rule
 - [JDBC]Support SAP HANA. (#3017)
 - [MongoDB]Add source query capability #3697
+- [IoTDB]Unified schema parameter, update IoTDB source fields to schema #3823
+- [InfluxDB]Unifie InfluxDB source fields to schema #3897
 - [File]Fix file source connector option rule bug #3804
 - [File]Add lzo compression way
 - [Kafka]Fix Source failed to parse offset format #3810
@@ -36,9 +40,11 @@
 ## Bug Fixes
 ### Connectors
 - [ClickHouse File] Fix ClickhouseFile Committer Serializable Problems #3803
+- [ClickHouse] Fix clickhouse write cdc changelog update event #3951
 
 ### Zeta Engine
 - [Checkpoint] Fix Checkpoint Continue Trigger After Job CANCELED #3808
+- [Checkpoint] Add savepoint and restore with savepoint #3930
 - [Core]Fix Local Mode can't deserialize split (#3817)
 - [Metrics] Fix Metrics will lose when Job be canceled. #3797
 

@@ -26,10 +26,14 @@ import org.apache.seatunnel.core.starter.spark.command.SparkTaskExecuteCommand;
 
 import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.Parameter;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.util.ArrayList;
 import java.util.List;
 
+@EqualsAndHashCode(callSuper = true)
+@Data
 public class SparkCommandArgs extends AbstractCommandArgs {
 
     @Parameter(names = {"-e", "--deploy-mode"},
@@ -39,7 +43,7 @@ public class SparkCommandArgs extends AbstractCommandArgs {
 
     @Parameter(names = {"-m", "--master"},
         description = "Spark master, support [spark://host:port, mesos://host:port, yarn, " +
-                "k8s://https://host:port, local], default local[*]")
+            "k8s://https://host:port, local], default local[*]")
     private String master = "local[*]";
 
     @Override
@@ -50,22 +54,6 @@ public class SparkCommandArgs extends AbstractCommandArgs {
         } else {
             return new SparkTaskExecuteCommand(this);
         }
-    }
-
-    public String getMaster() {
-        return master;
-    }
-
-    public DeployMode getDeployMode() {
-        return deployMode;
-    }
-
-    public void setDeployMode(DeployMode deployMode) {
-        this.deployMode = deployMode;
-    }
-
-    public void setMaster(String master) {
-        this.master = master;
     }
 
     public static class SparkDeployModeConverter implements IStringConverter<DeployMode> {
@@ -83,7 +71,7 @@ public class SparkCommandArgs extends AbstractCommandArgs {
                 return deployMode;
             } else {
                 throw new IllegalArgumentException("SeaTunnel job on spark engine deploy mode only " +
-                        "support these options: [cluster, client]");
+                    "support these options: [cluster, client]");
             }
         }
     }

@@ -43,6 +43,7 @@ import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
+import org.apache.commons.lang3.StringUtils;
 
 import java.net.URL;
 import java.util.List;
@@ -65,24 +66,13 @@ public class PhysicalVertex {
 
     private final TaskGroupLocation taskGroupLocation;
 
-    /**
-     * the index of PhysicalVertex
-     */
-    private final int subTaskGroupIndex;
-
     private final String taskFullName;
-
-    private final int parallelism;
 
     private final TaskGroupDefaultImpl taskGroup;
 
     private final ExecutorService executorService;
 
     private final FlakeIdGenerator flakeIdGenerator;
-
-    private final int pipelineId;
-
-    private final int totalPipelineNum;
 
     private final Set<URL> pluginJarsUrls;
 
@@ -102,13 +92,7 @@ public class PhysicalVertex {
      */
     private final IMap<Object, Long[]> runningJobStateTimestampsIMap;
 
-    private final JobImmutableInformation jobImmutableInformation;
-
-    private final long initializationTimestamp;
-
     private final NodeEngine nodeEngine;
-
-    private TaskGroupImmutableInformation taskGroupImmutableInformation;
 
     private JobMaster jobMaster;
 
@@ -126,16 +110,10 @@ public class PhysicalVertex {
                           @NonNull IMap runningJobStateIMap,
                           @NonNull IMap runningJobStateTimestampsIMap) {
         this.taskGroupLocation = taskGroup.getTaskGroupLocation();
-        this.subTaskGroupIndex = subTaskGroupIndex;
         this.executorService = executorService;
-        this.parallelism = parallelism;
         this.taskGroup = taskGroup;
         this.flakeIdGenerator = flakeIdGenerator;
-        this.pipelineId = pipelineId;
-        this.totalPipelineNum = totalPipelineNum;
         this.pluginJarsUrls = pluginJarsUrls;
-        this.jobImmutableInformation = jobImmutableInformation;
-        this.initializationTimestamp = initializationTimestamp;
 
         Long[] stateTimestamps = new Long[ExecutionState.values().length];
         if (runningJobStateTimestampsIMap.get(taskGroup.getTaskGroupLocation()) == null) {
@@ -457,11 +435,11 @@ public class PhysicalVertex {
         if (!turnToEndState(taskExecutionState.getExecutionState())) {
             return;
         }
-        if (taskExecutionState.getThrowable() != null) {
+        if (StringUtils.isNotEmpty(taskExecutionState.getThrowableMsg())) {
             LOGGER.severe(String.format("%s end with state %s and Exception: %s",
                 this.taskFullName,
                 taskExecutionState.getExecutionState(),
-                ExceptionUtils.getMessage(taskExecutionState.getThrowable())));
+                taskExecutionState.getThrowableMsg()));
         } else {
             LOGGER.info(String.format("%s end with state %s",
                 this.taskFullName,

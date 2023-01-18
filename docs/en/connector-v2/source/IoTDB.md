@@ -28,7 +28,7 @@ supports query SQL and can achieve projection effect.
 | username                   | string  | yes      | -             |
 | password                   | string  | yes      | -             |
 | sql                        | string  | yes      | -             |
-| fields                     | config  | yes      | -             |
+| schema                     | config  | yes      | -             |
 | fetch_size                 | int     | no       | -             |
 | lower_bound                | long    | no       | -             |
 | upper_bound                | long    | no       | -             |
@@ -62,20 +62,21 @@ execute sql statement e.g.
 ```
 select name,age from test
 ```
+### schema [config]
 
-### fields [string]
+#### fields [Config]
 
-the fields of the IoTDB when you select
-
-the field type is SeaTunnel field type `org.apache.seatunnel.api.table.type.SqlType`
+The schema of the IoTDB that you want to generate
 
 e.g.
 
 ```
-fields{
-    name=STRING
-    age=INT
+schema {
+    fields {
+        name = string
+        age = int
     }
+  }
 ```
 
 ### option parameters
@@ -149,7 +150,7 @@ lower bound of the time column
 
 ```
 
-### common options 
+### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
@@ -211,7 +212,6 @@ Loaded to SeaTunnelRow data format is the following:
 |1664035200001       | root.test_group.device_b   | 36.2        | 101         |
 |1664035200001       | root.test_group.device_c   | 36.3        | 102         |
 
-
 ## Changelog
 
 ### 2.2.0-beta 2022-09-26
@@ -221,6 +221,6 @@ Loaded to SeaTunnelRow data format is the following:
 ### 2.3.0-beta 2022-10-20
 
 - [Improve] Improve IoTDB Source Connector ([2917](https://github.com/apache/incubator-seatunnel/pull/2917))
-  - Support extract timestamp、device、measurement from SeaTunnelRow
-  - Support TINYINT、SMALLINT
-  - Support flush cache to database before prepareCommit
+    - Support extract timestamp、device、measurement from SeaTunnelRow
+    - Support TINYINT、SMALLINT
+    - Support flush cache to database before prepareCommit

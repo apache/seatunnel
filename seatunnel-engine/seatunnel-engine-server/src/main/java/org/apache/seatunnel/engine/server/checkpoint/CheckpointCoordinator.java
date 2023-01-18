@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.checkpoint;
 import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow;
 import static org.apache.seatunnel.engine.core.checkpoint.CheckpointType.CHECKPOINT_TYPE;
 import static org.apache.seatunnel.engine.core.checkpoint.CheckpointType.COMPLETED_POINT_TYPE;
+import static org.apache.seatunnel.engine.core.checkpoint.CheckpointType.SAVEPOINT_TYPE;
 import static org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan.COORDINATOR_INDEX;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.READY_START;
 
@@ -329,7 +330,7 @@ public class CheckpointCoordinator {
     }
 
     public PassiveCompletableFuture<CompletedCheckpoint> startSavepoint() {
-        CompletableFuture<PendingCheckpoint> savepoint = createPendingCheckpoint(Instant.now().toEpochMilli(), CheckpointType.SAVEPOINT_TYPE);
+        CompletableFuture<PendingCheckpoint> savepoint = createPendingCheckpoint(Instant.now().toEpochMilli(), SAVEPOINT_TYPE);
         startTriggerPendingCheckpoint(savepoint);
         return savepoint.join().getCompletableFuture();
     }
@@ -502,7 +503,7 @@ public class CheckpointCoordinator {
         }
 
         pendingCheckpoint.acknowledgeTask(location, ackOperation.getStates(),
-            CheckpointType.SAVEPOINT_TYPE == pendingCheckpoint.getCheckpointType() ?
+            SAVEPOINT_TYPE == pendingCheckpoint.getCheckpointType() ?
                 SubtaskStatus.SAVEPOINT_PREPARE_CLOSE :
                 SubtaskStatus.RUNNING);
     }
@@ -563,5 +564,12 @@ public class CheckpointCoordinator {
             return false;
         }
         return latestCompletedCheckpoint.getCheckpointType() == COMPLETED_POINT_TYPE;
+    }
+
+    public boolean isEndOfSavePoint() {
+        if (latestCompletedCheckpoint == null) {
+            return false;
+        }
+        return latestCompletedCheckpoint.getCheckpointType() == SAVEPOINT_TYPE;
     }
 }

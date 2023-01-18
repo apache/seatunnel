@@ -236,7 +236,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
                         PluginType.SINK.getType(),
                         plugin.factoryIdentifier()
                     ),
-                    plugin.optionRule());
+                    FactoryUtil.sinkFullOptionRule((TableSinkFactory) plugin));
                 return;
             }
 

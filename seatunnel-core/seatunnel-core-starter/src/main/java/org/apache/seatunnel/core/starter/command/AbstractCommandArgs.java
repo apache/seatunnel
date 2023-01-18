@@ -21,6 +21,8 @@ import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.DeployMode;
 
 import com.beust.jcommander.Parameter;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.util.Collections;
 import java.util.List;
@@ -28,14 +30,15 @@ import java.util.List;
 /**
  * Abstract class of {@link CommandArgs} implementation to save common configuration settings
  */
+@EqualsAndHashCode(callSuper = true)
+@Data
 public abstract class AbstractCommandArgs extends CommandArgs {
 
     /**
      * config file path
      */
     @Parameter(names = {"-c", "--config"},
-            description = "Config file",
-            required = true)
+            description = "Config file")
     protected String configFile;
 
     /**
@@ -58,38 +61,6 @@ public abstract class AbstractCommandArgs extends CommandArgs {
     @Parameter(names = {"-n", "--name"},
             description = "SeaTunnel job name")
     protected String jobName = Constants.LOGO;
-
-    public String getConfigFile() {
-        return configFile;
-    }
-
-    public void setConfigFile(String configFile) {
-        this.configFile = configFile;
-    }
-
-    public List<String> getVariables() {
-        return variables;
-    }
-
-    public void setVariables(List<String> variables) {
-        this.variables = variables;
-    }
-
-    public boolean isCheckConfig() {
-        return checkConfig;
-    }
-
-    public void setCheckConfig(boolean checkConfig) {
-        this.checkConfig = checkConfig;
-    }
-
-    public String getJobName() {
-        return jobName;
-    }
-
-    public void setJobName(String jobName) {
-        this.jobName = jobName;
-    }
 
     public abstract DeployMode getDeployMode();
 }
