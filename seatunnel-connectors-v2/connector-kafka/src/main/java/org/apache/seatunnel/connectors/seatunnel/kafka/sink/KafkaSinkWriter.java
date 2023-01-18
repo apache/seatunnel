@@ -64,7 +64,9 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     private final SinkWriter.Context context;
 
     private String transactionPrefix;
+    private String topic;
     private long lastCheckpointId = 0;
+    private boolean isExtractTopic;
 
     private final KafkaProduceSender<byte[], byte[]> kafkaProducerSender;
     private final SeaTunnelRowSerializer<byte[], byte[]> seaTunnelRowSerializer;
@@ -78,7 +80,9 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
             Config pluginConfig,
             List<KafkaSinkState> kafkaStates) {
         this.context = context;
-        this.topicExtractor = createTopicExtractor(pluginConfig.getString(TOPIC.key()), seaTunnelRowType);
+        this.topic = pluginConfig.getString(TOPIC.key());
+        this.isExtractTopic = setExtractTopic(this.topic);
+        this.topicExtractor = createTopicExtractor(this.topic, seaTunnelRowType);
         if (pluginConfig.hasPath(ASSIGN_PARTITIONS.key())) {
             MessageContentPartitioner.setAssignPartitions(pluginConfig.getStringList(ASSIGN_PARTITIONS.key()));
         }
@@ -107,7 +111,9 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
     @Override
     public void write(SeaTunnelRow element) {
-        String topic = topicExtractor.apply(element);
+        if (isExtractTopic) {
+            topic = topicExtractor.apply(element);
+        }
         ProducerRecord<byte[], byte[]> producerRecord = seaTunnelRowSerializer.serializeRow(topic, element);
         kafkaProducerSender.send(producerRecord);
     }
@@ -204,6 +210,16 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
             return partitionKeyFields;
         }
         return Collections.emptyList();
+    }
+
+    private boolean setExtractTopic(String topicConfig){
+        String regex = "\\$\\{(.*?)\\}";
+        Pattern pattern = Pattern.compile(regex, Pattern.DOTALL);
+        Matcher matcher = pattern.matcher(topicConfig);
+        if (matcher.find()) {
+            return true;
+        }
+        return false;
     }
 
     private Function<SeaTunnelRow, String> createTopicExtractor(String topicConfig, SeaTunnelRowType seaTunnelRowType) {

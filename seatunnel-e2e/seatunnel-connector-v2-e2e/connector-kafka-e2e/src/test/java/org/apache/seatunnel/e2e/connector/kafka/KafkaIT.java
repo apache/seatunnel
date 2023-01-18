@@ -127,25 +127,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         String topicName = "test_topic";
-        Map<String, String> data = new HashMap<>();
+        Map<String, String> data = getKafkaConsumerData(topicName);
         ObjectMapper objectMapper = new ObjectMapper();
-        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
-            consumer.subscribe(Arrays.asList(topicName));
-            Map<TopicPartition, Long> offsets = consumer.endOffsets(Arrays.asList(new TopicPartition(topicName, 0)));
-            Long endOffset = offsets.entrySet().iterator().next().getValue();
-            Long lastProcessedOffset = -1L;
-
-            do {
-                ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
-                for (ConsumerRecord<String, String> record : records) {
-                    if (lastProcessedOffset < record.offset()) {
-
-                        data.put(record.key(), record.value());
-                    }
-                    lastProcessedOffset = record.offset();
-                }
-            } while (lastProcessedOffset < endOffset - 1);
-        }
         String key = data.keySet().iterator().next();
         ObjectNode objectNode = objectMapper.readValue(key, ObjectNode.class);
         Assertions.assertTrue(objectNode.has("c_map"));
@@ -159,23 +142,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         String topicName = "test_text_topic";
-        Map<String, String> data = new HashMap<>();
-        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
-            consumer.subscribe(Arrays.asList(topicName));
-            Map<TopicPartition, Long> offsets = consumer.endOffsets(Arrays.asList(new TopicPartition(topicName, 0)));
-            Long endOffset = offsets.entrySet().iterator().next().getValue();
-            Long lastProcessedOffset = -1L;
-
-            do {
-                ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
-                for (ConsumerRecord<String, String> record : records) {
-                    if (lastProcessedOffset < record.offset()) {
-                        data.put(record.key(), record.value());
-                    }
-                    lastProcessedOffset = record.offset();
-                }
-            } while (lastProcessedOffset < endOffset - 1);
-        }
+        Map<String, String> data = getKafkaConsumerData(topicName);
         Assertions.assertEquals(10, data.size());
     }
 
@@ -185,23 +152,12 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         String topicName = "test_extract_topic";
-        Map<String, String> data = new HashMap<>();
-        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
-            consumer.subscribe(Arrays.asList(topicName));
-            Map<TopicPartition, Long> offsets = consumer.endOffsets(Arrays.asList(new TopicPartition(topicName, 0)));
-            Long endOffset = offsets.entrySet().iterator().next().getValue();
-            Long lastProcessedOffset = -1L;
-
-            do {
-                ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
-                for (ConsumerRecord<String, String> record : records) {
-                    if (lastProcessedOffset < record.offset()) {
-                        data.put(record.key(), record.value());
-                    }
-                    lastProcessedOffset = record.offset();
-                }
-            } while (lastProcessedOffset < endOffset - 1);
-        }
+        Map<String, String> data = getKafkaConsumerData(topicName);
+        ObjectMapper objectMapper = new ObjectMapper();
+        String key = data.keySet().iterator().next();
+        ObjectNode objectNode = objectMapper.readValue(key, ObjectNode.class);
+        Assertions.assertTrue(objectNode.has("c_map"));
+        Assertions.assertTrue(objectNode.has("c_string"));
         Assertions.assertEquals(10, data.size());
     }
 
@@ -345,6 +301,27 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 LocalTimeType.LOCAL_DATE_TIME_TYPE
             }
     );
+
+    private Map<String, String> getKafkaConsumerData(String topicName){
+        Map<String, String> data = new HashMap<>();
+        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
+            consumer.subscribe(Arrays.asList(topicName));
+            Map<TopicPartition, Long> offsets = consumer.endOffsets(Arrays.asList(new TopicPartition(topicName, 0)));
+            Long endOffset = offsets.entrySet().iterator().next().getValue();
+            Long lastProcessedOffset = -1L;
+
+            do {
+                ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
+                for (ConsumerRecord<String, String> record : records) {
+                    if (lastProcessedOffset < record.offset()) {
+                        data.put(record.key(), record.value());
+                    }
+                    lastProcessedOffset = record.offset();
+                }
+            } while (lastProcessedOffset < endOffset - 1);
+        }
+        return data;
+    }
 
     interface ProducerRecordConverter {
         ProducerRecord<byte[], byte[]> convert(SeaTunnelRow row);
