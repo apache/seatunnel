@@ -50,7 +50,12 @@
         </fileSet>
         <!-- ============ Starter Bin ============  -->
         <fileSet>
-            <directory>../seatunnel-core/seatunnel-flink-starter/src/main/bin</directory>
+            <directory>../seatunnel-core/seatunnel-flink-starter/seatunnel-flink-13-starter/src/main/bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
+        </fileSet>
+        <fileSet>
+            <directory>../seatunnel-core/seatunnel-flink-starter/seatunnel-flink-15-starter/src/main/bin</directory>
             <outputDirectory>/bin</outputDirectory>
             <fileMode>0755</fileMode>
         </fileSet>
