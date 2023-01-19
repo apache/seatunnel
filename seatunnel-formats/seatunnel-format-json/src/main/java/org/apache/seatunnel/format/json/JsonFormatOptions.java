@@ -50,4 +50,16 @@ public class JsonFormatOptions {
         return Boolean.parseBoolean(
                 options.getOrDefault(IGNORE_PARSE_ERRORS.key(), IGNORE_PARSE_ERRORS.toString()));
     }
+
+    public static final int GENERATE_ROW_SIZE = 3;
+
+    public static final Option<Boolean> SCHEMA_INCLUDE =
+            Options.key("schema-include")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "When setting up a Debezium Kafka Connect, users can enable "
+                                    + "a Kafka configuration 'value.converter.schemas.enable' to include schema in the message. "
+                                    + "This option indicates the Debezium JSON data include the schema in the message or not. "
+                                    + "Default is false.");
 }
