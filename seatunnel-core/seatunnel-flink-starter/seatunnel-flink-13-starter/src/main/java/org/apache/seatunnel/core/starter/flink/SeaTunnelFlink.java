@@ -26,7 +26,7 @@ import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 public class SeaTunnelFlink {
     public static void main(String[] args) throws CommandException {
         FlinkCommandArgs flinkCommandArgs = CommandLineUtils.parse(args, new FlinkCommandArgs(),
-                EngineType.FLINK.getStarterShellName(), true);
+                EngineType.FLINK13.getStarterShellName(), true);
         SeaTunnel.run(flinkCommandArgs.buildCommand());
     }
 }

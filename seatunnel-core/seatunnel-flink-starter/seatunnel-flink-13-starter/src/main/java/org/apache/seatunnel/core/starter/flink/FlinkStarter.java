@@ -32,8 +32,8 @@ import java.util.Objects;
  */
 public class FlinkStarter implements Starter {
     private static final String APP_NAME = SeaTunnelFlink.class.getName();
-    public static final String APP_JAR_NAME = EngineType.FLINK.getStarterJarName();
-    public static final String SHELL_NAME = EngineType.FLINK.getStarterShellName();
+    public static final String APP_JAR_NAME = EngineType.FLINK13.getStarterJarName();
+    public static final String SHELL_NAME = EngineType.FLINK13.getStarterShellName();
     private final FlinkCommandArgs flinkCommandArgs;
     private final String appJar;
 
