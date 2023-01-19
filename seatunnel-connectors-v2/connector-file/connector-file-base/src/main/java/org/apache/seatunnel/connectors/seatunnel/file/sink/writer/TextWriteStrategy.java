@@ -24,7 +24,6 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
-import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
@@ -36,7 +35,6 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 
 public class TextWriteStrategy extends AbstractWriteStrategy {
@@ -48,25 +46,23 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
     private final DateTimeUtils.Formatter dateTimeFormat;
     private final TimeUtils.Formatter timeFormat;
     private SerializationSchema serializationSchema;
-    private String compressCodec;
 
-    public TextWriteStrategy(FileSinkConfig textFileSinkConfig) {
-        super(textFileSinkConfig);
+    public TextWriteStrategy(FileSinkConfig fileSinkConfig) {
+        super(fileSinkConfig);
         this.beingWrittenOutputStream = new HashMap<>();
         this.isFirstWrite = new HashMap<>();
-        this.fieldDelimiter = textFileSinkConfig.getFieldDelimiter();
-        this.rowDelimiter = textFileSinkConfig.getRowDelimiter();
-        this.dateFormat = textFileSinkConfig.getDateFormat();
-        this.dateTimeFormat = textFileSinkConfig.getDatetimeFormat();
-        this.timeFormat = textFileSinkConfig.getTimeFormat();
-        this.compressCodec = textFileSinkConfig.getCompressCodec();
+        this.fieldDelimiter = fileSinkConfig.getFieldDelimiter();
+        this.rowDelimiter = fileSinkConfig.getRowDelimiter();
+        this.dateFormat = fileSinkConfig.getDateFormat();
+        this.dateTimeFormat = fileSinkConfig.getDatetimeFormat();
+        this.timeFormat = fileSinkConfig.getTimeFormat();
     }
 
     @Override
     public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         super.setSeaTunnelRowTypeInfo(seaTunnelRowType);
         this.serializationSchema = TextSerializationSchema.builder()
-                .seaTunnelRowType(seaTunnelRowType)
+                .seaTunnelRowType(buildSchemaWithRowType(seaTunnelRowType, sinkColumnsIndexInRow))
                 .delimiter(fieldDelimiter)
                 .dateFormatter(dateFormat)
                 .dateTimeFormatter(dateTimeFormat)
@@ -85,7 +81,9 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
             } else {
                 fsDataOutputStream.write(rowDelimiter.getBytes());
             }
-            fsDataOutputStream.write(serializationSchema.serialize(seaTunnelRow));
+            fsDataOutputStream.write(serializationSchema.serialize(seaTunnelRow.copy(sinkColumnsIndexInRow.stream()
+                .mapToInt(Integer::intValue)
+                .toArray())));
         } catch (IOException e) {
             throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED,
                     String.format("Write data to file [%s] failed", filePath), e);
@@ -117,21 +115,20 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
         FSDataOutputStream fsDataOutputStream = beingWrittenOutputStream.get(filePath);
         if (fsDataOutputStream == null) {
             try {
-                if (compressCodec != null) {
-                    CompressFormat compressFormat = CompressFormat.valueOf(compressCodec.toUpperCase(Locale.ROOT));
-                    switch (compressFormat) {
-                        case LZO:
-                            LzopCodec lzo = new LzopCodec();
-                            OutputStream out = lzo.createOutputStream(fileSystemUtils.getOutputStream(filePath));
-                            fsDataOutputStream = new FSDataOutputStream(out, null);
-                            break;
-                        default:
-                            fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
-                    }
-                } else {
-                    fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
+                switch (compressFormat) {
+                    case LZO:
+                        LzopCodec lzo = new LzopCodec();
+                        OutputStream out = lzo.createOutputStream(fileSystemUtils.getOutputStream(filePath));
+                        fsDataOutputStream = new FSDataOutputStream(out, null);
+                        break;
+                    case NONE:
+                        fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
+                        break;
+                    default:
+                        log.warn("Text file does not support this compress type: {}", compressFormat.getCompressCodec());
+                        fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
+                        break;
                 }
-
                 beingWrittenOutputStream.put(filePath, fsDataOutputStream);
                 isFirstWrite.put(filePath, true);
             } catch (IOException e) {

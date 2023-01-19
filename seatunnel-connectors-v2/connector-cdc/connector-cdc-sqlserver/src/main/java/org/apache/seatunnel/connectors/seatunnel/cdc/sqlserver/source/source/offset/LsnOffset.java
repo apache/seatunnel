@@ -29,21 +29,21 @@ public class LsnOffset extends Offset {
 
     private static final long serialVersionUID = 1L;
 
-    public static final LsnOffset INITIAL_OFFSET = new LsnOffset(Lsn.valueOf(new byte[] {Byte.MIN_VALUE}));
-    public static final LsnOffset NO_STOPPING_OFFSET = new LsnOffset(Lsn.valueOf(new byte[] {Byte.MAX_VALUE}));
+    public static final LsnOffset INITIAL_OFFSET = valueOf(Lsn.valueOf(new byte[]{0}).toString());
+    public static final LsnOffset NO_STOPPING_OFFSET = valueOf(Lsn.valueOf(new byte[]{Byte.MAX_VALUE}).toString());
 
-    public LsnOffset(Lsn changeLsn){
-        this(changeLsn, null, null);
+    public static LsnOffset valueOf(String commitLsn) {
+        return new LsnOffset(Lsn.valueOf(commitLsn), null, null);
     }
 
-    public LsnOffset(Lsn changeLsn, Lsn commitLsn, Long eventSerialNo){
+    private LsnOffset(Lsn commitLsn, Lsn changeLsn, Long eventSerialNo) {
         Map<String, String> offsetMap = new HashMap<>();
 
-        if (changeLsn != null && changeLsn.isAvailable()) {
-            offsetMap.put(SourceInfo.CHANGE_LSN_KEY, changeLsn.toString());
-        }
         if (commitLsn != null && commitLsn.isAvailable()) {
             offsetMap.put(SourceInfo.COMMIT_LSN_KEY, commitLsn.toString());
+        }
+        if (changeLsn != null && changeLsn.isAvailable()) {
+            offsetMap.put(SourceInfo.CHANGE_LSN_KEY, changeLsn.toString());
         }
         if (eventSerialNo != null) {
             offsetMap.put(SourceInfo.EVENT_SERIAL_NO_KEY, String.valueOf(eventSerialNo));
@@ -56,43 +56,41 @@ public class LsnOffset extends Offset {
         return Lsn.valueOf(offset.get(SourceInfo.CHANGE_LSN_KEY));
     }
 
-    @Override
+    public Lsn getCommitLsn() {
+        return Lsn.valueOf(offset.get(SourceInfo.COMMIT_LSN_KEY));
+    }
+
+    public Long getEventSerialNo() {
+        return Long.valueOf(offset.get(SourceInfo.EVENT_SERIAL_NO_KEY));
+    }
+
     public int compareTo(Offset o) {
         LsnOffset that = (LsnOffset) o;
-        if (NO_STOPPING_OFFSET.equals(that) && NO_STOPPING_OFFSET.equals(this)) {
-            return 0;
-        }
-        if (NO_STOPPING_OFFSET.equals(this)) {
-            return 1;
-        }
-        if (NO_STOPPING_OFFSET.equals(that)) {
-            return -1;
-        }
-
-        Lsn thisChangeLsn = this.getChangeLsn();
-        Lsn thatChangeLsn = that.getChangeLsn();
-        if (thatChangeLsn.isAvailable()) {
-            if (thisChangeLsn.isAvailable()) {
-                return thisChangeLsn.compareTo(thatChangeLsn);
-            }
-            return -1;
-        } else if (thisChangeLsn.isAvailable()) {
-            return 1;
-        }
-        return 0;
+        final int comparison = getCommitLsn().compareTo(that.getCommitLsn());
+        return comparison == 0 ? getChangeLsn().compareTo(that.getChangeLsn()) : comparison;
     }
 
-    @SuppressWarnings("checkstyle:EqualsHashCode")
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
+    public boolean equals(Object obj) {
+        if (this == obj) {
             return true;
         }
-        if (!(o instanceof LsnOffset)) {
+        if (obj == null) {
             return false;
         }
-        LsnOffset that = (LsnOffset) o;
-        return offset.equals(that.offset);
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        LsnOffset other = (LsnOffset) obj;
+        return offset.equals(other.offset);
     }
 
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ((getCommitLsn() == null) ? 0 : getCommitLsn().hashCode());
+        result = prime * result + ((getChangeLsn() == null) ? 0 : getChangeLsn().hashCode());
+        result = prime * result + ((getEventSerialNo() == null) ? 0 : getEventSerialNo().hashCode());
+        return result;
+    }
 }

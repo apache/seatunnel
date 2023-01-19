@@ -47,6 +47,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.shaded.org.apache.commons.lang3.tuple.Pair;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
@@ -64,8 +65,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import scala.Tuple2;
-
 @Slf4j
 public class RabbitmqIT extends TestSuiteBase implements TestResource {
     private static final String IMAGE = "rabbitmq:3-management";
@@ -76,8 +75,8 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
     private static final String USERNAME = "guest";
     private static final String PASSWORD = "guest";
 
-    private static final Tuple2<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET = generateTestDataSet();
-    private static final JsonSerializationSchema JSON_SERIALIZATION_SCHEMA = new JsonSerializationSchema(TEST_DATASET._1());
+    private static final Pair<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET = generateTestDataSet();
+    private static final JsonSerializationSchema JSON_SERIALIZATION_SCHEMA = new JsonSerializationSchema(TEST_DATASET.getKey());
 
     private GenericContainer<?> rabbitmqContainer;
     Connection connection;
@@ -99,13 +98,13 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
     }
 
     private void initSourceData() throws IOException, InterruptedException {
-        List<SeaTunnelRow> rows = TEST_DATASET._2();
+        List<SeaTunnelRow> rows = TEST_DATASET.getValue();
         for (int i = 0; i < rows.size(); i++) {
             rabbitmqClient.write(new String(JSON_SERIALIZATION_SCHEMA.serialize(rows.get(1))).getBytes(StandardCharsets.UTF_8));
         }
     }
 
-    private static Tuple2<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
+    private static Pair<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
 
         SeaTunnelRowType rowType = new SeaTunnelRowType(
                 new String[]{
@@ -166,7 +165,7 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
                  });
             rows.add(row);
         }
-        return Tuple2.apply(rowType, rows);
+        return Pair.of(rowType, rows);
     }
 
     private void initRabbitMQ() {
@@ -238,6 +237,6 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
         sinkRabbitmqClient.close();
         //assert source and sink data
         Assertions.assertTrue(resultSet.size() > 0);
-        Assertions.assertTrue(resultSet.stream().findAny().get().equals(new String(JSON_SERIALIZATION_SCHEMA.serialize(TEST_DATASET._2().get(1)))));
+        Assertions.assertTrue(resultSet.stream().findAny().get().equals(new String(JSON_SERIALIZATION_SCHEMA.serialize(TEST_DATASET.getValue().get(1)))));
     }
 }

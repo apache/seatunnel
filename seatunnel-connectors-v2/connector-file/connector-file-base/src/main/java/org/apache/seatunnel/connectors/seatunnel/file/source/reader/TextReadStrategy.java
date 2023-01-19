@@ -56,7 +56,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
         Path filePath = new Path(path);
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(fs.open(filePath), StandardCharsets.UTF_8))) {
-            reader.lines().forEach(line -> {
+            reader.lines().skip(skipHeaderNumber).forEach(line -> {
                 try {
                     SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(line.getBytes());
                     if (isMergePartition) {

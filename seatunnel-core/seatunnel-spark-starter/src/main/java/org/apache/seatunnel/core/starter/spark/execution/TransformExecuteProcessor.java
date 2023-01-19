@@ -24,7 +24,6 @@ import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
-import org.apache.seatunnel.spark.SparkEnvironment;
 import org.apache.seatunnel.translation.spark.common.serialization.InternalRowConverter;
 import org.apache.seatunnel.translation.spark.common.utils.TypeConverterUtils;
 
@@ -49,12 +48,12 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTunnelTransform> {
+public class TransformExecuteProcessor extends SparkAbstractPluginExecuteProcessor<SeaTunnelTransform> {
 
     private static final String PLUGIN_TYPE = "transform";
 
-    protected TransformExecuteProcessor(SparkEnvironment sparkEnvironment, JobContext jobContext, List<? extends Config> pluginConfigs) {
-        super(sparkEnvironment, jobContext, pluginConfigs);
+    protected TransformExecuteProcessor(SparkRuntimeEnvironment sparkRuntimeEnvironment, JobContext jobContext, List<? extends Config> pluginConfigs) {
+        super(sparkRuntimeEnvironment, jobContext, pluginConfigs);
     }
 
     @Override
@@ -70,7 +69,7 @@ public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<Se
                 pluginInstance.setJobContext(jobContext);
                 return pluginInstance;
             }).distinct().collect(Collectors.toList());
-        sparkEnvironment.registerPlugin(pluginJars);
+        sparkRuntimeEnvironment.registerPlugin(pluginJars);
         return transforms;
     }
 
@@ -85,7 +84,7 @@ public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<Se
             try {
                 SeaTunnelTransform<SeaTunnelRow> transform = plugins.get(i);
                 Config pluginConfig = pluginConfigs.get(i);
-                Dataset<Row> stream = fromSourceTable(pluginConfig, sparkEnvironment).orElse(input);
+                Dataset<Row> stream = fromSourceTable(pluginConfig, sparkRuntimeEnvironment).orElse(input);
                 input = sparkTransform(transform, stream);
                 registerInputTempView(pluginConfig, input);
                 result.add(input);
@@ -118,7 +117,7 @@ public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<Se
                 Arrays.stream(((SpecificInternalRow) internalRow).values()).map(MutableValue::boxed).toArray(),
                 structType));
         }
-        return sparkEnvironment.getSparkSession().createDataFrame(outputRows, structType);
+        return sparkRuntimeEnvironment.getSparkSession().createDataFrame(outputRows, structType);
     }
 
 }
