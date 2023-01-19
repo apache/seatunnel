@@ -20,47 +20,24 @@ package org.apache.seatunnel.common;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.io.Closeable;
-import java.util.ArrayDeque;
 import java.util.Optional;
-import java.util.Queue;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public final class Handover<T> implements Closeable {
-    private static final int DEFAULT_QUEUE_SIZE = 8192;
-    private static final long DEFAULT_POLL_INTERVAL_MILLIS = 200;
-
-    private final Lock lock;
-    private final Condition isNotFull;
-    private final Queue<T> queue;
+    private final Object lock = new Object();
+    private final LinkedBlockingQueue<T> blockingQueue =
+        new LinkedBlockingQueue<>();
     private Throwable error;
 
-    public Handover() {
-        this.lock = new ReentrantLock();
-        this.isNotFull = lock.newCondition();
-
-        this.queue = new ArrayDeque<>(DEFAULT_QUEUE_SIZE);
-    }
-
     public boolean isEmpty() {
-        return queue.isEmpty();
+        return blockingQueue.isEmpty();
     }
 
     public Optional<T> pollNext() throws Exception {
         if (error != null) {
             rethrowException(error, error.getMessage());
         } else if (!isEmpty()) {
-            try {
-                lock.lock();
-                T record = queue.poll();
-                // signal produce() to add more records
-                isNotFull.signalAll();
-                return Optional.ofNullable(record);
-            } finally {
-                lock.unlock();
-            }
+            return Optional.ofNullable(blockingQueue.poll());
         }
         return Optional.empty();
     }
@@ -70,16 +47,7 @@ public final class Handover<T> implements Closeable {
         if (error != null) {
             throw new ClosedException();
         }
-        try {
-            lock.lock();
-            while (queue.size() >= DEFAULT_QUEUE_SIZE) {
-                // queue size threshold reached, so wait a bit
-                isNotFull.await(DEFAULT_POLL_INTERVAL_MILLIS, TimeUnit.MILLISECONDS);
-            }
-            queue.add(element);
-        } finally {
-            lock.unlock();
-        }
+        blockingQueue.put(element);
     }
 
     public void reportError(Throwable t) {
