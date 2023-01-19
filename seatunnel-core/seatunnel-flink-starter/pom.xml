@@ -30,6 +30,11 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>seatunnel-flink-starter</artifactId>
+    <packaging>pom</packaging>
+    <modules>
+        <module>seatunnel-flink-13-starter</module>
+        <module>seatunnel-flink-15-starter</module>
+    </modules>
 
     <properties>
         <docker.repo>seatunnel-flink</docker.repo>
@@ -41,44 +46,6 @@
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-core-starter</artifactId>
             <version>${project.version}</version>
-        </dependency>
-
-        <!-- flink-translation -->
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-translation-flink-13</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <!-- flink 1.13.6 java api -->
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-java</artifactId>
-            <version>${flink.1.13.6.version}</version>
-            <scope>${flink.scope}</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-streaming-java_${scala.binary.version}</artifactId>
-            <version>${flink.1.13.6.version}</version>
-            <scope>${flink.scope}</scope>
-        </dependency>
-
-        <!-- flink planner api -->
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-table-planner_${scala.binary.version}</artifactId>
-            <version>${flink.1.13.6.version}</version>
-            <scope>${flink.scope}</scope>
-        </dependency>
-
-        <!-- flink state backend rocksdb api -->
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-statebackend-rocksdb_${scala.binary.version}</artifactId>
-            <version>${flink.1.13.6.version}</version>
-            <scope>provided</scope>
         </dependency>
 
     </dependencies>

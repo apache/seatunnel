@@ -117,7 +117,8 @@
             <unpack>false</unpack>
             <includes>
                 <!-- Flink V2 starter -->
-                <include>org.apache.seatunnel:seatunnel-flink-starter:jar</include>
+                <include>org.apache.seatunnel:seatunnel-flink-13-starter:jar</include>
+                <include>org.apache.seatunnel:seatunnel-flink-15-starter:jar</include>
                 <!-- Spark V2 starter -->
                 <include>org.apache.seatunnel:seatunnel-spark-starter:jar</include>
                 <!-- SeaTunnel Engine starter -->
