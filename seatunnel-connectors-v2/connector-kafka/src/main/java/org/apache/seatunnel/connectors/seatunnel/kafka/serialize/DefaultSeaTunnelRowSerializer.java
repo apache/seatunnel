@@ -37,36 +37,37 @@ import java.util.function.Function;
 public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<byte[], byte[]> {
 
     private Integer partition;
-    private final String topic;
     private final SerializationSchema keySerialization;
     private final SerializationSchema valueSerialization;
 
-    public DefaultSeaTunnelRowSerializer(String topic, SeaTunnelRowType seaTunnelRowType, String format, String delimiter) {
-        this(topic, element -> null, createSerializationSchema(seaTunnelRowType, format, delimiter));
+    public DefaultSeaTunnelRowSerializer(SeaTunnelRowType seaTunnelRowType,
+                                         String format,
+                                         String delimiter) {
+        this(element -> null, createSerializationSchema(seaTunnelRowType, format, delimiter));
     }
 
-    public DefaultSeaTunnelRowSerializer(String topic, Integer partition, SeaTunnelRowType seaTunnelRowType, String format, String delimiter) {
-        this(topic, seaTunnelRowType, format, delimiter);
+    public DefaultSeaTunnelRowSerializer(Integer partition,
+                                         SeaTunnelRowType seaTunnelRowType,
+                                         String format, String delimiter) {
+        this(seaTunnelRowType, format, delimiter);
         this.partition = partition;
     }
 
-    public DefaultSeaTunnelRowSerializer(String topic, List<String> keyFieldNames,
+    public DefaultSeaTunnelRowSerializer(List<String> keyFieldNames,
                                          SeaTunnelRowType seaTunnelRowType,
                                          String format, String delimiter) {
-        this(topic, createKeySerializationSchema(keyFieldNames, seaTunnelRowType),
+        this(createKeySerializationSchema(keyFieldNames, seaTunnelRowType),
                 createSerializationSchema(seaTunnelRowType, format, delimiter));
     }
 
-    public DefaultSeaTunnelRowSerializer(String topic,
-                                         SerializationSchema keySerialization,
+    public DefaultSeaTunnelRowSerializer(SerializationSchema keySerialization,
                                          SerializationSchema valueSerialization) {
-        this.topic = topic;
         this.keySerialization = keySerialization;
         this.valueSerialization = valueSerialization;
     }
 
     @Override
-    public ProducerRecord<byte[], byte[]> serializeRow(SeaTunnelRow row) {
+    public ProducerRecord<byte[], byte[]> serializeRow(String topic, SeaTunnelRow row) {
         return new ProducerRecord<>(topic, partition,
                 keySerialization.serialize(row), valueSerialization.serialize(row));
     }
