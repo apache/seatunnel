@@ -103,7 +103,13 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
         Container.ExecResult execResult = container.executeJob("/clickhouse_sink_cdc_changelog_case2.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
-        checkSinkTableRows();
+        Awaitility
+                .given()
+                .ignoreExceptions()
+                .await()
+                .atLeast(100L, TimeUnit.MILLISECONDS)
+                .atMost(20L, TimeUnit.SECONDS)
+                .untilAsserted(this::checkSinkTableRows);
         dropSinkTable();
     }
 
@@ -180,12 +186,15 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
                 Arrays.asList(1L, "A_1", 100),
                 Arrays.asList(3L, "C", 100))
             .collect(Collectors.toSet());
-        Assertions.assertIterableEquals(expected, actual);
+        if (!Arrays.equals(actual.toArray(), expected.toArray())) {
+            throw new IllegalStateException(String.format("Actual results %s not equal expected results %s",
+                    Arrays.toString(actual.toArray()), Arrays.toString(expected.toArray())));
+        }
     }
 
     private void dropSinkTable() {
         try (Statement statement = connection.createStatement()) {
-            statement.execute(String.format("drop table %s.%s", DATABASE, SINK_TABLE));
+            statement.execute(String.format("drop table if exists %s.%s sync", DATABASE, SINK_TABLE));
         } catch (SQLException e) {
             throw new RuntimeException("Test clickhouse server image error", e);
         }
