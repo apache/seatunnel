@@ -46,9 +46,7 @@ public class NumericPartitionSplit implements PartitionSplit<Long> {
 
     private final JdbcSourceOptions jdbcSourceOptions;
 
-    private final String columnName;
-
-    private String query;
+    private final String query;
 
     private final SeaTunnelRowType rowType;
 
@@ -82,10 +80,10 @@ public class NumericPartitionSplit implements PartitionSplit<Long> {
                 jdbcSourceOptions.getPartitionUpperBound().isPresent()) {
                 max = jdbcSourceOptions.getPartitionUpperBound().get();
                 min = jdbcSourceOptions.getPartitionLowerBound().get();
-                return new PartitionParameter<>(columnName, min, max, jdbcSourceOptions.getPartitionNumber().orElse(null));
+                return new PartitionParameter<>(partitionColumn, min, max, jdbcSourceOptions.getPartitionNumber().orElse(null));
             }
             try (ResultSet rs = jdbcConnectionProvider.getOrEstablishConnection().createStatement().executeQuery(String.format("SELECT MAX(%s),MIN(%s) " +
-                "FROM (%s) tt", columnName, columnName, query))) {
+                "FROM (%s) tt", partitionColumn, partitionColumn, query))) {
                 if (rs.next()) {
                     max = jdbcSourceOptions.getPartitionUpperBound().isPresent() ?
                         jdbcSourceOptions.getPartitionUpperBound().get() :
@@ -97,7 +95,7 @@ public class NumericPartitionSplit implements PartitionSplit<Long> {
             } catch (ClassNotFoundException e) {
                 throw new SeaTunnelException(e);
             }
-            return new PartitionParameter<>(columnName, min, max, jdbcSourceOptions.getPartitionNumber().orElse(null));
+            return new PartitionParameter<>(partitionColumn, min, max, jdbcSourceOptions.getPartitionNumber().orElse(null));
         } else {
             log.info("The partition_column parameter is not configured, and the source parallelism is set to 1");
         }

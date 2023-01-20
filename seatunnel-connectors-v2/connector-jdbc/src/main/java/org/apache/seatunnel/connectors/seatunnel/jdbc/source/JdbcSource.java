@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcInputFormat;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
@@ -84,7 +85,7 @@ public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit
                     "SELECT * FROM (%s) tt where " + jdbcSourceOptions.getPartitionColumn().get() + " >= ? AND " + jdbcSourceOptions.getPartitionColumn().get() + " <= ?", query);
             }
         } catch (Exception e) {
-            throw new PrepareFailException("jdbc", PluginType.SOURCE, e.toString());
+            throw new PrepareFailException("jdbc", PluginType.SOURCE, ExceptionUtils.getMessage(e), e);
         }
         inputFormat = new JdbcInputFormat(
             jdbcConnectionProvider,

@@ -32,12 +32,21 @@ public class PartitionSplitFactory {
             case NumericType:
                 return NumericPartitionSplit
                     .builder()
-                    .columnName(jdbcSourceOptions.getPartitionColumn().get())
                     .jdbcSourceOptions(jdbcSourceOptions)
                     .query(jdbcSourceOptions.getQuery())
                     .rowType(rowType)
                     .jdbcConnectionProvider(jdbcConnectionProvider)
                     .build();
+            case DateType:
+                return DatePartitionSplit.builder().build();
+            case StrNumericType:
+                return StrNumericPartitionSplit.builder().build();
+            case StrDateType:
+                return StrDatePartitionSplit.builder().build();
+            case StrPrefixNumericType:
+                return StrPrefixNumericPartitionSplit.builder().build();
+            case StrPrefixDateType:
+                return StrPrefixDatePartitionSplit.builder().build();
             default:
                 throw new JdbcConnectorException(JdbcConnectorErrorCode.NO_SUITABLE_PARTITION_SPLIT,
                     JdbcConnectorErrorCode.NO_SUITABLE_PARTITION_SPLIT.getErrorMessage());
