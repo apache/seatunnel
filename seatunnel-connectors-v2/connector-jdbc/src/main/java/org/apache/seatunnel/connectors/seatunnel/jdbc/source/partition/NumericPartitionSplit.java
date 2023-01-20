@@ -97,8 +97,6 @@ public class NumericPartitionSplit implements PartitionSplit<Long> {
             } catch (ClassNotFoundException e) {
                 throw new SeaTunnelException(e);
             }
-
-
             return new PartitionParameter<>(columnName, min, max, jdbcSourceOptions.getPartitionNumber().orElse(null));
         } else {
             log.info("The partition_column parameter is not configured, and the source parallelism is set to 1");
