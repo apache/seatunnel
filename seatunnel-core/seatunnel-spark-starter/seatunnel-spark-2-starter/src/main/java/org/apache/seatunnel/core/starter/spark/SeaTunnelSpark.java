@@ -27,7 +27,7 @@ public class SeaTunnelSpark {
 
     public static void main(String[] args) throws CommandException {
         SparkCommandArgs sparkCommandArgs = CommandLineUtils.parse(args, new SparkCommandArgs(),
-                EngineType.SPARK.getStarterShellName(), true);
+                EngineType.SPARK2.getStarterShellName(), true);
         SeaTunnel.run(sparkCommandArgs.buildCommand());
     }
 }

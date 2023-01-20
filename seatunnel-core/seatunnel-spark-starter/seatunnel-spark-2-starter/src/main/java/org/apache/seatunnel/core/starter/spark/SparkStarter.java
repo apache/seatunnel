@@ -106,7 +106,7 @@ public class SparkStarter implements Starter {
      */
     static SparkStarter getInstance(String[] args) {
         SparkCommandArgs commandArgs = CommandLineUtils.parse(args, new SparkCommandArgs(),
-                EngineType.SPARK.getStarterShellName(), true);
+                EngineType.SPARK2.getStarterShellName(), true);
         DeployMode deployMode = commandArgs.getDeployMode();
         switch (deployMode) {
             case CLUSTER:
@@ -265,7 +265,7 @@ public class SparkStarter implements Starter {
      * append appJar to StringBuilder
      */
     protected void appendAppJar(List<String> commands) {
-        commands.add(Common.appStarterDir().resolve(EngineType.SPARK.getStarterJarName()).toString());
+        commands.add(Common.appStarterDir().resolve(EngineType.SPARK2.getStarterJarName()).toString());
     }
 
     @SuppressWarnings("checkstyle:Indentation")
