@@ -15,19 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.source.partition;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplit;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.PartitionParameter;
 
 import java.io.Serializable;
+import java.sql.SQLException;
+import java.util.Set;
 
-@Data
-@AllArgsConstructor
-public class PartitionParameter<T> implements Serializable {
+public interface PartitionSplit<T> extends Serializable {
 
-    String partitionColumnName;
-    T minValue;
-    T maxValue;
-    Integer partitionNumber;
+    boolean checkType(SeaTunnelDataType<?> type);
+
+    PartitionParameter<T> getPartitionParameter() throws SQLException;
+
+    Set<JdbcSourceSplit> getSplit() throws SQLException;
 }

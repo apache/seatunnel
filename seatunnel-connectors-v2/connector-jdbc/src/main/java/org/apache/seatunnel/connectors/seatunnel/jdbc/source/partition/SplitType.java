@@ -15,19 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.source.partition;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-
-import java.io.Serializable;
-
-@Data
-@AllArgsConstructor
-public class PartitionParameter<T> implements Serializable {
-
-    String partitionColumnName;
-    T minValue;
-    T maxValue;
-    Integer partitionNumber;
+public enum SplitType {
+    DateType, NumericType, StrDateType, StrNumericType, StrPrefixNumericType, StrPrefixDateType
 }

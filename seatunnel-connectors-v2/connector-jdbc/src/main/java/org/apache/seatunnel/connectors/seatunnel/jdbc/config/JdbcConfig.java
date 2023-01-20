@@ -20,7 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options.JdbcConnectionOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.partition.SplitType;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.io.Serializable;
@@ -33,7 +35,7 @@ public class JdbcConfig implements Serializable {
 
     public static final Option<String> URL = Options.key("url").stringType().noDefaultValue().withDescription("url");
 
-    public static final Option<String> DRIVER =  Options.key("driver").stringType().noDefaultValue().withDescription("driver");
+    public static final Option<String> DRIVER = Options.key("driver").stringType().noDefaultValue().withDescription("driver");
 
     public static final Option<Integer> CONNECTION_CHECK_TIMEOUT_SEC = Options.key("connection_check_timeout_sec").intType().defaultValue(DEFAULT_CONNECTION_CHECK_TIMEOUT_SEC).withDescription("connection check time second");
 
@@ -74,6 +76,8 @@ public class JdbcConfig implements Serializable {
     public static final Option<String> PARTITION_UPPER_BOUND = Options.key("partition_upper_bound").stringType().noDefaultValue().withDescription("partition upper bound");
     public static final Option<String> PARTITION_LOWER_BOUND = Options.key("partition_lower_bound").stringType().noDefaultValue().withDescription("partition lower bound");
     public static final Option<String> PARTITION_NUM = Options.key("partition_num").stringType().noDefaultValue().withDescription("partition num");
+    public static final Option<SplitType> PARTITION_SPLIT_TYPE = Options.key("split_type").type(new TypeReference<SplitType>() {
+    }).defaultValue(SplitType.NumericType).withDescription("split type");
 
     public static JdbcConnectionOptions buildJdbcConnectionOptions(Config config) {
 

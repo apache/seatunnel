@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.config;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.buildJdbcConnectionOptions;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options.JdbcConnectionOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.partition.SplitType;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -33,12 +34,13 @@ import java.util.Optional;
 @AllArgsConstructor
 public class JdbcSourceOptions implements Serializable {
     private JdbcConnectionOptions jdbcConnectionOptions;
-    public String query;
+    private String query;
     private String partitionColumn;
     private Long partitionUpperBound;
     private Long partitionLowerBound;
     private int fetchSize = JdbcConfig.FETCH_SIZE.defaultValue();
     private Integer partitionNumber;
+    private SplitType splitType = JdbcConfig.PARTITION_SPLIT_TYPE.defaultValue();
 
     public JdbcSourceOptions(Config config) {
         this.jdbcConnectionOptions = buildJdbcConnectionOptions(config);
@@ -54,6 +56,9 @@ public class JdbcSourceOptions implements Serializable {
         }
         if (config.hasPath(JdbcConfig.PARTITION_NUM.key())) {
             this.partitionNumber = config.getInt(JdbcConfig.PARTITION_NUM.key());
+        }
+        if (config.hasPath(JdbcConfig.PARTITION_SPLIT_TYPE.key())) {
+            this.splitType = config.getEnum(SplitType.class, JdbcConfig.PARTITION_SPLIT_TYPE.key());
         }
         if (config.hasPath(JdbcConfig.FETCH_SIZE.key())) {
             this.fetchSize = config.getInt(JdbcConfig.FETCH_SIZE.key());
