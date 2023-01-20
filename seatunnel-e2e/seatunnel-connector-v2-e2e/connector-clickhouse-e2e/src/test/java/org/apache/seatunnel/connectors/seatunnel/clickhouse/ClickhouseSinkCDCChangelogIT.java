@@ -186,7 +186,7 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
                 Arrays.asList(1L, "A_1", 100),
                 Arrays.asList(3L, "C", 100))
             .collect(Collectors.toSet());
-        if (!Arrays.equals(expected.toArray(), expected.toArray())) {
+        if (!Arrays.equals(actual.toArray(), expected.toArray())) {
             throw new IllegalStateException(String.format("Actual results %s not equal expected results %s",
                     Arrays.toString(actual.toArray()), Arrays.toString(expected.toArray())));
         }
