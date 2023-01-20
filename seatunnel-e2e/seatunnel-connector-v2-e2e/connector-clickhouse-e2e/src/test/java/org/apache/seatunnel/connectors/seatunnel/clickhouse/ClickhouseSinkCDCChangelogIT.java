@@ -185,7 +185,7 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
 
     private void dropSinkTable() {
         try (Statement statement = connection.createStatement()) {
-            statement.execute(String.format("drop table %s.%s", DATABASE, SINK_TABLE));
+            statement.execute(String.format("drop table %s.%s sync", DATABASE, SINK_TABLE));
         } catch (SQLException e) {
             throw new RuntimeException("Test clickhouse server image error", e);
         }
