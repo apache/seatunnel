@@ -87,7 +87,6 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
 
     @TestTemplate
     public void testClickhouseMergeTreeTable(TestContainer container) throws Exception {
-        dropSinkTable();
         initializeClickhouseMergeTreeTable();
 
         Container.ExecResult execResult = container.executeJob("/clickhouse_sink_cdc_changelog_case1.conf");
@@ -99,7 +98,6 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
 
     @TestTemplate
     public void testClickhouseMergeTreeTableWithEnableDelete(TestContainer container) throws Exception {
-        dropSinkTable();
         initializeClickhouseMergeTreeTable();
 
         Container.ExecResult execResult = container.executeJob("/clickhouse_sink_cdc_changelog_case2.conf");
@@ -111,7 +109,6 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
 
     @TestTemplate
     public void testClickhouseReplacingMergeTreeTable(TestContainer container) throws Exception {
-        dropSinkTable();
         initializeClickhouseReplacingMergeTreeTable();
 
         Container.ExecResult execResult = container.executeJob("/clickhouse_sink_cdc_changelog_case1.conf");
@@ -123,7 +120,6 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
 
     @TestTemplate
     public void testClickhouseReplacingMergeTreeTableWithEnableDelete(TestContainer container) throws Exception {
-        dropSinkTable();
         initializeClickhouseReplacingMergeTreeTable();
 
         Container.ExecResult execResult = container.executeJob("/clickhouse_sink_cdc_changelog_case2.conf");
