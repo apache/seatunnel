@@ -31,7 +31,7 @@ import java.util.Map;
  */
 public class SeaTunnelSparkSink implements DataSourceRegister, TableProvider {
 
-    private static final String SINK_NAME = "SeaTunnelSparkSink";
+    private static final String SINK_NAME = "SeaTunnelSink";
 
     @Override
     public StructType inferSchema(CaseInsensitiveStringMap options) {

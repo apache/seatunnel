@@ -30,7 +30,7 @@ import java.util.Map;
  * SeaTunnel source class of Spark 3+, can be used as source
  */
 public class SeaTunnelSparkSource implements DataSourceRegister, TableProvider {
-    private static final String SOURCE_NAME = "SeaTunnelSparkSource";
+    private static final String SOURCE_NAME = "SeaTunnelSource";
 
     /**
      * The identifier of spark SPI discovery, refer to {@link DataSourceRegister}
