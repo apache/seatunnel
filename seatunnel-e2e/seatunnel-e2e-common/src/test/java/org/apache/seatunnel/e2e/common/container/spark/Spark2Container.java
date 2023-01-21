@@ -44,6 +44,11 @@ public class Spark2Container extends AbstractTestSparkContainer {
     }
 
     @Override
+    protected String getDockerImage() {
+        return "bitnami/spark:2.4.6";
+    }
+
+    @Override
     protected String getStartShellName() {
         return "start-seatunnel-spark-2-connector-v2.sh";
     }
