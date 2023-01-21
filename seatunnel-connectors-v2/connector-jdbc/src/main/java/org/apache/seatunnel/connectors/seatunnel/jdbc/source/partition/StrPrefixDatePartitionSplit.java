@@ -41,7 +41,7 @@ public class StrPrefixDatePartitionSplit implements PartitionSplit<String> {
     }
 
     @Override
-    public Set<JdbcSourceSplit> getSplit() throws SQLException {
+    public Set<JdbcSourceSplit> getSplit(int currentParallelism) throws SQLException {
         return null;
     }
 }

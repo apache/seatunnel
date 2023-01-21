@@ -31,5 +31,5 @@ public interface PartitionSplit<T> extends Serializable {
 
     PartitionParameter<T> getPartitionParameter() throws SQLException;
 
-    Set<JdbcSourceSplit> getSplit() throws SQLException;
+    Set<JdbcSourceSplit> getSplit(int currentParallelism) throws SQLException;
 }

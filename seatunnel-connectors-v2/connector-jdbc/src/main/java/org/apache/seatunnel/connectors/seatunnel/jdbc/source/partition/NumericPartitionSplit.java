@@ -104,11 +104,14 @@ public class NumericPartitionSplit implements PartitionSplit<Long> {
     }
 
     @Override
-    public Set<JdbcSourceSplit> getSplit() throws SQLException {
+    public Set<JdbcSourceSplit> getSplit(int currentParallelism) throws SQLException {
         Set<JdbcSourceSplit> allSplit = new HashSet<>();
         log.info("Starting to calculate splits.");
         PartitionParameter<Long> partitionParameter = getPartitionParameter();
         if (null != partitionParameter) {
+            int partitionNumber = partitionParameter.getPartitionNumber() != null ?
+                partitionParameter.getPartitionNumber() : currentParallelism;
+            partitionParameter.setPartitionNumber(partitionNumber);
             JdbcNumericBetweenParametersProvider jdbcNumericBetweenParametersProvider =
                 new JdbcNumericBetweenParametersProvider(partitionParameter.getMinValue(), partitionParameter.getMaxValue())
                     .ofBatchNum(partitionParameter.getPartitionNumber());

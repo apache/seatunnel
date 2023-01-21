@@ -92,7 +92,7 @@ public class JdbcSourceSplitEnumerator implements SourceSplitEnumerator<JdbcSour
     }
 
     private Set<JdbcSourceSplit> discoverySplits() throws SQLException {
-        return partitionSplit.getSplit();
+        return partitionSplit.getSplit(enumeratorContext.currentParallelism());
     }
 
     @Override
