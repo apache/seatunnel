@@ -23,13 +23,14 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.source.PartitionParameter;
 
 import java.io.Serializable;
 import java.sql.SQLException;
+import java.util.Map;
 import java.util.Set;
 
 public interface PartitionSplit<T> extends Serializable {
 
     boolean checkType(SeaTunnelDataType<?> type);
 
-    PartitionParameter<T> getPartitionParameter() throws SQLException;
+    PartitionParameter<T> getPartitionParameter(Map<String, SeaTunnelDataType<?>> fieldTypes, String partitionColumn) throws SQLException;
 
     Set<JdbcSourceSplit> getSplit(int currentParallelism) throws SQLException;
 }

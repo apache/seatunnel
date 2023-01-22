@@ -25,6 +25,7 @@ import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.SQLException;
+import java.util.Map;
 import java.util.Set;
 
 @Builder
@@ -36,7 +37,7 @@ public class StrPrefixNumericPartitionSplit implements PartitionSplit<String> {
     }
 
     @Override
-    public PartitionParameter<String> getPartitionParameter() throws SQLException {
+    public PartitionParameter<String> getPartitionParameter(Map<String, SeaTunnelDataType<?>> fieldTypes, String partitionColumn) throws SQLException {
         return null;
     }
 

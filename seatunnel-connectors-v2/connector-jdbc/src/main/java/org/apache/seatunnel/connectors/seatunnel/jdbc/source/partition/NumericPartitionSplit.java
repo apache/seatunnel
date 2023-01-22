@@ -35,14 +35,13 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.Serializable;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
 @Builder
 @Slf4j
-public class NumericPartitionSplit implements PartitionSplit<Long> {
+public class NumericPartitionSplit extends AbstractPartitionSplit<Long> {
 
     private final JdbcSourceOptions jdbcSourceOptions;
 
@@ -58,48 +57,34 @@ public class NumericPartitionSplit implements PartitionSplit<Long> {
     }
 
     @Override
-    public PartitionParameter<Long> getPartitionParameter() throws SQLException {
-        if (jdbcSourceOptions.getPartitionColumn().isPresent()) {
-            String partitionColumn = jdbcSourceOptions.getPartitionColumn().get();
-            Map<String, SeaTunnelDataType<?>> fieldTypes = new HashMap<>();
-            for (int i = 0; i < rowType.getFieldNames().length; i++) {
-                fieldTypes.put(rowType.getFieldName(i), rowType.getFieldType(i));
-            }
-            if (!fieldTypes.containsKey(partitionColumn)) {
-                throw new JdbcConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
-                    String.format("field %s not contain in query %s",
-                        partitionColumn, query));
-            }
-            if (!checkType(fieldTypes.get(partitionColumn))) {
-                throw new JdbcConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
-                    String.format("%s is not numeric type", partitionColumn));
-            }
-            long max = Long.MAX_VALUE;
-            long min = Long.MIN_VALUE;
-            if (jdbcSourceOptions.getPartitionLowerBound().isPresent() &&
-                jdbcSourceOptions.getPartitionUpperBound().isPresent()) {
-                max = jdbcSourceOptions.getPartitionUpperBound().get();
-                min = jdbcSourceOptions.getPartitionLowerBound().get();
-                return new PartitionParameter<>(partitionColumn, min, max, jdbcSourceOptions.getPartitionNumber().orElse(null));
-            }
-            try (ResultSet rs = jdbcConnectionProvider.getOrEstablishConnection().createStatement().executeQuery(String.format("SELECT MAX(%s),MIN(%s) " +
-                "FROM (%s) tt", partitionColumn, partitionColumn, query))) {
-                if (rs.next()) {
-                    max = jdbcSourceOptions.getPartitionUpperBound().isPresent() ?
-                        jdbcSourceOptions.getPartitionUpperBound().get() :
-                        Long.parseLong(rs.getString(1));
-                    min = jdbcSourceOptions.getPartitionLowerBound().isPresent() ?
-                        jdbcSourceOptions.getPartitionLowerBound().get() :
-                        Long.parseLong(rs.getString(2));
-                }
-            } catch (ClassNotFoundException e) {
-                throw new SeaTunnelException(e);
-            }
-            return new PartitionParameter<>(partitionColumn, min, max, jdbcSourceOptions.getPartitionNumber().orElse(null));
-        } else {
-            log.info("The partition_column parameter is not configured, and the source parallelism is set to 1");
+    public PartitionParameter<Long> getPartitionParameter(Map<String, SeaTunnelDataType<?>> fieldTypes, String partitionColumn) throws SQLException {
+
+        if (!checkType(fieldTypes.get(partitionColumn))) {
+            throw new JdbcConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
+                String.format("%s is not numeric type", partitionColumn));
         }
-        return null;
+        long max = Long.MAX_VALUE;
+        long min = Long.MIN_VALUE;
+        if (jdbcSourceOptions.getPartitionLowerBound().isPresent() &&
+            jdbcSourceOptions.getPartitionUpperBound().isPresent()) {
+            max = jdbcSourceOptions.getPartitionUpperBound().get();
+            min = jdbcSourceOptions.getPartitionLowerBound().get();
+            return new PartitionParameter<>(partitionColumn, min, max, jdbcSourceOptions.getPartitionNumber().orElse(null));
+        }
+        try (ResultSet rs = jdbcConnectionProvider.getOrEstablishConnection().createStatement().executeQuery(String.format("SELECT MAX(%s),MIN(%s) " +
+            "FROM (%s) tt", partitionColumn, partitionColumn, query))) {
+            if (rs.next()) {
+                max = jdbcSourceOptions.getPartitionUpperBound().isPresent() ?
+                    jdbcSourceOptions.getPartitionUpperBound().get() :
+                    Long.parseLong(rs.getString(1));
+                min = jdbcSourceOptions.getPartitionLowerBound().isPresent() ?
+                    jdbcSourceOptions.getPartitionLowerBound().get() :
+                    Long.parseLong(rs.getString(2));
+            }
+        } catch (ClassNotFoundException e) {
+            throw new SeaTunnelException(e);
+        }
+        return new PartitionParameter<>(partitionColumn, min, max, jdbcSourceOptions.getPartitionNumber().orElse(null));
 
     }
 
@@ -107,7 +92,7 @@ public class NumericPartitionSplit implements PartitionSplit<Long> {
     public Set<JdbcSourceSplit> getSplit(int currentParallelism) throws SQLException {
         Set<JdbcSourceSplit> allSplit = new HashSet<>();
         log.info("Starting to calculate splits.");
-        PartitionParameter<Long> partitionParameter = getPartitionParameter();
+        PartitionParameter<Long> partitionParameter = checkAndGetPartitionColumn();
         if (null != partitionParameter) {
             int partitionNumber = partitionParameter.getPartitionNumber() != null ?
                 partitionParameter.getPartitionNumber() : currentParallelism;
