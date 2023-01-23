@@ -47,7 +47,7 @@ public class JdbcConfig implements Serializable {
 
     public static final Option<Boolean> AUTO_COMMIT = Options.key("auto_commit").booleanType().defaultValue(DEFAULT_AUTO_COMMIT).withDescription("auto commit");
 
-    public static final Option<Integer> BATCH_SIZE = Options.key("batch_size").intType().defaultValue(1000).withDescription("batch size");
+    public static final Option<Integer> BATCH_SIZE = Options.key("batch_size").intType().defaultValue(2000).withDescription("batch size");
 
     public static final Option<Integer> FETCH_SIZE = Options.key("fetch_size").intType().defaultValue(0).withDescription("For queries that return a large number of objects, " +
         "you can configure the row fetch size used in the query to improve performance by reducing the number database hits required to satisfy the selection criteria. Zero means use jdbc default value.");
