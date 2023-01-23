@@ -229,4 +229,4 @@ sink {
 - [Feature] Support Doris JDBC Sink
 - [Feature] Support Redshift JDBC Sink([#3615](https://github.com/apache/incubator-seatunnel/pull/3615))
 - [Improve] Add config item enable upsert by query([#3708](https://github.com/apache/incubator-seatunnel/pull/3708))
-- [Improve] Test to select the appropriate batch size for jdbc sink
+- [Improve] Test to select the appropriate batch size for jdbc sink([#3988](https://github.com/apache/incubator-seatunnel/pull/3988))
