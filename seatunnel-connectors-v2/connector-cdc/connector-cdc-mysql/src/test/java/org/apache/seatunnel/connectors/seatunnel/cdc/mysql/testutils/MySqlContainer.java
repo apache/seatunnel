@@ -17,13 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils;
 
-import lombok.NonNull;
 import org.testcontainers.containers.ContainerLaunchException;
 import org.testcontainers.containers.JdbcDatabaseContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 /**
