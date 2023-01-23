@@ -212,4 +212,4 @@ sink {
 - [Improve] Add text format for kafka sink connector [3711](https://github.com/apache/incubator-seatunnel/pull/3711)
 - [Improve] Support extract topic from SeaTunnelRow fields [3742](https://github.com/apache/incubator-seatunnel/pull/3742)
 - [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/incubator-seatunnel/pull/3719)
-- [Improve] Add timestamp for kafka sink record
+- [Improve] Add timestamp for kafka sink record [3987](https://github.com/apache/incubator-seatunnel/pull/3987)

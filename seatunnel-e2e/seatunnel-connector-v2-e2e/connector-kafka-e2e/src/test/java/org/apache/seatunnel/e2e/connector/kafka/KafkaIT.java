@@ -137,6 +137,16 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testTimestampSinkKafka(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/kafkaTimestampSink_fake_to_kafka.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        String topicName = "test_timestamp_topic";
+        Map<String, String> data = getKafkaConsumerData(topicName);
+        Assertions.assertEquals(10, data.size());
+    }
+
+    @TestTemplate
     public void testTextFormatSinkKafka(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/kafkaTextsink_fake_to_kafka.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
