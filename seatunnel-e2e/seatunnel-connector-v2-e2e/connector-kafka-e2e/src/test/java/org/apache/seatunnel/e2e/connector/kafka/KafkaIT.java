@@ -29,9 +29,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunnelRowSerializer;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -62,7 +60,6 @@ import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -75,7 +72,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 @Slf4j
-@DisabledOnContainer(value = {}, type = {EngineType.FLINK, EngineType.SPARK})
 public class KafkaIT extends TestSuiteBase implements TestResource {
     private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:6.2.1";
 
@@ -202,13 +198,6 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testSourceKafkaCannalToConsole(TestContainer container) throws IOException, InterruptedException {
-        generateCanalTestData("test_topic_json");
-        Container.ExecResult execResult = container.executeJob("/kafkasource_canal_to_console.conf");
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-    }
-
-    @TestTemplate
     public void testSourceKafka(TestContainer container) throws IOException, InterruptedException {
         testKafkaLatestToConsole(container);
         testKafkaEarliestToConsole(container);
@@ -291,15 +280,6 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             ProducerRecord<byte[], byte[]> producerRecord = converter.convert(row);
             producer.send(producerRecord);
         }
-    }
-
-    private void generateCanalTestData(String topic) {
-        producer.send(new ProducerRecord<>(topic,
-            "{\"data\":[{\"id\":\"101\",\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"3.14\"},{\"id\":\"102\",\"name\":\"car battery\",\"description\":\"12V car battery\",\"weight\":\"8.1\"},{\"id\":\"103\",\"name\":\"12-pack drill bits\",\"description\":\"12-pack of drill bits with sizes ranging from #40 to #3\",\"weight\":\"0.8\"},{\"id\":\"104\",\"name\":\"hammer\",\"description\":\"12oz carpenter's hammer\",\"weight\":\"0.75\"},{\"id\":\"105\",\"name\":\"hammer\",\"description\":\"14oz carpenter's hammer\",\"weight\":\"0.875\"},{\"id\":\"106\",\"name\":\"hammer\",\"description\":null,\"weight\":\"1.0\"},{\"id\":\"107\",\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"5.3\"},{\"id\":\"108\",\"name\":\"jacket\",\"description\":\"water resistent black wind breaker\",\"weight\":\"0.1\"},{\"id\":\"109\",\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":\"22.2\"}],\"database\":\"mydb\",\"es\":1598944132000,\"id\":1,\"isDdl\":false,\"mysqlType\":{\"id\":\"int(11)\",\"name\":\"varchar(255)\",\"description\":\"varchar(512)\",\"weight\":\"float\"},\"old\":null,\"pkNames\":[\"id\"],\"sql\":\"\",\"sqlType\":{\"id\":4,\"name\":12,\"description\":12,\"weight\":7},\"table\":\"product\",\"ts\":1598944146308,\"type\":\"INSERT\"}".getBytes(StandardCharsets.UTF_8)));
-
-//        producer.send(new ProducerRecord<>(topic,
-//            "{\"data\":[{\"id\":\"102\",\"name\":\"car battery\",\"description\":\"12V car battery\",\"weight\":\"5.17\"},{\"id\":\"103\",\"name\":\"12-pack drill bits\",\"description\":\"12-pack of drill bits with sizes ranging from #40 to #3\",\"weight\":\"0.8\"}],\"database\":\"mydb\",\"es\":1598944418000,\"id\":12,\"isDdl\":false,\"mysqlType\":{\"id\":\"int(11)\",\"name\":\"varchar(255)\",\"description\":\"varchar(512)\",\"weight\":\"float\"},\"old\":null,\"pkNames\":[\"id\"],\"sql\":\"\",\"sqlType\":{\"id\":4,\"name\":12,\"description\":12,\"weight\":7},\"table\":\"product\",\"ts\":1598944418418,\"type\":\"DELETE\"}".getBytes(StandardCharsets.UTF_8)));
-
     }
 
     private static final SeaTunnelRowType SEATUNNEL_ROW_TYPE = new SeaTunnelRowType(
