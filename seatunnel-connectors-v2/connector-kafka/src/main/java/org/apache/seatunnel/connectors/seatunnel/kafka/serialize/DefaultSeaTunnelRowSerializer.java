@@ -37,10 +37,12 @@ import java.util.function.Function;
 public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<byte[], byte[]> {
 
     private Integer partition;
+    private Long timestamp = null;
     private final SerializationSchema keySerialization;
     private final SerializationSchema valueSerialization;
 
     public DefaultSeaTunnelRowSerializer(SeaTunnelRowType seaTunnelRowType,
+                                         Long timestamp,
                                          String format,
                                          String delimiter) {
         this(element -> null, createSerializationSchema(seaTunnelRowType, format, delimiter));
@@ -48,16 +50,19 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<byt
 
     public DefaultSeaTunnelRowSerializer(Integer partition,
                                          SeaTunnelRowType seaTunnelRowType,
+                                         Long timestamp,
                                          String format, String delimiter) {
-        this(seaTunnelRowType, format, delimiter);
+        this(seaTunnelRowType, timestamp, format, delimiter);
         this.partition = partition;
     }
 
     public DefaultSeaTunnelRowSerializer(List<String> keyFieldNames,
                                          SeaTunnelRowType seaTunnelRowType,
+                                         Long timestamp,
                                          String format, String delimiter) {
         this(createKeySerializationSchema(keyFieldNames, seaTunnelRowType),
                 createSerializationSchema(seaTunnelRowType, format, delimiter));
+        this.timestamp = timestamp;
     }
 
     public DefaultSeaTunnelRowSerializer(SerializationSchema keySerialization,
@@ -68,7 +73,7 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<byt
 
     @Override
     public ProducerRecord<byte[], byte[]> serializeRow(String topic, SeaTunnelRow row) {
-        return new ProducerRecord<>(topic, partition,
+        return new ProducerRecord<>(topic, partition, timestamp,
                 keySerialization.serialize(row), valueSerialization.serialize(row));
     }
 

@@ -106,7 +106,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 .untilAsserted(() -> initKafkaProducer());
 
         log.info("Write 100 records to topic test_topic_source");
-        DefaultSeaTunnelRowSerializer serializer = new DefaultSeaTunnelRowSerializer(SEATUNNEL_ROW_TYPE, DEFAULT_FORMAT, DEFAULT_FIELD_DELIMITER);
+        DefaultSeaTunnelRowSerializer serializer = new DefaultSeaTunnelRowSerializer(SEATUNNEL_ROW_TYPE, null, DEFAULT_FORMAT, DEFAULT_FIELD_DELIMITER);
         generateTestData(row -> serializer.serializeRow("test_topic_source", row), 0, 100);
     }
 
@@ -127,6 +127,21 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         String topicName = "test_topic";
+        Map<String, String> data = getKafkaConsumerData(topicName);
+        ObjectMapper objectMapper = new ObjectMapper();
+        String key = data.keySet().iterator().next();
+        ObjectNode objectNode = objectMapper.readValue(key, ObjectNode.class);
+        Assertions.assertTrue(objectNode.has("c_map"));
+        Assertions.assertTrue(objectNode.has("c_string"));
+        Assertions.assertEquals(10, data.size());
+    }
+
+    @TestTemplate
+    public void testTimestampSinkKafka(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/Timestamp_fake_to_kafka.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        String topicName = "test_timestamp_topic";
         Map<String, String> data = getKafkaConsumerData(topicName);
         ObjectMapper objectMapper = new ObjectMapper();
         String key = data.keySet().iterator().next();
@@ -174,7 +189,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testSourceKafkaJsonToConsole(TestContainer container) throws IOException, InterruptedException {
-        DefaultSeaTunnelRowSerializer serializer = new DefaultSeaTunnelRowSerializer(SEATUNNEL_ROW_TYPE, DEFAULT_FORMAT, DEFAULT_FIELD_DELIMITER);
+        DefaultSeaTunnelRowSerializer serializer = new DefaultSeaTunnelRowSerializer(SEATUNNEL_ROW_TYPE, null, DEFAULT_FORMAT, DEFAULT_FIELD_DELIMITER);
         generateTestData(row -> serializer.serializeRow("test_topic_json", row), 0, 100);
         Container.ExecResult execResult = container.executeJob("/kafkasource_json_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
@@ -190,7 +205,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testSourceKafkaStartConfig(TestContainer container) throws IOException, InterruptedException {
-        DefaultSeaTunnelRowSerializer serializer = new DefaultSeaTunnelRowSerializer(SEATUNNEL_ROW_TYPE, DEFAULT_FORMAT, DEFAULT_FIELD_DELIMITER);
+        DefaultSeaTunnelRowSerializer serializer = new DefaultSeaTunnelRowSerializer(SEATUNNEL_ROW_TYPE, null, DEFAULT_FORMAT, DEFAULT_FIELD_DELIMITER);
         generateTestData(row -> serializer.serializeRow("test_topic_group", row), 100, 150);
         testKafkaGroupOffsetsToConsole(container);
     }

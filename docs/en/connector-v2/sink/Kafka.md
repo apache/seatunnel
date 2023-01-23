@@ -25,6 +25,7 @@ By default, we will use 2pc to guarantee the message is sent to kafka exactly on
 | transaction_prefix   | string | no       | -             |
 | format               | String | no       | json          |
 | field_delimiter      | String | no       | ,             |
+| timestamp            | long   | no       | -          |
 | common-options       | config | no       | -             |
 
 ### topic [string]
@@ -111,6 +112,10 @@ If you customize the delimiter, add the "field_delimiter" option.
 ### field_delimiter
 
 Customize the field delimiter for data format.
+
+### timestamp [long]
+
+We can specify the timestamp, the time specified by the user is used for record.
 
 ### common options [config]
 
@@ -207,3 +212,4 @@ sink {
 - [Improve] Add text format for kafka sink connector [3711](https://github.com/apache/incubator-seatunnel/pull/3711)
 - [Improve] Support extract topic from SeaTunnelRow fields [3742](https://github.com/apache/incubator-seatunnel/pull/3742)
 - [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/incubator-seatunnel/pull/3719)
+- [Improve] Add timestamp for kafka sink record

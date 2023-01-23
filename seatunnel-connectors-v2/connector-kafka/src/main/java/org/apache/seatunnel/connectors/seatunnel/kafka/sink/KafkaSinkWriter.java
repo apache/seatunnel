@@ -25,6 +25,7 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FORM
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PARTITION;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PARTITION_KEY_FIELDS;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TIMESTAMP;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TOPIC;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TRANSACTION_PREFIX;
 
@@ -164,16 +165,26 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         if (pluginConfig.hasPath(FORMAT.key())) {
             format = pluginConfig.getString(FORMAT.key());
         }
+
+        Long timestamp = null;
+        if (pluginConfig.hasPath(TIMESTAMP.key())) {
+            timestamp = pluginConfig.getLong(TIMESTAMP.key());
+        }
+
+        if (pluginConfig.hasPath(FORMAT.key())) {
+            format = pluginConfig.getString(FORMAT.key());
+        }
         String delimiter = DEFAULT_FIELD_DELIMITER;
         if (pluginConfig.hasPath(FIELD_DELIMITER.key())) {
             delimiter = pluginConfig.getString(FIELD_DELIMITER.key());
         }
+
         if (pluginConfig.hasPath(PARTITION.key())) {
             return new DefaultSeaTunnelRowSerializer(
-                    pluginConfig.getInt(PARTITION.key()), seaTunnelRowType, format, delimiter);
+                    pluginConfig.getInt(PARTITION.key()), seaTunnelRowType, timestamp, format, delimiter);
         } else {
             return new DefaultSeaTunnelRowSerializer(
-                    getPartitionKeyFields(pluginConfig, seaTunnelRowType), seaTunnelRowType, format, delimiter);
+                    getPartitionKeyFields(pluginConfig, seaTunnelRowType), seaTunnelRowType, timestamp, format, delimiter);
         }
     }
 

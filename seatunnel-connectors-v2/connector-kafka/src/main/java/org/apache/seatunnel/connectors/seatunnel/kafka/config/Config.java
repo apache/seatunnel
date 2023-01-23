@@ -98,6 +98,11 @@ public class Config {
             .noDefaultValue()
             .withDescription("We can specify the partition, all messages will be sent to this partition.");
 
+    public static final Option<Long> TIMESTAMP = Options.key("timestamp")
+            .longType()
+            .noDefaultValue()
+            .withDescription("We can specify the timestamp, the time specified by the user is used for record.");
+
     public static final Option<List<String>> ASSIGN_PARTITIONS = Options.key("assign_partitions")
             .listType()
             .noDefaultValue()
