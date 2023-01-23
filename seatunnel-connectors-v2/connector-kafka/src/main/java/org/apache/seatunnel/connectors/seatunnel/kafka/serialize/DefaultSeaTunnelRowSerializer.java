@@ -81,8 +81,8 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<byt
                     .seaTunnelRowType(rowType)
                     .delimiter(delimiter)
                     .build();
-        } else if (CANNAL_FORMAT.equals(format)){
-          return new CanalJsonSerializationSchema(rowType);
+        } else if (CANNAL_FORMAT.equals(format)) {
+            return new CanalJsonSerializationSchema(rowType);
         } else {
             throw new SeaTunnelJsonFormatException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
                     "Unsupported format: " + format);
