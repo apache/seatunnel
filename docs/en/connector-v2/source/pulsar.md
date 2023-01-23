@@ -36,6 +36,8 @@ Source connector for Apache Pulsar.
 | cursor.stop.mode         | Enum    | No       | NEVER         |
 | cursor.stop.timestamp    | Long    | No       | -             |
 | schema                   | config  | No       | -             |
+| format                   | String  | no       | json          |           |
+| field_delimiter          | String  | no       | ,             |           |
 | common-options           |         | no       | -             |
 
 ### topic [String]
@@ -125,6 +127,15 @@ Stop from the specified epoch timestamp (in milliseconds).
 **Note, This option is required when the "cursor.stop.mode" option used `'TIMESTAMP'`.**
 
 ### schema [Config]
+
+## format
+
+Data format. The default format is json. Optional text format. The default field separator is ", ".
+If you customize the delimiter, add the "field_delimiter" option.
+
+## field_delimiter
+
+Customize the field delimiter for data format.
 
 #### fields [Config]
 

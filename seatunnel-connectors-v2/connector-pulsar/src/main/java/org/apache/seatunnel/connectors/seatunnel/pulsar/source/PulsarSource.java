@@ -28,11 +28,16 @@ import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProp
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.CURSOR_STARTUP_TIMESTAMP;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.CURSOR_STOP_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.CURSOR_STOP_TIMESTAMP;
+import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.DEFAULT_FIELD_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.DEFAULT_FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.FIELD_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.POLL_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.POLL_INTERVAL;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.POLL_TIMEOUT;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.SUBSCRIPTION_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.StartMode;
+import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.TEXT_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.TOPIC;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.TOPIC_DISCOVERY_INTERVAL;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.TOPIC_PATTERN;
@@ -50,6 +55,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarAdminConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarClientConfig;
@@ -69,6 +75,8 @@ import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.discov
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.reader.PulsarSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.split.PulsarPartitionSplit;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
+import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
+import org.apache.seatunnel.format.text.TextDeserializationSchema;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -226,10 +234,37 @@ public class PulsarSource<T> implements SeaTunnelSource<T, PulsarPartitionSplit,
     }
 
     private void setDeserialization(Config config) {
-        String format = config.getString("format");
-        // TODO: format SPI
-        SeaTunnelRowType rowType = SeaTunnelSchema.buildWithConfig(config.getConfig(SeaTunnelSchema.SCHEMA.key())).getSeaTunnelRowType();
-        deserialization = (DeserializationSchema<T>) new JsonDeserializationSchema(false, false, rowType);
+        String schemaKey = SeaTunnelSchema.SCHEMA.key();
+        if (config.hasPath(schemaKey)) {
+            Config schema = config.getConfig(schemaKey);
+            SeaTunnelRowType rowType = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
+            String format = DEFAULT_FORMAT;
+            if (config.hasPath(FORMAT.key())) {
+                format = config.getString(FORMAT.key());
+            }
+            if (DEFAULT_FORMAT.equals(format)) {
+                deserialization = (DeserializationSchema<T>) new JsonDeserializationSchema(false, false, rowType);
+            } else if (TEXT_FORMAT.equals(format)) {
+                String delimiter = DEFAULT_FIELD_DELIMITER;
+                if (config.hasPath(FIELD_DELIMITER.key())) {
+                    delimiter = config.getString(FIELD_DELIMITER.key());
+                }
+                deserialization = (DeserializationSchema<T>) TextDeserializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter(delimiter)
+                        .build();
+            } else {
+                // TODO: use format SPI
+                throw new SeaTunnelJsonFormatException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "Unsupported format: " + format);
+            }
+        } else {
+            SeaTunnelRowType rowType = SeaTunnelSchema.buildSimpleTextSchema();
+            deserialization = (DeserializationSchema<T>) TextDeserializationSchema.builder()
+                    .seaTunnelRowType(rowType)
+                    .delimiter(String.valueOf('\002'))
+                    .build();
+        }
     }
 
     @Override
