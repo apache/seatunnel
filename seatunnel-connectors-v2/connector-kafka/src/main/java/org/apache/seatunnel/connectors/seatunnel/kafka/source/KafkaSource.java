@@ -212,7 +212,7 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
                     .seaTunnelRowType(typeInfo)
                     .delimiter(delimiter)
                     .build();
-            } else if(CANNAL_FORMAT.equals(format)){
+            } else if (CANNAL_FORMAT.equals(format)) {
                 deserializationSchema = CanalJsonDeserializationSchema.builder(typeInfo)
                     .setIgnoreParseErrors(false)
                     .build();
