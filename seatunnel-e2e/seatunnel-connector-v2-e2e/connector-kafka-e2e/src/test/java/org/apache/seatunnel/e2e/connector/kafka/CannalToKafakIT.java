@@ -30,7 +30,7 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(CannalToKafakIT.class);
 
-    private static GenericContainer<?> CanalServer;
+    private GenericContainer<?> canalServer;
 
     private static final String CANAL_DOCKER_IMAGE = "chinayin/canal:1.1.6";
 
@@ -46,7 +46,7 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
 
     private static final String KAFKA_HOST = "kafkaCluster";
 
-    private static KafkaContainer kafkaContainer;
+    private KafkaContainer kafkaContainer;
 
     //----------------------------------------------------------------------------
     // mysql
@@ -74,19 +74,19 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
         return mySqlContainer;
     }
 
-    private static void createCanalContainer() {
-        CanalServer = new GenericContainer<>(CANAL_DOCKER_IMAGE)
-            .withCopyFileToContainer(MountableFile.forClasspathResource("canal/canal.properties"),"/app/server/conf/canal.properties")
+    private void createCanalContainer() {
+        canalServer = new GenericContainer<>(CANAL_DOCKER_IMAGE)
+            .withCopyFileToContainer(MountableFile.forClasspathResource("canal/canal.properties"), "/app/server/conf/canal.properties")
             .withCopyFileToContainer(MountableFile.forClasspathResource("canal/instance.properties"), "/app/server/conf/example/instance.properties")
             .withNetwork(NETWORK)
             .withNetworkAliases(CANAL_HOST)
             .withCommand()
             .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(CANAL_DOCKER_IMAGE)));
-        CanalServer.setPortBindings(com.google.common.collect.Lists.newArrayList(
+        canalServer.setPortBindings(com.google.common.collect.Lists.newArrayList(
             String.format("%s:%s", CANAL_PORT, CANAL_PORT)));
     }
 
-    private static void createKafkaContainer(){
+    private void createKafkaContainer(){
         kafkaContainer = new KafkaContainer(DockerImageName.parse(KAFKA_IMAGE_NAME))
             .withNetwork(NETWORK)
             .withNetworkAliases(KAFKA_HOST)
@@ -110,7 +110,7 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
 
         LOG.info("The first stage: Starting Canal containers...");
         createCanalContainer();
-        Startables.deepStart(Stream.of(CanalServer)).join();
+        Startables.deepStart(Stream.of(canalServer)).join();
         LOG.info("Containers are started");
     }
 
