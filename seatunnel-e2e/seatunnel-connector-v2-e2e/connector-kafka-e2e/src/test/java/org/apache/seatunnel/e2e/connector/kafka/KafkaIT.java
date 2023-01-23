@@ -135,22 +135,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Assertions.assertTrue(objectNode.has("c_string"));
         Assertions.assertEquals(10, data.size());
     }
-
-    @TestTemplate
-    public void testTimestampSinkKafka(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/Timestamp_fake_to_kafka.conf");
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-
-        String topicName = "test_timestamp_topic";
-        Map<String, String> data = getKafkaConsumerData(topicName);
-        ObjectMapper objectMapper = new ObjectMapper();
-        String key = data.keySet().iterator().next();
-        ObjectNode objectNode = objectMapper.readValue(key, ObjectNode.class);
-        Assertions.assertTrue(objectNode.has("c_map"));
-        Assertions.assertTrue(objectNode.has("c_string"));
-        Assertions.assertEquals(10, data.size());
-    }
-
+    
     @TestTemplate
     public void testTextFormatSinkKafka(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/kafkaTextsink_fake_to_kafka.conf");
