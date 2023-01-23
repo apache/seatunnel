@@ -213,12 +213,14 @@ public class PulsarSource<T> implements SeaTunnelSource<T, PulsarPartitionSplit,
         if (StringUtils.isNotBlank(topic)) {
             this.partitionDiscoverer = new TopicListDiscoverer(Arrays.asList(StringUtils.split(topic, ",")));
         }
-        String topicPattern = config.getString(TOPIC_PATTERN.key());
-        if (StringUtils.isNotBlank(topicPattern)) {
-            if (this.partitionDiscoverer != null) {
-                throw new PulsarConnectorException(SeaTunnelAPIErrorCode.OPTION_VALIDATION_FAILED, String.format("The properties '%s' and '%s' is exclusive.", TOPIC.key(), TOPIC_PATTERN.key()));
+        if (config.hasPath(TOPIC_PATTERN.key())) {
+            String topicPattern = config.getString(TOPIC_PATTERN.key());
+            if (StringUtils.isNotBlank(topicPattern)) {
+                if (this.partitionDiscoverer != null) {
+                    throw new PulsarConnectorException(SeaTunnelAPIErrorCode.OPTION_VALIDATION_FAILED, String.format("The properties '%s' and '%s' is exclusive.", TOPIC.key(), TOPIC_PATTERN.key()));
+                }
+                this.partitionDiscoverer = new TopicPatternDiscoverer(Pattern.compile(topicPattern));
             }
-            this.partitionDiscoverer = new TopicPatternDiscoverer(Pattern.compile(topicPattern));
         }
         if (this.partitionDiscoverer == null) {
             throw new PulsarConnectorException(SeaTunnelAPIErrorCode.OPTION_VALIDATION_FAILED, String.format("The properties '%s' or '%s' is required.", TOPIC.key(), TOPIC_PATTERN.key()));
