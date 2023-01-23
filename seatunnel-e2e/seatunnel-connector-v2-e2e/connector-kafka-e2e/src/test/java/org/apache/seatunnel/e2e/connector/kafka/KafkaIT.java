@@ -135,7 +135,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Assertions.assertTrue(objectNode.has("c_string"));
         Assertions.assertEquals(10, data.size());
     }
-    
+
     @TestTemplate
     public void testTextFormatSinkKafka(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/kafkaTextsink_fake_to_kafka.conf");
