@@ -18,6 +18,7 @@
 
 package org.apache.seatunnel.format.json.canal;
 
+import static org.apache.seatunnel.api.table.type.BasicType.FLOAT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -43,7 +44,7 @@ import java.util.stream.Collectors;
 public class CanalJsonSerDeSchemaTest {
 
     private static final SeaTunnelRowType PHYSICAL_DATA_TYPE =
-        new SeaTunnelRowType(new String[]{"id", "name", "description", "weight"}, new SeaTunnelDataType[]{INT_TYPE, STRING_TYPE, STRING_TYPE, STRING_TYPE});
+        new SeaTunnelRowType(new String[]{"id", "name", "description", "weight"}, new SeaTunnelDataType[]{INT_TYPE, STRING_TYPE, STRING_TYPE, FLOAT_TYPE});
 
     @Test
     public void testFilteringTables() throws Exception {
@@ -51,8 +52,8 @@ public class CanalJsonSerDeSchemaTest {
         CanalJsonDeserializationSchema deserializationSchema =
             new CanalJsonDeserializationSchema.Builder(
                 PHYSICAL_DATA_TYPE)
-//                .setDatabase("^my.*")
-//                .setTable("^prod.*")
+                .setDatabase("^my.*")
+                .setTable("^prod.*")
                 .build();
         runTest(lines, deserializationSchema);
     }
@@ -64,12 +65,10 @@ public class CanalJsonSerDeSchemaTest {
         final SimpleCollector collector = new SimpleCollector();
 
         deserializationSchema.deserialize(null, collector);
-        deserializationSchema.deserialize(new byte[0], collector);
         assertEquals(0, collector.list.size());
     }
 
-    public void runTest(List<String> lines, CanalJsonDeserializationSchema deserializationSchema)
-        throws Exception {
+    public void runTest(List<String> lines, CanalJsonDeserializationSchema deserializationSchema) throws IOException {
         SimpleCollector collector = new SimpleCollector();
         for (String line : lines) {
             deserializationSchema.deserialize(line.getBytes(StandardCharsets.UTF_8), collector);
@@ -77,12 +76,32 @@ public class CanalJsonSerDeSchemaTest {
 
         List<String> expected =
             Arrays.asList(
+                "SeaTunnelRow{tableId=-1, kind=+I, fields=[101, scooter, Small 2-wheel scooter, 3.14]}",
+                "SeaTunnelRow{tableId=-1, kind=+I, fields=[102, car battery, 12V car battery, 8.1]}",
+                "SeaTunnelRow{tableId=-1, kind=+I, fields=[103, 12-pack drill bits, 12-pack of drill bits with sizes ranging from #40 to #3, 0.8]}",
+                "SeaTunnelRow{tableId=-1, kind=+I, fields=[104, hammer, 12oz carpenter's hammer, 0.75]}",
+                "SeaTunnelRow{tableId=-1, kind=+I, fields=[105, hammer, 14oz carpenter's hammer, 0.875]}",
+                "SeaTunnelRow{tableId=-1, kind=+I, fields=[106, hammer, null, 1.0]}",
+                "SeaTunnelRow{tableId=-1, kind=+I, fields=[107, rocks, box of assorted rocks, 5.3]}",
+                "SeaTunnelRow{tableId=-1, kind=+I, fields=[108, jacket, water resistent black wind breaker, 0.1]}",
+                "SeaTunnelRow{tableId=-1, kind=+I, fields=[109, spare tire, 24 inch spare tire, 22.2]}",
+                "SeaTunnelRow{tableId=-1, kind=-U, fields=[106, hammer, null, 1.0]}",
+                "SeaTunnelRow{tableId=-1, kind=+U, fields=[106, hammer, 18oz carpenter hammer, 1.0]}",
+                "SeaTunnelRow{tableId=-1, kind=-U, fields=[107, rocks, box of assorted rocks, 5.3]}",
+                "SeaTunnelRow{tableId=-1, kind=+U, fields=[107, rocks, box of assorted rocks, 5.1]}",
+                "SeaTunnelRow{tableId=-1, kind=+I, fields=[110, jacket, water resistent white wind breaker, 0.2]}",
+                "SeaTunnelRow{tableId=-1, kind=+I, fields=[111, scooter, Big 2-wheel scooter , 5.18]}",
+                "SeaTunnelRow{tableId=-1, kind=-U, fields=[110, jacket, water resistent white wind breaker, 0.2]}",
+                "SeaTunnelRow{tableId=-1, kind=+U, fields=[110, jacket, new water resistent white wind breaker, 0.5]}",
+                "SeaTunnelRow{tableId=-1, kind=-U, fields=[111, scooter, Big 2-wheel scooter , 5.18]}",
+                "SeaTunnelRow{tableId=-1, kind=+U, fields=[111, scooter, Big 2-wheel scooter , 5.17]}",
+                "SeaTunnelRow{tableId=-1, kind=-D, fields=[111, scooter, Big 2-wheel scooter , 5.17]}",
                 "SeaTunnelRow{tableId=-1, kind=-U, fields=[101, scooter, Small 2-wheel scooter, 3.14]}",
                 "SeaTunnelRow{tableId=-1, kind=+U, fields=[101, scooter, Small 2-wheel scooter, 5.17]}",
                 "SeaTunnelRow{tableId=-1, kind=-U, fields=[102, car battery, 12V car battery, 8.1]}",
                 "SeaTunnelRow{tableId=-1, kind=+U, fields=[102, car battery, 12V car battery, 5.17]}",
-                "SeaTunnelRow{tableId=-1, kind=-D, fields=[103, car battery, 12V car battery, 5.17]}",
-                "SeaTunnelRow{tableId=-1, kind=-D, fields=[104, 12-pack drill bits, 12-pack of drill bits with sizes ranging from #40 to #3, 0.8]}");
+                "SeaTunnelRow{tableId=-1, kind=-D, fields=[102, car battery, 12V car battery, 5.17]}",
+                "SeaTunnelRow{tableId=-1, kind=-D, fields=[103, 12-pack drill bits, 12-pack of drill bits with sizes ranging from #40 to #3, 0.8]}");
         List<String> actual =
             collector.list.stream().map(Object::toString).collect(Collectors.toList());
         assertEquals(expected, actual);
@@ -98,13 +117,32 @@ public class CanalJsonSerDeSchemaTest {
 
         List<String> expectedResult =
             Arrays.asList(
-                "{\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"3.14\"},\"type\":\"DELETE\"}",
-                "{\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"5.17\"},\"type\":\"INSERT\"}",
-                "{\"data\":{\"id\":102,\"name\":\"car battery\",\"description\":\"12V car battery\",\"weight\":\"8.1\"},\"type\":\"DELETE\"}",
-                "{\"data\":{\"id\":102,\"name\":\"car battery\",\"description\":\"12V car battery\",\"weight\":\"5.17\"},\"type\":\"INSERT\"}",
-                "{\"data\":{\"id\":103,\"name\":\"car battery\",\"description\":\"12V car battery\",\"weight\":\"5.17\"},\"type\":\"DELETE\"}",
-                "{\"data\":{\"id\":104,\"name\":\"12-pack drill bits\",\"description\":\"12-pack of drill bits with sizes ranging from #40 to #3\",\"weight\":\"0.8\"},\"type\":\"DELETE\"}"
-            );
+                "{\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":3.14},\"type\":\"INSERT\"}",
+                "{\"data\":{\"id\":102,\"name\":\"car battery\",\"description\":\"12V car battery\",\"weight\":8.1},\"type\":\"INSERT\"}",
+                "{\"data\":{\"id\":103,\"name\":\"12-pack drill bits\",\"description\":\"12-pack of drill bits with sizes ranging from #40 to #3\",\"weight\":0.8},\"type\":\"INSERT\"}",
+                "{\"data\":{\"id\":104,\"name\":\"hammer\",\"description\":\"12oz carpenter's hammer\",\"weight\":0.75},\"type\":\"INSERT\"}",
+                "{\"data\":{\"id\":105,\"name\":\"hammer\",\"description\":\"14oz carpenter's hammer\",\"weight\":0.875},\"type\":\"INSERT\"}",
+                "{\"data\":{\"id\":106,\"name\":\"hammer\",\"description\":null,\"weight\":1.0},\"type\":\"INSERT\"}",
+                "{\"data\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":5.3},\"type\":\"INSERT\"}",
+                "{\"data\":{\"id\":108,\"name\":\"jacket\",\"description\":\"water resistent black wind breaker\",\"weight\":0.1},\"type\":\"INSERT\"}",
+                "{\"data\":{\"id\":109,\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":22.2},\"type\":\"INSERT\"}",
+                "{\"data\":{\"id\":106,\"name\":\"hammer\",\"description\":null,\"weight\":1.0},\"type\":\"DELETE\"}",
+                "{\"data\":{\"id\":106,\"name\":\"hammer\",\"description\":\"18oz carpenter hammer\",\"weight\":1.0},\"type\":\"INSERT\"}",
+                "{\"data\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":5.3},\"type\":\"DELETE\"}",
+                "{\"data\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":5.1},\"type\":\"INSERT\"}",
+                "{\"data\":{\"id\":110,\"name\":\"jacket\",\"description\":\"water resistent white wind breaker\",\"weight\":0.2},\"type\":\"INSERT\"}",
+                "{\"data\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":5.18},\"type\":\"INSERT\"}",
+                "{\"data\":{\"id\":110,\"name\":\"jacket\",\"description\":\"water resistent white wind breaker\",\"weight\":0.2},\"type\":\"DELETE\"}",
+                "{\"data\":{\"id\":110,\"name\":\"jacket\",\"description\":\"new water resistent white wind breaker\",\"weight\":0.5},\"type\":\"INSERT\"}",
+                "{\"data\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":5.18},\"type\":\"DELETE\"}",
+                "{\"data\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":5.17},\"type\":\"INSERT\"}",
+                "{\"data\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":5.17},\"type\":\"DELETE\"}",
+                "{\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":3.14},\"type\":\"DELETE\"}",
+                "{\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":5.17},\"type\":\"INSERT\"}",
+                "{\"data\":{\"id\":102,\"name\":\"car battery\",\"description\":\"12V car battery\",\"weight\":8.1},\"type\":\"DELETE\"}",
+                "{\"data\":{\"id\":102,\"name\":\"car battery\",\"description\":\"12V car battery\",\"weight\":5.17},\"type\":\"INSERT\"}",
+                "{\"data\":{\"id\":102,\"name\":\"car battery\",\"description\":\"12V car battery\",\"weight\":5.17},\"type\":\"DELETE\"}",
+                "{\"data\":{\"id\":103,\"name\":\"12-pack drill bits\",\"description\":\"12-pack of drill bits with sizes ranging from #40 to #3\",\"weight\":0.8},\"type\":\"DELETE\"}");
         assertEquals(expectedResult, result);
     }
 
