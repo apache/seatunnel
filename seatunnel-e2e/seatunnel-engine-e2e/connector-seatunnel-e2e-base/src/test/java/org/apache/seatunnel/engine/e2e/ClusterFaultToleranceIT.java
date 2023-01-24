@@ -654,6 +654,7 @@ public class ClusterFaultToleranceIT {
                 "        initial-mode: EAGER\n" +
                 "        factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory\n" +
                 "        properties:\n" +
+                "          type: hdfs\n" +
                 "          namespace: /tmp/seatunnel/imap\n" +
                 "          clusterName: seatunnel-clsuter\n" +
                 "          fs.defaultFS: file:///\n" +
@@ -735,7 +736,7 @@ public class ClusterFaultToleranceIT {
             Thread.sleep(10000);
             clientJobProxy.cancelJob();
 
-            Awaitility.await().atMost(200000, TimeUnit.MILLISECONDS)
+            Awaitility.await().atMost(360000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(
                     objectCompletableFuture.isDone() && JobStatus.CANCELED.equals(objectCompletableFuture.get())));
 

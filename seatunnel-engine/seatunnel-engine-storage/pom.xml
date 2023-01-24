@@ -34,7 +34,7 @@
         <module>checkpoint-storage-api</module>
         <module>checkpoint-storage-plugins</module>
         <module>imap-storage-api</module>
-        <module>imap-storage-file</module>
+        <module>imap-storage-plugins</module>
     </modules>
-    
+
 </project>

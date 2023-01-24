@@ -25,17 +25,21 @@ import static org.apache.parquet.avro.AvroWriteSupport.WRITE_OLD_LIST_STRUCTURE;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.security.UserGroupInformation;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -68,6 +72,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected List<String> fileNames = new ArrayList<>();
     protected boolean isMergePartition = true;
     protected long skipHeaderNumber = BaseSourceConfig.SKIP_HEADER_ROW_NUMBER.defaultValue();
+    protected boolean isKerberosAuthorization = false;
 
     @Override
     public void init(HadoopConf conf) {
@@ -90,6 +95,27 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         configuration.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, hadoopConf.getHdfsNameKey());
         configuration.set(String.format("fs.%s.impl", hadoopConf.getSchema()), hadoopConf.getFsHdfsImpl());
         hadoopConf.setExtraOptionsForConfiguration(configuration);
+        String principal = hadoopConf.getKerberosPrincipal();
+        String keytabPath = hadoopConf.getKerberosKeytabPath();
+        if (!isKerberosAuthorization && StringUtils.isNotBlank(principal)) {
+            // kerberos authentication and only once
+            if (StringUtils.isBlank(keytabPath)) {
+                throw new FileConnectorException(CommonErrorCode.KERBEROS_AUTHORIZED_FAILED,
+                        "Kerberos keytab path is blank, please check this parameter that in your config file");
+            }
+            configuration.set("hadoop.security.authentication", "kerberos");
+            UserGroupInformation.setConfiguration(configuration);
+            try {
+                log.info("Start Kerberos authentication using principal {} and keytab {}", principal, keytabPath);
+                UserGroupInformation.loginUserFromKeytab(principal, keytabPath);
+                log.info("Kerberos authentication successful");
+            } catch (IOException e) {
+                String errorMsg = String.format("Kerberos authentication failed using this " +
+                        "principal [%s] and keytab path [%s]", principal, keytabPath);
+                throw new FileConnectorException(CommonErrorCode.KERBEROS_AUTHORIZED_FAILED, errorMsg, e);
+            }
+            isKerberosAuthorization = true;
+        }
         return configuration;
     }
 

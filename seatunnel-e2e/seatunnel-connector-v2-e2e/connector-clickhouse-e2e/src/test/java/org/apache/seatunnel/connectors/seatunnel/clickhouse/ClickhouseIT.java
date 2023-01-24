@@ -44,6 +44,7 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
+import org.testcontainers.shaded.org.apache.commons.lang3.tuple.Pair;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.File;
@@ -72,8 +73,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import scala.Tuple2;
-
 public class ClickhouseIT extends TestSuiteBase implements TestResource {
     private static final Logger LOG = LoggerFactory.getLogger(ClickhouseIT.class);
     private static final String CLICKHOUSE_DOCKER_IMAGE = "yandex/clickhouse-server:latest";
@@ -86,7 +85,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     private static final String SINK_TABLE = "sink_table";
     private static final String INSERT_SQL = "insert_sql";
     private static final String COMPARE_SQL = "compare_sql";
-    private static final Tuple2<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET = generateTestDataSet();
+    private static final Pair<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET = generateTestDataSet();
     private static final Config CONFIG = getInitClickhouseConfig();
     private ClickHouseContainer container;
     private Connection connection;
@@ -182,7 +181,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         try {
             this.connection.setAutoCommit(true);
             preparedStatement = this.connection.prepareStatement(sql);
-            for (SeaTunnelRow row : TEST_DATASET._2()) {
+            for (SeaTunnelRow row : TEST_DATASET.getValue()) {
                 preparedStatement.setLong(1, (Long) row.getField(0));
                 preparedStatement.setObject(2, row.getField(1));
                 preparedStatement.setArray(3, toSqlArray(row.getField(2)));
@@ -230,7 +229,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    private static Tuple2<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
+    private static Pair<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
         SeaTunnelRowType rowType = new SeaTunnelRowType(
             new String[]{
                 "id",
@@ -333,13 +332,13 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
                 });
             rows.add(row);
         }
-        return Tuple2.apply(rowType, rows);
+        return Pair.of(rowType, rows);
     }
 
     private void compareResult() throws SQLException, IOException {
         String sourceSql = "select * from " + SOURCE_TABLE;
         String sinkSql = "select * from " + SINK_TABLE;
-        List<String> columnList = Arrays.stream(generateTestDataSet()._1().getFieldNames()).collect(Collectors.toList());
+        List<String> columnList = Arrays.stream(generateTestDataSet().getKey().getFieldNames()).collect(Collectors.toList());
         Statement sourceStatement = connection.createStatement();
         Statement sinkStatement = connection.createStatement();
         ResultSet sourceResultSet = sourceStatement.executeQuery(sourceSql);
@@ -361,7 +360,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
                 }
             }
         }
-        String columns = String.join(",", generateTestDataSet()._1().getFieldNames());
+        String columns = String.join(",", generateTestDataSet().getKey().getFieldNames());
         Assertions.assertTrue(compare(String.format(CONFIG.getString(COMPARE_SQL), columns, columns)));
     }
 
