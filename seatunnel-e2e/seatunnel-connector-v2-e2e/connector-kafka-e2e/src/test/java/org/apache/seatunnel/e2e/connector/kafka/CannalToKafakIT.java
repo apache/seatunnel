@@ -127,11 +127,12 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
         createCanalContainer();
         Startables.deepStart(Stream.of(CANAL_CONTAINER)).join();
         LOG.info("Containers are started");
+
+        inventoryDatabase.createAndInitialize();
     }
 
     @TestTemplate
     public void testCannalToKafakCannalFormatAnalysis(TestContainer container) throws IOException, InterruptedException {
-        inventoryDatabase.createAndInitialize();
         Container.ExecResult execResult = container.executeJob("/kafkasource_canal_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }

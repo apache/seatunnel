@@ -104,10 +104,7 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
 
     @Override
     public SeaTunnelRow deserialize(byte[] message) throws IOException {
-        if (message == null) {
-            return null;
-        }
-        return convertJsonNode(convertBytes(message));
+        throw new UnsupportedOperationException();
     }
 
     @Override
