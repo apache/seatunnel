@@ -25,29 +25,30 @@ import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.split.JdbcDateBetweenParametersProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.split.JdbcParameterValuesProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.PartitionParameter;
 
-import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.Serializable;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-@Builder
 @Slf4j
 public class DatePartitionSplit extends AbstractPartitionSplit<Date> {
 
-    private final JdbcSourceOptions jdbcSourceOptions;
-
-    private final String query;
-
-    private final SeaTunnelRowType rowType;
-
     private final JdbcConnectionProvider jdbcConnectionProvider;
+
+    public DatePartitionSplit(JdbcConnectionProvider jdbcConnectionProvider, JdbcSourceOptions jdbcSourceOptions, SeaTunnelRowType rowType) {
+        super(jdbcSourceOptions, rowType);
+        this.jdbcConnectionProvider = jdbcConnectionProvider;
+    }
 
     @Override
     public boolean checkType(SeaTunnelDataType<?> type) {
@@ -73,7 +74,7 @@ public class DatePartitionSplit extends AbstractPartitionSplit<Date> {
             return new PartitionParameter<>(partitionColumn, new Date(min), new Date(max), jdbcSourceOptions.getPartitionNumber().orElse(null));
         }
         try (ResultSet rs = jdbcConnectionProvider.getOrEstablishConnection().createStatement().executeQuery(String.format("SELECT MAX(%s),MIN(%s) " +
-            "FROM (%s) tt", partitionColumn, partitionColumn, query))) {
+            "FROM (%s) tt", partitionColumn, partitionColumn, jdbcSourceOptions.getQuery()))) {
             if (rs.next()) {
                 max = jdbcSourceOptions.getPartitionUpperBound().isPresent() ?
                     jdbcSourceOptions.getPartitionUpperBound().get() :
@@ -90,6 +91,23 @@ public class DatePartitionSplit extends AbstractPartitionSplit<Date> {
 
     @Override
     public Set<JdbcSourceSplit> getSplit(int currentParallelism) throws SQLException {
-        return null;
+        Set<JdbcSourceSplit> allSplit = new HashSet<>();
+        log.info("Starting to calculate splits.");
+        PartitionParameter<Date> partitionParameter = checkAndGetPartitionColumn();
+        if (null != partitionParameter) {
+            int partitionNumber = partitionParameter.getPartitionNumber() != null ?
+                partitionParameter.getPartitionNumber() : currentParallelism;
+            partitionParameter.setPartitionNumber(partitionNumber);
+            JdbcParameterValuesProvider jdbcNumericBetweenParametersProvider =
+                new JdbcDateBetweenParametersProvider(partitionParameter.getMinValue().getTime(), partitionParameter.getMaxValue().getTime())
+                    .ofBatchNum(partitionParameter.getPartitionNumber());
+            Serializable[][] parameterValues = jdbcNumericBetweenParametersProvider.getParameterValues();
+            for (int i = 0; i < parameterValues.length; i++) {
+                allSplit.add(new JdbcSourceSplit(parameterValues[i], i));
+            }
+        } else {
+            allSplit.add(new JdbcSourceSplit(null, 0));
+        }
+        return allSplit;
     }
 }

@@ -30,15 +30,9 @@ public class PartitionSplitFactory {
                                                       JdbcConnectionProvider jdbcConnectionProvider) {
         switch (jdbcSourceOptions.getSplitType()) {
             case NumericType:
-                return NumericPartitionSplit
-                    .builder()
-                    .jdbcSourceOptions(jdbcSourceOptions)
-                    .query(jdbcSourceOptions.getQuery())
-                    .rowType(rowType)
-                    .jdbcConnectionProvider(jdbcConnectionProvider)
-                    .build();
+                return new NumericPartitionSplit(jdbcConnectionProvider, jdbcSourceOptions, rowType);
             case DateType:
-                return DatePartitionSplit.builder().build();
+                return new DatePartitionSplit(jdbcConnectionProvider, jdbcSourceOptions, rowType);
             case StrNumericType:
                 return StrNumericPartitionSplit.builder().build();
             case StrDateType:

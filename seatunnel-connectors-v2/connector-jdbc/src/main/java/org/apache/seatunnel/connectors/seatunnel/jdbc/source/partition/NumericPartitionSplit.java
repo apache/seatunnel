@@ -26,10 +26,10 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.split.JdbcNumericBetweenParametersProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.split.JdbcParameterValuesProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.PartitionParameter;
 
-import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
@@ -39,17 +39,15 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-@Builder
 @Slf4j
 public class NumericPartitionSplit extends AbstractPartitionSplit<Long> {
 
-    private final JdbcSourceOptions jdbcSourceOptions;
-
-    private final String query;
-
-    private final SeaTunnelRowType rowType;
-
     private final JdbcConnectionProvider jdbcConnectionProvider;
+
+    public NumericPartitionSplit(JdbcConnectionProvider jdbcConnectionProvider, JdbcSourceOptions jdbcSourceOptions, SeaTunnelRowType rowType) {
+        super(jdbcSourceOptions, rowType);
+        this.jdbcConnectionProvider = jdbcConnectionProvider;
+    }
 
     @Override
     public boolean checkType(SeaTunnelDataType<?> type) {
@@ -72,7 +70,7 @@ public class NumericPartitionSplit extends AbstractPartitionSplit<Long> {
             return new PartitionParameter<>(partitionColumn, min, max, jdbcSourceOptions.getPartitionNumber().orElse(null));
         }
         try (ResultSet rs = jdbcConnectionProvider.getOrEstablishConnection().createStatement().executeQuery(String.format("SELECT MAX(%s),MIN(%s) " +
-            "FROM (%s) tt", partitionColumn, partitionColumn, query))) {
+            "FROM (%s) tt", partitionColumn, partitionColumn, jdbcSourceOptions.getQuery()))) {
             if (rs.next()) {
                 max = jdbcSourceOptions.getPartitionUpperBound().isPresent() ?
                     jdbcSourceOptions.getPartitionUpperBound().get() :
@@ -97,7 +95,7 @@ public class NumericPartitionSplit extends AbstractPartitionSplit<Long> {
             int partitionNumber = partitionParameter.getPartitionNumber() != null ?
                 partitionParameter.getPartitionNumber() : currentParallelism;
             partitionParameter.setPartitionNumber(partitionNumber);
-            JdbcNumericBetweenParametersProvider jdbcNumericBetweenParametersProvider =
+            JdbcParameterValuesProvider jdbcNumericBetweenParametersProvider =
                 new JdbcNumericBetweenParametersProvider(partitionParameter.getMinValue(), partitionParameter.getMaxValue())
                     .ofBatchNum(partitionParameter.getPartitionNumber());
             Serializable[][] parameterValues = jdbcNumericBetweenParametersProvider.getParameterValues();

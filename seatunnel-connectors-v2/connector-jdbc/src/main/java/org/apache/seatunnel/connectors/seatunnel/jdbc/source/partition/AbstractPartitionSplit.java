@@ -24,22 +24,20 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.PartitionParameter;
 
-import lombok.Builder;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 
-@Builder
 @Slf4j
+@AllArgsConstructor
 public abstract class AbstractPartitionSplit<T> implements PartitionSplit<T> {
 
-    protected final JdbcSourceOptions jdbcSourceOptions;
+    public JdbcSourceOptions jdbcSourceOptions;
 
-    protected final SeaTunnelRowType rowType;
-
-    protected final String query;
+    public SeaTunnelRowType rowType;
 
     public PartitionParameter<T> checkAndGetPartitionColumn() throws SQLException {
 
@@ -52,7 +50,7 @@ public abstract class AbstractPartitionSplit<T> implements PartitionSplit<T> {
             if (!fieldTypes.containsKey(partitionColumn)) {
                 throw new JdbcConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
                     String.format("field %s not contain in query %s",
-                        partitionColumn, query));
+                        partitionColumn, jdbcSourceOptions.getQuery()));
             }
             return getPartitionParameter(fieldTypes, partitionColumn);
         } else {

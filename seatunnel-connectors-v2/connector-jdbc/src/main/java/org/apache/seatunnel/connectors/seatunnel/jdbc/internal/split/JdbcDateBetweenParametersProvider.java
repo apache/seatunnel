@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.split;
 import static com.google.common.base.Preconditions.checkState;
 
 import java.io.Serializable;
+import java.sql.Date;
 
 /**
  * This query parameters generator is an helper class to parameterize from/to queries on a numeric
@@ -36,7 +37,7 @@ import java.io.Serializable;
  * <p>You can take advantage of this class to automatically generate the parameters of the BETWEEN
  * clause, based on the passed constructor parameters.
  */
-public class JdbcNumericBetweenParametersProvider extends AbstractParametersProvider {
+public class JdbcDateBetweenParametersProvider extends AbstractParametersProvider {
 
     /**
      * NumericBetweenParametersProviderJdbc constructor.
@@ -44,7 +45,7 @@ public class JdbcNumericBetweenParametersProvider extends AbstractParametersProv
      * @param minVal the lower bound of the produced "from" values
      * @param maxVal the upper bound of the produced "to" values
      */
-    public JdbcNumericBetweenParametersProvider(long minVal, long maxVal) {
+    public JdbcDateBetweenParametersProvider(long minVal, long maxVal) {
         super(minVal, maxVal);
     }
 
@@ -55,7 +56,7 @@ public class JdbcNumericBetweenParametersProvider extends AbstractParametersProv
      * @param minVal    the lower bound of the produced "from" values
      * @param maxVal    the upper bound of the produced "to" values
      */
-    public JdbcNumericBetweenParametersProvider(long fetchSize, long minVal, long maxVal) {
+    public JdbcDateBetweenParametersProvider(long fetchSize, long minVal, long maxVal) {
         super(fetchSize, minVal, maxVal);
     }
 
@@ -72,7 +73,7 @@ public class JdbcNumericBetweenParametersProvider extends AbstractParametersProv
         long start = minVal;
         for (int i = 0; i < batchNum; i++) {
             long end = start + batchSize - 1 - (i >= bigBatchNum ? 1 : 0);
-            parameters[i] = new Long[]{start, end};
+            parameters[i] = new Date[]{new Date(start), new Date(end)};
             start = end + 1;
         }
         return parameters;
