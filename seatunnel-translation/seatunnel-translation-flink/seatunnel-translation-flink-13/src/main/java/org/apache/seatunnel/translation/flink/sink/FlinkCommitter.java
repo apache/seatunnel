@@ -21,12 +21,18 @@ import org.apache.seatunnel.api.sink.SinkCommitter;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.flink.api.connector.sink.Committer;
+import org.apache.flink.api.connector.sink.Sink;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * The committer wrapper of {@link SinkCommitter}, which is created by {@link Sink#createCommitter()},
+ * used to unify the different sink committer implementations
+ * @param <CommT> The generic type of commit message
+ */
 @Slf4j
 public class FlinkCommitter<CommT> implements Committer<CommitWrapper<CommT>> {
 

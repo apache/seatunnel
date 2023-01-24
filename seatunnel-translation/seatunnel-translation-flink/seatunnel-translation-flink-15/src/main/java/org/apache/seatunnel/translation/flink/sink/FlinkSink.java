@@ -35,6 +35,13 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+/**
+ * The sink implementation of {@link Sink}, the entrypoint of flink sink translation
+ * @param <InputT> The generic type of input data
+ * @param <CommT> The generic type of commit message
+ * @param <WriterStateT> The generic type of writer state
+ * @param <GlobalCommT> The generic type of global commit message
+ */
 public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT> implements Sink<InputT, CommitWrapper<CommT>,
         FlinkWriterState<WriterStateT>, GlobalCommT> {
 

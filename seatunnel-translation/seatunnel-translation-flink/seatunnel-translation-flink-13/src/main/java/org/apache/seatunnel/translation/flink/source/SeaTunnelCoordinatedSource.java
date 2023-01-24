@@ -22,6 +22,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.source.BaseSourceFunction;
 import org.apache.seatunnel.translation.source.CoordinatedSource;
 
+/**
+ * The coordinated source function implementation of {@link BaseSeaTunnelSourceFunction}
+ */
 public class SeaTunnelCoordinatedSource extends BaseSeaTunnelSourceFunction {
 
     protected static final String COORDINATED_SOURCE_STATE_NAME = "coordinated-source-states";

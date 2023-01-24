@@ -32,6 +32,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BiFunction;
 
+/**
+ * The row converter between {@link Row} and {@link SeaTunnelRow},
+ * used to convert or reconvert between flink row and seatunnel row
+ */
 public class FlinkRowConverter extends RowConverter<Row> {
 
     public FlinkRowConverter(SeaTunnelDataType<?> dataType) {

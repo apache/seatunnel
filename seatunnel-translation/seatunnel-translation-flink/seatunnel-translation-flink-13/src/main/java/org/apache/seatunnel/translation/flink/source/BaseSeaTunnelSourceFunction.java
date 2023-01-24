@@ -46,6 +46,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * The abstract implementation of {@link RichSourceFunction}, the entrypoint of flink source translation
+ */
 public abstract class BaseSeaTunnelSourceFunction extends RichSourceFunction<Row>
     implements CheckpointListener, ResultTypeQueryable<Row>, CheckpointedFunction {
     private static final Logger LOG = LoggerFactory.getLogger(BaseSeaTunnelSourceFunction.class);

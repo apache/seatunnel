@@ -19,6 +19,10 @@ package org.apache.seatunnel.translation.flink.sink;
 
 import java.io.Serializable;
 
+/**
+ * The writer state wrapper of {@link StateT}, used to unify the different implementations of {@link StateT}
+ * @param <StateT> The generic type of the writer state
+ */
 public class FlinkWriterState<StateT> implements Serializable {
 
     private long checkpointId = 0;

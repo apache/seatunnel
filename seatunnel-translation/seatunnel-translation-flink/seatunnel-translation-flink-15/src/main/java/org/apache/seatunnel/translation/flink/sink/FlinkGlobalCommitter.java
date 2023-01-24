@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.flink.api.connector.sink.GlobalCommitter;
+import org.apache.flink.api.connector.sink.Sink;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -28,6 +29,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * The committer wrapper of {@link SinkAggregatedCommitter},
+ * which is created by {@link Sink#createGlobalCommitter()},
+ * used to unify the different implementations of {@link SinkAggregatedCommitter}
+ * @param <CommT> The generic type of commit message type
+ * @param <GlobalCommT> The generic type of global commit message type
+ */
 @Slf4j
 public class FlinkGlobalCommitter<CommT, GlobalCommT> implements GlobalCommitter<CommitWrapper<CommT>, GlobalCommT> {
 

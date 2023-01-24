@@ -19,10 +19,17 @@ package org.apache.seatunnel.translation.flink.serialization;
 
 import org.apache.seatunnel.api.serialization.Serializer;
 
+import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 
 import java.io.IOException;
 
+/**
+ * The serializer wrapper of aggregate commit message serializer,
+ * which is created by {@link Sink#getGlobalCommittableSerializer()},
+ * used to unify the different implementations of {@link Serializer}
+ * @param <T> The generic type of aggregate commit message
+ */
 public class FlinkSimpleVersionedSerializer<T> implements SimpleVersionedSerializer<T> {
 
     private final Serializer<T> serializer;

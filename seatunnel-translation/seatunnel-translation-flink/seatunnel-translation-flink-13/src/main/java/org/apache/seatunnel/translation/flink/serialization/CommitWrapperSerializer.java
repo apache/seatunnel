@@ -20,6 +20,7 @@ package org.apache.seatunnel.translation.flink.serialization;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.translation.flink.sink.CommitWrapper;
 
+import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 
 import java.io.ByteArrayInputStream;
@@ -28,6 +29,12 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
+/**
+ * The serializer wrapper of the commit message serializer,
+ * which is created by {@link Sink#getCommittableSerializer()},
+ * used to unify the different implementations of {@link Serializer}
+ * @param <T> The generic type of commit message
+ */
 public class CommitWrapperSerializer<T> implements SimpleVersionedSerializer<CommitWrapper<T>> {
     private final Serializer<T> serializer;
 
