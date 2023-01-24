@@ -255,7 +255,7 @@ public class PulsarSource<T> implements SeaTunnelSource<T, PulsarPartitionSplit,
                         .build();
             } else {
                 // TODO: use format SPI
-                throw new SeaTunnelJsonFormatException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                throw new SeaTunnelJsonFormatException(CommonErrorCode.UNSUPPORTED_OPERATION,
                         "Unsupported format: " + format);
             }
         } else {
