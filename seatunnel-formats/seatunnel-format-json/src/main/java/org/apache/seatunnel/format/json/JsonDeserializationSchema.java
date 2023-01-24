@@ -166,7 +166,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
         }
     }
 
-    private JsonNode convert(String message) throws IOException {
+    private JsonNode convert(String message) {
         try {
             return objectMapper.readTree(message);
         } catch (Throwable t) {

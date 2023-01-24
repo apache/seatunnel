@@ -23,9 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersio
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.UniqueDatabase;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -43,7 +41,6 @@ import org.testcontainers.utility.MountableFile;
 import java.io.IOException;
 import java.util.stream.Stream;
 
-@DisabledOnContainer(value = {}, type = {EngineType.FLINK, EngineType.SPARK})
 public class CannalToKafakIT extends TestSuiteBase implements TestResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(CannalToKafakIT.class);
