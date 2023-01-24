@@ -72,7 +72,7 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
 
     private final UniqueDatabase inventoryDatabase =
-        new UniqueDatabase(MYSQL_CONTAINER, "canal-test", "mysqluser", "mysqlpw");
+        new UniqueDatabase(MYSQL_CONTAINER, "canal", "mysqluser", "mysqlpw");
 
     private static MySqlContainer createMySqlContainer(MySqlVersion version) {
         MySqlContainer mySqlContainer = new MySqlContainer(version)
@@ -80,7 +80,7 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
             .withSetupSQL("docker/setup.sql")
             .withNetwork(NETWORK)
             .withNetworkAliases(MYSQL_HOST)
-            .withDatabaseName("canal-test")
+            .withDatabaseName("canal")
             .withUsername("st_user")
             .withPassword("seatunnel")
             .withLogConsumer(new Slf4jLogConsumer(LOG));
