@@ -45,7 +45,7 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(CannalToKafakIT.class);
 
-    private GenericContainer<?> canalServer;
+    private static GenericContainer<?> CANAL_CONTAINER;
 
     private static final String CANAL_DOCKER_IMAGE = "chinayin/canal:1.1.6";
 
@@ -61,7 +61,7 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
 
     private static final String KAFKA_HOST = "kafkaCluster";
 
-    private KafkaContainer kafkaContainer;
+    private static KafkaContainer KAFKA_CONTAINER;
 
     //----------------------------------------------------------------------------
     // mysql
@@ -72,7 +72,7 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
 
     private final UniqueDatabase inventoryDatabase =
-        new UniqueDatabase(MYSQL_CONTAINER, "inventory", "mysqluser", "mysqlpw");
+        new UniqueDatabase(MYSQL_CONTAINER, "canal-test", "mysqluser", "mysqlpw");
 
     private static MySqlContainer createMySqlContainer(MySqlVersion version) {
         MySqlContainer mySqlContainer = new MySqlContainer(version)
@@ -80,7 +80,7 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
             .withSetupSQL("docker/setup.sql")
             .withNetwork(NETWORK)
             .withNetworkAliases(MYSQL_HOST)
-            .withDatabaseName("inventory")
+            .withDatabaseName("canal-test")
             .withUsername("st_user")
             .withPassword("seatunnel")
             .withLogConsumer(new Slf4jLogConsumer(LOG));
@@ -90,23 +90,23 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
     }
 
     private void createCanalContainer() {
-        canalServer = new GenericContainer<>(CANAL_DOCKER_IMAGE)
+        CANAL_CONTAINER = new GenericContainer<>(CANAL_DOCKER_IMAGE)
             .withCopyFileToContainer(MountableFile.forClasspathResource("canal/canal.properties"), "/app/server/conf/canal.properties")
             .withCopyFileToContainer(MountableFile.forClasspathResource("canal/instance.properties"), "/app/server/conf/example/instance.properties")
             .withNetwork(NETWORK)
             .withNetworkAliases(CANAL_HOST)
             .withCommand()
             .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(CANAL_DOCKER_IMAGE)));
-        canalServer.setPortBindings(com.google.common.collect.Lists.newArrayList(
+        CANAL_CONTAINER.setPortBindings(com.google.common.collect.Lists.newArrayList(
             String.format("%s:%s", CANAL_PORT, CANAL_PORT)));
     }
 
     private void createKafkaContainer(){
-        kafkaContainer = new KafkaContainer(DockerImageName.parse(KAFKA_IMAGE_NAME))
+        KAFKA_CONTAINER = new KafkaContainer(DockerImageName.parse(KAFKA_IMAGE_NAME))
             .withNetwork(NETWORK)
             .withNetworkAliases(KAFKA_HOST)
             .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(KAFKA_IMAGE_NAME)));
-        kafkaContainer.setPortBindings(com.google.common.collect.Lists.newArrayList(
+        KAFKA_CONTAINER.setPortBindings(com.google.common.collect.Lists.newArrayList(
             String.format("%s:%s", KAFKA_PORT, KAFKA_PORT)));
     }
 
@@ -116,7 +116,7 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
 
         LOG.info("The third stage: Starting Kafka containers...");
         createKafkaContainer();
-        Startables.deepStart(Stream.of(kafkaContainer)).join();
+        Startables.deepStart(Stream.of(KAFKA_CONTAINER)).join();
         LOG.info("Containers are started");
 
         LOG.info("The first stage: Starting Mysql containers...");
@@ -125,19 +125,21 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
 
         LOG.info("The first stage: Starting Canal containers...");
         createCanalContainer();
-        Startables.deepStart(Stream.of(canalServer)).join();
+        Startables.deepStart(Stream.of(CANAL_CONTAINER)).join();
         LOG.info("Containers are started");
     }
 
     @TestTemplate
-    public void testDorisSink(TestContainer container) throws IOException, InterruptedException {
+    public void testCannalToKafakCannalFormatAnalysis(TestContainer container) throws IOException, InterruptedException {
         inventoryDatabase.createAndInitialize();
         Container.ExecResult execResult = container.executeJob("/kafkasource_canal_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
     @Override
-    public void tearDown() throws Exception {
-        //MYSQL_CONTAINER.close();
+    public void tearDown(){
+        MYSQL_CONTAINER.close();
+        KAFKA_CONTAINER.close();
+        CANAL_CONTAINER.close();
     }
 }

@@ -25,8 +25,3 @@
 GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT, LOCK TABLES  ON *.* TO 'st_user'@'%';
 CREATE USER 'mysqluser' IDENTIFIED BY 'mysqlpw';
 GRANT ALL PRIVILEGES ON *.* TO 'mysqluser'@'%';
-
--- ----------------------------------------------------------------------------------------------------------------
--- DATABASE:  emptydb
--- ----------------------------------------------------------------------------------------------------------------
-CREATE DATABASE emptydb;
