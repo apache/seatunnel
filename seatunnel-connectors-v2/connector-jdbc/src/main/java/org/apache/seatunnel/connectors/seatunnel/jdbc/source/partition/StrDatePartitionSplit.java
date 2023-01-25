@@ -25,8 +25,8 @@ import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.split.JdbcDateBetweenParametersProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.split.JdbcParameterValuesProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.split.JdbcStrDateBetweenParametersProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.PartitionParameter;
 
@@ -97,7 +97,7 @@ public class StrDatePartitionSplit extends AbstractPartitionSplit<String> {
                 partitionParameter.getPartitionNumber() : currentParallelism;
             partitionParameter.setPartitionNumber(partitionNumber);
             JdbcParameterValuesProvider jdbcNumericBetweenParametersProvider =
-                new JdbcDateBetweenParametersProvider(Long.parseLong(partitionParameter.getMinValue()), Long.parseLong(partitionParameter.getMaxValue()))
+                new JdbcStrDateBetweenParametersProvider(Long.parseLong(partitionParameter.getMinValue()), Long.parseLong(partitionParameter.getMaxValue()))
                     .ofBatchNum(partitionParameter.getPartitionNumber());
             Serializable[][] parameterValues = jdbcNumericBetweenParametersProvider.getParameterValues();
             for (int i = 0; i < parameterValues.length; i++) {
