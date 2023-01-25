@@ -36,7 +36,7 @@ public class PartitionSplitFactory {
             case StrNumericType:
                 return StrNumericPartitionSplit.builder().build();
             case StrDateType:
-                return StrDatePartitionSplit.builder().build();
+                return new StrDatePartitionSplit(jdbcConnectionProvider, jdbcSourceOptions, rowType);
             case StrPrefixNumericType:
                 return StrPrefixNumericPartitionSplit.builder().build();
             case StrPrefixDateType:
