@@ -31,14 +31,18 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSink
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.tool.IntHolder;
 
 import com.clickhouse.jdbc.internal.ClickHouseConnectionImpl;
+import com.google.common.base.Strings;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.IOException;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 @Slf4j
 public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitInfo, ClickhouseSinkState> {
@@ -129,14 +133,23 @@ public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitIn
                 ClickHouseConnectionImpl clickhouseConnection = new ClickHouseConnectionImpl(s.getJdbcUrl(),
                     this.option.getProperties());
 
+                String[] orderByKeys = null;
+                if (!Strings.isNullOrEmpty(shardRouter.getSortingKey())) {
+                    orderByKeys = Stream.of(shardRouter.getSortingKey().split(","))
+                        .map(key -> StringUtils.trim(key))
+                        .toArray(value -> new String[value]);
+
+                }
                 JdbcBatchStatementExecutor jdbcBatchStatementExecutor = new JdbcBatchStatementExecutorBuilder()
                     .setTable(shardRouter.getShardTable())
                     .setTableEngine(shardRouter.getShardTableEngine())
                     .setRowType(option.getSeaTunnelRowType())
                     .setPrimaryKeys(option.getPrimaryKeys())
+                    .setOrderByKeys(orderByKeys)
                     .setClickhouseTableSchema(option.getTableSchema())
-                    .setProjectionFields(option.getFields().toArray(new String[0]))
                     .setAllowExperimentalLightweightDelete(option.isAllowExperimentalLightweightDelete())
+                    .setClickhouseServerEnableExperimentalLightweightDelete(
+                        clickhouseServerEnableExperimentalLightweightDelete(clickhouseConnection))
                     .setSupportUpsert(option.isSupportUpsert())
                     .build();
                 jdbcBatchStatementExecutor.prepareStatements(clickhouseConnection);
@@ -149,5 +162,22 @@ public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitIn
             }
         });
         return result;
+    }
+
+    private static boolean clickhouseServerEnableExperimentalLightweightDelete(
+        ClickHouseConnectionImpl clickhouseConnection) {
+        String configKey = "allow_experimental_lightweight_delete";
+        try (Statement stmt = clickhouseConnection.createStatement()) {
+            ResultSet resultSet = stmt.executeQuery("SHOW SETTINGS ILIKE '%" + configKey + "%'");
+            while (resultSet.next()) {
+                String name = resultSet.getString("name");
+                if (name.equalsIgnoreCase(configKey)) {
+                    return resultSet.getBoolean("value");
+                }
+            }
+            return false;
+        } catch (SQLException e) {
+            throw new ClickhouseConnectorException(CommonErrorCode.SQL_OPERATION_FAILED, e);
+        }
     }
 }

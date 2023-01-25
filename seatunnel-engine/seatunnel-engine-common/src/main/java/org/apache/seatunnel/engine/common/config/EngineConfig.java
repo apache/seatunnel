@@ -32,6 +32,8 @@ public class EngineConfig {
     private int backupCount = ServerConfigOptions.BACKUP_COUNT.defaultValue();
     private int printExecutionInfoInterval = ServerConfigOptions.PRINT_EXECUTION_INFO_INTERVAL.defaultValue();
 
+    private int printJobMetricsInfoInterval = ServerConfigOptions.PRINT_JOB_METRICS_INFO_INTERVAL.defaultValue();
+
     private SlotServiceConfig slotServiceConfig = ServerConfigOptions.SLOT_SERVICE.defaultValue();
 
     private CheckpointConfig checkpointConfig = ServerConfigOptions.CHECKPOINT.defaultValue();
@@ -46,4 +48,8 @@ public class EngineConfig {
         this.printExecutionInfoInterval = printExecutionInfoInterval;
     }
 
+    public void setPrintJobMetricsInfoInterval(int printJobMetricsInfoInterval) {
+        checkPositive(printExecutionInfoInterval, ServerConfigOptions.PRINT_JOB_METRICS_INFO_INTERVAL + " must be > 0");
+        this.printJobMetricsInfoInterval = printJobMetricsInfoInterval;
+    }
 }

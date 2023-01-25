@@ -27,13 +27,15 @@ public class PassiveCompletableFuture<T> extends CompletableFuture<T> {
     }
 
     public PassiveCompletableFuture(CompletableFuture<T> chainedFuture) {
-        chainedFuture.whenComplete((r, t) -> {
-            if (t != null) {
-                internalCompleteExceptionally(t);
-            } else {
-                internalComplete(r);
-            }
-        });
+        if (chainedFuture != null) {
+            chainedFuture.whenComplete((r, t) -> {
+                if (t != null) {
+                    internalCompleteExceptionally(t);
+                } else {
+                    internalComplete(r);
+                }
+            });
+        }
     }
 
     @Override

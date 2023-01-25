@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceCommonOptions;
 import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
 import org.apache.seatunnel.translation.flink.source.BaseSeaTunnelSourceFunction;
@@ -48,9 +49,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTunnelSource> {
-
-    private static final String PLUGIN_TYPE = "source";
+public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<SeaTunnelSource> {
+    private static final String PLUGIN_TYPE = PluginType.SOURCE.getType();
 
     public SourceExecuteProcessor(List<URL> jarPaths, List<? extends Config> sourceConfigs, JobContext jobContext) {
         super(jarPaths, sourceConfigs, jobContext);
@@ -58,7 +58,7 @@ public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTu
 
     @Override
     public List<DataStream<Row>> execute(List<DataStream<Row>> upstreamDataStreams) {
-        StreamExecutionEnvironment executionEnvironment = flinkEnvironment.getStreamExecutionEnvironment();
+        StreamExecutionEnvironment executionEnvironment = flinkRuntimeEnvironment.getStreamExecutionEnvironment();
         List<DataStream<Row>> sources = new ArrayList<>();
         for (int i = 0; i < plugins.size(); i++) {
             SeaTunnelSource internalSource = plugins.get(i);
@@ -83,11 +83,10 @@ public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTu
         return sources;
     }
 
-    private DataStreamSource<Row> addSource(
-        final StreamExecutionEnvironment streamEnv,
-        final BaseSeaTunnelSourceFunction function,
-        final String sourceName,
-        boolean bounded) {
+    private DataStreamSource<Row> addSource(StreamExecutionEnvironment streamEnv,
+                                            BaseSeaTunnelSourceFunction function,
+                                            String sourceName,
+                                            boolean bounded) {
         checkNotNull(function);
         checkNotNull(sourceName);
         checkNotNull(bounded);
@@ -99,12 +98,15 @@ public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTu
         streamEnv.clean(function);
 
         final StreamSource<Row, ?> sourceOperator = new StreamSource<>(function);
-        return new DataStreamSource<>(streamEnv, resolvedTypeInfo, sourceOperator, isParallel, sourceName, bounded ? Boundedness.BOUNDED : Boundedness.CONTINUOUS_UNBOUNDED);
+        return new DataStreamSource<>(streamEnv,
+                resolvedTypeInfo, sourceOperator,
+                isParallel, sourceName,
+                bounded ? Boundedness.BOUNDED : Boundedness.CONTINUOUS_UNBOUNDED);
     }
 
     @Override
     protected List<SeaTunnelSource> initializePlugins(List<URL> jarPaths, List<? extends Config> pluginConfigs) {
-        SeaTunnelSourcePluginDiscovery sourcePluginDiscovery = new SeaTunnelSourcePluginDiscovery(addUrlToClassloader);
+        SeaTunnelSourcePluginDiscovery sourcePluginDiscovery = new SeaTunnelSourcePluginDiscovery(ADD_URL_TO_CLASSLOADER);
         List<SeaTunnelSource> sources = new ArrayList<>();
         Set<URL> jars = new HashSet<>();
         for (Config sourceConfig : pluginConfigs) {

@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.core.parse;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SupportDataSaveMode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
@@ -79,6 +80,11 @@ public class ConnectorInstanceLoader {
             sinkPluginDiscovery.createPluginInstance(pluginIdentifier, pluginJars);
         seaTunnelSink.prepare(sinkConfig);
         seaTunnelSink.setJobContext(jobContext);
+        if (seaTunnelSink.getClass().isAssignableFrom(SupportDataSaveMode.class)) {
+            SupportDataSaveMode saveModeSink = (SupportDataSaveMode) seaTunnelSink;
+            saveModeSink.checkOptions(sinkConfig);
+        }
+
         return new ImmutablePair<>(seaTunnelSink, new HashSet<>(pluginJarPaths));
     }
 
