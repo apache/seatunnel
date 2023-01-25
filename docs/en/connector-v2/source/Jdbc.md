@@ -36,6 +36,9 @@ supports query SQL and can achieve projection effect.
 | password                     | String | No       | -               |
 | query                        | String | Yes      | -               |
 | connection_check_timeout_sec | Int    | No       | 30              |
+| split_type                   | String | No       | NumericType     |
+| prefix                       | String | No       | -               |
+| pattern                      | String | No       | yyyy-MM-dd      |
 | partition_column             | String | No       | -               |
 | partition_upper_bound        | Long   | No       | -               |
 | partition_lower_bound        | Long   | No       | -               |
@@ -70,15 +73,27 @@ The time in seconds to wait for the database operation used to validate the conn
 
 ### partition_column [string]
 
-The column name for parallelism's partition, only support numeric type.
+The column name for parallelism's partition
+
+### split_type [string]
+
+Type of partition column. Currently, supports `DateType`, `NumericType`, `StrDateType`, `StrNumericType` , `StrPrefixNumericType`, `StrPrefixDateType`
+
+### prefix [string]
+
+The prefix of partition column value. Currently, supports `StrPrefixNumericType`,`StrPrefixDateType`.
+
+### pattern [string]
+
+The pattern describing the date and time format, like `2023-01-25`
 
 ### partition_upper_bound [long]
 
-The partition_column max value for scan, if not set SeaTunnel will query database get max value.
+The partition_column max value for scan, if not set SeaTunnel will query database get max value. If it is a time type, it refers to milliseconds.
 
 ### partition_lower_bound [long]
 
-The partition_column min value for scan, if not set SeaTunnel will query database get min value.
+The partition_column min value for scan, if not set SeaTunnel will query database get min value. If it is a time type, it refers to milliseconds.
 
 ### partition_num [int]
 
@@ -174,3 +189,4 @@ parallel:
 - [Feature] Support Doris JDBC Source ([3586](https://github.com/apache/incubator-seatunnel/pull/3586))
 - [Feature] Support Redshift JDBC Sink([#3615](https://github.com/apache/incubator-seatunnel/pull/3615))
 - [BugFix] Fix jdbc connection reset bug ([3670](https://github.com/apache/incubator-seatunnel/pull/3670))
+- [Feature] JDBC Source Connector partition_key support Date/String type ([3986](https://github.com/apache/incubator-seatunnel/pull/3986))

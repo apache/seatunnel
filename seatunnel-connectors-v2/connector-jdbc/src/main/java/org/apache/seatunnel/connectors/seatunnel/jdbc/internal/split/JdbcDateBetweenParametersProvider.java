@@ -22,25 +22,10 @@ import static com.google.common.base.Preconditions.checkState;
 import java.io.Serializable;
 import java.sql.Date;
 
-/**
- * This query parameters generator is an helper class to parameterize from/to queries on a numeric
- * column. The generated array of from/to values will be equally sized to fetchSize (apart from the
- * last one), ranging from minVal up to maxVal.
- *
- * <p>For example, if there's a table <CODE>BOOKS</CODE> with a numeric PK <CODE>id</CODE>, using a
- * query like:
- *
- * <PRE>
- * SELECT * FROM BOOKS WHERE id BETWEEN ? AND ?
- * </PRE>
- *
- * <p>You can take advantage of this class to automatically generate the parameters of the BETWEEN
- * clause, based on the passed constructor parameters.
- */
 public class JdbcDateBetweenParametersProvider extends AbstractParametersProvider {
 
     /**
-     * NumericBetweenParametersProviderJdbc constructor.
+     * JdbcDateBetweenParametersProvider constructor.
      *
      * @param minVal the lower bound of the produced "from" values
      * @param maxVal the upper bound of the produced "to" values
@@ -50,7 +35,7 @@ public class JdbcDateBetweenParametersProvider extends AbstractParametersProvide
     }
 
     /**
-     * NumericBetweenParametersProviderJdbc constructor.
+     * JdbcDateBetweenParametersProvider constructor.
      *
      * @param fetchSize the max distance between the produced from/to pairs
      * @param minVal    the lower bound of the produced "from" values

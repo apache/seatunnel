@@ -76,10 +76,10 @@ public class StrDatePartitionSplit extends AbstractPartitionSplit<String> {
             if (rs.next()) {
                 max = jdbcSourceOptions.getPartitionUpperBound().isPresent() ?
                     jdbcSourceOptions.getPartitionUpperBound().get() :
-                    new SimpleDateFormat("yyyyMMdd").parse(rs.getString(1)).getTime();
+                    new SimpleDateFormat(jdbcSourceOptions.getPattern()).parse(rs.getString(1)).getTime();
                 min = jdbcSourceOptions.getPartitionLowerBound().isPresent() ?
                     jdbcSourceOptions.getPartitionLowerBound().get() :
-                    new SimpleDateFormat("yyyyMMdd").parse(rs.getString(2)).getTime();
+                    new SimpleDateFormat(jdbcSourceOptions.getPattern()).parse(rs.getString(2)).getTime();
             }
         } catch (ClassNotFoundException | ParseException e) {
             throw new SeaTunnelException(e);

@@ -39,7 +39,7 @@ import java.io.Serializable;
 public class JdbcNumericBetweenParametersProvider extends AbstractParametersProvider {
 
     /**
-     * NumericBetweenParametersProviderJdbc constructor.
+     * JdbcNumericBetweenParametersProvider constructor.
      *
      * @param minVal the lower bound of the produced "from" values
      * @param maxVal the upper bound of the produced "to" values
@@ -49,7 +49,7 @@ public class JdbcNumericBetweenParametersProvider extends AbstractParametersProv
     }
 
     /**
-     * NumericBetweenParametersProviderJdbc constructor.
+     * JdbcNumericBetweenParametersProvider constructor.
      *
      * @param fetchSize the max distance between the produced from/to pairs
      * @param minVal    the lower bound of the produced "from" values
