@@ -15,33 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.spark.source.partition;
+package org.apache.seatunnel.translation.spark.source.partition.batch;
 
-import org.apache.spark.sql.catalyst.InternalRow;
-import org.apache.spark.sql.connector.read.PartitionReader;
+import org.apache.spark.sql.connector.read.InputPartition;
 
-import java.io.IOException;
+public class SeaTunnelBatchInputPartition implements InputPartition {
+    private final int partitionId;
 
-public class SeaTunnelPartitionReader implements PartitionReader<InternalRow> {
-
-    private final ParallelBatchPartitionReader partitionReader;
-
-    public SeaTunnelPartitionReader(ParallelBatchPartitionReader partitionReader) {
-        this.partitionReader = partitionReader;
+    public SeaTunnelBatchInputPartition(int partitionId) {
+        this.partitionId = partitionId;
     }
 
-    @Override
-    public boolean next() throws IOException {
-        return partitionReader.next();
-    }
-
-    @Override
-    public InternalRow get() {
-        return partitionReader.get();
-    }
-
-    @Override
-    public void close() throws IOException {
-        partitionReader.close();
+    public int getPartitionId() {
+        return partitionId;
     }
 }

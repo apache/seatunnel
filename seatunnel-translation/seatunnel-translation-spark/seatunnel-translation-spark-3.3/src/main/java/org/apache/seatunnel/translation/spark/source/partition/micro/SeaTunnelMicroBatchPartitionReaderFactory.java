@@ -15,49 +15,41 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.spark.source;
+package org.apache.seatunnel.translation.spark.source.partition.micro;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.translation.spark.source.partition.SeaTunnelInputPartition;
-import org.apache.seatunnel.translation.spark.source.partition.SeaTunnelPartitionReaderFactory;
-
-import org.apache.spark.sql.connector.read.Batch;
+import org.apache.seatunnel.translation.spark.source.partition.batch.ParallelBatchPartitionReader;
+import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.connector.read.InputPartition;
+import org.apache.spark.sql.connector.read.PartitionReader;
 import org.apache.spark.sql.connector.read.PartitionReaderFactory;
+import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 
-/**
- * A physical plan of SeaTunnel source
- */
-public class SeaTunnelBatch implements Batch {
+public class SeaTunnelMicroBatchPartitionReaderFactory implements PartitionReaderFactory {
 
     private final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
 
     private final int parallelism;
 
-    public SeaTunnelBatch(SeaTunnelSource<SeaTunnelRow, ?, ?> source, int parallelism) {
+    private final String checkpointLocation;
+
+    private final CaseInsensitiveStringMap caseInsensitiveStringMap;
+
+    public SeaTunnelMicroBatchPartitionReaderFactory(SeaTunnelSource<SeaTunnelRow, ?, ?> source,
+                                                     int parallelism,
+                                                     String checkpointLocation,
+                                                     CaseInsensitiveStringMap caseInsensitiveStringMap) {
         this.source = source;
         this.parallelism = parallelism;
+        this.checkpointLocation = checkpointLocation;
+        this.caseInsensitiveStringMap = caseInsensitiveStringMap;
     }
 
     @Override
-    public InputPartition[] planInputPartitions() {
-        InputPartition[] partitions;
-        if (source instanceof SupportCoordinate) {
-            partitions = new SeaTunnelInputPartition[1];
-            partitions[0] = new SeaTunnelInputPartition(0);
-        } else {
-            partitions = new SeaTunnelInputPartition[parallelism];
-            for (int partitionId = 0; partitionId < parallelism; partitionId++) {
-                partitions[partitionId] = new SeaTunnelInputPartition(partitionId);
-            }
-        }
-        return partitions;
-    }
-
-    @Override
-    public PartitionReaderFactory createReaderFactory() {
-        return new SeaTunnelPartitionReaderFactory(source, parallelism);
+    public PartitionReader<InternalRow> createReader(InputPartition partition) {
+        // TODO: Implement micro batch partition reader
+        return null;
     }
 }

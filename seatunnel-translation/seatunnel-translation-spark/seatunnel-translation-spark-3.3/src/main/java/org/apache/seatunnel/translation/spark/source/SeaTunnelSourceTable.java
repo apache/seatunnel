@@ -66,7 +66,7 @@ public class SeaTunnelSourceTable implements Table, SupportsRead {
     @Override
     public ScanBuilder newScanBuilder(CaseInsensitiveStringMap caseInsensitiveStringMap) {
         int parallelism = Integer.parseInt(properties.getOrDefault(PARALLELISM.key(), "1"));
-        return new SeaTunnelScanBuilder(source, parallelism);
+        return new SeaTunnelScanBuilder(source, parallelism, caseInsensitiveStringMap);
     }
 
     /**

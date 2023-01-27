@@ -19,12 +19,15 @@ package org.apache.seatunnel.translation.spark.source.scan;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.translation.spark.source.SeaTunnelBatch;
+import org.apache.seatunnel.translation.spark.source.partition.batch.SeaTunnelBatch;
+import org.apache.seatunnel.translation.spark.source.partition.micro.SeaTunnelMicroBatch;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.spark.sql.connector.read.Batch;
 import org.apache.spark.sql.connector.read.Scan;
+import org.apache.spark.sql.connector.read.streaming.MicroBatchStream;
 import org.apache.spark.sql.types.StructType;
+import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 
 public class SeaTunnelScan implements Scan {
 
@@ -32,9 +35,14 @@ public class SeaTunnelScan implements Scan {
 
     private final int parallelism;
 
-    public SeaTunnelScan(SeaTunnelSource<SeaTunnelRow, ?, ?> source, int parallelism) {
+    private final CaseInsensitiveStringMap caseInsensitiveStringMap;
+
+    public SeaTunnelScan(SeaTunnelSource<SeaTunnelRow, ?, ?> source,
+                         int parallelism,
+                         CaseInsensitiveStringMap caseInsensitiveStringMap) {
         this.source = source;
         this.parallelism = parallelism;
+        this.caseInsensitiveStringMap = caseInsensitiveStringMap;
     }
 
     @Override
@@ -45,5 +53,10 @@ public class SeaTunnelScan implements Scan {
     @Override
     public Batch toBatch() {
         return new SeaTunnelBatch(source, parallelism);
+    }
+
+    @Override
+    public MicroBatchStream toMicroBatchStream(String checkpointLocation) {
+        return new SeaTunnelMicroBatch(source, parallelism, checkpointLocation, caseInsensitiveStringMap);
     }
 }

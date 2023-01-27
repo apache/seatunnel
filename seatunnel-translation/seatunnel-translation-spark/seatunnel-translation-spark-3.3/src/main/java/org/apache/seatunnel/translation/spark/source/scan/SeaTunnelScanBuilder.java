@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.apache.spark.sql.connector.read.Scan;
 import org.apache.spark.sql.connector.read.ScanBuilder;
+import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 
 /**
  * The builder for {@link SeaTunnelScan} used to build  {@link SeaTunnelScan}
@@ -31,9 +32,14 @@ public class SeaTunnelScanBuilder implements ScanBuilder {
 
     private final int parallelism;
 
-    public SeaTunnelScanBuilder(SeaTunnelSource<SeaTunnelRow, ?, ?> source, int parallelism) {
+    private final CaseInsensitiveStringMap caseInsensitiveStringMap;
+
+    public SeaTunnelScanBuilder(SeaTunnelSource<SeaTunnelRow, ?, ?> source,
+                                int parallelism,
+                                CaseInsensitiveStringMap caseInsensitiveStringMap) {
         this.source = source;
         this.parallelism = parallelism;
+        this.caseInsensitiveStringMap = caseInsensitiveStringMap;
     }
 
     /**
@@ -41,6 +47,6 @@ public class SeaTunnelScanBuilder implements ScanBuilder {
      */
     @Override
     public Scan build() {
-        return new SeaTunnelScan(source, parallelism);
+        return new SeaTunnelScan(source, parallelism, caseInsensitiveStringMap);
     }
 }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.spark.source.partition;
+package org.apache.seatunnel.translation.spark.source.partition.batch;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportCoordinate;
@@ -26,20 +26,20 @@ import org.apache.spark.sql.connector.read.InputPartition;
 import org.apache.spark.sql.connector.read.PartitionReader;
 import org.apache.spark.sql.connector.read.PartitionReaderFactory;
 
-public class SeaTunnelPartitionReaderFactory implements PartitionReaderFactory {
+public class SeaTunnelBatchPartitionReaderFactory implements PartitionReaderFactory {
 
     private final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
 
     private final int parallelism;
 
-    public SeaTunnelPartitionReaderFactory(SeaTunnelSource<SeaTunnelRow, ?, ?> source, int parallelism) {
+    public SeaTunnelBatchPartitionReaderFactory(SeaTunnelSource<SeaTunnelRow, ?, ?> source, int parallelism) {
         this.source = source;
         this.parallelism = parallelism;
     }
 
     @Override
     public PartitionReader<InternalRow> createReader(InputPartition partition) {
-        SeaTunnelInputPartition inputPartition = (SeaTunnelInputPartition) partition;
+        SeaTunnelBatchInputPartition inputPartition = (SeaTunnelBatchInputPartition) partition;
         int partitionId = inputPartition.getPartitionId();
         ParallelBatchPartitionReader partitionReader;
         if (source instanceof SupportCoordinate) {
@@ -47,6 +47,6 @@ public class SeaTunnelPartitionReaderFactory implements PartitionReaderFactory {
         } else {
             partitionReader = new ParallelBatchPartitionReader(source, parallelism, partitionId);
         }
-        return new SeaTunnelPartitionReader(partitionReader);
+        return new SeaTunnelBatchPartitionReader(partitionReader);
     }
 }

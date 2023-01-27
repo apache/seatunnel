@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.spark.source.partition;
+package org.apache.seatunnel.translation.spark.source.partition.batch;
 
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SeaTunnelSource;

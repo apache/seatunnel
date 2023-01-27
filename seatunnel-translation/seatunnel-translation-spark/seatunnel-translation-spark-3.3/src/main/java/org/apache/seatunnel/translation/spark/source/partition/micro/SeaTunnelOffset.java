@@ -15,18 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.spark.source.partition;
+package org.apache.seatunnel.translation.spark.source.partition.micro;
 
-import org.apache.spark.sql.connector.read.InputPartition;
+import org.apache.seatunnel.common.utils.JsonUtils;
 
-public class SeaTunnelInputPartition implements InputPartition {
-    private final int partitionId;
+import lombok.Getter;
+import lombok.Setter;
+import org.apache.spark.sql.connector.read.streaming.Offset;
 
-    public SeaTunnelInputPartition(int partitionId) {
-        this.partitionId = partitionId;
+import java.io.Serializable;
+
+@Getter
+@Setter
+public class SeaTunnelOffset extends Offset implements Serializable {
+
+    private final long checkpointId;
+
+    public SeaTunnelOffset(long checkpointId) {
+        this.checkpointId = checkpointId;
     }
 
-    public int getPartitionId() {
-        return partitionId;
+    @Override
+    public String json() {
+        return JsonUtils.toJsonString(this);
+    }
+
+    public SeaTunnelOffset inc() {
+        return new SeaTunnelOffset(this.checkpointId + 1);
+    }
+
+    public static Offset of(long checkpointId) {
+        return new SeaTunnelOffset(checkpointId);
     }
 }
