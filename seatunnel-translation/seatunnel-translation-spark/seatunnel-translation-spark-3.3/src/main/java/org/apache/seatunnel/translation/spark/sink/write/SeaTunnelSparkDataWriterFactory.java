@@ -26,10 +26,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.connector.write.DataWriter;
 import org.apache.spark.sql.connector.write.DataWriterFactory;
+import org.apache.spark.sql.connector.write.streaming.StreamingDataWriterFactory;
 
 import java.io.IOException;
 
-public class SeaTunnelSparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFactory {
+public class SeaTunnelSparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFactory, StreamingDataWriterFactory {
 
     private final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink;
 
@@ -53,5 +54,10 @@ public class SeaTunnelSparkDataWriterFactory<CommitInfoT, StateT> implements Dat
             throw new RuntimeException("Failed to create SinkCommitter.", e);
         }
         return new SeaTunnelSparkDataWriter<>(writer, committer, sink.getConsumedType(), 0);
+    }
+
+    @Override
+    public DataWriter<InternalRow> createWriter(int partitionId, long taskId, long epochId) {
+        return createWriter(partitionId, taskId);
     }
 }

@@ -18,7 +18,9 @@
 package org.apache.seatunnel.translation.spark.source.partition.micro;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.translation.spark.source.partition.batch.ParallelBatchPartitionReader;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.connector.read.InputPartition;
@@ -48,7 +50,18 @@ public class SeaTunnelMicroBatchPartitionReaderFactory implements PartitionReade
 
     @Override
     public PartitionReader<InternalRow> createReader(InputPartition partition) {
-        // TODO: Implement micro batch partition reader
-        return null;
+        SeaTunnelMicroBatchInputPartition seaTunnelPartition = (SeaTunnelMicroBatchInputPartition) partition;
+        ParallelBatchPartitionReader partitionReader;
+        Integer subtaskId = seaTunnelPartition.getSubtaskId();
+        Integer checkpointId = seaTunnelPartition.getCheckpointId();
+        Integer checkpointInterval = seaTunnelPartition.getCheckpointInterval();
+        String hdfsRoot = seaTunnelPartition.getHdfsRoot();
+        String hdfsUser = seaTunnelPartition.getHdfsUser();
+        if (source instanceof SupportCoordinate) {
+            partitionReader = new CoordinatedMicroBatchPartitionReader(source, parallelism, subtaskId, checkpointId, checkpointInterval, checkpointLocation, hdfsRoot, hdfsUser);
+        } else {
+            partitionReader = new ParallelMicroBatchPartitionReader(source, parallelism, subtaskId, checkpointId, checkpointInterval, checkpointLocation, hdfsRoot, hdfsUser);
+        }
+        return new SeaTunnelMicroBatchPartitionReader(partitionReader);
     }
 }

@@ -27,6 +27,8 @@ import org.apache.spark.sql.connector.write.BatchWrite;
 import org.apache.spark.sql.connector.write.DataWriterFactory;
 import org.apache.spark.sql.connector.write.PhysicalWriteInfo;
 import org.apache.spark.sql.connector.write.WriterCommitMessage;
+import org.apache.spark.sql.connector.write.streaming.StreamingDataWriterFactory;
+import org.apache.spark.sql.connector.write.streaming.StreamingWrite;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -35,7 +37,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-public class SeaTunnelBatchWrite<StateT, CommitInfoT, AggregatedCommitInfoT> implements BatchWrite {
+public class SeaTunnelBatchWrite<StateT, CommitInfoT, AggregatedCommitInfoT> implements BatchWrite, StreamingWrite {
 
     private final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
 
@@ -71,6 +73,21 @@ public class SeaTunnelBatchWrite<StateT, CommitInfoT, AggregatedCommitInfoT> imp
                 throw new RuntimeException("SinkAggregatedCommitter abort failed in driver", e);
             }
         }
+    }
+
+    @Override
+    public StreamingDataWriterFactory createStreamingWriterFactory(PhysicalWriteInfo info) {
+        return (StreamingDataWriterFactory) createBatchWriterFactory(info);
+    }
+
+    @Override
+    public void commit(long epochId, WriterCommitMessage[] messages) {
+        commit(messages);
+    }
+
+    @Override
+    public void abort(long epochId, WriterCommitMessage[] messages) {
+        abort(messages);
     }
 
     private List<AggregatedCommitInfoT> combineCommitMessage(WriterCommitMessage[] messages) {

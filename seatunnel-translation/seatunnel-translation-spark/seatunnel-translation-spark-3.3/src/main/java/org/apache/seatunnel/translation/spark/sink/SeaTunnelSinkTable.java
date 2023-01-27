@@ -70,6 +70,6 @@ public class SeaTunnelSinkTable implements Table, SupportsWrite {
 
     @Override
     public Set<TableCapability> capabilities() {
-        return Sets.newHashSet(TableCapability.BATCH_WRITE);
+        return Sets.newHashSet(TableCapability.BATCH_WRITE, TableCapability.STREAMING_WRITE);
     }
 }

@@ -23,6 +23,7 @@ import org.apache.seatunnel.translation.spark.sink.SeaTunnelBatchWrite;
 
 import org.apache.spark.sql.connector.write.BatchWrite;
 import org.apache.spark.sql.connector.write.Write;
+import org.apache.spark.sql.connector.write.streaming.StreamingWrite;
 
 import java.io.IOException;
 
@@ -36,6 +37,15 @@ public class SeaTunnelWrite<AggregatedCommitInfoT, CommitInfoT, StateT> implemen
 
     @Override
     public BatchWrite toBatch() {
+        try {
+            return new SeaTunnelBatchWrite<>(sink);
+        } catch (IOException e) {
+            throw new RuntimeException("SeaTunnel Spark sink create batch failed", e);
+        }
+    }
+
+    @Override
+    public StreamingWrite toStreaming() {
         try {
             return new SeaTunnelBatchWrite<>(sink);
         } catch (IOException e) {

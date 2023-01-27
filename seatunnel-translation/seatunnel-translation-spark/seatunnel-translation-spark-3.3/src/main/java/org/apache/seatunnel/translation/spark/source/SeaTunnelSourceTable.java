@@ -90,6 +90,6 @@ public class SeaTunnelSourceTable implements Table, SupportsRead {
      */
     @Override
     public Set<TableCapability> capabilities() {
-        return Sets.newHashSet(TableCapability.BATCH_READ);
+        return Sets.newHashSet(TableCapability.BATCH_READ, TableCapability.MICRO_BATCH_READ);
     }
 }
