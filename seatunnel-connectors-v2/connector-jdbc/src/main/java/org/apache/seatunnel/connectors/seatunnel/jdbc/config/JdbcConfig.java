@@ -79,7 +79,6 @@ public class JdbcConfig implements Serializable {
     public static final Option<SplitType> PARTITION_SPLIT_TYPE = Options.key("split_type").type(new TypeReference<SplitType>() {
     }).defaultValue(SplitType.NumericType).withDescription("split type");
     public static final Option<String> PATTERN = Options.key("pattern").stringType().defaultValue("yyyy-MM-dd").withDescription("The pattern describing the date and time format, like `2023-01-25`.");
-    public static final Option<String> PREFIX = Options.key("prefix").stringType().noDefaultValue().withDescription("The prefix of partition column value. Currently, supports `StrPrefixNumericType`,`StrPrefixDateType`.");
 
     public static JdbcConnectionOptions buildJdbcConnectionOptions(Config config) {
 

@@ -39,7 +39,7 @@ public abstract class AbstractPartitionSplit<T> implements PartitionSplit<T> {
 
     public SeaTunnelRowType rowType;
 
-    public PartitionParameter<T> checkAndGetPartitionColumn() throws SQLException {
+    protected PartitionParameter<T> checkAndGetPartitionColumn() throws SQLException {
 
         if (jdbcSourceOptions.getPartitionColumn().isPresent()) {
             String partitionColumn = jdbcSourceOptions.getPartitionColumn().get();

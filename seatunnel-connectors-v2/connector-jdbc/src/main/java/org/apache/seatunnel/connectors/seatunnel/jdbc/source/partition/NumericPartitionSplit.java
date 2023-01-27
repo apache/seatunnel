@@ -51,7 +51,7 @@ public class NumericPartitionSplit extends AbstractPartitionSplit<Long> {
 
     @Override
     public boolean checkType(SeaTunnelDataType<?> type) {
-        return type.equals(BasicType.INT_TYPE) || type.equals(BasicType.LONG_TYPE);
+        return type.equals(BasicType.INT_TYPE) || type.equals(BasicType.LONG_TYPE) || type.equals(BasicType.STRING_TYPE);
     }
 
     @Override

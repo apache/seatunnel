@@ -8,7 +8,8 @@ Read external data source data through JDBC.
 
 :::tip
 
-Warn: for license compliance, you have to provide database driver yourself, copy to `$SEATNUNNEL_HOME/plugins/jdbc/lib/` directory in order to make them work.
+Warn: for license compliance, you have to provide database driver yourself, copy to `$SEATNUNNEL_HOME/plugins/jdbc/lib/`
+directory in order to make them work.
 
 e.g. If you use MySQL, should download and copy `mysql-connector-java-xxx.jar` to `$SEATNUNNEL_HOME/plugins/jdbc/lib/`
 
@@ -46,7 +47,6 @@ supports query SQL and can achieve projection effect.
 | fetch_size                   | Int    | No       | 0               |
 | common-options               |        | No       | -               |
 
-
 ### driver [string]
 
 The jdbc class name used to connect to the remote data source, if you use MySQL the value is `com.mysql.cj.jdbc.Driver`.
@@ -77,11 +77,7 @@ The column name for parallelism's partition
 
 ### split_type [string]
 
-Type of partition column. Currently, supports `DateType`, `NumericType`, `StrDateType`, `StrNumericType` , `StrPrefixNumericType`, `StrPrefixDateType`
-
-### prefix [string]
-
-The prefix of partition column value. Currently, supports `StrPrefixNumericType`,`StrPrefixDateType`.
+Type of partition column. Currently, supports `DateType`, `NumericType`, `StrDateType`, `StrNumericType`.
 
 ### pattern [string]
 
@@ -89,11 +85,13 @@ The pattern describing the date and time format, like `2023-01-25`
 
 ### partition_upper_bound [long]
 
-The partition_column max value for scan, if not set SeaTunnel will query database get max value. If it is a time type, it refers to milliseconds.
+The partition_column max value for scan, if not set SeaTunnel will query database get max value. If it is a time type,
+it refers to milliseconds.
 
 ### partition_lower_bound [long]
 
-The partition_column min value for scan, if not set SeaTunnel will query database get min value. If it is a time type, it refers to milliseconds.
+The partition_column min value for scan, if not set SeaTunnel will query database get min value. If it is a time type,
+it refers to milliseconds.
 
 ### partition_num [int]
 
@@ -101,10 +99,11 @@ The number of partition count, only support positive integer. default value is j
 
 ### fetch_size [int]
 
-For queries that return a large number of objects, you can configure the row fetch size used in the query to 
-improve performance by reducing the number database hits required to satisfy the selection criteria. Zero means use jdbc default value.
+For queries that return a large number of objects, you can configure the row fetch size used in the query to improve
+performance by reducing the number database hits required to satisfy the selection criteria. Zero means use jdbc default
+value.
 
-### common options 
+### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
@@ -138,6 +137,7 @@ there are some reference value for params above.
 ## Example
 
 simple:
+
 ```
     Jdbc {
         url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
@@ -184,9 +184,10 @@ parallel:
 - [BugFix] Fix jdbc split bug ([3220](https://github.com/apache/incubator-seatunnel/pull/3220))
 - [Feature] Support Sqlite JDBC Source ([3089](https://github.com/apache/incubator-seatunnel/pull/3089))
 - [Feature] Support Tablestore Source ([3309](https://github.com/apache/incubator-seatunnel/pull/3309))
-- [Feature] Support Teradata JDBC　Source ([3362](https://github.com/apache/incubator-seatunnel/pull/3362))
+- [Feature] Support Teradata JDBC Source ([3362](https://github.com/apache/incubator-seatunnel/pull/3362))
 - [Feature] Support JDBC Fetch Size Config ([3478](https://github.com/apache/incubator-seatunnel/pull/3478))
 - [Feature] Support Doris JDBC Source ([3586](https://github.com/apache/incubator-seatunnel/pull/3586))
 - [Feature] Support Redshift JDBC Sink([#3615](https://github.com/apache/incubator-seatunnel/pull/3615))
 - [BugFix] Fix jdbc connection reset bug ([3670](https://github.com/apache/incubator-seatunnel/pull/3670))
-- [Feature] JDBC Source Connector partition_key support Date/String type ([3986](https://github.com/apache/incubator-seatunnel/pull/3986))
+- [Feature] JDBC Source Connector partition_key support Date/String
+  type ([3986](https://github.com/apache/incubator-seatunnel/pull/3986))

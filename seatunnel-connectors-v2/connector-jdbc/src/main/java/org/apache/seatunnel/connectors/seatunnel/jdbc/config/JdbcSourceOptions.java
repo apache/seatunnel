@@ -42,7 +42,6 @@ public class JdbcSourceOptions implements Serializable {
     private Integer partitionNumber;
     private SplitType splitType = JdbcConfig.PARTITION_SPLIT_TYPE.defaultValue();
     private String pattern;
-    private String prefix;
 
     public JdbcSourceOptions(Config config) {
         this.jdbcConnectionOptions = buildJdbcConnectionOptions(config);
@@ -67,9 +66,6 @@ public class JdbcSourceOptions implements Serializable {
         }
         if (config.hasPath(JdbcConfig.PATTERN.key())) {
             this.pattern = config.getString(JdbcConfig.PATTERN.key());
-        }
-        if (config.hasPath(JdbcConfig.PREFIX.key())) {
-            this.prefix = config.getString(JdbcConfig.PREFIX.key());
         }
     }
 
