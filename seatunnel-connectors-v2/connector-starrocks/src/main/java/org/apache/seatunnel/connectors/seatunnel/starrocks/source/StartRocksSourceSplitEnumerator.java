@@ -34,6 +34,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class StartRocksSourceSplitEnumerator implements SourceSplitEnumerator<StarRocksSourceSplit, StarRocksSourceState> {
@@ -137,7 +138,7 @@ public class StartRocksSourceSplitEnumerator implements SourceSplitEnumerator<St
         int readerCount = context.currentParallelism();
         for (StarRocksSourceSplit split : splits) {
             int ownerReader = getSplitOwner(split.splitId(), readerCount);
-            log.info("Assigning {} to {} reader.", split, ownerReader);
+            log.info("Assigning {} to {} reader.", split.getSplitId(), ownerReader);
             pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>())
                     .add(split);
         }
@@ -150,7 +151,7 @@ public class StartRocksSourceSplitEnumerator implements SourceSplitEnumerator<St
             List<StarRocksSourceSplit> assignmentForReader = pendingSplit.remove(reader);
             if (assignmentForReader != null && !assignmentForReader.isEmpty()) {
                 log.info("Assign splits {} to reader {}",
-                        assignmentForReader, reader);
+                        String.join(",", assignmentForReader.stream().map(p -> p.getSplitId()).collect(Collectors.toList())), reader);
                 try {
                     context.assignSplit(reader, assignmentForReader);
                 } catch (Exception e) {
@@ -166,7 +167,7 @@ public class StartRocksSourceSplitEnumerator implements SourceSplitEnumerator<St
         List<StarRocksSourceSplit> sourceSplits = new ArrayList<>();
         List<QueryPartition> partitions = starRocksQueryPlanReadClient.findPartitions();
         for (int i = 0; i < partitions.size(); i++) {
-            sourceSplits.add(new StarRocksSourceSplit(partitions.get(i), String.valueOf(i + System.nanoTime())));
+            sourceSplits.add(new StarRocksSourceSplit(partitions.get(i), String.valueOf(partitions.get(i).hashCode())));
         }
         return sourceSplits;
     }

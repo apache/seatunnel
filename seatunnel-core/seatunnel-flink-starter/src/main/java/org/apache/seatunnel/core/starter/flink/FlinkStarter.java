@@ -19,8 +19,8 @@ package org.apache.seatunnel.core.starter.flink;
 
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.core.starter.Starter;
+import org.apache.seatunnel.core.starter.enums.EngineType;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
-import org.apache.seatunnel.core.starter.flink.config.StarterConstant;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
 import java.util.ArrayList;
@@ -28,25 +28,17 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * The SeaTunnel flink starter. This class is responsible for generate the final flink job execute command.
+ * The SeaTunnel flink starter, used to generate the final flink job execute command.
  */
 public class FlinkStarter implements Starter {
-
-    private static final String APP_NAME = SeatunnelFlink.class.getName();
-    public static final String APP_JAR_NAME = "seatunnel-flink-starter.jar";
-
-    /**
-     * SeaTunnel parameters, used by SeaTunnel application. e.g. `-c config.conf`
-     */
+    private static final String APP_NAME = SeaTunnelFlink.class.getName();
+    public static final String APP_JAR_NAME = EngineType.FLINK.getStarterJarName();
+    public static final String SHELL_NAME = EngineType.FLINK.getStarterShellName();
     private final FlinkCommandArgs flinkCommandArgs;
-
-    /**
-     * SeaTunnel flink job jar.
-     */
     private final String appJar;
 
     FlinkStarter(String[] args) {
-        this.flinkCommandArgs = CommandLineUtils.parse(args, new FlinkCommandArgs(), StarterConstant.SHELL_NAME, true);
+        this.flinkCommandArgs = CommandLineUtils.parse(args, new FlinkCommandArgs(), SHELL_NAME, true);
         // set the deployment mode, used to get the job jar path.
         Common.setDeployMode(flinkCommandArgs.getDeployMode());
         Common.setStarter(true);
@@ -62,25 +54,37 @@ public class FlinkStarter implements Starter {
     @Override
     public List<String> buildCommands() {
         List<String> command = new ArrayList<>();
+        // set start command
         command.add("${FLINK_HOME}/bin/flink");
-        command.add(flinkCommandArgs.getRunMode().getMode());
+        // set deploy mode, run or run-application
+        command.add(flinkCommandArgs.getDeployMode().getDeployMode());
+        // set submitted target master
+        if (flinkCommandArgs.getMasterType() != null) {
+            command.add("--target");
+            command.add(flinkCommandArgs.getMasterType().getMaster());
+        }
+        // set flink original parameters
         command.addAll(flinkCommandArgs.getOriginalParameters());
+        // set main class name
         command.add("-c");
         command.add(APP_NAME);
+        // set main jar name
         command.add(appJar);
+        // set config file path
         command.add("--config");
         command.add(flinkCommandArgs.getConfigFile());
+        // set check config flag
         if (flinkCommandArgs.isCheckConfig()) {
             command.add("--check");
         }
-        //set job name
-        command.add("-Dpipeline.name=" + flinkCommandArgs.getJobName());
-        // set System properties
+        // set job name
+        command.add("--name");
+        command.add(flinkCommandArgs.getJobName());
+        // set extra system properties
         flinkCommandArgs.getVariables().stream()
                 .filter(Objects::nonNull)
                 .map(String::trim)
                 .forEach(variable -> command.add("-D" + variable));
         return command;
     }
-
 }

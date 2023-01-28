@@ -78,9 +78,7 @@
             <module>seatunnel-config</module>
         -->
         <module>seatunnel-common</module>
-        <module>seatunnel-apis</module>
         <module>seatunnel-core</module>
-        <module>seatunnel-transforms</module>
         <module>seatunnel-transforms-v2</module>
         <module>seatunnel-connectors-v2</module>
         <module>seatunnel-api</module>
@@ -193,7 +191,6 @@
         <guava.version>19.0</guava.version>
         <auto-service.version>1.0.1</auto-service.version>
         <hadoop2.version>2.6.5</hadoop2.version>
-        <hadoop3.version>3.0.0</hadoop3.version>
         <seatunnel.shade.package>org.apache.seatunnel.shade</seatunnel.shade.package>
         <snappy-java.version>1.1.8.3</snappy-java.version>
         <checker.qual.version>3.10.0</checker.qual.version>

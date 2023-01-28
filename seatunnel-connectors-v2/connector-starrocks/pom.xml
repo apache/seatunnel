@@ -97,6 +97,10 @@
                             <pattern>com.google.flatbuffers</pattern>
                             <shadedPattern>com.starrocks.shaded.com.google.flatbuffers</shadedPattern>
                         </relocation>
+                        <relocation>
+                            <pattern>com.fasterxml.jackson</pattern>
+                            <shadedPattern>com.starrocks.shade.com.fasterxml.jackson</shadedPattern>
+                        </relocation>
                     </relocations>
                 </configuration>
                 <executions>

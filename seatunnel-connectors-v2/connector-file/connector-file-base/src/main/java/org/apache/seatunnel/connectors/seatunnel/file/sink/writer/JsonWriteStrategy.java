@@ -25,10 +25,12 @@ import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorExc
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
+import io.airlift.compress.lzo.LzopCodec;
 import lombok.NonNull;
 import org.apache.hadoop.fs.FSDataOutputStream;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -48,7 +50,8 @@ public class JsonWriteStrategy extends AbstractWriteStrategy {
     @Override
     public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         super.setSeaTunnelRowTypeInfo(seaTunnelRowType);
-        this.serializationSchema = new JsonSerializationSchema(seaTunnelRowType);
+        this.serializationSchema = new JsonSerializationSchema(
+            buildSchemaWithRowType(seaTunnelRowType, sinkColumnsIndexInRow));
     }
 
     @Override
@@ -57,7 +60,9 @@ public class JsonWriteStrategy extends AbstractWriteStrategy {
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);
         FSDataOutputStream fsDataOutputStream = getOrCreateOutputStream(filePath);
         try {
-            byte[] rowBytes = serializationSchema.serialize(seaTunnelRow);
+            byte[] rowBytes = serializationSchema.serialize(seaTunnelRow.copy(sinkColumnsIndexInRow.stream()
+                .mapToInt(Integer::intValue)
+                .toArray()));
             if (isFirstWrite.get(filePath)) {
                 isFirstWrite.put(filePath, false);
             } else {
@@ -93,7 +98,20 @@ public class JsonWriteStrategy extends AbstractWriteStrategy {
         FSDataOutputStream fsDataOutputStream = beingWrittenOutputStream.get(filePath);
         if (fsDataOutputStream == null) {
             try {
-                fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
+                switch (compressFormat) {
+                    case LZO:
+                        LzopCodec lzo = new LzopCodec();
+                        OutputStream out = lzo.createOutputStream(fileSystemUtils.getOutputStream(filePath));
+                        fsDataOutputStream = new FSDataOutputStream(out, null);
+                        break;
+                    case NONE:
+                        fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
+                        break;
+                    default:
+                        log.warn("Json file does not support this compress type: {}", compressFormat.getCompressCodec());
+                        fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
+                        break;
+                }
                 beingWrittenOutputStream.put(filePath, fsDataOutputStream);
                 isFirstWrite.put(filePath, true);
             } catch (IOException e) {

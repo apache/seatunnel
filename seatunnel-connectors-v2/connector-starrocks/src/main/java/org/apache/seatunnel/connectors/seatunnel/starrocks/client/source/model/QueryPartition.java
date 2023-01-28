@@ -96,14 +96,13 @@ public class QueryPartition implements Serializable, Comparable<QueryPartition> 
         int result = database.hashCode();
         result = 31 * result + table.hashCode();
         result = 31 * result + beAddress.hashCode();
-        result = 31 * result + queryPlan.hashCode();
         result = 31 * result + tabletIds.hashCode();
         return result;
     }
 
     @Override
     public String toString() {
-        return "PartitionDefinition{" +
+        return "QueryPartition{" +
                 ", database='" + database + '\'' +
                 ", table='" + table + '\'' +
                 ", beAddress='" + beAddress + '\'' +

@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
+import org.apache.seatunnel.engine.core.job.JobResult;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
@@ -132,14 +133,14 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         await().atMost(120000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assertions.assertEquals(JobStatus.RUNNING, jobMaster.getJobStatus()));
 
-        PassiveCompletableFuture<JobStatus> jobMasterCompleteFuture = jobMaster.getJobMasterCompleteFuture();
+        PassiveCompletableFuture<JobResult> jobMasterCompleteFuture = jobMaster.getJobMasterCompleteFuture();
         // cancel job
         jobMaster.cancelJob();
 
         // test job turn to complete
         await().atMost(120000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assertions.assertTrue(
-                jobMasterCompleteFuture.isDone() && JobStatus.CANCELED.equals(jobMasterCompleteFuture.get())));
+                jobMasterCompleteFuture.isDone() && JobStatus.CANCELED.equals(jobMasterCompleteFuture.get().getStatus())));
 
         testIMapRemovedAfterJobComplete(jobMaster);
     }

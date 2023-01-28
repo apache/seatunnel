@@ -33,48 +33,53 @@ public class SqlUtils {
             .map(SqlUtils::quoteIdentifier)
             .collect(Collectors.joining(", "));
         String placeholders = Arrays.stream(fieldNames)
-            .map(fieldName -> "?")
+            .map(fieldName -> ":" + fieldName)
             .collect(Collectors.joining(", "));
         return String.format("INSERT INTO %s (%s) VALUES (%s)",
             tableName, columns, placeholders);
     }
 
     public static String getDeleteStatement(String tableName,
-                                            String[] conditionFields) {
+                                            String[] conditionFields,
+                                            boolean enableExperimentalLightweightDelete) {
         String conditionClause = Arrays.stream(conditionFields)
-            .map(fieldName -> format("%s = ?", quoteIdentifier(fieldName)))
+            .map(fieldName -> format("%s = :%s", quoteIdentifier(fieldName), fieldName))
             .collect(Collectors.joining(" AND "));
-        return String.format("" +
-                "SET allow_experimental_lightweight_delete = true;" +
-                "DELETE FROM %s WHERE %s", quoteIdentifier(tableName), conditionClause);
+        String deleteStatement = format("DELETE FROM %s WHERE %s",
+            quoteIdentifier(tableName), conditionClause);
+        if (enableExperimentalLightweightDelete) {
+            deleteStatement += " settings allow_experimental_lightweight_delete = true";
+        }
+        return deleteStatement;
     }
 
     public static String getAlterTableUpdateStatement(String tableName,
                                                       String[] fieldNames,
                                                       String[] conditionFields) {
         String setClause = Arrays.stream(fieldNames)
-            .map(fieldName -> String.format("%s = ?", quoteIdentifier(fieldName)))
+            .filter(fieldName -> !Arrays.asList(conditionFields).contains(fieldName))
+            .map(fieldName -> String.format("%s = :%s", quoteIdentifier(fieldName), fieldName))
             .collect(Collectors.joining(", "));
         String conditionClause = Arrays.stream(conditionFields)
-            .map(fieldName -> String.format("%s = ?", quoteIdentifier(fieldName)))
+            .map(fieldName -> String.format("%s = :%s", quoteIdentifier(fieldName), fieldName))
             .collect(Collectors.joining(" AND "));
-        return String.format("ALTER TABLE %s UPDATE %s WHERE %s",
+        return String.format("ALTER TABLE %s UPDATE %s WHERE %s settings mutations_sync = 1",
             tableName, setClause, conditionClause);
     }
 
     public static String getAlterTableDeleteStatement(String tableName,
                                                       String[] conditionFields) {
         String conditionClause = Arrays.stream(conditionFields)
-            .map(fieldName -> format("%s = ?", quoteIdentifier(fieldName)))
+            .map(fieldName -> format("%s = :%s", quoteIdentifier(fieldName), fieldName))
             .collect(Collectors.joining(" AND "));
-        return String.format("ALTER TABLE %s DELETE WHERE %s",
+        return String.format("ALTER TABLE %s DELETE WHERE %s settings mutations_sync = 1",
             tableName, conditionClause);
     }
 
     public static String getRowExistsStatement(String tableName,
                                                String[] conditionFields) {
         String fieldExpressions = Arrays.stream(conditionFields)
-            .map(field -> format("%s = ?", quoteIdentifier(field)))
+            .map(field -> format("%s = :%s", quoteIdentifier(field), field))
             .collect(Collectors.joining(" AND "));
         return String.format("SELECT 1 FROM %s WHERE %s",
             quoteIdentifier(tableName), fieldExpressions);

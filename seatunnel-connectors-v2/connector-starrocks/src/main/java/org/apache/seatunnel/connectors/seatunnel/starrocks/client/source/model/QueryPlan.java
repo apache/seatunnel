@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client.source.model;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonProperty;
+
 import lombok.Getter;
 import lombok.Setter;
 

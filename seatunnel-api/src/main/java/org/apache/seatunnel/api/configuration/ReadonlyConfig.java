@@ -22,12 +22,11 @@ import static org.apache.seatunnel.api.configuration.util.ConfigUtil.convertValu
 import static org.apache.seatunnel.api.configuration.util.ConfigUtil.flatteningMap;
 import static org.apache.seatunnel.api.configuration.util.ConfigUtil.treeMap;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.Serializable;
 import java.util.Collections;

@@ -33,6 +33,6 @@ public class StarRocksSourceSplit implements SourceSplit {
 
     @Override
     public String splitId() {
-        return partition.toString();
+        return splitId;
     }
 }
