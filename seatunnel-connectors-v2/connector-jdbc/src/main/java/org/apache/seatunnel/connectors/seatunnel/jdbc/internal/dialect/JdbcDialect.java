@@ -85,7 +85,7 @@ public interface JdbcDialect extends Serializable {
             .map(this::quoteIdentifier)
             .collect(Collectors.joining(", "));
         String placeholders = Arrays.stream(fieldNames)
-            .map(fieldName -> "?")
+            .map(fieldName -> ":" + fieldName)
             .collect(Collectors.joining(", "));
         return String.format("INSERT INTO %s (%s) VALUES (%s)",
             quoteIdentifier(tableName), columns, placeholders);
@@ -104,10 +104,10 @@ public interface JdbcDialect extends Serializable {
      */
     default String getUpdateStatement(String tableName, String[] fieldNames, String[] conditionFields) {
         String setClause = Arrays.stream(fieldNames)
-            .map(fieldName -> String.format("%s = ?", quoteIdentifier(fieldName)))
+            .map(fieldName -> format("%s = :%s", quoteIdentifier(fieldName), fieldName))
             .collect(Collectors.joining(", "));
         String conditionClause = Arrays.stream(conditionFields)
-            .map(fieldName -> String.format("%s = ?", quoteIdentifier(fieldName)))
+            .map(fieldName -> format("%s = :%s", quoteIdentifier(fieldName), fieldName))
             .collect(Collectors.joining(" AND "));
         return String.format("UPDATE %s SET %s WHERE %s",
             quoteIdentifier(tableName), setClause, conditionClause);
@@ -126,7 +126,7 @@ public interface JdbcDialect extends Serializable {
      */
     default String getDeleteStatement(String tableName, String[] conditionFields) {
         String conditionClause = Arrays.stream(conditionFields)
-            .map(fieldName -> format("%s = ?", quoteIdentifier(fieldName)))
+            .map(fieldName -> format("%s = :%s", quoteIdentifier(fieldName), fieldName))
             .collect(Collectors.joining(" AND "));
         return String.format("DELETE FROM %s WHERE %s",
             quoteIdentifier(tableName), conditionClause);
@@ -144,7 +144,7 @@ public interface JdbcDialect extends Serializable {
      */
     default String getRowExistsStatement(String tableName, String[] conditionFields) {
         String fieldExpressions = Arrays.stream(conditionFields)
-            .map(field -> format("%s = ?", quoteIdentifier(field)))
+            .map(field -> format("%s = :%s", quoteIdentifier(field), field))
             .collect(Collectors.joining(" AND "));
         return String.format("SELECT 1 FROM %s WHERE %s",
             quoteIdentifier(tableName), fieldExpressions);

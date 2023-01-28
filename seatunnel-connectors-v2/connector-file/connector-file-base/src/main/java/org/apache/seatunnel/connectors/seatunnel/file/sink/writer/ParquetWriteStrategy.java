@@ -42,7 +42,6 @@ import org.apache.parquet.avro.AvroSchemaConverter;
 import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.hadoop.ParquetFileWriter;
 import org.apache.parquet.hadoop.ParquetWriter;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.hadoop.util.HadoopOutputFile;
 import org.apache.parquet.schema.ConversionPatterns;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
@@ -141,9 +140,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
                         .withDataModel(dataModel)
                         // use parquet v1 to improve compatibility
                         .withWriterVersion(ParquetProperties.WriterVersion.PARQUET_1_0)
-                        // Temporarily use snappy compress
-                        // I think we can use the compress option in config to control this
-                        .withCompressionCodec(CompressionCodecName.SNAPPY)
+                        .withCompressionCodec(compressFormat.getParquetCompression())
                         .withSchema(schema)
                         .build();
                 this.beingWrittenWriter.put(filePath, newWriter);

@@ -24,9 +24,10 @@ import java.util.Optional;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public final class Handover<T> implements Closeable {
+    private static final int DEFAULT_QUEUE_SIZE = 10000;
     private final Object lock = new Object();
     private final LinkedBlockingQueue<T> blockingQueue =
-        new LinkedBlockingQueue<>();
+        new LinkedBlockingQueue<>(DEFAULT_QUEUE_SIZE);
     private Throwable error;
 
     public boolean isEmpty() {

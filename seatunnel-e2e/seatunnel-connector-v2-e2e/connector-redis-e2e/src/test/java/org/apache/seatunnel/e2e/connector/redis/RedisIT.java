@@ -41,6 +41,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.shaded.org.apache.commons.lang3.tuple.Pair;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 import redis.clients.jedis.Jedis;
@@ -53,9 +54,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Stream;
-
-import scala.Tuple2;
 
 @Slf4j
 public class RedisIT extends TestSuiteBase implements TestResource {
@@ -64,7 +64,7 @@ public class RedisIT extends TestSuiteBase implements TestResource {
     private static final int PORT = 6379;
     private static final String PASSWORD = "SeaTunnel";
 
-    private static final Tuple2<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET = generateTestDataSet();
+    private static final Pair<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET = generateTestDataSet();
 
     private GenericContainer<?> redisContainer;
 
@@ -72,7 +72,7 @@ public class RedisIT extends TestSuiteBase implements TestResource {
 
     @BeforeAll
     @Override
-    public void startUp() throws Exception {
+    public void startUp() {
         this.redisContainer = new GenericContainer<>(DockerImageName.parse(IMAGE))
             .withNetwork(NETWORK)
             .withNetworkAliases(HOST)
@@ -88,14 +88,14 @@ public class RedisIT extends TestSuiteBase implements TestResource {
     }
 
     private void initSourceData() {
-        JsonSerializationSchema jsonSerializationSchema = new JsonSerializationSchema(TEST_DATASET._1());
-        List<SeaTunnelRow> rows = TEST_DATASET._2();
+        JsonSerializationSchema jsonSerializationSchema = new JsonSerializationSchema(TEST_DATASET.getKey());
+        List<SeaTunnelRow> rows = TEST_DATASET.getValue();
         for (int i = 0; i < rows.size(); i++) {
             jedis.set("key_test" + i, new String(jsonSerializationSchema.serialize(rows.get(i))));
         }
     }
 
-    private static Tuple2<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
+    private static Pair<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
         SeaTunnelRowType rowType = new SeaTunnelRowType(
             new String[]{
                 "id",
@@ -155,7 +155,7 @@ public class RedisIT extends TestSuiteBase implements TestResource {
                 });
             rows.add(row);
         }
-        return Tuple2.apply(rowType, rows);
+        return Pair.of(rowType, rows);
     }
 
     private void initJedis() {
@@ -167,9 +167,14 @@ public class RedisIT extends TestSuiteBase implements TestResource {
 
     @AfterAll
     @Override
-    public void tearDown() throws Exception {
-        jedis.close();
-        redisContainer.close();
+    public void tearDown() {
+        if (Objects.nonNull(jedis)) {
+            jedis.close();
+        }
+
+        if (Objects.nonNull(redisContainer)) {
+            redisContainer.close();
+        }
     }
 
     @TestTemplate
