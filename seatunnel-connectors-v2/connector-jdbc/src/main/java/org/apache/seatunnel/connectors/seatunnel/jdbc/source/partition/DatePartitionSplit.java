@@ -33,15 +33,15 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.source.PartitionParameter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
-import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
 @Slf4j
-public class DatePartitionSplit extends AbstractPartitionSplit<Date> {
+public class DatePartitionSplit extends AbstractPartitionSplit<LocalDate> {
 
     private final JdbcConnectionProvider jdbcConnectionProvider;
 
@@ -58,7 +58,7 @@ public class DatePartitionSplit extends AbstractPartitionSplit<Date> {
     }
 
     @Override
-    public PartitionParameter<Date> getPartitionParameter(Map<String, SeaTunnelDataType<?>> fieldTypes, String partitionColumn) throws SQLException {
+    public PartitionParameter<LocalDate> getPartitionParameter(Map<String, SeaTunnelDataType<?>> fieldTypes, String partitionColumn) throws SQLException {
         if (!checkType(fieldTypes.get(partitionColumn))) {
             throw new JdbcConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
                 String.format("%s is not date type", partitionColumn));
@@ -71,35 +71,35 @@ public class DatePartitionSplit extends AbstractPartitionSplit<Date> {
             jdbcSourceOptions.getPartitionUpperBound().isPresent()) {
             max = jdbcSourceOptions.getPartitionUpperBound().get();
             min = jdbcSourceOptions.getPartitionLowerBound().get();
-            return new PartitionParameter<>(partitionColumn, new Date(min), new Date(max), jdbcSourceOptions.getPartitionNumber().orElse(null));
+            return new PartitionParameter<>(partitionColumn, LocalDate.ofEpochDay(min), LocalDate.ofEpochDay(max), jdbcSourceOptions.getPartitionNumber().orElse(null));
         }
         try (ResultSet rs = jdbcConnectionProvider.getOrEstablishConnection().createStatement().executeQuery(String.format("SELECT MAX(%s),MIN(%s) " +
             "FROM (%s) tt", partitionColumn, partitionColumn, jdbcSourceOptions.getQuery()))) {
             if (rs.next()) {
                 max = jdbcSourceOptions.getPartitionUpperBound().isPresent() ?
                     jdbcSourceOptions.getPartitionUpperBound().get() :
-                    rs.getDate(1).getTime();
+                    rs.getDate(1).toLocalDate().toEpochDay();
                 min = jdbcSourceOptions.getPartitionLowerBound().isPresent() ?
                     jdbcSourceOptions.getPartitionLowerBound().get() :
-                    rs.getDate(2).getTime();
+                    rs.getDate(2).toLocalDate().toEpochDay();
             }
         } catch (ClassNotFoundException e) {
             throw new SeaTunnelException(e);
         }
-        return new PartitionParameter<>(partitionColumn, new Date(min), new Date(max), jdbcSourceOptions.getPartitionNumber().orElse(null));
+        return new PartitionParameter<>(partitionColumn, LocalDate.ofEpochDay(min), LocalDate.ofEpochDay(max), jdbcSourceOptions.getPartitionNumber().orElse(null));
     }
 
     @Override
     public Set<JdbcSourceSplit> getSplit(int currentParallelism) throws SQLException {
         Set<JdbcSourceSplit> allSplit = new HashSet<>();
         log.info("Starting to calculate splits.");
-        PartitionParameter<Date> partitionParameter = checkAndGetPartitionColumn();
+        PartitionParameter<LocalDate> partitionParameter = checkAndGetPartitionColumn();
         if (null != partitionParameter) {
             int partitionNumber = partitionParameter.getPartitionNumber() != null ?
                 partitionParameter.getPartitionNumber() : currentParallelism;
             partitionParameter.setPartitionNumber(partitionNumber);
             JdbcParameterValuesProvider jdbcNumericBetweenParametersProvider =
-                new JdbcDateBetweenParametersProvider(partitionParameter.getMinValue().getTime(), partitionParameter.getMaxValue().getTime())
+                new JdbcDateBetweenParametersProvider(partitionParameter.getMinValue().toEpochDay(), partitionParameter.getMaxValue().toEpochDay())
                     .ofBatchNum(partitionParameter.getPartitionNumber());
             Serializable[][] parameterValues = jdbcNumericBetweenParametersProvider.getParameterValues();
             for (int i = 0; i < parameterValues.length; i++) {

@@ -21,6 +21,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import java.io.Serializable;
 import java.sql.Date;
+import java.time.LocalDate;
 
 public class JdbcDateBetweenParametersProvider extends AbstractParametersProvider {
 
@@ -58,7 +59,7 @@ public class JdbcDateBetweenParametersProvider extends AbstractParametersProvide
         long start = minVal;
         for (int i = 0; i < batchNum; i++) {
             long end = start + batchSize - 1 - (i >= bigBatchNum ? 1 : 0);
-            parameters[i] = new Date[]{new Date(start), new Date(end)};
+            parameters[i] = new Date[]{Date.valueOf(LocalDate.ofEpochDay(start)), Date.valueOf(LocalDate.ofEpochDay(end))};
             start = end + 1;
         }
         return parameters;
