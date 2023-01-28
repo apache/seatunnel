@@ -45,9 +45,9 @@
     </licenses>
 
     <scm>
-        <connection>scm:git:https://github.com/apache/incubator-seatunnel.git</connection>
-        <developerConnection>scm:git:https://github.com/apache/incubator-seatunnel.git</developerConnection>
-        <url>https://github.com/apache/incubator-seatunnel</url>
+        <connection>scm:git:https://github.com/WhaleOps/incubator-seatunnel.git</connection>
+        <developerConnection>scm:git:https://github.com/WhaleOps/incubator-seatunnel.git</developerConnection>
+        <url>https://github.com/WhaleOps/incubator-seatunnel.git</url>
         <tag>HEAD</tag>
     </scm>
 
