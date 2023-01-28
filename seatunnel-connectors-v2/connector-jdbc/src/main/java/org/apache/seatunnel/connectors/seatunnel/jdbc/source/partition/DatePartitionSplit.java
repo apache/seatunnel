@@ -52,9 +52,7 @@ public class DatePartitionSplit extends AbstractPartitionSplit<LocalDate> {
 
     @Override
     public boolean checkType(SeaTunnelDataType<?> type) {
-        return type.equals(LocalTimeType.LOCAL_DATE_TIME_TYPE) ||
-            type.equals(LocalTimeType.LOCAL_DATE_TYPE) ||
-            type.equals(LocalTimeType.LOCAL_TIME_TYPE);
+        return type.equals(LocalTimeType.LOCAL_DATE_TYPE);
     }
 
     @Override
