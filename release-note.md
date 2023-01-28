@@ -46,7 +46,7 @@
 - [Checkpoint] Fix Checkpoint Continue Trigger After Job CANCELED #3808
 - [Checkpoint] Add savepoint and restore with savepoint #3930
 - [Core]Fix Local Mode can't deserialize split (#3817)
-- [Metrics] Fix Metrics will lose when Job be canceled. #3797
+- [Metrics] Fix Metrics will lose when Job be canceled or restart. #3797 #3977
 
 
 ## Test
