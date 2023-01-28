@@ -19,38 +19,13 @@ package org.apache.seatunnel.connectors.doris.client;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @AllArgsConstructor
-@NoArgsConstructor
 @Data
 public class DorisFlushTuple {
     private String label;
-    private Long bytes = 0L;
+    private Long bytes;
     private List<byte[]> rows;
-    private boolean eof;
-
-    public DorisFlushTuple(String label) {
-        this.label = label;
-        this.rows = new ArrayList<>();
-    }
-
-    public DorisFlushTuple(String label, Long bytes, List<byte[]> rows) {
-        this.label = label;
-        this.bytes = bytes;
-        this.rows = rows;
-    }
-
-    public DorisFlushTuple asEOF() {
-        eof = true;
-        return this;
-    }
-
-    public void addToBuffer(byte[] bts) {
-        rows.add(bts);
-        bytes += bts.length;
-    }
 }

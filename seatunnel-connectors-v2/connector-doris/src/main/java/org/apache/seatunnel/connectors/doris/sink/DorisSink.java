@@ -34,17 +34,15 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
-import org.apache.seatunnel.connectors.doris.state.StarRocksSinkState;
+import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
+import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
 
-import java.io.IOException;
-import java.util.List;
-
 @AutoService(SeaTunnelSink.class)
-public class DorisSink implements SeaTunnelSink<SeaTunnelRow, StarRocksSinkState, Void, Void> {
+public class DorisSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     private Config pluginConfig;
     private SeaTunnelRowType seaTunnelRowType;
@@ -76,14 +74,7 @@ public class DorisSink implements SeaTunnelSink<SeaTunnelRow, StarRocksSinkState
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, Void, StarRocksSinkState> createWriter(SinkWriter.Context context) throws IOException {
-        return new DorisSinkWriter(pluginConfig, seaTunnelRowType, context);
-    }
-
-    @Override
-    public SinkWriter<SeaTunnelRow, Void, StarRocksSinkState> restoreWriter(SinkWriter.Context context,
-                                                              List<StarRocksSinkState> states) throws IOException {
-        return new DorisSinkWriter(pluginConfig, seaTunnelRowType, context, states);
-
+    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
+        return new DorisSinkWriter(pluginConfig, seaTunnelRowType);
     }
 }

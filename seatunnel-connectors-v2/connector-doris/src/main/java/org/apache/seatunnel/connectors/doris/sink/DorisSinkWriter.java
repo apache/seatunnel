@@ -17,18 +17,16 @@
 
 package org.apache.seatunnel.connectors.doris.sink;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.SerializationSchema;
-import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.doris.client.DorisFlushTuple;
 import org.apache.seatunnel.connectors.doris.client.DorisSinkManager;
-import org.apache.seatunnel.connectors.doris.config.DorisSinkSemantics;
 import org.apache.seatunnel.connectors.doris.config.SinkConfig;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
-import org.apache.seatunnel.connectors.doris.state.StarRocksSinkState;
 import org.apache.seatunnel.connectors.doris.util.DelimiterParserUtil;
+import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
@@ -39,47 +37,23 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, Void, StarRocksSinkState> {
+public class DorisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
+    private ReadonlyConfig readonlyConfig;
     private final SerializationSchema serializationSchema;
     private final DorisSinkManager manager;
 
-    private final DorisSinkSemantics dorisSinkSemantics;
-
     public DorisSinkWriter(Config pluginConfig,
-                           SeaTunnelRowType seaTunnelRowType,
-                           SinkWriter.Context context) {
-        this(pluginConfig, seaTunnelRowType,  context, null);
-    }
-
-    public DorisSinkWriter(Config pluginConfig,
-                           SeaTunnelRowType seaTunnelRowType,
-                           SinkWriter.Context context,
-                           List<StarRocksSinkState> states) {
+                           SeaTunnelRowType seaTunnelRowType) {
         SinkConfig sinkConfig = SinkConfig.loadConfig(pluginConfig);
         List<String> fieldNames = Arrays.stream(seaTunnelRowType.getFieldNames()).collect(Collectors.toList());
         this.serializationSchema = createSerializer(sinkConfig, seaTunnelRowType);
         this.manager = new DorisSinkManager(sinkConfig, fieldNames);
-        dorisSinkSemantics = sinkConfig.getDorisSinkSemantic();
-
-        if (DorisSinkSemantics.AT_LEAST_ONCE.equals(dorisSinkSemantics)) {
-            //start AsyncFlush thread
-            manager.startAsyncFlushing();
-
-            //restore states in manager
-            if (states != null) {
-                for (StarRocksSinkState state : states) {
-                    manager.setBufferedBatchMap(state.getBufferMap());
-                }
-            }
-        }
-
     }
 
     @Override
@@ -90,35 +64,10 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, Void, StarRocks
 
     @SneakyThrows
     @Override
-    public Optional<Void> prepareCommit() throws IOException {
-        //Flush to storage before snapshot state is performed
-        if (DorisSinkSemantics.NON.equals(dorisSinkSemantics)) {
-            manager.flush();
-        }
-        if (DorisSinkSemantics.AT_LEAST_ONCE.equals(dorisSinkSemantics)) {
-            //async process previous buffer
-            manager.flushPreviousBuffer(true);
-            //sync process current buffer
-            DorisFlushTuple sinkBuffer = manager.getCurrentSinkBuffer();
-            manager.addBufferedBatchMap(sinkBuffer);
-            manager.resetCurrentSinkBuffer();
-            manager.flushPreviousBuffer(true);
-        }
-        return Optional.empty();
-    }
-
-    @Override
-    public List<StarRocksSinkState> snapshotState(long checkpointId) throws IOException {
-        if (DorisSinkSemantics.AT_LEAST_ONCE.equals(dorisSinkSemantics)) {
-            // save previousBufferMap to state
-            return Collections.singletonList(new StarRocksSinkState(checkpointId, manager.getPreviousBufferMap()));
-        }
-        return null;
-    }
-
-    @Override
-    public void abortPrepare() {
-
+    public Optional<Void> prepareCommit() {
+        // Flush to storage before snapshot state is performed
+        manager.flush();
+        return super.prepareCommit();
     }
 
     @Override
