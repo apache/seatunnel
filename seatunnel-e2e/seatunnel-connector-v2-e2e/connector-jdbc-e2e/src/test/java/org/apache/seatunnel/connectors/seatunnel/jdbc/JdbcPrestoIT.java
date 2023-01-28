@@ -21,7 +21,6 @@ import static org.awaitility.Awaitility.given;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
