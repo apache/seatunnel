@@ -35,6 +35,8 @@ public class PartitionSplitFactory {
                 return new DatePartitionSplit(jdbcConnectionProvider, jdbcSourceOptions, rowType);
             case StrDateType:
                 return new StrDatePartitionSplit(jdbcConnectionProvider, jdbcSourceOptions, rowType);
+            case DateTimeType:
+                return new DateTimePartitionSplit(jdbcConnectionProvider, jdbcSourceOptions, rowType);
             default:
                 throw new JdbcConnectorException(JdbcConnectorErrorCode.NO_SUITABLE_PARTITION_SPLIT,
                     JdbcConnectorErrorCode.NO_SUITABLE_PARTITION_SPLIT.getErrorMessage());
