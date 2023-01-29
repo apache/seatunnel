@@ -22,20 +22,20 @@ import java.net.URLClassLoader;
 import java.util.List;
 import java.util.function.Consumer;
 
-public abstract class SeatunnelBaseClassLoader extends URLClassLoader {
+public abstract class SeaTunnelBaseClassLoader extends URLClassLoader {
     protected static final Consumer<Throwable> NOOP_EXCEPTION_HANDLER = classLoadingException -> {};
 
     private final Consumer<Throwable> classLoadingExceptionHandler;
 
-    protected SeatunnelBaseClassLoader(List<URL> urls) {
-        this(urls.toArray(new URL[0]), SeatunnelBaseClassLoader.class.getClassLoader());
+    protected SeaTunnelBaseClassLoader(List<URL> urls) {
+        this(urls.toArray(new URL[0]), SeaTunnelBaseClassLoader.class.getClassLoader());
     }
 
-    protected SeatunnelBaseClassLoader(URL[] urls, ClassLoader parent) {
+    protected SeaTunnelBaseClassLoader(URL[] urls, ClassLoader parent) {
         this(urls, parent, NOOP_EXCEPTION_HANDLER);
     }
 
-    protected SeatunnelBaseClassLoader(URL[] urls, ClassLoader parent, Consumer<Throwable> classLoadingExceptionHandler) {
+    protected SeaTunnelBaseClassLoader(URL[] urls, ClassLoader parent, Consumer<Throwable> classLoadingExceptionHandler) {
         super(urls, parent);
         this.classLoadingExceptionHandler = classLoadingExceptionHandler;
     }
