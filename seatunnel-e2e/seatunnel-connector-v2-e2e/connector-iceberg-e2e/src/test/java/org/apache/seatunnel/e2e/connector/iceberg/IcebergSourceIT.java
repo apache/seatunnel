@@ -90,7 +90,7 @@ public class IcebergSourceIT extends TestSuiteBase implements TestResource {
         Types.NestedField.optional(16, "f16", Types.MapType.ofOptional(
             200, 300, Types.StringType.get(), Types.IntegerType.get())),
         Types.NestedField.optional(17, "f17", Types.StructType.of(
-            Types.NestedField.required(400, "f17_a", Types.StringType.get())))
+            Types.NestedField.required(400, "F17_A", Types.StringType.get())))
     );
 
     private static final String CATALOG_NAME = "seatunnel";
@@ -153,7 +153,7 @@ public class IcebergSourceIT extends TestSuiteBase implements TestResource {
         record.setField("f15", Arrays.asList(Integer.MAX_VALUE));
         record.setField("f16", Collections.singletonMap("key", Integer.MAX_VALUE));
         Record structRecord = GenericRecord.create(SCHEMA.findField("f17").type().asStructType());
-        structRecord.setField("f17_a", "test");
+        structRecord.setField("F17_A", "test");
         record.setField("f17", structRecord);
 
         Table table = CATALOG.loadTable(TABLE);
