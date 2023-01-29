@@ -89,6 +89,7 @@
         <module>seatunnel-examples</module>
         <module>seatunnel-e2e</module>
         <module>seatunnel-shade</module>
+        <module>seatunnel-microbench</module>
     </modules>
 
     <profiles>
@@ -728,7 +729,7 @@
                         </execution>
                     </executions>
                 </plugin>
-                
+
                 <!-- checkstyle (End) -->
 
                 <plugin>
