@@ -52,7 +52,9 @@ public class QueueBenchmark extends AbstractMicrobenchmark {
         }
         int result = 0;
         for (int i = 0; i < fixedBurstSize; i++) {
-            result = queue.poll();
+            if (queue.poll() != null) {
+                result = queue.poll();
+            }
         }
         return result;
     }
@@ -64,3 +66,25 @@ public class QueueBenchmark extends AbstractMicrobenchmark {
     }
 
 }
+
+/*
+   Environment:
+
+   # JMH version: 1.29
+    # VM version: JDK 1.8.0_345, OpenJDK 64-Bit Server VM, 25.345-b01
+    # VM invoker: C:\Users\lenovo\.jdks\temurin-1.8.0_345\jre\bin\java.exe
+    # VM options: -javaagent:C:\Program Files\JetBrains\IntelliJ IDEA 2021.1\lib\idea_rt.jar=22892:C:\Program Files\JetBrains\IntelliJ IDEA 2021.1\bin -Dfile.encoding=UTF-8
+    # Blackhole mode: full + dont-inline hint
+    # Warmup: 5 iterations, 5 s each
+    # Measurement: 5 iterations, 5 s each
+    # Timeout: 10 min per iteration
+    # Threads: 1 thread, will synchronize iterations
+    # Benchmark mode: Throughput, ops/time
+    # Benchmark: org.apache.seatunnel.microbench.core.queue.QueueBenchmark.offerAndPoll
+    # Parameters: (burstSize = 100000, qCapacity = 10000, queueType = ArrayBlockingQueue)
+
+    Benchmark                    (burstSize)  (qCapacity)            (queueType)   Mode  Cnt     Score    Error  Units
+    QueueBenchmark.offerAndPoll       100000        10000     ArrayBlockingQueue  thrpt   10   271.481 ±  8.851  ops/s
+    QueueBenchmark.offerAndPoll       100000        10000    LinkedBlockingQueue  thrpt   10  1123.445 ± 35.607  ops/s
+    QueueBenchmark.offerAndPoll       100000        10000  ConcurrentLinkedQueue  thrpt   10   311.702 ±  8.535  ops/s
+ */
