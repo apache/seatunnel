@@ -70,7 +70,6 @@ Database name of the database to monitor.
 
 Table name is a combination of schema name and table name (schemaName.tableName).
 
-
 ### startup.mode [Enum]
 
 Optional startup mode for SqlServer CDC consumer, valid enumerations are "initial", "earliest", "latest" and "specific".
@@ -127,7 +126,6 @@ of table.
 ### snapshot.fetch.size [Integer]
 
 The maximum fetch size for per poll when read table snapshot.
-
 
 ### server-time-zone [String]
 
@@ -190,3 +188,4 @@ source {
 ### next version
 
 - Add SqlServer CDC Source Connector
+- [Doc] Add SqlServer CDC Source Connector document ([3993](https://github.com/apache/incubator-seatunnel/pull/3993))
