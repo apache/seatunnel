@@ -18,10 +18,14 @@
 
 package org.apache.seatunnel.microbench.base;
 
+import static org.apache.seatunnel.microbench.base.AbstractMicrobenchmark.DEFAULT_TIME;
+
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
+import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
+import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
@@ -45,16 +49,19 @@ import java.util.concurrent.TimeUnit;
  * You can run any of the JMH tests as a normal UT, or you can package it and get all the reported results via `java
  * -jar benchmark.jar`, or get the results of a particular Test via `java -jar /benchmarks.jar exampleClassName`.
  */
-@Warmup(iterations = AbstractMicrobenchmark.DEFAULT_WARMUP_ITERATIONS)
-@Measurement(iterations = AbstractMicrobenchmark.DEFAULT_MEASURE_ITERATIONS)
+@Warmup(iterations = AbstractMicrobenchmark.DEFAULT_WARMUP_ITERATIONS, time = DEFAULT_TIME)
+@Measurement(iterations = AbstractMicrobenchmark.DEFAULT_MEASURE_ITERATIONS, time = DEFAULT_TIME)
 @Fork(AbstractMicrobenchmark.DEFAULT_FORKS)
 @State(Scope.Thread)
+@BenchmarkMode(Mode.Throughput)
 @Slf4j
 public class AbstractMicrobenchmark {
 
-    static final int DEFAULT_WARMUP_ITERATIONS = 10;
+    static final int DEFAULT_WARMUP_ITERATIONS = 5;
 
-    static final int DEFAULT_MEASURE_ITERATIONS = 10;
+    static final int DEFAULT_MEASURE_ITERATIONS = 5;
+
+    static final int DEFAULT_TIME = 5;
 
     static final int DEFAULT_FORKS = 2;
 
