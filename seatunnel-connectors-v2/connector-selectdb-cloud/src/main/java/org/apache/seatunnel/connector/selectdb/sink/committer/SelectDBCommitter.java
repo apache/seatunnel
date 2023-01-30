@@ -121,8 +121,7 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
         }
 
         if (!success) {
-            log.error("commit error with status {}, reason {}, response {}", statusCode, reasonPhrase, loadResult);
-            throw new SelectDBConnectorException(SelectDBConnectorErrorCode.COMMIT_FAILED, commitInfo.getCopySQL());
+            throw new SelectDBConnectorException(SelectDBConnectorErrorCode.COMMIT_FAILED, "commit failed with SQL: " + commitInfo.getCopySQL() + " Commit error with status: " + statusCode + ", Reason: " + reasonPhrase + ", Response: " + loadResult);
         }
     }
 

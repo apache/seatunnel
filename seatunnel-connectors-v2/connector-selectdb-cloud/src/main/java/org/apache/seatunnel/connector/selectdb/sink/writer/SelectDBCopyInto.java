@@ -224,8 +224,7 @@ public class SelectDBCopyInto implements Serializable {
             } else {
                 HttpEntity entity = execute.getEntity();
                 String result = entity == null ? null : EntityUtils.toString(entity);
-                log.error("Failed get the redirected address, status {}, reason {}, response {}", statusCode, reason, result);
-                throw new SelectDBConnectorException(REDIRECTED_FAILED, "Could not get the redirected address.");
+                throw new SelectDBConnectorException(REDIRECTED_FAILED, "Could not get the redirected address. Status: " + statusCode + ", Reason: " + reason + ", Response: " + result);
             }
         }
     }
