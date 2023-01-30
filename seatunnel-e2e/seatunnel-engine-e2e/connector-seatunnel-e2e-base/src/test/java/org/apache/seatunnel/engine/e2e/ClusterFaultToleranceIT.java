@@ -39,7 +39,6 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.shaded.org.apache.commons.lang3.tuple.ImmutablePair;
 
@@ -54,7 +53,6 @@ import java.util.concurrent.TimeUnit;
  * Cluster fault tolerance test. Test the job recovery capability and data consistency assurance capability in case of cluster node failure
  */
 @Slf4j
-@Disabled
 public class ClusterFaultToleranceIT {
 
     public static final String DYNAMIC_TEST_CASE_NAME = "dynamic_test_case_name";
@@ -108,7 +106,6 @@ public class ClusterFaultToleranceIT {
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
             CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
-
             Awaitility.await().atMost(200000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> {
                     Thread.sleep(2000);
@@ -613,24 +610,7 @@ public class ClusterFaultToleranceIT {
         SeaTunnelClient engineClient = null;
 
         try {
-            String yaml = "#\n" +
-                "# Licensed to the Apache Software Foundation (ASF) under one or more\n" +
-                "# contributor license agreements.  See the NOTICE file distributed with\n" +
-                "# this work for additional information regarding copyright ownership.\n" +
-                "# The ASF licenses this file to You under the Apache License, Version 2.0\n" +
-                "# (the \"License\"); you may not use this file except in compliance with\n" +
-                "# the License.  You may obtain a copy of the License at\n" +
-                "#\n" +
-                "#    http://www.apache.org/licenses/LICENSE-2.0\n" +
-                "#\n" +
-                "# Unless required by applicable law or agreed to in writing, software\n" +
-                "# distributed under the License is distributed on an \"AS IS\" BASIS,\n" +
-                "# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n" +
-                "# See the License for the specific language governing permissions and\n" +
-                "# limitations under the License.\n" +
-                "#\n" +
-                "\n" +
-                "hazelcast:\n" +
+            String yaml = "hazelcast:\n" +
                 "  cluster-name: seatunnel\n" +
                 "  network:\n" +
                 "    rest-api:\n" +

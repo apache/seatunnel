@@ -337,7 +337,7 @@ jobs:
         env:
           MAVEN_OPTS: -Xmx2048m
 
-  engine-and-transform-v2-it:
+  engine-v2-it:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
@@ -357,7 +357,31 @@ jobs:
       - name: run some modules integration test
         if: needs.changes.outputs.api == 'true'
         run: |
-          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :seatunnel-transforms-v2-e2e,:connector-seatunnel-e2e-base -am -Pci
+          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-seatunnel-e2e-base -am -Pci
+        env:
+          MAVEN_OPTS: -Xmx4096m
+
+  transform-v2-it:
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: run some modules integration test
+        if: needs.changes.outputs.api == 'true'
+        run: |
+          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :seatunnel-transforms-v2-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
 
