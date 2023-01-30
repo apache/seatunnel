@@ -252,7 +252,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
             if (!fs.exists(parentPath)) {
                 throw new CheckpointStorageException("Path " + path + " is not a directory");
             }
-            FileStatus[] fileStatus = fs.listStatus(new Path(path), path1 -> path1.getName().endsWith(FILE_FORMAT));
+            FileStatus[] fileStatus = fs.listStatus(parentPath, path1 -> path1.getName().endsWith(FILE_FORMAT));
             List<String> fileNames = new ArrayList<>();
             for (FileStatus status : fileStatus) {
                 fileNames.add(status.getPath().getName());
