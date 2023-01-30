@@ -144,6 +144,42 @@ TCP is our suggest way in a standalone SeaTunnel Engine cluster.
 
 On the other hand, Hazelcast provides some other service discovery methods. For details, please refer to [hazelcast network](https://docs.hazelcast.com/imdg/4.1/clusters/setting-up-clusters)
 
+### 5.3 Map
+
+MapStores connect to an external data store only when they are configured on a map. This topic explains how to configure a map with a MapStore. For details, please refer to [hazelcast map](https://docs.hazelcast.com/imdg/4.2/data-structures/map)
+
+**type**
+
+The type of imap persistence, currently only supports `hdfs`.
+
+**namespace**
+
+It is used to distinguish data storage locations of different business, like OSS bucket name.
+
+**clusterName**
+
+This parameter is primarily used for cluster isolation, we can use this to distinguish different cluster, like cluster1,
+cluster2 and this is also used to distinguish different business
+
+**fs.defaultFS**
+
+We used hdfs api read/write file, so used this storage need provide hdfs configuration
+
+An example is like this `hazelcast.yaml`
+```yaml
+map:
+    engine*:
+       map-store:
+         enabled: true
+         initial-mode: EAGER
+         factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+         properties:
+           type: hdfs
+           namespace: /tmp/seatunnel/imap
+           clusterName: seatunnel-clsuter
+           fs.defaultFS: file:///
+```
+
 ## 6. Config SeaTunnel Engine Client
 
 All SeaTunnel Engine Client config in `hazelcast-client.yaml`.
