@@ -21,20 +21,26 @@ import static org.awaitility.Awaitility.given;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.TestTemplate;
-import org.testcontainers.containers.TrinoContainer;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -47,26 +53,35 @@ public class JdbcPrestoIT extends TestSuiteBase implements TestResource {
     private static final String URL = "jdbc:trino://%s:5236";
 
     private Connection jdbcConnection;
-    private TrinoContainer trino;
+    private GenericContainer<?> dbServer;
 
     @BeforeAll
     @Override
     public void startUp() throws Exception {
-        trino = new TrinoContainer(DOCKER_IMAGE)
-            .withNetworkAliases(HOST);
-        trino.setPortBindings(Lists.newArrayList(
-            String.format("%s:%s", 8080, 8080)));
-        Startables.deepStart(Stream.of(trino)).join();
+        dbServer = new GenericContainer<>(DOCKER_IMAGE)
+            .withNetwork(NETWORK)
+            .withNetworkAliases(HOST)
+            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
+        dbServer.setPortBindings(Lists.newArrayList(String.format("%s:%s", 5236, 8080)));
+        Startables.deepStart(Stream.of(dbServer)).join();
         log.info("Trino container started");
+        // wait for trino fully start
         Class.forName(DRIVER_CLASS);
         given().ignoreExceptions()
             .await()
-            .atMost(180, TimeUnit.SECONDS)
+            .atMost(60, TimeUnit.SECONDS)
             .untilAsserted(this::initializeJdbcConnection);
+        initializeJdbcTable();
     }
 
     private void initializeJdbcConnection() throws SQLException {
-        jdbcConnection = DriverManager.getConnection(String.format(URL, trino.getHost()));
+        Properties properties = new Properties();
+        properties.setProperty("user", "trino");
+        jdbcConnection = DriverManager.getConnection(String.format(URL, dbServer.getHost()), properties);
+    }
+
+    private void initializeJdbcTable() {
+        //no thing
     }
 
     @AfterAll
@@ -75,19 +90,26 @@ public class JdbcPrestoIT extends TestSuiteBase implements TestResource {
         if (jdbcConnection != null) {
             jdbcConnection.close();
         }
-        if (trino != null) {
-            trino.close();
+        if (dbServer != null) {
+            dbServer.close();
         }
     }
 
     @TestTemplate
     @DisplayName("JDBC-Presto end to end test")
-    public void testJdbcPresto() {
+    public void testJdbcPresto(TestContainer container) {
+        assertHasData();
+        log.info(container.toString());
+    }
+
+    private void assertHasData() {
         try (Statement statement = jdbcConnection.createStatement()) {
-            statement.execute("SELECT 1");
+            String sql = String.format("SHOW CATALOGS");
+            ResultSet source = statement.executeQuery(sql);
+            Assertions.assertTrue(source.next());
         }
-        catch (Exception e) {
-            log.error("Test presto server failed!");
+        catch (SQLException e) {
+            log.warn("Ignore {}", e);
         }
     }
 }
