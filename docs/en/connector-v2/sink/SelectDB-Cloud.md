@@ -56,9 +56,9 @@ The name of `SelectDB Cloud` table, the format is `database.table`
 Write property configuration
 CSV Write：
     selectdb.config {
-        sink.properties.file.type='csv'
-        sink.properties.file.column_separator=','
-        sink.properties.file.line_delimiter='\n'
+        file.type='csv'
+        file.column_separator=','
+        file.line_delimiter='\n'
     }
 JSON Write:
     selectdb.config {
