@@ -37,9 +37,8 @@ supports query SQL and can achieve projection effect.
 | password                     | String | No       | -               |
 | query                        | String | Yes      | -               |
 | connection_check_timeout_sec | Int    | No       | 30              |
-| split_type                   | String | No       | NumericType     |
-| prefix                       | String | No       | -               |
-| pattern                      | String | No       | yyyy-MM-dd      |
+| partition_split_type         | String | No       | NumericType     |
+| partition_pattern            | String | No       | yyyy-MM-dd      |
 | partition_column             | String | No       | -               |
 | partition_upper_bound        | Long   | No       | -               |
 | partition_lower_bound        | Long   | No       | -               |
@@ -75,11 +74,11 @@ The time in seconds to wait for the database operation used to validate the conn
 
 The column name for parallelism's partition
 
-### split_type [string]
+### partition_split_type [string]
 
 Type of partition column. Currently, supports `DateType`, `NumericType`, `StrDateType`, `StrNumericType`.
 
-### pattern [string]
+### partition_pattern [string]
 
 The pattern describing the date and time format, like `2023-01-25`
 

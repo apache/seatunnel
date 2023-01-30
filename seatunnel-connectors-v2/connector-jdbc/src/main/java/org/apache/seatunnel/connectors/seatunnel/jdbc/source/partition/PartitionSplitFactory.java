@@ -28,7 +28,7 @@ public class PartitionSplitFactory {
     public static PartitionSplit<?> getPartitionSplit(JdbcSourceOptions jdbcSourceOptions,
                                                       SeaTunnelRowType rowType,
                                                       JdbcConnectionProvider jdbcConnectionProvider) {
-        switch (jdbcSourceOptions.getSplitType()) {
+        switch (jdbcSourceOptions.getPartitionSplitType()) {
             case NumericType:
                 return new NumericPartitionSplit(jdbcConnectionProvider, jdbcSourceOptions, rowType);
             case DateType:

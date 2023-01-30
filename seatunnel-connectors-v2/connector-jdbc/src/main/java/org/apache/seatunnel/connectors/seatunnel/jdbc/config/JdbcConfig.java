@@ -76,9 +76,9 @@ public class JdbcConfig implements Serializable {
     public static final Option<String> PARTITION_UPPER_BOUND = Options.key("partition_upper_bound").stringType().noDefaultValue().withDescription("partition upper bound");
     public static final Option<String> PARTITION_LOWER_BOUND = Options.key("partition_lower_bound").stringType().noDefaultValue().withDescription("partition lower bound");
     public static final Option<String> PARTITION_NUM = Options.key("partition_num").stringType().noDefaultValue().withDescription("partition num");
-    public static final Option<SplitType> PARTITION_SPLIT_TYPE = Options.key("split_type").type(new TypeReference<SplitType>() {
+    public static final Option<SplitType> PARTITION_SPLIT_TYPE = Options.key("partition_split_type").type(new TypeReference<SplitType>() {
     }).defaultValue(SplitType.NumericType).withDescription("split type");
-    public static final Option<String> PATTERN = Options.key("pattern").stringType().defaultValue("yyyy-MM-dd").withDescription("The pattern describing the date and time format, like `2023-01-25`.");
+    public static final Option<String> PATTERN = Options.key("partition_pattern").stringType().defaultValue("yyyy-MM-dd").withDescription("The pattern describing the date and time format, like `2023-01-25`.");
 
     public static JdbcConnectionOptions buildJdbcConnectionOptions(Config config) {
 

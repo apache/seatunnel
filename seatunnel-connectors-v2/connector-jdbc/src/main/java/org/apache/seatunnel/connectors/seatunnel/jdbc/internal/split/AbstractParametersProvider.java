@@ -78,5 +78,6 @@ public abstract class AbstractParametersProvider implements JdbcParameterValuesP
         return this;
     }
 
+    @Override
     public abstract Serializable[][] getParameterValues();
 }

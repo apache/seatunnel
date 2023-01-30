@@ -40,8 +40,8 @@ public class JdbcSourceOptions implements Serializable {
     private Long partitionLowerBound;
     private int fetchSize = JdbcConfig.FETCH_SIZE.defaultValue();
     private Integer partitionNumber;
-    private SplitType splitType = JdbcConfig.PARTITION_SPLIT_TYPE.defaultValue();
-    private String pattern;
+    private SplitType partitionSplitType = JdbcConfig.PARTITION_SPLIT_TYPE.defaultValue();
+    private String partitionPattern;
 
     public JdbcSourceOptions(Config config) {
         this.jdbcConnectionOptions = buildJdbcConnectionOptions(config);
@@ -59,13 +59,13 @@ public class JdbcSourceOptions implements Serializable {
             this.partitionNumber = config.getInt(JdbcConfig.PARTITION_NUM.key());
         }
         if (config.hasPath(JdbcConfig.PARTITION_SPLIT_TYPE.key())) {
-            this.splitType = config.getEnum(SplitType.class, JdbcConfig.PARTITION_SPLIT_TYPE.key());
+            this.partitionSplitType = config.getEnum(SplitType.class, JdbcConfig.PARTITION_SPLIT_TYPE.key());
         }
         if (config.hasPath(JdbcConfig.FETCH_SIZE.key())) {
             this.fetchSize = config.getInt(JdbcConfig.FETCH_SIZE.key());
         }
         if (config.hasPath(JdbcConfig.PATTERN.key())) {
-            this.pattern = config.getString(JdbcConfig.PATTERN.key());
+            this.partitionPattern = config.getString(JdbcConfig.PATTERN.key());
         }
     }
 
