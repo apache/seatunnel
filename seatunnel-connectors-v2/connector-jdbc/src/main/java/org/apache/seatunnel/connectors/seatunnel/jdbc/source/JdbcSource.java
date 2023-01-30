@@ -161,12 +161,16 @@ public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit
         try (ResultSet rs = connection.createStatement().executeQuery(String.format("SELECT MAX(%s),MIN(%s) " +
             "FROM (%s) tt", columnName, columnName, query))) {
             if (rs.next()) {
-                max = jdbcSourceOptions.getPartitionUpperBound().isPresent() ?
-                    jdbcSourceOptions.getPartitionUpperBound().get() :
-                    Long.parseLong(rs.getString(1));
-                min = jdbcSourceOptions.getPartitionLowerBound().isPresent() ?
-                    jdbcSourceOptions.getPartitionLowerBound().get() :
-                    Long.parseLong(rs.getString(2));
+                if (rs.getString(1) == null || rs.getString(2) == null) {
+                    LOG.warn("There is no min/max value for partition column {}, will use the min and max value from long as default", columnName);
+                } else {
+                    max = jdbcSourceOptions.getPartitionUpperBound().isPresent() ?
+                        jdbcSourceOptions.getPartitionUpperBound().get() :
+                        Long.parseLong(rs.getString(1));
+                    min = jdbcSourceOptions.getPartitionLowerBound().isPresent() ?
+                        jdbcSourceOptions.getPartitionLowerBound().get() :
+                        Long.parseLong(rs.getString(2));
+                }
             }
         }
         return new PartitionParameter(columnName, min, max, jdbcSourceOptions.getPartitionNumber().orElse(null));
