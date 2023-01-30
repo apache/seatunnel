@@ -62,19 +62,21 @@ e.g.
 "tinyint_1 = 100"
 ```
 
-### fields [config]
+### schema [config]
 
-the fields of the starRocks when you select
+#### fields [Config]
 
-the field type is SeaTunnel field type `org.apache.seatunnel.api.table.type.SqlType`
+The schema of the starRocks that you want to generate
 
 e.g.
 
 ```
-fields{
-    name=STRING
-    age=INT
+schema {
+    fields {
+        name = string
+        age = int
     }
+  }
 ```
 
 ### request_tablet_size [int]

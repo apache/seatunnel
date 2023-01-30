@@ -56,17 +56,20 @@ public class StarRocksSource implements SeaTunnelSource<SeaTunnelRow, StarRocksS
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, NODE_URLS.key(), DATABASE.key(), TABLE.key(), USERNAME.key(), PASSWORD.key());
-        if (!result.isSuccess()) {
+        CheckResult checkResult = CheckConfigUtil.checkAllExists(pluginConfig, NODE_URLS.key(), DATABASE.key(), TABLE.key(), USERNAME.key(), PASSWORD.key());
+
+        CheckResult schemaCheckResult = CheckConfigUtil.checkAllExists(pluginConfig, SeaTunnelSchema.SCHEMA.key());
+        CheckResult mergedConfigCheck = CheckConfigUtil.mergeCheckResults(checkResult, schemaCheckResult);
+        if (!mergedConfigCheck.isSuccess()) {
             throw new StarRocksConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format("PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE,
-                            result.getMsg())
+                            mergedConfigCheck.getMsg())
             );
         }
 
-        SeaTunnelSchema seatunnelSchema = SeaTunnelSchema.buildWithConfig(pluginConfig);
-        this.typeInfo = seatunnelSchema.getSeaTunnelRowType();
+        Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
+        this.typeInfo = SeaTunnelSchema.buildWithConfig(schemaConfig).getSeaTunnelRowType();
         this.sourceConfig = SourceConfig.loadConfig(pluginConfig);
     }
 
