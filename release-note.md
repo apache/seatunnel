@@ -53,4 +53,5 @@
 ### E2E
 - [SqlServer CDC] fix SqlServerCDC IT failure #3807
 
-
+### Benchmark
+- [Benchmark] Add `MicroBench` module to make it easier for developers to write JMH test.
