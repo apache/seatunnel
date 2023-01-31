@@ -25,7 +25,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.function.Consumer;
 
-public class SeatunnelChildFirstClassLoader extends SeatunnelBaseClassLoader {
+public class SeaTunnelChildFirstClassLoader extends SeaTunnelBaseClassLoader {
     private final String[] alwaysParentFirstPatterns;
     private static final String[] DEFAULT_PARENT_FIRST_PATTERNS = new String[]{
         "java.",
@@ -43,18 +43,18 @@ public class SeatunnelChildFirstClassLoader extends SeatunnelBaseClassLoader {
         "com.fasterxml.jackson"
     };
 
-    public SeatunnelChildFirstClassLoader(List<URL> urls) {
+    public SeaTunnelChildFirstClassLoader(List<URL> urls) {
         this(urls, DEFAULT_PARENT_FIRST_PATTERNS);
     }
 
-    public SeatunnelChildFirstClassLoader(List<URL> urls, String[] alwaysParentFirstPatterns) {
+    public SeaTunnelChildFirstClassLoader(List<URL> urls, String[] alwaysParentFirstPatterns) {
         this(urls.toArray(new URL[0]),
-            SeatunnelChildFirstClassLoader.class.getClassLoader(),
+            SeaTunnelChildFirstClassLoader.class.getClassLoader(),
             alwaysParentFirstPatterns,
             NOOP_EXCEPTION_HANDLER);
     }
 
-    public SeatunnelChildFirstClassLoader(
+    public SeaTunnelChildFirstClassLoader(
             URL[] urls,
             ClassLoader parent,
             String[] alwaysParentFirstPatterns,

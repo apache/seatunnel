@@ -20,9 +20,9 @@ package org.apache.seatunnel.engine.common.loader;
 import java.net.URL;
 import java.util.List;
 
-public class SeatunnelParentFirstClassLoader extends SeatunnelBaseClassLoader {
+public class SeaTunnelParentFirstClassLoader extends SeaTunnelBaseClassLoader {
 
-    public SeatunnelParentFirstClassLoader(List<URL> urls) {
+    public SeaTunnelParentFirstClassLoader(List<URL> urls) {
         super(urls);
     }
 }

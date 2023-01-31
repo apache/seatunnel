@@ -53,6 +53,7 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
+import org.testcontainers.shaded.org.apache.commons.lang3.tuple.Pair;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.ByteArrayInputStream;
@@ -81,8 +82,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import scala.Tuple2;
-
 @Slf4j
 public class CassandraIT extends TestSuiteBase implements TestResource {
     private static final String CASSANDRA_DOCKER_IMAGE = "cassandra";
@@ -96,7 +95,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
     private static final String SOURCE_TABLE = "source_table";
     private static final String SINK_TABLE = "sink_table";
     private static final String INSERT_CQL = "insert_cql";
-    private static final Tuple2<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET = generateTestDataSet();
+    private static final Pair<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET = generateTestDataSet();
     private Config config;
     private CassandraContainer<?> container;
     private CqlSession session;
@@ -161,7 +160,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
             BoundStatement boundStatement = session.prepare(
                     SimpleStatement.builder(config.getString(INSERT_CQL)).setKeyspace(KEYSPACE).build())
                 .bind();
-            for (SeaTunnelRow row : TEST_DATASET._2()) {
+            for (SeaTunnelRow row : TEST_DATASET.getValue()) {
                 boundStatement = boundStatement
                     .setLong(0, (Long) row.getField(0))
                     .setString(1, (String) row.getField(1))
@@ -198,7 +197,8 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
     private void compareResult() throws IOException {
         String sourceCql = "select * from " + SOURCE_TABLE;
         String sinkCql = "select * from " + SINK_TABLE;
-        List<String> columnList = Arrays.stream(generateTestDataSet()._1().getFieldNames()).collect(Collectors.toList());
+
+        List<String> columnList = Arrays.stream(generateTestDataSet().getKey().getFieldNames()).collect(Collectors.toList());
         ResultSet sourceResultSet = session.execute(SimpleStatement.builder(sourceCql).setKeyspace(KEYSPACE).build());
         ResultSet sinkResultSet = session.execute(SimpleStatement.builder(sinkCql).setKeyspace(KEYSPACE).build());
         Assertions.assertEquals(sourceResultSet.getColumnDefinitions().size(), sinkResultSet.getColumnDefinitions().size());
@@ -245,7 +245,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    private static Tuple2<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
+    private static Pair<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
         SeaTunnelRowType rowType = new SeaTunnelRowType(
             new String[]{
                 "id",
@@ -332,7 +332,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
             }
             rows.add(row);
         }
-        return Tuple2.apply(rowType, rows);
+        return Pair.of(rowType, rows);
     }
 
     private Row getRow() {
