@@ -113,16 +113,17 @@ public class JdbcMysqlIT extends FlinkContainer {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     private void batchInsertData() {
-        String sql = "insert into source(name, age, date1, datetime1, str_date ) values(?,?,?,?,?)";
+        String sql = "insert into source(name, age, str_num, date1, datetime1, str_date ) values(?,?,?,?,?,?)";
         try (Connection connection = DriverManager.getConnection(mc.getJdbcUrl(), mc.getUsername(), mc.getPassword())) {
             connection.setAutoCommit(false);
             PreparedStatement preparedStatement = connection.prepareStatement(sql);
             for (List row : generateTestDataset()) {
                 preparedStatement.setString(1, (String) row.get(0));
-                preparedStatement.setString(2, (String) row.get(1));
-                preparedStatement.setDate(3, new Date(((java.util.Date) row.get(2)).getTime()));
-                preparedStatement.setTimestamp(4, new Timestamp(((LocalDateTime) row.get(3)).toInstant(ZoneOffset.ofHours(8)).toEpochMilli()));
-                preparedStatement.setString(5, (String) row.get(4));
+                preparedStatement.setInt(2, (int) row.get(1));
+                preparedStatement.setString(3, (String) row.get(2));
+                preparedStatement.setDate(4, new Date(((java.util.Date) row.get(3)).getTime()));
+                preparedStatement.setTimestamp(5, new Timestamp(((LocalDateTime) row.get(4)).toInstant(ZoneOffset.ofHours(8)).toEpochMilli()));
+                preparedStatement.setString(6, (String) row.get(5));
                 preparedStatement.addBatch();
             }
             preparedStatement.executeBatch();
@@ -243,6 +244,7 @@ public class JdbcMysqlIT extends FlinkContainer {
             rows.add(
                 Arrays.asList(
                     String.format("user_%s", i),
+                    i,
                     i + "",
                     DateUtils.addDays(new java.util.Date(), i),
                     LocalDateTime.now(),
