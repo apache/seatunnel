@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.transform;
 
-import com.google.auto.service.AutoService;
-import org.apache.commons.codec.binary.Base64;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -26,8 +24,12 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.transform.common.AbstractSeaTunnelTransform;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import com.google.auto.service.AutoService;
+import org.apache.commons.codec.binary.Base64;
 
 import java.util.List;
 import java.util.StringJoiner;

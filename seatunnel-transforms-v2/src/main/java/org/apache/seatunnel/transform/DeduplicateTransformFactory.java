@@ -17,12 +17,13 @@
 
 package org.apache.seatunnel.transform;
 
-import com.google.auto.service.AutoService;
+import static org.apache.seatunnel.transform.DeduplicateTransform.KEY_DUPLICATE_FIELDS;
+
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 
-import static org.apache.seatunnel.transform.DeduplicateTransform.KEY_DUPLICATE_FIELDS;
+import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
 public class DeduplicateTransformFactory implements TableTransformFactory {
