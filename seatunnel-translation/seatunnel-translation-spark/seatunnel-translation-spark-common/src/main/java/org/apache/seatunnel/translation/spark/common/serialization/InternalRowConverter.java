@@ -46,6 +46,7 @@ import org.apache.spark.unsafe.types.UTF8String;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -76,7 +77,11 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 SeaTunnelRowType rowType = (SeaTunnelRowType) dataType;
                 return convert(seaTunnelRow, rowType);
             case DATE:
-                return (int) ((LocalDate) field).toEpochDay();
+                if (field instanceof Date){
+                    return (((Date) field).toLocalDate()).toEpochDay();
+                } else {
+                    return (int) ((LocalDate) field).toEpochDay();
+                }
             case TIME:
                 // TODO: Support TIME Type
                 throw new RuntimeException("time type is not supported now, but will be supported in the future.");

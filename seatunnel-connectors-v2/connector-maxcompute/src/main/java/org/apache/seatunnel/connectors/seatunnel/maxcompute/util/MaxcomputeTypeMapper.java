@@ -62,6 +62,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
+import java.sql.Date;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -266,8 +267,9 @@ public class MaxcomputeTypeMapper implements Serializable {
             case FLOAT:
             case DOUBLE:
             case DECIMAL:
-            case DATE:
                 return field;
+            case DATE:
+                return ((Date) field).toLocalDate();
             case STRING:
                 return field.toString();
             case TINYINT:
