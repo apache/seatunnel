@@ -30,8 +30,10 @@ import com.hazelcast.internal.metrics.ProbeLevel;
 import com.hazelcast.internal.metrics.ProbeUnit;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.Serializable;
+
 @Slf4j
-public class SeaTunnelMetricsContext extends AbstractMetricsContext implements DynamicMetricsProvider {
+public class SeaTunnelMetricsContext extends AbstractMetricsContext implements DynamicMetricsProvider, Serializable {
 
     @Override
     public void provideDynamicMetrics(MetricDescriptor tagger, MetricsCollectionContext context) {
