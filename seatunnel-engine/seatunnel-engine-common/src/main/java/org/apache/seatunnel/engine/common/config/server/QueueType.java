@@ -15,17 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task.flow;
+package org.apache.seatunnel.engine.common.config.server;
 
-import org.apache.seatunnel.api.transform.Collector;
-
-/**
- * A processing component that sends a piece of data from within the engine to other components at a time
- *
- * @see OneInputFlowLifeCycle
- * @see SourceFlowLifeCycle
- */
-public interface OneOutputFlowLifeCycle<T> extends FlowLifeCycle {
-
-    void collect(Collector<T> collector) throws Exception;
+public enum QueueType {
+    DISRUPTOR, BLOCKINGQUEUE
 }

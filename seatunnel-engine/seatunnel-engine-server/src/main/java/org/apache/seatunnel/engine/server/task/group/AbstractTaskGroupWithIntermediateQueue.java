@@ -15,17 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task.flow;
+package org.apache.seatunnel.engine.server.task.group;
 
-import org.apache.seatunnel.api.transform.Collector;
+import org.apache.seatunnel.engine.server.execution.Task;
+import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.task.group.queue.AbstractIntermediateQueue;
 
-/**
- * A processing component that sends a piece of data from within the engine to other components at a time
- *
- * @see OneInputFlowLifeCycle
- * @see SourceFlowLifeCycle
- */
-public interface OneOutputFlowLifeCycle<T> extends FlowLifeCycle {
+import java.util.Collection;
 
-    void collect(Collector<T> collector) throws Exception;
+public abstract class AbstractTaskGroupWithIntermediateQueue extends TaskGroupDefaultImpl {
+    public AbstractTaskGroupWithIntermediateQueue(TaskGroupLocation taskGroupLocation, String taskGroupName, Collection<Task> tasks) {
+        super(taskGroupLocation, taskGroupName, tasks);
+    }
+
+    public abstract AbstractIntermediateQueue<?> getQueueCache(long id);
+
 }
