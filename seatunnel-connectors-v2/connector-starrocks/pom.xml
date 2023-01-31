@@ -29,6 +29,7 @@
     <artifactId>connector-starrocks</artifactId>
 
     <properties>
+        <connector.name>connector.starrocks</connector.name>
         <httpclient.version>4.5.13</httpclient.version>
         <httpcore.version>4.4.4</httpcore.version>
         <starrocks.thrift.sdk.version>1.0.1</starrocks.thrift.sdk.version>
@@ -87,19 +88,19 @@
                     <relocations>
                         <relocation>
                             <pattern>org.apache.arrow</pattern>
-                            <shadedPattern>com.starrocks.shaded.org.apache.arrow</shadedPattern>
+                            <shadedPattern>${seatunnel.shade.package}.${connector.name}.org.apache.arrow</shadedPattern>
                         </relocation>
                         <relocation>
                             <pattern>io.netty</pattern>
-                            <shadedPattern>com.starrocks.shaded.io.netty</shadedPattern>
+                            <shadedPattern>${seatunnel.shade.package}.${connector.name}.io.netty</shadedPattern>
                         </relocation>
                         <relocation>
                             <pattern>com.google.flatbuffers</pattern>
-                            <shadedPattern>com.starrocks.shaded.com.google.flatbuffers</shadedPattern>
+                            <shadedPattern>${seatunnel.shade.package}.${connector.name}.com.google.flatbuffers</shadedPattern>
                         </relocation>
                         <relocation>
                             <pattern>com.fasterxml.jackson</pattern>
-                            <shadedPattern>com.starrocks.shade.com.fasterxml.jackson</shadedPattern>
+                            <shadedPattern>${seatunnel.shade.package}.${connector.name}.com.fasterxml.jackson</shadedPattern>
                         </relocation>
                     </relocations>
                 </configuration>

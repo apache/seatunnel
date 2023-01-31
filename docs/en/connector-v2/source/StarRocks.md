@@ -12,6 +12,8 @@ delivers the query plan as a parameter to BE nodes, and then obtains data result
 - [ ] [stream](../../concept/connector-v2-features.md)
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [schema projection](../../concept/connector-v2-features.md)
+- [x] [parallelism](../../concept/connector-v2-features.md)
+- [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
 ## Options
 
@@ -23,7 +25,7 @@ delivers the query plan as a parameter to BE nodes, and then obtains data result
 | database                | string | yes      | -                 |
 | table                   | string | yes      | -                 |
 | scan_filter             | string | no       | -                 |
-| fields                  | config | yes      | -                 |
+| schema                  | config | yes      | -                 |
 | request_tablet_size     | int    | no       | Integer.MAX_VALUE |
 | scan_connect_timeout_ms | int    | no       | 30000             |
 | scan_query_timeout_sec  | int    | no       | 3600              |

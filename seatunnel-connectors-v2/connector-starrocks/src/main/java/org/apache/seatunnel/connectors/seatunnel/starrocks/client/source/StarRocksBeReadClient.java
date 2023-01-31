@@ -155,7 +155,8 @@ public class StarRocksBeReadClient implements Serializable {
                     rowBatch = new StarRocksRowBatchReader(result, seaTunnelRowType).readArrow();
                 }
             } catch (TException e) {
-                throw new RuntimeException(e.getMessage());
+                throw new StarRocksConnectorException(StarRocksConnectorErrorCode.SCAN_BE_DATA_FAILED,
+                        e.getMessage());
             }
         }
         hasNext = !eos.get();
