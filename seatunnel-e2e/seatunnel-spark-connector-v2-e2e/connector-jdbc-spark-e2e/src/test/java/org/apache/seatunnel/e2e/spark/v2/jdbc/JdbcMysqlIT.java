@@ -26,6 +26,7 @@ import org.apache.seatunnel.e2e.spark.SparkContainer;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.time.DateUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,11 +44,16 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Paths;
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -106,13 +112,16 @@ public class JdbcMysqlIT extends SparkContainer {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     private void batchInsertData() {
-        String sql = "insert into source(name, age) values(?,?)";
+        String sql = "insert into source(name, age, date1, datetime1, str_date ) values(?,?,?,?,?)";
         try (Connection connection = DriverManager.getConnection(mc.getJdbcUrl(), mc.getUsername(), mc.getPassword())) {
             connection.setAutoCommit(false);
             PreparedStatement preparedStatement = connection.prepareStatement(sql);
             for (List row : generateTestDataset()) {
                 preparedStatement.setString(1, (String) row.get(0));
-                preparedStatement.setInt(2, (Integer) row.get(1));
+                preparedStatement.setString(2, (String) row.get(1));
+                preparedStatement.setDate(3, new Date(((java.util.Date) row.get(2)).getTime()));
+                preparedStatement.setTimestamp(4, new Timestamp(((LocalDateTime) row.get(3)).toInstant(ZoneOffset.ofHours(8)).toEpochMilli()));
+                preparedStatement.setString(5, (String) row.get(4));
                 preparedStatement.addBatch();
             }
             preparedStatement.executeBatch();
@@ -128,6 +137,30 @@ public class JdbcMysqlIT extends SparkContainer {
         Assertions.assertEquals(0, execResult.getExitCode());
 
         Assertions.assertIterableEquals(generateTestDataset(), queryResult());
+    }
+
+    @Test
+    public void testJdbcMysqlSourceAndSinkWithDatePartition() throws Exception {
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/jdbc/jdbc_mysql_source_and_sink_date_partition.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        Assertions.assertEquals(generateTestDataset().size(), queryResult().size());
+    }
+
+    @Test
+    public void testJdbcMysqlSourceAndSinkWithDateTimePartition() throws Exception {
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/jdbc/jdbc_mysql_source_and_sink_datetime_partition.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        Assertions.assertEquals(generateTestDataset().size(), queryResult().size());
+    }
+
+    @Test
+    public void testJdbcMysqlSourceAndSinkWithStrDateTypePartition() throws Exception {
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/jdbc/jdbc_mysql_source_and_sink_strdate_partition.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        Assertions.assertEquals(generateTestDataset().size(), queryResult().size());
     }
 
     @Test
@@ -183,13 +216,16 @@ public class JdbcMysqlIT extends SparkContainer {
         List<List> result = new ArrayList<>();
         try (Connection connection = DriverManager.getConnection(mc.getJdbcUrl(), mc.getUsername(), mc.getPassword())) {
             Statement statement = connection.createStatement();
-            String sql = "select name , age from sink ";
+            String sql = "select name , age ,date1, datetime1 , str_date from sink ";
             ResultSet resultSet = statement.executeQuery(sql);
             while (resultSet.next()) {
                 result.add(
                     Arrays.asList(
                         resultSet.getString(1),
-                        resultSet.getInt(2)
+                        resultSet.getString(2),
+                        resultSet.getDate(3),
+                        resultSet.getTimestamp(4),
+                        resultSet.getString(5)
                     )
                 );
             }
@@ -205,7 +241,10 @@ public class JdbcMysqlIT extends SparkContainer {
             rows.add(
                 Arrays.asList(
                     String.format("user_%s", i),
-                    i
+                    i + "",
+                    DateUtils.addDays(new java.util.Date(), i),
+                    LocalDateTime.now(),
+                    new SimpleDateFormat("yyyy-MM-dd").format(DateUtils.addDays(new java.util.Date(), i))
                 ));
         }
         return rows;
