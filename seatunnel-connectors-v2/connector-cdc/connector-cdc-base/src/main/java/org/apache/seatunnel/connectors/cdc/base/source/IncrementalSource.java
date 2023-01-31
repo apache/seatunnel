@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.cdc.base.source;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -137,17 +138,19 @@ public abstract class IncrementalSource<T, C extends SourceConfig> implements Se
         return new IncrementalSourceReader<>(
             elementsQueue,
             splitReaderSupplier,
-            createRecordEmitter(sourceConfig),
+            createRecordEmitter(sourceConfig, readerContext.getMetricsContext()),
             new SourceReaderOptions(readonlyConfig),
             readerContext,
             sourceConfig);
     }
 
     protected RecordEmitter<SourceRecords, T, SourceSplitStateBase> createRecordEmitter(
-        SourceConfig sourceConfig) {
+        SourceConfig sourceConfig,
+        MetricsContext metricsContext) {
         return new IncrementalSourceRecordEmitter<>(
             deserializationSchema,
-            offsetFactory);
+            offsetFactory,
+            metricsContext);
     }
 
     @Override

@@ -34,30 +34,4 @@ public interface Metric {
      */
 
     Unit unit();
-
-    /**
-     * Increments the current value by 1.
-     */
-    void increment();
-
-    /**
-     * Increments the current value by the specified amount.
-     */
-    void increment(long amount);
-
-    /**
-     * Decrements the current value by 1.
-     */
-    void decrement();
-
-    /**
-     * Decrements the current value by the specified amount.
-     */
-    void decrement(long amount);
-
-    /**
-     * Sets the current value.
-     */
-    void set(long newValue);
-
 }

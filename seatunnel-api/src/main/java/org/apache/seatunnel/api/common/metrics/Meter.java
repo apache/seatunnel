@@ -15,32 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink;
+package org.apache.seatunnel.api.common.metrics;
 
-import org.apache.seatunnel.api.common.metrics.AbstractMetricsContext;
-import org.apache.seatunnel.api.common.metrics.MetricsContext;
+/** Metric for measuring throughput. */
+public interface Meter extends Metric{
+    /** Mark occurrence of an event. */
+    void markEvent();
 
-/**
- * The default {@link SinkWriter.Context} implement class.
- */
-public class DefaultSinkWriterContext implements SinkWriter.Context {
-    private final int subtask;
+    /**
+     * Mark occurrence of multiple events.
+     *
+     * @param n number of events occurred
+     */
+    void markEvent(long n);
 
-    public DefaultSinkWriterContext(int subtask) {
-        this.subtask = subtask;
-    }
+    /**
+     * Returns the current rate of events per second.
+     *
+     * @return current rate of events per second
+     */
+    double getRate();
 
-    @Override
-    public int getIndexOfSubtask() {
-        return subtask;
-    }
-
-    @Override
-    public MetricsContext getMetricsContext() {
-        //TODO Waiting for Flink and Spark to implement MetricsContext
-        // https://github.com/apache/incubator-seatunnel/issues/3431
-        return new AbstractMetricsContext() {
-        };
-    }
-
+    /**
+     * Get number of events marked on the meter.
+     *
+     * @return number of events marked on the meter
+     */
+    long getCount();
 }

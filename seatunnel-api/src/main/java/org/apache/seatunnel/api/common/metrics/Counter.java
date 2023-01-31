@@ -15,32 +15,40 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink;
+package org.apache.seatunnel.api.common.metrics;
 
-import org.apache.seatunnel.api.common.metrics.AbstractMetricsContext;
-import org.apache.seatunnel.api.common.metrics.MetricsContext;
+/** A Counter is a {@link Metric} that measures a count. */
+public interface Counter extends Metric{
 
-/**
- * The default {@link SinkWriter.Context} implement class.
- */
-public class DefaultSinkWriterContext implements SinkWriter.Context {
-    private final int subtask;
+    /** Increment the current count by 1. */
+    void inc();
 
-    public DefaultSinkWriterContext(int subtask) {
-        this.subtask = subtask;
-    }
+    /**
+     * Increment the current count by the given value.
+     *
+     * @param n value to increment the current count by
+     */
+    void inc(long n);
 
-    @Override
-    public int getIndexOfSubtask() {
-        return subtask;
-    }
+    /** Decrement the current count by 1. */
+    void dec();
 
-    @Override
-    public MetricsContext getMetricsContext() {
-        //TODO Waiting for Flink and Spark to implement MetricsContext
-        // https://github.com/apache/incubator-seatunnel/issues/3431
-        return new AbstractMetricsContext() {
-        };
-    }
+    /**
+     * Decrement the current count by the given value.
+     *
+     * @param n value to decrement the current count by
+     */
+    void dec(long n);
 
+    /**
+     * Sets the current value.
+     */
+    void set(long n);
+
+    /**
+     * Returns the current count.
+     *
+     * @return current count
+     */
+    long getCount();
 }

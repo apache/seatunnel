@@ -28,6 +28,7 @@ import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTask
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.WAITING_RESTORE;
 
 import org.apache.seatunnel.api.common.metrics.MetricTags;
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.function.ConsumerWithException;
@@ -50,7 +51,7 @@ import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlo
 import org.apache.seatunnel.engine.server.dag.physical.flow.UnknownFlowException;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
-import org.apache.seatunnel.engine.server.metrics.MetricsContext;
+import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.task.flow.ActionFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.FlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.IntermediateQueueFlowLifeCycle;
@@ -106,7 +107,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     private TaskGroup taskBelongGroup;
 
-    private MetricsContext metricsContext;
+    private SeaTunnelMetricsContext metricsContext;
 
     public SeaTunnelTask(long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
         super(jobID, taskID);
@@ -118,7 +119,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
     @Override
     public void init() throws Exception {
         super.init();
-        metricsContext = new MetricsContext();
+        metricsContext = new SeaTunnelMetricsContext();
         this.currState = SeaTunnelTaskState.INIT;
         flowFutures = new ArrayList<>();
         allCycles = new ArrayList<>();
@@ -201,7 +202,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
             PhysicalExecutionFlow f = (PhysicalExecutionFlow) flow;
             if (f.getAction() instanceof SourceAction) {
                 lifeCycle = createSourceFlowLifeCycle((SourceAction<?, ?, ?>) f.getAction(),
-                    (SourceConfig) f.getConfig(), completableFuture);
+                    (SourceConfig) f.getConfig(), completableFuture, this.getMetricsContext());
                 outputs = flowLifeCycles;
             } else if (f.getAction() instanceof SinkAction) {
                 lifeCycle = new SinkFlowLifeCycle<>((SinkAction) f.getAction(), taskLocation, indexID, this,
@@ -238,7 +239,8 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     protected abstract SourceFlowLifeCycle<?, ?> createSourceFlowLifeCycle(SourceAction<?, ?, ?> sourceAction,
                                                                            SourceConfig config,
-                                                                           CompletableFuture<Void> completableFuture);
+                                                                           CompletableFuture<Void> completableFuture,
+                                                                           MetricsContext metricsContext);
 
     protected abstract void collect() throws Exception;
 
@@ -329,7 +331,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
     }
 
     @Override
-    public MetricsContext getMetricsContext() {
+    public SeaTunnelMetricsContext getMetricsContext() {
         return metricsContext;
     }
 

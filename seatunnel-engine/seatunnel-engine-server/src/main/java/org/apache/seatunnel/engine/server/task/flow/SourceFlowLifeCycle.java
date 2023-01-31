@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.task.flow;
 import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
 import static org.apache.seatunnel.engine.server.task.AbstractTask.serializeStates;
 
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -72,14 +73,18 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
     private SeaTunnelSourceCollector<T> collector;
 
+    private final MetricsContext metricsContext;
+
     public SourceFlowLifeCycle(SourceAction<T, SplitT, ?> sourceAction, int indexID,
                                TaskLocation enumeratorTaskLocation, SeaTunnelTask runningTask,
-                               TaskLocation currentTaskLocation, CompletableFuture<Void> completableFuture) {
+                               TaskLocation currentTaskLocation, CompletableFuture<Void> completableFuture,
+                               MetricsContext metricsContext) {
         super(sourceAction, runningTask, completableFuture);
         this.sourceAction = sourceAction;
         this.indexID = indexID;
         this.enumeratorTaskLocation = enumeratorTaskLocation;
         this.currentTaskLocation = currentTaskLocation;
+        this.metricsContext = metricsContext;
     }
 
     public void setCollector(SeaTunnelSourceCollector<T> collector) {
@@ -90,7 +95,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
     public void init() throws Exception {
         this.splitSerializer = sourceAction.getSource().getSplitSerializer();
         this.reader = sourceAction.getSource()
-                .createReader(new SourceReaderContext(indexID, sourceAction.getSource().getBoundedness(), this));
+                .createReader(new SourceReaderContext(indexID, sourceAction.getSource().getBoundedness(), this, metricsContext));
         this.enumeratorTaskAddress = getEnumeratorTaskAddress();
     }
 

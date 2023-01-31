@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.api.sink;
 
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
+
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.Collections;
@@ -79,6 +81,12 @@ public interface SinkWriter<T, CommitInfoT, StateT> {
          * @return The index of this subtask.
          */
         int getIndexOfSubtask();
+
+
+        /**
+         * @return metricsContext of this reader.
+         */
+        MetricsContext getMetricsContext();
 
     }
 }

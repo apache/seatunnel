@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task.context;
 
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -35,9 +36,12 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit> impleme
 
     private final SourceSplitEnumeratorTask<SplitT> task;
 
-    public SeaTunnelSplitEnumeratorContext(int parallelism, SourceSplitEnumeratorTask<SplitT> task) {
+    private final MetricsContext metricsContext;
+
+    public SeaTunnelSplitEnumeratorContext(int parallelism, SourceSplitEnumeratorTask<SplitT> task, MetricsContext metricsContext) {
         this.parallelism = parallelism;
         this.task = task;
+        this.metricsContext = metricsContext;
     }
 
     @Override
@@ -66,5 +70,10 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit> impleme
     @Override
     public void sendEventToSourceReader(int subtaskId, SourceEvent event) {
 
+    }
+
+    @Override
+    public MetricsContext getMetricsContext() {
+        return metricsContext;
     }
 }

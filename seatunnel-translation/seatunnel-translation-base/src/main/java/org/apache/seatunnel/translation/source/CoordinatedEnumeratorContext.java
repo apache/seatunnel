@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.translation.source;
 
+import org.apache.seatunnel.api.common.metrics.AbstractMetricsContext;
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -55,6 +57,14 @@ public class CoordinatedEnumeratorContext<SplitT extends SourceSplit> implements
     @Override
     public void sendEventToSourceReader(int subtaskId, SourceEvent event) {
         coordinatedSource.handleEnumeratorEvent(subtaskId, event);
+    }
+
+    @Override
+    public MetricsContext getMetricsContext() {
+        //TODO Waiting for Flink and Spark to implement MetricsContext
+        // https://github.com/apache/incubator-seatunnel/issues/3431
+        return new AbstractMetricsContext() {
+        };
     }
 
 }

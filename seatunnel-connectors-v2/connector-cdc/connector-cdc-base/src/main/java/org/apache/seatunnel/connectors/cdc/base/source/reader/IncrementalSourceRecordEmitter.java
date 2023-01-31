@@ -19,9 +19,13 @@ package org.apache.seatunnel.connectors.cdc.base.source.reader;
 
 import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isHighWatermarkEvent;
 import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isWatermarkEvent;
+import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.getFetchTimestamp;
+import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.getMessageTimestamp;
 import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.isDataChangeRecord;
 import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.isSchemaChangeEvent;
 
+import org.apache.seatunnel.api.common.metrics.Counter;
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
@@ -47,17 +51,26 @@ import java.util.Map;
 public class IncrementalSourceRecordEmitter<T>
         implements RecordEmitter<SourceRecords, T, SourceSplitStateBase> {
 
+    private static final String CDC_RECORD_FETCH_DELAY = "CDCRecordFetchDelay";
+    private static final String CDC_RECORD_EMIT_DELAY = "CDCRecordEmitDelay";
+
     protected final DebeziumDeserializationSchema<T> debeziumDeserializationSchema;
     protected final OutputCollector<T> outputCollector;
 
     protected final OffsetFactory offsetFactory;
 
+    protected final Counter recordFetchDelay;
+    protected final Counter recordEmitDelay;
+
     public IncrementalSourceRecordEmitter(
             DebeziumDeserializationSchema<T> debeziumDeserializationSchema,
-            OffsetFactory offsetFactory) {
+            OffsetFactory offsetFactory,
+            MetricsContext metricsContext) {
         this.debeziumDeserializationSchema = debeziumDeserializationSchema;
         this.outputCollector = new OutputCollector<>();
         this.offsetFactory = offsetFactory;
+        this.recordFetchDelay = metricsContext.counter(CDC_RECORD_FETCH_DELAY);
+        this.recordEmitDelay = metricsContext.counter(CDC_RECORD_EMIT_DELAY);
     }
 
     @Override
@@ -66,7 +79,25 @@ public class IncrementalSourceRecordEmitter<T>
             throws Exception {
         final Iterator<SourceRecord> elementIterator = sourceRecords.iterator();
         while (elementIterator.hasNext()) {
-            processElement(elementIterator.next(), collector, splitState);
+            SourceRecord next = elementIterator.next();
+            reportMetrics(next);
+            processElement(next, collector, splitState);
+        }
+    }
+
+    protected void reportMetrics(SourceRecord element) {
+        long now = System.currentTimeMillis();
+        // record the latest process time
+        Long messageTimestamp = getMessageTimestamp(element);
+
+        if (messageTimestamp != null && messageTimestamp > 0L) {
+            // report fetch delay
+            Long fetchTimestamp = getFetchTimestamp(element);
+            if (fetchTimestamp != null) {
+                recordFetchDelay.set(fetchTimestamp - messageTimestamp);
+            }
+            // report emit delay
+            recordEmitDelay.set(now - messageTimestamp);
         }
     }
 

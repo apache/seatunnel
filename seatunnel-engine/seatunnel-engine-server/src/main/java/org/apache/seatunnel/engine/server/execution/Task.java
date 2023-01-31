@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.Stateful;
-import org.apache.seatunnel.engine.server.metrics.MetricsContext;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
 import com.hazelcast.internal.metrics.DynamicMetricsProvider;
