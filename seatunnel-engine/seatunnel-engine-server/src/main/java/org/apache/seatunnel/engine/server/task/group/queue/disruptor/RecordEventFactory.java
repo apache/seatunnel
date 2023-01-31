@@ -15,17 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task.flow;
+package org.apache.seatunnel.engine.server.task.group.queue.disruptor;
 
-import org.apache.seatunnel.api.transform.Collector;
+import com.lmax.disruptor.EventFactory;
 
-/**
- * A processing component that sends a piece of data from within the engine to other components at a time
- *
- * @see OneInputFlowLifeCycle
- * @see SourceFlowLifeCycle
- */
-public interface OneOutputFlowLifeCycle<T> extends FlowLifeCycle {
-
-    void collect(Collector<T> collector) throws Exception;
+public class RecordEventFactory implements EventFactory<RecordEvent> {
+    @Override
+    public RecordEvent newInstance() {
+        return new RecordEvent();
+    }
 }

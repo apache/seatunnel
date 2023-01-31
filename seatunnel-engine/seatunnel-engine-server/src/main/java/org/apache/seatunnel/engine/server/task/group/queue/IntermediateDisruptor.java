@@ -15,44 +15,46 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task.flow;
+package org.apache.seatunnel.engine.server.task.group.queue;
 
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
-import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
-import org.apache.seatunnel.engine.server.task.group.queue.AbstractIntermediateQueue;
+import org.apache.seatunnel.engine.server.task.group.queue.disruptor.RecordEvent;
+import org.apache.seatunnel.engine.server.task.group.queue.disruptor.RecordEventHandler;
+import org.apache.seatunnel.engine.server.task.group.queue.disruptor.RecordEventProducer;
+
+import com.lmax.disruptor.dsl.Disruptor;
 
 import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
 
-public class IntermediateQueueFlowLifeCycle<T extends AbstractIntermediateQueue<?>> extends AbstractFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>>,
-    OneOutputFlowLifeCycle<Record<?>> {
+public class IntermediateDisruptor extends AbstractIntermediateQueue<Disruptor<RecordEvent>> {
 
-    private final AbstractIntermediateQueue<?> queue;
-
-    public IntermediateQueueFlowLifeCycle(SeaTunnelTask runningTask,
-                                          CompletableFuture<Void> completableFuture,
-                                          AbstractIntermediateQueue<?> queue) {
-        super(runningTask, completableFuture);
-        this.queue = queue;
-        queue.setIntermediateQueueFlowLifeCycle(this);
-        queue.setRunningTask(runningTask);
+    public IntermediateDisruptor(Disruptor<RecordEvent> queue) {
+        super(queue);
     }
+
+    private volatile boolean isExecuted;
 
     @Override
     public void received(Record<?> record) {
-        queue.received(record);
+        getIntermediateQueue().getRingBuffer();
+        RecordEventProducer.onData(record, getIntermediateQueue().getRingBuffer(), getIntermediateQueueFlowLifeCycle());
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void collect(Collector<Record<?>> collector) throws Exception {
-        queue.collect(collector);
+        if (!isExecuted) {
+            getIntermediateQueue().handleEventsWith(new RecordEventHandler(getRunningTask(), collector, getIntermediateQueueFlowLifeCycle()));
+            getIntermediateQueue().start();
+            isExecuted = true;
+        } else {
+            Thread.sleep(100);
+        }
     }
 
     @Override
     public void close() throws IOException {
-        queue.close();
-        super.close();
+        getIntermediateQueue().shutdown();
     }
 }

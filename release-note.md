@@ -37,6 +37,7 @@
 - [Core] Improve job restart of all node down #3784
 - [Checkpoint] Cancel CheckpointCoordinator First Before Cancel Task #3838
 - [Storage] Remove seatunnel-api from engine storage. #3834
+- [Core] change queue to disruptor. #3847
 
 ## Bug Fixes
 ### Connectors

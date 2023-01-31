@@ -19,9 +19,10 @@ package org.apache.seatunnel.engine.server.task.group;
 
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.engine.server.execution.Task;
-import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
+import org.apache.seatunnel.engine.server.task.group.queue.AbstractIntermediateQueue;
+import org.apache.seatunnel.engine.server.task.group.queue.IntermediateBlockingQueue;
 
 import java.util.Collection;
 import java.util.Map;
@@ -29,11 +30,11 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class TaskGroupWithIntermediateQueue extends TaskGroupDefaultImpl {
+public class TaskGroupWithIntermediateBlockingQueue extends AbstractTaskGroupWithIntermediateQueue {
 
     public static final int QUEUE_SIZE = 100000;
 
-    public TaskGroupWithIntermediateQueue(TaskGroupLocation taskGroupLocation, String taskGroupName, Collection<Task> tasks) {
+    public TaskGroupWithIntermediateBlockingQueue(TaskGroupLocation taskGroupLocation, String taskGroupName, Collection<Task> tasks) {
         super(taskGroupLocation, taskGroupName, tasks);
     }
 
@@ -43,12 +44,13 @@ public class TaskGroupWithIntermediateQueue extends TaskGroupDefaultImpl {
     public void init() {
         blockingQueueCache = new ConcurrentHashMap<>();
         getTasks().stream().filter(SeaTunnelTask.class::isInstance)
-                .map(s -> (SeaTunnelTask) s).forEach(s -> s.setTaskGroup(this));
+            .map(s -> (SeaTunnelTask) s).forEach(s -> s.setTaskGroup(this));
     }
 
-    public BlockingQueue<Record<?>> getBlockingQueueCache(long id) {
+    @Override
+    public AbstractIntermediateQueue<?> getQueueCache(long id) {
         blockingQueueCache.computeIfAbsent(id, i -> new ArrayBlockingQueue<>(QUEUE_SIZE));
-        return blockingQueueCache.get(id);
+        return new IntermediateBlockingQueue(blockingQueueCache.get(id));
     }
 
 }

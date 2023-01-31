@@ -172,7 +172,8 @@ public class JobMaster {
             executorService,
             flakeIdGenerator,
             runningJobStateIMap,
-            runningJobStateTimestampsIMap);
+            runningJobStateTimestampsIMap,
+            engineConfig.getQueueType());
         this.physicalPlan = planTuple.f0();
         this.physicalPlan.setJobMaster(this);
         this.checkpointManager = new CheckpointManager(

@@ -24,6 +24,7 @@ import static com.hazelcast.internal.config.DomConfigHelper.getIntegerValue;
 
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
+import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 
@@ -34,6 +35,7 @@ import com.hazelcast.logging.Logger;
 import org.w3c.dom.Node;
 
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor {
@@ -95,6 +97,8 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                 engineConfig.setBackupCount(
                     getIntegerValue(ServerConfigOptions.BACKUP_COUNT.key(), getTextContent(node))
                 );
+            } else if (ServerConfigOptions.QUEUE_TYPE.key().equals(name)) {
+                engineConfig.setQueueType(QueueType.valueOf(getTextContent(node).toUpperCase(Locale.ROOT)));
             } else if (ServerConfigOptions.PRINT_EXECUTION_INFO_INTERVAL.key().equals(name)) {
                 engineConfig.setPrintExecutionInfoInterval(getIntegerValue(ServerConfigOptions.PRINT_EXECUTION_INFO_INTERVAL.key(),
                     getTextContent(node)));
@@ -162,6 +166,7 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
 
     /**
      * Parse checkpoint plugin config.
+     *
      * @param checkpointPluginConfigNode checkpoint plugin config node
      * @return checkpoint plugin config
      */

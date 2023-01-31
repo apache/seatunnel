@@ -18,9 +18,11 @@
 package org.apache.seatunnel.engine.common.config;
 
 import static com.hazelcast.internal.util.Preconditions.checkBackupCount;
+import static com.hazelcast.internal.util.Preconditions.checkNotNull;
 import static com.hazelcast.internal.util.Preconditions.checkPositive;
 
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
+import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 
@@ -40,6 +42,8 @@ public class EngineConfig {
 
     private CheckpointConfig checkpointConfig = ServerConfigOptions.CHECKPOINT.defaultValue();
 
+    private QueueType queueType = ServerConfigOptions.QUEUE_TYPE.defaultValue();
+
     public void setBackupCount(int newBackupCount) {
         checkBackupCount(newBackupCount, 0);
         this.backupCount = newBackupCount;
@@ -58,5 +62,10 @@ public class EngineConfig {
     public void setJobMetricsBackupInterval(int jobMetricsBackupInterval) {
         checkPositive(jobMetricsBackupInterval, ServerConfigOptions.JOB_METRICS_BACKUP_INTERVAL + " must be > 0");
         this.jobMetricsBackupInterval = jobMetricsBackupInterval;
+    }
+
+    public void setQueueType(QueueType queueType) {
+        checkNotNull(queueType);
+        this.queueType = queueType;
     }
 }
