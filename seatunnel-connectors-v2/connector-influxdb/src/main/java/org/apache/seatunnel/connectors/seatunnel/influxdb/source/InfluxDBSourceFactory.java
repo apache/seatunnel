@@ -34,6 +34,7 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 
 import com.google.auto.service.AutoService;
 
@@ -50,7 +51,8 @@ public class InfluxDBSourceFactory implements TableSourceFactory {
             .required(
                 URL,
                 SQL,
-                DATABASES
+                DATABASES,
+                SeaTunnelSchema.SCHEMA
             )
             .bundled(USERNAME, PASSWORD)
             .bundled(LOWER_BOUND, UPPER_BOUND, PARTITION_NUM, SPLIT_COLUMN)

@@ -32,7 +32,7 @@ import static java.util.stream.Collectors.toList;
 
 import org.apache.seatunnel.api.common.metrics.MetricTags;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
-import org.apache.seatunnel.engine.common.loader.SeatunnelChildFirstClassLoader;
+import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
@@ -123,6 +123,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     public TaskGroupContext getExecutionContext(TaskGroupLocation taskGroupLocation) {
+        if (executionContexts.get(taskGroupLocation) == null) {
+            return finishedExecutionContexts.get(taskGroupLocation);
+        }
         return executionContexts.get(taskGroupLocation);
     }
 
@@ -181,7 +184,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             Set<URL> jars = taskImmutableInfo.getJars();
             ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
             if (!CollectionUtils.isEmpty(jars)) {
-                classLoader = new SeatunnelChildFirstClassLoader(Lists.newArrayList(jars));
+                classLoader = new SeaTunnelChildFirstClassLoader(Lists.newArrayList(jars));
                 taskGroup =
                     CustomClassLoadedObject.deserializeWithCustomClassLoader(nodeEngine.getSerializationService(),
                         classLoader,
@@ -249,14 +252,15 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
         resultFuture.whenComplete(withTryCatch(logger, (r, s) -> {
             logger.info(
-                String.format("Task %s complete with state %s", r.getTaskGroupLocation(), r.getExecutionState()));
+                String.format("Task %s complete with state %s", r != null ? r.getTaskGroupLocation() : "null",
+                    r != null ? r.getExecutionState() : "null"));
             notifyTaskStatusToMaster(taskGroup.getTaskGroupLocation(), r);
         }));
         return new PassiveCompletableFuture<>(resultFuture);
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
-    private void notifyTaskStatusToMaster(TaskGroupLocation taskGroupLocation, TaskExecutionState taskExecutionState){
+    private void notifyTaskStatusToMaster(TaskGroupLocation taskGroupLocation, TaskExecutionState taskExecutionState) {
         long sleepTime = 1000;
         boolean notifyStateSuccess = false;
         while (isRunning && !notifyStateSuccess) {
@@ -302,7 +306,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
     }
 
-    public void notifyCleanTaskGroupContext(TaskGroupLocation taskGroupLocation){
+    public void notifyCleanTaskGroupContext(TaskGroupLocation taskGroupLocation) {
         finishedExecutionContexts.remove(taskGroupLocation);
     }
 

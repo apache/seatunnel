@@ -71,7 +71,7 @@ public class InfluxDBSource implements SeaTunnelSource<SeaTunnelRow, InfluxDBSou
 
     @Override
     public void prepare(Config config) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(config, SQL.key());
+        CheckResult result = CheckConfigUtil.checkAllExists(config, SQL.key(), SeaTunnelSchema.SCHEMA.key());
         if (!result.isSuccess()) {
             throw new InfluxdbConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                 String.format("PluginName: %s, PluginType: %s, Message: %s",
@@ -82,8 +82,8 @@ public class InfluxDBSource implements SeaTunnelSource<SeaTunnelRow, InfluxDBSou
         }
         try {
             this.sourceConfig = SourceConfig.loadConfig(config);
-            SeaTunnelSchema seatunnelSchema = SeaTunnelSchema.buildWithConfig(config);
-            this.typeInfo = seatunnelSchema.getSeaTunnelRowType();
+            Config schema = config.getConfig(SeaTunnelSchema.SCHEMA.key());
+            this.typeInfo = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
             this.columnsIndexList = initColumnsIndex(InfluxDBClient.getInfluxDB(sourceConfig));
         } catch (Exception e) {
             throw new InfluxdbConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,

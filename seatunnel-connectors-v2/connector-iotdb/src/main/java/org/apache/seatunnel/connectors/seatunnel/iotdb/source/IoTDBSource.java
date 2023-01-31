@@ -65,20 +65,21 @@ public class IoTDBSource implements SeaTunnelSource<SeaTunnelRow, IoTDBSourceSpl
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HOST.key(), PORT.key());
-        if (!result.isSuccess()) {
-            result = CheckConfigUtil.checkAllExists(pluginConfig, NODE_URLS.key());
-
-            if (!result.isSuccess()) {
-                throw new IotdbConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format("PluginName: %s, PluginType: %s, Message: %s",
-                        getPluginName(), PluginType.SOURCE,
-                        result.getMsg())
-                );
-            }
+        CheckResult urlCheckResult = CheckConfigUtil.checkAllExists(pluginConfig, HOST.key(), PORT.key());
+        if (!urlCheckResult.isSuccess()) {
+            urlCheckResult = CheckConfigUtil.checkAllExists(pluginConfig, NODE_URLS.key());
         }
-        SeaTunnelSchema seatunnelSchema = SeaTunnelSchema.buildWithConfig(pluginConfig);
-        this.typeInfo = seatunnelSchema.getSeaTunnelRowType();
+        CheckResult schemaCheckResult = CheckConfigUtil.checkAllExists(pluginConfig, SeaTunnelSchema.SCHEMA.key());
+        CheckResult mergedConfigCheck = CheckConfigUtil.mergeCheckResults(urlCheckResult, schemaCheckResult);
+        if (!mergedConfigCheck.isSuccess()) {
+            throw new IotdbConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                String.format("PluginName: %s, PluginType: %s, Message: %s",
+                    getPluginName(), PluginType.SOURCE,
+                    mergedConfigCheck.getMsg())
+            );
+        }
+        Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
+        this.typeInfo = SeaTunnelSchema.buildWithConfig(schemaConfig).getSeaTunnelRowType();
         pluginConfig.entrySet().forEach(entry -> configParams.put(entry.getKey(), entry.getValue().unwrapped()));
     }
 

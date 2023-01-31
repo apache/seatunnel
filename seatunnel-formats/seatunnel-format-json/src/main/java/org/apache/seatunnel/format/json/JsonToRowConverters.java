@@ -29,7 +29,7 @@ import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 
 import java.io.IOException;
 import java.io.Serializable;

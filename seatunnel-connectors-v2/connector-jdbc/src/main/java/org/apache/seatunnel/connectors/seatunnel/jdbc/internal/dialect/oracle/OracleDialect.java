@@ -55,7 +55,7 @@ public class OracleDialect implements JdbcDialect {
             .filter(fieldName -> !Arrays.asList(uniqueKeyFields).contains(fieldName))
             .collect(Collectors.toList());
         String valuesBinding = Arrays.stream(fieldNames)
-            .map(fieldName -> "? " + quoteIdentifier(fieldName))
+            .map(fieldName -> ":" + fieldName + " " + quoteIdentifier(fieldName))
             .collect(Collectors.joining(", "));
 
         String usingClause = String.format("SELECT %s FROM DUAL", valuesBinding);

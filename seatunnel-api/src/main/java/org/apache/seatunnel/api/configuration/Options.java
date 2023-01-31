@@ -19,7 +19,8 @@ package org.apache.seatunnel.api.configuration;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+
 import lombok.NonNull;
 import org.apache.commons.lang3.StringUtils;
 

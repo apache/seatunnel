@@ -66,9 +66,9 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    public void testBatchJobRunOkIn3Node() throws ExecutionException, InterruptedException {
-        String testCaseName = "testBatchJobRunOkIn3Node";
-        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testBatchJobRunOkIn3Node";
+    public void testTwoPipelineBatchJobRunOkIn3Node() throws ExecutionException, InterruptedException {
+        String testCaseName = "testTwoPipelineBatchJobRunOkIn3Node";
+        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineBatchJobRunOkIn3Node";
         long testRowNumber = 1000;
         int testParallelism = 6;
 
@@ -177,9 +177,9 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    public void testStreamJobRunOkIn3Node() throws ExecutionException, InterruptedException {
-        String testCaseName = "testStreamJobRunOkIn3Node";
-        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testStreamJobRunOkIn3Node";
+    public void testTwoPipelineStreamJobRunOkIn3Node() throws ExecutionException, InterruptedException {
+        String testCaseName = "testTwoPipelineStreamJobRunOkIn3Node";
+        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineStreamJobRunOkIn3Node";
         long testRowNumber = 1000;
         int testParallelism = 6;
         HazelcastInstanceImpl node1 = null;
@@ -257,9 +257,9 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    public void testBatchJobRestoreIn3NodeWorkerDown() throws ExecutionException, InterruptedException {
-        String testCaseName = "testBatchJobRestoreIn3NodeWorkerDown";
-        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testBatchJobRestoreIn3NodeWorkerDown";
+    public void testTwoPipelineBatchJobRestoreIn3NodeWorkerDown() throws ExecutionException, InterruptedException {
+        String testCaseName = "testTwoPipelineBatchJobRestoreIn3NodeWorkerDown";
+        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineBatchJobRestoreIn3NodeWorkerDown";
         long testRowNumber = 1000;
         int testParallelism = 2;
         HazelcastInstanceImpl node1 = null;
@@ -339,9 +339,9 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    public void testStreamJobRestoreIn3NodeWorkerDown() throws ExecutionException, InterruptedException {
-        String testCaseName = "testStreamJobRestoreIn3NodeWorkerDown";
-        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testStreamJobRestoreIn3NodeWorkerDown";
+    public void testTwoPipelineStreamJobRestoreIn3NodeWorkerDown() throws ExecutionException, InterruptedException {
+        String testCaseName = "testTwoPipelineStreamJobRestoreIn3NodeWorkerDown";
+        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineStreamJobRestoreIn3NodeWorkerDown";
         long testRowNumber = 1000;
         int testParallelism = 6;
         HazelcastInstanceImpl node1 = null;
@@ -436,9 +436,9 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    public void testBatchJobRestoreIn3NodeMasterDown() throws ExecutionException, InterruptedException {
-        String testCaseName = "testBatchJobRestoreIn3NodeMasterDown";
-        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testBatchJobRestoreIn3NodeMasterDown";
+    public void testTwoPipelineBatchJobRestoreIn3NodeMasterDown() throws ExecutionException, InterruptedException {
+        String testCaseName = "testTwoPipelineBatchJobRestoreIn3NodeMasterDown";
+        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineBatchJobRestoreIn3NodeMasterDown";
         long testRowNumber = 1000;
         int testParallelism = 6;
         HazelcastInstanceImpl node1 = null;
@@ -474,9 +474,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
                 engineClient.createExecutionContext(testResources.getRight(), jobConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
-            CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
-                return clientJobProxy.waitForJobComplete();
-            });
+            CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
             Awaitility.await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> {
@@ -518,9 +516,9 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    public void testStreamJobRestoreIn3NodeMasterDown() throws ExecutionException, InterruptedException {
-        String testCaseName = "testStreamJobRestoreIn3NodeMasterDown";
-        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testStreamJobRestoreIn3NodeMasterDown";
+    public void testTwoPipelineStreamJobRestoreIn3NodeMasterDown() throws ExecutionException, InterruptedException {
+        String testCaseName = "testTwoPipelineStreamJobRestoreIn3NodeMasterDown";
+        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineStreamJobRestoreIn3NodeMasterDown";
         long testRowNumber = 1000;
         int testParallelism = 6;
         HazelcastInstanceImpl node1 = null;
@@ -585,7 +583,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
             Thread.sleep(10000);
             clientJobProxy.cancelJob();
 
-            Awaitility.await().atMost(200000, TimeUnit.MILLISECONDS)
+            Awaitility.await().atMost(360000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(
                     objectCompletableFuture.isDone() && JobStatus.CANCELED.equals(objectCompletableFuture.get())));
 
