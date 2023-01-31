@@ -18,5 +18,5 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source.partition;
 
 public enum SplitType {
-    DateType, NumericType, StrDateType, StrNumericType, DateTimeType
+    DateType, NumericType, StrDateType, DateTimeType
 }

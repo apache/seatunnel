@@ -149,6 +149,22 @@ public class JdbcMysqlIT extends FlinkContainer {
     }
 
     @Test
+    public void testJdbcMysqlSourceAndSinkWithDateTimePartition() throws Exception {
+        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/jdbc_mysql_source_and_sink_datetime_partition.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        Assertions.assertEquals(generateTestDataset().size(), queryResult().size());
+    }
+
+    @Test
+    public void testJdbcMysqlSourceAndSinkWithStrDateTypePartition() throws Exception {
+        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/jdbc_mysql_source_and_sink_strdate_partition.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        Assertions.assertEquals(generateTestDataset().size(), queryResult().size());
+    }
+
+    @Test
     public void testJdbcMysqlSourceAndSinkParallel() throws Exception {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/jdbc_mysql_source_and_sink_parallel.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
