@@ -180,7 +180,7 @@ map:
            clusterName: seatunnel-cluster
            fs.defaultFS: hdfs://localhost:9000
 ```
-If there is no HDFS, you can config like this:
+If there is no HDFS and your cluster only have one node, you can config to use local file like this:
 
 ```yaml
 map:
