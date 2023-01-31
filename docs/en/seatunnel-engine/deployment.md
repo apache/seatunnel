@@ -165,7 +165,8 @@ cluster2 and this is also used to distinguish different business
 
 We used hdfs api read/write file, so used this storage need provide hdfs configuration
 
-An example is like this `hazelcast.yaml`
+if you used HDFS, you can config like this:
+
 ```yaml
 map:
     engine*:
@@ -176,9 +177,25 @@ map:
          properties:
            type: hdfs
            namespace: /tmp/seatunnel/imap
-           clusterName: seatunnel-clsuter
+           clusterName: seatunnel-cluster
+           fs.defaultFS: hdfs://localhost:9000
+```
+If there is no HDFS, you can config like this:
+
+```yaml
+map:
+    engine*:
+       map-store:
+         enabled: true
+         initial-mode: EAGER
+         factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+         properties:
+           type: hdfs
+           namespace: /tmp/seatunnel/imap
+           clusterName: seatunnel-cluster
            fs.defaultFS: file:///
 ```
+
 
 ## 6. Config SeaTunnel Engine Client
 
