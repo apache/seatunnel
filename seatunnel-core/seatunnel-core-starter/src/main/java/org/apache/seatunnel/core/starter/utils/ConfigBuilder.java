@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.core.starter.utils;
 
+import org.apache.seatunnel.api.configuration.ConfigAdapterSpi;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
@@ -27,6 +29,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Map;
+import java.util.Optional;
 
 /**
  * Used to build the {@link Config} from config file.
@@ -47,12 +51,15 @@ public class ConfigBuilder {
 
     public static Config of(@NonNull Path filePath) {
         log.info("Loading config file from path: {}", filePath);
-        Config config = ConfigFactory
-                .parseFile(filePath.toFile())
-                .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-                .resolveWith(ConfigFactory.systemProperties(),
-                        ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        Optional<ConfigAdapterSpi> adapterSpiSupplier = ConfigAdapterUtils.selectAdapter(filePath);
+        Config config = adapterSpiSupplier.map(adapter -> of(adapter, filePath)).orElseGet(() -> ConfigFactory.parseFile(filePath.toFile()).resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true)).resolveWith(ConfigFactory.systemProperties(), ConfigResolveOptions.defaults().setAllowUnresolved(true)));
         log.info("Parsed config file: {}", config.root().render(CONFIG_RENDER_OPTIONS));
         return config;
+    }
+
+    public static Config of(@NonNull ConfigAdapterSpi configGatewaySpi, @NonNull Path filePath) {
+        log.info("With spi {}", configGatewaySpi.getClass().getName());
+        Map<String, Object> flattenedMap = configGatewaySpi.loadConfig(filePath);
+        return ConfigFactory.parseMap(flattenedMap);
     }
 }
