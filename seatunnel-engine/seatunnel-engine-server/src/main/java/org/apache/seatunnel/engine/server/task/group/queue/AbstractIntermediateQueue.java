@@ -15,36 +15,42 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task.flow;
+package org.apache.seatunnel.engine.server.task.group.queue;
 
+import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
+import org.apache.seatunnel.engine.server.task.flow.IntermediateQueueFlowLifeCycle;
 
 import lombok.Getter;
 import lombok.Setter;
 
 import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
 
-public class AbstractFlowLifeCycle implements FlowLifeCycle {
-
-    @Getter
-    protected final SeaTunnelTask runningTask;
-
-    protected final CompletableFuture<Void> completableFuture;
+public abstract class AbstractIntermediateQueue<T> {
 
     @Getter
     @Setter
-    protected Boolean prepareClose;
+    private SeaTunnelTask runningTask;
 
-    public AbstractFlowLifeCycle(SeaTunnelTask runningTask,
-                                 CompletableFuture<Void> completableFuture) {
-        this.runningTask = runningTask;
-        this.completableFuture = completableFuture;
-        this.prepareClose = false;
+    @Getter
+    @Setter
+    private IntermediateQueueFlowLifeCycle<?> intermediateQueueFlowLifeCycle;
+
+    private final T queue;
+
+    public AbstractIntermediateQueue(T queue) {
+        this.queue = queue;
     }
 
-    @Override
-    public void close() throws IOException {
-        completableFuture.complete(null);
+    public T getIntermediateQueue() {
+        return queue;
     }
+
+    public abstract void received(Record<?> record);
+
+    public abstract void collect(Collector<Record<?>> collector) throws Exception;
+
+    public abstract void close() throws IOException;
+
 }

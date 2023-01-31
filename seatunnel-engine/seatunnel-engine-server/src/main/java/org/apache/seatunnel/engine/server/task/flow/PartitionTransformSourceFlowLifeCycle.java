@@ -38,6 +38,7 @@ public class PartitionTransformSourceFlowLifeCycle<T> extends AbstractFlowLifeCy
     private long currentCheckpointId = Long.MAX_VALUE;
 
     private int alignedBarriersCounter = 0;
+
     public PartitionTransformSourceFlowLifeCycle(SeaTunnelTask runningTask, CompletableFuture<Void> completableFuture) {
         super(runningTask, completableFuture);
     }

@@ -15,17 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task.flow;
+package org.apache.seatunnel.engine.server.task.group.queue.disruptor;
 
-import org.apache.seatunnel.api.transform.Collector;
+import org.apache.seatunnel.api.table.type.Record;
 
-/**
- * A processing component that sends a piece of data from within the engine to other components at a time
- *
- * @see OneInputFlowLifeCycle
- * @see SourceFlowLifeCycle
- */
-public interface OneOutputFlowLifeCycle<T> extends FlowLifeCycle {
+import lombok.Data;
 
-    void collect(Collector<T> collector) throws Exception;
+@Data
+public class RecordEvent {
+    private Record<?> record;
 }
