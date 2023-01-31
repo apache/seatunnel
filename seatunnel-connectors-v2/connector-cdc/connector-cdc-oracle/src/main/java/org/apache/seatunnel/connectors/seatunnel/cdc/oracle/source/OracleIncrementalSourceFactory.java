@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
-import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -44,8 +43,10 @@ public class OracleIncrementalSourceFactory implements TableSourceFactory {
                 JdbcSourceOptions.DATABASE_NAME,
                 JdbcSourceOptions.TABLE_NAME)
             .optional(
-                SourceOptions.SNAPSHOT_SPLIT_SIZE,
-                SourceOptions.SNAPSHOT_FETCH_SIZE)
+                JdbcSourceOptions.SERVER_TIME_ZONE,
+                JdbcSourceOptions.CONNECT_TIMEOUT_MS,
+                JdbcSourceOptions.CONNECT_MAX_RETRIES,
+                JdbcSourceOptions.CONNECTION_POOL_SIZE)
             .build();
     }
 
