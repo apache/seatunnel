@@ -33,11 +33,15 @@ import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 
 import java.io.Serializable;
+import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 public class SinkExecuteProcessor extends
     SparkAbstractPluginExecuteProcessor<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>> {
@@ -50,12 +54,13 @@ public class SinkExecuteProcessor extends
     }
 
     @Override
-    protected List<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>> initializePlugins(List<? extends Config> pluginConfigs) {
+    protected List<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>> initializePlugins(
+        List<? extends Config> pluginConfigs) {
         SeaTunnelSinkPluginDiscovery sinkPluginDiscovery = new SeaTunnelSinkPluginDiscovery();
-        List<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>> seaTunnelSinks =
-            sinkPluginDiscovery.initializePlugins(jarPaths, pluginConfigs, jobContext);
-        sparkRuntimeEnvironment.registerPlugin(jarPaths);
-        return seaTunnelSinks;
+        ImmutablePair<List<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>>, Set<URL>>
+            listSetImmutablePair = sinkPluginDiscovery.initializePlugins(null, pluginConfigs, jobContext);
+        sparkRuntimeEnvironment.registerPlugin(new ArrayList<>(listSetImmutablePair.getRight()));
+        return listSetImmutablePair.getLeft();
     }
 
     @Override

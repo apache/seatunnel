@@ -22,15 +22,13 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
-import org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery;
-import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
 import org.apache.seatunnel.translation.flink.serialization.FlinkRowConverter;
 import org.apache.seatunnel.translation.flink.utils.TypeConverterUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import com.google.common.collect.Lists;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -40,7 +38,7 @@ import org.apache.flink.util.Collector;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Set;
 
 public class TransformExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<SeaTunnelTransform> {
 
@@ -53,20 +51,10 @@ public class TransformExecuteProcessor extends FlinkAbstractPluginExecuteProcess
     @Override
     protected List<SeaTunnelTransform> initializePlugins(List<URL> jarPaths, List<? extends Config> pluginConfigs) {
         SeaTunnelTransformPluginDiscovery transformPluginDiscovery = new SeaTunnelTransformPluginDiscovery();
-        List<URL> pluginJars = new ArrayList<>();
-        List<SeaTunnelTransform> transforms = pluginConfigs.stream()
-            .map(transformConfig -> {
-                PluginIdentifier pluginIdentifier = PluginIdentifier.of(AbstractPluginDiscovery.ENGINE_TYPE, PLUGIN_TYPE, transformConfig.getString(AbstractPluginDiscovery.PLUGIN_NAME));
-                List<URL> pluginJarPaths = transformPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier));
-                SeaTunnelTransform<?> seaTunnelTransform =
-                        transformPluginDiscovery.createPluginInstance(pluginIdentifier);
-                jarPaths.addAll(pluginJarPaths);
-                seaTunnelTransform.prepare(transformConfig);
-                seaTunnelTransform.setJobContext(jobContext);
-                return seaTunnelTransform;
-            }).distinct().collect(Collectors.toList());
-        jarPaths.addAll(pluginJars);
-        return transforms;
+        ImmutablePair<List<SeaTunnelTransform>, Set<URL>> listSetImmutablePair =
+            transformPluginDiscovery.initializePlugins(null, pluginConfigs, jobContext);
+        jarPaths.addAll(listSetImmutablePair.getRight());
+        return listSetImmutablePair.getLeft();
     }
 
     @Override

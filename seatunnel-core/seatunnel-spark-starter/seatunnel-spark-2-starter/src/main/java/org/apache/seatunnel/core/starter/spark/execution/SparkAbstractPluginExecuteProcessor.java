@@ -27,18 +27,15 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 
-import java.net.URL;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 public abstract class SparkAbstractPluginExecuteProcessor<T> implements
-        PluginExecuteProcessor<Dataset<Row>, SparkRuntimeEnvironment> {
+    PluginExecuteProcessor<Dataset<Row>, SparkRuntimeEnvironment> {
     protected SparkRuntimeEnvironment sparkRuntimeEnvironment;
     protected final List<? extends Config> pluginConfigs;
     protected final JobContext jobContext;
     protected final List<T> plugins;
-    protected final List<URL> jarPaths;
 
     protected SparkAbstractPluginExecuteProcessor(SparkRuntimeEnvironment sparkRuntimeEnvironment,
                                                   JobContext jobContext,
@@ -46,7 +43,6 @@ public abstract class SparkAbstractPluginExecuteProcessor<T> implements
         this.sparkRuntimeEnvironment = sparkRuntimeEnvironment;
         this.jobContext = jobContext;
         this.pluginConfigs = pluginConfigs;
-        this.jarPaths = new ArrayList<>();
         this.plugins = initializePlugins(pluginConfigs);
     }
 

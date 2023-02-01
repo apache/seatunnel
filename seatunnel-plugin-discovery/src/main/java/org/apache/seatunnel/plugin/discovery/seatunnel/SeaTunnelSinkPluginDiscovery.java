@@ -34,12 +34,14 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.common.collect.Lists;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import java.io.Serializable;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
@@ -60,15 +62,20 @@ public class SeaTunnelSinkPluginDiscovery extends AbstractPluginDiscovery<SeaTun
         return SeaTunnelSink.class;
     }
 
-    public List<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>> initializePlugins(
-        List<URL> jarPaths, List<? extends Config> pluginConfigs, JobContext jobContext) {
-        List<URL> pluginJars = new ArrayList<>();
+    public ImmutablePair<List<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>>, Set<URL>> initializePlugins(
+        List<URL> jarForCreatePluginInstance, List<? extends Config> pluginConfigs, JobContext jobContext) {
+        Set<URL> pluginJars = new HashSet<>();
         List<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>> sinks =
             pluginConfigs.stream().map(sinkConfig -> {
                 PluginIdentifier pluginIdentifier =
                     PluginIdentifier.of(ENGINE_TYPE, PLUGIN_TYPE, sinkConfig.getString(PLUGIN_NAME));
                 pluginJars.addAll(getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
-                SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable> seaTunnelSink = createPluginInstance(pluginIdentifier);
+                SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable> seaTunnelSink = null;
+                if (CollectionUtils.isEmpty(jarForCreatePluginInstance)) {
+                    seaTunnelSink = createPluginInstance(pluginIdentifier);
+                } else {
+                    seaTunnelSink = createPluginInstance(pluginIdentifier, jarForCreatePluginInstance);
+                }
 
                 // check save mode config
                 if (SupportDataSaveMode.class.isAssignableFrom(seaTunnelSink.getClass())) {
@@ -89,7 +96,6 @@ public class SeaTunnelSinkPluginDiscovery extends AbstractPluginDiscovery<SeaTun
 
                 return seaTunnelSink;
             }).distinct().collect(Collectors.toList());
-        jarPaths.addAll(pluginJars);
-        return sinks;
+        return new ImmutablePair<>(sinks, pluginJars);
     }
 }

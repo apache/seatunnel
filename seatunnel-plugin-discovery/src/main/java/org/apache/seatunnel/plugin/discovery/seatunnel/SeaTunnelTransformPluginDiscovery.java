@@ -17,11 +17,28 @@
 
 package org.apache.seatunnel.plugin.discovery.seatunnel;
 
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery;
+import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import com.google.common.collect.Lists;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+
+import java.net.URL;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class SeaTunnelTransformPluginDiscovery extends AbstractPluginDiscovery<SeaTunnelTransform> {
+
+    public static String PLUGIN_TYPE = PluginType.TRANSFORM.getType();
 
     public SeaTunnelTransformPluginDiscovery() {
         super(Common.libDir());
@@ -30,5 +47,28 @@ public class SeaTunnelTransformPluginDiscovery extends AbstractPluginDiscovery<S
     @Override
     protected Class<SeaTunnelTransform> getPluginBaseClass() {
         return SeaTunnelTransform.class;
+    }
+
+    public ImmutablePair<List<SeaTunnelTransform>, Set<URL>> initializePlugins(List<URL> jarForCreatePluginInstance,
+                                                                               List<? extends Config> pluginConfigs,
+                                                                               JobContext jobContext) {
+        Set<URL> pluginJars = new HashSet<>();
+        List<SeaTunnelTransform> transforms = pluginConfigs.stream()
+            .map(transformConfig -> {
+                PluginIdentifier pluginIdentifier =
+                    PluginIdentifier.of(AbstractPluginDiscovery.ENGINE_TYPE, PLUGIN_TYPE,
+                        transformConfig.getString(AbstractPluginDiscovery.PLUGIN_NAME));
+                pluginJars.addAll(getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
+                SeaTunnelTransform pluginInstance;
+                if (CollectionUtils.isEmpty(jarForCreatePluginInstance)) {
+                    pluginInstance = createPluginInstance(pluginIdentifier);
+                } else {
+                    pluginInstance = createPluginInstance(pluginIdentifier, jarForCreatePluginInstance);
+                }
+                pluginInstance.prepare(transformConfig);
+                pluginInstance.setJobContext(jobContext);
+                return pluginInstance;
+            }).distinct().collect(Collectors.toList());
+        return new ImmutablePair<>(transforms, pluginJars);
     }
 }

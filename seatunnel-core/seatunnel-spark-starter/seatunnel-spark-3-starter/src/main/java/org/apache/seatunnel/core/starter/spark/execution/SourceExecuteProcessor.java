@@ -23,25 +23,22 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceCommonOptions;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.utils.SerializationUtils;
-import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import com.google.common.collect.Lists;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.types.StructType;
 
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 public class SourceExecuteProcessor extends SparkAbstractPluginExecuteProcessor<SeaTunnelSource<?, ?, ?>> {
-    private static final String PLUGIN_TYPE = "source";
 
     public SourceExecuteProcessor(SparkRuntimeEnvironment sparkEnvironment,
                                   JobContext jobContext,
@@ -60,7 +57,7 @@ public class SourceExecuteProcessor extends SparkAbstractPluginExecuteProcessor<
                 parallelism = pluginConfig.getInt(SourceCommonOptions.PARALLELISM.key());
             } else {
                 parallelism = sparkRuntimeEnvironment.getSparkConf()
-                        .getInt(EnvCommonOptions.PARALLELISM.key(), EnvCommonOptions.PARALLELISM.defaultValue());
+                    .getInt(EnvCommonOptions.PARALLELISM.key(), EnvCommonOptions.PARALLELISM.defaultValue());
             }
             Dataset<Row> dataset = sparkRuntimeEnvironment.getSparkSession()
                 .read()
@@ -77,18 +74,9 @@ public class SourceExecuteProcessor extends SparkAbstractPluginExecuteProcessor<
     @Override
     protected List<SeaTunnelSource<?, ?, ?>> initializePlugins(List<? extends Config> pluginConfigs) {
         SeaTunnelSourcePluginDiscovery sourcePluginDiscovery = new SeaTunnelSourcePluginDiscovery();
-        List<SeaTunnelSource<?, ?, ?>> sources = new ArrayList<>();
-        Set<URL> jars = new HashSet<>();
-        for (Config sourceConfig : pluginConfigs) {
-            PluginIdentifier pluginIdentifier = PluginIdentifier.of(
-                ENGINE_TYPE, PLUGIN_TYPE, sourceConfig.getString(PLUGIN_NAME));
-            jars.addAll(sourcePluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
-            SeaTunnelSource<?, ?, ?> seaTunnelSource = sourcePluginDiscovery.createPluginInstance(pluginIdentifier);
-            seaTunnelSource.prepare(sourceConfig);
-            seaTunnelSource.setJobContext(jobContext);
-            sources.add(seaTunnelSource);
-        }
-        sparkRuntimeEnvironment.registerPlugin(new ArrayList<>(jars));
-        return sources;
+        ImmutablePair<List<SeaTunnelSource<?, ?, ?>>, Set<URL>> listSetImmutablePair =
+            sourcePluginDiscovery.initializePlugins(null, pluginConfigs, jobContext);
+        sparkRuntimeEnvironment.registerPlugin(new ArrayList<>(listSetImmutablePair.getRight()));
+        return listSetImmutablePair.getLeft();
     }
 }

@@ -23,28 +23,28 @@ import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.sink.SupportDataSaveMode;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
-import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
 import org.apache.seatunnel.translation.spark.sink.SparkSinkInjector;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import com.google.common.collect.Lists;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SaveMode;
 
+import java.io.Serializable;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Set;
 
-public class SinkExecuteProcessor extends SparkAbstractPluginExecuteProcessor<SeaTunnelSink<?, ?, ?, ?>> {
-    private static final String PLUGIN_TYPE = PluginType.SINK.getType();
+public class SinkExecuteProcessor extends
+    SparkAbstractPluginExecuteProcessor<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>> {
 
     protected SinkExecuteProcessor(SparkRuntimeEnvironment sparkRuntimeEnvironment,
                                    JobContext jobContext,
@@ -53,26 +53,12 @@ public class SinkExecuteProcessor extends SparkAbstractPluginExecuteProcessor<Se
     }
 
     @Override
-    protected List<SeaTunnelSink<?, ?, ?, ?>> initializePlugins(List<? extends Config> pluginConfigs) {
+    protected List<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>> initializePlugins(List<? extends Config> pluginConfigs) {
         SeaTunnelSinkPluginDiscovery sinkPluginDiscovery = new SeaTunnelSinkPluginDiscovery();
-        List<URL> pluginJars = new ArrayList<>();
-        List<SeaTunnelSink<?, ?, ?, ?>> sinks = pluginConfigs.stream()
-            .map(sinkConfig -> {
-                PluginIdentifier pluginIdentifier = PluginIdentifier.of(ENGINE_TYPE, PLUGIN_TYPE, sinkConfig.getString(PLUGIN_NAME));
-                pluginJars.addAll(sinkPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
-                SeaTunnelSink<?, ?, ?, ?> seaTunnelSink = sinkPluginDiscovery.createPluginInstance(pluginIdentifier);
-                seaTunnelSink.prepare(sinkConfig);
-                seaTunnelSink.setJobContext(jobContext);
-                if (SupportDataSaveMode.class.isAssignableFrom(seaTunnelSink.getClass())) {
-                    SupportDataSaveMode saveModeSink = (SupportDataSaveMode) seaTunnelSink;
-                    saveModeSink.checkOptions(sinkConfig);
-                }
-                return seaTunnelSink;
-            })
-            .distinct()
-            .collect(Collectors.toList());
-        sparkRuntimeEnvironment.registerPlugin(pluginJars);
-        return sinks;
+        ImmutablePair<List<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>>, Set<URL>>
+            listSetImmutablePair = sinkPluginDiscovery.initializePlugins(null, pluginConfigs, jobContext);
+        sparkRuntimeEnvironment.registerPlugin(new ArrayList<>(listSetImmutablePair.getRight()));
+        return listSetImmutablePair.getLeft();
     }
 
     @Override
@@ -98,9 +84,9 @@ public class SinkExecuteProcessor extends SparkAbstractPluginExecuteProcessor<Se
                 saveModeSink.handleSaveMode(dataSaveMode);
             }
             SparkSinkInjector.inject(dataset.write(), seaTunnelSink)
-                    .option("checkpointLocation", "/tmp")
-                    .mode(SaveMode.Append)
-                    .save();
+                .option("checkpointLocation", "/tmp")
+                .mode(SaveMode.Append)
+                .save();
         }
         // the sink is the last stream
         return null;

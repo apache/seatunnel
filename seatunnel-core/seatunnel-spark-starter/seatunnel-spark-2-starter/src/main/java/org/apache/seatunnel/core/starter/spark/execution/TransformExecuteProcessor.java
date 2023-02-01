@@ -22,15 +22,14 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
-import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
 import org.apache.seatunnel.translation.spark.serialization.InternalRowConverter;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.catalyst.InternalRow;
@@ -45,32 +44,23 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Set;
 
 @Slf4j
 public class TransformExecuteProcessor extends SparkAbstractPluginExecuteProcessor<SeaTunnelTransform> {
 
-    private static final String PLUGIN_TYPE = "transform";
-
-    protected TransformExecuteProcessor(SparkRuntimeEnvironment sparkRuntimeEnvironment, JobContext jobContext, List<? extends Config> pluginConfigs) {
+    protected TransformExecuteProcessor(SparkRuntimeEnvironment sparkRuntimeEnvironment, JobContext jobContext,
+                                        List<? extends Config> pluginConfigs) {
         super(sparkRuntimeEnvironment, jobContext, pluginConfigs);
     }
 
     @Override
     protected List<SeaTunnelTransform> initializePlugins(List<? extends Config> pluginConfigs) {
         SeaTunnelTransformPluginDiscovery transformPluginDiscovery = new SeaTunnelTransformPluginDiscovery();
-        List<URL> pluginJars = new ArrayList<>();
-        List<SeaTunnelTransform> transforms = pluginConfigs.stream()
-            .map(transformConfig -> {
-                PluginIdentifier pluginIdentifier = PluginIdentifier.of(ENGINE_TYPE, PLUGIN_TYPE, transformConfig.getString(PLUGIN_NAME));
-                pluginJars.addAll(transformPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
-                SeaTunnelTransform pluginInstance = transformPluginDiscovery.createPluginInstance(pluginIdentifier);
-                pluginInstance.prepare(transformConfig);
-                pluginInstance.setJobContext(jobContext);
-                return pluginInstance;
-            }).distinct().collect(Collectors.toList());
-        sparkRuntimeEnvironment.registerPlugin(pluginJars);
-        return transforms;
+        ImmutablePair<List<SeaTunnelTransform>, Set<URL>> listSetImmutablePair =
+            transformPluginDiscovery.initializePlugins(null, pluginConfigs, jobContext);
+        sparkRuntimeEnvironment.registerPlugin(new ArrayList<>(listSetImmutablePair.getRight()));
+        return listSetImmutablePair.getLeft();
     }
 
     @Override

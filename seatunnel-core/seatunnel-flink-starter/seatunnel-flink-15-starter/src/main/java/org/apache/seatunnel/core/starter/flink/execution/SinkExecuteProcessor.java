@@ -31,6 +31,7 @@ import org.apache.seatunnel.translation.flink.utils.TypeConverterUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.transformations.SinkV1Adapter;
@@ -39,6 +40,7 @@ import org.apache.flink.types.Row;
 import java.io.Serializable;
 import java.net.URL;
 import java.util.List;
+import java.util.Set;
 
 public class SinkExecuteProcessor extends FlinkAbstractPluginExecuteProcessor
     <SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>> {
@@ -51,7 +53,10 @@ public class SinkExecuteProcessor extends FlinkAbstractPluginExecuteProcessor
     protected List<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>> initializePlugins(
         List<URL> jarPaths, List<? extends Config> pluginConfigs) {
         SeaTunnelSinkPluginDiscovery sinkPluginDiscovery = new SeaTunnelSinkPluginDiscovery(ADD_URL_TO_CLASSLOADER);
-        return sinkPluginDiscovery.initializePlugins(jarPaths, pluginConfigs, jobContext);
+        ImmutablePair<List<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>>, Set<URL>>
+            listSetImmutablePair = sinkPluginDiscovery.initializePlugins(null, pluginConfigs, jobContext);
+        jarPaths.addAll(listSetImmutablePair.getRight());
+        return listSetImmutablePair.getLeft();
     }
 
     @Override
