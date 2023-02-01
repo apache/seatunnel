@@ -88,7 +88,7 @@ public class ClickhouseSourceReader implements SourceReader<SeaTunnelRow, Clickh
 
     @Override
     public List<ClickhouseSourceSplit> snapshotState(long checkpointId) throws Exception {
-        return null;
+        return new ArrayList<>();
     }
 
     @Override
