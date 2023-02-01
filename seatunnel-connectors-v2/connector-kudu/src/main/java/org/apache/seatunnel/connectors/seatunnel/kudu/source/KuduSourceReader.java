@@ -29,6 +29,7 @@ import org.apache.kudu.client.KuduScanner;
 import org.apache.kudu.client.RowResult;
 import org.apache.kudu.client.RowResultIterator;
 
+import java.util.Collections;
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
@@ -85,7 +86,7 @@ public class KuduSourceReader implements SourceReader<SeaTunnelRow, KuduSourceSp
 
     @Override
     public List<KuduSourceSplit> snapshotState(long checkpointId) {
-        return null;
+        return Collections.emptyList();
     }
 
     @Override
