@@ -257,12 +257,7 @@ public class SubPlan {
         if (!PipelineStatus.CANCELING.equals(runningJobStateIMap.get(pipelineLocation))) {
             updatePipelineState(getPipelineState(), PipelineStatus.CANCELING);
         }
-        cancelCheckpointCoordinator();
         cancelPipelineTasks();
-    }
-
-    private void cancelCheckpointCoordinator() {
-        jobMaster.getCheckpointManager().listenPipelineRetry(pipelineId, PipelineStatus.CANCELING).join();
     }
 
     private void cancelPipelineTasks() {

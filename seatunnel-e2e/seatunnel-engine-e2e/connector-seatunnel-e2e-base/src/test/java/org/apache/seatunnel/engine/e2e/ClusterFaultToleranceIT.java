@@ -600,6 +600,7 @@ public class ClusterFaultToleranceIT {
                 "    hazelcast.invocation.max.retry.count: 200\n" +
                 "    hazelcast.tcp.join.port.try.count: 30\n" +
                 "    hazelcast.invocation.retry.pause.millis: 2000\n" +
+                "    hazelcast.slow.operation.detector.stacktrace.logging.enabled: true\n" +
                 "    hazelcast.logging.type: log4j2\n";
 
             Config hazelcastConfig = Config.loadFromString(yaml);

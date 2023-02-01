@@ -31,4 +31,5 @@ hazelcast:
     hazelcast.invocation.max.retry.count: 200
     hazelcast.invocation.retry.pause.millis: 2000
     hazelcast.tcp.join.port.try.count: 30
+    hazelcast.slow.operation.detector.stacktrace.logging.enabled: true
     hazelcast.logging.type: log4j2
