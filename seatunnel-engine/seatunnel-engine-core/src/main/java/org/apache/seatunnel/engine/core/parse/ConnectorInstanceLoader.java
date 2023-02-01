@@ -19,7 +19,6 @@ package org.apache.seatunnel.engine.core.parse;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.sink.SupportDataSaveMode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
@@ -35,12 +34,13 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
+import java.io.Serializable;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
-import scala.Serializable;
 
 public class ConnectorInstanceLoader {
     private ConnectorInstanceLoader() {
@@ -70,22 +70,11 @@ public class ConnectorInstanceLoader {
 
     public static ImmutablePair<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>, Set<URL>> loadSinkInstance(
         Config sinkConfig, JobContext jobContext, List<URL> pluginJars) {
+        List<URL> jarPaths = new ArrayList<>();
         SeaTunnelSinkPluginDiscovery sinkPluginDiscovery = new SeaTunnelSinkPluginDiscovery();
-        PluginIdentifier pluginIdentifier = PluginIdentifier.of(
-            CollectionConstants.SEATUNNEL_PLUGIN,
-            CollectionConstants.SINK_PLUGIN,
-            sinkConfig.getString(CollectionConstants.PLUGIN_NAME));
-        List<URL> pluginJarPaths = sinkPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier));
-        SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable> seaTunnelSink =
-            sinkPluginDiscovery.createPluginInstance(pluginIdentifier, pluginJars);
-        seaTunnelSink.prepare(sinkConfig);
-        seaTunnelSink.setJobContext(jobContext);
-        if (seaTunnelSink.getClass().isAssignableFrom(SupportDataSaveMode.class)) {
-            SupportDataSaveMode saveModeSink = (SupportDataSaveMode) seaTunnelSink;
-            saveModeSink.checkOptions(sinkConfig);
-        }
-
-        return new ImmutablePair<>(seaTunnelSink, new HashSet<>(pluginJarPaths));
+        List<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>>
+            seaTunnelSinks = sinkPluginDiscovery.initializePlugins(jarPaths, Arrays.asList(sinkConfig), jobContext);
+        return new ImmutablePair<>(seaTunnelSinks.get(0), new HashSet<>(jarPaths));
     }
 
     public static ImmutablePair<SeaTunnelTransform<?>, Set<URL>> loadTransformInstance(

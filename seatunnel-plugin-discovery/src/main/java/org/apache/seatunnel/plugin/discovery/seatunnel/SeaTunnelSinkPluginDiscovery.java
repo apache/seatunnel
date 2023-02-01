@@ -17,13 +17,35 @@
 
 package org.apache.seatunnel.plugin.discovery.seatunnel;
 
+import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SupportDataSaveMode;
+import org.apache.seatunnel.api.table.factory.FactoryUtil;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery;
+import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import com.google.common.collect.Lists;
+import org.apache.commons.collections4.CollectionUtils;
+
+import java.io.Serializable;
 import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
 
 public class SeaTunnelSinkPluginDiscovery extends AbstractPluginDiscovery<SeaTunnelSink> {
+
+    private static final String PLUGIN_TYPE = PluginType.SINK.getType();
 
     public SeaTunnelSinkPluginDiscovery() {
         super("seatunnel");
@@ -36,5 +58,38 @@ public class SeaTunnelSinkPluginDiscovery extends AbstractPluginDiscovery<SeaTun
     @Override
     protected Class<SeaTunnelSink> getPluginBaseClass() {
         return SeaTunnelSink.class;
+    }
+
+    public List<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>> initializePlugins(
+        List<URL> jarPaths, List<? extends Config> pluginConfigs, JobContext jobContext) {
+        List<URL> pluginJars = new ArrayList<>();
+        List<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>> sinks =
+            pluginConfigs.stream().map(sinkConfig -> {
+                PluginIdentifier pluginIdentifier =
+                    PluginIdentifier.of(ENGINE_TYPE, PLUGIN_TYPE, sinkConfig.getString(PLUGIN_NAME));
+                pluginJars.addAll(getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
+                SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable> seaTunnelSink = createPluginInstance(pluginIdentifier);
+
+                // check save mode config
+                if (SupportDataSaveMode.class.isAssignableFrom(seaTunnelSink.getClass())) {
+                    SupportDataSaveMode saveModeSink = (SupportDataSaveMode) seaTunnelSink;
+                    List<TableSinkFactory> factories =
+                        FactoryUtil.discoverFactories(new URLClassLoader(pluginJars.toArray(new URL[0])),
+                            TableSinkFactory.class);
+                    if (CollectionUtils.isEmpty(factories)) {
+                        throw new SeaTunnelRuntimeException(SeaTunnelAPIErrorCode.PLUGIN_INITIALIZE_FAILED,
+                            String.format("Sink connector [%s] need implement TableSinkFactory", PLUGIN_NAME));
+                    }
+                    OptionRule optionRule = FactoryUtil.sinkFullOptionRule((TableSinkFactory) factories.get(0));
+                    saveModeSink.checkOptions(sinkConfig, optionRule);
+                }
+
+                seaTunnelSink.prepare(sinkConfig);
+                seaTunnelSink.setJobContext(jobContext);
+
+                return seaTunnelSink;
+            }).distinct().collect(Collectors.toList());
+        jarPaths.addAll(pluginJars);
+        return sinks;
     }
 }

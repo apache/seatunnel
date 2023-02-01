@@ -54,6 +54,7 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
+import java.io.Serializable;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -65,8 +66,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import scala.Serializable;
 
 @Data
 public class JobConfigParser {

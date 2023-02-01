@@ -63,6 +63,9 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
 
     private static final String PLUGIN_MAPPING_FILE = "plugin-mapping.properties";
 
+    public static final String ENGINE_TYPE = "seatunnel";
+    public static final String PLUGIN_NAME = "plugin_name";
+
     /**
      * Add jar url to classloader. The different engine should have different logic to add url into
      * their own classloader

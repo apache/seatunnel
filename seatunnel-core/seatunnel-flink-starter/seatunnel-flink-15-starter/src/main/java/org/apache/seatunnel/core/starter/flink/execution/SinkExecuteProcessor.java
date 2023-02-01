@@ -24,16 +24,13 @@ import org.apache.seatunnel.api.sink.SupportDataSaveMode;
 import org.apache.seatunnel.api.source.SourceCommonOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
-import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
 import org.apache.seatunnel.translation.flink.sink.FlinkSink;
 import org.apache.seatunnel.translation.flink.utils.TypeConverterUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import com.google.common.collect.Lists;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.transformations.SinkV1Adapter;
@@ -41,38 +38,20 @@ import org.apache.flink.types.Row;
 
 import java.io.Serializable;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class SinkExecuteProcessor extends FlinkAbstractPluginExecuteProcessor
-        <SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>> {
-
-    private static final String PLUGIN_TYPE = PluginType.SINK.getType();
+    <SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>> {
 
     protected SinkExecuteProcessor(List<URL> jarPaths, List<? extends Config> pluginConfigs, JobContext jobContext) {
         super(jarPaths, pluginConfigs, jobContext);
     }
 
     @Override
-    protected List<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>> initializePlugins(List<URL> jarPaths, List<? extends Config> pluginConfigs) {
+    protected List<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>> initializePlugins(
+        List<URL> jarPaths, List<? extends Config> pluginConfigs) {
         SeaTunnelSinkPluginDiscovery sinkPluginDiscovery = new SeaTunnelSinkPluginDiscovery(ADD_URL_TO_CLASSLOADER);
-        List<URL> pluginJars = new ArrayList<>();
-        List<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>> sinks = pluginConfigs.stream().map(sinkConfig -> {
-            PluginIdentifier pluginIdentifier = PluginIdentifier.of(ENGINE_TYPE, PLUGIN_TYPE, sinkConfig.getString(PLUGIN_NAME));
-            pluginJars.addAll(sinkPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
-            SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable> seaTunnelSink =
-                sinkPluginDiscovery.createPluginInstance(pluginIdentifier);
-            seaTunnelSink.prepare(sinkConfig);
-            seaTunnelSink.setJobContext(jobContext);
-            if (SupportDataSaveMode.class.isAssignableFrom(seaTunnelSink.getClass())) {
-                SupportDataSaveMode saveModeSink = (SupportDataSaveMode) seaTunnelSink;
-                saveModeSink.checkOptions(sinkConfig);
-            }
-            return seaTunnelSink;
-        }).distinct().collect(Collectors.toList());
-        jarPaths.addAll(pluginJars);
-        return sinks;
+        return sinkPluginDiscovery.initializePlugins(jarPaths, pluginConfigs, jobContext);
     }
 
     @Override
@@ -89,7 +68,7 @@ public class SinkExecuteProcessor extends FlinkAbstractPluginExecuteProcessor
                 saveModeSink.handleSaveMode(dataSaveMode);
             }
             DataStreamSink<Row> dataStreamSink = stream.sinkTo(SinkV1Adapter.wrap(new FlinkSink<>(seaTunnelSink)))
-                    .name(seaTunnelSink.getPluginName());
+                .name(seaTunnelSink.getPluginName());
             if (sinkConfig.hasPath(SourceCommonOptions.PARALLELISM.key())) {
                 int parallelism = sinkConfig.getInt(SourceCommonOptions.PARALLELISM.key());
                 dataStreamSink.setParallelism(parallelism);

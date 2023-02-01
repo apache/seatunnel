@@ -18,6 +18,8 @@
 package org.apache.seatunnel.core.starter.spark.execution;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.sink.SinkCommonOptions;
+import org.apache.seatunnel.api.source.SourceCommonOptions;
 import org.apache.seatunnel.core.starter.execution.PluginExecuteProcessor;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -25,6 +27,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 
+import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -34,10 +38,7 @@ public abstract class SparkAbstractPluginExecuteProcessor<T> implements
     protected final List<? extends Config> pluginConfigs;
     protected final JobContext jobContext;
     protected final List<T> plugins;
-    protected static final String ENGINE_TYPE = "seatunnel";
-    protected static final String PLUGIN_NAME = "plugin_name";
-    protected static final String RESULT_TABLE_NAME = "result_table_name";
-    protected static final String SOURCE_TABLE_NAME = "source_table_name";
+    protected final List<URL> jarPaths;
 
     protected SparkAbstractPluginExecuteProcessor(SparkRuntimeEnvironment sparkRuntimeEnvironment,
                                                   JobContext jobContext,
@@ -45,6 +46,7 @@ public abstract class SparkAbstractPluginExecuteProcessor<T> implements
         this.sparkRuntimeEnvironment = sparkRuntimeEnvironment;
         this.jobContext = jobContext;
         this.pluginConfigs = pluginConfigs;
+        this.jarPaths = new ArrayList<>();
         this.plugins = initializePlugins(pluginConfigs);
     }
 
@@ -56,18 +58,18 @@ public abstract class SparkAbstractPluginExecuteProcessor<T> implements
     protected abstract List<T> initializePlugins(List<? extends Config> pluginConfigs);
 
     protected void registerInputTempView(Config pluginConfig, Dataset<Row> dataStream) {
-        if (pluginConfig.hasPath(RESULT_TABLE_NAME)) {
-            String tableName = pluginConfig.getString(RESULT_TABLE_NAME);
+        if (pluginConfig.hasPath(SourceCommonOptions.RESULT_TABLE_NAME.key())) {
+            String tableName = pluginConfig.getString(SourceCommonOptions.RESULT_TABLE_NAME.key());
             registerTempView(tableName, dataStream);
         }
     }
 
     protected Optional<Dataset<Row>> fromSourceTable(Config pluginConfig,
                                                      SparkRuntimeEnvironment sparkRuntimeEnvironment) {
-        if (!pluginConfig.hasPath(SOURCE_TABLE_NAME)) {
+        if (!pluginConfig.hasPath(SinkCommonOptions.SOURCE_TABLE_NAME.key())) {
             return Optional.empty();
         }
-        String sourceTableName = pluginConfig.getString(SOURCE_TABLE_NAME);
+        String sourceTableName = pluginConfig.getString(SinkCommonOptions.SOURCE_TABLE_NAME.key());
         return Optional.of(sparkRuntimeEnvironment.getSparkSession().read().table(sourceTableName));
     }
 

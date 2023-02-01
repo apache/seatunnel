@@ -18,6 +18,7 @@
 package org.apache.seatunnel.core.starter.flink.execution;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.core.starter.execution.PluginExecuteProcessor;
 import org.apache.seatunnel.core.starter.flink.utils.TableUtil;
@@ -36,10 +37,7 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 
 public abstract class FlinkAbstractPluginExecuteProcessor<T> implements
-        PluginExecuteProcessor<DataStream<Row>, FlinkRuntimeEnvironment> {
-    protected static final String ENGINE_TYPE = "seatunnel";
-    protected static final String PLUGIN_NAME = "plugin_name";
-    protected static final String SOURCE_TABLE_NAME = "source_table_name";
+    PluginExecuteProcessor<DataStream<Row>, FlinkRuntimeEnvironment> {
 
     protected static final BiConsumer<ClassLoader, URL> ADD_URL_TO_CLASSLOADER = (classLoader, url) -> {
         if (classLoader.getClass().getName().endsWith("SafetyNetWrapperClassLoader")) {
@@ -71,9 +69,9 @@ public abstract class FlinkAbstractPluginExecuteProcessor<T> implements
     }
 
     protected Optional<DataStream<Row>> fromSourceTable(Config pluginConfig) {
-        if (pluginConfig.hasPath(SOURCE_TABLE_NAME)) {
+        if (pluginConfig.hasPath(SinkCommonOptions.SOURCE_TABLE_NAME.key())) {
             StreamTableEnvironment tableEnvironment = flinkRuntimeEnvironment.getStreamTableEnvironment();
-            Table table = tableEnvironment.from(pluginConfig.getString(SOURCE_TABLE_NAME));
+            Table table = tableEnvironment.from(pluginConfig.getString(SinkCommonOptions.SOURCE_TABLE_NAME.key()));
             return Optional.ofNullable(TableUtil.tableToDataStream(tableEnvironment, table, true));
         }
         return Optional.empty();

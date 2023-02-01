@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
+import org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
 import org.apache.seatunnel.translation.spark.common.serialization.InternalRowConverter;
@@ -62,7 +63,7 @@ public class TransformExecuteProcessor extends SparkAbstractPluginExecuteProcess
         List<URL> pluginJars = new ArrayList<>();
         List<SeaTunnelTransform> transforms = pluginConfigs.stream()
             .map(transformConfig -> {
-                PluginIdentifier pluginIdentifier = PluginIdentifier.of(ENGINE_TYPE, PLUGIN_TYPE, transformConfig.getString(PLUGIN_NAME));
+                PluginIdentifier pluginIdentifier = PluginIdentifier.of(AbstractPluginDiscovery.ENGINE_TYPE, PLUGIN_TYPE, transformConfig.getString(AbstractPluginDiscovery.PLUGIN_NAME));
                 pluginJars.addAll(transformPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
                 SeaTunnelTransform pluginInstance = transformPluginDiscovery.createPluginInstance(pluginIdentifier);
                 pluginInstance.prepare(transformConfig);
