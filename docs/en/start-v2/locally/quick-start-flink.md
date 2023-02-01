@@ -97,4 +97,4 @@ row=16 : SGZCr, 94186144
 For now, you are already take a quick look about SeaTunnel with Flink, you could see [connector](/docs/category/connector-v2) to find all
 source and sink SeaTunnel supported. Or see [SeaTunnel With Flink](../../other-engine/flink.md) if you want to know more about SeaTunnel Run With Flink.
 
-SeaTunnel have an own engine named SeaTunnel Engine and SeaTunnel Engine is the default engine of SeaTunnel. You can follow [Quick Start](quick-start-seatunnel-engine.md) to configure and run a data synchronization job.
+SeaTunnel have an own engine named `Zeta` and `Zeta` is the default engine of SeaTunnel. You can follow [Quick Start](quick-start-seatunnel-engine.md) to configure and run a data synchronization job.
