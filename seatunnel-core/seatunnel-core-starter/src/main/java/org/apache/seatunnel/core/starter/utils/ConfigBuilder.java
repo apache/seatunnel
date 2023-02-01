@@ -62,17 +62,17 @@ public class ConfigBuilder {
         Optional<ConfigAdapter> adapterSupplier = ConfigAdapterUtils.selectAdapter(filePath);
         Config config = adapterSupplier
             .map(adapter -> of(adapter, filePath))
-            .orElseGet(()-> ofInner(filePath));
+            .orElseGet(() -> ofInner(filePath));
         log.info("Parsed config file: {}", config.root().render(CONFIG_RENDER_OPTIONS));
         return config;
     }
 
     public static Config of(@NonNull ConfigAdapter configAdapter, @NonNull Path filePath) {
         log.info("With spi {}", configAdapter.getClass().getName());
-        try{
+        try {
             Map<String, Object> flattenedMap = configAdapter.loadConfig(filePath);
             return ConfigFactory.parseMap(flattenedMap);
-        }catch (Exception warn){
+        } catch (Exception warn) {
             log.warn("Loading config failed with spi {}, fallback to HOCON loader.", configAdapter.getClass().getName());
             return ofInner(filePath);
         }
