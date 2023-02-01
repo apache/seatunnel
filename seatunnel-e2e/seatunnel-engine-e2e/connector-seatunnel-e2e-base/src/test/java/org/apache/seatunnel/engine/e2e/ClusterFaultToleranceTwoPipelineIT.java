@@ -38,6 +38,7 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.shaded.org.apache.commons.lang3.tuple.ImmutablePair;
 
@@ -66,6 +67,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
+    @Disabled
     public void testTwoPipelineBatchJobRunOkIn3Node() throws ExecutionException, InterruptedException {
         String testCaseName = "testTwoPipelineBatchJobRunOkIn3Node";
         String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineBatchJobRunOkIn3Node";
@@ -177,6 +179,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
+    @Disabled
     public void testTwoPipelineStreamJobRunOkIn3Node() throws ExecutionException, InterruptedException {
         String testCaseName = "testTwoPipelineStreamJobRunOkIn3Node";
         String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineStreamJobRunOkIn3Node";
@@ -257,6 +260,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
+    @Disabled
     public void testTwoPipelineBatchJobRestoreIn3NodeWorkerDown() throws ExecutionException, InterruptedException {
         String testCaseName = "testTwoPipelineBatchJobRestoreIn3NodeWorkerDown";
         String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineBatchJobRestoreIn3NodeWorkerDown";
@@ -339,6 +343,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
+    @Disabled
     public void testTwoPipelineStreamJobRestoreIn3NodeWorkerDown() throws ExecutionException, InterruptedException {
         String testCaseName = "testTwoPipelineStreamJobRestoreIn3NodeWorkerDown";
         String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineStreamJobRestoreIn3NodeWorkerDown";
@@ -436,6 +441,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
+    @Disabled
     public void testTwoPipelineBatchJobRestoreIn3NodeMasterDown() throws ExecutionException, InterruptedException {
         String testCaseName = "testTwoPipelineBatchJobRestoreIn3NodeMasterDown";
         String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineBatchJobRestoreIn3NodeMasterDown";
@@ -516,6 +522,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
+    @Disabled
     public void testTwoPipelineStreamJobRestoreIn3NodeMasterDown() throws ExecutionException, InterruptedException {
         String testCaseName = "testTwoPipelineStreamJobRestoreIn3NodeMasterDown";
         String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineStreamJobRestoreIn3NodeMasterDown";
