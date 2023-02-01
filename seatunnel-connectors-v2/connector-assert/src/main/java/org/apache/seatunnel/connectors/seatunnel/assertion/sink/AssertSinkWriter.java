@@ -34,8 +34,8 @@ public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private final SeaTunnelRowType seaTunnelRowType;
     private final List<AssertFieldRule> assertFieldRules;
     private final List<AssertFieldRule.AssertRule> assertRowRules;
-    private static final AssertExecutor ASSERT_EXECUTOR = new AssertExecutor();
-    private static final LongAccumulator LONG_ACCUMULATOR = new LongAccumulator(Long::sum, 0);
+    private final AssertExecutor ASSERT_EXECUTOR = new AssertExecutor();
+    private final LongAccumulator LONG_ACCUMULATOR = new LongAccumulator(Long::sum, 0);
 
     public AssertSinkWriter(SeaTunnelRowType seaTunnelRowType, List<AssertFieldRule> assertFieldRules, List<AssertFieldRule.AssertRule> assertRowRules) {
         this.seaTunnelRowType = seaTunnelRowType;
