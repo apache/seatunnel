@@ -640,7 +640,7 @@ public class ClusterFaultToleranceIT {
                 "          fs.defaultFS: file:///\n" +
                 "\n" +
                 "  properties:\n" +
-                "    hazelcast.invocation.max.retry.count: 20\n" +
+                "    hazelcast.invocation.max.retry.count: 200\n" +
                 "    hazelcast.tcp.join.port.try.count: 30\n" +
                 "    hazelcast.logging.type: log4j2\n";
 
