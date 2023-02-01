@@ -18,6 +18,8 @@
 
 package org.apache.seatunnel.e2e.connector.kafka;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlContainer;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersion;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.UniqueDatabase;
@@ -25,6 +27,10 @@ import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
@@ -39,6 +45,11 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
 import java.io.IOException;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Properties;
 import java.util.stream.Stream;
 
 public class CannalToKafakIT extends TestSuiteBase implements TestResource {
@@ -56,6 +67,8 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
     //----------------------------------------------------------------------------
     // kafka
     private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:latest";
+
+    private static final String KAFKA_TOPIC = "test-canal-source";
 
     private static final int KAFKA_PORT = 9093;
 
@@ -135,6 +148,38 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
     public void testCannalToKafakCannalFormatAnalysis(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/kafkasource_canal_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        ArrayList<Object> result = new ArrayList<>();
+        List<String> expectedResult =
+                Arrays.asList(
+                        "{\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"3.14\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":102,\"name\":\"car battery\",\"description\":\"12V car battery\",\"weight\":\"8.1\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":103,\"name\":\"12-pack drill bits\",\"description\":\"12-pack of drill bits with sizes ranging from #40 to #3\",\"weight\":\"0.8\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":104,\"name\":\"hammer\",\"description\":\"12oz carpenter's hammer\",\"weight\":\"0.75\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":105,\"name\":\"hammer\",\"description\":\"14oz carpenter's hammer\",\"weight\":\"0.875\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":106,\"name\":\"hammer\",\"description\":null,\"weight\":\"1.0\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"5.3\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":108,\"name\":\"jacket\",\"description\":\"water resistent black wind breaker\",\"weight\":\"0.1\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":109,\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":\"22.2\"},\"type\":\"INSERT\"}"
+                        );
+        Properties prop = new Properties();
+        prop.put("bootstrap.servers", "kafkaCluster:9092");
+        prop.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
+        prop.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
+        prop.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        prop.put(ConsumerConfig.GROUP_ID_CONFIG, "CONF");
+        prop.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
+        KafkaConsumer<String, String> kafkaConsumer = new KafkaConsumer<>(prop);
+        ArrayList<String> topics = new ArrayList<>();
+        topics.add(KAFKA_TOPIC);
+        kafkaConsumer.subscribe(topics);
+        while (result.size() < 9) {
+            ConsumerRecords<String, String> consumerRecords = kafkaConsumer.poll(Duration.ofSeconds(1));
+            for (ConsumerRecord<String, String> record : consumerRecords) {
+                result.add(record.value());
+            }
+        }
+        assertEquals(expectedResult, result);
     }
 
     @Override
