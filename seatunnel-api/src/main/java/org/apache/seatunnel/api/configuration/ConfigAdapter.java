@@ -23,15 +23,14 @@ import java.util.Map;
 /**
  * Adapter mode to support convert other config to HOCON.
  */
-public interface ConfigAdapterSpi {
+public interface ConfigAdapter {
 
     /**
-     * Use the converter adapter with a file extension.
+     * Provides the config file extension identifier supported by the adapter.
      *
-     * @param fileExtension config file extension
-     * @return enable use this SPI
+     * @return Extension identifier.
      */
-    boolean checkFileExtension(String fileExtension);
+    String[] extensionIdentifiers();
 
     /**
      * Converter config file to path_key-value Map (FlattenedMap) in HOCON

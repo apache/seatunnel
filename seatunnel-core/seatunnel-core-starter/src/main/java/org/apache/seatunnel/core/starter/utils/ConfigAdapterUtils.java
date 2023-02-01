@@ -17,10 +17,12 @@
 
 package org.apache.seatunnel.core.starter.utils;
 
-import org.apache.seatunnel.api.configuration.ConfigAdapterSpi;
+import org.apache.seatunnel.api.configuration.ConfigAdapter;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -31,11 +33,11 @@ import java.util.ServiceLoader;
 
 @Slf4j
 public final class ConfigAdapterUtils {
-    private static final List<ConfigAdapterSpi> CONFIG_ADAPTERS = new ArrayList<>(0);
+    private static final List<ConfigAdapter> CONFIG_ADAPTERS = new ArrayList<>(0);
 
     static {
-        ServiceLoader<ConfigAdapterSpi> serviceLoader = ServiceLoader.load(ConfigAdapterSpi.class);
-        Iterator<ConfigAdapterSpi> it = serviceLoader.iterator();
+        ServiceLoader<ConfigAdapter> serviceLoader = ServiceLoader.load(ConfigAdapter.class);
+        Iterator<ConfigAdapter> it = serviceLoader.iterator();
         if (it.hasNext()) {
             try {
                 CONFIG_ADAPTERS.add(it.next());
@@ -45,22 +47,19 @@ public final class ConfigAdapterUtils {
         }
     }
 
-    public static Optional<ConfigAdapterSpi> selectAdapter(@NonNull String filePath) {
-        for (ConfigAdapterSpi configGatewaySpi : CONFIG_ADAPTERS) {
+    public static Optional<ConfigAdapter> selectAdapter(@NonNull String filePath) {
+        for (ConfigAdapter configAdapter : CONFIG_ADAPTERS) {
             String extension = FileUtils.getFileExtension(filePath);
-            if (configGatewaySpi.checkFileExtension(extension)) {
-                try {
-                    return Optional.of(configGatewaySpi);
-                } catch (Exception warn) {
-                    log.warn("Loading config failed with spi {}, fallback to HOCON loader.", configGatewaySpi.getClass().getName());
-                    break;
+            for (String extensionIdentifier : ArrayUtils.nullToEmpty(configAdapter.extensionIdentifiers())) {
+                if (StringUtils.equalsIgnoreCase(extension, extensionIdentifier)){
+                    return Optional.of(configAdapter);
                 }
             }
         }
         return Optional.empty();
     }
 
-    public static Optional<ConfigAdapterSpi> selectAdapter(@NonNull Path filePath) {
+    public static Optional<ConfigAdapter> selectAdapter(@NonNull Path filePath) {
         return selectAdapter(filePath.getFileName().toString());
     }
 }
