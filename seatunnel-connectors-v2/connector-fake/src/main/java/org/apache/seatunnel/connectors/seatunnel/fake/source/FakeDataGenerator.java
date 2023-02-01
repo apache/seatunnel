@@ -98,13 +98,15 @@ public class FakeDataGenerator {
      * @param output Data collection and distribution
      **/
     public void collectFakedRows(int rowNum, Collector<SeaTunnelRow> output) {
+        // Use manual configuration data preferentially
         if (fakeConfig.getFakeRows() != null) {
             for (FakeConfig.RowData rowData : fakeConfig.getFakeRows()) {
                 output.collect(convertRow(rowData));
             }
-        }
-        for (int i = 0; i < rowNum; i++) {
-            output.collect(randomRow());
+        } else {
+            for (int i = 0; i < rowNum; i++) {
+                output.collect(randomRow());
+            }
         }
     }
 
