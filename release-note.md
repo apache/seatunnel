@@ -40,7 +40,8 @@
 - [Checkpoint] Cancel CheckpointCoordinator First Before Cancel Task #3838
 - [Storage] Remove seatunnel-api from engine storage. #3834
 - [Core] change queue to disruptor. #3847
-
+- [Improve] Statistics server job and system resource usage. #3982
+- 
 ## Bug Fixes
 ### Connectors
 - [ClickHouse File] Fix ClickhouseFile Committer Serializable Problems #3803
