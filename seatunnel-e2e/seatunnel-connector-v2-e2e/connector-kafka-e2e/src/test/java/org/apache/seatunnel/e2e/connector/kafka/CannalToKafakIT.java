@@ -146,7 +146,7 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testCannalToKafakCannalFormatAnalysis(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/kafkasource_canal_to_console.conf");
+        Container.ExecResult execResult = container.executeJob("/kafkasource_canal_to_kafka.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         ArrayList<Object> result = new ArrayList<>();
