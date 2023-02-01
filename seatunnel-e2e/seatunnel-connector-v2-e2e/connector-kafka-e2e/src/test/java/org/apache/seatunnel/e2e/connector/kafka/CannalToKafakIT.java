@@ -31,6 +31,7 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
@@ -40,6 +41,7 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.shaded.org.awaitility.Awaitility;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
@@ -50,6 +52,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 public class CannalToKafakIT extends TestSuiteBase implements TestResource {
@@ -75,6 +78,8 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
     private static final String KAFKA_HOST = "kafkaCluster";
 
     private static KafkaContainer KAFKA_CONTAINER;
+
+    private KafkaConsumer<String, String> kafkaConsumer;
 
     //----------------------------------------------------------------------------
     // mysql
@@ -142,6 +147,12 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
         LOG.info("Containers are started");
 
         inventoryDatabase.createAndInitialize();
+
+        Awaitility.given().ignoreExceptions()
+                .atLeast(100, TimeUnit.MILLISECONDS)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .atMost(180, TimeUnit.SECONDS)
+                .untilAsserted(this::initKafkaConsumer);
     }
 
     @TestTemplate
@@ -162,14 +173,7 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
                         "{\"data\":{\"id\":108,\"name\":\"jacket\",\"description\":\"water resistent black wind breaker\",\"weight\":\"0.1\"},\"type\":\"INSERT\"}",
                         "{\"data\":{\"id\":109,\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":\"22.2\"},\"type\":\"INSERT\"}"
                         );
-        Properties prop = new Properties();
-        prop.put("bootstrap.servers", "kafkaCluster:9092");
-        prop.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
-        prop.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
-        prop.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        prop.put(ConsumerConfig.GROUP_ID_CONFIG, "CONF");
-        prop.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
-        KafkaConsumer<String, String> kafkaConsumer = new KafkaConsumer<>(prop);
+
         ArrayList<String> topics = new ArrayList<>();
         topics.add(KAFKA_TOPIC);
         kafkaConsumer.subscribe(topics);
@@ -180,6 +184,18 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
             }
         }
         assertEquals(expectedResult, result);
+    }
+
+    private void initKafkaConsumer() {
+        Properties prop = new Properties();
+        String bootstrapServers = KAFKA_CONTAINER.getBootstrapServers();
+        prop.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        prop.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
+        prop.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
+        prop.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        prop.put(ConsumerConfig.GROUP_ID_CONFIG, "CONF");
+        prop.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
+        kafkaConsumer = new KafkaConsumer<>(prop);
     }
 
     @Override
