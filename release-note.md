@@ -29,6 +29,7 @@
 - [Starter][Spark] Push transform operation from Spark Driver to Executors #4502
 ### Connectors
 - [CDC]Add mysql-cdc source factory #3791
+- [CDC]Add PostgreSQL CDC Source #3867
 - [JDBC]Fix the problem that the exception cannot be thrown normally #3796
 - [JDBC]Remove unused options for jdbc source factory #3794
 - [JDBC]Add exactly-once for JDBC source connector #3750
