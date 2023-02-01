@@ -45,6 +45,8 @@
 ### Connectors
 - [ClickHouse File] Fix ClickhouseFile Committer Serializable Problems #3803
 - [ClickHouse] Fix clickhouse write cdc changelog update event #3951
+- [ClickHouse] Fix connector source snapshot state NPE #4027
+- [Kudu] Fix connector source snapshot state NPE #4027
 
 ### Zeta Engine
 - [Checkpoint] Fix Checkpoint Continue Trigger After Job CANCELED #3808
