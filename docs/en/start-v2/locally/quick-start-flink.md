@@ -10,7 +10,7 @@ Before starting, make sure you have downloaded and deployed SeaTunnel as describ
 
 ## Step 2: Deployment And Config Flink
 
-Please [download Flink](https://flink.apache.org/downloads.html) first(**required version >= 1.12.0 and version < 1.14.x **). For more information you could see [Getting Started: standalone](https://nightlies.apache.org/flink/flink-docs-release-1.14/docs/deployment/resource-providers/standalone/overview/)
+Please [download Flink](https://flink.apache.org/downloads.html) first(**required version >= 1.12.0**). For more information you could see [Getting Started: standalone](https://nightlies.apache.org/flink/flink-docs-release-1.14/docs/deployment/resource-providers/standalone/overview/)
 
 **Configure SeaTunnel**: Change the setting in `config/seatunnel-env.sh`, it is base on the path your engine install at [deployment](deployment.md).
 Change `FLINK_HOME` to the Flink deployment dir.
@@ -52,10 +52,18 @@ More information about config please check [config concept](../../concept/config
 
 You could start the application by the following commands
 
+flink version between `1.12.x` and `1.14.x`
+
 ```shell
 cd "apache-seatunnel-incubating-${version}"
-./bin/start-seatunnel-flink-connector-v2.sh --config ./config/seatunnel.streaming.conf.template
+./bin/start-seatunnel-flink-13-connector-v2.sh --config ./config/seatunnel.streaming.conf.template
+```
 
+flink version between `1.15.x` and `1.16.x`
+
+```shell
+cd "apache-seatunnel-incubating-${version}"
+./bin/start-seatunnel-flink-15-connector-v2.sh --config ./config/seatunnel.streaming.conf.template
 ```
 
 **See The Output**: When you run the command, you could see its output in your console. You can think this
