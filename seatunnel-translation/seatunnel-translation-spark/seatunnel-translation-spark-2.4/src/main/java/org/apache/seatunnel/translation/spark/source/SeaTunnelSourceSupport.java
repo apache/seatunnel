@@ -22,8 +22,8 @@ import org.apache.seatunnel.api.source.SourceCommonOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.utils.SerializationUtils;
-import org.apache.seatunnel.translation.spark.source.batch.BatchSourceReader;
-import org.apache.seatunnel.translation.spark.source.micro.MicroBatchSourceReader;
+import org.apache.seatunnel.translation.spark.source.reader.batch.BatchSourceReader;
+import org.apache.seatunnel.translation.spark.source.reader.micro.MicroBatchSourceReader;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;

@@ -30,7 +30,7 @@ import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
-import org.apache.seatunnel.engine.common.loader.SeatunnelChildFirstClassLoader;
+import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
@@ -156,7 +156,7 @@ public class JobMaster {
         LOGGER.info(String.format("Job %s (%s) needed jar urls %s", jobImmutableInformation.getJobConfig().getName(),
             jobImmutableInformation.getJobId(), jobImmutableInformation.getPluginJarsUrls()));
 
-        classLoader = new SeatunnelChildFirstClassLoader(jobImmutableInformation.getPluginJarsUrls());
+        classLoader = new SeaTunnelChildFirstClassLoader(jobImmutableInformation.getPluginJarsUrls());
         logicalDag = CustomClassLoadedObject.deserializeWithCustomClassLoader(nodeEngine.getSerializationService(),
             classLoader, jobImmutableInformation.getLogicalDag());
         CheckpointConfig checkpointConfig = mergeEnvAndEngineConfig(engineConfig.getCheckpointConfig(),
@@ -169,7 +169,8 @@ public class JobMaster {
             executorService,
             flakeIdGenerator,
             runningJobStateIMap,
-            runningJobStateTimestampsIMap);
+            runningJobStateTimestampsIMap,
+            engineConfig.getQueueType());
         this.physicalPlan = planTuple.f0();
         this.physicalPlan.setJobMaster(this);
         this.checkpointManager = new CheckpointManager(

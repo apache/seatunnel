@@ -258,11 +258,12 @@ public class CheckpointCoordinator {
     }
 
     protected void restoreCoordinator(boolean alreadyStarted) {
+        LOG.info("received restore CheckpointCoordinator with alreadyStarted= " + alreadyStarted);
         cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET);
         shutdown = false;
         if (alreadyStarted) {
-            tryTriggerPendingCheckpoint();
             isAllTaskReady = true;
+            tryTriggerPendingCheckpoint();
         } else {
             isAllTaskReady = false;
         }

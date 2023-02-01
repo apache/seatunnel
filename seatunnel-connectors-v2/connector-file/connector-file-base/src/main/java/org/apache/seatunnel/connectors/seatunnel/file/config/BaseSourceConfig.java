@@ -23,6 +23,8 @@ import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 
+import java.util.List;
+
 public class BaseSourceConfig {
     public static final Option<FileFormat> FILE_TYPE = Options.key("type")
             .objectType(FileFormat.class)
@@ -78,4 +80,9 @@ public class BaseSourceConfig {
             .longType()
             .defaultValue(0L)
             .withDescription("The number of rows to skip");
+
+    public static final Option<List<String>> READ_PARTITIONS = Options.key("read_partitions")
+            .listType()
+            .noDefaultValue()
+            .withDescription("The partitions that the user want to read");
 }

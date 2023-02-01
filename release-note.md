@@ -10,6 +10,8 @@
 ### Transformer
 - [Spark] Support transform-v2 for spark (#3409)
 - [ALL]Add FieldMapper Transform #3781
+### Connectors
+- [Elasticsearch] Support https protocol & compatible with opensearch
 
 ## Improves
 ### Connectors
@@ -31,16 +33,20 @@
 - [Common]The log outputs detailed exception stack information #3805
 - [API]Add parallelism and column projection interface #3829
 - [API]Add get source method to all source connector #3846
+- [Hive] Support read user-defined partitions #3842
 ### Zeta Engine
 - [Chore] Remove unnecessary dependencies #3795
 - [Core] Improve job restart of all node down #3784
 - [Checkpoint] Cancel CheckpointCoordinator First Before Cancel Task #3838
 - [Storage] Remove seatunnel-api from engine storage. #3834
+- [Core] change queue to disruptor. #3847
 
 ## Bug Fixes
 ### Connectors
 - [ClickHouse File] Fix ClickhouseFile Committer Serializable Problems #3803
 - [ClickHouse] Fix clickhouse write cdc changelog update event #3951
+- [ClickHouse] Fix connector source snapshot state NPE #4027
+- [Kudu] Fix connector source snapshot state NPE #4027
 
 ### Zeta Engine
 - [Checkpoint] Fix Checkpoint Continue Trigger After Job CANCELED #3808
@@ -48,6 +54,8 @@
 - [Core]Fix Local Mode can't deserialize split (#3817)
 - [Metrics] Fix Metrics will lose when Job be canceled. #3797
 
+### Documents
+- [Doc] seatunnel run with flink operator error #3998
 
 ## Test
 ### E2E
