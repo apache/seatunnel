@@ -386,7 +386,7 @@ public class ClusterFaultToleranceIT {
             Awaitility.await().atMost(360000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> {
                     // Wait job write all rows in file
-                    Thread.sleep(2000);
+                    Thread.sleep(3000);
                     System.out.println(FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
                     Assertions.assertTrue(JobStatus.RUNNING.equals(clientJobProxy.getJobStatus()) &&
                         testRowNumber * testParallelism == FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
