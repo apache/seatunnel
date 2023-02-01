@@ -44,9 +44,11 @@ import java.time.ZoneId;
 @AutoService(SeaTunnelSource.class)
 public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig> {
 
+    static final String IDENTIFIER = "Postgres-CDC";
+
     @Override
     public String getPluginName() {
-        return "Postgres-CDC";
+        return IDENTIFIER;
     }
 
     @Override
