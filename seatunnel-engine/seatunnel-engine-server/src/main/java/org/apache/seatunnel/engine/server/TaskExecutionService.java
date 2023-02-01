@@ -62,6 +62,7 @@ import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.map.IMap;
+import com.hazelcast.spi.exception.WrongTargetException;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import com.hazelcast.spi.properties.HazelcastProperties;
@@ -355,19 +356,23 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         Map<TaskGroupLocation, TaskGroupContext> contextMap = new HashMap<>();
         contextMap.putAll(executionContexts);
         contextMap.putAll(finishedExecutionContexts);
-        IMap<TaskLocation, MetricsContext> map =
-            nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
-        contextMap.forEach((taskGroupLocation, taskGroupContext) -> {
-            taskGroupContext.getTaskGroup().getTasks().forEach(task -> {
-                // MetricsContext only exists in SeaTunnelTask
-                if (task instanceof SeaTunnelTask) {
-                    SeaTunnelTask seaTunnelTask = (SeaTunnelTask) task;
-                    if (null != seaTunnelTask.getMetricsContext()) {
-                        map.put(seaTunnelTask.getTaskLocation(), seaTunnelTask.getMetricsContext());
+        try {
+            IMap<TaskLocation, MetricsContext> map =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
+            contextMap.forEach((taskGroupLocation, taskGroupContext) -> {
+                taskGroupContext.getTaskGroup().getTasks().forEach(task -> {
+                    // MetricsContext only exists in SeaTunnelTask
+                    if (task instanceof SeaTunnelTask) {
+                        SeaTunnelTask seaTunnelTask = (SeaTunnelTask) task;
+                        if (null != seaTunnelTask.getMetricsContext()) {
+                            map.put(seaTunnelTask.getTaskLocation(), seaTunnelTask.getMetricsContext());
+                        }
                     }
-                }
+                });
             });
-        });
+        } catch (WrongTargetException e){
+            logger.warning("The Imap acquisition failed due to the hazelcast node being offline or restarted, and will be retried next time", e);
+        }
     }
 
     private final class BlockingWorker implements Runnable {
