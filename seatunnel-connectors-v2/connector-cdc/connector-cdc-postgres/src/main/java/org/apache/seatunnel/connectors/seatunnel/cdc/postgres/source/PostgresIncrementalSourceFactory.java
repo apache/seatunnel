@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source;
 
-import com.google.auto.service.AutoService;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -25,6 +24,8 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.option.PostgresOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
+
+import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
 public class PostgresIncrementalSourceFactory implements TableSourceFactory {
@@ -35,7 +36,7 @@ public class PostgresIncrementalSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return JdbcSourceOptions.BASE_RULE
+        return JdbcSourceOptions.getBaseRule()
             .required(
                 JdbcSourceOptions.HOSTNAME,
                 JdbcSourceOptions.USERNAME,
