@@ -7,39 +7,39 @@ import TabItem from '@theme/TabItem';
 
 <Tabs
     groupId="engine-type"
-    defaultValue="spark"
+    defaultValue="spark2"
     values={[
-        {label: 'Spark', value: 'spark'},
-        {label: 'Flink', value: 'flink'},
-        {label: 'Spark V2', value: 'spark V2'},
-        {label: 'Flink V2', value: 'flink V2'},
+        {label: 'Spark 2', value: 'spark2'},
+        {label: 'Spark 3', value: 'spark3'},
+        {label: 'Flink 13 14', value: 'flink13'},
+        {label: 'Flink 15 16', value: 'flink15'},
     ]}>
-<TabItem value="spark">
+<TabItem value="spark2">
 
 ```bash
-bin/start-seatunnel-spark.sh
+bin/start-seatunnel-spark-2-connector-v2.sh
 ```
 
 </TabItem>
-<TabItem value="flink">
+<TabItem value="spark3">
 
 ```bash
-bin/start-seatunnel-flink.sh  
+bin/start-seatunnel-spark-3-connector-v2.sh
 ```
 
 </TabItem>
-<TabItem value="spark V2">
+<TabItem value="flink13">
 
-    ```bash
-    bin/start-seatunnel-spark-connector-v2.sh
-    ```
+```bash
+bin/start-seatunnel-flink-13-connector-v2.sh
+```
 
 </TabItem>
-<TabItem value="flink V2">
+<TabItem value="flink15">
 
-    ```bash
-    bin/start-seatunnel-flink-connector-v2.sh
-    ```
+```bash
+bin/start-seatunnel-flink-15-connector-v2.sh
+```
 
 </TabItem>
 </Tabs>
@@ -49,169 +49,127 @@ bin/start-seatunnel-flink.sh
 
 <Tabs
     groupId="engine-type"
-    defaultValue="spark"
+    defaultValue="spark2"
     values={[
-        {label: 'Spark', value: 'spark'},
-        {label: 'Flink', value: 'flink'},
-        {label: 'Spark V2', value: 'spark V2'},
-        {label: 'Flink V2', value: 'flink V2'},
+        {label: 'Spark 2', value: 'spark2'},
+        {label: 'Spark 3', value: 'spark3'},
+        {label: 'Flink 13 14', value: 'flink13'},
+        {label: 'Flink 15 16', value: 'flink15'},
     ]}>
-<TabItem value="spark">
+<TabItem value="spark2">
 
 ```bash
-bin/start-seatunnel-spark.sh \
-    -c config-path \
-    -m master \
-    -e deploy-mode \
-    -i city=beijing
+Usage: start-seatunnel-spark-2-connector-v2.sh [options]
+  Options:
+    --check           Whether check config (default: false)
+    -c, --config      Config file
+    -e, --deploy-mode Spark deploy mode, support [cluster, client] (default: 
+                      client) 
+    -h, --help        Show the usage message
+    -m, --master      Spark master, support [spark://host:port, 
+                      mesos://host:port, yarn, k8s://https://host:port, 
+                      local], default local[*] (default: local[*])
+    -n, --name        SeaTunnel job name (default: SeaTunnel)
+    -i, --variable    Variable substitution, such as -i city=beijing, or -i 
+                      date=20190318 (default: [])
 ```
 
-- Use `-m` or `--master` to specify the cluster manager
-
-- Use `-e` or `--deploy-mode` to specify the deployment mode
-
 </TabItem>
-<TabItem value="spark V2">
-
-    ```bash
-    bin/start-seatunnel-spark-connector-v2.sh \
-    -c config-path \
-    -m master \
-    -e deploy-mode \
-    -i city=beijing \
-    -n spark-test
-    ```
-
-    - Use `-m` or `--master` to specify the cluster manager
-
-    - Use `-e` or `--deploy-mode` to specify the deployment mode
-
-    - Use `-n` or `--name` to specify the app name
-
-</TabItem>
-<TabItem value="flink">
+<TabItem value="spark3">
 
 ```bash
-bin/start-seatunnel-flink.sh \
-    -c config-path \
-    -i key=value \
-    -r run-application \
-    [other params]
+Usage: start-seatunnel-spark-3-connector-v2.sh [options]
+  Options:
+    --check           Whether check config (default: false)
+    -c, --config      Config file
+    -e, --deploy-mode Spark deploy mode, support [cluster, client] (default: 
+                      client) 
+    -h, --help        Show the usage message
+    -m, --master      Spark master, support [spark://host:port, 
+                      mesos://host:port, yarn, k8s://https://host:port, 
+                      local], default local[*] (default: local[*])
+    -n, --name        SeaTunnel job name (default: SeaTunnel)
+    -i, --variable    Variable substitution, such as -i city=beijing, or -i 
+                      date=20190318 (default: [])
 ```
 
-- Use `-r` or `--run-mode` to specify the flink job run mode, you can use `run-application` or `run` (default value)
+</TabItem>
+<TabItem value="flink13">
+
+```bash
+Usage: start-seatunnel-flink-13-connector-v2.sh [options]
+  Options:
+    --check            Whether check config (default: false)
+    -c, --config       Config file
+    -e, --deploy-mode  Flink job deploy mode, support [run, run-application] 
+                       (default: run)
+    -h, --help         Show the usage message
+    --master, --target Flink job submitted target master, support [local, 
+                       remote, yarn-session, yarn-per-job, kubernetes-session, 
+                       yarn-application, kubernetes-application]
+    -n, --name         SeaTunnel job name (default: SeaTunnel)
+    -i, --variable     Variable substitution, such as -i city=beijing, or -i 
+                       date=20190318 (default: [])
+```
 
 </TabItem>
-<TabItem value="flink V2">
+<TabItem value="flink15">
 
-    ```bash
-    bin/start-seatunnel-flink-connector-v2.sh \
-    -c config-path \
-    -i key=value \
-    -r run-application \
-    -n flink-test \
-    [other params]
-    ```
-
-    - Use `-r` or `--run-mode` to specify the flink job run mode, you can use `run-application` or `run` (default value)
-
-    - Use `-n` or `--name` to specify the app name
+```bash
+Usage: start-seatunnel-flink-15-connector-v2.sh [options]
+  Options:
+    --check            Whether check config (default: false)
+    -c, --config       Config file
+    -e, --deploy-mode  Flink job deploy mode, support [run, run-application] 
+                       (default: run)
+    -h, --help         Show the usage message
+    --master, --target Flink job submitted target master, support [local, 
+                       remote, yarn-session, yarn-per-job, kubernetes-session, 
+                       yarn-application, kubernetes-application]
+    -n, --name         SeaTunnel job name (default: SeaTunnel)
+    -i, --variable     Variable substitution, such as -i city=beijing, or -i 
+                       date=20190318 (default: [])
+```
 
 </TabItem>
 </Tabs>
-
-- Use `-c` or `--config` to specify the path of the configuration file
-
-- Use `-i` or `--variable` to specify the variables in the configuration file, you can configure multiple
 
 ## Example
 
 <Tabs
     groupId="engine-type"
-    defaultValue="spark"
+    defaultValue="spark2"
     values={[
-        {label: 'Spark', value: 'spark'},
-        {label: 'Flink', value: 'flink'},
+        {label: 'Spark 2', value: 'spark2'},
+        {label: 'Spark 3', value: 'spark3'},
+        {label: 'Flink 13 14', value: 'flink13'},
+        {label: 'Flink 15 16', value: 'flink15'},
     ]}>
-<TabItem value="spark">
+<TabItem value="spark2">
 
 ```bash
-# Yarn client mode
-./bin/start-seatunnel-spark.sh \
-    --master yarn \
-    --deploy-mode client \
-    --config ./config/application.conf
-
-# Yarn cluster mode
-./bin/start-seatunnel-spark.sh \
-    --master yarn \
-    --deploy-mode cluster \
-    --config ./config/application.conf
+bin/start-seatunnel-spark-2-connector-v2.sh --config config/v2.batch.config.template -m local -e client
 ```
 
 </TabItem>
-<TabItem value="flink">
+<TabItem value="spark3">
 
 ```bash
-env {
-    execution.parallelism = 1
-}
-
-source {
-    FakeSourceStream {
-        result_table_name = "fake"
-        field_name = "name,age"
-    }
-}
-
-transform {
-    sql {
-        sql = "select name,age from fake where name='"${my_name}"'"
-    }
-}
-
-sink {
-    ConsoleSink {}
-}
+bin/start-seatunnel-spark-3-connector-v2.sh --config config/v2.batch.config.template -m local -e client
 ```
 
-**Run**
+</TabItem>
+<TabItem value="flink13">
 
 ```bash
-bin/start-seatunnel-flink.sh \
-    -c config-path \
-    -i my_name=kid-xiong
+bin/start-seatunnel-flink-13-connector-v2.sh --config config/v2.batch.config.template
 ```
 
-This designation will replace `"${my_name}"` in the configuration file with `kid-xiong`
-
-> All the configurations in the `env` section will be applied to Flink dynamic parameters with the format of `-D`, such as `-Dexecution.parallelism=1` .
-
-> For the rest of the parameters, refer to the original flink parameters. Check the flink parameter method: `bin/flink run -h` . The parameters can be added as needed. For example, `-m yarn-cluster` is specified as `on yarn` mode.
+</TabItem>
+<TabItem value="flink15">
 
 ```bash
-bin/flink run -h
-```
-
-For example:
-
-* `-p 2` specifies that the job parallelism is `2`
-
-```bash
-bin/start-seatunnel-flink.sh \
-    -p 2 \
-    -c config-path
-```
-
-* Configurable parameters of `flink yarn-cluster`
-
-For example: `-m yarn-cluster -ynm seatunnel` specifies that the job is running on `yarn`, and the name of `yarn WebUI` is `seatunnel`
-
-```bash
-bin/start-seatunnel-flink.sh \
-    -m yarn-cluster \
-    -ynm seatunnel \
-    -c config-path
+bin/start-seatunnel-flink-15-connector-v2.sh --config config/v2.batch.config.template
 ```
 
 </TabItem>

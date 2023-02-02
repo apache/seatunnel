@@ -57,4 +57,6 @@ public class Constant {
     public static final String IMAP_CHECKPOINT_ID = "engine_checkpoint-id-%d";
 
     public static final String IMAP_RESOURCE_MANAGER_REGISTER_WORKER = "ResourceManager_RegisterWorker";
+
+    public static final String IMAP_RUNNING_JOB_METRICS = "engine_runningJobMetrics";
 }

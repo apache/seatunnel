@@ -28,5 +28,4 @@ import org.apache.seatunnel.api.transform.Collector;
 public interface OneOutputFlowLifeCycle<T> extends FlowLifeCycle {
 
     void collect(Collector<T> collector) throws Exception;
-
 }

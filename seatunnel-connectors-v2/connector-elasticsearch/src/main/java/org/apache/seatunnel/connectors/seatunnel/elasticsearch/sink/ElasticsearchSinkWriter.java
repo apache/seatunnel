@@ -25,7 +25,6 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.RetryUtils.RetryMaterial;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.constant.ElasticsearchVersion;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.IndexInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorErrorCode;
@@ -72,8 +71,7 @@ public class ElasticsearchSinkWriter implements SinkWriter<SeaTunnelRow, Elastic
 
         IndexInfo indexInfo = new IndexInfo(pluginConfig);
         esRestClient = EsRestClient.createInstance(pluginConfig);
-        ElasticsearchVersion elasticsearchVersion = ElasticsearchVersion.get(esRestClient.getClusterVersion());
-        this.seaTunnelRowSerializer = new ElasticsearchRowSerializer(elasticsearchVersion, indexInfo, seaTunnelRowType);
+        this.seaTunnelRowSerializer = new ElasticsearchRowSerializer(esRestClient.getClusterInfo(), indexInfo, seaTunnelRowType);
 
         this.requestEsList = new ArrayList<>(maxBatchSize);
         this.retryMaterial = new RetryMaterial(maxRetryCount, true,

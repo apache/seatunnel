@@ -43,7 +43,7 @@ public class WALDisruptor implements Closeable {
 
     private volatile Disruptor<FileWALEvent> disruptor;
 
-    private static final int DEFAULT_RING_BUFFER_SIZE = 256 * 1024;
+    private static final int DEFAULT_RING_BUFFER_SIZE = 1024;
 
     private static final int DEFAULT_CLOSE_WAIT_TIME_SECONDS = 5;
 
