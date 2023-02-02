@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.api.common.metrics;
 
+import java.io.Serializable;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 
-public class ThreadSafeCounter implements Counter{
+public class ThreadSafeCounter implements Counter, Serializable {
 
     private final String name;
     private static final AtomicLongFieldUpdater<ThreadSafeCounter> VOLATILE_VALUE_UPDATER =
@@ -69,5 +70,13 @@ public class ThreadSafeCounter implements Counter{
     @Override
     public Unit unit() {
         return Unit.COUNT;
+    }
+
+    @Override
+    public String toString() {
+        return "ThreadSafeCounter{" +
+            "name='" + name + '\'' +
+            ", value=" + value +
+            '}';
     }
 }

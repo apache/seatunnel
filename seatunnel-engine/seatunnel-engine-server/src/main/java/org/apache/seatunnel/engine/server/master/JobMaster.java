@@ -50,7 +50,7 @@ import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
-import org.apache.seatunnel.engine.server.metrics.MetricsContext;
+import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.scheduler.JobScheduler;
@@ -348,7 +348,7 @@ public class JobMaster {
 
     public void removeMetricsContext(PipelineLocation pipelineLocation, PipelineStatus pipelineStatus){
         if (pipelineStatus.equals(PipelineStatus.FINISHED) && !checkpointManager.isSavePointEnd() || pipelineStatus.equals(PipelineStatus.CANCELED)){
-            IMap<TaskLocation, MetricsContext> map =
+            IMap<TaskLocation, SeaTunnelMetricsContext> map =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
             map.keySet().stream().filter(taskLocation -> {
                 return taskLocation.getTaskGroupLocation().getPipelineLocation().equals(pipelineLocation);

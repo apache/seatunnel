@@ -29,6 +29,9 @@ public abstract class AbstractMetricsContext implements MetricsContext{
 
     @Override
     public Counter counter(String name) {
+        if (metrics.containsKey(name)) {
+            return (Counter) metrics.get(name);
+        }
         return this.counter(name, new ThreadSafeCounter(name));
     }
 
@@ -40,6 +43,9 @@ public abstract class AbstractMetricsContext implements MetricsContext{
 
     @Override
     public Meter meter(String name) {
+        if (metrics.containsKey(name)) {
+            return (Meter) metrics.get(name);
+        }
         return this.meter(name, new ThreadSafeQPSMeter(name));
     }
 
@@ -62,5 +68,12 @@ public abstract class AbstractMetricsContext implements MetricsContext{
                 }
             }
         }
+    }
+
+    @Override
+    public String toString() {
+        return "AbstractMetricsContext{" +
+            "metrics=" + metrics +
+            '}';
     }
 }

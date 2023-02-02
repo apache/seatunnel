@@ -37,7 +37,7 @@ public abstract class CoordinatorTask extends AbstractTask {
     @Override
     public void init() throws Exception {
         super.init();
-        metricsContext = new SeaTunnelMetricsContext();
+        metricsContext = getExecutionContext().getOrCreateMetricsContext(taskLocation);
     }
 
     @Override

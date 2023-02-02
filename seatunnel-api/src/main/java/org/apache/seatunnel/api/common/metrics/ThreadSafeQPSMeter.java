@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.api.common.metrics;
 
+import java.io.Serializable;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 
-public class ThreadSafeQPSMeter implements Meter{
+public class ThreadSafeQPSMeter implements Meter, Serializable {
 
     private static final AtomicLongFieldUpdater<ThreadSafeQPSMeter> VOLATILE_VALUE_UPDATER =
         AtomicLongFieldUpdater.newUpdater(ThreadSafeQPSMeter.class, "value");
@@ -65,5 +66,14 @@ public class ThreadSafeQPSMeter implements Meter{
     @Override
     public Unit unit() {
         return Unit.COUNT;
+    }
+
+    @Override
+    public String toString() {
+        return "ThreadSafeQPSMeter{" +
+            "name='" + name + '\'' +
+            ", value=" + value +
+            ", timestamp=" + timestamp +
+            '}';
     }
 }
