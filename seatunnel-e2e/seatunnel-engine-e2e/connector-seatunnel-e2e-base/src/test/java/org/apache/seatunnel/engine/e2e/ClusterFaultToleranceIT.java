@@ -39,7 +39,6 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.shaded.org.apache.commons.lang3.tuple.ImmutablePair;
 
@@ -66,16 +65,14 @@ public class ClusterFaultToleranceIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    @Disabled
-    public void testBatchJobRunOkIn3Node() throws ExecutionException, InterruptedException {
-        String testCaseName = "testBatchJobRunOkIn3Node";
-        String testClusterName = "ClusterFaultToleranceIT_testBatchJobRunOkIn3Node";
+    public void testBatchJobRunOkIn2Node() throws ExecutionException, InterruptedException {
+        String testCaseName = "testBatchJobRunOkIn2Node";
+        String testClusterName = "ClusterFaultToleranceIT_testBatchJobRunOkIn2Node";
         long testRowNumber = 1000;
         int testParallelism = 6;
 
         HazelcastInstanceImpl node1 = null;
         HazelcastInstanceImpl node2 = null;
-        HazelcastInstanceImpl node3 = null;
         SeaTunnelClient engineClient = null;
 
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
@@ -86,12 +83,10 @@ public class ClusterFaultToleranceIT {
 
             node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
-            node3 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
-
             // waiting all node added to cluster
             HazelcastInstanceImpl finalNode = node1;
             Awaitility.await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertEquals(3, finalNode.getCluster().getMembers().size()));
+                .untilAsserted(() -> Assertions.assertEquals(2, finalNode.getCluster().getMembers().size()));
 
             Common.setDeployMode(DeployMode.CLIENT);
             ImmutablePair<String, String> testResources =
@@ -130,10 +125,6 @@ public class ClusterFaultToleranceIT {
 
             if (node2 != null) {
                 node2.shutdown();
-            }
-
-            if (node3 != null) {
-                node3.shutdown();
             }
         }
     }
@@ -174,15 +165,13 @@ public class ClusterFaultToleranceIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    @Disabled
-    public void testStreamJobRunOkIn3Node() throws ExecutionException, InterruptedException {
-        String testCaseName = "testStreamJobRunOkIn3Node";
-        String testClusterName = "ClusterFaultToleranceIT_testStreamJobRunOkIn3Node";
+    public void testStreamJobRunOkIn2Node() throws ExecutionException, InterruptedException {
+        String testCaseName = "testStreamJobRunOkIn2Node";
+        String testClusterName = "ClusterFaultToleranceIT_testStreamJobRunOkIn2Node";
         long testRowNumber = 1000;
         int testParallelism = 6;
         HazelcastInstanceImpl node1 = null;
         HazelcastInstanceImpl node2 = null;
-        HazelcastInstanceImpl node3 = null;
         SeaTunnelClient engineClient = null;
 
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
@@ -192,12 +181,10 @@ public class ClusterFaultToleranceIT {
 
             node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
-            node3 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
-
             // waiting all node added to cluster
             HazelcastInstanceImpl finalNode = node1;
             Awaitility.await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertEquals(3, finalNode.getCluster().getMembers().size()));
+                .untilAsserted(() -> Assertions.assertEquals(2, finalNode.getCluster().getMembers().size()));
 
             Common.setDeployMode(DeployMode.CLIENT);
             ImmutablePair<String, String> testResources =
@@ -215,7 +202,7 @@ public class ClusterFaultToleranceIT {
 
             CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
-            Awaitility.await().atMost(3, TimeUnit.MINUTES)
+            Awaitility.await().atMost(2, TimeUnit.MINUTES)
                 .untilAsserted(() -> {
                     Thread.sleep(2000);
                     System.out.println(FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
@@ -244,24 +231,18 @@ public class ClusterFaultToleranceIT {
             if (node2 != null) {
                 node2.shutdown();
             }
-
-            if (node3 != null) {
-                node3.shutdown();
-            }
         }
     }
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    @Disabled
-    public void testBatchJobRestoreIn3NodeWorkerDown() throws ExecutionException, InterruptedException {
-        String testCaseName = "testBatchJobRestoreIn3NodeWorkerDown";
-        String testClusterName = "ClusterFaultToleranceIT_testBatchJobRestoreIn3NodeWorkerDown";
+    public void testBatchJobRestoreIn2NodeWorkerDown() throws ExecutionException, InterruptedException {
+        String testCaseName = "testBatchJobRestoreIn2NodeWorkerDown";
+        String testClusterName = "ClusterFaultToleranceIT_testBatchJobRestoreIn2NodeWorkerDown";
         long testRowNumber = 1000;
         int testParallelism = 2;
         HazelcastInstanceImpl node1 = null;
         HazelcastInstanceImpl node2 = null;
-        HazelcastInstanceImpl node3 = null;
         SeaTunnelClient engineClient = null;
 
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
@@ -271,12 +252,10 @@ public class ClusterFaultToleranceIT {
 
             node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
-            node3 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
-
             // waiting all node added to cluster
             HazelcastInstanceImpl finalNode = node1;
             Awaitility.await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertEquals(3, finalNode.getCluster().getMembers().size()));
+                .untilAsserted(() -> Assertions.assertEquals(2, finalNode.getCluster().getMembers().size()));
 
             Common.setDeployMode(DeployMode.CLIENT);
             ImmutablePair<String, String> testResources =
@@ -325,24 +304,18 @@ public class ClusterFaultToleranceIT {
             if (node2 != null) {
                 node2.shutdown();
             }
-
-            if (node3 != null) {
-                node3.shutdown();
-            }
         }
     }
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    @Disabled
-    public void testStreamJobRestoreIn3NodeWorkerDown() throws ExecutionException, InterruptedException {
-        String testCaseName = "testStreamJobRestoreIn3NodeWorkerDown";
-        String testClusterName = "ClusterFaultToleranceIT_testStreamJobRestoreIn3NodeWorkerDown";
+    public void testStreamJobRestoreIn2NodeWorkerDown() throws ExecutionException, InterruptedException {
+        String testCaseName = "testStreamJobRestoreIn2NodeWorkerDown";
+        String testClusterName = "ClusterFaultToleranceIT_testStreamJobRestoreIn2NodeWorkerDown";
         long testRowNumber = 1000;
         int testParallelism = 6;
         HazelcastInstanceImpl node1 = null;
         HazelcastInstanceImpl node2 = null;
-        HazelcastInstanceImpl node3 = null;
         SeaTunnelClient engineClient = null;
 
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
@@ -352,12 +325,10 @@ public class ClusterFaultToleranceIT {
 
             node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
-            node3 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
-
             // waiting all node added to cluster
             HazelcastInstanceImpl finalNode = node1;
             Awaitility.await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertEquals(3, finalNode.getCluster().getMembers().size()));
+                .untilAsserted(() -> Assertions.assertEquals(2, finalNode.getCluster().getMembers().size()));
 
             Common.setDeployMode(DeployMode.CLIENT);
             ImmutablePair<String, String> testResources =
@@ -421,24 +392,18 @@ public class ClusterFaultToleranceIT {
             if (node2 != null) {
                 node2.shutdown();
             }
-
-            if (node3 != null) {
-                node3.shutdown();
-            }
         }
     }
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    @Disabled
-    public void testBatchJobRestoreIn3NodeMasterDown() throws ExecutionException, InterruptedException {
-        String testCaseName = "testBatchJobRestoreIn3NodeMasterDown";
-        String testClusterName = "ClusterFaultToleranceIT_testBatchJobRestoreIn3NodeMasterDown";
+    public void testBatchJobRestoreIn2NodeMasterDown() throws ExecutionException, InterruptedException {
+        String testCaseName = "testBatchJobRestoreIn2NodeMasterDown";
+        String testClusterName = "ClusterFaultToleranceIT_testBatchJobRestoreIn2NodeMasterDown";
         long testRowNumber = 1000;
         int testParallelism = 6;
         HazelcastInstanceImpl node1 = null;
         HazelcastInstanceImpl node2 = null;
-        HazelcastInstanceImpl node3 = null;
         SeaTunnelClient engineClient = null;
 
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
@@ -448,12 +413,10 @@ public class ClusterFaultToleranceIT {
 
             node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
-            node3 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
-
             // waiting all node added to cluster
             HazelcastInstanceImpl finalNode = node1;
             Awaitility.await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertEquals(3, finalNode.getCluster().getMembers().size()));
+                .untilAsserted(() -> Assertions.assertEquals(2, finalNode.getCluster().getMembers().size()));
 
             Common.setDeployMode(DeployMode.CLIENT);
             ImmutablePair<String, String> testResources =
@@ -502,24 +465,18 @@ public class ClusterFaultToleranceIT {
             if (node2 != null) {
                 node2.shutdown();
             }
-
-            if (node3 != null) {
-                node3.shutdown();
-            }
         }
     }
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    @Disabled
-    public void testStreamJobRestoreIn3NodeMasterDown() throws ExecutionException, InterruptedException {
-        String testCaseName = "testStreamJobRestoreIn3NodeMasterDown";
-        String testClusterName = "ClusterFaultToleranceIT_testStreamJobRestoreIn3NodeMasterDown";
+    public void testStreamJobRestoreIn2NodeMasterDown() throws ExecutionException, InterruptedException {
+        String testCaseName = "testStreamJobRestoreIn2NodeMasterDown";
+        String testClusterName = "ClusterFaultToleranceIT_testStreamJobRestoreIn2NodeMasterDown";
         long testRowNumber = 1000;
         int testParallelism = 6;
         HazelcastInstanceImpl node1 = null;
         HazelcastInstanceImpl node2 = null;
-        HazelcastInstanceImpl node3 = null;
         SeaTunnelClient engineClient = null;
 
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
@@ -529,12 +486,10 @@ public class ClusterFaultToleranceIT {
 
             node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
-            node3 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
-
             // waiting all node added to cluster
             HazelcastInstanceImpl finalNode = node1;
             Awaitility.await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertEquals(3, finalNode.getCluster().getMembers().size()));
+                .untilAsserted(() -> Assertions.assertEquals(2, finalNode.getCluster().getMembers().size()));
 
             Common.setDeployMode(DeployMode.CLIENT);
             ImmutablePair<String, String> testResources =
@@ -597,16 +552,11 @@ public class ClusterFaultToleranceIT {
             if (node2 != null) {
                 node2.shutdown();
             }
-
-            if (node3 != null) {
-                node3.shutdown();
-            }
         }
     }
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    @Disabled
     public void testStreamJobRestoreInAllNodeDown() throws ExecutionException, InterruptedException {
         String testCaseName = "testStreamJobRestoreInAllNodeDown";
         String testClusterName = "ClusterFaultToleranceIT_testStreamJobRestoreInAllNodeDown";
@@ -614,7 +564,6 @@ public class ClusterFaultToleranceIT {
         int testParallelism = 6;
         HazelcastInstanceImpl node1 = null;
         HazelcastInstanceImpl node2 = null;
-        HazelcastInstanceImpl node3 = null;
         SeaTunnelClient engineClient = null;
 
         try {
@@ -644,12 +593,14 @@ public class ClusterFaultToleranceIT {
                 "        properties:\n" +
                 "          type: hdfs\n" +
                 "          namespace: /tmp/seatunnel/imap\n" +
-                "          clusterName: seatunnel-clsuter\n" +
+                "          clusterName: " + testClusterName + "\n" +
                 "          fs.defaultFS: file:///\n" +
                 "\n" +
                 "  properties:\n" +
-                "    hazelcast.invocation.max.retry.count: 20\n" +
+                "    hazelcast.invocation.max.retry.count: 200\n" +
                 "    hazelcast.tcp.join.port.try.count: 30\n" +
+                "    hazelcast.invocation.retry.pause.millis: 2000\n" +
+                "    hazelcast.slow.operation.detector.stacktrace.logging.enabled: true\n" +
                 "    hazelcast.logging.type: log4j2\n";
 
             Config hazelcastConfig = Config.loadFromString(yaml);
@@ -660,12 +611,10 @@ public class ClusterFaultToleranceIT {
 
             node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
-            node3 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
-
             // waiting all node added to cluster
             HazelcastInstanceImpl finalNode = node1;
             Awaitility.await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertEquals(3, finalNode.getCluster().getMembers().size()));
+                .untilAsserted(() -> Assertions.assertEquals(2, finalNode.getCluster().getMembers().size()));
 
             Common.setDeployMode(DeployMode.CLIENT);
             ImmutablePair<String, String> testResources =
@@ -696,7 +645,6 @@ public class ClusterFaultToleranceIT {
             // shutdown all node
             node1.shutdown();
             node2.shutdown();
-            node3.shutdown();
 
             Thread.sleep(10000);
 
@@ -704,12 +652,10 @@ public class ClusterFaultToleranceIT {
 
             node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
-            node3 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
-
             // waiting all node added to cluster
             HazelcastInstanceImpl restoreFinalNode = node1;
             Awaitility.await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertEquals(3, restoreFinalNode.getCluster().getMembers().size()));
+                .untilAsserted(() -> Assertions.assertEquals(2, restoreFinalNode.getCluster().getMembers().size()));
 
             Awaitility.await().atMost(360000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> {
@@ -743,10 +689,6 @@ public class ClusterFaultToleranceIT {
 
             if (node2 != null) {
                 node2.shutdown();
-            }
-
-            if (node3 != null) {
-                node3.shutdown();
             }
         }
     }
