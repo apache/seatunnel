@@ -78,8 +78,13 @@ public final class JobMetrics implements Serializable {
         Map<String, List<Measurement>> metricsMap = new HashMap<>();
         metrics.forEach((key, value) -> metricsMap.put(key, new ArrayList<>(value)));
         jobMetrics.metrics.forEach((key, value) -> metricsMap.merge(key, value, (v1, v2) -> {
-            v1.addAll(v2);
-            return v1;
+            List<Measurement> ms = new ArrayList<>(v2);
+            for (Measurement m1 : v1) {
+                if (v2.stream().noneMatch(m2 -> m2.getTags().equals(m1.getTags()))) {
+                    ms.add(m1);
+                }
+            }
+            return ms;
         }));
         return new JobMetrics(metricsMap);
     }

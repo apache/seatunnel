@@ -430,7 +430,8 @@ public class CoordinatorService {
     public JobStatus getJobStatus(long jobId) {
         JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
         if (runningJobMaster == null) {
-            return jobHistoryService.getJobDetailState(jobId).getJobStatus();
+            JobHistoryService.JobStateData jobDetailState = jobHistoryService.getJobDetailState(jobId);
+            return null == jobDetailState ? null : jobDetailState.getJobStatus();
         }
         return runningJobMaster.getJobStatus();
     }
