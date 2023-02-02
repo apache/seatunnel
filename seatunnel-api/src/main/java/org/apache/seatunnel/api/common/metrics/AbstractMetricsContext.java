@@ -19,11 +19,14 @@ package org.apache.seatunnel.api.common.metrics;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.Serializable;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
-public abstract class AbstractMetricsContext implements MetricsContext{
+public abstract class AbstractMetricsContext implements MetricsContext, Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     protected final Map<String, Metric> metrics = new ConcurrentHashMap<>();
 

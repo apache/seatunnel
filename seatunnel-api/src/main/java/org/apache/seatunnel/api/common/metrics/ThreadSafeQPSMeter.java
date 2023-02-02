@@ -22,6 +22,8 @@ import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 
 public class ThreadSafeQPSMeter implements Meter, Serializable {
 
+    private static final long serialVersionUID = 1L;
+
     private static final AtomicLongFieldUpdater<ThreadSafeQPSMeter> VOLATILE_VALUE_UPDATER =
         AtomicLongFieldUpdater.newUpdater(ThreadSafeQPSMeter.class, "value");
 

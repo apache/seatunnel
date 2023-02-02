@@ -22,6 +22,8 @@ import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 
 public class ThreadSafeCounter implements Counter, Serializable {
 
+    private static final long serialVersionUID = 1L;
+
     private final String name;
     private static final AtomicLongFieldUpdater<ThreadSafeCounter> VOLATILE_VALUE_UPDATER =
         AtomicLongFieldUpdater.newUpdater(ThreadSafeCounter.class, "value");
