@@ -31,7 +31,6 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
@@ -190,8 +189,8 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
         Properties prop = new Properties();
         String bootstrapServers = KAFKA_CONTAINER.getBootstrapServers();
         prop.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        prop.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
-        prop.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
+        prop.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
+        prop.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
         prop.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         prop.put(ConsumerConfig.GROUP_ID_CONFIG, "CONF");
         prop.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
