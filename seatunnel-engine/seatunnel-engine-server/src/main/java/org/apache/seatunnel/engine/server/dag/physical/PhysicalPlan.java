@@ -159,6 +159,7 @@ public class PhysicalPlan {
                     LOGGER.info(String.format("release the pipeline %s resource", subPlan.getPipelineFullName()));
                 } else if (PipelineStatus.FAILED.equals(pipelineState.getPipelineStatus())) {
                     if (canRestorePipeline(subPlan)) {
+                        LOGGER.info(String.format("Can restore pipeline %s", subPlan.getPipelineFullName()));
                         subPlan.restorePipeline();
                         return;
                     }

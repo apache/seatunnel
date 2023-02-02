@@ -132,7 +132,7 @@ public class OptionRule {
          */
         public Builder optional(@NonNull Option<?>... options) {
             for (Option<?> option : options) {
-                verifyDuplicate(option, "OptionsOption");
+                verifyOptionOptionsDuplicate(option, "OptionsOption");
             }
             this.optionalOptions.addAll(Arrays.asList(options));
             return this;
@@ -142,11 +142,9 @@ public class OptionRule {
          * Absolutely required options without any constraints.
          */
         public Builder required(@NonNull Option<?>... options) {
-            for (Option<?> option : options) {
-                verifyDuplicate(option, "RequiredOption");
-                //verifyRequiredOptionDefaultValue(option);
-            }
-            this.requiredOptions.add(RequiredOption.AbsolutelyRequiredOptions.of(options));
+            RequiredOption.AbsolutelyRequiredOptions requiredOption = RequiredOption.AbsolutelyRequiredOptions.of(options);
+            verifyRequiredOptionDuplicate(requiredOption);
+            this.requiredOptions.add(requiredOption);
             return this;
         }
 
@@ -157,20 +155,14 @@ public class OptionRule {
             if (options.length <= 1) {
                 throw new OptionValidationException("The number of exclusive options must be greater than 1.");
             }
-            for (Option<?> option : options) {
-                verifyDuplicate(option, "ExclusiveOption");
-                //verifyRequiredOptionDefaultValue(option);
-            }
-            this.requiredOptions.add(RequiredOption.ExclusiveRequiredOptions.of(options));
+            RequiredOption.ExclusiveRequiredOptions exclusiveRequiredOption = RequiredOption.ExclusiveRequiredOptions.of(options);
+            verifyRequiredOptionDuplicate(exclusiveRequiredOption);
+            this.requiredOptions.add(exclusiveRequiredOption);
             return this;
         }
 
-        public <T> Builder conditional(@NonNull Option<T> conditionalOption, @NonNull List<T> expectValues, @NonNull Option<?>... requiredOptions) {
-            for (Option<?> o : requiredOptions) {
-                verifyDuplicate(o, "ConditionalOption");
-                //verifyRequiredOptionDefaultValue(o);
-            }
-
+        public <T> Builder conditional(@NonNull Option<T> conditionalOption, @NonNull List<T> expectValues,
+                                       @NonNull Option<?>... requiredOptions) {
             verifyConditionalExists(conditionalOption);
 
             if (expectValues.size() == 0) {
@@ -188,27 +180,26 @@ public class OptionRule {
                 }
             }
 
-            this.requiredOptions.add(RequiredOption.ConditionalRequiredOptions.of(expression,
-                new ArrayList<>(Arrays.asList(requiredOptions))));
+            RequiredOption.ConditionalRequiredOptions option = RequiredOption.ConditionalRequiredOptions.of(expression,
+                new ArrayList<>(Arrays.asList(requiredOptions)));
+            verifyRequiredOptionDuplicate(option);
+            this.requiredOptions.add(option);
             return this;
         }
 
-        public <T> Builder conditional(@NonNull Option<T> conditionalOption, @NonNull T expectValue, @NonNull Option<?>... requiredOptions) {
-            for (Option<?> o : requiredOptions) {
-                // temporarily cancel this logic, need to find a way to verify that the options is duplicated
-                // verifyDuplicate(o, "ConditionalOption");
-                // verifyRequiredOptionDefaultValue(o);
-            }
-
+        public <T> Builder conditional(@NonNull Option<T> conditionalOption, @NonNull T expectValue,
+                                       @NonNull Option<?>... requiredOptions) {
             verifyConditionalExists(conditionalOption);
 
             /**
              * Each parameter can only be controlled by one other parameter
              */
             Expression expression = Expression.of(Condition.of(conditionalOption, expectValue));
+            RequiredOption.ConditionalRequiredOptions conditionalRequiredOption = RequiredOption.ConditionalRequiredOptions.of(expression,
+                new ArrayList<>(Arrays.asList(requiredOptions)));
 
-            this.requiredOptions.add(RequiredOption.ConditionalRequiredOptions.of(expression,
-                new ArrayList<>(Arrays.asList(requiredOptions))));
+            verifyRequiredOptionDuplicate(conditionalRequiredOption);
+            this.requiredOptions.add(conditionalRequiredOption);
             return this;
         }
 
@@ -216,10 +207,9 @@ public class OptionRule {
          * Bundled options, must be present or absent together.
          */
         public Builder bundled(@NonNull Option<?>... requiredOptions) {
-            for (Option<?> option : requiredOptions) {
-                verifyDuplicate(option, "BundledOption");
-            }
-            this.requiredOptions.add(RequiredOption.BundledRequiredOptions.of(requiredOptions));
+            RequiredOption.BundledRequiredOptions bundledRequiredOption = RequiredOption.BundledRequiredOptions.of(requiredOptions);
+            verifyRequiredOptionDuplicate(bundledRequiredOption);
+            this.requiredOptions.add(bundledRequiredOption);
             return this;
         }
 
@@ -234,16 +224,51 @@ public class OptionRule {
             }
         }
 
-        private void verifyDuplicate(@NonNull Option<?> option, @NonNull String currentOptionType) {
+        private void verifyDuplicateWithOptionOptions(@NonNull Option<?> option, @NonNull String currentOptionType) {
             if (optionalOptions.contains(option)) {
                 throw new OptionValidationException(
                     String.format("%s '%s' duplicate in option options.", currentOptionType, option.key()));
             }
+        }
+
+        private void verifyRequiredOptionDuplicate(@NonNull RequiredOption requiredOption) {
+            requiredOption.getOptions().forEach(option -> {
+                verifyDuplicateWithOptionOptions(option, requiredOption.getClass().getSimpleName());
+                requiredOptions.forEach(ro -> {
+                    if (ro instanceof RequiredOption.ConditionalRequiredOptions &&
+                        requiredOption instanceof RequiredOption.ConditionalRequiredOptions) {
+                        Option<?> requiredOptionCondition =
+                            ((RequiredOption.ConditionalRequiredOptions) requiredOption).getExpression().getCondition()
+                                .getOption();
+
+                        Option<?> roOptionCondition =
+                            ((RequiredOption.ConditionalRequiredOptions) ro).getExpression().getCondition()
+                                .getOption();
+
+                        if (ro.getOptions().contains(option) && !requiredOptionCondition.equals(roOptionCondition)) {
+                            throw new OptionValidationException(
+                                String.format("%s '%s' duplicate in %s options.", requiredOption.getClass().getSimpleName(),
+                                    option.key(), ro.getClass().getSimpleName()));
+                        }
+                    } else {
+                        if (ro.getOptions().contains(option)) {
+                            throw new OptionValidationException(
+                                String.format("%s '%s' duplicate in %s options.", requiredOption.getClass().getSimpleName(),
+                                    option.key(), ro.getClass().getSimpleName()));
+                        }
+                    }
+                });
+            });
+        }
+
+        private void verifyOptionOptionsDuplicate(@NonNull Option<?> option, @NonNull String currentOptionType) {
+            verifyDuplicateWithOptionOptions(option, currentOptionType);
 
             requiredOptions.forEach(requiredOption -> {
                 if (requiredOption.getOptions().contains(option)) {
                     throw new OptionValidationException(
-                        String.format("%s '%s' duplicate in '%s'.", currentOptionType, option.key(), requiredOption.getClass().getName()));
+                        String.format("%s '%s' duplicate in '%s'.", currentOptionType, option.key(),
+                            requiredOption.getClass().getSimpleName()));
                 }
             });
         }

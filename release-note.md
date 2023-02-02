@@ -10,6 +10,8 @@
 ### Transformer
 - [Spark] Support transform-v2 for spark (#3409)
 - [ALL]Add FieldMapper Transform #3781
+### Connectors
+- [Elasticsearch] Support https protocol & compatible with opensearch
 
 ## Improves
 ### Connectors
@@ -43,6 +45,8 @@
 ### Connectors
 - [ClickHouse File] Fix ClickhouseFile Committer Serializable Problems #3803
 - [ClickHouse] Fix clickhouse write cdc changelog update event #3951
+- [ClickHouse] Fix connector source snapshot state NPE #4027
+- [Kudu] Fix connector source snapshot state NPE #4027
 
 ### Zeta Engine
 - [Checkpoint] Fix Checkpoint Continue Trigger After Job CANCELED #3808
@@ -50,6 +54,8 @@
 - [Core]Fix Local Mode can't deserialize split (#3817)
 - [Metrics] Fix Metrics will lose when Job be canceled or restart. #3797 #3977
 
+### Documents
+- [Doc] seatunnel run with flink operator error #3998
 
 ## Test
 ### E2E
