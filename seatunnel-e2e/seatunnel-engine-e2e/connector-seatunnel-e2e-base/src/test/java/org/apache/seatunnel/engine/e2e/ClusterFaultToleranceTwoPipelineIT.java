@@ -209,7 +209,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
                 return clientJobProxy.waitForJobComplete();
             });
 
-            Awaitility.await().atMost(200000, TimeUnit.MINUTES)
+            Awaitility.await().atMost(6, TimeUnit.MINUTES)
                 .untilAsserted(() -> {
                     Thread.sleep(2000);
                     System.out.println(FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
