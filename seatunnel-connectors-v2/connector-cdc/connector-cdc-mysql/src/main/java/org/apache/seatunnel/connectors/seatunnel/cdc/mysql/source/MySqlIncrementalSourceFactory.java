@@ -35,7 +35,7 @@ public class MySqlIncrementalSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return JdbcSourceOptions.BASE_RULE
+        return JdbcSourceOptions.getBaseRule()
             .required(
                 JdbcSourceOptions.HOSTNAME,
                 JdbcSourceOptions.USERNAME,

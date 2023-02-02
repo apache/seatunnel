@@ -31,6 +31,7 @@ import com.clickhouse.client.ClickHouseResponse;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
@@ -88,7 +89,7 @@ public class ClickhouseSourceReader implements SourceReader<SeaTunnelRow, Clickh
 
     @Override
     public List<ClickhouseSourceSplit> snapshotState(long checkpointId) throws Exception {
-        return null;
+        return Collections.emptyList();
     }
 
     @Override

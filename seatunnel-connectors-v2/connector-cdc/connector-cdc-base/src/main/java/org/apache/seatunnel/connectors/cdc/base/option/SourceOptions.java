@@ -90,13 +90,15 @@ public class SourceOptions {
         .noDefaultValue()
         .withDescription("Decides if the table options contains Debezium client properties that start with prefix 'debezium'.");
 
-    public static final OptionRule.Builder BASE_RULE = OptionRule.builder()
-        .optional(SNAPSHOT_SPLIT_SIZE, SNAPSHOT_FETCH_SIZE)
-        .optional(INCREMENTAL_PARALLELISM)
-        .optional(STARTUP_MODE, STOP_MODE)
-        .optional(DEBEZIUM_PROPERTIES)
-        .conditional(STARTUP_MODE, StartupMode.TIMESTAMP, STARTUP_TIMESTAMP)
-        .conditional(STARTUP_MODE, StartupMode.SPECIFIC, STARTUP_SPECIFIC_OFFSET_FILE, STARTUP_SPECIFIC_OFFSET_POS)
-        .conditional(STOP_MODE, StopMode.TIMESTAMP, STOP_TIMESTAMP)
-        .conditional(STOP_MODE, StopMode.SPECIFIC, STOP_SPECIFIC_OFFSET_FILE, STOP_SPECIFIC_OFFSET_POS);
+    public static OptionRule.Builder getBaseRule() {
+        return OptionRule.builder()
+            .optional(SNAPSHOT_SPLIT_SIZE, SNAPSHOT_FETCH_SIZE)
+            .optional(INCREMENTAL_PARALLELISM)
+            .optional(STARTUP_MODE, STOP_MODE)
+            .optional(DEBEZIUM_PROPERTIES)
+            .conditional(STARTUP_MODE, StartupMode.TIMESTAMP, STARTUP_TIMESTAMP)
+            .conditional(STARTUP_MODE, StartupMode.SPECIFIC, STARTUP_SPECIFIC_OFFSET_FILE, STARTUP_SPECIFIC_OFFSET_POS)
+            .conditional(STOP_MODE, StopMode.TIMESTAMP, STOP_TIMESTAMP)
+            .conditional(STOP_MODE, StopMode.SPECIFIC, STOP_SPECIFIC_OFFSET_FILE, STOP_SPECIFIC_OFFSET_POS);
+    }
 }

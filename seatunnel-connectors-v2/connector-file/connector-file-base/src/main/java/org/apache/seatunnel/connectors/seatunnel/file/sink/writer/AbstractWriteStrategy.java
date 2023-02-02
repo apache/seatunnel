@@ -212,6 +212,9 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
                 stringBuilder.append(partitionFieldList.get(i))
                         .append("=")
                         .append(seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)]);
+                if (i < partitionFieldsIndexInRow.size() - 1) {
+                    stringBuilder.append("/");
+                }
                 vals.add(seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)].toString());
             }
             partitionDir = stringBuilder.toString();
