@@ -19,6 +19,7 @@ package org.apache.seatunnel.api.table.catalog;
 
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
+import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.factory.Factory;
 
@@ -113,4 +114,14 @@ public interface Catalog {
      * @throws CatalogException in case of any runtime exception
      */
     CatalogTable getTable(TablePath tablePath) throws CatalogException, TableNotExistException;
+
+    /**
+     * Create a table in this catalog.
+     *
+     * @param tablePath      Path of the table
+     * @param table          The table definition
+     * @param ignoreIfExists Flag to specify behavior when a table with the given name already exists
+     */
+    void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists) throws
+        TableAlreadyExistException, DatabaseNotExistException, CatalogException;
 }
