@@ -164,8 +164,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         restoreComplete.complete(null);
     }
 
-    public void addSplitsBack(List<SplitT> splits, int subtaskId) {
-        enumerator.addSplitsBack(splits, subtaskId);
+    public void addSplitsBack(List<SplitT> splits, int subtaskId) throws ExecutionException, InterruptedException {
+        getEnumerator().addSplitsBack(splits, subtaskId);
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
@@ -173,24 +173,21 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         throws InterruptedException, ExecutionException {
         LOGGER.info("received reader register, readerID: " + readerId);
 
-        //(restoreComplete == null) means that the Task has not yet executed Init, so we need to wait.
-        while (null == restoreComplete){
-            Thread.sleep(200);
-        }
-        restoreComplete.get();
+        SourceSplitEnumerator<SplitT, Serializable> en = getEnumerator();
         this.addTaskMemberMapping(readerId, memberAddr);
-        enumerator.registerReader(readerId.getTaskIndex());
+        en.registerReader(readerId.getTaskIndex());
         if (maxReaderSize == taskMemberMapping.size()) {
             readerRegisterComplete = true;
         }
     }
 
-    public void requestSplit(long taskIndex) {
-        enumerator.handleSplitRequest((int) taskIndex);
+    public void requestSplit(long taskIndex) throws ExecutionException, InterruptedException {
+        getEnumerator().handleSplitRequest((int) taskIndex);
     }
 
-    public void handleSourceEvent(int subtaskId, SourceEvent sourceEvent) {
-        enumerator.handleSourceEvent(subtaskId, sourceEvent);
+    public void handleSourceEvent(int subtaskId, SourceEvent sourceEvent)
+        throws ExecutionException, InterruptedException {
+        getEnumerator().handleSourceEvent(subtaskId, sourceEvent);
     }
 
     public void addTaskMemberMapping(TaskLocation taskID, Address memberAdder) {
@@ -214,6 +211,16 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     public TaskLocation getTaskMemberLocationByIndex(int taskIndex) {
         return taskIndexToTaskLocationMapping.get(taskIndex);
+    }
+
+    @SuppressWarnings("checkstyle:MagicNumber")
+    private SourceSplitEnumerator<SplitT, Serializable> getEnumerator() throws InterruptedException, ExecutionException {
+        //(restoreComplete == null) means that the Task has not yet executed Init, so we need to wait.
+        while (null == restoreComplete){
+            Thread.sleep(200);
+        }
+        restoreComplete.get();
+        return enumerator;
     }
 
     public void readerFinished(long taskID) {
@@ -294,7 +301,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
-        enumerator.notifyCheckpointComplete(checkpointId);
+        getEnumerator().notifyCheckpointComplete(checkpointId);
         if (currState == PREPARE_CLOSE && prepareCloseBarrierId.get() == checkpointId) {
             closeCall();
         }
@@ -302,7 +309,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
-        enumerator.notifyCheckpointAborted(checkpointId);
+        getEnumerator().notifyCheckpointAborted(checkpointId);
         if (currState == PREPARE_CLOSE && prepareCloseBarrierId.get() == checkpointId) {
             closeCall();
         }
