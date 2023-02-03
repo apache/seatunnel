@@ -21,4 +21,4 @@ hazelcast-client:
     hazelcast.logging.type: log4j2
   network:
     cluster-members:
-      - localhost:5801
+      - localhost:9000
