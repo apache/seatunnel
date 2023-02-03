@@ -109,6 +109,10 @@ public final class Measurement implements Serializable {
         return tags.get(name);
     }
 
+    public Map<String, String> getTags() {
+        return tags;
+    }
+
     @Override
     public int hashCode() {
         return 31 * (int) (timestamp * 31 + value.hashCode()) + Objects.hashCode(tags);
