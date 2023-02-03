@@ -209,9 +209,11 @@ public class PulsarSource<T> implements SeaTunnelSource<T, PulsarPartitionSplit,
     }
 
     private void setPartitionDiscoverer(Config config) {
-        String topic = config.getString(TOPIC.key());
-        if (StringUtils.isNotBlank(topic)) {
-            this.partitionDiscoverer = new TopicListDiscoverer(Arrays.asList(StringUtils.split(topic, ",")));
+        if (config.hasPath(TOPIC.key())){
+            String topic = config.getString(TOPIC.key());
+            if (StringUtils.isNotBlank(topic)) {
+                this.partitionDiscoverer = new TopicListDiscoverer(Arrays.asList(StringUtils.split(topic, ",")));
+            }
         }
         if (config.hasPath(TOPIC_PATTERN.key())) {
             String topicPattern = config.getString(TOPIC_PATTERN.key());
