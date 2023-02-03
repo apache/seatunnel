@@ -359,8 +359,7 @@ public class SubPlan {
                     reSchedulerPipelineFuture.join();
                 }
             } catch (Throwable e) {
-                LOGGER.severe(
-                    String.format("Restore pipeline %s error with exception: %s", pipelineFullName, e));
+                LOGGER.severe(String.format("Restore pipeline %s error with exception: ", pipelineFullName), e);
                 cancelPipeline();
             }
         }
