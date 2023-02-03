@@ -49,7 +49,6 @@ public class DefaultSlotService implements SlotService {
 
     private static final ILogger LOGGER = Logger.getLogger(DefaultSlotService.class);
     private static final long DEFAULT_HEARTBEAT_TIMEOUT = 2000;
-    private static final int HEARTBEAT_RETRY_TIME = 5;
     private final NodeEngineImpl nodeEngine;
 
     private AtomicReference<ResourceProfile> unassignedResource;
@@ -115,7 +114,6 @@ public class DefaultSlotService implements SlotService {
     @Override
     public synchronized SlotAndWorkerProfile requestSlot(long jobId, ResourceProfile resourceProfile) {
         initStatus = false;
-        LOGGER.info(String.format("received slot request, jobID: %d, resource profile: %s", jobId, resourceProfile));
         SlotProfile profile = selectBestMatchSlot(resourceProfile);
         if (profile != null) {
             profile.assign(jobId);
@@ -126,6 +124,7 @@ public class DefaultSlotService implements SlotService {
             contexts.computeIfAbsent(profile.getSlotID(),
                 p -> new SlotContext(profile.getSlotID(), taskExecutionService));
         }
+        LOGGER.info(String.format("received slot request, jobID: %d, resource profile: %s, return: %s", jobId, resourceProfile, profile));
         return new SlotAndWorkerProfile(getWorkerProfile(), profile);
     }
 
