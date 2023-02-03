@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
@@ -167,8 +168,17 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         enumerator.addSplitsBack(splits, subtaskId);
     }
 
-    public void receivedReader(TaskLocation readerId, Address memberAddr) {
+    @SuppressWarnings("checkstyle:MagicNumber")
+    public void receivedReader(TaskLocation readerId, Address memberAddr) throws InterruptedException {
         LOGGER.info("received reader register, readerID: " + readerId);
+        int retry = 0;
+        while (!restoreComplete && retry++ < 500) {
+            LOGGER.warning("SourceSplitEnumeratorTask restore has not been completed yet, wait for 200ms");
+            Thread.sleep(200);
+        }
+        if (!restoreComplete) {
+            throw new SeaTunnelException("SourceSplitEnumeratorTask restore not yet complete, receivedReader failed");
+        }
         this.addTaskMemberMapping(readerId, memberAddr);
         enumerator.registerReader(readerId.getTaskIndex());
         if (maxReaderSize == taskMemberMapping.size()) {
