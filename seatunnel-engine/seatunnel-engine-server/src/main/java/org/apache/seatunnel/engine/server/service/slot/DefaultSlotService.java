@@ -92,7 +92,7 @@ public class DefaultSlotService implements SlotService {
             try {
                 LOGGER.fine("start send heartbeat to resource manager, this address: " +
                     nodeEngine.getClusterService().getThisAddress());
-                sendToMaster(new WorkerHeartbeatOperation(toWorkerProfile())).join();
+                sendToMaster(new WorkerHeartbeatOperation(getWorkerProfile())).join();
             } catch (Exception e) {
                 LOGGER.warning("failed send heartbeat to resource manager, will retry later. this address: " +
                     nodeEngine.getClusterService().getThisAddress());
@@ -126,7 +126,7 @@ public class DefaultSlotService implements SlotService {
             contexts.computeIfAbsent(profile.getSlotID(),
                 p -> new SlotContext(profile.getSlotID(), taskExecutionService));
         }
-        return new SlotAndWorkerProfile(toWorkerProfile(), profile);
+        return new SlotAndWorkerProfile(getWorkerProfile(), profile);
     }
 
     public SlotContext getSlotContext(SlotProfile slotProfile) {
@@ -137,7 +137,7 @@ public class DefaultSlotService implements SlotService {
     }
 
     @Override
-    public void releaseSlot(long jobId, SlotProfile profile) {
+    public synchronized void releaseSlot(long jobId, SlotProfile profile) {
         LOGGER.info(String.format("received slot release request, jobID: %d, slot: %s", jobId, profile));
         if (!assignedSlots.containsKey(profile.getSlotID())) {
             throw new WrongTargetSlotException("Not exist this slot in slot service, slot profile: " + profile);
@@ -199,7 +199,8 @@ public class DefaultSlotService implements SlotService {
         }
     }
 
-    public WorkerProfile toWorkerProfile() {
+    @Override
+    public synchronized WorkerProfile getWorkerProfile() {
         WorkerProfile workerProfile = new WorkerProfile(nodeEngine.getThisAddress());
         workerProfile.setProfile(getNodeResource());
         workerProfile.setAssignedSlots(assignedSlots.values().toArray(new SlotProfile[0]));

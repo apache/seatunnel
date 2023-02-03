@@ -21,6 +21,7 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ReleaseSlotOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ResetResourceOperation;
+import org.apache.seatunnel.engine.server.resourcemanager.opeartion.SyncWorkerProfileOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
@@ -31,6 +32,7 @@ import com.hazelcast.cluster.Member;
 import com.hazelcast.internal.services.MembershipServiceEvent;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
+import com.hazelcast.spi.impl.InternalCompletableFuture;
 import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
@@ -73,6 +75,10 @@ public abstract class AbstractResourceManager implements ResourceManager {
             List<Address> dead =
                 registerWorker.keySet().stream().filter(r -> !aliveWorker.contains(r)).collect(Collectors.toList());
             dead.forEach(registerWorker::remove);
+            List<InternalCompletableFuture<Void>> futures = aliveWorker.stream().map(worker -> sendToMember(new SyncWorkerProfileOperation(), worker).thenAccept(p -> {
+                registerWorker.put(worker, (WorkerProfile) p);
+            })).collect(Collectors.toList());
+            futures.forEach(InternalCompletableFuture::join);
         }
     }
 
