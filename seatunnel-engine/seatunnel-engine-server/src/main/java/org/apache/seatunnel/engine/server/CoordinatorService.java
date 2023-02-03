@@ -214,10 +214,12 @@ public class CoordinatorService {
                 ownedSlotProfilesIMap,
                 engineConfig);
 
+        jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp());
         try {
-            jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp());
+            jobMaster.initCheckPointManager();
         } catch (Exception e) {
-            throw new SeaTunnelEngineException(String.format("Job id %s init JobMaster failed", jobId), e);
+            jobMaster.cancelJob();
+            throw new SeaTunnelEngineException(String.format("Job id %s init CheckPointManager failed", jobId), e);
         }
 
         String jobFullName = jobMaster.getPhysicalPlan().getJobFullName();
@@ -339,6 +341,7 @@ public class CoordinatorService {
                 runningJobInfoIMap.put(jobId, new JobInfo(System.currentTimeMillis(), jobImmutableInformation));
                 runningJobMasterMap.put(jobId, jobMaster);
                 jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp());
+                jobMaster.initCheckPointManager();
             } catch (Throwable e) {
                 logger.severe(String.format("submit job %s error %s ", jobId, ExceptionUtils.getMessage(e)));
                 voidCompletableFuture.completeExceptionally(e);
