@@ -32,10 +32,12 @@ seatunnel:
                 type: hdfs #plugin name of checkpoint storage, we support hdfs(S3, local, hdfs), localfile (native local file) is the default, but this plugin is de
               # plugin configuration
                 plugin-config: 
-                  namespace: #checkpoint storage parent path, the default value is /seatunnel/checkpoint
+                  namespace: #checkpoint storage parent path, the default value is /seatunnel/checkpoint/
                   K1: V1 # plugin other configuration
                   K2: V2 # plugin other configuration   
 ```
+Notice: namespace must end with "/".
+
 #### OSS
 Aliyun oss base on hdfs-file, so you can refer [hadoop oss docs](https://hadoop.apache.org/docs/stable/hadoop-aliyun/tools/hadoop-aliyun/index.html) to config oss.
 
@@ -130,10 +132,10 @@ seatunnel:
         max-retained: 3
         plugin-config:
           storage-type: hdfs
-            fs.defaultFS: hdfs://localhost:9000
-            // if you used kerberos, you can config like this:
-            kerberosPrincipal: your-kerberos-principal
-            kerberosKeytab: your-kerberos-keytab  
+          fs.defaultFS: hdfs://localhost:9000
+          // if you used kerberos, you can config like this:
+          kerberosPrincipal: your-kerberos-principal
+          kerberosKeytab: your-kerberos-keytab  
 ```
 
 

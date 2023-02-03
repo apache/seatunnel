@@ -237,7 +237,7 @@ hazelcast-client:
 
 ```shell
 mkdir -p $SEATUNNEL_HOME/logs
-nohup seatunnel-cluster.sh &
+nohup bin/seatunnel-cluster.sh 2>&1 &
 ```
 
 The logs will write in `$SEATUNNEL_HOME/logs/seatunnel-engine-server.log`
