@@ -30,7 +30,6 @@ import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
@@ -64,6 +63,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -161,7 +161,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             this.enumerator = this.source.getSource()
                 .createEnumerator(enumeratorContext);
         }
-        restoreComplete = true;
+        restoreComplete.complete(null);
     }
 
     public void addSplitsBack(List<SplitT> splits, int subtaskId) {
@@ -169,16 +169,15 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
-    public void receivedReader(TaskLocation readerId, Address memberAddr) throws InterruptedException {
+    public void receivedReader(TaskLocation readerId, Address memberAddr)
+        throws InterruptedException, ExecutionException {
         LOGGER.info("received reader register, readerID: " + readerId);
-        int retry = 0;
-        while (!restoreComplete && retry++ < 500) {
-            LOGGER.warning("SourceSplitEnumeratorTask restore has not been completed yet, wait for 200ms");
+
+        //(restoreComplete == null) means that the Task has not yet executed Init, so we need to wait.
+        while (null == restoreComplete){
             Thread.sleep(200);
         }
-        if (!restoreComplete) {
-            throw new SeaTunnelException("SourceSplitEnumeratorTask restore not yet complete, receivedReader failed");
-        }
+        restoreComplete.get();
         this.addTaskMemberMapping(readerId, memberAddr);
         enumerator.registerReader(readerId.getTaskIndex());
         if (maxReaderSize == taskMemberMapping.size()) {
@@ -232,7 +231,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                 reportTaskStatus(WAITING_RESTORE);
                 break;
             case WAITING_RESTORE:
-                if (restoreComplete) {
+                if (restoreComplete.isDone()) {
                     currState = READY_START;
                     reportTaskStatus(READY_START);
                 }

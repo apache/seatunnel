@@ -137,7 +137,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
                 reportTaskStatus(WAITING_RESTORE);
                 break;
             case WAITING_RESTORE:
-                if (restoreComplete) {
+                if (restoreComplete.isDone()) {
                     for (FlowLifeCycle cycle : allCycles) {
                         cycle.open();
                     }
@@ -325,7 +325,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
                     sneakyThrow(e);
                 }
             });
-        restoreComplete = true;
+        restoreComplete.complete(null);
     }
 
     @Override
