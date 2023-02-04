@@ -13,6 +13,14 @@ Seatunnel supports to interpret Canal JSON messages as INSERT/UPDATE/DELETE mess
 
 Seatunnel also supports to encode the INSERT/UPDATE/DELETE messages in Seatunnel as Canal JSON messages, and emit to storage like Kafka. However, currently Seatunnel can’t combine UPDATE_BEFORE and UPDATE_AFTER into a single UPDATE message. Therefore, Seatunnel encodes UPDATE_BEFORE and UPDATE_AFTER as DELETE and INSERT Canal messages.
 
+# Format Options
+| option                         | default  | required | Description                                                                                                                                                                                                |
+|--------------------------------|----------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| format                         | (none)   | yes      | Specify what format to use, here should be 'canal-json'.                                                                                                                                                   |
+| canal-json.ignore-parse-errors | false    | no       | Skip fields and rows with parse errors instead of failing. Fields are set to null in case of errors.                                                                                                       |
+| canal-json.database.include    | (none)   | no       | An optional regular expression to only read the specific databases changelog rows by regular matching the "database" meta field in the Canal record. The pattern string is compatible with Java's Pattern. |
+| canal-json.table.include       | (none)   | no       | An optional regular expression to only read the specific tables changelog rows by regular matching the "table" meta field in the Canal record. The pattern string is compatible with Java's Pattern.       |
+
 # How to use Canal format
 Canal provides a unified format for changelog, here is a simple example for an update operation captured from a MySQL products table:
 ```bash
@@ -84,8 +92,6 @@ source {
     format = canal-json
   }
 
-  # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/source/KafkaSource
 }
 
 transform {
@@ -99,11 +105,3 @@ sink {
 }
 ```
 
-# Format Options
-
-| option                         | default  | required | Description                                                                                                                                                                                                |
-|--------------------------------|----------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| format                         | (none)   | yes      | Specify what format to use, here should be 'canal-json'.                                                                                                                                                   |
-| canal-json.ignore-parse-errors | false    | no       | Skip fields and rows with parse errors instead of failing. Fields are set to null in case of errors.                                                                                                       |
-| canal-json.database.include    | (none)   | no       | An optional regular expression to only read the specific databases changelog rows by regular matching the "database" meta field in the Canal record. The pattern string is compatible with Java's Pattern. |
-| canal-json.table.include       | (none)   | no       | An optional regular expression to only read the specific tables changelog rows by regular matching the "table" meta field in the Canal record. The pattern string is compatible with Java's Pattern.       |

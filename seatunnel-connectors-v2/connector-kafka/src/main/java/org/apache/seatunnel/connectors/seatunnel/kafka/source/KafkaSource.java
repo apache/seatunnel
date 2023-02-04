@@ -214,7 +214,7 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
                     .build();
             } else if (CANNAL_FORMAT.equals(format)) {
                 deserializationSchema = CanalJsonDeserializationSchema.builder(typeInfo)
-                    .setIgnoreParseErrors(false)
+                    .setIgnoreParseErrors(true)
                     .build();
             } else {
                 // TODO: use format SPI

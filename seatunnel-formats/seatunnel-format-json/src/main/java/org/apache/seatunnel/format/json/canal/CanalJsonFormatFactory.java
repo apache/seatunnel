@@ -20,6 +20,7 @@ package org.apache.seatunnel.format.json.canal;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
+import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.connector.DeserializationFormat;
 import org.apache.seatunnel.api.table.connector.SerializationFormat;
 import org.apache.seatunnel.api.table.factory.DeserializationFormatFactory;
@@ -51,7 +52,12 @@ public class CanalJsonFormatFactory
 
     @Override
     public SerializationFormat createSerializationFormat(TableFactoryContext context) {
-        return () -> new CanalJsonSerializationSchema(null);
+        return new SerializationFormat() {
+            @Override
+            public SerializationSchema createSerializationSchema() {
+                return new CanalJsonSerializationSchema(null);
+            }
+        };
     }
 
     @Override
@@ -62,6 +68,11 @@ public class CanalJsonFormatFactory
         String  tableInclude = CanalJsonFormatOptions.getTableInclude(options);
 
         // TODO config SeaTunnelRowType
-        return () -> new CanalJsonDeserializationSchema(null, databaseInclude, tableInclude, ignoreParseErrors);
+        return new DeserializationFormat() {
+            @Override
+            public DeserializationSchema createDeserializationSchema() {
+                return new CanalJsonDeserializationSchema(null, databaseInclude, tableInclude, ignoreParseErrors);
+            }
+        };
     }
 }

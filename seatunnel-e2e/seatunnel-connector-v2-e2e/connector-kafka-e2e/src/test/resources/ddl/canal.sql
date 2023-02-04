@@ -38,3 +38,8 @@ VALUES (default,"scooter","Small 2-wheel scooter","3.14"),
        (default,"rocks","box of assorted rocks","5.3"),
        (default,"jacket","water resistent black wind breaker","0.1"),
        (default,"spare tire","24 inch spare tire","22.2");
+
+UPDATE products SET weight = '4.56' WHERE name = 'scooter';
+UPDATE products SET weight = '7.88' WHERE name = 'rocks';
+
+DELETE FROM products WHERE name  = "spare tire";
