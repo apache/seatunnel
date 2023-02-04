@@ -40,7 +40,7 @@ import java.io.IOException;
 @Slf4j
 public class WALWorkHandler implements WorkHandler<FileWALEvent> {
 
-    private WALWriter writer;
+    private final WALWriter writer;
 
     public WALWorkHandler(FileSystem fs, String parentPath, Serializer serializer) {
         try {

@@ -29,9 +29,9 @@ public class RequestFutureCache {
         throw new IllegalStateException("Utility class");
     }
 
-    private static AtomicLong REQUEST_ID_GEN = new AtomicLong(0);
+    private static final AtomicLong REQUEST_ID_GEN = new AtomicLong(0);
 
-    private static ConcurrentHashMap<Long, RequestFuture> REQUEST_MAP = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Long, RequestFuture> REQUEST_MAP = new ConcurrentHashMap<>();
 
     public static void put(long requestId, RequestFuture requestFuture) {
         REQUEST_MAP.put(requestId, requestFuture);
