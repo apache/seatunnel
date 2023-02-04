@@ -18,8 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.hbase.config;
 
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ENCODING;
+import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.FAMILY_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.HBASE_EXTRA_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.NULL_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ROWKEY_COLUMNS;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ROWKEY_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.TABLE;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.VERSION_COLUMN;
@@ -27,13 +29,14 @@ import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.WRITE_BUFFER_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ZOOKEEPER_QUORUM;
 
+import org.apache.seatunnel.common.config.TypesafeConfigUtils;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.Builder;
 import lombok.Getter;
 
 import java.io.Serializable;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -46,6 +49,8 @@ public class HbaseParameters implements Serializable {
     private String table;
 
     private List<String> rowkeyColumns;
+
+    private Map<String, String> familyNames;
 
     private String versionColumn;
 
@@ -72,7 +77,8 @@ public class HbaseParameters implements Serializable {
         // required parameters
         builder.zookeeperQuorum(pluginConfig.getString(ZOOKEEPER_QUORUM.key()));
         builder.table(pluginConfig.getString(TABLE.key()));
-        builder.rowkeyColumns(pluginConfig.getStringList(ROWKEY_DELIMITER.key()));
+        builder.rowkeyColumns(pluginConfig.getStringList(ROWKEY_COLUMNS.key()));
+        builder.familyNames(TypesafeConfigUtils.configToMap(pluginConfig.getConfig(FAMILY_NAME.key())));
 
         // optional parameters
         if (pluginConfig.hasPath(ROWKEY_DELIMITER.key())) {
@@ -96,12 +102,8 @@ public class HbaseParameters implements Serializable {
             builder.enCoding(HbaseConfig.EnCoding.valueOf(encoding.toUpperCase()));
         }
         if (pluginConfig.hasPath(HBASE_EXTRA_CONFIG.key())) {
-            Map<String, String> hbaseExtraConfig = new HashMap<>();
             Config extraConfig = pluginConfig.getConfig(HBASE_EXTRA_CONFIG.key());
-            extraConfig.entrySet().forEach(entry -> {
-                hbaseExtraConfig.put(entry.getKey(), entry.getValue().unwrapped().toString());
-            });
-            builder.hbaseExtraConfig(hbaseExtraConfig);
+            builder.hbaseExtraConfig(TypesafeConfigUtils.configToMap(extraConfig));
         }
         return builder.build();
     }

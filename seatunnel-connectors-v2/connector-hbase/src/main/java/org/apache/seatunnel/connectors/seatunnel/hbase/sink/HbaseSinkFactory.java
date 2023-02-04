@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.hbase.sink;
 
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ENCODING;
+import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.FAMILY_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.HBASE_EXTRA_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.NULL_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ROWKEY_COLUMNS;
@@ -47,7 +48,7 @@ public class HbaseSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(ZOOKEEPER_QUORUM, TABLE, ROWKEY_COLUMNS)
+                .required(ZOOKEEPER_QUORUM, TABLE, ROWKEY_COLUMNS, FAMILY_NAME)
                 .optional(ROWKEY_DELIMITER,
                         VERSION_COLUMN,
                         NULL_MODE,

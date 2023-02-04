@@ -29,12 +29,22 @@
 
     <artifactId>connector-hbase</artifactId>
 
+    <properties>
+        <hbase.version>2.4.10</hbase.version>
+    </properties>
+
     <dependencies>
 
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-common</artifactId>
             <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.hbase</groupId>
+            <artifactId>hbase-client</artifactId>
+            <version>${hbase.version}</version>
         </dependency>
 
     </dependencies>

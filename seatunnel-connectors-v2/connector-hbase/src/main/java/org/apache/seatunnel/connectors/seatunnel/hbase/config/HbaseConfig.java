@@ -72,6 +72,11 @@ public class HbaseConfig {
             .defaultValue(EnCoding.UTF8)
             .withDescription("Hbase record encoding");
 
+    public static final Option<Map<String, String>> FAMILY_NAME = Options.key("family_name")
+            .mapType()
+            .noDefaultValue()
+            .withDescription("Hbase column family name");
+
     public static final Option<Map<String, String>> HBASE_EXTRA_CONFIG = Options.key("hbase_extra_config")
             .mapType()
             .noDefaultValue()
