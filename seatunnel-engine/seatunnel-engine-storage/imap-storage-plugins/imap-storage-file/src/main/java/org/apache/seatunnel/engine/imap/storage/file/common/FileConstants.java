@@ -64,8 +64,11 @@ public class FileConstants {
          * @see Configuration
          */
         String HDFS_CONFIG_KEY = "hdfsConfig";
-        
-        String WRITE__DATA_TIMEOUT__MILLISECONDS_KEY = "writeDataTimeoutMilliseconds";
+
+        /**
+         * The maximum waiting time of write operations
+         */
+        String WRITE_DATA_TIMEOUT_MILLISECONDS_KEY = "writeDataTimeoutMilliseconds";
 
     }
 }

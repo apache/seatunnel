@@ -20,7 +20,7 @@
 
 package org.apache.seatunnel.engine.imap.storage.file;
 
-import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.WRITE__DATA_TIMEOUT__MILLISECONDS_KEY;
+import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.WRITE_DATA_TIMEOUT_MILLISECONDS_KEY;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.condition.OS.LINUX;
 import static org.junit.jupiter.api.condition.OS.MAC;
@@ -60,7 +60,7 @@ public class IMapFileStorageTest {
         properties.put(FileConstants.FileInitProperties.NAMESPACE_KEY, "/tmp/imap-kris-test/2");
         properties.put(FileConstants.FileInitProperties.CLUSTER_NAME, "test-one");
         properties.put(FileConstants.FileInitProperties.HDFS_CONFIG_KEY, CONF);
-        properties.put(WRITE__DATA_TIMEOUT__MILLISECONDS_KEY, 60L);
+        properties.put(WRITE_DATA_TIMEOUT_MILLISECONDS_KEY, 60L);
 
         STORAGE.initialize(properties);
     }
