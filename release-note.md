@@ -40,7 +40,8 @@
 - [Checkpoint] Cancel CheckpointCoordinator First Before Cancel Task #3838
 - [Storage] Remove seatunnel-api from engine storage. #3834
 - [Core] change queue to disruptor. #3847
-
+- [Improve] Statistics server job and system resource usage. #3982
+- 
 ## Bug Fixes
 ### Connectors
 - [ClickHouse File] Fix ClickhouseFile Committer Serializable Problems #3803
@@ -52,7 +53,7 @@
 - [Checkpoint] Fix Checkpoint Continue Trigger After Job CANCELED #3808
 - [Checkpoint] Add savepoint and restore with savepoint #3930
 - [Core]Fix Local Mode can't deserialize split (#3817)
-- [Metrics] Fix Metrics will lose when Job be canceled. #3797
+- [Metrics] Fix Metrics will lose when Job be canceled or restart. #3797 #3977
 
 ### Documents
 - [Doc] seatunnel run with flink operator error #3998
