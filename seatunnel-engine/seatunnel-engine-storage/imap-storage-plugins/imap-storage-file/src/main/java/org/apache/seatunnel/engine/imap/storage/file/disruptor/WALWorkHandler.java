@@ -78,6 +78,9 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
     }
 
     private void executeResponse(long requestId, boolean success) {
+        if (null == RequestFutureCache.get(requestId)) {
+            log.warn("requestId is {} not found in RequestFutureCache", requestId);
+        }
         try {
             RequestFutureCache.get(requestId).done(success);
         } catch (RuntimeException e) {

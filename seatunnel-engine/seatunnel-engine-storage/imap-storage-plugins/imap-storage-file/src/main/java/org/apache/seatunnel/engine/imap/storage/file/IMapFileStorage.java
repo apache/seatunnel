@@ -26,6 +26,7 @@ import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.CLUSTER_NAME;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.HDFS_CONFIG_KEY;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.NAMESPACE_KEY;
+import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.WRITE__DATA_TIMEOUT__MILLISECONDS_KEY;
 
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
@@ -93,6 +94,8 @@ public class IMapFileStorage implements IMapStorage {
      */
     public String clusterName;
 
+    public Long WRITE__DATA_TIMEOUT__MILLISECONDS;
+
     /**
      * We used disruptor to implement the asynchronous write.
      */
@@ -109,7 +112,7 @@ public class IMapFileStorage implements IMapStorage {
 
     public static final int DEFAULT_QUERY_LIST_SIZE = 256;
 
-    public static final int DEFAULT_QUERY_DATA_TIMEOUT_MILLISECONDS = 100;
+    public static final long DEFAULT_WRITE_DATA_TIMEOUT_MILLISECONDS = 1000 * 60;
 
     private Configuration conf;
 
@@ -126,6 +129,7 @@ public class IMapFileStorage implements IMapStorage {
         this.businessName = (String) configuration.get(BUSINESS_KEY);
 
         this.clusterName = (String) configuration.get(CLUSTER_NAME);
+        this.WRITE__DATA_TIMEOUT__MILLISECONDS = (long) configuration.getOrDefault(WRITE__DATA_TIMEOUT__MILLISECONDS_KEY, DEFAULT_WRITE_DATA_TIMEOUT_MILLISECONDS);
 
         this.region = String.valueOf(System.nanoTime());
         this.businessRootPath = namespace + DEFAULT_IMAP_FILE_PATH_SPLIT + clusterName + DEFAULT_IMAP_FILE_PATH_SPLIT + businessName + DEFAULT_IMAP_FILE_PATH_SPLIT;
@@ -275,7 +279,7 @@ public class IMapFileStorage implements IMapStorage {
     }
 
     private boolean queryExecuteStatus(long requestId) {
-        return queryExecuteStatus(requestId, DEFAULT_QUERY_DATA_TIMEOUT_MILLISECONDS);
+        return queryExecuteStatus(requestId, this.WRITE__DATA_TIMEOUT__MILLISECONDS);
     }
 
     private boolean queryExecuteStatus(long requestId, long timeout) {
