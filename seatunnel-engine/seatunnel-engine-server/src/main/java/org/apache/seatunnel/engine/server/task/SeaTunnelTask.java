@@ -118,7 +118,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
     @Override
     public void init() throws Exception {
         super.init();
-        metricsContext = new MetricsContext();
+        metricsContext = getExecutionContext().getOrCreateMetricsContext(taskLocation);
         this.currState = SeaTunnelTaskState.INIT;
         flowFutures = new ArrayList<>();
         allCycles = new ArrayList<>();

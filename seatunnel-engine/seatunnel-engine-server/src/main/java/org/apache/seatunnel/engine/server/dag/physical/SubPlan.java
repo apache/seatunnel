@@ -262,7 +262,9 @@ public class SubPlan {
     }
 
     private void cancelCheckpointCoordinator() {
-        jobMaster.getCheckpointManager().listenPipelineRetry(pipelineId, PipelineStatus.CANCELING).join();
+        if (jobMaster.getCheckpointManager() != null) {
+            jobMaster.getCheckpointManager().listenPipelineRetry(pipelineId, PipelineStatus.CANCELING).join();
+        }
     }
 
     private void cancelPipelineTasks() {
