@@ -258,7 +258,7 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKFile
     }
 
     private void moveClickhouseLocalFileToServer(Shard shard, List<String> clickhouseLocalFiles) {
-        String hostAddress = shard.getNode().getAddress().getHostName();
+        String hostAddress = shard.getNode().getHost();
         String user = readerOption.getNodeUser().getOrDefault(hostAddress, "root");
         String password = readerOption.getNodePassword().getOrDefault(hostAddress, null);
         FileTransfer fileTransfer = FileTransferFactory.createFileTransfer(this.readerOption.getCopyMethod(), hostAddress, user, password);
