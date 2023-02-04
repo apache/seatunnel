@@ -45,10 +45,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Random;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 /**
  * This command is used to execute the SeaTunnel engine job by SeaTunnel API.
@@ -149,28 +146,39 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             if (executorService != null) {
                 executorService.shutdown();
             }
-            if (jobMetricsSummary != null) {
-                // print job statistics information when job finished
-                log.info(StringFormatUtils.formatTable(
-                    "Job Statistic Information",
-                    "Start Time",
-                    DateTimeUtils.toString(startTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS),
 
-                    "End Time",
-                    DateTimeUtils.toString(endTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS),
+            //get final variables for asynchronous acquisition
+            LocalDateTime finalStartTime = startTime;
+            LocalDateTime finalEndTime = endTime;
+            JobMetricsRunner.JobMetricsSummary finalJobMetricsSummary = jobMetricsSummary;
 
-                    "Total Time(s)",
-                    Duration.between(startTime, endTime).getSeconds(),
+            ExecutorService executor = Executors.newSingleThreadExecutor();
+            executor.submit(() -> {
+                if (finalJobMetricsSummary != null) {
+                    // print job statistics information when job finished
+                    log.info(StringFormatUtils.formatTable(
+                            "Job Statistic Information",
+                            "Start Time",
+                            DateTimeUtils.toString(finalStartTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS),
 
-                    "Total Read Count",
-                    jobMetricsSummary.getSourceReadCount(),
+                            "End Time",
+                            DateTimeUtils.toString(finalEndTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS),
 
-                    "Total Write Count",
-                    jobMetricsSummary.getSinkWriteCount(),
+                            "Total Time(s)",
+                            Duration.between(finalStartTime, finalEndTime).getSeconds(),
 
-                    "Total Failed Count",
-                    jobMetricsSummary.getSourceReadCount() - jobMetricsSummary.getSinkWriteCount()));
-            }
+                            "Total Read Count",
+                            finalJobMetricsSummary.getSourceReadCount(),
+
+                            "Total Write Count",
+                            finalJobMetricsSummary.getSinkWriteCount(),
+
+                            "Total Failed Count",
+                            finalJobMetricsSummary.getSourceReadCount() - finalJobMetricsSummary.getSinkWriteCount()));
+                }
+            });
+            executor.shutdown();
+
         }
     }
 
