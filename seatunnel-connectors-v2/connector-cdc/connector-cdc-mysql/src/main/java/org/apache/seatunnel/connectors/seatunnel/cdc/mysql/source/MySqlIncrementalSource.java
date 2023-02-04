@@ -22,7 +22,8 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
@@ -45,6 +46,10 @@ import java.time.ZoneId;
 public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig> implements SupportParallelism {
     static final String IDENTIFIER = "MySQL-CDC";
 
+    public MySqlIncrementalSource(ReadonlyConfig options, SeaTunnelDataType<SeaTunnelRow> dataType) {
+        super(options, dataType);
+    }
+
     @Override
     public String getPluginName() {
         return IDENTIFIER;
@@ -65,11 +70,15 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
     public DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(ReadonlyConfig config) {
         JdbcSourceConfig jdbcSourceConfig = configFactory.create(0);
         String baseUrl = config.get(JdbcCatalogOptions.BASE_URL);
-        // TODO: support multi-table
-        // TODO: support metadata keys
-        MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", jdbcSourceConfig.getDatabaseList().get(0), jdbcSourceConfig.getUsername(), jdbcSourceConfig.getPassword(), baseUrl);
-        CatalogTable table = mySqlCatalog.getTable(TablePath.of(jdbcSourceConfig.getDatabaseList().get(0), config.get(JdbcSourceOptions.TABLE_NAME)));
-        SeaTunnelRowType physicalRowType = table.getTableSchema().toPhysicalRowDataType();
+        SeaTunnelDataType<SeaTunnelRow> physicalRowType;
+        if (dataType == null) {
+            // TODO: support metadata keys
+            MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", jdbcSourceConfig.getDatabaseList().get(0), jdbcSourceConfig.getUsername(), jdbcSourceConfig.getPassword(), baseUrl);
+            CatalogTable table = mySqlCatalog.getTable(TablePath.of(jdbcSourceConfig.getDatabaseList().get(0), config.get(JdbcSourceOptions.TABLE_NAME)));
+            physicalRowType = table.getTableSchema().toPhysicalRowDataType();
+        } else {
+            physicalRowType = dataType;
+        }
         String zoneId = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
         return (DebeziumDeserializationSchema<T>) SeaTunnelRowDebeziumDeserializeSchema.builder()
             .setPhysicalRowType(physicalRowType)
