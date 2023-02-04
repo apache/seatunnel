@@ -41,7 +41,7 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class WALDisruptor implements Closeable {
 
-    private volatile Disruptor<FileWALEvent> disruptor;
+    private final Disruptor<FileWALEvent> disruptor;
 
     private static final int DEFAULT_RING_BUFFER_SIZE = 1024;
 
