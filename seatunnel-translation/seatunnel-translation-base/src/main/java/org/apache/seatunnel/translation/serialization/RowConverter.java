@@ -25,8 +25,6 @@ import org.apache.seatunnel.api.table.type.SqlType;
 
 import java.io.IOException;
 import java.io.Serializable;
-import java.sql.Date;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +73,7 @@ public abstract class RowConverter<T> implements Serializable {
             case SMALLINT:
             case INT:
             case BIGINT:
+            case DATE:
             case TIME:
             case TIMESTAMP:
             case FLOAT:
@@ -83,11 +82,6 @@ public abstract class RowConverter<T> implements Serializable {
             case DECIMAL:
             case BYTES:
             case ARRAY:
-                return dataType.getTypeClass() == field.getClass();
-            case DATE:
-                if (field instanceof Date || field instanceof LocalDate) {
-                    return true;
-                }
                 return dataType.getTypeClass() == field.getClass();
             case MAP:
                 if (!(field instanceof Map)) {
