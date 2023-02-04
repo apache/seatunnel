@@ -304,7 +304,14 @@ public class JobMaster {
         return resourceManager;
     }
 
-    public CheckpointManager getCheckpointManager() {
+    public synchronized CheckpointManager getCheckpointManager() {
+        if (checkpointManager == null) {
+            try {
+                this.initCheckPointManager();
+            } catch (Exception e) {
+                throw new SeaTunnelEngineException(e);
+            }
+        }
         return checkpointManager;
     }
 

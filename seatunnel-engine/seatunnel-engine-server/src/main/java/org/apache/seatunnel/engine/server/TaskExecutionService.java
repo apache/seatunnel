@@ -17,11 +17,6 @@
 
 package org.apache.seatunnel.engine.server;
 
-import static org.apache.seatunnel.api.common.metrics.MetricTags.JOB_ID;
-import static org.apache.seatunnel.api.common.metrics.MetricTags.PIPELINE_ID;
-import static org.apache.seatunnel.api.common.metrics.MetricTags.TASK_GROUP_ID;
-import static org.apache.seatunnel.api.common.metrics.MetricTags.TASK_GROUP_LOCATION;
-import static org.apache.seatunnel.api.common.metrics.MetricTags.TASK_ID;
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
 import static com.hazelcast.jet.impl.util.Util.uncheckRun;
 import static java.lang.Thread.currentThread;
@@ -29,6 +24,11 @@ import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.stream.Collectors.partitioningBy;
 import static java.util.stream.Collectors.toList;
+import static org.apache.seatunnel.api.common.metrics.MetricTags.JOB_ID;
+import static org.apache.seatunnel.api.common.metrics.MetricTags.PIPELINE_ID;
+import static org.apache.seatunnel.api.common.metrics.MetricTags.TASK_GROUP_ID;
+import static org.apache.seatunnel.api.common.metrics.MetricTags.TASK_GROUP_LOCATION;
+import static org.apache.seatunnel.api.common.metrics.MetricTags.TASK_ID;
 
 import org.apache.seatunnel.api.common.metrics.MetricTags;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
@@ -359,18 +359,16 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         try {
             IMap<TaskLocation, MetricsContext> map =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
-            contextMap.forEach((taskGroupLocation, taskGroupContext) -> {
-                taskGroupContext.getTaskGroup().getTasks().forEach(task -> {
-                    // MetricsContext only exists in SeaTunnelTask
-                    if (task instanceof SeaTunnelTask) {
-                        SeaTunnelTask seaTunnelTask = (SeaTunnelTask) task;
-                        if (null != seaTunnelTask.getMetricsContext()) {
-                            map.put(seaTunnelTask.getTaskLocation(), seaTunnelTask.getMetricsContext());
-                        }
+            contextMap.forEach((taskGroupLocation, taskGroupContext) -> taskGroupContext.getTaskGroup().getTasks().forEach(task -> {
+                // MetricsContext only exists in SeaTunnelTask
+                if (task instanceof SeaTunnelTask) {
+                    SeaTunnelTask seaTunnelTask = (SeaTunnelTask) task;
+                    if (null != seaTunnelTask.getMetricsContext()) {
+                        map.put(seaTunnelTask.getTaskLocation(), seaTunnelTask.getMetricsContext());
                     }
-                });
-            });
-        } catch (WrongTargetException e){
+                }
+            }));
+        } catch (WrongTargetException | NullPointerException e) {
             logger.warning("The Imap acquisition failed due to the hazelcast node being offline or restarted, and will be retried next time", e);
         }
     }

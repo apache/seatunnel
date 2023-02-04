@@ -87,7 +87,7 @@ public class SubPlan {
 
     private PassiveCompletableFuture<Void> reSchedulerPipelineFuture;
 
-    private Integer pipelineRestoreNum;
+    private final Integer[] pipelineRestoreNum;
 
     public SubPlan(int pipelineId,
                    int totalPipelineNum,
@@ -103,7 +103,7 @@ public class SubPlan {
         this.pipelineFuture = new CompletableFuture<>();
         this.physicalVertexList = physicalVertexList;
         this.coordinatorVertexList = coordinatorVertexList;
-        pipelineRestoreNum = 0;
+        pipelineRestoreNum = new Integer[]{0};
 
         Long[] stateTimestamps = new Long[PipelineStatus.values().length];
         if (runningJobStateTimestampsIMap.get(pipelineLocation) == null) {
@@ -262,9 +262,7 @@ public class SubPlan {
     }
 
     private void cancelCheckpointCoordinator() {
-        if (jobMaster.getCheckpointManager() != null) {
-            jobMaster.getCheckpointManager().listenPipelineRetry(pipelineId, PipelineStatus.CANCELING).join();
-        }
+        jobMaster.getCheckpointManager().listenPipelineRetry(pipelineId, PipelineStatus.CANCELING).join();
     }
 
     private void cancelPipelineTasks() {
@@ -339,7 +337,7 @@ public class SubPlan {
     public void restorePipeline() {
         synchronized (pipelineRestoreNum) {
             try {
-                pipelineRestoreNum++;
+                pipelineRestoreNum[0]++;
                 LOGGER.info(String.format("Restore pipeline %s", pipelineFullName));
                 // We must ensure the scheduler complete and then can handle pipeline state change.
                 if (jobMaster.getScheduleFuture() != null) {
@@ -420,6 +418,6 @@ public class SubPlan {
     }
 
     public int getPipelineRestoreNum() {
-        return pipelineRestoreNum;
+        return pipelineRestoreNum[0];
     }
 }
