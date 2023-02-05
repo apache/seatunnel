@@ -32,6 +32,8 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -53,6 +55,8 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -103,8 +107,10 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
     //----------------------------------------------------------------------------
     // postgres
     private static final String PG_IMAGE = "postgres:alpine3.16";
+
     private static final String PG_DRIVER_JAR = "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
-    private PostgreSQLContainer<?> postgreSQLContainer;
+
+    private static PostgreSQLContainer<?> POSTGRESQL_CONTAINER;
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory = container -> {
@@ -148,32 +154,38 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
             String.format("%s:%s", KAFKA_PORT, KAFKA_PORT)));
     }
 
-    @BeforeAll
-    @Override
-    public void startUp() throws ClassNotFoundException {
-
-        LOG.info("The third stage: Starting Kafka containers...");
-        createKafkaContainer();
-        Startables.deepStart(Stream.of(KAFKA_CONTAINER)).join();
-        LOG.info("Containers are started");
-
-        LOG.info("The first stage: Starting Mysql containers...");
-        Startables.deepStart(Stream.of(MYSQL_CONTAINER)).join();
-        LOG.info("Containers are started");
-
-        LOG.info("The first stage: Starting Canal containers...");
-        createCanalContainer();
-        Startables.deepStart(Stream.of(CANAL_CONTAINER)).join();
-        LOG.info("Containers are started");
-
-        postgreSQLContainer = new PostgreSQLContainer<>(DockerImageName.parse(PG_IMAGE))
+    private void createPostgreSQLContainer() throws ClassNotFoundException {
+        POSTGRESQL_CONTAINER = new PostgreSQLContainer<>(DockerImageName.parse(PG_IMAGE))
                 .withNetwork(NETWORK)
                 .withNetworkAliases("postgresql")
                 .withExposedPorts(5432)
                 .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(PG_IMAGE)));
-        Startables.deepStart(Stream.of(postgreSQLContainer)).join();
-        LOG.info("PostgreSQL container started");
-        Class.forName(postgreSQLContainer.getDriverClassName());
+    }
+
+    @BeforeAll
+    @Override
+    public void startUp() throws ClassNotFoundException {
+
+        LOG.info("The first stage: Starting Kafka containers...");
+        createKafkaContainer();
+        Startables.deepStart(Stream.of(KAFKA_CONTAINER)).join();
+        LOG.info("Kafka Containers are started");
+
+        LOG.info("The second stage: Starting Mysql containers...");
+        Startables.deepStart(Stream.of(MYSQL_CONTAINER)).join();
+        LOG.info("Mysql Containers are started");
+
+        LOG.info("The third stage: Starting Canal containers...");
+        createCanalContainer();
+        Startables.deepStart(Stream.of(CANAL_CONTAINER)).join();
+        LOG.info("Canal Containers are started");
+
+        LOG.info("The fourth stage: Starting PostgreSQL container...");
+        createPostgreSQLContainer();
+        Startables.deepStart(Stream.of(POSTGRESQL_CONTAINER)).join();
+        Class.forName(POSTGRESQL_CONTAINER.getDriverClassName());
+        LOG.info("postgresql Containers are started");
+
         given().ignoreExceptions()
                 .await()
                 .atLeast(100, TimeUnit.MILLISECONDS)
@@ -186,16 +198,49 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .atMost(180, TimeUnit.SECONDS)
                 .untilAsserted(this::initKafkaConsumer);
+        inventoryDatabase.createAndInitialize();
     }
 
     @TestTemplate
-    public void testCannalToKafakCannalFormatAnalysis2(TestContainer container) throws IOException, InterruptedException, SQLException {
-        inventoryDatabase.createAndInitialize();
+    public void testKafakSinkCannalFormat(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/kafkasource_canal_to_kafka.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        ArrayList<Object> result = new ArrayList<>();
+        List<String> expectedResult =
+                Arrays.asList(
+                        "{\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"3.14\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":102,\"name\":\"car battery\",\"description\":\"12V car battery\",\"weight\":\"8.1\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":103,\"name\":\"12-pack drill bits\",\"description\":\"12-pack of drill bits with sizes ranging from #40 to #3\",\"weight\":\"0.8\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":104,\"name\":\"hammer\",\"description\":\"12oz carpenter's hammer\",\"weight\":\"0.75\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":105,\"name\":\"hammer\",\"description\":\"14oz carpenter's hammer\",\"weight\":\"0.875\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":106,\"name\":\"hammer\",\"description\":\"16oz carpenter's hammer\",\"weight\":\"1.0\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"5.3\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":108,\"name\":\"jacket\",\"description\":\"water resistent black wind breaker\",\"weight\":\"0.1\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":109,\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":\"22.2\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"3.14\"},\"type\":\"DELETE\"}",
+                        "{\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"4.56\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"5.3\"},\"type\":\"DELETE\"}",
+                        "{\"data\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"7.88\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":109,\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":\"22.2\"},\"type\":\"DELETE\"}"
+                );
+
+        ArrayList<String> topics = new ArrayList<>();
+        topics.add(KAFKA_TOPIC);
+        kafkaConsumer.subscribe(topics);
+        ConsumerRecords<String, String> consumerRecords = kafkaConsumer.poll(Duration.ofSeconds(10000));
+        for (ConsumerRecord<String, String> record : consumerRecords) {
+            result.add(record.value());
+        }
+        Assertions.assertEquals(expectedResult, result);
+    }
+
+    @TestTemplate
+    public void testCannalFormatKafakCdcToPgsql(TestContainer container) throws IOException, InterruptedException, SQLException {
         Container.ExecResult execResult = container.executeJob("/kafkasource_canal_cdc_to_pgsql.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
         Set<List<Object>> actual = new HashSet<>();
-        try (Connection connection = DriverManager.getConnection(postgreSQLContainer.getJdbcUrl(),
-                postgreSQLContainer.getUsername(), postgreSQLContainer.getPassword())) {
+        try (Connection connection = DriverManager.getConnection(POSTGRESQL_CONTAINER.getJdbcUrl(),
+                POSTGRESQL_CONTAINER.getUsername(), POSTGRESQL_CONTAINER.getPassword())) {
             try (Statement statement = connection.createStatement()) {
                 ResultSet resultSet = statement.executeQuery("select * from sink");
                 while (resultSet.next()) {
@@ -235,8 +280,8 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
     }
 
     private void initializeJdbcTable() {
-        try (Connection connection = DriverManager.getConnection(postgreSQLContainer.getJdbcUrl(),
-                postgreSQLContainer.getUsername(), postgreSQLContainer.getPassword())) {
+        try (Connection connection = DriverManager.getConnection(POSTGRESQL_CONTAINER.getJdbcUrl(),
+                POSTGRESQL_CONTAINER.getUsername(), POSTGRESQL_CONTAINER.getPassword())) {
             Statement statement = connection.createStatement();
             String sink = "create table sink(\n" +
                     "id INT NOT NULL PRIMARY KEY,\n" +
