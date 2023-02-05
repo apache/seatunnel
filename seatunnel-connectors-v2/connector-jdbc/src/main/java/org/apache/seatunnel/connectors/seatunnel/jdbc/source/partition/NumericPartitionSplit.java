@@ -69,7 +69,7 @@ public class NumericPartitionSplit extends AbstractPartitionSplit<Long> {
             min = jdbcSourceOptions.getPartitionLowerBound().get();
             return new PartitionParameter<>(partitionColumn, min, max, jdbcSourceOptions.getPartitionNumber().orElse(null));
         }
-        try (ResultSet rs = jdbcConnectionProvider.getOrEstablishConnection().createStatement().executeQuery(String.format("SELECT MAX(CAST(%s as NUMERIC)),MIN(CAST(%s as NUMERIC)) " +
+        try (ResultSet rs = jdbcConnectionProvider.getOrEstablishConnection().createStatement().executeQuery(String.format("SELECT MAX(CAST(%s as DECIMAL)),MIN(CAST(%s as DECIMAL)) " +
             "FROM (%s) tt", partitionColumn, partitionColumn, jdbcSourceOptions.getQuery()))) {
             if (rs.next()) {
                 max = jdbcSourceOptions.getPartitionUpperBound().isPresent() ?
