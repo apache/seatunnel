@@ -314,7 +314,7 @@ jobs:
           MAVEN_OPTS: -Xmx4096m
       - name: Cleanup
         if: always()
-        run: rm -rf build
+        run: rm -rf unit-test
 
   updated-modules-integration-test:
     needs: [ changes, sanity-check ]
@@ -341,7 +341,7 @@ jobs:
           MAVEN_OPTS: -Xmx2048m
       - name: Cleanup
         if: always()
-        run: rm -rf build
+        run: rm -rf updated-modules-integration-test
 
   engine-v2-it:
     needs: [ changes, sanity-check ]
@@ -368,7 +368,7 @@ jobs:
           MAVEN_OPTS: -Xmx4096m
       - name: Cleanup
         if: always()
-        run: rm -rf build
+        run: rm -rf engine-v2-it
 
   transform-v2-it:
     needs: [ changes, sanity-check ]
@@ -395,7 +395,7 @@ jobs:
           MAVEN_OPTS: -Xmx4096m
       - name: Cleanup
         if: always()
-        run: rm -rf build
+        run: rm -rf transform-v2-it
 
   all-connectors-it-1:
     needs: [ changes, sanity-check ]
@@ -427,7 +427,7 @@ jobs:
           MAVEN_OPTS: -Xmx4096m
       - name: Cleanup
         if: always()
-        run: rm -rf build
+        run: rm -rf all-connectors-it-1
 
   all-connectors-it-2:
     needs: [ changes, sanity-check ]
@@ -459,7 +459,7 @@ jobs:
           MAVEN_OPTS: -Xmx4096m
       - name: Cleanup
         if: always()
-        run: rm -rf build
+        run: rm -rf all-connectors-it-2
 
   all-connectors-it-3:
     needs: [ changes, sanity-check ]
@@ -491,7 +491,7 @@ jobs:
           MAVEN_OPTS: -Xmx4096m
       - name: Cleanup
         if: always()
-        run: rm -rf build
+        run: rm -rf all-connectors-it-3
 
   all-connectors-it-4:
     needs: [ changes, sanity-check ]
@@ -523,4 +523,4 @@ jobs:
           MAVEN_OPTS: -Xmx4096m
       - name: Cleanup
         if: always()
-        run: rm -rf build
+        run: rm -rf all-connectors-it-4
