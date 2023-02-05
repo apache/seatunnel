@@ -55,8 +55,6 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private final BufferedMutator hbaseMutator;
 
-    private final Admin hbaseAdmin;
-
     private final SeaTunnelRowType seaTunnelRowType;
 
     private final HbaseParameters hbaseParameters;
@@ -87,8 +85,6 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         }
         // initialize hbase connection
         hbaseConnection = ConnectionFactory.createConnection(hbaseConfiguration);
-        // initialize hbase admin
-        hbaseAdmin = hbaseConnection.getAdmin();
         // initialize hbase mutator
         BufferedMutatorParams bufferedMutatorParams = new BufferedMutatorParams(TableName.valueOf(hbaseParameters.getTable()))
                 .pool(HTable.getDefaultExecutor(hbaseConfiguration))
@@ -106,9 +102,6 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     public void close() throws IOException {
         if (hbaseMutator != null) {
             hbaseMutator.close();
-        }
-        if (hbaseAdmin != null) {
-            hbaseAdmin.close();
         }
         if (hbaseConnection != null) {
             hbaseConnection.close();
