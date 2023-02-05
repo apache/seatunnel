@@ -137,7 +137,7 @@ jobs:
             engine-e2e:
               - "seatunnel-e2e/seatunnel-engine-e2e/**"
             deleted-poms:
-              - deleted: "**/pom.xml" 
+              - deleted: "**/pom.xml"
 
       - name: Check Connector V2 Update
         id: cv2-modules
@@ -200,7 +200,7 @@ jobs:
           update_files='${{ steps.filter.outputs.deleted-poms_files }}'
           modules=`python tools/update_modules_check/update_modules_check.py delete $update_files`
           echo $modules
-          echo "modules=$modules" >> $GITHUB_OUTPUT      
+          echo "modules=$modules" >> $GITHUB_OUTPUT
 
       - name: Make unit test modules
         id: ut-modules
@@ -214,11 +214,11 @@ jobs:
           if [[ "zz"$delete_modules != "zz" ]];then
             pl_modules=`python tools/update_modules_check/update_modules_check.py rm $pl_modules $delete_modules`
           fi
-          
+
           if [[ "zz"$pl_modules == "zz" ]];then
             exit 0
           fi
-          
+
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl $pl_modules > /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
           tree_modules="$modules$sub_modules"
@@ -227,7 +227,7 @@ jobs:
           build_modules=`python tools/update_modules_check/update_modules_check.py final_ut /tmp/tree_out.txt`
           if [[ "zz"$build_modules == "zz" ]];then
             build_modules=$pl_modules
-          fi 
+          fi
           echo $build_modules
           echo "modules=$build_modules" >> $GITHUB_OUTPUT
 
@@ -243,11 +243,11 @@ jobs:
           if [[ "zz"$delete_modules != "zz" ]];then
             pl_modules=`python tools/update_modules_check/update_modules_check.py rm $pl_modules $delete_modules`
           fi
-          
+
           if [[ "zz"$pl_modules == "zz" ]];then
             exit 0
           fi
-          
+
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl $pl_modules > /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
           tree_modules="$modules$sub_modules"
@@ -312,6 +312,9 @@ jobs:
           ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl ${{needs.changes.outputs.ut-modules}} -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Cleanup
+        if: always()
+        run: rm -rf build
 
   updated-modules-integration-test:
     needs: [ changes, sanity-check ]
@@ -336,6 +339,9 @@ jobs:
           ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl ${{needs.changes.outputs.it-modules}} -am -Pci
         env:
           MAVEN_OPTS: -Xmx2048m
+      - name: Cleanup
+        if: always()
+        run: rm -rf build
 
   engine-v2-it:
     needs: [ changes, sanity-check ]
@@ -360,6 +366,9 @@ jobs:
           ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-seatunnel-e2e-base -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Cleanup
+        if: always()
+        run: rm -rf build
 
   transform-v2-it:
     needs: [ changes, sanity-check ]
@@ -384,6 +393,9 @@ jobs:
           ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :seatunnel-transforms-v2-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Cleanup
+        if: always()
+        run: rm -rf build
 
   all-connectors-it-1:
     needs: [ changes, sanity-check ]
@@ -413,6 +425,9 @@ jobs:
           ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Cleanup
+        if: always()
+        run: rm -rf build
 
   all-connectors-it-2:
     needs: [ changes, sanity-check ]
@@ -442,6 +457,9 @@ jobs:
           ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Cleanup
+        if: always()
+        run: rm -rf build
 
   all-connectors-it-3:
     needs: [ changes, sanity-check ]
@@ -471,6 +489,9 @@ jobs:
           ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Cleanup
+        if: always()
+        run: rm -rf build
 
   all-connectors-it-4:
     needs: [ changes, sanity-check ]
@@ -500,3 +521,6 @@ jobs:
           ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Cleanup
+        if: always()
+        run: rm -rf build
