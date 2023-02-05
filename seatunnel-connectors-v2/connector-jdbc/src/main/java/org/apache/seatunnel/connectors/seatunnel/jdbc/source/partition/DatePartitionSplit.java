@@ -71,7 +71,7 @@ public class DatePartitionSplit extends AbstractPartitionSplit<LocalDate> {
             min = jdbcSourceOptions.getPartitionLowerBound().get();
             return new PartitionParameter<>(partitionColumn, LocalDate.ofEpochDay(min), LocalDate.ofEpochDay(max), jdbcSourceOptions.getPartitionNumber().orElse(null));
         }
-        try (ResultSet rs = jdbcConnectionProvider.getOrEstablishConnection().createStatement().executeQuery(String.format("SELECT MAX(%s),MIN(%s) " +
+        try (ResultSet rs = jdbcConnectionProvider.getOrEstablishConnection().createStatement().executeQuery(String.format("SELECT MAX(date(%s)),MIN(date(%s)) " +
             "FROM (%s) tt", partitionColumn, partitionColumn, jdbcSourceOptions.getQuery()))) {
             if (rs.next()) {
                 max = jdbcSourceOptions.getPartitionUpperBound().isPresent() ?

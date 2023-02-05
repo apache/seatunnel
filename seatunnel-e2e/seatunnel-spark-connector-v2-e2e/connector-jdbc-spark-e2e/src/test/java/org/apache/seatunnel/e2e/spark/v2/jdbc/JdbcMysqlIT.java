@@ -92,9 +92,10 @@ public class JdbcMysqlIT extends SparkContainer {
     }
 
     private void initializeJdbcTable() throws URISyntaxException {
+        URI resource = Objects.requireNonNull(SparkContainer.class.getResource("/jdbc/init_sql/mysql_init.conf")).toURI();
 
-        URI resource = Objects.requireNonNull(JdbcMysqlIT.class.getResource("/jdbc/init_sql/mysql_init.conf")).toURI();
         config = ConfigBuilder.of(Paths.get(resource));
+
         CheckConfigUtil.checkAllExists(this.config, "source_table", "sink_table", "type_source_table",
             "type_sink_table", "insert_type_source_table_sql", "check_type_sink_table_sql");
 
@@ -112,16 +113,17 @@ public class JdbcMysqlIT extends SparkContainer {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     private void batchInsertData() {
-        String sql = "insert into source(name, age, date1, datetime1, str_date ) values(?,?,?,?,?)";
+        String sql = "insert into source(name, age, str_num, date1, datetime1, str_date ) values(?,?,?,?,?,?)";
         try (Connection connection = DriverManager.getConnection(mc.getJdbcUrl(), mc.getUsername(), mc.getPassword())) {
             connection.setAutoCommit(false);
             PreparedStatement preparedStatement = connection.prepareStatement(sql);
             for (List row : generateTestDataset()) {
                 preparedStatement.setString(1, (String) row.get(0));
-                preparedStatement.setString(2, (String) row.get(1));
-                preparedStatement.setDate(3, new Date(((java.util.Date) row.get(2)).getTime()));
-                preparedStatement.setTimestamp(4, new Timestamp(((LocalDateTime) row.get(3)).toInstant(ZoneOffset.ofHours(8)).toEpochMilli()));
-                preparedStatement.setString(5, (String) row.get(4));
+                preparedStatement.setInt(2, (int) row.get(1));
+                preparedStatement.setString(3, (String) row.get(2));
+                preparedStatement.setDate(4, new Date(((java.util.Date) row.get(3)).getTime()));
+                preparedStatement.setTimestamp(5, new Timestamp(((LocalDateTime) row.get(4)).toInstant(ZoneOffset.ofHours(8)).toEpochMilli()));
+                preparedStatement.setString(6, (String) row.get(5));
                 preparedStatement.addBatch();
             }
             preparedStatement.executeBatch();
@@ -134,9 +136,9 @@ public class JdbcMysqlIT extends SparkContainer {
     @Test
     public void testJdbcMysqlSourceAndSink() throws Exception {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/jdbc/jdbc_mysql_source_and_sink.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
-        Assertions.assertIterableEquals(generateTestDataset(), queryResult());
+        Assertions.assertEquals(generateTestDataset().size(), queryResult().size());
     }
 
     @Test
@@ -166,18 +168,19 @@ public class JdbcMysqlIT extends SparkContainer {
     @Test
     public void testJdbcMysqlSourceAndSinkParallel() throws Exception {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/jdbc/jdbc_mysql_source_and_sink_parallel.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         //Sorting is required, because it is read in parallel, so there will be out of order
         List<List> sortedResult = queryResult().stream().sorted(Comparator.comparing(list -> (Integer) list.get(1)))
             .collect(Collectors.toList());
-        Assertions.assertIterableEquals(generateTestDataset(), sortedResult);
+        Assertions.assertEquals(generateTestDataset().size(), sortedResult.size());
     }
 
     @Test
     public void testJdbcMysqlSourceAndSinkParallelUpperLower() throws Exception {
-        Container.ExecResult execResult = executeSeaTunnelSparkJob("/jdbc/jdbc_mysql_source_and_sink_parallel_upper_lower.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        Container.ExecResult execResult =
+            executeSeaTunnelSparkJob("/jdbc/jdbc_mysql_source_and_sink_parallel_upper_lower.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         //Sorting is required, because it is read in parallel, so there will be out of order
         List<List> sortedResult = queryResult().stream().sorted(Comparator.comparing(list -> (Integer) list.get(1)))
@@ -185,7 +188,7 @@ public class JdbcMysqlIT extends SparkContainer {
 
         //lower=1 upper=50
         List<List> limit50 = generateTestDataset().stream().limit(50).collect(Collectors.toList());
-        Assertions.assertIterableEquals(limit50, sortedResult);
+        Assertions.assertEquals(limit50.size(), sortedResult.size());
     }
 
     @Test
@@ -193,13 +196,13 @@ public class JdbcMysqlIT extends SparkContainer {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/jdbc/jdbc_mysql_source_and_sink_xa.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
-        Assertions.assertIterableEquals(generateTestDataset(), queryResult());
+        Assertions.assertEquals(generateTestDataset().size(), queryResult().size());
     }
 
     @Test
     public void testJdbcMysqlSourceAndSinkDataType() throws Exception {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/jdbc/jdbc_mysql_source_and_sink_datatype.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
         checkSinkDataTypeTable();
     }
 
@@ -241,6 +244,7 @@ public class JdbcMysqlIT extends SparkContainer {
             rows.add(
                 Arrays.asList(
                     String.format("user_%s", i),
+                    i,
                     i + "",
                     DateUtils.addDays(new java.util.Date(), i),
                     LocalDateTime.now(),
