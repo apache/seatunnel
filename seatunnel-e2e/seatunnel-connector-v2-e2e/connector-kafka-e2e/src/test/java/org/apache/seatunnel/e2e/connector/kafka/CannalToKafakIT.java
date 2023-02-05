@@ -58,6 +58,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -166,8 +167,6 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
         Startables.deepStart(Stream.of(CANAL_CONTAINER)).join();
         LOG.info("Containers are started");
 
-        inventoryDatabase.createAndInitialize();
-
         postgreSQLContainer = new PostgreSQLContainer<>(DockerImageName.parse(PG_IMAGE))
                 .withNetwork(NETWORK)
                 .withNetworkAliases("postgresql")
@@ -192,6 +191,7 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testCannalToKafakCannalFormatAnalysis2(TestContainer container) throws IOException, InterruptedException, SQLException {
+        inventoryDatabase.createAndInitialize();
         Container.ExecResult execResult = container.executeJob("/kafkasource_canal_cdc_to_pgsql.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
         Set<List<Object>> actual = new HashSet<>();
@@ -211,14 +211,15 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
             }
         }
         Set<List<Object>> expected = Stream.<List<Object>>of(
-                        Arrays.asList(101, "scooter", "4.56"),
-                        Arrays.asList(102, "car battery", "8.1"),
-                        Arrays.asList(103, "12-pack drill bits", "0.8"),
-                        Arrays.asList(104, "hammer", "0.75"),
-                        Arrays.asList(105, "hammer", "0.875"),
-                        Arrays.asList(106, "hammer", "1.0"),
-                        Arrays.asList(107, "rocks", "7.88"),
-                        Arrays.asList(108, "jacket", "0.1")).collect(Collectors.toSet());
+                        Arrays.asList(102, "car battery", "12V car battery", "8.1"),
+                        Arrays.asList(103, "12-pack drill bits", "12-pack of drill bits with sizes ranging from #40 to #3", "0.8"),
+                        Arrays.asList(104, "hammer", "12oz carpenter's hammer", "0.75"),
+                        Arrays.asList(105, "hammer", "14oz carpenter's hammer", "0.875"),
+                        Arrays.asList(106, "hammer", "16oz carpenter's hammer", "1.0"),
+                        Arrays.asList(108, "jacket", "water resistent black wind breaker", "0.1"),
+                        Arrays.asList(101, "scooter", "Small 2-wheel scooter", "4.56"),
+                        Arrays.asList(107, "rocks", "box of assorted rocks", "7.88")
+                        ).collect(Collectors.toSet());
         Assertions.assertIterableEquals(expected, actual);
     }
 
