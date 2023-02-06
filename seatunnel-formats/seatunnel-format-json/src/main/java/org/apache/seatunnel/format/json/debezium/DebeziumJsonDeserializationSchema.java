@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.format.json;
+package org.apache.seatunnel.format.json.debezium;
 
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 
@@ -26,11 +26,12 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import java.io.IOException;
 
-public class DebeziumDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
+public class DebeziumJsonDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
     private static final long serialVersionUID = 1L;
 
     private static final String OP_READ = "r"; // snapshot read
@@ -56,7 +57,7 @@ public class DebeziumDeserializationSchema implements DeserializationSchema<SeaT
 
     private final boolean ignoreParseErrors;
 
-    public DebeziumDeserializationSchema(
+    public DebeziumJsonDeserializationSchema(
             SeaTunnelRowType rowType,
             boolean schemaInclude,
             boolean ignoreParseErrors) {
