@@ -101,6 +101,7 @@ sink {
   Kafka {
     bootstrap.servers = "localhost:9092"
     topic = "test-canal-sink"
+    format = canal-json
   }
 }
 ```
