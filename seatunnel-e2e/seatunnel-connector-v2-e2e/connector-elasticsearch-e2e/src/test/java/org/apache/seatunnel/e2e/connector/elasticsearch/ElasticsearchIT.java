@@ -68,6 +68,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     public void startUp() throws Exception {
         container = new ElasticsearchContainer(DockerImageName.parse("elasticsearch:8.0.0").asCompatibleSubstituteFor("docker.elastic.co/elasticsearch/elasticsearch"))
             .withNetwork(NETWORK)
+            .withEnv("cluster.routing.allocation.disk.threshold_enabled", "false")
             .withNetworkAliases("elasticsearch")
             .withPassword("elasticsearch")
             .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger("elasticsearch:8.0.0")));
