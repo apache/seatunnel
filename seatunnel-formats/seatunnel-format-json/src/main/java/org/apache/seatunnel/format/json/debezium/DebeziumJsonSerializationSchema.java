@@ -15,16 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.format.json;
+package org.apache.seatunnel.format.json.debezium;
 
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
-import static org.apache.seatunnel.format.json.JsonFormatOptions.GENERATE_ROW_SIZE;
+import static org.apache.seatunnel.format.json.debezium.DebeziumJsonFormatOptions.GENERATE_ROW_SIZE;
 
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 public class DebeziumJsonSerializationSchema implements SerializationSchema {
@@ -74,8 +75,6 @@ public class DebeziumJsonSerializationSchema implements SerializationSchema {
     }
 
     private static SeaTunnelRowType createJsonRowType(SeaTunnelRowType databaseSchema) {
-        // Debezium JSON contains some other information, e.g. "source", "ts_ms"
-        // but we don't need them.
         return new SeaTunnelRowType(new String[]{"before", "after", "op"},
                 new SeaTunnelDataType[]{databaseSchema, databaseSchema, STRING_TYPE});
     }
