@@ -80,7 +80,7 @@ env {
 source {
   Kafka {
     bootstrap.servers = "kafkaCluster:9092"
-    topic = "test-canal-source"
+    topic = "products_binlog"
     result_table_name = "kafka_name"
     start_mode = earliest
     schema = {
@@ -102,7 +102,7 @@ transform {
 sink {
   Kafka {
     bootstrap.servers = "localhost:9092"
-    topic = "test-canal-sink"
+    topic = "consume-binlog"
     format = canal-json
   }
 }
