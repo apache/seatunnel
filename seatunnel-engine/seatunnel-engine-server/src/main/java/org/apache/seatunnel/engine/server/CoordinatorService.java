@@ -214,12 +214,10 @@ public class CoordinatorService {
                 ownedSlotProfilesIMap,
                 engineConfig);
 
-        jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp());
         try {
-            jobMaster.initCheckPointManager();
+            jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp(), true);
         } catch (Exception e) {
-            jobMaster.cancelJob();
-            throw new SeaTunnelEngineException(String.format("Job id %s init CheckPointManager failed", jobId), e);
+            throw new SeaTunnelEngineException(String.format("Job id %s init failed", jobId), e);
         }
 
         String jobFullName = jobMaster.getPhysicalPlan().getJobFullName();
@@ -327,7 +325,7 @@ public class CoordinatorService {
      * call by client to submit job
      */
     public PassiveCompletableFuture<Void> submitJob(long jobId, Data jobImmutableInformation) {
-        CompletableFuture<Void> voidCompletableFuture = new CompletableFuture<>();
+        CompletableFuture<Void> jobSubmitFuture = new CompletableFuture<>();
         JobMaster jobMaster = new JobMaster(jobImmutableInformation,
             this.nodeEngine,
             executorService,
@@ -340,23 +338,22 @@ public class CoordinatorService {
             try {
                 runningJobInfoIMap.put(jobId, new JobInfo(System.currentTimeMillis(), jobImmutableInformation));
                 runningJobMasterMap.put(jobId, jobMaster);
-                jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp());
-                jobMaster.initCheckPointManager();
+                jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp(), false);
+                // We specify that when init is complete, the submitJob is complete
+                jobSubmitFuture.complete(null);
             } catch (Throwable e) {
                 logger.severe(String.format("submit job %s error %s ", jobId, ExceptionUtils.getMessage(e)));
-                voidCompletableFuture.completeExceptionally(e);
-            } finally {
-                // We specify that when init is complete, the submitJob is complete
-                voidCompletableFuture.complete(null);
+                jobSubmitFuture.completeExceptionally(e);
             }
-
-            try {
-                jobMaster.run();
-            } finally {
-                onJobDone(jobMaster, jobId);
+            if (!jobSubmitFuture.isCompletedExceptionally()) {
+                try {
+                    jobMaster.run();
+                } finally {
+                    onJobDone(jobMaster, jobId);
+                }
             }
         });
-        return new PassiveCompletableFuture<>(voidCompletableFuture);
+        return new PassiveCompletableFuture<>(jobSubmitFuture);
     }
 
     public PassiveCompletableFuture<Void> savePoint(long jobId) {
