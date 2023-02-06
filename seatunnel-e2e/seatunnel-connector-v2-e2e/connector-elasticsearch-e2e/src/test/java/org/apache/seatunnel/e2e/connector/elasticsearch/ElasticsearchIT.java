@@ -51,6 +51,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -65,13 +66,24 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     @BeforeEach
     @Override
     public void startUp() throws Exception {
-        container = new ElasticsearchContainer(DockerImageName.parse("elasticsearch:6.8.23").asCompatibleSubstituteFor("docker.elastic.co/elasticsearch/elasticsearch"))
+        container = new ElasticsearchContainer(DockerImageName.parse("elasticsearch:8.0.0").asCompatibleSubstituteFor("docker.elastic.co/elasticsearch/elasticsearch"))
             .withNetwork(NETWORK)
+            .withEnv("cluster.routing.allocation.disk.threshold_enabled", "false")
             .withNetworkAliases("elasticsearch")
-            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger("elasticsearch:6.8.23")));
+            .withPassword("elasticsearch")
+            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger("elasticsearch:8.0.0")));
         container.start();
         log.info("Elasticsearch container started");
-        esRestClient = EsRestClient.createInstance(Lists.newArrayList(container.getHttpHostAddress()), "", "");
+        esRestClient = EsRestClient.createInstance(
+            Lists.newArrayList("https://" + container.getHttpHostAddress()),
+            Optional.of("elastic"),
+            Optional.of("elasticsearch"),
+            false,
+            false,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty());
         testDataset = generateTestDataSet();
         createIndexDocs();
     }
@@ -86,7 +98,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
 
         Map<String, Map<String, String>> indexParam = new HashMap<>();
         indexParam.put("index", indexInner);
-        String indexHeader = "{\"index\":{\"_index\":\"st_index\",\"_type\":\"st\"}\n";
+        String indexHeader = "{\"index\":{\"_index\":\"st_index\"}\n";
         for (int i = 0; i < testDataset.size(); i++) {
             String row = testDataset.get(i);
             requestBody.append(indexHeader);

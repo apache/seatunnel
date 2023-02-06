@@ -45,6 +45,7 @@ import org.apache.hadoop.hive.metastore.api.Table;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.List;
 
 @AutoService(SeaTunnelSource.class)
 public class HiveSource extends BaseHdfsFileSource {
@@ -63,6 +64,26 @@ public class HiveSource extends BaseHdfsFileSource {
             throw new HiveConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format("PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
+        }
+        if (pluginConfig.hasPath(BaseSourceConfig.READ_PARTITIONS.key())) {
+            // verify partition list
+            List<String> partitionsList = pluginConfig.getStringList(BaseSourceConfig.READ_PARTITIONS.key());
+            if (partitionsList.isEmpty()) {
+                throw new HiveConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        "Partitions list is empty, please check");
+            }
+            int depth = partitionsList.get(0)
+                    .replaceAll("\\\\", "/")
+                    .split("/").length;
+            long count = partitionsList.stream()
+                    .map(partition ->
+                            partition.replaceAll("\\\\", "/").split("/").length)
+                    .filter(length -> length != depth)
+                    .count();
+            if (count > 0) {
+                throw new HiveConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        "Every partition that in partition list should has the same directory depth");
+            }
         }
         Pair<String[], Table> tableInfo = HiveConfig.getTableInfo(pluginConfig);
         tableInformation = tableInfo.getRight();

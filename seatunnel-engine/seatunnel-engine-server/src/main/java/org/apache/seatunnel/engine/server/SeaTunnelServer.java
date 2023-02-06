@@ -221,5 +221,8 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
 
     private void printExecutionInfo() {
         coordinatorService.printExecutionInfo();
+        if (coordinatorService.isCoordinatorActive() && this.isMasterNode()){
+            coordinatorService.printJobDetailInfo();
+        }
     }
 }

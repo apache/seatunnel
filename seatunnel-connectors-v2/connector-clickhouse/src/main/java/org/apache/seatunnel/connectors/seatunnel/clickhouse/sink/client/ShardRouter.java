@@ -98,7 +98,7 @@ public class ShardRouter implements Serializable {
             return shards.firstEntry().getValue();
         }
         if (StringUtils.isEmpty(shardKey) || shardValue == null) {
-            return shards.lowerEntry(threadLocalRandom.nextInt(shardWeightCount + 1)).getValue();
+            return shards.lowerEntry(threadLocalRandom.nextInt(shardWeightCount) + 1).getValue();
         }
         int offset = (int) (HASH_INSTANCE.hash(ByteBuffer.wrap(shardValue.toString().getBytes(StandardCharsets.UTF_8)),
             0) & Long.MAX_VALUE % shardWeightCount);

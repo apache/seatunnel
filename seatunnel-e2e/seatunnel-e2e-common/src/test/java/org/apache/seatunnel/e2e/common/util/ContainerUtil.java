@@ -106,7 +106,9 @@ public final class ContainerUtil {
                                                        String startModuleName,
                                                        String startModulePath,
                                                        String seatunnelHomeInContainer) {
-        final String startJarName = startModuleName + ".jar";
+        // solve the problem of multi modules such as seatunnel-flink-starter/seatunnel-flink-13-starter
+        final String[] splits = startModuleName.split(File.separator);
+        final String startJarName = splits[splits.length - 1] + ".jar";
         // copy starter
         final String startJarPath = startModulePath + File.separator + "target" + File.separator + startJarName;
         checkPathExist(startJarPath);
