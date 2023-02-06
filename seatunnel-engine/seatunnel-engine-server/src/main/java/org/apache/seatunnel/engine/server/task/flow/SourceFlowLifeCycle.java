@@ -90,7 +90,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
     public void init() throws Exception {
         this.splitSerializer = sourceAction.getSource().getSplitSerializer();
         this.reader = sourceAction.getSource()
-                .createReader(new SourceReaderContext(indexID, sourceAction.getSource().getBoundedness(), this));
+            .createReader(new SourceReaderContext(indexID, sourceAction.getSource().getBoundedness(), this));
         this.enumeratorTaskAddress = getEnumeratorTaskAddress();
     }
 

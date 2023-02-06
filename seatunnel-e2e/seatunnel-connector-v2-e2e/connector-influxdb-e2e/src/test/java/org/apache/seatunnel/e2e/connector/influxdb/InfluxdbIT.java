@@ -42,6 +42,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.shaded.org.apache.commons.lang3.tuple.Pair;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
@@ -55,8 +56,6 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
-import scala.Tuple2;
-
 @Slf4j
 public class InfluxdbIT extends TestSuiteBase implements TestResource {
     private static final String IMAGE = "influxdb:1.8";
@@ -67,7 +66,7 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
     private static final String INFLUXDB_SINK_MEASUREMENT = "sink";
 
 
-    private static final Tuple2<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET = generateTestDataSet();
+    private static final Pair<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET = generateTestDataSet();
 
     private GenericContainer<?> influxdbContainer;
     private String influxDBConnectUrl;
@@ -96,8 +95,8 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
         BatchPoints batchPoints = BatchPoints
                 .database(INFLUXDB_DATABASE)
                 .build();
-        List<SeaTunnelRow> rows = TEST_DATASET._2();
-        SeaTunnelRowType rowType = TEST_DATASET._1();
+        List<SeaTunnelRow> rows = TEST_DATASET.getValue();
+        SeaTunnelRowType rowType = TEST_DATASET.getKey();
 
         for (int i = 0; i < rows.size(); i++) {
             SeaTunnelRow row = rows.get(i);
@@ -117,7 +116,7 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
         influxDB.write(batchPoints);
     }
 
-    private static Tuple2<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
+    private static Pair<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
         SeaTunnelRowType rowType = new SeaTunnelRowType(
             new String[]{
                 "time",
@@ -159,7 +158,7 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
                 });
             rows.add(row);
         }
-        return Tuple2.apply(rowType, rows);
+        return Pair.of(rowType, rows);
     }
 
     @AfterAll

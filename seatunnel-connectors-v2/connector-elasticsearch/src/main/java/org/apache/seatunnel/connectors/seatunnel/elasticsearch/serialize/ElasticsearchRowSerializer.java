@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.constant.ElasticsearchVersion;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.ElasticsearchClusterInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.IndexInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.index.IndexSerializer;
@@ -28,8 +28,9 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.index.I
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.type.IndexTypeSerializer;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.type.IndexTypeSerializerFactory;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
 import lombok.NonNull;
 
 import java.time.temporal.Temporal;
@@ -49,8 +50,8 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
     private final IndexTypeSerializer indexTypeSerializer;
     private final Function<SeaTunnelRow, String> keyExtractor;
 
-    public ElasticsearchRowSerializer(ElasticsearchVersion elasticsearchVersion, IndexInfo indexInfo, SeaTunnelRowType seaTunnelRowType) {
-        this.indexTypeSerializer = IndexTypeSerializerFactory.getIndexTypeSerializer(elasticsearchVersion, indexInfo.getType());
+    public ElasticsearchRowSerializer(ElasticsearchClusterInfo elasticsearchClusterInfo, IndexInfo indexInfo, SeaTunnelRowType seaTunnelRowType) {
+        this.indexTypeSerializer = IndexTypeSerializerFactory.getIndexTypeSerializer(elasticsearchClusterInfo, indexInfo.getType());
         this.indexSerializer = IndexSerializerFactory.getIndexSerializer(indexInfo.getIndex(), seaTunnelRowType);
         this.seaTunnelRowType = seaTunnelRowType;
         this.keyExtractor = KeyExtractor.createKeyExtractor(seaTunnelRowType, indexInfo.getPrimaryKeys(), indexInfo.getKeyDelimiter());

@@ -232,7 +232,7 @@ public class CheckpointManager {
         coordinator.acknowledgeTask(ackOperation);
     }
 
-    private boolean isSavePointEnd() {
+    public boolean isSavePointEnd() {
         return coordinatorMap.values().stream().map(CheckpointCoordinator::isEndOfSavePoint)
             .reduce((v1, v2) -> v1 && v2).orElse(false);
     }

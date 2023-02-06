@@ -20,7 +20,7 @@ package org.apache.seatunnel.engine.common.config.server;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 
 import java.util.Map;
 
@@ -32,6 +32,8 @@ public class ServerConfigOptions {
     public static final Option<Integer> PRINT_EXECUTION_INFO_INTERVAL = Options.key("print-execution-info-interval").intType().defaultValue(60).withDescription("The interval (in seconds) between two consecutive executions of the print execution info task.");
 
     public static final Option<Integer> PRINT_JOB_METRICS_INFO_INTERVAL = Options.key("print-job-metrics-info-interval").intType().defaultValue(60).withDescription("The interval (in seconds) of job print metrics info");
+
+    public static final Option<Integer> JOB_METRICS_BACKUP_INTERVAL = Options.key("job-metrics-backup-interval").intType().defaultValue(3).withDescription("The interval (in seconds) of job metrics backups");
 
     public static final Option<Boolean> DYNAMIC_SLOT = Options.key("dynamic-slot").booleanType().defaultValue(true).withDescription("Whether to use dynamic slot.");
 
@@ -48,6 +50,9 @@ public class ServerConfigOptions {
     public static final Option<String> CHECKPOINT_STORAGE_TYPE = Options.key("type").stringType().defaultValue("localfile").withDescription("The checkpoint storage type.");
 
     public static final Option<Integer> CHECKPOINT_STORAGE_MAX_RETAINED = Options.key("max-retained").intType().defaultValue(1).withDescription("The maximum number of retained checkpoints.");
+
+    public static final Option<QueueType> QUEUE_TYPE = Options.key("queue-type").type(new TypeReference<QueueType>() {
+    }).defaultValue(QueueType.BLOCKINGQUEUE).withDescription("The internal data cache queue type.");
 
     public static final Option<CheckpointStorageConfig> CHECKPOINT_STORAGE = Options.key("storage").type(new TypeReference<CheckpointStorageConfig>() {
     }).defaultValue(new CheckpointStorageConfig()).withDescription("The checkpoint storage configuration.");

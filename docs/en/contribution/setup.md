@@ -78,7 +78,7 @@ After all the above things are done, you just finish the environment setup and c
 of box. All examples are in module `seatunnel-examples`, you could pick one you are interested in, [running or debugging
 it in IDEA](https://www.jetbrains.com/help/idea/run-debug-configuration.html) as you wish.
 
-Here we use `seatunnel-examples/seatunnel-flink-examples/src/main/java/org/apache/seatunnel/example/flink/LocalFlinkExample.java`
+Here we use `seatunnel-examples/seatunnel-flink-connector-v2-example/src/main/java/org/apache/seatunnel/example/flink/v2/SeaTunnelApiExample.java`
 as an example, when you run it successfully you could see the output as below:
 
 

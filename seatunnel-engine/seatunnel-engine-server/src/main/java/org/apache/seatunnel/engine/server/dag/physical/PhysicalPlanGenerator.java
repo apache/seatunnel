@@ -17,7 +17,10 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
+import static org.apache.seatunnel.engine.common.config.server.QueueType.BLOCKINGQUEUE;
+
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
+import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -49,7 +52,8 @@ import org.apache.seatunnel.engine.server.task.SinkAggregatedCommitterTask;
 import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 import org.apache.seatunnel.engine.server.task.TransformSeaTunnelTask;
-import org.apache.seatunnel.engine.server.task.group.TaskGroupWithIntermediateQueue;
+import org.apache.seatunnel.engine.server.task.group.TaskGroupWithIntermediateBlockingQueue;
+import org.apache.seatunnel.engine.server.task.group.TaskGroupWithIntermediateDisruptor;
 
 import com.google.common.collect.Lists;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
@@ -121,6 +125,8 @@ public class PhysicalPlanGenerator {
 
     private final IMap<Object, Object> runningJobStateTimestampsIMap;
 
+    private final QueueType queueType;
+
     public PhysicalPlanGenerator(@NonNull ExecutionPlan executionPlan,
                                  @NonNull NodeEngine nodeEngine,
                                  @NonNull JobImmutableInformation jobImmutableInformation,
@@ -128,7 +134,8 @@ public class PhysicalPlanGenerator {
                                  @NonNull ExecutorService executorService,
                                  @NonNull FlakeIdGenerator flakeIdGenerator,
                                  @NonNull IMap runningJobStateIMap,
-                                 @NonNull IMap runningJobStateTimestampsIMap) {
+                                 @NonNull IMap runningJobStateTimestampsIMap,
+                                 @NonNull QueueType queueType) {
         this.pipelines = executionPlan.getPipelines();
         this.nodeEngine = nodeEngine;
         this.jobImmutableInformation = jobImmutableInformation;
@@ -141,6 +148,7 @@ public class PhysicalPlanGenerator {
         this.subtaskActions = new HashMap<>();
         this.runningJobStateIMap = runningJobStateIMap;
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
+        this.queueType = queueType;
     }
 
     public Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> generate() {
@@ -378,13 +386,21 @@ public class PhysicalPlanGenerator {
 
                     if (taskList.stream().anyMatch(TransformSeaTunnelTask.class::isInstance)) {
                         // contains IntermediateExecutionFlow in task group
+                        TaskGroupDefaultImpl taskGroup;
+                        if (queueType.equals(BLOCKINGQUEUE)) {
+                            taskGroup = new TaskGroupWithIntermediateBlockingQueue(taskGroupLocation, flow.getAction().getName() +
+                                "-SourceTask",
+                                taskList.stream().map(task -> (Task) task).collect(Collectors.toList()));
+                        } else {
+                            taskGroup = new TaskGroupWithIntermediateDisruptor(taskGroupLocation, flow.getAction().getName() +
+                                "-SourceTask",
+                                taskList.stream().map(task -> (Task) task).collect(Collectors.toList()));
+                        }
                         t.add(new PhysicalVertex(
                             i,
                             executorService,
                             flow.getAction().getParallelism(),
-                            new TaskGroupWithIntermediateQueue(taskGroupLocation, flow.getAction().getName() +
-                                "-SourceTask",
-                                taskList.stream().map(task -> (Task) task).collect(Collectors.toList())),
+                            taskGroup,
                             flakeIdGenerator,
                             pipelineIndex,
                             totalPipelineNum,

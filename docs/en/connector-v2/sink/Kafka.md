@@ -31,6 +31,21 @@ By default, we will use 2pc to guarantee the message is sent to kafka exactly on
 
 Kafka Topic.
 
+Currently two formats are supported:
+
+1. Fill in the name of the topic.
+
+2. Use value of a field from upstream data as topic,the format is `${your field name}`, where topic is the value of one of the columns of the upstream data.
+
+   For example, Upstream data is the following:
+
+    | name | age  | data          |
+    | ---- | ---- | ------------- |
+    | Jack | 16   | data-example1 |
+    | Mary | 23   | data-example2 |
+
+   If `${name}` is set as the topic. So the first row is sent to Jack topic, and the second row is sent to Mary topic.
+
 ### bootstrap.servers [string]
 
 Kafka Brokers List.
@@ -190,4 +205,5 @@ sink {
 
 - [Improve] Support to specify multiple partition keys [3230](https://github.com/apache/incubator-seatunnel/pull/3230)
 - [Improve] Add text format for kafka sink connector [3711](https://github.com/apache/incubator-seatunnel/pull/3711)
+- [Improve] Support extract topic from SeaTunnelRow fields [3742](https://github.com/apache/incubator-seatunnel/pull/3742)
 - [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/incubator-seatunnel/pull/3719)
