@@ -42,6 +42,7 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.UnknownHostException;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -71,6 +72,8 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
             .withEnv("cluster.routing.allocation.disk.threshold_enabled", "false")
             .withNetworkAliases("elasticsearch")
             .withPassword("elasticsearch")
+            .withStartupAttempts(5)
+            .withStartupTimeout(Duration.ofMinutes(5))
             .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger("elasticsearch:8.0.0")));
         container.start();
         log.info("Elasticsearch container started");
