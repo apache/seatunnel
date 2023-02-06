@@ -201,25 +201,28 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
             if (config.hasPath(FORMAT.key())) {
                 format = config.getString(FORMAT.key());
             }
-            if (DEFAULT_FORMAT.equals(format)) {
-                deserializationSchema = new JsonDeserializationSchema(false, false, typeInfo);
-            } else if (TEXT_FORMAT.equals(format)) {
-                String delimiter = DEFAULT_FIELD_DELIMITER;
-                if (config.hasPath(FIELD_DELIMITER.key())) {
-                    delimiter = config.getString(FIELD_DELIMITER.key());
-                }
-                deserializationSchema = TextDeserializationSchema.builder()
-                    .seaTunnelRowType(typeInfo)
-                    .delimiter(delimiter)
-                    .build();
-            } else if (CANNAL_FORMAT.equals(format)) {
-                deserializationSchema = CanalJsonDeserializationSchema.builder(typeInfo)
-                    .setIgnoreParseErrors(true)
-                    .build();
-            } else {
-                // TODO: use format SPI
-                throw new SeaTunnelJsonFormatException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        "Unsupported format: " + format);
+            switch (format){
+                case DEFAULT_FORMAT:
+                    deserializationSchema = new JsonDeserializationSchema(false, false, typeInfo);
+                    break;
+                case TEXT_FORMAT:
+                    String delimiter = DEFAULT_FIELD_DELIMITER;
+                    if (config.hasPath(FIELD_DELIMITER.key())) {
+                        delimiter = config.getString(FIELD_DELIMITER.key());
+                    }
+                    deserializationSchema = TextDeserializationSchema.builder()
+                            .seaTunnelRowType(typeInfo)
+                            .delimiter(delimiter)
+                            .build();
+                    break;
+                case CANNAL_FORMAT:
+                    deserializationSchema = CanalJsonDeserializationSchema.builder(typeInfo)
+                            .setIgnoreParseErrors(true)
+                            .build();
+                    break;
+                default:
+                    throw new SeaTunnelJsonFormatException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            "Unsupported format: " + format);
             }
         } else {
             typeInfo = SeaTunnelSchema.buildSimpleTextSchema();
