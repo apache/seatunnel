@@ -75,18 +75,19 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<byt
     }
 
     private static SerializationSchema createSerializationSchema(SeaTunnelRowType rowType, String format, String delimiter) {
-        if (DEFAULT_FORMAT.equals(format)) {
-            return new JsonSerializationSchema(rowType);
-        } else if (TEXT_FORMAT.equals(format)) {
-            return TextSerializationSchema.builder()
-                    .seaTunnelRowType(rowType)
-                    .delimiter(delimiter)
-                    .build();
-        } else if (CANNAL_FORMAT.equals(format)) {
-            return new CanalJsonSerializationSchema(rowType);
-        } else {
-            throw new SeaTunnelJsonFormatException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                    "Unsupported format: " + format);
+        switch (format){
+            case DEFAULT_FORMAT:
+                return new JsonSerializationSchema(rowType);
+            case TEXT_FORMAT:
+                return TextSerializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter(delimiter)
+                        .build();
+            case CANNAL_FORMAT:
+                return new CanalJsonSerializationSchema(rowType);
+            default:
+                throw new SeaTunnelJsonFormatException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "Unsupported format: " + format);
         }
     }
 

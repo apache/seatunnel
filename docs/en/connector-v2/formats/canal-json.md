@@ -22,6 +22,8 @@ Seatunnel also supports to encode the INSERT/UPDATE/DELETE messages in Seatunnel
 | canal-json.table.include       | (none)   | no       | An optional regular expression to only read the specific tables changelog rows by regular matching the "table" meta field in the Canal record. The pattern string is compatible with Java's Pattern.       |
 
 # How to use Canal format
+
+## Kafka uses example
 Canal provides a unified format for changelog, here is a simple example for an update operation captured from a MySQL products table:
 ```bash
 {
