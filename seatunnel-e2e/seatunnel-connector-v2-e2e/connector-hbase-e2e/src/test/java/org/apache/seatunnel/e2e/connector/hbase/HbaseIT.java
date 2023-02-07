@@ -30,6 +30,10 @@ import org.apache.hadoop.hbase.client.ColumnFamilyDescriptor;
 import org.apache.hadoop.hbase.client.ColumnFamilyDescriptorBuilder;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
+import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.client.ResultScanner;
+import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.client.TableDescriptor;
 import org.apache.hadoop.hbase.client.TableDescriptorBuilder;
 import org.apache.hadoop.hbase.io.compress.Compression;
@@ -48,6 +52,7 @@ import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Objects;
 import java.util.stream.Stream;
 
@@ -55,7 +60,7 @@ import java.util.stream.Stream;
 @Disabled("Hbase docker e2e case need user add mapping information of between container id and ip address in hosts file")
 public class HbaseIT extends TestSuiteBase implements TestResource {
 
-    private static final String IMAGE = "harisekhon/hbase";
+    private static final String IMAGE = "harisekhon/hbase:latest";
 
     private static final int PORT = 2181;
 
@@ -70,6 +75,8 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
     private Connection hbaseConnection;
 
     private Admin admin;
+
+    private TableName table;
 
     private GenericContainer<?> hbaseContainer;
 
@@ -105,7 +112,7 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         hbaseConfiguration.set("hbase.zookeeper.quorum", HOST + ":" + PORT);
         hbaseConnection = ConnectionFactory.createConnection(hbaseConfiguration);
         admin = hbaseConnection.getAdmin();
-        TableName table = TableName.valueOf(TABLE_NAME);
+        table = TableName.valueOf(TABLE_NAME);
         ColumnFamilyDescriptor familyDescriptor = ColumnFamilyDescriptorBuilder.newBuilder(FAMILY_NAME.getBytes())
                 .setCompressionType(Compression.Algorithm.SNAPPY)
                 .setCompactionCompressionType(Compression.Algorithm.SNAPPY)
@@ -121,5 +128,13 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
     public void testHbaseSink(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/fake-to-hbase.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
+        Table hbaseTable = hbaseConnection.getTable(table);
+        Scan scan = new Scan();
+        ArrayList<Result> results = new ArrayList<>();
+        ResultScanner scanner = hbaseTable.getScanner(scan);
+        for (Result result : scanner) {
+            results.add(result);
+        }
+        Assertions.assertEquals(results.size(), 5);
     }
 }
