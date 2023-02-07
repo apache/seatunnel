@@ -53,6 +53,18 @@
             <groupId>io.airlift</groupId>
             <artifactId>security</artifactId>
             <version>206</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.guava</groupId>
+                    <artifactId>guava</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- I'm not sure which version of guava to use, so I choose the latest; sure enough, the version inherited from the parent project is not compatible -->
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>31.1-jre</version>
         </dependency>
     </dependencies>
 </project>
