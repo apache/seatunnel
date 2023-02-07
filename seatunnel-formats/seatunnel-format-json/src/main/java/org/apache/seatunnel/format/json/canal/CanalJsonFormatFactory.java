@@ -62,7 +62,7 @@ public class CanalJsonFormatFactory
 
     @Override
     public DeserializationFormat createDeserializationFormat(TableFactoryContext context) {
-        Map<String, String> options = context.getOptions();
+        Map<String, String> options = context.getOptions().toMap();
         boolean ignoreParseErrors = CanalJsonFormatOptions.getIgnoreParseErrors(options);
         String  databaseInclude = CanalJsonFormatOptions.getDatabaseInclude(options);
         String  tableInclude = CanalJsonFormatOptions.getTableInclude(options);
