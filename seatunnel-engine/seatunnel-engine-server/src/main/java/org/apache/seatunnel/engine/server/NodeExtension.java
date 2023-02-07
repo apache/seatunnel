@@ -23,6 +23,7 @@ import static com.hazelcast.internal.ascii.TextCommandConstants.TextCommandType.
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpGetCommandProcessor;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpPostCommandProcessor;
+import org.apache.seatunnel.engine.server.rest.RestHttpGetCommandProcessor;
 
 import com.hazelcast.cluster.ClusterState;
 import com.hazelcast.instance.impl.DefaultNodeExtension;
@@ -76,6 +77,7 @@ public class NodeExtension extends DefaultNodeExtension {
             {
                 register(HTTP_GET, new Log4j2HttpGetCommandProcessor(this));
                 register(HTTP_POST, new Log4j2HttpPostCommandProcessor(this));
+                register(HTTP_GET, new RestHttpGetCommandProcessor(this));
             }
         };
     }
