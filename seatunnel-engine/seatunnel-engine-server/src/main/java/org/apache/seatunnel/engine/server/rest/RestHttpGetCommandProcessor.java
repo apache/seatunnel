@@ -18,9 +18,9 @@
 package org.apache.seatunnel.engine.server.rest;
 
 import static com.hazelcast.internal.ascii.rest.HttpCommand.CONTENT_TYPE_JSON;
-import static org.apache.seatunnel.engine.common.Constant.IMAP_RUNNING_JOB_INFO;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
@@ -72,7 +72,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     }
 
     private void handleJobs(HttpGetCommand command) {
-        IMap<Long, JobInfo> values = this.textCommandService.getNode().getNodeEngine().getHazelcastInstance().getMap(IMAP_RUNNING_JOB_INFO);
+        IMap<Long, JobInfo> values = this.textCommandService.getNode().getNodeEngine().getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
         List<String> jobs = values.entrySet().stream()
             .map(jobInfoEntry -> ((LogicalDag) this.textCommandService.getNode().getNodeEngine().getSerializationService()
                 .toObject(((JobImmutableInformation) this.textCommandService.getNode().getNodeEngine().getSerializationService()
