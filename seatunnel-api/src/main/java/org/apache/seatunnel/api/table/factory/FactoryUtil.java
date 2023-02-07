@@ -19,6 +19,7 @@ package org.apache.seatunnel.api.table.factory;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -41,7 +42,6 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
@@ -55,7 +55,7 @@ public final class FactoryUtil {
 
     public static <T, SplitT extends SourceSplit, StateT extends Serializable> List<SeaTunnelSource<T, SplitT, StateT>> createAndPrepareSource(
         List<CatalogTable> multipleTables,
-        Map<String, String> options,
+        ReadonlyConfig options,
         ClassLoader classLoader,
         String factoryIdentifier) {
 
@@ -90,7 +90,7 @@ public final class FactoryUtil {
     }
 
     public static Catalog createCatalog(String catalogName,
-                                        Map<String, String> options,
+                                        ReadonlyConfig options,
                                         ClassLoader classLoader,
                                         String factoryIdentifier) {
         CatalogFactory catalogFactory = discoverFactory(classLoader, CatalogFactory.class, factoryIdentifier);
