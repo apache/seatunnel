@@ -12,6 +12,8 @@
 - [ALL]Add FieldMapper Transform #3781
 ### Connectors
 - [Elasticsearch] Support https protocol & compatible with opensearch
+### Formats
+- [Canal]Support read canal format message #3950
 
 ## Improves
 ### Connectors

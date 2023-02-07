@@ -36,12 +36,14 @@ import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
+import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.UnknownHostException;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -53,6 +55,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Slf4j
 public class ElasticsearchIT extends TestSuiteBase implements TestResource {
@@ -68,10 +71,13 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     public void startUp() throws Exception {
         container = new ElasticsearchContainer(DockerImageName.parse("elasticsearch:8.0.0").asCompatibleSubstituteFor("docker.elastic.co/elasticsearch/elasticsearch"))
             .withNetwork(NETWORK)
+            .withEnv("cluster.routing.allocation.disk.threshold_enabled", "false")
             .withNetworkAliases("elasticsearch")
             .withPassword("elasticsearch")
+            .withStartupAttempts(5)
+            .withStartupTimeout(Duration.ofMinutes(5))
             .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger("elasticsearch:8.0.0")));
-        container.start();
+        Startables.deepStart(Stream.of(container)).join();
         log.info("Elasticsearch container started");
         esRestClient = EsRestClient.createInstance(
             Lists.newArrayList("https://" + container.getHttpHostAddress()),
