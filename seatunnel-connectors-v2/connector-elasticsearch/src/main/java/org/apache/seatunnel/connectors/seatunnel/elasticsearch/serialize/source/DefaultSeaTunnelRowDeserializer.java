@@ -43,6 +43,7 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.Elastic
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
@@ -90,7 +91,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
         try {
             for (int i = 0; i < rowTypeInfo.getTotalFields(); i++) {
                 fieldName = rowTypeInfo.getFieldName(i);
-                value = rowRecord.getDoc().get(fieldName);
+                value = recursiveGet(rowRecord.getDoc(), fieldName);
                 if (value != null) {
                     seaTunnelDataType = rowTypeInfo.getFieldType(i);
                     seaTunnelFields[i] = convertValue(seaTunnelDataType, value.toString());
@@ -174,6 +175,20 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
             throw new ElasticsearchConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION, "unsupported date format");
         }
         return LocalDateTime.parse(formatDate, dateTimeFormatter);
+    }
+
+    Object recursiveGet(Map<String, Object> collect, String keyWithRecursive) {
+        Object value = null;
+        boolean isFirst = true;
+        for (String key : keyWithRecursive.split("\\.")) {
+            if (isFirst) {
+                value = collect.get(key);
+                isFirst = false;
+            } else if (value instanceof ObjectNode) {
+                value = ((ObjectNode) value).get(key);
+            }
+        }
+        return value;
     }
 }
 
