@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.format.json;
+package org.apache.seatunnel.format.json.canal;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
@@ -29,9 +29,15 @@ import org.apache.seatunnel.api.table.factory.TableFactoryContext;
 
 import java.util.Map;
 
-public class JsonFormatFactory implements DeserializationFormatFactory, SerializationFormatFactory {
+/**
+ * Format factory for providing configured instances of Canal JSON to RowData {@link
+ * DeserializationSchema}.
+ */
 
-    public static final String IDENTIFIER = "json";
+public class CanalJsonFormatFactory
+        implements DeserializationFormatFactory, SerializationFormatFactory {
+
+    public static final String IDENTIFIER = "canal-json";
 
     @Override
     public String factoryIdentifier() {
@@ -45,27 +51,27 @@ public class JsonFormatFactory implements DeserializationFormatFactory, Serializ
     }
 
     @Override
-    public DeserializationFormat createDeserializationFormat(TableFactoryContext context) {
-        Map<String, String> options = context.getOptions().toMap();
-        boolean failOnMissingField = JsonFormatOptions.getFailOnMissingField(options);
-        boolean ignoreParseErrors = JsonFormatOptions.getIgnoreParseErrors(options);
-
-        // TODO config SeaTunnelRowType
-        return new DeserializationFormat() {
+    public SerializationFormat createSerializationFormat(TableFactoryContext context) {
+        return new SerializationFormat() {
             @Override
-            public DeserializationSchema createDeserializationSchema() {
-                return new JsonDeserializationSchema(failOnMissingField, ignoreParseErrors, null);
+            public SerializationSchema createSerializationSchema() {
+                return new CanalJsonSerializationSchema(null);
             }
         };
     }
 
     @Override
-    public SerializationFormat createSerializationFormat(TableFactoryContext context) {
+    public DeserializationFormat createDeserializationFormat(TableFactoryContext context) {
+        Map<String, String> options = context.getOptions().toMap();
+        boolean ignoreParseErrors = CanalJsonFormatOptions.getIgnoreParseErrors(options);
+        String  databaseInclude = CanalJsonFormatOptions.getDatabaseInclude(options);
+        String  tableInclude = CanalJsonFormatOptions.getTableInclude(options);
+
         // TODO config SeaTunnelRowType
-        return new SerializationFormat() {
+        return new DeserializationFormat() {
             @Override
-            public SerializationSchema createSerializationSchema() {
-                return new JsonSerializationSchema(null);
+            public DeserializationSchema createDeserializationSchema() {
+                return new CanalJsonDeserializationSchema(null, databaseInclude, tableInclude, ignoreParseErrors);
             }
         };
     }
