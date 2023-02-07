@@ -15,23 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.type;
+package org.apache.seatunnel.api.table.catalog.exception;
 
-import java.io.Serializable;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-/**
- * Logic data type of column in SeaTunnel.
- */
-public interface SeaTunnelDataType<T> extends Serializable {
+public class TableAlreadyExistException extends SeaTunnelRuntimeException {
+    private static final String MSG = "Table %s already exist in Catalog %s.";
 
-    /**
-     * Gets the class of the type represented by this data type.
-     */
-    Class<T> getTypeClass();
+    public TableAlreadyExistException(String catalogName, TablePath tablePath) {
+        this(catalogName, tablePath, null);
+    }
 
-    /**
-     * Gets the SQL standard type represented by this data type.
-     */
-    SqlType getSqlType();
-
+    public TableAlreadyExistException(String catalogName, TablePath tablePath, Throwable cause) {
+        super(SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED, String.format(MSG, tablePath.getFullName(), catalogName), cause);
+    }
 }
