@@ -27,8 +27,10 @@ import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportDataSaveMode;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -37,6 +39,7 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.catalog.StarRocksCatalog;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
@@ -53,6 +56,7 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void> implem
     private SeaTunnelRowType seaTunnelRowType;
     private SinkConfig sinkConfig;
     private DataSaveMode dataSaveMode;
+    private String sourceTableName;
 
     @Override
     public String getPluginName() {
@@ -67,12 +71,22 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void> implem
                 String.format("PluginName: %s, PluginType: %s, Message: %s",
                     getPluginName(), PluginType.SINK, result.getMsg()));
         }
+        sourceTableName = pluginConfig.getString(SinkCommonOptions.SOURCE_TABLE_NAME.key());
         sinkConfig = SinkConfig.loadConfig(pluginConfig);
         dataSaveMode = DataSaveMode.KEEP_SCHEMA_AND_DATA;
     }
 
     private void autoCreateTable(String template) {
 
+        String jdbcUrl = "jdbc:mysql://" + sinkConfig.getNodeUrls() + "/" + sinkConfig.getDatabase();
+        StarRocksCatalog starRocksCatalog = new StarRocksCatalog("StarRocks", sinkConfig.getDatabase(),
+            sinkConfig.getUsername(), sinkConfig.getPassword(), jdbcUrl);
+        // TODO get DatabaseName, PrimaryKey and TableName from CatalogTable
+        if (!starRocksCatalog.tableExists(TablePath.of(sinkConfig.getDatabase(), sinkConfig.getTable()))) {
+            String primaryKey = "";
+            String rowTypeFields = "";
+            starRocksCatalog.createTable(StarRocksSaveModeUtil.fillingCreateSql(template, sinkConfig.getDatabase(), sinkConfig.getTable(), primaryKey, rowTypeFields));
+        }
     }
 
     @Override

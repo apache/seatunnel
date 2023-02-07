@@ -82,7 +82,7 @@ public class SinkConfig implements Serializable {
 
     public static final Option<String> SAVE_MODE_CREATE_TEMPLATE = Options.key("save_mode_create_template")
         .stringType()
-        .defaultValue("CREATE TABLE IF NOT EXISTS `default`.`${source_table_name}` (\n" +
+        .defaultValue("CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (\n" +
             "    ${rowtype_fields}\n" +
             ") ENGINE=OLAP\n" +
             "DISTRIBUTED BY HASH (${rowtype_primary_key})")

@@ -17,12 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.catalog;
 
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.MySqlCatalog;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
 
 public class StarRocksCatalog extends MySqlCatalog {
 
@@ -34,8 +35,12 @@ public class StarRocksCatalog extends MySqlCatalog {
         super(catalogName, username, pwd, defaultUrl);
     }
 
-    @Override
-    public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists) throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
-
+    public void createTable(String sql) throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
+        try (Connection conn = DriverManager.getConnection(baseUrl + getDefaultDatabase(), username, pwd)) {
+            conn.createStatement().execute(sql);
+        } catch (Exception e) {
+            throw new CatalogException(
+                String.format("Failed listing database in catalog %s", catalogName), e);
+        }
     }
 }
