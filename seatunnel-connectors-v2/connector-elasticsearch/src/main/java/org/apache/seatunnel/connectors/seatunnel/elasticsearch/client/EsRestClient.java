@@ -376,8 +376,9 @@ public class EsRestClient {
                     mapping = getFieldTypeMappingFromProperties(properties, source);
                 } else {
                     for (Iterator<JsonNode> iter = mappingsProperty.iterator(); iter.hasNext(); ) {
-                        JsonNode typeNode = iter.next();
-                        JsonNode properties = typeNode.get("properties");
+                        // JsonNode typeNode = iter.next();
+                        // JsonNode properties = typeNode.get("properties");
+                        JsonNode properties = iter.next();
                         mapping.putAll(getFieldTypeMappingFromProperties(properties, source));
                     }
                 }
