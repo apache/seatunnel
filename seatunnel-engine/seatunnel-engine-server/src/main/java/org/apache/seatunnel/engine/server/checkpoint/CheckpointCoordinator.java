@@ -20,20 +20,21 @@ package org.apache.seatunnel.engine.server.checkpoint;
 import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow;
 import static org.apache.seatunnel.engine.core.checkpoint.CheckpointType.CHECKPOINT_TYPE;
 import static org.apache.seatunnel.engine.core.checkpoint.CheckpointType.COMPLETED_POINT_TYPE;
+import static org.apache.seatunnel.engine.core.checkpoint.CheckpointType.SAVEPOINT_TYPE;
 import static org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan.COORDINATOR_INDEX;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.READY_START;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
-import org.apache.seatunnel.engine.checkpoint.storage.common.ProtoStuffSerializer;
-import org.apache.seatunnel.engine.checkpoint.storage.common.Serializer;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.Checkpoint;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
+import org.apache.seatunnel.engine.serializer.api.Serializer;
+import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointBarrierTriggerOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointFinishedOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskRestoreOperation;
@@ -257,11 +258,12 @@ public class CheckpointCoordinator {
     }
 
     protected void restoreCoordinator(boolean alreadyStarted) {
+        LOG.info("received restore CheckpointCoordinator with alreadyStarted= " + alreadyStarted);
         cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET);
         shutdown = false;
         if (alreadyStarted) {
-            tryTriggerPendingCheckpoint();
             isAllTaskReady = true;
+            tryTriggerPendingCheckpoint();
         } else {
             isAllTaskReady = false;
         }
@@ -329,7 +331,7 @@ public class CheckpointCoordinator {
     }
 
     public PassiveCompletableFuture<CompletedCheckpoint> startSavepoint() {
-        CompletableFuture<PendingCheckpoint> savepoint = createPendingCheckpoint(Instant.now().toEpochMilli(), CheckpointType.SAVEPOINT_TYPE);
+        CompletableFuture<PendingCheckpoint> savepoint = createPendingCheckpoint(Instant.now().toEpochMilli(), SAVEPOINT_TYPE);
         startTriggerPendingCheckpoint(savepoint);
         return savepoint.join().getCompletableFuture();
     }
@@ -502,7 +504,7 @@ public class CheckpointCoordinator {
         }
 
         pendingCheckpoint.acknowledgeTask(location, ackOperation.getStates(),
-            CheckpointType.SAVEPOINT_TYPE == pendingCheckpoint.getCheckpointType() ?
+            SAVEPOINT_TYPE == pendingCheckpoint.getCheckpointType() ?
                 SubtaskStatus.SAVEPOINT_PREPARE_CLOSE :
                 SubtaskStatus.RUNNING);
     }
@@ -563,5 +565,12 @@ public class CheckpointCoordinator {
             return false;
         }
         return latestCompletedCheckpoint.getCheckpointType() == COMPLETED_POINT_TYPE;
+    }
+
+    public boolean isEndOfSavePoint() {
+        if (latestCompletedCheckpoint == null) {
+            return false;
+        }
+        return latestCompletedCheckpoint.getCheckpointType() == SAVEPOINT_TYPE;
     }
 }

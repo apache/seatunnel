@@ -78,9 +78,7 @@
             <module>seatunnel-config</module>
         -->
         <module>seatunnel-common</module>
-        <module>seatunnel-apis</module>
         <module>seatunnel-core</module>
-        <module>seatunnel-transforms</module>
         <module>seatunnel-transforms-v2</module>
         <module>seatunnel-connectors-v2</module>
         <module>seatunnel-api</module>
@@ -131,7 +129,9 @@
         <commons-logging.version>1.2</commons-logging.version>
         <iceberg.version>0.13.1</iceberg.version>
         <flink.1.13.6.version>1.13.6</flink.1.13.6.version>
+        <flink.1.15.3.version>1.15.3</flink.1.15.3.version>
         <spark.2.4.0.version>2.4.0</spark.2.4.0.version>
+        <spark.3.3.0.version>3.3.0</spark.3.3.0.version>
         <spark.binary.2.4.version>2.4</spark.binary.2.4.version>
         <commons.beanutils.version>1.9.4</commons.beanutils.version>
         <commons.cli.version>1.4</commons.cli.version>
@@ -155,7 +155,6 @@
         <maven-source-plugin.version>3.0.1</maven-source-plugin.version>
         <maven-javadoc-plugin.version>2.9.1</maven-javadoc-plugin.version>
         <maven-deploy-plugin.version>2.8.2</maven-deploy-plugin.version>
-        <scala-maven-plugin.version>3.3.1</scala-maven-plugin.version>
         <maven-compiler-plugin.version>3.10.1</maven-compiler-plugin.version>
         <maven-pmd-plugin.version>3.8</maven-pmd-plugin.version>
         <elasticsearch6.client.version>6.3.1</elasticsearch6.client.version>
@@ -193,7 +192,6 @@
         <guava.version>19.0</guava.version>
         <auto-service.version>1.0.1</auto-service.version>
         <hadoop2.version>2.6.5</hadoop2.version>
-        <hadoop3.version>3.0.0</hadoop3.version>
         <seatunnel.shade.package>org.apache.seatunnel.shade</seatunnel.shade.package>
         <snappy-java.version>1.1.8.3</snappy-java.version>
         <checker.qual.version>3.10.0</checker.qual.version>
@@ -872,49 +870,6 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>flatten-maven-plugin</artifactId>
-            </plugin>
-            <plugin>
-                <groupId>net.alchim31.maven</groupId>
-                <artifactId>scala-maven-plugin</artifactId>
-                <version>${scala-maven-plugin.version}</version>
-                <configuration>
-                    <args>
-                        <arg>-nobootcp</arg>
-                        <arg>-target:jvm-${java.version}</arg>
-                    </args>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>scala-compile-first</id>
-                        <phase>process-resources</phase>
-                        <goals>
-                            <goal>compile</goal>
-                        </goals>
-                    </execution>
-                    <execution>
-                        <id>scala-test-compile</id>
-                        <phase>process-test-resources</phase>
-                        <goals>
-                            <goal>testCompile</goal>
-                        </goals>
-                    </execution>
-                    <!-- attach javadocs and sources , -javadoc.jar, sources.jar, to pass mvn deploy-->
-                    <execution>
-                        <id>attach-javadocs</id>
-                        <goals>
-                            <goal>doc-jar</goal>
-                        </goals>
-                        <configuration>
-                            <skip>${maven.javadoc.skip}</skip>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>attach-sources</id>
-                        <goals>
-                            <goal>add-source</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>

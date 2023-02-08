@@ -17,17 +17,16 @@
 
 package org.apache.seatunnel.core.starter.seatunnel;
 
-import org.apache.seatunnel.core.starter.Seatunnel;
-import org.apache.seatunnel.core.starter.command.Command;
+import org.apache.seatunnel.core.starter.SeaTunnel;
+import org.apache.seatunnel.core.starter.enums.EngineType;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
-import org.apache.seatunnel.core.starter.seatunnel.command.ClientCommandBuilder;
+import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
 public class SeaTunnelClient {
     public static void main(String[] args) throws CommandException {
-        ClientCommandArgs clientCommandArgs = CommandLineUtils.parseSeaTunnelClientArgs(args);
-        Command<ClientCommandArgs> command =
-            new ClientCommandBuilder().buildCommand(clientCommandArgs);
-        Seatunnel.run(command);
+        ClientCommandArgs clientCommandArgs = CommandLineUtils.parse(args, new ClientCommandArgs(),
+                EngineType.SEATUNNEL.getStarterShellName(), true);
+        SeaTunnel.run(clientCommandArgs.buildCommand());
     }
 }

@@ -63,8 +63,6 @@ public class BufferedBatchStatementExecutor implements JdbcBatchStatementExecuto
         if (!buffer.isEmpty()) {
             executeBatch();
         }
-        if (statementExecutor != null) {
-            statementExecutor.closeStatements();
-        }
+        statementExecutor.closeStatements();
     }
 }

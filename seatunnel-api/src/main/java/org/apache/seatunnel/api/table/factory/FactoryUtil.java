@@ -17,14 +17,21 @@
 
 package org.apache.seatunnel.api.table.factory;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SinkCommonOptions;
+import org.apache.seatunnel.api.sink.SupportDataSaveMode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceCommonOptions;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.connector.TableSource;
 
 import lombok.NonNull;
@@ -35,7 +42,6 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
@@ -49,7 +55,7 @@ public final class FactoryUtil {
 
     public static <T, SplitT extends SourceSplit, StateT extends Serializable> List<SeaTunnelSource<T, SplitT, StateT>> createAndPrepareSource(
         List<CatalogTable> multipleTables,
-        Map<String, String> options,
+        ReadonlyConfig options,
         ClassLoader classLoader,
         String factoryIdentifier) {
 
@@ -84,7 +90,7 @@ public final class FactoryUtil {
     }
 
     public static Catalog createCatalog(String catalogName,
-                                        Map<String, String> options,
+                                        ReadonlyConfig options,
                                         ClassLoader classLoader,
                                         String factoryIdentifier) {
         CatalogFactory catalogFactory = discoverFactory(classLoader, CatalogFactory.class, factoryIdentifier);
@@ -162,7 +168,7 @@ public final class FactoryUtil {
 
     /**
      * This method is called by SeaTunnel Web to get the full option rule of a source.
-     * @return
+     * @return Option rule
      */
     public static OptionRule sourceFullOptionRule(@NonNull TableSourceFactory factory) {
         OptionRule sourceOptionRule = factory.optionRule();
@@ -171,12 +177,42 @@ public final class FactoryUtil {
         }
 
         Class<? extends SeaTunnelSource> sourceClass = factory.getSourceClass();
-        if (sourceClass.isAssignableFrom(SupportParallelism.class)) {
+        if (SupportParallelism.class.isAssignableFrom(sourceClass)) {
             OptionRule sourceCommonOptionRule =
                 OptionRule.builder().optional(SourceCommonOptions.PARALLELISM).build();
             sourceOptionRule.getOptionalOptions().addAll(sourceCommonOptionRule.getOptionalOptions());
         }
 
         return sourceOptionRule;
+    }
+
+    /**
+     * This method is called by SeaTunnel Web to get the full option rule of a sink.
+     * @return Option rule
+     */
+    public static OptionRule sinkFullOptionRule(@NonNull TableSinkFactory factory) {
+        OptionRule sinkOptionRule = factory.optionRule();
+        if (sinkOptionRule == null) {
+            throw new FactoryException("sinkOptionRule can not be null");
+        }
+
+        try {
+            TableSink sink = factory.createSink(null);
+            if (SupportDataSaveMode.class.isAssignableFrom(sink.getClass())) {
+                SupportDataSaveMode supportDataSaveModeSink = (SupportDataSaveMode) sink;
+                Option<DataSaveMode> saveMode =
+                    Options.key(SinkCommonOptions.DATA_SAVE_MODE)
+                        .singleChoice(DataSaveMode.class, supportDataSaveModeSink.supportedDataSaveModeValues())
+                        .noDefaultValue()
+                        .withDescription("data save mode");
+                OptionRule sinkCommonOptionRule =
+                    OptionRule.builder().required(saveMode).build();
+                sinkOptionRule.getOptionalOptions().addAll(sinkCommonOptionRule.getOptionalOptions());
+            }
+        } catch (UnsupportedOperationException e) {
+            LOG.warn("Add save mode option need sink connector support create sink by TableSinkFactory");
+        }
+
+        return sinkOptionRule;
     }
 }

@@ -23,6 +23,7 @@ import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 
+import java.util.Arrays;
 import java.util.List;
 
 public class BaseSinkConfig {
@@ -37,30 +38,54 @@ public class BaseSinkConfig {
     public static final String DEFAULT_FILE_NAME_EXPRESSION = "${transactionId}";
     public static final int DEFAULT_BATCH_SIZE = 1000000;
 
-    public static final Option<String> COMPRESS_CODEC = Options.key("compress_codec")
-            .stringType()
-            .noDefaultValue()
+    public static final Option<CompressFormat> COMPRESS_CODEC = Options.key("compress_codec")
+            .enumType(CompressFormat.class)
+            .defaultValue(CompressFormat.NONE)
             .withDescription("Compression codec");
+
+    public static final Option<CompressFormat> TXT_COMPRESS = Options.key("compress_codec")
+            .singleChoice(CompressFormat.class, Arrays.asList(CompressFormat.NONE, CompressFormat.LZO))
+            .defaultValue(CompressFormat.NONE)
+            .withDescription("Txt file supported compression");
+
+    public static final Option<CompressFormat> PARQUET_COMPRESS = Options.key("compress_codec")
+            .singleChoice(CompressFormat.class, Arrays.asList(CompressFormat.NONE, CompressFormat.LZO,
+                    CompressFormat.SNAPPY, CompressFormat.LZ4, CompressFormat.GZIP,
+                    CompressFormat.BROTLI, CompressFormat.ZSTD))
+            .defaultValue(CompressFormat.NONE)
+            .withDescription("Parquet file supported compression");
+
+    public static final Option<CompressFormat> ORC_COMPRESS = Options.key("compress_codec")
+            .singleChoice(CompressFormat.class, Arrays.asList(CompressFormat.NONE, CompressFormat.LZO,
+                    CompressFormat.SNAPPY, CompressFormat.LZ4, CompressFormat.ZLIB))
+            .defaultValue(CompressFormat.NONE)
+            .withDescription("Orc file supported compression");
+
     public static final Option<DateUtils.Formatter> DATE_FORMAT = Options.key("date_format")
             .enumType(DateUtils.Formatter.class)
             .defaultValue(DateUtils.Formatter.YYYY_MM_DD)
             .withDescription("Date format");
+
     public static final Option<DateTimeUtils.Formatter> DATETIME_FORMAT = Options.key("datetime_format")
             .enumType(DateTimeUtils.Formatter.class)
             .defaultValue(DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS)
             .withDescription("Datetime format");
+
     public static final Option<TimeUtils.Formatter> TIME_FORMAT = Options.key("time_format")
             .enumType(TimeUtils.Formatter.class)
             .defaultValue(TimeUtils.Formatter.HH_MM_SS)
             .withDescription("Time format");
+
     public static final Option<String> FILE_PATH = Options.key("path")
             .stringType()
             .noDefaultValue()
             .withDescription("The file path of target files");
+
     public static final Option<String> FIELD_DELIMITER = Options.key("field_delimiter")
             .stringType()
             .defaultValue(DEFAULT_FIELD_DELIMITER)
             .withDescription("The separator between columns in a row of data. Only needed by `text` and `csv` file format");
+
     public static final Option<String> ROW_DELIMITER = Options.key("row_delimiter")
             .stringType()
             .defaultValue(DEFAULT_ROW_DELIMITER)
@@ -84,6 +109,7 @@ public class BaseSinkConfig {
                     "and the final file will be placed in the partition directory. " +
                     "Default `partition_dir_expression` is `${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/`. " +
                     "`k0` is the first partition field and `v0` is the value of the first partition field.");
+
     public static final Option<Boolean> IS_PARTITION_FIELD_WRITE_IN_FILE = Options.key("is_partition_field_write_in_file")
             .booleanType()
             .defaultValue(false)
@@ -136,4 +162,14 @@ public class BaseSinkConfig {
             .stringType()
             .noDefaultValue()
             .withDescription("The path of hdfs-site.xml");
+
+    public static final Option<String> KERBEROS_PRINCIPAL = Options.key("kerberos_principal")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("Kerberos principal");
+
+    public static final Option<String> KERBEROS_KEYTAB_PATH = Options.key("kerberos_keytab_path")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("Kerberos keytab file path");
 }

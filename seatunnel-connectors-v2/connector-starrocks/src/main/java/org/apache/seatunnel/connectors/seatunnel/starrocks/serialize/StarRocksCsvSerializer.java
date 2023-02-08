@@ -25,21 +25,29 @@ public class StarRocksCsvSerializer extends StarRocksBaseSerializer implements S
 
     private final String columnSeparator;
     private final SeaTunnelRowType seaTunnelRowType;
+    private final boolean enableUpsertDelete;
 
-    public StarRocksCsvSerializer(String sp, SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
+    public StarRocksCsvSerializer(String sp,
+                                  SeaTunnelRowType seaTunnelRowType,
+                                  boolean enableUpsertDelete) {
         this.columnSeparator = StarRocksDelimiterParser.parse(sp, "\t");
+        this.seaTunnelRowType = seaTunnelRowType;
+        this.enableUpsertDelete = enableUpsertDelete;
     }
 
     @Override
     public String serialize(SeaTunnelRow row) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < row.getFields().length; i++) {
-            String value = convert(seaTunnelRowType.getFieldType(i), row.getField(i));
+            Object value = convert(seaTunnelRowType.getFieldType(i), row.getField(i));
             sb.append(null == value ? "\\N" : value);
             if (i < row.getFields().length - 1) {
                 sb.append(columnSeparator);
             }
+        }
+        if (enableUpsertDelete) {
+            sb.append(columnSeparator)
+                .append(StarRocksSinkOP.parse(row.getRowKind()).ordinal());
         }
         return sb.toString();
     }

@@ -25,7 +25,7 @@ supports query SQL and can achieve projection effect.
 |--------------------|--------|----------|---------------|
 | url                | string | yes      | -             |
 | sql                | string | yes      | -             |
-| fields             | config | yes      | -             |
+| schema             | config | yes      | -             |
 | database           | string | yes      |               |
 | username           | string | no       | -             |
 | password           | string | no       | -             |
@@ -51,19 +51,20 @@ The query sql used to search data
 select name,age from test
 ```
 
-### fields [string]
+### schema [config]
 
-the fields of the InfluxDB when you select
+#### fields [Config]
 
-the field type is SeaTunnel field type `org.apache.seatunnel.api.table.type.SqlType`
-
+The schema information of upstream data.
 e.g.
 
 ```
-fields{
-    name=STRING
-    age=INT
+schema {
+    fields {
+        name = string
+        age = int
     }
+  }
 ```
 
 ### database [string]
@@ -147,11 +148,12 @@ source {
         lower_bound = 1
         partition_num = 4
         split_column = "value"
-        fields {
-            label = STRING
-            value = INT
-            rt = STRING
-            time = BIGINT
+        schema {
+            fields {
+                label = STRING
+                value = INT
+                rt = STRING
+                time = BIGINT
             }
     }
 
@@ -166,11 +168,12 @@ source {
         url = "http://influxdb-host:8086"
         sql = "select label, value, rt, time from test"
         database = "test"
-        fields {
-            label = STRING
-            value = INT
-            rt = STRING
-            time = BIGINT
+        schema {
+            fields {
+                label = STRING
+                value = INT
+                rt = STRING
+                time = BIGINT
             }
     }
 

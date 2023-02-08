@@ -16,3 +16,4 @@
 #
 
 org.apache.seatunnel.format.json.JsonFormatFactory
+org.apache.seatunnel.format.json.canal.CanalJsonFormatFactory

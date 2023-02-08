@@ -19,92 +19,48 @@ package org.apache.seatunnel.core.starter.command;
 
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.DeployMode;
-import org.apache.seatunnel.core.starter.config.EngineType;
 
 import com.beust.jcommander.Parameter;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.util.Collections;
 import java.util.List;
 
-public abstract class AbstractCommandArgs implements CommandArgs {
-
-    @Parameter(names = {"-i", "--variable"},
-        description = "variable substitution, such as -i city=beijing, or -i date=20190318")
-    private List<String> variables = Collections.emptyList();
-
-    // todo: use command type enum
-    @Parameter(names = {"-t", "--check"},
-            description = "check config")
-    private boolean checkConfig = false;
-
-    @Parameter(names = {"-n", "--name"},
-            description = "application name")
-    private String jobName = Constants.LOGO;
-
-    @Parameter(names = {"-h", "--help"},
-            help = true,
-            description = "Show the usage message")
-    private boolean help = false;
+/**
+ * Abstract class of {@link CommandArgs} implementation to save common configuration settings
+ */
+@EqualsAndHashCode(callSuper = true)
+@Data
+public abstract class AbstractCommandArgs extends CommandArgs {
 
     /**
-     * Undefined parameters parsed will be stored here as engine original command parameters.
+     * config file path
      */
-    private List<String> originalParameters;
+    @Parameter(names = {"-c", "--config"},
+            description = "Config file")
+    protected String configFile;
 
-    public List<String> getVariables() {
-        return variables;
-    }
+    /**
+     * user-defined parameters
+     */
+    @Parameter(names = {"-i", "--variable"},
+        description = "Variable substitution, such as -i city=beijing, or -i date=20190318")
+    protected List<String> variables = Collections.emptyList();
 
-    public void setVariables(List<String> variables) {
-        this.variables = variables;
-    }
+    /**
+     * check config flag
+     */
+    @Parameter(names = {"--check"},
+            description = "Whether check config")
+    protected boolean checkConfig = false;
 
-    public boolean isCheckConfig() {
-        return checkConfig;
-    }
+    /**
+     * SeaTunnel job name
+     */
+    @Parameter(names = {"-n", "--name"},
+            description = "SeaTunnel job name")
+    protected String jobName = Constants.LOGO;
 
-    public void setCheckConfig(boolean checkConfig) {
-        this.checkConfig = checkConfig;
-    }
-
-    public String getJobName() {
-        return jobName;
-    }
-
-    public void setJobName(String jobName) {
-        this.jobName = jobName;
-    }
-
-    public boolean isHelp() {
-        return help;
-    }
-
-    public void setHelp(boolean help) {
-        this.help = help;
-    }
-
-    public List<String> getOriginalParameters() {
-        return originalParameters;
-    }
-
-    public void setOriginalParameters(List<String> originalParameters) {
-        this.originalParameters = originalParameters;
-    }
-
-    public EngineType getEngineType() {
-        throw new UnsupportedOperationException("abstract class CommandArgs not support this method");
-    }
-
-    public DeployMode getDeployMode() {
-        throw new UnsupportedOperationException("abstract class CommandArgs not support this method");
-    }
-
-    public String getConfigFile() {
-        throw new UnsupportedOperationException("abstract class CommandArgs not support this method");
-    }
-
-    public void setConfigFile(String configFile) {
-        throw new UnsupportedOperationException("abstract class CommandArgs not support this method");
-    }
-
+    public abstract DeployMode getDeployMode();
 }

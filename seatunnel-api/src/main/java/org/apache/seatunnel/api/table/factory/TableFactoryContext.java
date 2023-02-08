@@ -17,20 +17,23 @@
 
 package org.apache.seatunnel.api.table.factory;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 
+import lombok.Getter;
+
 import java.util.List;
-import java.util.Map;
 
 public class TableFactoryContext {
 
     private final List<CatalogTable> catalogTables;
-    private final Map<String, String> options;
+    @Getter
+    private final ReadonlyConfig options;
     private final ClassLoader classLoader;
 
     public TableFactoryContext(
             List<CatalogTable> catalogTables,
-            Map<String, String> options,
+            ReadonlyConfig options,
             ClassLoader classLoader) {
         this.catalogTables = catalogTables;
         this.options = options;
@@ -50,9 +53,5 @@ public class TableFactoryContext {
      */
     public List<CatalogTable> getCatalogTables() {
         return catalogTables;
-    }
-
-    public Map<String, String> getOptions() {
-        return this.options;
     }
 }

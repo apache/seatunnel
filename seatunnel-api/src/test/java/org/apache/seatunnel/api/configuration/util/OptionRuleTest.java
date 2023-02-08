@@ -26,7 +26,8 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.OptionTest;
 import org.apache.seatunnel.api.configuration.Options;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
@@ -98,7 +99,7 @@ public class OptionRuleTest {
 
         // test duplicate
         assertEquals(
-            "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - RequiredOption 'option.required-have-default' duplicate in option options.",
+            "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - AbsolutelyRequiredOptions 'option.required-have-default' duplicate in option options.",
             assertThrows(OptionValidationException.class, executable).getMessage());
 
         executable = () -> {
@@ -112,7 +113,7 @@ public class OptionRuleTest {
 
         // test duplicate in RequiredOption$ExclusiveRequiredOptions
         assertEquals(
-            "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - RequiredOption 'option.test-duplicate' duplicate in 'org.apache.seatunnel.api.configuration.util.RequiredOption$ExclusiveRequiredOptions'.",
+            "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - AbsolutelyRequiredOptions 'option.test-duplicate' duplicate in ExclusiveRequiredOptions options.",
             assertThrows(OptionValidationException.class, executable).getMessage());
 
         executable = () -> {
@@ -141,7 +142,7 @@ public class OptionRuleTest {
 
         // test parameter can only be controlled by one other parameter
         assertEquals(
-            "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - ConditionalOption 'option.timestamp' duplicate in 'org.apache.seatunnel.api.configuration.util.RequiredOption$ConditionalRequiredOptions'.",
+            "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - ConditionalRequiredOptions 'option.timestamp' duplicate in ConditionalRequiredOptions options.",
             assertThrows(OptionValidationException.class, executable).getMessage());
     }
 

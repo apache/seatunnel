@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.serialize;
 
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CANNAL_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TEXT_FORMAT;
 
@@ -26,6 +27,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
+import org.apache.seatunnel.format.json.canal.CanalJsonSerializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
@@ -37,51 +39,55 @@ import java.util.function.Function;
 public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<byte[], byte[]> {
 
     private Integer partition;
-    private final String topic;
     private final SerializationSchema keySerialization;
     private final SerializationSchema valueSerialization;
 
-    public DefaultSeaTunnelRowSerializer(String topic, SeaTunnelRowType seaTunnelRowType, String format, String delimiter) {
-        this(topic, element -> null, createSerializationSchema(seaTunnelRowType, format, delimiter));
+    public DefaultSeaTunnelRowSerializer(SeaTunnelRowType seaTunnelRowType,
+                                         String format,
+                                         String delimiter) {
+        this(element -> null, createSerializationSchema(seaTunnelRowType, format, delimiter));
     }
 
-    public DefaultSeaTunnelRowSerializer(String topic, Integer partition, SeaTunnelRowType seaTunnelRowType, String format, String delimiter) {
-        this(topic, seaTunnelRowType, format, delimiter);
+    public DefaultSeaTunnelRowSerializer(Integer partition,
+                                         SeaTunnelRowType seaTunnelRowType,
+                                         String format, String delimiter) {
+        this(seaTunnelRowType, format, delimiter);
         this.partition = partition;
     }
 
-    public DefaultSeaTunnelRowSerializer(String topic, List<String> keyFieldNames,
+    public DefaultSeaTunnelRowSerializer(List<String> keyFieldNames,
                                          SeaTunnelRowType seaTunnelRowType,
                                          String format, String delimiter) {
-        this(topic, createKeySerializationSchema(keyFieldNames, seaTunnelRowType),
+        this(createKeySerializationSchema(keyFieldNames, seaTunnelRowType),
                 createSerializationSchema(seaTunnelRowType, format, delimiter));
     }
 
-    public DefaultSeaTunnelRowSerializer(String topic,
-                                         SerializationSchema keySerialization,
+    public DefaultSeaTunnelRowSerializer(SerializationSchema keySerialization,
                                          SerializationSchema valueSerialization) {
-        this.topic = topic;
         this.keySerialization = keySerialization;
         this.valueSerialization = valueSerialization;
     }
 
     @Override
-    public ProducerRecord<byte[], byte[]> serializeRow(SeaTunnelRow row) {
+    public ProducerRecord<byte[], byte[]> serializeRow(String topic, SeaTunnelRow row) {
         return new ProducerRecord<>(topic, partition,
                 keySerialization.serialize(row), valueSerialization.serialize(row));
     }
 
     private static SerializationSchema createSerializationSchema(SeaTunnelRowType rowType, String format, String delimiter) {
-        if (DEFAULT_FORMAT.equals(format)) {
-            return new JsonSerializationSchema(rowType);
-        } else if (TEXT_FORMAT.equals(format)) {
-            return TextSerializationSchema.builder()
-                    .seaTunnelRowType(rowType)
-                    .delimiter(delimiter)
-                    .build();
-        } else {
-            throw new SeaTunnelJsonFormatException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                    "Unsupported format: " + format);
+        switch (format){
+            case DEFAULT_FORMAT:
+                return new JsonSerializationSchema(rowType);
+            case TEXT_FORMAT:
+                return TextSerializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter(delimiter)
+                        .build();
+            case CANNAL_FORMAT:
+                return new CanalJsonSerializationSchema(rowType);
+            default:
+                throw new SeaTunnelJsonFormatException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "Unsupported format: " + format);
         }
     }
 

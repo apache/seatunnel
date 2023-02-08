@@ -32,7 +32,11 @@ import static java.util.stream.Collectors.toList;
 
 import org.apache.seatunnel.api.common.metrics.MetricTags;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
-import org.apache.seatunnel.engine.common.loader.SeatunnelChildFirstClassLoader;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.ConfigProvider;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
@@ -45,6 +49,8 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.execution.TaskTracker;
+import org.apache.seatunnel.engine.server.metrics.MetricsContext;
+import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperation;
 
@@ -56,6 +62,7 @@ import com.hazelcast.internal.metrics.MetricsRegistry;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.logging.ILogger;
+import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import com.hazelcast.spi.properties.HazelcastProperties;
@@ -76,9 +83,12 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -101,8 +111,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     private final ConcurrentMap<TaskGroupLocation, TaskGroupContext> finishedExecutionContexts = new ConcurrentHashMap<>();
     private final ConcurrentMap<TaskGroupLocation, CompletableFuture<Void>> cancellationFutures =
         new ConcurrentHashMap<>();
+    private final SeaTunnelConfig seaTunnelConfig;
+
+    private final ScheduledExecutorService scheduledExecutorService;
 
     public TaskExecutionService(NodeEngineImpl nodeEngine, HazelcastProperties properties) {
+        seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         this.hzInstanceName = nodeEngine.getHazelcastInstance().getName();
         this.nodeEngine = nodeEngine;
         this.logger = nodeEngine.getLoggingService().getLogger(TaskExecutionService.class);
@@ -111,6 +125,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         MetricDescriptor descriptor = registry.newMetricDescriptor()
             .withTag(MetricTags.SERVICE, this.getClass().getSimpleName());
         registry.registerStaticMetrics(descriptor, this);
+        scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+        scheduledExecutorService.scheduleAtFixedRate(this::updateMetricsContextInImap, 0, seaTunnelConfig.getEngineConfig().getJobMetricsBackupInterval(), TimeUnit.SECONDS);
     }
 
     public void start() {
@@ -120,9 +136,13 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     public void shutdown() {
         isRunning = false;
         executorService.shutdownNow();
+        scheduledExecutorService.shutdown();
     }
 
     public TaskGroupContext getExecutionContext(TaskGroupLocation taskGroupLocation) {
+        if (executionContexts.get(taskGroupLocation) == null) {
+            return finishedExecutionContexts.get(taskGroupLocation);
+        }
         return executionContexts.get(taskGroupLocation);
     }
 
@@ -168,9 +188,14 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         return deployTask(taskImmutableInfo);
     }
 
-    public <T extends Task> T getTask(TaskLocation taskLocation) {
-        return this.getExecutionContext(taskLocation.getTaskGroupLocation()).getTaskGroup()
-            .getTask(taskLocation.getTaskID());
+    public <T extends Task> T getTask(@NonNull TaskLocation taskLocation) {
+        TaskGroupContext executionContext = this.getExecutionContext(taskLocation.getTaskGroupLocation());
+        if (null == executionContext) {
+            throw new SeaTunnelException(
+                String.format("Failed to get Task, TaskLocation{%s} does not exist in TaskExecutionServer",
+                    taskLocation));
+        }
+        return executionContext.getTaskGroup().getTask(taskLocation.getTaskID());
     }
 
     public PassiveCompletableFuture<TaskExecutionState> deployTask(
@@ -181,7 +206,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             Set<URL> jars = taskImmutableInfo.getJars();
             ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
             if (!CollectionUtils.isEmpty(jars)) {
-                classLoader = new SeatunnelChildFirstClassLoader(Lists.newArrayList(jars));
+                classLoader = new SeaTunnelChildFirstClassLoader(Lists.newArrayList(jars));
                 taskGroup =
                     CustomClassLoadedObject.deserializeWithCustomClassLoader(nodeEngine.getSerializationService(),
                         classLoader,
@@ -249,14 +274,15 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
         resultFuture.whenComplete(withTryCatch(logger, (r, s) -> {
             logger.info(
-                String.format("Task %s complete with state %s", r.getTaskGroupLocation(), r.getExecutionState()));
+                String.format("Task %s complete with state %s", r != null ? r.getTaskGroupLocation() : "null",
+                    r != null ? r.getExecutionState() : "null"));
             notifyTaskStatusToMaster(taskGroup.getTaskGroupLocation(), r);
         }));
         return new PassiveCompletableFuture<>(resultFuture);
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
-    private void notifyTaskStatusToMaster(TaskGroupLocation taskGroupLocation, TaskExecutionState taskExecutionState){
+    private void notifyTaskStatusToMaster(TaskGroupLocation taskGroupLocation, TaskExecutionState taskExecutionState) {
         long sleepTime = 1000;
         boolean notifyStateSuccess = false;
         while (isRunning && !notifyStateSuccess) {
@@ -302,7 +328,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
     }
 
-    public void notifyCleanTaskGroupContext(TaskGroupLocation taskGroupLocation){
+    public void notifyCleanTaskGroupContext(TaskGroupLocation taskGroupLocation) {
         finishedExecutionContexts.remove(taskGroupLocation);
     }
 
@@ -324,9 +350,33 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                     task.provideDynamicMetrics(copy3, context);
                 });
             });
+            updateMetricsContextInImap();
         } catch (Throwable t) {
             logger.warning("Dynamic metric collection failed", t);
             throw t;
+        }
+    }
+
+    private synchronized void updateMetricsContextInImap() {
+        Map<TaskGroupLocation, TaskGroupContext> contextMap = new HashMap<>();
+        contextMap.putAll(executionContexts);
+        contextMap.putAll(finishedExecutionContexts);
+        try {
+            IMap<TaskLocation, MetricsContext> map =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
+            contextMap.forEach((taskGroupLocation, taskGroupContext) -> {
+                taskGroupContext.getTaskGroup().getTasks().forEach(task -> {
+                    // MetricsContext only exists in SeaTunnelTask
+                    if (task instanceof SeaTunnelTask) {
+                        SeaTunnelTask seaTunnelTask = (SeaTunnelTask) task;
+                        if (null != seaTunnelTask.getMetricsContext()) {
+                            map.put(seaTunnelTask.getTaskLocation(), seaTunnelTask.getMetricsContext());
+                        }
+                    }
+                });
+            });
+        } catch (Exception e){
+            logger.warning("The Imap acquisition failed due to the hazelcast node being offline or restarted, and will be retried next time", e);
         }
     }
 

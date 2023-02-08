@@ -117,6 +117,7 @@ problems encountered by users.
 | KAFKA-04 | Add a split back to the split enumerator,it will only happen when a SourceReader failed   | When users encounter this error code, it means that add a split back to the split enumerator failed, please check it              | 
 | KAFKA-05 | Error occurred when the kafka consumer thread was running                                 | When users encounter this error code, it means that an error occurred when the kafka consumer thread was running, please check it |
 | KAFKA-06 | Kafka failed to consume data                                                              | When users encounter this error code, it means that Kafka failed to consume data, please check config and retry it                |
+| KAFKA-07 | Kafka failed to close consumer                                                            | When users encounter this error code, it means that Kafka failed to close consumer                                                |
 
 ## InfluxDB Connector Error Codes
 
@@ -153,18 +154,24 @@ problems encountered by users.
 | FILE-02 | Data deserialization failed | When users encounter this error code, it means that data from files not satisfied the schema that user assigned, please check data from files whether is correct |
 | FILE-03 | Get file list failed        | When users encounter this error code, it means that connector try to traverse the path and get file list failed, please check file system whether is work        |
 
-## Hudi Connector Error Codes
-
-| code    | description                   | solution                                                                                                  |
-|---------|-------------------------------|-----------------------------------------------------------------------------------------------------------|
-| HUDI-01 | Create ParquetMetadata failed | When the user encounters this error code, it indicates that ParquetMetadata creation failed. Please check |
-| HUDI-02 | Kerberos Authorized failed    | When the user encounters this error code, it indicates that Kerberos authorization failed. Please check   |
-
 ## Doris Connector Error Codes
 
 | code     | description                               | solution                                                                                                                                 |
 |----------|-------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
 | Doris-01 | Writing records to Doris failed.          | When users encounter this error code, it means that writing records to Doris failed, please check data from files whether is correct     |
+
+## SelectDB Cloud Connector Error Codes
+
+| code        | description                         | solution                                                                                                                              |
+|-------------|-------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------|
+| SelectDB-01 | upload file to stage failed         | When users encounter this error code, it means that upload file to SelectDB Cloud failed, please check the configuration and network. |
+| SelectDB-01 | commit copy into sql failed         | When users encounter this error code, it means that commit copy into sql to SelectDB Cloud failed, please check the configuration.    |
+| SelectDB-03 | Closing httpClient failed           | When users encounter this error code, it means that closing the http connection failed. please check the network.                     |
+| SelectDB-04 | Get the redirected s3 address filed | When users encounter this error code, it means that get the redirected s3 address failed, please check the network.                   |
+| SelectDB-05 | error while loading data            | When users encounter this error code, it means that the file write check failed. please check the configuration.                      |
+| SelectDB-07 | buffer stop failed                  | When users encounter this error code, it means that the buffer stop failed. Check the detailed exception information.                 |
+| SelectDB-08 | buffer read failed                  | When users encounter this error code, it means that the buffer read failed. Check the detailed exception information.                 |
+| SelectDB-09 | buffer write failed                 | When users encounter this error code, it means that the buffer write failed. Check the detailed exception information.                |
 
 ## Clickhouse Connector Error Codes
 
@@ -218,3 +225,16 @@ problems encountered by users.
 | code            | description                                | solution                                                                                                             |
 |-----------------|--------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
 | GOOGLESHEETS-01 | Build google sheets http request exception | When users encounter this error code, it means that send http request to build google sheets failed, please check it |
+
+## Iceberg Connector Error Codes
+
+| code       | description                     | solution                                                                                                 |
+|------------|---------------------------------|----------------------------------------------------------------------------------------------------------|
+| ICEBERG-01 | File Scan Split failed          | When users encounter this error code, it means that the file scanning and splitting failed. Please check |
+| ICEBERG-02 | Invalid starting record offset  | When users encounter this error code, it means that the starting record offset is invalid. Please check  |
+
+## Email Connector Error Codes
+
+| code        | description       | solution                                                                                                                                                            |
+|-------------|-------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| EMAIL-01    | Send email failed | When users encounter this error code, it means that send email to target server failed, please adjust the network environment according to the abnormal information |

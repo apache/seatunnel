@@ -26,6 +26,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRow
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.BufferReducedBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.BufferedBatchStatementExecutor;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.FieldNamedPreparedStatement;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.InsertOrUpdateBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.SimpleBatchStatementExecutor;
@@ -33,12 +34,14 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.SimpleBa
 import com.google.common.base.Strings;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 
+@Slf4j
 @RequiredArgsConstructor
 public class JdbcOutputFormatBuilder {
     @NonNull
@@ -132,8 +135,14 @@ public class JdbcOutputFormatBuilder {
                                                                                          String[] pkNames) {
 
         return new InsertOrUpdateBatchStatementExecutor(
-            connection -> connection.prepareStatement(dialect.getInsertIntoStatement(table, rowType.getFieldNames())),
-            connection -> connection.prepareStatement(dialect.getUpdateStatement(table, rowType.getFieldNames(), pkNames)),
+            connection -> FieldNamedPreparedStatement.prepareStatement(
+                connection,
+                dialect.getInsertIntoStatement(table, rowType.getFieldNames()),
+                rowType.getFieldNames()),
+            connection -> FieldNamedPreparedStatement.prepareStatement(
+                connection,
+                dialect.getUpdateStatement(table, rowType.getFieldNames(), pkNames),
+                rowType.getFieldNames()),
             rowType,
             dialect.getRowConverter());
     }
@@ -144,12 +153,20 @@ public class JdbcOutputFormatBuilder {
                                                                                                 String[] pkNames,
                                                                                                 SeaTunnelDataType[] pkTypes,
                                                                                                 Function<SeaTunnelRow, SeaTunnelRow> keyExtractor) {
-
         SeaTunnelRowType keyRowType = new SeaTunnelRowType(pkNames, pkTypes);
         return new InsertOrUpdateBatchStatementExecutor(
-            connection -> connection.prepareStatement(dialect.getRowExistsStatement(table, pkNames)),
-            connection -> connection.prepareStatement(dialect.getInsertIntoStatement(table, rowType.getFieldNames())),
-            connection -> connection.prepareStatement(dialect.getUpdateStatement(table, rowType.getFieldNames(), pkNames)),
+            connection -> FieldNamedPreparedStatement.prepareStatement(
+                connection,
+                dialect.getRowExistsStatement(table, pkNames),
+                pkNames),
+            connection -> FieldNamedPreparedStatement.prepareStatement(
+                connection,
+                dialect.getInsertIntoStatement(table, rowType.getFieldNames()),
+                rowType.getFieldNames()),
+            connection -> FieldNamedPreparedStatement.prepareStatement(
+                connection,
+                dialect.getUpdateStatement(table, rowType.getFieldNames(), pkNames),
+                rowType.getFieldNames()),
             keyRowType,
             keyExtractor,
             rowType,
@@ -176,7 +193,10 @@ public class JdbcOutputFormatBuilder {
                                                                                  SeaTunnelRowType rowType,
                                                                                  JdbcRowConverter rowConverter) {
         return new SimpleBatchStatementExecutor(
-            connection -> connection.prepareStatement(sql),
+            connection -> FieldNamedPreparedStatement.prepareStatement(
+                connection,
+                sql,
+                rowType.getFieldNames()),
             rowType,
             rowConverter);
     }

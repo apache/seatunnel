@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorException;
 
 import lombok.NonNull;
 import org.apache.hadoop.conf.Configuration;
@@ -64,7 +66,8 @@ public class IcebergCatalogFactory implements Serializable {
                 properties.put(CatalogProperties.URI, uri);
                 return hive(catalogName, serializableConf, properties);
             default:
-                throw new UnsupportedOperationException("Unsupported catalogType: " + catalogType);
+                throw new IcebergConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
+                    String.format("Unsupported catalogType: %s", catalogType));
         }
     }
 

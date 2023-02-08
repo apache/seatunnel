@@ -36,6 +36,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * An abstract implementation of {@link SourceReader} which provides some synchronization between
@@ -55,7 +57,7 @@ import java.util.concurrent.BlockingQueue;
 public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitStateT>
     implements SourceReader<T, SplitT> {
     private final BlockingQueue<RecordsWithSplitIds<E>> elementsQueue;
-    private final Map<String, SplitContext<T, SplitStateT>> splitStates;
+    private final ConcurrentMap<String, SplitContext<T, SplitStateT>> splitStates;
     protected final RecordEmitter<E, T, SplitStateT> recordEmitter;
     protected final SplitFetcherManager<E, SplitT> splitFetcherManager;
     protected final SourceReaderOptions options;
@@ -74,7 +76,7 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
         this.elementsQueue = elementsQueue;
         this.splitFetcherManager = splitFetcherManager;
         this.recordEmitter = recordEmitter;
-        this.splitStates = new HashMap<>();
+        this.splitStates = new ConcurrentHashMap<>();
         this.options = options;
         this.context = context;
     }
@@ -155,7 +157,7 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
         splitFetcherManager.checkErrors();
         RecordsWithSplitIds<E> recordsWithSplitId = elementsQueue.poll();
         if (recordsWithSplitId == null || !moveToNextSplit(recordsWithSplitId, output)) {
-            log.debug("Current fetch is finished.");
+            log.trace("Current fetch is finished.");
             return null;
         }
 

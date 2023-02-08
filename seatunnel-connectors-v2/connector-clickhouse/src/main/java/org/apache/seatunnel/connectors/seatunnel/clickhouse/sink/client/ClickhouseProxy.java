@@ -141,7 +141,7 @@ public class ClickhouseProxy {
      */
     public List<Shard> getClusterShardList(ClickHouseRequest<?> connection, String clusterName,
                                            String database, int port, String username, String password) {
-        String sql = "select shard_num,shard_weight,replica_num,host_name,host_address,port from system.clusters where cluster = '" + clusterName + "'";
+        String sql = "select shard_num,shard_weight,replica_num,host_name,host_address,port from system.clusters where cluster = '" + clusterName + "'" + " and replica_num=1";
         List<Shard> shardList = new ArrayList<>();
         try (ClickHouseResponse response = connection.query(sql).executeAndWait()) {
             response.records().forEach(r -> {
@@ -167,7 +167,7 @@ public class ClickhouseProxy {
      * @return clickhouse table info.
      */
     public ClickhouseTable getClickhouseTable(String database, String table) {
-        String sql = String.format("select engine,create_table_query,engine_full,data_paths from system.tables where database = '%s' and name = '%s'", database, table);
+        String sql = String.format("select engine,create_table_query,engine_full,data_paths,sorting_key from system.tables where database = '%s' and name = '%s'", database, table);
         try (ClickHouseResponse response = clickhouseRequest.query(sql).executeAndWait()) {
             List<ClickHouseRecord> records = response.stream().collect(Collectors.toList());
             if (records.isEmpty()) {
@@ -178,6 +178,7 @@ public class ClickhouseProxy {
             String createTableDDL = record.getValue(1).asString();
             String engineFull = record.getValue(2).asString();
             List<String> dataPaths = record.getValue(3).asTuple().stream().map(Object::toString).collect(Collectors.toList());
+            String sortingKey = record.getValue(4).asString();
             DistributedEngine distributedEngine = null;
             if ("Distributed".equals(engine)) {
                 distributedEngine = getClickhouseDistributedTable(clickhouseRequest, database, table);
@@ -191,6 +192,7 @@ public class ClickhouseProxy {
                 createTableDDL,
                 engineFull,
                 dataPaths,
+                sortingKey,
                 getClickhouseTableSchema(clickhouseRequest, table));
         } catch (ClickHouseException e) {
             throw new ClickhouseConnectorException(SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED, "Cannot get clickhouse table", e);

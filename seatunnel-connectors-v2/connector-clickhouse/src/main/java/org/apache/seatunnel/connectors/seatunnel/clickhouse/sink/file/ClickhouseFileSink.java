@@ -21,7 +21,6 @@ import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Clickh
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.COMPATIBLE_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.COPY_METHOD;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.FILE_FIELDS_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.FILE_TEMP_PATH;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.HOST;
@@ -48,7 +47,6 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseFileCopyMethod;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.FileReaderOption;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.ShardMetadata;
@@ -118,20 +116,9 @@ public class ClickhouseFileSink implements SeaTunnelSink<SeaTunnelRow, Clickhous
             config.getString(DATABASE.key()),
             config.getString(TABLE.key()),
             table.getEngine(),
-            false, // we don't need to set splitMode in clickhouse file mode.
+            true,
             new Shard(1, 1, nodes.get(0)), config.getString(USERNAME.key()), config.getString(PASSWORD.key()));
-        List<String> fields;
-        if (config.hasPath(FIELDS.key())) {
-            fields = config.getStringList(FIELDS.key());
-            // check if the fields exist in schema
-            for (String field : fields) {
-                if (!tableSchema.containsKey(field)) {
-                    throw new ClickhouseConnectorException(ClickhouseConnectorErrorCode.FIELD_NOT_IN_TABLE, "Field " + field + " does not exist in table " + config.getString(TABLE.key()));
-                }
-            }
-        } else {
-            fields = new ArrayList<>(tableSchema.keySet());
-        }
+        List<String> fields = new ArrayList<>(tableSchema.keySet());
         Map<String, String> nodeUser = config.getObjectList(NODE_PASS.key()).stream()
             .collect(Collectors.toMap(configObject -> configObject.toConfig().getString(NODE_ADDRESS),
                 configObject -> configObject.toConfig().hasPath(USERNAME.key()) ? configObject.toConfig().getString(USERNAME.key()) : "root"));

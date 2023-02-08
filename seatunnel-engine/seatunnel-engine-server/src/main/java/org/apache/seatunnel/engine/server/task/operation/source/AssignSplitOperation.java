@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.task.operation.source;
 
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.common.utils.RetryUtils;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
@@ -58,7 +59,7 @@ public class AssignSplitOperation<SplitT extends SourceSplit> extends Operation 
             task.receivedSourceSplit(Arrays.stream(o).map(i -> (SplitT) i).collect(Collectors.toList()));
             return null;
         }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-            exception -> exception instanceof NullPointerException &&
+            exception -> exception instanceof SeaTunnelException &&
                 !server.taskIsEnded(taskID.getTaskGroupLocation()), Constant.OPERATION_RETRY_SLEEP));
     }
 

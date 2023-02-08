@@ -30,73 +30,24 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>seatunnel-flink-starter</artifactId>
+    <packaging>pom</packaging>
+    <modules>
+        <module>seatunnel-flink-13-starter</module>
+        <module>seatunnel-flink-15-starter</module>
+    </modules>
 
     <properties>
         <docker.repo>seatunnel-flink</docker.repo>
     </properties>
 
     <dependencies>
+        <!-- core-starter -->
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-core-starter</artifactId>
             <version>${project.version}</version>
         </dependency>
 
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-translation-flink</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <!-- todo: use another module to execute new API?        -->
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-java</artifactId>
-            <version>${flink.1.13.6.version}</version>
-            <scope>${flink.scope}</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-table-planner_${scala.binary.version}</artifactId>
-            <version>${flink.1.13.6.version}</version>
-            <scope>${flink.scope}</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-streaming-java_${scala.binary.version}</artifactId>
-            <version>${flink.1.13.6.version}</version>
-            <scope>${flink.scope}</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-api-flink</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-transform-flink-sql</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-transform-flink-split</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-transform-flink-table2datastream</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-transform-flink-datastream2table</artifactId>
-            <version>${project.version}</version>
-        </dependency>
     </dependencies>
 
     <build>
@@ -146,80 +97,4 @@
             </plugin>
         </plugins>
     </build>
-
-    <profiles>
-        <!--todo docker-->
-<!--        <profile>
-            <id>docker</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>exec-maven-plugin</artifactId>
-                        <version>${exec-maven-plugin.version}</version>
-                        <executions>
-                            <execution>
-                                <id>docker-build</id>
-                                <phase>package</phase>
-                                <goals>
-                                    <goal>exec</goal>
-                                </goals>
-                                <configuration>
-                                    <environmentVariables>
-                                        <DOCKER_BUILDKIT>1</DOCKER_BUILDKIT>
-                                    </environmentVariables>
-                                    <executable>docker</executable>
-                                    <workingDirectory>${project.basedir}</workingDirectory>
-                                    <arguments>
-                                        <argument>build</argument>
-                                        <argument>&#45;&#45;no-cache</argument>
-                                        <argument>&#45;&#45;build-arg</argument>
-                                        <argument>SCALA_VERSION=${scala.binary.version}</argument>
-                                        <argument>&#45;&#45;build-arg</argument>
-                                        <argument>FLINK_VERSION=${flink.version}</argument>
-                                        <argument>-t</argument>
-                                        <argument>${docker.hub}/${docker.repo}:${docker.tag}</argument>
-                                        <argument>-t</argument>
-                                        <argument>${docker.hub}/${docker.repo}:latest</argument>
-                                        <argument>.</argument>
-                                        <argument>&#45;&#45;file=src/main/docker/Dockerfile</argument>
-                                    </arguments>
-                                </configuration>
-                            </execution>
-                            <execution>
-                                <id>docker-push</id>
-                                <phase>deploy</phase>
-                                <goals>
-                                    <goal>exec</goal>
-                                </goals>
-                                <configuration>
-                                    <environmentVariables>
-                                        <DOCKER_BUILDKIT>1</DOCKER_BUILDKIT>
-                                    </environmentVariables>
-                                    <executable>docker</executable>
-                                    <workingDirectory>${project.basedir}</workingDirectory>
-                                    <arguments>
-                                        <argument>buildx</argument>
-                                        <argument>build</argument>
-                                        <argument>&#45;&#45;no-cache</argument>
-                                        <argument>&#45;&#45;build-arg</argument>
-                                        <argument>SCALA_VERSION=${scala.binary.version}</argument>
-                                        <argument>&#45;&#45;build-arg</argument>
-                                        <argument>FLINK_VERSION=${flink.version}</argument>
-                                        <argument>&#45;&#45;push</argument>
-                                        <argument>-t</argument>
-                                        <argument>${docker.hub}/${docker.repo}:${docker.tag}</argument>
-                                        <argument>-t</argument>
-                                        <argument>${docker.hub}/${docker.repo}:latest</argument>
-                                        <argument>.</argument>
-                                        <argument>&#45;&#45;file=src/main/docker/Dockerfile</argument>
-                                    </arguments>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>-->
-    </profiles>
 </project>

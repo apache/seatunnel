@@ -92,7 +92,7 @@ public class CheckpointFinishedOperation extends TaskOperation {
                 sneakyThrow(e);
             }
             return null;
-        }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
+        }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, false,
             exception -> exception instanceof NullPointerException &&
                 !server.taskIsEnded(taskLocation.getTaskGroupLocation()), Constant.OPERATION_RETRY_SLEEP));
     }

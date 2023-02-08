@@ -30,11 +30,11 @@ import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
-import com.fasterxml.jackson.core.json.JsonReadFeature;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.json.JsonReadFeature;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.DeserializationFeature;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
 
 import java.io.IOException;
 
@@ -110,6 +110,13 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
         return convertJsonNode(convertBytes(message));
     }
 
+    public SeaTunnelRow deserialize(String message) throws IOException {
+        if (message == null) {
+            return null;
+        }
+        return convertJsonNode(convert(message));
+    }
+
     public void collect(byte[] message, Collector<SeaTunnelRow> out) throws IOException {
         JsonNode jsonNode = convertBytes(message);
         if (jsonNode.isArray()) {
@@ -135,11 +142,19 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
                 return null;
             }
             throw new SeaTunnelJsonFormatException(CommonErrorCode.JSON_OPERATION_FAILED,
-                    String.format("Failed to deserialize JSON '%s'.", jsonNode.asText()), t);
+                    String.format("Failed to deserialize JSON '%s'.", jsonNode), t);
         }
     }
 
-    private JsonNode convertBytes(byte[] message) throws IOException {
+    public JsonNode deserializeToJsonNode(byte[] message) throws IOException {
+        return objectMapper.readTree(message);
+    }
+
+    public SeaTunnelRow convertToRowData(JsonNode message) {
+        return (SeaTunnelRow) runtimeConverter.convert(message);
+    }
+
+    private JsonNode convertBytes(byte[] message) {
         try {
             return objectMapper.readTree(message);
         } catch (Throwable t) {
@@ -148,6 +163,18 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
             }
             throw new SeaTunnelJsonFormatException(CommonErrorCode.JSON_OPERATION_FAILED,
                     String.format("Failed to deserialize JSON '%s'.", new String(message)), t);
+        }
+    }
+
+    private JsonNode convert(String message) {
+        try {
+            return objectMapper.readTree(message);
+        } catch (Throwable t) {
+            if (ignoreParseErrors) {
+                return null;
+            }
+            throw new SeaTunnelJsonFormatException(CommonErrorCode.JSON_OPERATION_FAILED,
+                String.format("Failed to deserialize JSON '%s'.", message), t);
         }
     }
 

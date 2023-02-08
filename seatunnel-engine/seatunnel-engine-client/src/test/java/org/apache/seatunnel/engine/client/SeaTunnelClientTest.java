@@ -34,7 +34,8 @@ import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
@@ -216,6 +217,39 @@ public class SeaTunnelClientTest {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Test
+    public void testSavePointAndRestoreWithSavePoint() throws ExecutionException, InterruptedException {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("/streaming_fake_to_console.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("streaming_fake_to_console.conf");
+
+        JobExecutionEnvironment jobExecutionEnv = CLIENT.createExecutionContext(filePath, jobConfig);
+        final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+        CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
+        long jobId = clientJobProxy.getJobId();
+
+        await().atMost(30000, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> Assertions.assertEquals("RUNNING", CLIENT.getJobStatus(jobId)));
+
+        CLIENT.savePointJob(jobId);
+
+        await().atMost(30000, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> Assertions.assertEquals("FINISHED", CLIENT.getJobStatus(jobId)));
+
+        Thread.sleep(1000);
+        CLIENT.restoreExecutionContext(filePath, jobConfig, jobId).execute();
+
+        await().atMost(30000, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> Assertions.assertEquals("RUNNING", CLIENT.getJobStatus(jobId)));
+
+        CLIENT.cancelJob(jobId);
+
+        await().atMost(30000, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> Assertions.assertEquals("CANCELED", CLIENT.getJobStatus(jobId)));
+
     }
 
     @AfterEach

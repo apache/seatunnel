@@ -27,6 +27,7 @@
     <packaging>pom</packaging>
     <modules>
         <module>seatunnel-hadoop3-3.1.4-uber</module>
+        <module>seatunnel-jackson</module>
     </modules>
 
     <build>
