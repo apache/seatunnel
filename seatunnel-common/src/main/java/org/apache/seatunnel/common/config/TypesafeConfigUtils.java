@@ -23,6 +23,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
 import lombok.NonNull;
 
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -107,5 +108,13 @@ public final class TypesafeConfigUtils {
                                                        String configKey,
                                                        @NonNull List<? extends Config> defaultValue) {
         return config.hasPath(configKey) ? config.getConfigList(configKey) : defaultValue;
+    }
+
+    public static Map<String, String> configToMap(Config config) {
+        Map<String, String> configMap = new HashMap<>();
+        config.entrySet().forEach(entry -> {
+            configMap.put(entry.getKey(), entry.getValue().unwrapped().toString());
+        });
+        return configMap;
     }
 }
