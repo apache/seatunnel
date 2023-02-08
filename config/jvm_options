@@ -34,8 +34,8 @@
 # Xms represents the initial size of total heap space
 # Xmx represents the maximum size of total heap space
 
--Xms4g
--Xmx4g
+#-Xms4g
+#-Xmx4g
 
 ################################################################
 ## Expert settings
@@ -48,9 +48,9 @@
 ################################################################
 
 ## GC configuration
-8-13:-XX:+UseConcMarkSweepGC
-8-13:-XX:CMSInitiatingOccupancyFraction=75
-8-13:-XX:+UseCMSInitiatingOccupancyOnly
+#8-13:-XX:+UseConcMarkSweepGC
+#8-13:-XX:CMSInitiatingOccupancyFraction=75
+#8-13:-XX:+UseCMSInitiatingOccupancyOnly
 
 ## G1GC Configuration
 # NOTE: G1 GC is only supported on JDK version 10 or later
@@ -58,27 +58,27 @@
 # following three lines to your version of the JDK
 # 10-13:-XX:-UseConcMarkSweepGC
 # 10-13:-XX:-UseCMSInitiatingOccupancyOnly
-14-:-XX:+UseG1GC
-14-:-XX:G1ReservePercent=25
-14-:-XX:InitiatingHeapOccupancyPercent=30
+#14-:-XX:+UseG1GC
+#14-:-XX:G1ReservePercent=25
+#14-:-XX:InitiatingHeapOccupancyPercent=30
 
 ## optimizations
 
 # pre-touch memory pages used by the JVM during initialization
--XX:+AlwaysPreTouch
+# -XX:+AlwaysPreTouch
 
 ## basic
 
 # explicitly set the stack size
--Xss1m
+# -Xss1m
 
 # turn off a JDK optimization that throws away stack traces for common
 # exceptions because stack traces are important for debugging
--XX:-OmitStackTraceInFastThrow
+# -XX:-OmitStackTraceInFastThrow
 
 # enable helpful NullPointerExceptions (https://openjdk.java.net/jeps/358), if
 # they are supported
-14-:-XX:+ShowCodeDetailsInExceptionMessages
+# 14-:-XX:+ShowCodeDetailsInExceptionMessages
 
 ## heap dumps
 
