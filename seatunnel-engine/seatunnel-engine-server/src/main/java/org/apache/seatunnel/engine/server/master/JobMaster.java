@@ -224,8 +224,9 @@ public class JobMaster {
             if (JobStatus.FAILING.equals(v.getStatus())) {
                 physicalPlan.updateJobState(JobStatus.FAILING, JobStatus.FAILED);
             }
+            JobResult jobResult = new JobResult(physicalPlan.getJobStatus(), v.getError());
             cleanJob();
-            jobMasterCompleteFuture.complete(new JobResult(physicalPlan.getJobStatus(), v.getError()));
+            jobMasterCompleteFuture.complete(jobResult);
         }));
     }
 

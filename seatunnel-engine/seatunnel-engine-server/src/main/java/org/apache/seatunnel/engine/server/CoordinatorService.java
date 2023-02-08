@@ -251,8 +251,11 @@ public class CoordinatorService {
                     jobMaster.cancelJob();
                     jobMaster.run();
                 } finally {
-                    // storage job state info to HistoryStorage
-                    runningJobMasterMap.remove(jobId);
+                    // voidCompletableFuture will be cancelled when zeta master node shutdown to simulate master failure,
+                    // don't update runningJobMasterMap is this case.
+                    if (!jobMaster.getJobMasterCompleteFuture().isCancelled()) {
+                        runningJobMasterMap.remove(jobId);
+                    }
                 }
             });
             return;
@@ -266,7 +269,11 @@ public class CoordinatorService {
                     jobMaster.getPhysicalPlan().getPipelineList().forEach(SubPlan::restorePipelineState);
                     jobMaster.run();
                 } finally {
-                    runningJobMasterMap.remove(jobId);
+                    // voidCompletableFuture will be cancelled when zeta master node shutdown to simulate master failure,
+                    // don't update runningJobMasterMap is this case.
+                    if (!jobMaster.getJobMasterCompleteFuture().isCancelled()) {
+                        runningJobMasterMap.remove(jobId);
+                    }
                 }
             });
         }
@@ -298,7 +305,6 @@ public class CoordinatorService {
 
         try {
             executorService.awaitTermination(20, TimeUnit.SECONDS);
-            runningJobMasterMap = new ConcurrentHashMap<>();
         } catch (InterruptedException e) {
             throw new SeaTunnelEngineException("wait clean executor service error", e);
         }
@@ -356,7 +362,11 @@ public class CoordinatorService {
             try {
                 jobMaster.run();
             } finally {
-                runningJobMasterMap.remove(jobId);
+                // voidCompletableFuture will be cancelled when zeta master node shutdown to simulate master failure,
+                // don't update runningJobMasterMap is this case.
+                if (!jobMaster.getJobMasterCompleteFuture().isCancelled()) {
+                    runningJobMasterMap.remove(jobId);
+                }
             }
         });
         return new PassiveCompletableFuture<>(voidCompletableFuture);
