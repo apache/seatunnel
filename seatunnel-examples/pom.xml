@@ -33,7 +33,7 @@
     <modules>
         <module>seatunnel-flink-connector-v2-example</module>
         <module>seatunnel-spark-connector-v2-example</module>
-        <module>seatunnel-engine-examples</module>
+        <module>seatunnel-zeta-examples</module>
     </modules>
 
     <build>

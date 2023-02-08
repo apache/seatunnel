@@ -133,9 +133,9 @@ jobs:
               - "**/workflows/**"
               - "**/tools/**"
             engine:
-              - "seatunnel-zeta/**"
+              - "seatunnel-engine/**"
             engine-e2e:
-              - "seatunnel-e2e/seatunnel-zeta-e2e/**"
+              - "seatunnel-e2e/seatunnel-engine-e2e/**"
             deleted-poms:
               - deleted: "**/pom.xml" 
 

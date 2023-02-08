@@ -23,7 +23,7 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <packaging>pom</packaging>
-    <artifactId>seatunnel-zeta</artifactId>
+    <artifactId>seatunnel-engine</artifactId>
 
     <properties>
         <!--  SeaTunnel Engine use     -->
