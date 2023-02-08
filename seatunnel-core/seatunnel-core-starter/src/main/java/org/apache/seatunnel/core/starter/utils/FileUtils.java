@@ -78,4 +78,17 @@ public class FileUtils {
     private static String getFileName(@NonNull String filePath) {
         return filePath.substring(filePath.lastIndexOf(File.separatorChar) + 1);
     }
+
+    /**
+     * Get the file extension from the given path.
+     * e.g. seatunnel/conf/config.conf -> conf
+     *
+     * @param fullName the file's full name.
+     * @return file extension
+     */
+    public static String getFileExtension(@NonNull String fullName) {
+        String fileName = new File(fullName).getName();
+        int dotIndex = fileName.lastIndexOf('.');
+        return (dotIndex == -1) ? "" : fileName.substring(dotIndex + 1);
+    }
 }
