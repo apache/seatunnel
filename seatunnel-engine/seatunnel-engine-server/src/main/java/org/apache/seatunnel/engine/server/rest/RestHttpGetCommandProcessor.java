@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.engine.server.rest;
 
-import org.apache.seatunnel.api.common.metrics.JobMetrics;
-import org.apache.seatunnel.api.common.metrics.Measurement;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
@@ -26,6 +24,10 @@ import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpGetCommandProcessor;
+
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;
@@ -39,12 +41,16 @@ import com.hazelcast.map.IMap;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 
 public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCommand> {
 
     private final HttpGetCommandProcessor original;
+
+    private static final String SOURCE_RECEIVED_COUNT = "SourceReceivedCount";
+
+    private static final String SINK_WRITE_COUNT = "SinkWriteCount";
 
     public RestHttpGetCommandProcessor(TextCommandService textCommandService) {
         this(textCommandService, new HttpGetCommandProcessor(textCommandService));
@@ -87,9 +93,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 LogicalDag logicalDag = this.textCommandService.getNode().getNodeEngine().getSerializationService()
                     .toObject(jobImmutableInformation.getLogicalDag());
 
-                JobMetrics jobMetrics = seaTunnelServer.getCoordinatorService().getJobMetrics(jobInfoEntry.getKey());
+                String jobMetrics = seaTunnelServer.getCoordinatorService().getJobMetrics(jobInfoEntry.getKey()).toJsonString();
                 JobStatus jobStatus = seaTunnelServer.getCoordinatorService().getJobStatus(jobInfoEntry.getKey());
-                Map<String, List<Measurement>> metrics = jobMetrics.getMetrics();
                 return jobInfo
                     .add("jobId", jobInfoEntry.getKey())
                     .add("jobName", logicalDag.getJobConfig().getName())
@@ -103,8 +108,30 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                         return jarUrl;
                     }).collect(JsonArray::new, JsonArray::add, JsonArray::add))
                     .add("isStartWithSavePoint", jobImmutableInformation.isStartWithSavePoint())
-                    .add("metrics", JsonUtil.toJsonObject(metrics));
+                    .add("metrics", JsonUtil.toJsonObject(getJobMetrics(jobMetrics)));
             }).collect(JsonArray::new, JsonArray::add, JsonArray::add);
         this.prepareResponse(command, jobs);
     }
+
+    private Map<String, Long> getJobMetrics(String jobMetrics) {
+        Map<String, Long> metricsMap = new HashMap<>();
+        long sourceReadCount = 0L;
+        long sinkWriteCount = 0L;
+        try {
+            JsonNode jobMetricsStr = new ObjectMapper().readTree(jobMetrics);
+            for (int i = 0; i < jobMetricsStr.get(SOURCE_RECEIVED_COUNT).size(); i++) {
+                JsonNode sourceReader = jobMetricsStr.get(SOURCE_RECEIVED_COUNT).get(i);
+                JsonNode sinkWriter = jobMetricsStr.get(SINK_WRITE_COUNT).get(i);
+                sourceReadCount += sourceReader.get("value").asLong();
+                sinkWriteCount += sinkWriter.get("value").asLong();
+            }
+        } catch (JsonProcessingException | NullPointerException e) {
+            return metricsMap;
+        }
+        metricsMap.put("sourceReceivedCount", sourceReadCount);
+        metricsMap.put("sinkWriteCount", sinkWriteCount);
+
+        return metricsMap;
+    }
 }
+
