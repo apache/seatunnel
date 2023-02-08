@@ -67,9 +67,7 @@ public class GetJobMetricsOperation extends Operation implements IdentifiedDataS
     @Override
     public void run() {
         SeaTunnelServer service = getService();
-        CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> {
-            return service.getCoordinatorService().getJobMetrics(jobId).toJsonString();
-        });
+        CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> service.getCoordinatorService().getJobMetrics(jobId).toJsonString());
 
         try {
             response = future.get();

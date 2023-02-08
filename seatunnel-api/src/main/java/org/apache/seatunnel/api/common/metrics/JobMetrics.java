@@ -24,6 +24,8 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.SerializationFeature;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
+import lombok.Getter;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -45,6 +47,7 @@ public final class JobMetrics implements Serializable {
     private static final Collector<Measurement, ?, Map<String, List<Measurement>>> COLLECTOR =
         Collectors.groupingBy(Measurement::metric);
 
+    @Getter
     private Map<String, List<Measurement>> metrics; //metric name -> set of measurements
 
     JobMetrics() { //needed for deserialization
@@ -117,9 +120,9 @@ public final class JobMetrics implements Serializable {
 
         Map<String, List<Measurement>> filteredMetrics =
             metrics.values().stream()
-                   .flatMap(List::stream)
-                   .filter(predicate)
-                   .collect(COLLECTOR);
+                .flatMap(List::stream)
+                .filter(predicate)
+                .collect(COLLECTOR);
         return new JobMetrics(filteredMetrics);
     }
 
@@ -145,7 +148,7 @@ public final class JobMetrics implements Serializable {
     public String toString() {
         StringBuilder sb = new StringBuilder();
         metrics.entrySet().stream()
-            .sorted(Comparator.comparing(Entry::getKey))
+            .sorted(Entry.comparingByKey())
             .forEach(mainEntry -> {
                 sb.append(mainEntry.getKey()).append(":\n");
                 mainEntry.getValue().stream()

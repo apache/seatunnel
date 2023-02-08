@@ -17,10 +17,14 @@
 
 package org.apache.seatunnel.engine.server.rest;
 
+import org.apache.seatunnel.api.common.metrics.JobMetrics;
+import org.apache.seatunnel.api.common.metrics.Measurement;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
+import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpGetCommandProcessor;
 
 import com.hazelcast.internal.ascii.TextCommandService;
@@ -35,6 +39,8 @@ import com.hazelcast.map.IMap;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
 public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCommand> {
 
@@ -70,6 +76,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
 
     private void handleRunningJobsInfo(HttpGetCommand command) {
         IMap<Long, JobInfo> values = this.textCommandService.getNode().getNodeEngine().getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        Map<String, Object> extensionServices = this.textCommandService.getNode().getNodeExtension().createExtensionServices();
+        SeaTunnelServer seaTunnelServer = (SeaTunnelServer) extensionServices.get(Constant.SEATUNNEL_SERVICE_NAME);
         JsonArray jobs = values.entrySet().stream()
             .map(jobInfoEntry -> {
                 JsonObject jobInfo = new JsonObject();
@@ -79,9 +87,13 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 LogicalDag logicalDag = this.textCommandService.getNode().getNodeEngine().getSerializationService()
                     .toObject(jobImmutableInformation.getLogicalDag());
 
+                JobMetrics jobMetrics = seaTunnelServer.getCoordinatorService().getJobMetrics(jobInfoEntry.getKey());
+                JobStatus jobStatus = seaTunnelServer.getCoordinatorService().getJobStatus(jobInfoEntry.getKey());
+                Map<String, List<Measurement>> metrics = jobMetrics.getMetrics();
                 return jobInfo
                     .add("jobId", jobInfoEntry.getKey())
                     .add("jobName", logicalDag.getJobConfig().getName())
+                    .add("jobStatus", jobStatus.toString())
                     .add("envOptions", JsonUtil.toJsonObject(logicalDag.getJobConfig().getEnvOptions()))
                     .add("createTime", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(jobImmutableInformation.getCreateTime())))
                     .add("jobDag", logicalDag.getLogicalDagAsJson())
@@ -90,7 +102,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                         jarUrl.add("jarPath", url.toString());
                         return jarUrl;
                     }).collect(JsonArray::new, JsonArray::add, JsonArray::add))
-                    .add("isStartWithSavePoint", jobImmutableInformation.isStartWithSavePoint());
+                    .add("isStartWithSavePoint", jobImmutableInformation.isStartWithSavePoint())
+                    .add("metrics", JsonUtil.toJsonObject(metrics));
             }).collect(JsonArray::new, JsonArray::add, JsonArray::add);
         this.prepareResponse(command, jobs);
     }
