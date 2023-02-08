@@ -33,6 +33,7 @@ import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -143,14 +144,16 @@ public class ResourceRequestHandler {
     }
 
     private Optional<WorkerProfile> preCheckWorkerResource(ResourceProfile r) {
+        // Shuffle the order to ensure random selection of workers
+        List<WorkerProfile> workerProfiles = Arrays.asList(registerWorker.values().toArray(new WorkerProfile[0]));
+        Collections.shuffle(workerProfiles);
         // Check if there are still unassigned slots
         Optional<WorkerProfile> workerProfile =
-            registerWorker.values().stream().filter(worker -> Arrays.stream(worker.getUnassignedSlots()).anyMatch(slot -> slot.getResourceProfile().enoughThan(r))).findAny();
+            workerProfiles.stream().filter(worker -> Arrays.stream(worker.getUnassignedSlots()).anyMatch(slot -> slot.getResourceProfile().enoughThan(r))).findAny();
 
         if (!workerProfile.isPresent()) {
             // Check if there are still unassigned resources
-            workerProfile =
-                registerWorker.values().stream().filter(worker -> worker.getUnassignedResource().enoughThan(r)).findAny();
+            workerProfile = workerProfiles.stream().filter(worker -> worker.getUnassignedResource().enoughThan(r)).findAny();
         }
 
         return workerProfile;
