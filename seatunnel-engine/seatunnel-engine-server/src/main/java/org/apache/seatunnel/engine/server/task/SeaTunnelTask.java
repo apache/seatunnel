@@ -33,7 +33,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.function.ConsumerWithException;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
-import org.apache.seatunnel.engine.core.dag.actions.PartitionTransformAction;
+import org.apache.seatunnel.engine.core.dag.actions.ShuffleAction;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.actions.TransformChainAction;
@@ -55,8 +55,8 @@ import org.apache.seatunnel.engine.server.task.flow.ActionFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.FlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.IntermediateQueueFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
-import org.apache.seatunnel.engine.server.task.flow.PartitionTransformSinkFlowLifeCycle;
-import org.apache.seatunnel.engine.server.task.flow.PartitionTransformSourceFlowLifeCycle;
+import org.apache.seatunnel.engine.server.task.flow.ShuffleSinkFlowLifeCycle;
+import org.apache.seatunnel.engine.server.task.flow.ShuffleSourceFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.SinkFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.TransformFlowLifeCycle;
@@ -212,12 +212,12 @@ public abstract class SeaTunnelTask extends AbstractTask {
                 lifeCycle =
                     new TransformFlowLifeCycle<SeaTunnelRow>((TransformChainAction) f.getAction(), this,
                         new SeaTunnelTransformCollector(flowLifeCycles), completableFuture);
-            } else if (f.getAction() instanceof PartitionTransformAction) {
+            } else if (f.getAction() instanceof ShuffleAction) {
                 // TODO use index and taskID to create ringbuffer list
                 if (flow.getNext().isEmpty()) {
-                    lifeCycle = new PartitionTransformSinkFlowLifeCycle(this, completableFuture);
+                    lifeCycle = new ShuffleSinkFlowLifeCycle(this, completableFuture);
                 } else {
-                    lifeCycle = new PartitionTransformSourceFlowLifeCycle(this, completableFuture);
+                    lifeCycle = new ShuffleSourceFlowLifeCycle(this, completableFuture);
                 }
             } else {
                 throw new UnknownActionException(f.getAction());

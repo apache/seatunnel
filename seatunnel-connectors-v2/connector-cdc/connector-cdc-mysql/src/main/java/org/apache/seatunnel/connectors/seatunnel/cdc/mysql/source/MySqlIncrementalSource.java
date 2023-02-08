@@ -39,9 +39,11 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.MySqlCatalog;
 
 import com.google.auto.service.AutoService;
+import lombok.NoArgsConstructor;
 
 import java.time.ZoneId;
 
+@NoArgsConstructor
 @AutoService(SeaTunnelSource.class)
 public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig> implements SupportParallelism {
     static final String IDENTIFIER = "MySQL-CDC";
