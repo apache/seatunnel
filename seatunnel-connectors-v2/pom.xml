@@ -70,6 +70,7 @@
         <module>connector-maxcompute</module>
         <module>connector-tdengine</module>
         <module>connector-selectdb-cloud</module>
+        <module>connector-hbase</module>
     </modules>
 
     <dependencyManagement>
