@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.engine.server.rest;
 
-import static com.hazelcast.internal.ascii.rest.HttpCommand.CONTENT_TYPE_JSON;
-
-import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
@@ -30,14 +27,11 @@ import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;
 import com.hazelcast.internal.ascii.rest.HttpGetCommand;
 import com.hazelcast.internal.ascii.rest.HttpGetCommandProcessor;
-import com.hazelcast.internal.ascii.rest.RestValue;
-import com.hazelcast.internal.json.JsonObject;
+import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.map.IMap;
 
-import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.List;
 import java.util.stream.Collectors;
 
 public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCommand> {
@@ -74,14 +68,14 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
 
     private void handleJobs(HttpGetCommand command) {
         IMap<Long, JobInfo> values = this.textCommandService.getNode().getNodeEngine().getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
-        List<JsonObject> jobs = values.entrySet().stream()
+        JsonArray jobs = values.entrySet().stream()
             .map(jobInfoEntry -> ((LogicalDag) this.textCommandService.getNode().getNodeEngine().getSerializationService()
                 .toObject(((JobImmutableInformation) this.textCommandService.getNode().getNodeEngine().getSerializationService()
                     .toObject(jobInfoEntry.getValue().getJobImmutableInformation()))
                     .getLogicalDag())).getLogicalDagAsJson()
                 .add("jobId", jobInfoEntry.getKey())
-                .add("initializationTime", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(jobInfoEntry.getValue().getInitializationTimestamp())))).collect(Collectors.toList());
-
-        this.prepareResponse(command, new RestValue(JsonUtils.toJsonString(jobs).getBytes(StandardCharsets.UTF_8), CONTENT_TYPE_JSON));
+                .add("initializationTime", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(jobInfoEntry.getValue().getInitializationTimestamp()))))
+            .collect(JsonArray::new, JsonArray::add, JsonArray::add);
+        this.prepareResponse(command, jobs);
     }
 }
