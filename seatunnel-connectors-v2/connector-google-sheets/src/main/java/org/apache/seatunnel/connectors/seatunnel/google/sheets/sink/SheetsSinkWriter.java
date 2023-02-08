@@ -90,6 +90,6 @@ public class SheetsSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     @Override
     public void close() throws IOException {
-        // not need close
+        flush();
     }
 }
