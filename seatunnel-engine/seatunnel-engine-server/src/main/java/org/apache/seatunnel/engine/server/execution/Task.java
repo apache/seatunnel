@@ -44,7 +44,7 @@ public interface Task extends DynamicMetricsProvider, InternalCheckpointListener
     Long getTaskID();
 
     default boolean isThreadsShare() {
-        return false;
+        return true;
     }
 
     default void close() throws IOException {
