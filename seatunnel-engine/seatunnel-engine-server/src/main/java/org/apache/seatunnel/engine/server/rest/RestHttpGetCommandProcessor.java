@@ -28,11 +28,13 @@ import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;
 import com.hazelcast.internal.ascii.rest.HttpGetCommand;
 import com.hazelcast.internal.ascii.rest.HttpGetCommandProcessor;
 import com.hazelcast.internal.json.JsonArray;
+import com.hazelcast.internal.json.JsonObject;
+import com.hazelcast.internal.json.JsonValue;
+import com.hazelcast.internal.util.JsonUtil;
 import com.hazelcast.map.IMap;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.stream.Collectors;
 
 public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCommand> {
 
@@ -69,13 +71,27 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     private void handleJobs(HttpGetCommand command) {
         IMap<Long, JobInfo> values = this.textCommandService.getNode().getNodeEngine().getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
         JsonArray jobs = values.entrySet().stream()
-            .map(jobInfoEntry -> ((LogicalDag) this.textCommandService.getNode().getNodeEngine().getSerializationService()
-                .toObject(((JobImmutableInformation) this.textCommandService.getNode().getNodeEngine().getSerializationService()
-                    .toObject(jobInfoEntry.getValue().getJobImmutableInformation()))
-                    .getLogicalDag())).getLogicalDagAsJson()
-                .add("jobId", jobInfoEntry.getKey())
-                .add("initializationTime", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(jobInfoEntry.getValue().getInitializationTimestamp()))))
-            .collect(JsonArray::new, JsonArray::add, JsonArray::add);
+            .map(jobInfoEntry -> {
+                JsonObject jobInfo = new JsonObject();
+                JobImmutableInformation jobImmutableInformation = this.textCommandService.getNode().getNodeEngine().getSerializationService()
+                    .toObject(this.textCommandService.getNode().getNodeEngine().getSerializationService()
+                        .toObject(jobInfoEntry.getValue().getJobImmutableInformation()));
+                LogicalDag logicalDag = this.textCommandService.getNode().getNodeEngine().getSerializationService()
+                    .toObject(jobImmutableInformation.getLogicalDag());
+
+                return jobInfo
+                    .add("jobId", jobInfoEntry.getKey())
+                    .add("jobName", logicalDag.getJobConfig().getName())
+                    .add("envOptions", JsonUtil.toJsonObject(logicalDag.getJobConfig().getEnvOptions()))
+                    .add("createTime", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(jobImmutableInformation.getCreateTime())))
+                    .add("jobDag", logicalDag.getLogicalDagAsJson())
+                    .add("pluginJarsUrls", (JsonValue) jobImmutableInformation.getPluginJarsUrls().stream().map(url -> {
+                        JsonObject jarUrl = new JsonObject();
+                        jarUrl.add("jarPath", url.toString());
+                        return jarUrl;
+                    }).collect(JsonArray::new, JsonArray::add, JsonArray::add))
+                    .add("isStartWithSavePoint", jobImmutableInformation.isStartWithSavePoint());
+            }).collect(JsonArray::new, JsonArray::add, JsonArray::add);
         this.prepareResponse(command, jobs);
     }
 }
