@@ -43,11 +43,10 @@ import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
 import com.hazelcast.cluster.Address;
-import com.hazelcast.logging.ILogger;
-import com.hazelcast.logging.Logger;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -67,9 +66,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends CoordinatorTask {
-
-    private static final ILogger LOGGER = Logger.getLogger(SourceSplitEnumeratorTask.class);
 
     private static final long serialVersionUID = -3713701594297977775L;
 
@@ -94,7 +92,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         currState = SeaTunnelTaskState.INIT;
         super.init();
         readerRegisterComplete = false;
-        LOGGER.info("starting seatunnel source split enumerator task, source name: " + source.getName());
+        log.info("starting seatunnel source split enumerator task, source name: " + source.getName());
         enumeratorContext = new SeaTunnelSplitEnumeratorContext<>(this.source.getParallelism(), this);
         enumeratorStateSerializer = this.source.getSource().getEnumeratorStateSerializer();
         taskMemberMapping = new ConcurrentHashMap<>();
@@ -171,11 +169,11 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     @SuppressWarnings("checkstyle:MagicNumber")
     public void receivedReader(TaskLocation readerId, Address memberAddr)
         throws InterruptedException, ExecutionException {
-        LOGGER.info("received reader register, readerID: " + readerId);
+        log.info("received reader register, readerID: " + readerId);
 
-        SourceSplitEnumerator<SplitT, Serializable> en = getEnumerator();
+        SourceSplitEnumerator<SplitT, Serializable> enumerator = getEnumerator();
         this.addTaskMemberMapping(readerId, memberAddr);
-        en.registerReader(readerId.getTaskIndex());
+        enumerator.registerReader(readerId.getTaskIndex());
         if (maxReaderSize == taskMemberMapping.size()) {
             readerRegisterComplete = true;
         }
@@ -217,6 +215,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     private SourceSplitEnumerator<SplitT, Serializable> getEnumerator() throws InterruptedException, ExecutionException {
         //(restoreComplete == null) means that the Task has not yet executed Init, so we need to wait.
         while (null == restoreComplete){
+            log.warn("Task init is not complete, try to get it again after 200 ms");
             Thread.sleep(200);
         }
         restoreComplete.get();
@@ -251,7 +250,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                 break;
             case STARTING:
                 currState = RUNNING;
-                LOGGER.info("received enough reader, starting enumerator...");
+                log.info("received enough reader, starting enumerator...");
                 enumerator.run();
                 break;
             case RUNNING:
