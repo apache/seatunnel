@@ -36,7 +36,7 @@ public class Constant {
 
     public static final String HAZELCAST_SEATUNNEL_DEFAULT_YAML = "seatunnel.yaml";
 
-    public static final int OPERATION_RETRY_TIME = 10;
+    public static final int OPERATION_RETRY_TIME = 30;
 
     public static final int OPERATION_RETRY_SLEEP = 2000;
 

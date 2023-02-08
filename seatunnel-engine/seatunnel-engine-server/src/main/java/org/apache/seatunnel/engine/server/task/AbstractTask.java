@@ -32,6 +32,7 @@ import lombok.NonNull;
 import java.net.URL;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -41,7 +42,7 @@ public abstract class AbstractTask implements Task {
     protected TaskExecutionContext executionContext;
     protected final long jobID;
     protected final TaskLocation taskLocation;
-    protected volatile boolean restoreComplete;
+    protected volatile CompletableFuture<Void> restoreComplete;
     protected volatile boolean startCalled;
     protected volatile boolean closeCalled;
     protected volatile boolean prepareCloseStatus;
@@ -54,7 +55,6 @@ public abstract class AbstractTask implements Task {
         this.taskLocation = taskLocation;
         this.jobID = jobID;
         this.progress = new Progress();
-        this.restoreComplete = false;
         this.startCalled = false;
         this.closeCalled = false;
         this.prepareCloseStatus = false;
@@ -74,6 +74,7 @@ public abstract class AbstractTask implements Task {
 
     @Override
     public void init() throws Exception {
+        this.restoreComplete = new CompletableFuture<>();
         progress.start();
     }
 
