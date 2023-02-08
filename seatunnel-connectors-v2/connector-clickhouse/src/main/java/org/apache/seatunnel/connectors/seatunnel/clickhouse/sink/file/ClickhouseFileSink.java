@@ -116,7 +116,7 @@ public class ClickhouseFileSink implements SeaTunnelSink<SeaTunnelRow, Clickhous
             config.getString(DATABASE.key()),
             config.getString(TABLE.key()),
             table.getEngine(),
-            false, // we don't need to set splitMode in clickhouse file mode.
+            true,
             new Shard(1, 1, nodes.get(0)), config.getString(USERNAME.key()), config.getString(PASSWORD.key()));
         List<String> fields = new ArrayList<>(tableSchema.keySet());
         Map<String, String> nodeUser = config.getObjectList(NODE_PASS.key()).stream()

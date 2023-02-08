@@ -27,12 +27,13 @@ import com.hazelcast.internal.metrics.MetricsCollectionContext;
 import com.hazelcast.internal.metrics.ProbeLevel;
 import com.hazelcast.internal.metrics.ProbeUnit;
 
+import java.io.Serializable;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import java.util.function.BiFunction;
 
-public class MetricsContext implements DynamicMetricsProvider {
+public class MetricsContext implements DynamicMetricsProvider, Serializable {
 
     private static final BiFunction<String, Unit, AbstractMetric> CREATE_SINGLE_WRITER_METRIC = SingleWriterMetric::new;
     private static final BiFunction<String, Unit, AbstractMetric> CREATE_THREAD_SAFE_METRICS = ThreadSafeMetric::new;
@@ -94,7 +95,7 @@ public class MetricsContext implements DynamicMetricsProvider {
         return ProbeUnit.valueOf(unit.name());
     }
 
-    private abstract static class AbstractMetric implements Metric {
+    private abstract static class AbstractMetric implements Metric, Serializable {
 
         private final String name;
         private final Unit unit;

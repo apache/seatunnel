@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -108,7 +109,8 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
             Executors.newCachedThreadPool(),
             instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME),
             runningJobState,
-            runningJobStateTimestamp).f0();
+            runningJobStateTimestamp,
+            QueueType.BLOCKINGQUEUE).f0();
 
         Assertions.assertEquals(physicalPlan.getPipelineList().size(), 1);
         Assertions.assertEquals(physicalPlan.getPipelineList().get(0).getCoordinatorVertexList().size(), 1);

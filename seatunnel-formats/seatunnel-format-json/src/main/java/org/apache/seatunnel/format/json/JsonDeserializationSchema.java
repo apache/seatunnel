@@ -30,11 +30,11 @@ import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
-import com.fasterxml.jackson.core.json.JsonReadFeature;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.json.JsonReadFeature;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.DeserializationFeature;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
 
 import java.io.IOException;
 
@@ -146,7 +146,15 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
         }
     }
 
-    private JsonNode convertBytes(byte[] message) throws IOException {
+    public JsonNode deserializeToJsonNode(byte[] message) throws IOException {
+        return objectMapper.readTree(message);
+    }
+
+    public SeaTunnelRow convertToRowData(JsonNode message) {
+        return (SeaTunnelRow) runtimeConverter.convert(message);
+    }
+
+    private JsonNode convertBytes(byte[] message) {
         try {
             return objectMapper.readTree(message);
         } catch (Throwable t) {
@@ -158,7 +166,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
         }
     }
 
-    private JsonNode convert(String message) throws IOException {
+    private JsonNode convert(String message) {
         try {
             return objectMapper.readTree(message);
         } catch (Throwable t) {

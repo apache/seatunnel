@@ -67,13 +67,13 @@ public class IncrementalSourceEnumerator
     }
 
     @Override
-    public void run() throws Exception {
+    public synchronized void run() throws Exception {
         this.running = true;
         assignSplits();
     }
 
     @Override
-    public void handleSplitRequest(int subtaskId) {
+    public synchronized void handleSplitRequest(int subtaskId) {
         if (!context.registeredReaders().contains(subtaskId)) {
             // reader failed between sending the request and now. skip this request.
             return;
@@ -128,7 +128,7 @@ public class IncrementalSourceEnumerator
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) {
+    public synchronized void notifyCheckpointComplete(long checkpointId) {
         splitAssigner.notifyCheckpointComplete(checkpointId);
         // incremental split may be available after checkpoint complete
         assignSplits();
