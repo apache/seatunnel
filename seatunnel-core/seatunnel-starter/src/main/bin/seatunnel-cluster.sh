@@ -88,7 +88,7 @@ CLASS_PATH=${APP_DIR}/lib/*:${APP_JAR}
 
 ST_TMPDIR=`java -cp ${CLASS_PATH} org.apache.seatunnel.core.starter.seatunnel.jvm.TempDirectory`
 # The JVM options parser produces the final JVM options to start seatunnel-engine.
-JVM_OPTIONS=`java -cp ${CLASS_PATH} org.apache.seatunnel.core.starter.seatunnel.jvm.JvmOptionsParser ${CONF_DIR}"/jvm_options"`
+JVM_OPTIONS=`java -cp ${CLASS_PATH} org.apache.seatunnel.core.starter.seatunnel.jvm.JvmOptionsParser ${CONF_DIR}`
 JAVA_OPTS="${JAVA_OPTS} ${JVM_OPTIONS//\$\{loggc\}/${ST_TMPDIR}}"
 echo "JAVA_OPTS:" ${JAVA_OPTS}
 

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.core.starter.seatunnel.jvm;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -27,7 +29,7 @@ public class JavaVersion {
 
     static List<Integer> parse(final String value) {
         if (!value.matches("^0*[0-9]+(\\.[0-9]+)*$")) {
-            throw new IllegalArgumentException(value);
+            throw new JvmOptionsParserException(CommonErrorCode.ILLEGAL_ARGUMENT, String.format("JAVA version [%s] of the system is incorrect", value));
         }
 
         final List<Integer> version = new ArrayList<Integer>();
@@ -46,4 +48,5 @@ public class JavaVersion {
             return javaVersion.get(1);
         }
     }
+
 }
