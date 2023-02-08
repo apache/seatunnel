@@ -19,15 +19,21 @@ package org.apache.seatunnel.engine.server.task.flow;
 
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 
+import lombok.Getter;
+import lombok.Setter;
+
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
 public class AbstractFlowLifeCycle implements FlowLifeCycle {
 
+    @Getter
     protected final SeaTunnelTask runningTask;
 
     protected final CompletableFuture<Void> completableFuture;
 
+    @Getter
+    @Setter
     protected Boolean prepareClose;
 
     public AbstractFlowLifeCycle(SeaTunnelTask runningTask,

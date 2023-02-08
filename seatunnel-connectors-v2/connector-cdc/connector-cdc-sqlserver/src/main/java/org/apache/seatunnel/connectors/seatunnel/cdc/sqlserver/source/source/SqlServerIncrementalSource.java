@@ -47,9 +47,11 @@ import java.time.ZoneId;
 public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig> implements
     SupportParallelism {
 
+    static final String IDENTIFIER = "SqlServer-CDC";
+
     @Override
     public String getPluginName() {
-        return "SqlServer-CDC";
+        return IDENTIFIER;
     }
 
     @Override

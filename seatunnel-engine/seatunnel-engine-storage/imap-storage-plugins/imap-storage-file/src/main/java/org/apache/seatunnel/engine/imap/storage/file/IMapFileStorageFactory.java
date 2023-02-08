@@ -26,10 +26,12 @@ import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorageFactory;
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 
+import com.google.auto.service.AutoService;
 import org.apache.hadoop.conf.Configuration;
 
 import java.util.Map;
 
+@AutoService(IMapStorageFactory.class)
 public class IMapFileStorageFactory implements IMapStorageFactory {
     @Override
     public String factoryIdentifier() {

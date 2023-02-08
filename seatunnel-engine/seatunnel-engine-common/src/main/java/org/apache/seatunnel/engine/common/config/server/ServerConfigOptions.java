@@ -33,6 +33,8 @@ public class ServerConfigOptions {
 
     public static final Option<Integer> PRINT_JOB_METRICS_INFO_INTERVAL = Options.key("print-job-metrics-info-interval").intType().defaultValue(60).withDescription("The interval (in seconds) of job print metrics info");
 
+    public static final Option<Integer> JOB_METRICS_BACKUP_INTERVAL = Options.key("job-metrics-backup-interval").intType().defaultValue(3).withDescription("The interval (in seconds) of job metrics backups");
+
     public static final Option<Boolean> DYNAMIC_SLOT = Options.key("dynamic-slot").booleanType().defaultValue(true).withDescription("Whether to use dynamic slot.");
 
     public static final Option<Integer> SLOT_NUM = Options.key("slot-num").intType().defaultValue(2).withDescription("The number of slots. Only valid when dynamic slot is disabled.");
@@ -48,6 +50,9 @@ public class ServerConfigOptions {
     public static final Option<String> CHECKPOINT_STORAGE_TYPE = Options.key("type").stringType().defaultValue("localfile").withDescription("The checkpoint storage type.");
 
     public static final Option<Integer> CHECKPOINT_STORAGE_MAX_RETAINED = Options.key("max-retained").intType().defaultValue(1).withDescription("The maximum number of retained checkpoints.");
+
+    public static final Option<QueueType> QUEUE_TYPE = Options.key("queue-type").type(new TypeReference<QueueType>() {
+    }).defaultValue(QueueType.BLOCKINGQUEUE).withDescription("The internal data cache queue type.");
 
     public static final Option<CheckpointStorageConfig> CHECKPOINT_STORAGE = Options.key("storage").type(new TypeReference<CheckpointStorageConfig>() {
     }).defaultValue(new CheckpointStorageConfig()).withDescription("The checkpoint storage configuration.");
