@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.core.starter.seatunnel.jvm;
 
+import lombok.SneakyThrows;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -24,10 +26,10 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -42,106 +44,67 @@ import java.util.regex.Pattern;
 @SuppressWarnings("checkstyle:InnerTypeLast")
 final class JvmOptionsParser {
 
-    static class JvmOptionsFileParserException extends Throwable {
-
-        private final Path jvmOptionsFile;
-
-        Path jvmOptionsFile() {
-            return jvmOptionsFile;
-        }
-
-        private final SortedMap<Integer, String> invalidLines;
-
-        SortedMap<Integer, String> invalidLines() {
-            return invalidLines;
-        }
-
-        JvmOptionsFileParserException(final Path jvmOptionsFile, final SortedMap<Integer, String> invalidLines) {
-            this.jvmOptionsFile = jvmOptionsFile;
-            this.invalidLines = invalidLines;
-        }
-
-    }
-
     /**
      * The main entry point. The exit code is 0 if the JVM options were successfully parsed, otherwise the exit code is 1. If an improperly
      * formatted line is discovered, the line is output to standard error.
      */
-    @SuppressWarnings("checkstyle:RegexpSingleline")
-    public static void main(final String[] args) throws IOException {
+    public static void main(final String[] args)  {
         if (args.length != 1) {
-            throw new IllegalArgumentException(
-                "Expected one arguments specifying path to PATH_CONF, but was " + Arrays.toString(args)
-            );
+            throw new IllegalArgumentException("expected one argument specifying path to jvm.options but was " + Arrays.toString(args));
+        }
+        readJvmOptionsFiles(args[0]);
+    }
+
+    @SneakyThrows
+    @SuppressWarnings("checkstyle:RegexpSingleline")
+    public static void readJvmOptionsFiles(String configPath){
+        final List<String> jvmOptions = new ArrayList<>();
+        final SortedMap<Integer, String> invalidLines = new TreeMap<>();
+        try (InputStream is = Files.newInputStream(Paths.get(configPath));
+             Reader reader = new InputStreamReader(is, StandardCharsets.UTF_8);
+             BufferedReader br = new BufferedReader(reader)) {
+            parse(
+                    JavaVersion.majorVersion(JavaVersion.CURRENT),
+                    br,
+                    new JvmOptionConsumer() {
+                        @Override
+                        public void accept(final String jvmOption) {
+                            jvmOptions.add(jvmOption);
+                        }
+                    },
+                    new InvalidLineConsumer() {
+                        @Override
+                        public void accept(final int lineNumber, final String line) {
+                            invalidLines.put(lineNumber, line);
+                        }
+                    });
         }
 
-        final JvmOptionsParser parser = new JvmOptionsParser();
-
-        try {
-            final List<String> jvmOptions = parser.jvmOptions(
-                Paths.get(args[0])
-            );
-            System.out.println(String.join(" ", jvmOptions));
-        } catch (final JvmOptionsFileParserException e) {
+        if (invalidLines.isEmpty()) {
+            final String spaceDelimitedJvmOptions = spaceDelimitJvmOptions(jvmOptions);
+            System.out.println(spaceDelimitedJvmOptions);
+            System.exit(0);
+        } else {
             final String errorMessage = String.format(
-                Locale.ROOT,
-                "encountered [%d] error%s parsing [%s]",
-                e.invalidLines().size(),
-                e.invalidLines().size() == 1 ? "" : "s",
-                e.jvmOptionsFile()
-            );
-            System.out.println(errorMessage);
+                    Locale.ROOT,
+                    "encountered [%d] error%s parsing [%s]",
+                    invalidLines.size(),
+                    invalidLines.size() == 1 ? "" : "s",
+                    configPath);
+            System.err.println(errorMessage);
             int count = 0;
-            for (final Map.Entry<Integer, String> entry : e.invalidLines().entrySet()) {
+            for (final Map.Entry<Integer, String> entry : invalidLines.entrySet()) {
                 count++;
                 final String message = String.format(
-                    Locale.ROOT,
-                    "[%d]: encountered improperly formatted JVM option in [%s] on line number [%d]: [%s]",
-                    count,
-                    e.jvmOptionsFile(),
-                    entry.getKey(),
-                    entry.getValue()
-                );
-                System.out.println(message);
+                        Locale.ROOT,
+                        "[%d]: encountered improperly formatted JVM option line [%s] on line number [%d]",
+                        count,
+                        entry.getValue(),
+                        entry.getKey());
+                System.err.println(message);
             }
-            System.out.println(1);
+            System.exit(1);
         }
-        System.out.println(0);
-    }
-
-    private List<String> jvmOptions(final Path config)
-        throws IOException, JvmOptionsFileParserException {
-
-        final List<String> jvmOptions = readJvmOptionsFiles(config);
-
-        final List<String> finalJvmOptions = new ArrayList<>(jvmOptions.size()
-        );
-        finalJvmOptions.addAll(jvmOptions);
-
-        return finalJvmOptions;
-    }
-
-    List<String> readJvmOptionsFiles(final Path config) throws IOException, JvmOptionsFileParserException {
-        final ArrayList<Path> jvmOptionsFiles = new ArrayList<>();
-        jvmOptionsFiles.add(config.resolve("jvm_options"));
-
-        final List<String> jvmOptions = new ArrayList<>();
-
-        for (final Path jvmOptionsFile : jvmOptionsFiles) {
-            final SortedMap<Integer, String> invalidLines = new TreeMap<>();
-            try (
-                InputStream is = Files.newInputStream(jvmOptionsFile);
-                Reader reader = new InputStreamReader(is, StandardCharsets.UTF_8);
-                BufferedReader br = new BufferedReader(reader)
-            ) {
-                parse(JavaVersion.majorVersion(JavaVersion.CURRENT), br, jvmOptions::add, invalidLines::put);
-            }
-            if (!invalidLines.isEmpty()) {
-                throw new JvmOptionsFileParserException(jvmOptionsFile, invalidLines);
-            }
-        }
-
-        return jvmOptions;
     }
 
     /**
@@ -227,11 +190,10 @@ final class JvmOptionsParser {
      * @throws IOException if an I/O exception occurs reading from the buffered reader
      */
     static void parse(
-        final int javaMajorVersion,
-        final BufferedReader br,
-        final JvmOptionConsumer jvmOptionConsumer,
-        final InvalidLineConsumer invalidLineConsumer
-    ) throws IOException {
+            final int javaMajorVersion,
+            final BufferedReader br,
+            final JvmOptionConsumer jvmOptionConsumer,
+            final InvalidLineConsumer invalidLineConsumer) throws IOException {
         int lineNumber = 0;
         while (true) {
             final String line = br.readLine();
@@ -290,6 +252,24 @@ final class JvmOptionsParser {
                 invalidLineConsumer.accept(lineNumber, line);
             }
         }
+    }
+
+    /**
+     * Delimits the specified JVM options by spaces.
+     *
+     * @param jvmOptions the JVM options
+     * @return a single-line string containing the specified JVM options in the order they appear delimited by spaces
+     */
+    static String spaceDelimitJvmOptions(final List<String> jvmOptions) {
+        final StringBuilder spaceDelimitedJvmOptionsBuilder = new StringBuilder();
+        final Iterator<String> it = jvmOptions.iterator();
+        while (it.hasNext()) {
+            spaceDelimitedJvmOptionsBuilder.append(it.next());
+            if (it.hasNext()) {
+                spaceDelimitedJvmOptionsBuilder.append(" ");
+            }
+        }
+        return spaceDelimitedJvmOptionsBuilder.toString();
     }
 
 }
