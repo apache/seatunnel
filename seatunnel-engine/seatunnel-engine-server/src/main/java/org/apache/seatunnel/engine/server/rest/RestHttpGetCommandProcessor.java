@@ -31,6 +31,7 @@ import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;
 import com.hazelcast.internal.ascii.rest.HttpGetCommand;
 import com.hazelcast.internal.ascii.rest.HttpGetCommandProcessor;
 import com.hazelcast.internal.ascii.rest.RestValue;
+import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.map.IMap;
 
 import java.nio.charset.StandardCharsets;
@@ -73,15 +74,13 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
 
     private void handleJobs(HttpGetCommand command) {
         IMap<Long, JobInfo> values = this.textCommandService.getNode().getNodeEngine().getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
-        List<String> jobs = values.entrySet().stream()
+        List<JsonObject> jobs = values.entrySet().stream()
             .map(jobInfoEntry -> ((LogicalDag) this.textCommandService.getNode().getNodeEngine().getSerializationService()
                 .toObject(((JobImmutableInformation) this.textCommandService.getNode().getNodeEngine().getSerializationService()
                     .toObject(jobInfoEntry.getValue().getJobImmutableInformation()))
                     .getLogicalDag())).getLogicalDagAsJson()
                 .add("jobId", jobInfoEntry.getKey())
-                .add("InitializationTime", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(jobInfoEntry.getValue().getInitializationTimestamp())))
-                .toString())
-            .collect(Collectors.toList());
+                .add("initializationTime", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(jobInfoEntry.getValue().getInitializationTimestamp())))).collect(Collectors.toList());
 
         this.prepareResponse(command, new RestValue(JsonUtils.toJsonString(jobs).getBytes(StandardCharsets.UTF_8), CONTENT_TYPE_JSON));
     }
