@@ -36,6 +36,7 @@ import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.JobResult;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
@@ -134,6 +135,8 @@ public class JobMaster {
 
     private Map<Integer, CheckpointPlan> checkpointPlanMap;
 
+    private final IMap<Long, JobInfo> runningJobInfoIMap;
+
     public JobMaster(@NonNull Data jobImmutableInformationData,
                      @NonNull NodeEngine nodeEngine,
                      @NonNull ExecutorService executorService,
@@ -141,7 +144,9 @@ public class JobMaster {
                      @NonNull JobHistoryService jobHistoryService,
                      @NonNull IMap runningJobStateIMap,
                      @NonNull IMap runningJobStateTimestampsIMap,
-                     @NonNull IMap ownedSlotProfilesIMap, EngineConfig engineConfig) {
+                     @NonNull IMap ownedSlotProfilesIMap,
+                     @NonNull IMap<Long, JobInfo> runningJobInfoIMap,
+                     EngineConfig engineConfig) {
         this.jobImmutableInformationData = jobImmutableInformationData;
         this.nodeEngine = nodeEngine;
         this.executorService = executorService;
@@ -152,6 +157,7 @@ public class JobMaster {
         this.jobHistoryService = jobHistoryService;
         this.runningJobStateIMap = runningJobStateIMap;
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
+        this.runningJobInfoIMap = runningJobInfoIMap;
         this.engineConfig = engineConfig;
     }
 
@@ -217,10 +223,11 @@ public class JobMaster {
         jobStatusFuture.whenComplete(withTryCatch(LOGGER, (v, t) -> {
             // We need not handle t, Because we will not return t from physicalPlan
             if (JobStatus.FAILING.equals(v.getStatus())) {
-                cleanJob();
                 physicalPlan.updateJobState(JobStatus.FAILING, JobStatus.FAILED);
             }
-            jobMasterCompleteFuture.complete(new JobResult(physicalPlan.getJobStatus(), v.getError()));
+            JobResult jobResult = new JobResult(physicalPlan.getJobStatus(), v.getError());
+            cleanJob();
+            jobMasterCompleteFuture.complete(jobResult);
         }));
     }
 
@@ -256,6 +263,28 @@ public class JobMaster {
         });
     }
 
+    private void removeJobIMap() {
+        Long jobId = getJobImmutableInformation().getJobId();
+        runningJobStateTimestampsIMap.remove(jobId);
+
+        getPhysicalPlan().getPipelineList().forEach(pipeline -> {
+            runningJobStateIMap.remove(pipeline.getPipelineLocation());
+            runningJobStateTimestampsIMap.remove(pipeline.getPipelineLocation());
+            pipeline.getCoordinatorVertexList().forEach(coordinator -> {
+                runningJobStateIMap.remove(coordinator.getTaskGroupLocation());
+                runningJobStateTimestampsIMap.remove(coordinator.getTaskGroupLocation());
+            });
+
+            pipeline.getPhysicalVertexList().forEach(task -> {
+                runningJobStateIMap.remove(task.getTaskGroupLocation());
+                runningJobStateTimestampsIMap.remove(task.getTaskGroupLocation());
+            });
+        });
+
+        runningJobStateIMap.remove(jobId);
+        runningJobInfoIMap.remove(jobId);
+    }
+
     public JobDAGInfo getJobDAGInfo() {
         if (jobDAGInfo == null) {
             jobDAGInfo = DAGUtils.getJobDAGInfo(logicalDag, jobImmutableInformation, isPhysicalDAGIInfo);
@@ -277,7 +306,9 @@ public class JobMaster {
     }
 
     public void cleanJob() {
-        // TODO Add some job clean operation
+        jobHistoryService.storeJobInfo(jobImmutableInformation.getJobId(), getJobDAGInfo());
+        jobHistoryService.storeFinishedJobState(this);
+        removeJobIMap();
     }
 
     public Address queryTaskGroupAddress(long taskGroupId) {
