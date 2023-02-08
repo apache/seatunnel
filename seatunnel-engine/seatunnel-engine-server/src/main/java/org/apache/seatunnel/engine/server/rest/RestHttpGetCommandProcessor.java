@@ -54,7 +54,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     public void handle(HttpGetCommand httpGetCommand) {
         String uri = httpGetCommand.getURI();
         if (uri.startsWith("/hazelcast/rest/maps/running-jobs")) {
-            handleJobs(httpGetCommand);
+            handleRunningJobsInfo(httpGetCommand);
         } else {
             original.handle(httpGetCommand);
         }
@@ -68,7 +68,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         handle(httpGetCommand);
     }
 
-    private void handleJobs(HttpGetCommand command) {
+    private void handleRunningJobsInfo(HttpGetCommand command) {
         IMap<Long, JobInfo> values = this.textCommandService.getNode().getNodeEngine().getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
         JsonArray jobs = values.entrySet().stream()
             .map(jobInfoEntry -> {
