@@ -29,7 +29,7 @@ public interface Collector<T> {
     /**
      * Returns the checkpoint lock.
      *
-     * @return The object to use as the lock
+     * @return The object to use as the lock.
      */
     Object getCheckpointLock();
 }
