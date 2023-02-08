@@ -47,6 +47,14 @@
             <version>${project.version}</version>
         </dependency>
 
+        <!--   seatunnel-transforms-v2   -->
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-transforms-v2</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!--   seatunnel-transforms-v2   -->
+
         <!--   seatunnel-connector   -->
         <dependency>
             <groupId>org.apache.seatunnel</groupId>

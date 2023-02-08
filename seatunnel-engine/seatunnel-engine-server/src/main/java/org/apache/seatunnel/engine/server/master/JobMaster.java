@@ -63,6 +63,7 @@ import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.google.common.collect.Lists;
 import com.hazelcast.cluster.Address;
+import com.hazelcast.core.HazelcastInstanceNotActiveException;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.jet.datamodel.Tuple2;
@@ -361,11 +362,20 @@ public class JobMaster {
             groupLocation.forEach((taskGroupLocation, slotProfile) -> {
                 if (taskGroupLocation.getJobId() == this.getJobImmutableInformation().getJobId()) {
                     try {
-                        RawJobMetrics rawJobMetrics =
-                            (RawJobMetrics) NodeEngineUtil.sendOperationToMemberNode(nodeEngine,
-                                new GetTaskGroupMetricsOperation(taskGroupLocation), slotProfile.getWorker()).get();
-                        metrics.add(rawJobMetrics);
-                    } catch (Exception e) {
+                        if (nodeEngine.getClusterService().getMember(slotProfile.getWorker()) != null) {
+                            RawJobMetrics rawJobMetrics =
+                                (RawJobMetrics) NodeEngineUtil.sendOperationToMemberNode(nodeEngine,
+                                    new GetTaskGroupMetricsOperation(taskGroupLocation), slotProfile.getWorker()).get();
+                            metrics.add(rawJobMetrics);
+                        }
+                    }
+                    // HazelcastInstanceNotActiveException. It means that the node is offline, so waiting for the taskGroup to restore can be successful
+                    catch (HazelcastInstanceNotActiveException e) {
+                        LOGGER.warning(
+                            String.format("%s get current job metrics with exception: %s.", taskGroupLocation,
+                                ExceptionUtils.getMessage(e)));
+                    }
+                    catch (Exception e) {
                         throw new SeaTunnelException(e.getMessage());
                     }
                 }
@@ -400,9 +410,16 @@ public class JobMaster {
     private void cleanTaskGroupContext(PipelineLocation pipelineLocation) {
         ownedSlotProfilesIMap.get(pipelineLocation).forEach((taskGroupLocation, slotProfile) -> {
             try {
-                NodeEngineUtil.sendOperationToMemberNode(nodeEngine,
-                    new CleanTaskGroupContextOperation(taskGroupLocation), slotProfile.getWorker()).get();
-            } catch (Exception e) {
+                if (nodeEngine.getClusterService().getMember(slotProfile.getWorker()) != null) {
+                    NodeEngineUtil.sendOperationToMemberNode(nodeEngine,
+                        new CleanTaskGroupContextOperation(taskGroupLocation), slotProfile.getWorker()).get();
+                }
+            }
+            catch (HazelcastInstanceNotActiveException  e) {
+                LOGGER.warning(String.format("%s clean TaskGroupContext with exception: %s.", taskGroupLocation,
+                    ExceptionUtils.getMessage(e)));
+            }
+            catch (Exception e) {
                 throw new SeaTunnelException(e.getMessage());
             }
         });
