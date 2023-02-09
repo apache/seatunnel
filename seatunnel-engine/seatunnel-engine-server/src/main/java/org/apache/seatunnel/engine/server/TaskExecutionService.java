@@ -375,7 +375,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                     }
                 });
             });
-        } catch (Exception e){
+        } catch (Exception e) {
             logger.warning("The Imap acquisition failed due to the hazelcast node being offline or restarted, and will be retried next time", e);
         }
     }
