@@ -215,6 +215,10 @@ public class CoordinatorService {
                 runningJobInfoIMap,
                 engineConfig);
 
+        // If Job Status is CANCELLING , set needRestore to false
+        if (JobStatus.CANCELLING.equals(jobStatus)) {
+            jobMaster.getPhysicalPlan().neverNeedRestore();
+        }
         jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp());
         try {
             jobMaster.initCheckPointManager();

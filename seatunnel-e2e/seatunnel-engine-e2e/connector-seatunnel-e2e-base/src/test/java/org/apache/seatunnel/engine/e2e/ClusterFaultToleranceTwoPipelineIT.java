@@ -243,7 +243,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
         String testCaseName = "testTwoPipelineBatchJobRestoreIn2NodeWorkerDown";
         String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineBatchJobRestoreIn2NodeWorkerDown";
         long testRowNumber = 1000;
-        int testParallelism = 2;
+        int testParallelism = 6;
         HazelcastInstanceImpl node1 = null;
         HazelcastInstanceImpl node2 = null;
         SeaTunnelClient engineClient = null;
@@ -294,7 +294,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
             Long fileLineNumberFromDir = FileUtils.getFileLineNumberFromDir(testResources.getLeft());
             Assertions.assertEquals(testRowNumber * testParallelism * 2, fileLineNumberFromDir);
-
         } finally {
             if (engineClient != null) {
                 engineClient.shutdown();

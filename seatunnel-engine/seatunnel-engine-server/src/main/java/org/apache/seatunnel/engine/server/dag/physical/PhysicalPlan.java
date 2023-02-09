@@ -44,7 +44,7 @@ public class PhysicalPlan {
     /**
      * The max num pipeline can restore.
      */
-    public static final int PIPELINE_MAX_RESTORE_NUM = 3; // TODO should set by config
+    public static final int PIPELINE_MAX_RESTORE_NUM = 5; // TODO should set by config
 
     private final List<SubPlan> pipelineList;
 
