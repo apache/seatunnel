@@ -43,11 +43,10 @@ import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
 import com.hazelcast.cluster.Address;
-import com.hazelcast.logging.ILogger;
-import com.hazelcast.logging.Logger;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -63,12 +62,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends CoordinatorTask {
-
-    private static final ILogger LOGGER = Logger.getLogger(SourceSplitEnumeratorTask.class);
 
     private static final long serialVersionUID = -3713701594297977775L;
 
@@ -93,7 +92,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         currState = SeaTunnelTaskState.INIT;
         super.init();
         readerRegisterComplete = false;
-        LOGGER.info("starting seatunnel source split enumerator task, source name: " + source.getName());
+        log.info("starting seatunnel source split enumerator task, source name: " + source.getName());
         enumeratorContext = new SeaTunnelSplitEnumeratorContext<>(this.source.getParallelism(), this);
         enumeratorStateSerializer = this.source.getSource().getEnumeratorStateSerializer();
         taskMemberMapping = new ConcurrentHashMap<>();
@@ -160,15 +159,19 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             this.enumerator = this.source.getSource()
                 .createEnumerator(enumeratorContext);
         }
-        restoreComplete = true;
+        restoreComplete.complete(null);
     }
 
-    public void addSplitsBack(List<SplitT> splits, int subtaskId) {
-        enumerator.addSplitsBack(splits, subtaskId);
+    public void addSplitsBack(List<SplitT> splits, int subtaskId) throws ExecutionException, InterruptedException {
+        getEnumerator().addSplitsBack(splits, subtaskId);
     }
 
-    public void receivedReader(TaskLocation readerId, Address memberAddr) {
-        LOGGER.info("received reader register, readerID: " + readerId);
+    @SuppressWarnings("checkstyle:MagicNumber")
+    public void receivedReader(TaskLocation readerId, Address memberAddr)
+        throws InterruptedException, ExecutionException {
+        log.info("received reader register, readerID: " + readerId);
+
+        SourceSplitEnumerator<SplitT, Serializable> enumerator = getEnumerator();
         this.addTaskMemberMapping(readerId, memberAddr);
         enumerator.registerReader(readerId.getTaskIndex());
         if (maxReaderSize == taskMemberMapping.size()) {
@@ -176,12 +179,13 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         }
     }
 
-    public void requestSplit(long taskIndex) {
-        enumerator.handleSplitRequest((int) taskIndex);
+    public void requestSplit(long taskIndex) throws ExecutionException, InterruptedException {
+        getEnumerator().handleSplitRequest((int) taskIndex);
     }
 
-    public void handleSourceEvent(int subtaskId, SourceEvent sourceEvent) {
-        enumerator.handleSourceEvent(subtaskId, sourceEvent);
+    public void handleSourceEvent(int subtaskId, SourceEvent sourceEvent)
+        throws ExecutionException, InterruptedException {
+        getEnumerator().handleSourceEvent(subtaskId, sourceEvent);
     }
 
     public void addTaskMemberMapping(TaskLocation taskID, Address memberAdder) {
@@ -207,6 +211,17 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         return taskIndexToTaskLocationMapping.get(taskIndex);
     }
 
+    @SuppressWarnings("checkstyle:MagicNumber")
+    private SourceSplitEnumerator<SplitT, Serializable> getEnumerator() throws InterruptedException, ExecutionException {
+        //(restoreComplete == null) means that the Task has not yet executed Init, so we need to wait.
+        while (null == restoreComplete){
+            log.warn("Task init is not complete, try to get it again after 200 ms");
+            Thread.sleep(200);
+        }
+        restoreComplete.get();
+        return enumerator;
+    }
+
     public void readerFinished(long taskID) {
         unfinishedReaders.remove(taskID);
         if (unfinishedReaders.isEmpty()) {
@@ -222,7 +237,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                 reportTaskStatus(WAITING_RESTORE);
                 break;
             case WAITING_RESTORE:
-                if (restoreComplete) {
+                if (restoreComplete.isDone()) {
                     currState = READY_START;
                     reportTaskStatus(READY_START);
                 }
@@ -235,7 +250,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                 break;
             case STARTING:
                 currState = RUNNING;
-                LOGGER.info("received enough reader, starting enumerator...");
+                log.info("received enough reader, starting enumerator...");
                 enumerator.run();
                 break;
             case RUNNING:
@@ -285,7 +300,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
-        enumerator.notifyCheckpointComplete(checkpointId);
+        getEnumerator().notifyCheckpointComplete(checkpointId);
         if (currState == PREPARE_CLOSE && prepareCloseBarrierId.get() == checkpointId) {
             closeCall();
         }
@@ -293,7 +308,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
-        enumerator.notifyCheckpointAborted(checkpointId);
+        getEnumerator().notifyCheckpointAborted(checkpointId);
         if (currState == PREPARE_CLOSE && prepareCloseBarrierId.get() == checkpointId) {
             closeCall();
         }
