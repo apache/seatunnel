@@ -18,10 +18,15 @@
 package org.apache.seatunnel.connectors.seatunnel.starrocks.sink;
 
 import org.apache.seatunnel.api.sink.SaveModeConstants;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+
+import java.util.stream.Collectors;
 
 public class StarRocksSaveModeUtil {
 
-    static String fillingCreateSql(String template, String database, String table, String primaryKey, String rowTypeFields) {
+    static String fillingCreateSql(String template, String database, String table, TableSchema tableSchema) {
+        String primaryKey = tableSchema.getPrimaryKey().getColumnNames().stream().map(r -> "`" + r + "`").collect(Collectors.joining(","));
+        String rowTypeFields = "";
         return template.replace(String.format("{%s}", SaveModeConstants.DATABASE), database)
             .replace(String.format("{%s}", SaveModeConstants.TABLE_NAME), table)
             .replace(String.format("{%s}", SaveModeConstants.ROWTYPE_FIELDS), rowTypeFields)

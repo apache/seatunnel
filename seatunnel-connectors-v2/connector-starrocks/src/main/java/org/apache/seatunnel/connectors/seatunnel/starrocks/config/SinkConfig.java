@@ -85,8 +85,15 @@ public class SinkConfig implements Serializable {
         .defaultValue("CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (\n" +
             "    ${rowtype_fields}\n" +
             ") ENGINE=OLAP\n" +
-            "DISTRIBUTED BY HASH (${rowtype_primary_key})")
-        .withDescription("Create table statement template, used to create StarRocks table");
+            "DISTRIBUTED BY HASH (${rowtype_primary_key})" +
+            "PROPERTIES (\n" +
+            "    \"replication_num\" = \"1\",\n" +
+            ")").withDescription("Create table statement template, used to create StarRocks table");
+
+    public static final Option<String> QUERY_PORT = Options.key("query_port")
+        .stringType()
+        .defaultValue("9030")
+        .withDescription("FE MySQL server port");
 
     public static final Option<Integer> BATCH_MAX_SIZE = Options.key("batch_max_rows")
         .intType()
@@ -134,6 +141,7 @@ public class SinkConfig implements Serializable {
     }
 
     private List<String> nodeUrls;
+    private String jdbcUrl;
     private String username;
     private String password;
     private String database;
@@ -160,7 +168,8 @@ public class SinkConfig implements Serializable {
         sinkConfig.setNodeUrls(pluginConfig.getStringList(NODE_URLS.key()));
         sinkConfig.setDatabase(pluginConfig.getString(DATABASE.key()));
         sinkConfig.setTable(pluginConfig.getString(TABLE.key()));
-
+        sinkConfig.setJdbcUrl("jdbc:mysql://" + sinkConfig.getNodeUrls().get(0).split(":")[0] +
+            ":" + pluginConfig.getString(QUERY_PORT.key()) + "/");
         if (pluginConfig.hasPath(USERNAME.key())) {
             sinkConfig.setUsername(pluginConfig.getString(USERNAME.key()));
         }

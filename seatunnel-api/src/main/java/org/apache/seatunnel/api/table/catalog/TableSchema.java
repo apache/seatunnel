@@ -50,6 +50,10 @@ public final class TableSchema implements Serializable {
         return columns;
     }
 
+    public PrimaryKey getPrimaryKey() {
+        return primaryKey;
+    }
+
     public SeaTunnelRowType toPhysicalRowDataType() {
         SeaTunnelDataType<?>[] fieldTypes = columns.stream()
             .filter(Column::isPhysical)

@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportDataSaveMode;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -77,15 +78,15 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void> implem
     }
 
     private void autoCreateTable(String template) {
-
-        String jdbcUrl = "jdbc:mysql://" + sinkConfig.getNodeUrls() + "/" + sinkConfig.getDatabase();
         StarRocksCatalog starRocksCatalog = new StarRocksCatalog("StarRocks", sinkConfig.getDatabase(),
-            sinkConfig.getUsername(), sinkConfig.getPassword(), jdbcUrl);
-        // TODO get DatabaseName, PrimaryKey and TableName from CatalogTable
+            sinkConfig.getUsername(), sinkConfig.getPassword(), sinkConfig.getJdbcUrl());
+        if (!starRocksCatalog.databaseExists(sinkConfig.getDatabase())) {
+            starRocksCatalog.createDatabase(sinkConfig.getDatabase());
+        }
+        // TODO get catalog Table
+        CatalogTable catalogTable = null;
         if (!starRocksCatalog.tableExists(TablePath.of(sinkConfig.getDatabase(), sinkConfig.getTable()))) {
-            String primaryKey = "";
-            String rowTypeFields = "";
-            starRocksCatalog.createTable(StarRocksSaveModeUtil.fillingCreateSql(template, sinkConfig.getDatabase(), sinkConfig.getTable(), primaryKey, rowTypeFields));
+            starRocksCatalog.createTable(StarRocksSaveModeUtil.fillingCreateSql(template, sinkConfig.getDatabase(), sinkConfig.getTable(), catalogTable.getTableSchema()));
         }
     }
 
