@@ -145,6 +145,10 @@ public class DefaultSlotService implements SlotService {
             throw new WrongTargetSlotException("Not exist this slot in slot service, slot profile: " + profile);
         }
 
+        if (!assignedSlots.get(profile.getSlotID()).getSequence().equals(profile.getSequence())) {
+            throw new WrongTargetSlotException("Wrong slot sequence in profile, slot profile: " + profile);
+        }
+
         if (assignedSlots.get(profile.getSlotID()).getOwnerJobID() != jobId) {
             throw new WrongTargetSlotException(String.format("The profile %s not belong with job %d",
                 assignedSlots.get(profile.getSlotID()), jobId));

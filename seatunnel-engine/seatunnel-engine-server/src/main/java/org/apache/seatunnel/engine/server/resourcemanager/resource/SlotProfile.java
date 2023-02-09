@@ -25,6 +25,7 @@ import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 
 import java.io.IOException;
+import java.util.Objects;
 
 /**
  * Used to describe the status of the current slot, including resource size and assign status
@@ -79,6 +80,23 @@ public class SlotProfile implements IdentifiedDataSerializable {
         }
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        SlotProfile that = (SlotProfile) o;
+        return slotID == that.slotID && worker.equals(that.worker) && sequence.equals(that.sequence);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(worker, slotID, sequence);
+    }
+
     public String getSequence() {
         return sequence;
     }
@@ -95,6 +113,7 @@ public class SlotProfile implements IdentifiedDataSerializable {
             ", ownerJobID=" + ownerJobID +
             ", assigned=" + assigned +
             ", resourceProfile=" + resourceProfile +
+            ", sequence='" + sequence + '\'' +
             '}';
     }
 
