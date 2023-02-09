@@ -35,6 +35,7 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
@@ -64,6 +65,7 @@ public class DefaultSlotService implements SlotService {
     private final IdGenerator idGenerator;
     private final TaskExecutionService taskExecutionService;
     private ConcurrentMap<Integer, SlotContext> contexts;
+    private String slotServiceSequence;
 
     public DefaultSlotService(NodeEngineImpl nodeEngine, TaskExecutionService taskExecutionService,
                               SlotServiceConfig config) {
@@ -76,6 +78,7 @@ public class DefaultSlotService implements SlotService {
     @Override
     public void init() {
         initStatus = true;
+        slotServiceSequence = UUID.randomUUID().toString();
         contexts = new ConcurrentHashMap<>();
         assignedSlots = new ConcurrentHashMap<>();
         unassignedSlots = new ConcurrentHashMap<>();
@@ -170,7 +173,7 @@ public class DefaultSlotService implements SlotService {
         }
         if (config.isDynamicSlot()) {
             if (unassignedResource.get().enoughThan(profile)) {
-                return new SlotProfile(nodeEngine.getThisAddress(), (int) idGenerator.getNextId(), profile);
+                return new SlotProfile(nodeEngine.getThisAddress(), (int) idGenerator.getNextId(), profile, slotServiceSequence);
             }
         } else {
             Optional<SlotProfile> result = unassignedSlots.values().stream()
@@ -194,7 +197,7 @@ public class DefaultSlotService implements SlotService {
         long maxMemory = Runtime.getRuntime().maxMemory();
         for (int i = 0; i < config.getSlotNum(); i++) {
             unassignedSlots.put(i, new SlotProfile(nodeEngine.getThisAddress(), i,
-                    new ResourceProfile(CPU.of(0), Memory.of(maxMemory / config.getSlotNum()))));
+                new ResourceProfile(CPU.of(0), Memory.of(maxMemory / config.getSlotNum())), slotServiceSequence));
         }
     }
 

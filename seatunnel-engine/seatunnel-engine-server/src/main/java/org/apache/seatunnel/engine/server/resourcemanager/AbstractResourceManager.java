@@ -179,7 +179,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
         boolean active = false;
         if (registerWorker.containsKey(profile.getWorker())) {
             active = Arrays.stream(registerWorker.get(profile.getWorker()).getAssignedSlots())
-                .allMatch(s -> s.getSlotID() == profile.getSlotID());
+                .allMatch(s -> s.getSlotID() == profile.getSlotID() && s.getSequence().equals(profile.getSequence()));
         }
 
         if (!active) {

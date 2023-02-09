@@ -41,14 +41,17 @@ public class SlotProfile implements IdentifiedDataSerializable {
 
     private ResourceProfile resourceProfile;
 
+    private String sequence;
+
     public SlotProfile() {
         worker = new Address();
     }
 
-    public SlotProfile(Address worker, int slotID, ResourceProfile resourceProfile) {
+    public SlotProfile(Address worker, int slotID, ResourceProfile resourceProfile, String sequence) {
         this.worker = worker;
         this.slotID = slotID;
         this.resourceProfile = resourceProfile;
+        this.sequence = sequence;
     }
 
     public Address getWorker() {
@@ -74,6 +77,10 @@ public class SlotProfile implements IdentifiedDataSerializable {
             ownerJobID = jobID;
             assigned = true;
         }
+    }
+
+    public String getSequence() {
+        return sequence;
     }
 
     public void unassigned() {
@@ -108,6 +115,7 @@ public class SlotProfile implements IdentifiedDataSerializable {
         out.writeLong(ownerJobID);
         out.writeBoolean(assigned);
         out.writeObject(resourceProfile);
+        out.writeString(sequence);
     }
 
     @Override
@@ -117,5 +125,6 @@ public class SlotProfile implements IdentifiedDataSerializable {
         ownerJobID = in.readLong();
         assigned = in.readBoolean();
         resourceProfile = in.readObject();
+        sequence = in.readString();
     }
 }
