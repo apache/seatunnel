@@ -144,7 +144,8 @@ public class JobConfigParser {
 
     private void jobConfigAnalyze(@NonNull Config envConfigs) {
         if (envConfigs.hasPath(EnvCommonOptions.JOB_MODE.key())) {
-            jobConfig.getJobContext().setJobMode(envConfigs.getEnum(JobMode.class, EnvCommonOptions.JOB_MODE.key()));
+            String jobMode = envConfigs.getString(EnvCommonOptions.JOB_MODE.key());
+            jobConfig.getJobContext().setJobMode(JobMode.valueOf(jobMode.toUpperCase()));
         } else {
             jobConfig.getJobContext().setJobMode(EnvCommonOptions.JOB_MODE.defaultValue());
         }
