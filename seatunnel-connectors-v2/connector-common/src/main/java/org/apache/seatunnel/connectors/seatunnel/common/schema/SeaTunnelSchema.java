@@ -114,9 +114,9 @@ public class SeaTunnelSchema implements Serializable {
         String keyGenericType = "";
         // init value generic type (used by map type)
         String valueGenericType = "";
+        String originContent = type;
         // convert type to uppercase
         type = type.toUpperCase();
-        String originContent = type;
         if (type.contains("{") || type.contains("}")) {
             // Row type
             type = SqlType.ROW.name();
