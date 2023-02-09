@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -30,7 +31,6 @@ import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistExceptio
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sql.MysqlCreateTableSqlBuilder;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.DataTypeUtils;
 
 import com.mysql.cj.MysqlType;
 import com.mysql.cj.jdbc.result.ResultSetImpl;
@@ -156,6 +156,11 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         }
     }
 
+    @Override
+    public DataTypeConvertor<MysqlType> getDataTypeConvertor() {
+        return MysqlDataTypeConvertor.getInstance();
+    }
+
     // todo: If the origin source is mysql, we can directly use create table like to create the target table?
     @Override
     protected boolean createTableInternal(TablePath tablePath, CatalogTable table) throws CatalogException {
@@ -208,11 +213,13 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
      * @see com.mysql.cj.MysqlType
      * @see ResultSetImpl#getObjectStoredProc(int, int)
      */
+    @SuppressWarnings("unchecked")
     private SeaTunnelDataType<?> fromJdbcType(ResultSetMetaData metadata, int colIndex) throws SQLException {
-        int precision = metadata.getPrecision(colIndex);
-        int scale = metadata.getScale(colIndex);
         MysqlType mysqlType = MysqlType.getByName(metadata.getColumnTypeName(colIndex));
-        return DataTypeUtils.toSeaTunnelDataType(mysqlType, precision, scale);
+        Map<String, Object> dataTypeProperties = new HashMap<>();
+        dataTypeProperties.put(MysqlDataTypeConvertor.PRECISION, metadata.getPrecision(colIndex));
+        dataTypeProperties.put(MysqlDataTypeConvertor.SCALE, metadata.getScale(colIndex));
+        return getDataTypeConvertor().toSeaTunnelType(mysqlType, dataTypeProperties);
     }
 
     @SuppressWarnings("MagicNumber")
