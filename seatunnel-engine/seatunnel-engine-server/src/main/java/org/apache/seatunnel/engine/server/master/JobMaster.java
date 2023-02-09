@@ -161,7 +161,7 @@ public class JobMaster {
         this.engineConfig = engineConfig;
     }
 
-    public void init(long initializationTimestamp) {
+    public void init(long initializationTimestamp, boolean restart) throws Exception {
         jobImmutableInformation = nodeEngine.getSerializationService().toObject(
             jobImmutableInformationData);
         LOGGER.info(String.format("Init JobMaster for Job %s (%s) ", jobImmutableInformation.getJobConfig().getName(),
@@ -185,10 +185,22 @@ public class JobMaster {
         this.physicalPlan = planTuple.f0();
         this.physicalPlan.setJobMaster(this);
         this.checkpointPlanMap = planTuple.f1();
+        Exception initException = null;
+        try {
+            this.initCheckPointManager();
+        } catch (Exception e) {
+            initException = e;
+        }
         this.initStateFuture();
+        if (initException != null) {
+            if (restart) {
+                cancelJob();
+            }
+            throw initException;
+        }
     }
 
-    public void initCheckPointManager() throws CheckpointStorageException {
+    private void initCheckPointManager() throws CheckpointStorageException {
         CheckpointConfig checkpointConfig = mergeEnvAndEngineConfig(engineConfig.getCheckpointConfig(),
             jobImmutableInformation.getJobConfig().getEnvOptions());
         this.checkpointManager = new CheckpointManager(
