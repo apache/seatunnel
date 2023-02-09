@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.core.starter.spark.execution;
 
+import static org.apache.spark.sql.types.DataTypes.LongType;
+
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -37,7 +39,10 @@ import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema;
 import org.apache.spark.sql.catalyst.expressions.MutableValue;
 import org.apache.spark.sql.catalyst.expressions.SpecificInternalRow;
+import org.apache.spark.sql.types.Metadata;
+import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
+import org.apache.spark.sql.types.TimestampType;
 
 import java.io.IOException;
 import java.net.URL;
@@ -100,6 +105,13 @@ public class TransformExecuteProcessor extends SparkAbstractPluginExecuteProcess
         SeaTunnelDataType<?> seaTunnelDataType = TypeConverterUtils.convert(stream.schema());
         transform.setTypeInfo(seaTunnelDataType);
         StructType structType = (StructType) TypeConverterUtils.convert(transform.getProducedType());
+        StructField[] newStructFields = Arrays.stream(structType.fields()).map(structField -> {
+            if (structField.dataType() instanceof TimestampType) {
+                structField = new StructField(structField.name(), LongType, true, Metadata.empty());
+            }
+            return structField;
+        }).toArray(StructField[]::new);
+        structType = new StructType(newStructFields);
         SeaTunnelRow seaTunnelRow;
         List<Row> outputRows = new ArrayList<>();
         Iterator<Row> rowIterator = stream.toLocalIterator();

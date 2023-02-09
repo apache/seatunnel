@@ -76,7 +76,6 @@ public class TypeConverterUtils {
             case INT:
                 return DataTypes.IntegerType;
             case BIGINT:
-            case TIMESTAMP:
                 return DataTypes.LongType;
             case FLOAT:
                 return DataTypes.FloatType;
@@ -88,6 +87,8 @@ public class TypeConverterUtils {
                 return DataTypes.DateType;
             // case TIME:
             // TODO: not support now, how reconvert?
+            case TIMESTAMP:
+                return DataTypes.TimestampType;
             case ARRAY:
                 return DataTypes.createArrayType(convert(((ArrayType<?, ?>) dataType).getElementType()));
             case MAP:

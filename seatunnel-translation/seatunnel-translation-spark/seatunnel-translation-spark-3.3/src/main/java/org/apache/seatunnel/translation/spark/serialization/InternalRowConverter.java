@@ -191,6 +191,9 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 // TODO: Support TIME Type
                 throw new RuntimeException("SeaTunnel not support time type, it will be supported in the future.");
             case TIMESTAMP:
+                if (field instanceof Timestamp) {
+                    return ((Timestamp) field).toLocalDateTime();
+                }
                 return Timestamp.from(InstantConverterUtils.ofEpochMicro((long) field)).toLocalDateTime();
             case MAP:
                 return reconvertMap((MapData) field, (MapType<?, ?>) dataType);
