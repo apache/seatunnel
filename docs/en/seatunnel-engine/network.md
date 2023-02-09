@@ -2,7 +2,7 @@
 sidebar_position: 6
 ---
 
-# TCP NetWork
+## TCP NetWork
 
 If multicast is not the preferred way of discovery for your environment, then you can configure SeaTunnel Engine to be a full TCP/IP cluster. When you configure SeaTunnel Engine to discover members by TCP/IP, you must list all or a subset of the members' host names and/or IP addresses as cluster members. You do not have to list all of these cluster members, but at least one of the listed members has to be active in the cluster when a new member joins.
 
@@ -15,7 +15,8 @@ The following is an example declarative configuration.
 
 ```yaml
 hazelcast:
-  network:
+  advanced-network:
+    enabled: true
     join:
       tcp-ip:
         enabled: true
@@ -34,3 +35,41 @@ Instead of providing members line-by-line as shown above, you also have the opti
 `<members>192.168.1.0-7,192.168.1.21</members>`
 
 If you do not provide ports for the members, Hazelcast automatically tries the ports `5701`, `5702` and so on.
+
+
+## Advanced Network Configuration
+
+Different kinds of network connections can be established with different socket options. 
+
+When using the declarative configuration, specific element names introduce the server socket endpoint configuration for each protocol:
+
+- member-server-socket-endpoint-config for MEMBER protocol
+
+- client-server-socket-endpoint-config for CLIENT protocol
+
+- rest-server-socket-endpoint-config for REST endpoint
+
+```yaml
+member-server-socket-endpoint-config:
+      port:
+        auto-increment: true
+        port-count: 100
+        port: 5801
+    client-server-socket-endpoint-config:
+      port:
+        auto-increment: true
+        port-count: 100
+        port: 9000
+    rest-server-socket-endpoint-config:
+      port:
+        auto-increment: true
+        port-count: 100
+        port: 8080
+      endpoint-groups:
+        WAN:
+          enabled: true
+        CLUSTER_READ:
+          enabled: true
+        HEALTH_CHECK:
+          enabled: true
+```
