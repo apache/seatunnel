@@ -54,7 +54,7 @@ public class DebeziumJsonFormatFactory implements DeserializationFormatFactory, 
 
     @Override
     public DeserializationFormat createDeserializationFormat(TableFactoryContext context) {
-        Map<String, String> options = context.getOptions();
+        Map<String, String> options = context.getOptions().toMap();
         boolean ignoreParseErrors = DebeziumJsonFormatOptions.getIgnoreParseErrors(options);
         boolean schemaInclude = DebeziumJsonFormatOptions.getSchemaInclude(options);
 
