@@ -351,6 +351,9 @@ public class CoordinatorService {
                 } finally {
                     onJobDone(jobMaster, jobId);
                 }
+            } else {
+                runningJobInfoIMap.remove(jobId);
+                runningJobMasterMap.remove(jobId);
             }
         });
         return new PassiveCompletableFuture<>(jobSubmitFuture);
