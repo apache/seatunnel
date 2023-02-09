@@ -72,9 +72,8 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
 
     @Override
     public List<String> listDatabases() throws CatalogException {
-        try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd)) {
-
-            PreparedStatement ps = conn.prepareStatement("SHOW DATABASES;");
+        try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd);
+             PreparedStatement ps = conn.prepareStatement("SHOW DATABASES;")) {
 
             List<String> databases = new ArrayList<>();
             ResultSet rs = ps.executeQuery();
@@ -99,9 +98,8 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
             throw new DatabaseNotExistException(this.catalogName, databaseName);
         }
 
-        try (Connection conn = DriverManager.getConnection(baseUrl + databaseName, username, pwd)) {
-            PreparedStatement ps =
-                conn.prepareStatement("SHOW TABLES;");
+        try (Connection conn = DriverManager.getConnection(baseUrl + databaseName, username, pwd);
+             PreparedStatement ps = conn.prepareStatement("SHOW TABLES;")) {
 
             ResultSet rs = ps.executeQuery();
 
@@ -181,6 +179,28 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
             return ps.execute();
         } catch (SQLException e) {
             throw new CatalogException(String.format("Failed dropping table %s", tablePath.getFullName()), e);
+        }
+    }
+
+    @Override
+    protected boolean createDatabaseInternal(String databaseName) throws CatalogException {
+        try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd);
+             PreparedStatement ps = conn.prepareStatement(String.format("CREATE DATABASE `%s`;", databaseName))) {
+            return ps.execute();
+        } catch (Exception e) {
+            throw new CatalogException(
+                String.format("Failed creating database %s in catalog %s", databaseName, this.catalogName), e);
+        }
+    }
+
+    @Override
+    protected boolean dropDatabaseInternal(String databaseName) throws CatalogException {
+        try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd);
+             PreparedStatement ps = conn.prepareStatement(String.format("DROP DATABASE `%s`;", databaseName))) {
+            return ps.execute();
+        } catch (Exception e) {
+            throw new CatalogException(
+                String.format("Failed dropping database %s in catalog %s", databaseName, this.catalogName), e);
         }
     }
 

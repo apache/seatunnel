@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
+import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
@@ -279,4 +280,32 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     }
 
     protected abstract boolean dropTableInternal(TablePath tablePath) throws CatalogException;
+
+    @Override
+    public void createDatabase(TablePath tablePath, boolean ignoreIfExists) throws DatabaseAlreadyExistException, CatalogException {
+        checkNotNull(tablePath, "Table path cannot be null");
+        checkNotNull(tablePath.getDatabaseName(), "Database name cannot be null");
+
+        if (databaseExists(tablePath.getDatabaseName())) {
+            throw new DatabaseAlreadyExistException(catalogName, tablePath.getDatabaseName());
+        }
+        if (!createDatabaseInternal(tablePath.getDatabaseName()) && !ignoreIfExists) {
+            throw new DatabaseAlreadyExistException(catalogName, tablePath.getDatabaseName());
+        }
+    }
+
+    protected abstract boolean createDatabaseInternal(String databaseName);
+
+    @Override
+    public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists) throws DatabaseNotExistException, CatalogException {
+        checkNotNull(tablePath, "Table path cannot be null");
+        checkNotNull(tablePath.getDatabaseName(), "Database name cannot be null");
+
+        if (!dropDatabaseInternal(tablePath.getDatabaseName()) && !ignoreIfNotExists) {
+            throw new DatabaseNotExistException(catalogName, tablePath.getDatabaseName());
+        }
+    }
+
+    protected abstract boolean dropDatabaseInternal(String databaseName) throws CatalogException;
+
 }
