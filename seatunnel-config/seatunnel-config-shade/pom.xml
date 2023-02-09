@@ -27,8 +27,7 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>seatunnel-config-shade</artifactId>
-
-    <name>seatunnel-config-shade</name>
+    <name>SeaTunnel : Config : Shade</name>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

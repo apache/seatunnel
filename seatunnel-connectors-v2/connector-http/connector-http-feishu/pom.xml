@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-http-feishu</artifactId>
+    <name>SeaTunnel : Connectors V2 : Http : Feishu</name>
 
     <dependencies>
         <dependency>

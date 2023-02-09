@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>seatunnel-api</artifactId>
+    <name>SeaTunnel : Api</name>
 
     <properties />
 

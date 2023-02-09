@@ -28,6 +28,7 @@
 
     <artifactId>seatunnel-dist</artifactId>
     <packaging>pom</packaging>
+    <name>SeaTunnel : Dist</name>
 
     <properties>
         <!-- disable mvn deploy to central maven repo by default -->

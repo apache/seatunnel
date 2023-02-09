@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>connector-datahub-e2e</artifactId>
+    <name>SeaTunnel : E2E : Connector V2 : DataHub</name>
 
     <dependencies>
         <!-- SeaTunnel connectors -->

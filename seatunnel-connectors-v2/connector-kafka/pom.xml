@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-kafka</artifactId>
+    <name>SeaTunnel : Connectors V2 : Kafka</name>
 
     <properties>
         <kafka.client.version>3.2.0</kafka.client.version>
