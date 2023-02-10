@@ -109,7 +109,7 @@ Task internal exchange queue type. There are currently two types of `disruptor` 
 ```
 seatunnel:
     engine:
-        queue_type: disruptor
+        queue-type: disruptor
         # other config
 ```
 
