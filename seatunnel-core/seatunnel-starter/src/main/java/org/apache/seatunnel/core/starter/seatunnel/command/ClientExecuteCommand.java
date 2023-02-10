@@ -211,7 +211,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
 
     private void shutdownHook(ClientJobProxy clientJobProxy) {
         if (clientCommandArgs.isCloseJob()) {
-            if (jobStatus == null || !jobStatus.isEndState()) {
+            if (clientJobProxy.getJobResultCache() == null && (jobStatus == null || !jobStatus.isEndState())) {
                 log.warn("Task will be closed due to client shutdown.");
                 clientJobProxy.cancelJob();
             }
