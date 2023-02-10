@@ -62,8 +62,6 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
     private SeaTunnelClient engineClient;
     private HazelcastInstance instance;
     private ScheduledExecutorService executorService;
-    private CompletableFuture<SeaTunnelClient> clientFuture;
-
     public ClientExecuteCommand(ClientCommandArgs clientCommandArgs) {
         this.clientCommandArgs = clientCommandArgs;
     }
@@ -75,7 +73,6 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         LocalDateTime startTime = LocalDateTime.now();
         LocalDateTime endTime = LocalDateTime.now();
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
-        Thread hook = addShutdownHook();
         try {
             String clusterName = clientCommandArgs.getClusterName();
             if (clientCommandArgs.getMasterType().equals(MasterType.LOCAL)) {
@@ -85,9 +82,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(clusterName);
-            // SeaTunnel Client may start failed cause network problem, we should shut down it
-            clientFuture = CompletableFuture.supplyAsync(() -> new SeaTunnelClient(clientConfig));
-            engineClient = clientFuture.get(15, TimeUnit.SECONDS);
+            engineClient = new SeaTunnelClient(clientConfig);
             if (clientCommandArgs.isListJob()) {
                 String jobStatus = engineClient.listJobStatus();
                 System.out.println(jobStatus);
@@ -119,7 +114,6 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 // create job proxy
                 ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
                 // register cancelJob hook
-                Runtime.getRuntime().removeShutdownHook(hook);
                 Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                     CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                         log.info("run shutdown hook because get close signal");
@@ -130,8 +124,6 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                     } catch (Exception e) {
                         log.error("Cancel job failed.", e);
                     }
-                    closeClient();
-                    System.exit(1);
                 }));
                 // get job id
                 long jobId = clientJobProxy.getJobId();
@@ -149,7 +141,6 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         } catch (Exception e) {
             throw new CommandExecuteException("SeaTunnel job executed failed", e);
         } finally {
-            closeClient();
             if (jobMetricsSummary != null) {
                 // print job statistics information when job finished
                 log.info(StringFormatUtils.formatTable(
@@ -172,13 +163,11 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                     "Total Failed Count",
                     jobMetricsSummary.getSourceReadCount() - jobMetricsSummary.getSinkWriteCount()));
             }
+            closeClient();
         }
     }
 
     private void closeClient() {
-        if (!clientFuture.isDone()) {
-            clientFuture.cancel(true);
-        }
         if (engineClient != null) {
             engineClient.close();
         }
@@ -186,18 +175,8 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             instance.shutdown();
         }
         if (executorService != null) {
-            executorService.shutdown();
+            executorService.shutdownNow();
         }
-    }
-
-    private Thread addShutdownHook() {
-        Thread hook = new Thread(() -> {
-            log.info("run shutdown hook because get close signal");
-            closeClient();
-            System.exit(1);
-        });
-        Runtime.getRuntime().addShutdownHook(hook);
-        return hook;
     }
 
     private HazelcastInstance createServerInLocal(String clusterName) {
