@@ -27,7 +27,6 @@ import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportDataSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -47,6 +46,7 @@ import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksCo
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.Collections;
 import java.util.List;
@@ -57,8 +57,6 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void> implem
     private SeaTunnelRowType seaTunnelRowType;
     private SinkConfig sinkConfig;
     private DataSaveMode dataSaveMode;
-    private String sourceTableName;
-
     @Override
     public String getPluginName() {
         return "StarRocks";
@@ -72,8 +70,13 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void> implem
                 String.format("PluginName: %s, PluginType: %s, Message: %s",
                     getPluginName(), PluginType.SINK, result.getMsg()));
         }
-        sourceTableName = pluginConfig.getString(SinkCommonOptions.SOURCE_TABLE_NAME.key());
+        // TODO get catalog Table
+        CatalogTable catalogTable = null;
         sinkConfig = SinkConfig.loadConfig(pluginConfig);
+        if (StringUtils.isEmpty(sinkConfig.getTable())) {
+            sinkConfig.setTable(catalogTable.getTableId().gettableName());
+        }
+        sinkConfig.setTable(catalogTable.getTableId().gettableName());
         dataSaveMode = DataSaveMode.KEEP_SCHEMA_AND_DATA;
     }
 

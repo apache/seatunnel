@@ -167,11 +167,13 @@ public class SinkConfig implements Serializable {
         SinkConfig sinkConfig = new SinkConfig();
         sinkConfig.setNodeUrls(pluginConfig.getStringList(NODE_URLS.key()));
         sinkConfig.setDatabase(pluginConfig.getString(DATABASE.key()));
-        sinkConfig.setTable(pluginConfig.getString(TABLE.key()));
         sinkConfig.setJdbcUrl("jdbc:mysql://" + sinkConfig.getNodeUrls().get(0).split(":")[0] +
             ":" + pluginConfig.getString(QUERY_PORT.key()) + "/");
         if (pluginConfig.hasPath(USERNAME.key())) {
             sinkConfig.setUsername(pluginConfig.getString(USERNAME.key()));
+        }
+        if (pluginConfig.hasPath(TABLE.key())) {
+            sinkConfig.setTable(pluginConfig.getString(TABLE.key()));
         }
         if (pluginConfig.hasPath(PASSWORD.key())) {
             sinkConfig.setPassword(pluginConfig.getString(PASSWORD.key()));

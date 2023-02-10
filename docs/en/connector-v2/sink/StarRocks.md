@@ -18,7 +18,7 @@ The internal implementation of StarRocks sink connector is cached and imported b
 | username                    | string  | yes      | -               |
 | password                    | string  | yes      | -               |
 | database                    | string  | yes      | -               |
-| table                       | string  | yes      | -               |
+| table                       | string  | no       | -               |
 | labelPrefix                 | string  | no       | -               |
 | batch_max_rows              | long    | no       | 1024            |
 | batch_max_bytes             | int     | no       | 5 * 1024 * 1024 |
@@ -48,7 +48,7 @@ The name of StarRocks database
 
 ### table [string]
 
-The name of StarRocks table
+The name of StarRocks table, If not set, the table name will be the name of the upstream table
 
 ### labelPrefix [string]
 
