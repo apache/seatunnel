@@ -35,8 +35,9 @@ public class CassandraSinkFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(CassandraConfig.HOST, CassandraConfig.KEYSPACE, CassandraConfig.TABLE)
+                .bundled(CassandraConfig.USERNAME, CassandraConfig.PASSWORD)
                 .optional(
-                        CassandraConfig.USERNAME, CassandraConfig.PASSWORD, CassandraConfig.DATACENTER,
+                        CassandraConfig.DATACENTER,
                         CassandraConfig.CONSISTENCY_LEVEL, CassandraConfig.FIELDS, CassandraConfig.BATCH_SIZE,
                         CassandraConfig.BATCH_TYPE, CassandraConfig.ASYNC_WRITE
                 )

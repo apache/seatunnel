@@ -36,7 +36,8 @@ public class CassandraSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(CassandraConfig.HOST, CassandraConfig.KEYSPACE, CassandraConfig.CQL)
-                .optional(CassandraConfig.USERNAME, CassandraConfig.PASSWORD, CassandraConfig.DATACENTER, CassandraConfig.CONSISTENCY_LEVEL)
+                .bundled(CassandraConfig.USERNAME, CassandraConfig.PASSWORD)
+                .optional(CassandraConfig.DATACENTER, CassandraConfig.CONSISTENCY_LEVEL)
                 .build();
     }
 
