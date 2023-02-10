@@ -146,4 +146,9 @@ public interface Catalog {
 
     // todo: Support for update table metadata
 
+
+    /**
+     * Return a {@link DataTypeConvertor} used to convert the data type between SeaTunnel and the connector.
+     */
+    DataTypeConvertor<?> getDataTypeConvertor();
 }

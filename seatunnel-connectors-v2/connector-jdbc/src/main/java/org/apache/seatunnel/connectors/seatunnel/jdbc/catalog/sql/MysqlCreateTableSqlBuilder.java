@@ -26,7 +26,7 @@ import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.DataTypeUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.MysqlDataTypeConvertor;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -147,7 +147,7 @@ public class MysqlCreateTableSqlBuilder {
         // Column name
         columnSqls.add(column.getName());
         // Column type
-        columnSqls.add(DataTypeUtils.toMysqlType(column.getDataType()).getName());
+        columnSqls.add(MysqlDataTypeConvertor.getInstance().toConnectorType(column.getDataType(), null).getName());
         // Column length
         if (column.getColumnLength() != null) {
             columnSqls.add("(" + column.getColumnLength() + ")");
