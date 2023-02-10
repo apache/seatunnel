@@ -45,7 +45,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Random;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -59,7 +59,9 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
     private final ClientCommandArgs clientCommandArgs;
 
     private JobStatus jobStatus;
-
+    private SeaTunnelClient engineClient;
+    private HazelcastInstance instance;
+    private ScheduledExecutorService executorService;
     public ClientExecuteCommand(ClientCommandArgs clientCommandArgs) {
         this.clientCommandArgs = clientCommandArgs;
     }
@@ -67,9 +69,6 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
     @SuppressWarnings({"checkstyle:RegexpSingleline", "checkstyle:MagicNumber"})
     @Override
     public void execute() throws CommandExecuteException {
-        HazelcastInstance instance = null;
-        SeaTunnelClient engineClient = null;
-        ScheduledExecutorService executorService = null;
         JobMetricsRunner.JobMetricsSummary jobMetricsSummary = null;
         LocalDateTime startTime = LocalDateTime.now();
         LocalDateTime endTime = LocalDateTime.now();
@@ -115,15 +114,17 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 // create job proxy
                 ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
                 // register cancelJob hook
-                if (clientCommandArgs.isCloseJob()) {
-                    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                        try {
-                            shutdownHook(clientJobProxy);
-                        } catch (Exception e) {
-                            log.error("Cancel job failed.", e);
-                        }
-                    }));
-                }
+                Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                    CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                        log.info("run shutdown hook because get close signal");
+                        shutdownHook(clientJobProxy);
+                    });
+                    try {
+                        future.get(15, TimeUnit.SECONDS);
+                    } catch (Exception e) {
+                        log.error("Cancel job failed.", e);
+                    }
+                }));
                 // get job id
                 long jobId = clientJobProxy.getJobId();
                 JobMetricsRunner jobMetricsRunner = new JobMetricsRunner(engineClient, jobId);
@@ -137,18 +138,9 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 // get job statistic information when job finished
                 jobMetricsSummary = engineClient.getJobMetricsSummary(jobId);
             }
-        } catch (ExecutionException | InterruptedException e) {
+        } catch (Exception e) {
             throw new CommandExecuteException("SeaTunnel job executed failed", e);
         } finally {
-            if (engineClient != null) {
-                engineClient.close();
-            }
-            if (instance != null) {
-                instance.shutdown();
-            }
-            if (executorService != null) {
-                executorService.shutdown();
-            }
             if (jobMetricsSummary != null) {
                 // print job statistics information when job finished
                 log.info(StringFormatUtils.formatTable(
@@ -171,6 +163,19 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                     "Total Failed Count",
                     jobMetricsSummary.getSourceReadCount() - jobMetricsSummary.getSinkWriteCount()));
             }
+            closeClient();
+        }
+    }
+
+    private void closeClient() {
+        if (engineClient != null) {
+            engineClient.close();
+        }
+        if (instance != null) {
+            instance.shutdown();
+        }
+        if (executorService != null) {
+            executorService.shutdownNow();
         }
     }
 
@@ -189,9 +194,11 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
     }
 
     private void shutdownHook(ClientJobProxy clientJobProxy) {
-        if (jobStatus == null || !jobStatus.isEndState()) {
-            log.warn("Task will be closed due to client shutdown.");
-            clientJobProxy.cancelJob();
+        if (clientCommandArgs.isCloseJob()) {
+            if (jobStatus == null || !jobStatus.isEndState()) {
+                log.warn("Task will be closed due to client shutdown.");
+                clientJobProxy.cancelJob();
+            }
         }
     }
 
