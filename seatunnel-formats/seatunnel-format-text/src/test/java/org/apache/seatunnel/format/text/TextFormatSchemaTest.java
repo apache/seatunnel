@@ -32,12 +32,20 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Map;
 
 public class TextFormatSchemaTest {
     public String content =
-            "[1,2,3,4,5,6]#"
-                    + "{\"tyrantlucifer\":18,\"Kris\":21}#"
+            String.join(String.valueOf('\002'), Arrays.asList("1", "2", "3", "4", "5", "6"))
+                    + "#"
+                    + "tyrantlucifer"
+                    + '\003'
+                    + "18"
+                    + '\002'
+                    + "Kris"
+                    + '\003'
+                    + "21#"
                     + "tyrantlucifer#"
                     + "true#"
                     + "1#"
