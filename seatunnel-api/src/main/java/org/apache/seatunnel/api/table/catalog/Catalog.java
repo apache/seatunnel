@@ -18,7 +18,9 @@
 package org.apache.seatunnel.api.table.catalog;
 
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
+import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
+import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.factory.Factory;
 
@@ -113,4 +115,35 @@ public interface Catalog {
      * @throws CatalogException in case of any runtime exception
      */
     CatalogTable getTable(TablePath tablePath) throws CatalogException, TableNotExistException;
+
+    /**
+     * Create a new table in this catalog.
+     *
+     * @param tablePath      Path of the table
+     * @param table          The table definition
+     * @param ignoreIfExists Flag to specify behavior when a table with the given name already exist
+     * @throws TableAlreadyExistException thrown if the table already exists in the catalog and ignoreIfExists is false
+     * @throws DatabaseNotExistException  thrown if the database in tablePath doesn't exist in the catalog
+     * @throws CatalogException           in case of any runtime exception
+     */
+    void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
+        throws TableAlreadyExistException, DatabaseNotExistException, CatalogException;
+
+    /**
+     * Drop an existing table in this catalog.
+     *
+     * @param tablePath         Path of the table
+     * @param ignoreIfNotExists Flag to specify behavior when a table with the given name doesn't exist
+     * @throws TableNotExistException thrown if the table doesn't exist in the catalog and ignoreIfNotExists is false
+     * @throws CatalogException       in case of any runtime exception
+     */
+    void dropTable(TablePath tablePath, boolean ignoreIfNotExists)
+        throws TableNotExistException, CatalogException;
+
+    void createDatabase(TablePath tablePath, boolean ignoreIfExists) throws DatabaseAlreadyExistException, CatalogException;
+
+    void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists) throws DatabaseNotExistException, CatalogException;
+
+    // todo: Support for update table metadata
+
 }
