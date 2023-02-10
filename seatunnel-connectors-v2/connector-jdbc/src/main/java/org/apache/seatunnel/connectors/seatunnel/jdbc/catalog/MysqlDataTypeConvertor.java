@@ -15,8 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.utils;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog;
 
+import org.apache.seatunnel.api.table.catalog.DataTypeConvertException;
+import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
@@ -27,14 +29,24 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
 import com.mysql.cj.MysqlType;
-import lombok.experimental.UtilityClass;
-import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.MapUtils;
 
-@Slf4j
-@UtilityClass
-public class DataTypeUtils {
+import java.util.Map;
 
-    public static SeaTunnelDataType<?> toSeaTunnelDataType(MysqlType mysqlType, int precision, int scale) {
+public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
+
+    private MysqlDataTypeConvertor() {
+
+    }
+
+    private static final MysqlDataTypeConvertor INSTANCE = new MysqlDataTypeConvertor();
+
+    public static final String PRECISION = "precision";
+    public static final String SCALE = "scale";
+
+    // todo: It's better to wrapper MysqlType to a pojo in ST, since MysqlType doesn't contains properties.
+    @Override
+    public SeaTunnelDataType<?> toSeaTunnelType(MysqlType mysqlType, Map<String, Object> dataTypeProperties) throws DataTypeConvertException {
         switch (mysqlType) {
             case NULL:
                 return BasicType.VOID_TYPE;
@@ -88,14 +100,21 @@ public class DataTypeUtils {
             case BIGINT_UNSIGNED:
             case DECIMAL:
             case DECIMAL_UNSIGNED:
+                Integer precision = MapUtils.getInteger(dataTypeProperties, PRECISION);
+                Integer scale = MapUtils.getInteger(dataTypeProperties, SCALE);
+                if (precision == null || scale == null) {
+                    throw DataTypeConvertException.convertToSeaTunnelDataTypeException(mysqlType,
+                        new IllegalArgumentException("Decimal type must have precision and scale"));
+                }
                 return new DecimalType(precision, scale);
             // TODO: support 'SET' & 'YEAR' type
             default:
-                throw new JdbcConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, String.format("Doesn't support MySQL type '%s' yet", mysqlType.getName()));
+                throw DataTypeConvertException.convertToSeaTunnelDataTypeException(mysqlType);
         }
     }
 
-    public MysqlType toMysqlType(SeaTunnelDataType<?> seaTunnelDataType) {
+    @Override
+    public MysqlType toConnectorType(SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties) throws DataTypeConvertException {
         SqlType sqlType = seaTunnelDataType.getSqlType();
         // todo: verify
         switch (sqlType) {
@@ -134,5 +153,9 @@ public class DataTypeUtils {
                 throw new JdbcConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, String.format("Doesn't support MySQL type '%s' yet", sqlType));
 
         }
+    }
+
+    public static MysqlDataTypeConvertor getInstance() {
+        return INSTANCE;
     }
 }
