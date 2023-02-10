@@ -15,23 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.type;
+package org.apache.seatunnel.api.table.catalog;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
 import java.io.Serializable;
+import java.util.List;
 
-/**
- * Logic data type of column in SeaTunnel.
- */
-public interface SeaTunnelDataType<T> extends Serializable {
+@Data
+@AllArgsConstructor
+public class PrimaryKey implements Serializable {
+    private static final long serialVersionUID = 1L;
 
-    /**
-     * Gets the class of the type represented by this data type.
-     */
-    Class<T> getTypeClass();
+    // This field is not used now
+    private final String primaryKey;
 
-    /**
-     * Gets the SQL standard type represented by this data type.
-     */
-    SqlType getSqlType();
+    private final List<String> columnNames;
 
+    public static PrimaryKey of(String primaryKey, List<String> columnNames) {
+        return new PrimaryKey(primaryKey, columnNames);
+    }
 }
