@@ -50,7 +50,7 @@ final class JvmOptionsParser {
      * formatted line is discovered, the line is output to standard error.
      */
     @SuppressWarnings("checkstyle:RegexpSingleline")
-    public static void main(final String[] args) throws IOException {
+    public static void main(final String[] args) {
         if (args.length != 1) {
             throw new IllegalArgumentException(
                 "Expected one arguments specifying path to PATH_CONF, but was " + Arrays.toString(args)
@@ -177,7 +177,7 @@ final class JvmOptionsParser {
             final int javaMajorVersion,
             final BufferedReader br,
             final JvmOptionConsumer jvmOptionConsumer,
-            final InvalidLineConsumer invalidLineConsumer){
+            final InvalidLineConsumer invalidLineConsumer) {
         int lineNumber = 0;
         while (true) {
             final String line = br.readLine();
