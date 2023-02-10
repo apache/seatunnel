@@ -27,10 +27,13 @@ import org.apache.spark.sql.sources.v2.writer.streaming.StreamWriter;
 
 import java.io.IOException;
 
-public class SparkStreamWriter<StateT, CommitInfoT, AggregatedCommitInfoT> extends SparkDataSourceWriter<StateT, CommitInfoT, AggregatedCommitInfoT>
+public class SparkStreamWriter<StateT, CommitInfoT, AggregatedCommitInfoT>
+        extends SparkDataSourceWriter<StateT, CommitInfoT, AggregatedCommitInfoT>
         implements StreamWriter {
 
-    public SparkStreamWriter(SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink) throws IOException {
+    public SparkStreamWriter(
+            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink)
+            throws IOException {
         super(sink);
     }
 

@@ -93,7 +93,5 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {
-
-    }
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
 }

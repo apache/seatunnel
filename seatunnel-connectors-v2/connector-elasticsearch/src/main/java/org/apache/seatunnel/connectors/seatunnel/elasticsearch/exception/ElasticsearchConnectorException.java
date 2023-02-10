@@ -21,11 +21,13 @@ import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 public class ElasticsearchConnectorException extends SeaTunnelRuntimeException {
-    public ElasticsearchConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
+    public ElasticsearchConnectorException(
+            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
         super(seaTunnelErrorCode, errorMessage);
     }
 
-    public ElasticsearchConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+    public ElasticsearchConnectorException(
+            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
         super(seaTunnelErrorCode, errorMessage, cause);
     }
 

@@ -26,5 +26,4 @@ public class SeaTunnelEngineServerExample {
         ServerCommandArgs serverCommandArgs = new ServerCommandArgs();
         SeaTunnel.run(serverCommandArgs.buildCommand());
     }
-
 }

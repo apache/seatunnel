@@ -87,8 +87,7 @@ public interface Catalog {
     // --------------------------------------------------------------------------------------------
 
     /**
-     * Get names of all tables under this database. An empty list is returned if none
-     * exists.
+     * Get names of all tables under this database. An empty list is returned if none exists.
      *
      * @return a list of the names of all tables in this database
      * @throws CatalogException in case of any runtime exception
@@ -105,8 +104,8 @@ public interface Catalog {
     boolean tableExists(TablePath tablePath) throws CatalogException;
 
     /**
-     * Return a {@link CatalogTable}  identified by the given {@link
-     * TablePath}. The framework will resolve the metadata objects when necessary.
+     * Return a {@link CatalogTable} identified by the given {@link TablePath}. The framework will
+     * resolve the metadata objects when necessary.
      *
      * @param tablePath Path of the table
      * @return The requested table

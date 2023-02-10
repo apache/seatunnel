@@ -17,6 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.sink;
 
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+
+import com.google.auto.service.AutoService;
+
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig.HOSTS;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig.TLS_KEY_STORE_PASSWORD;
@@ -33,12 +39,6 @@ import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.Sin
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.MAX_RETRY_COUNT;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.PRIMARY_KEYS;
 
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSinkFactory;
-
-import com.google.auto.service.AutoService;
-
 @AutoService(Factory.class)
 public class ElasticsearchSinkFactory implements TableSinkFactory {
     @Override
@@ -49,20 +49,21 @@ public class ElasticsearchSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-            .required(HOSTS, INDEX)
-            .optional(INDEX_TYPE,
-                PRIMARY_KEYS,
-                KEY_DELIMITER,
-                USERNAME,
-                PASSWORD,
-                MAX_RETRY_COUNT,
-                MAX_BATCH_SIZE,
-                TLS_VERIFY_CERTIFICATE,
-                TLS_VERIFY_HOSTNAME,
-                TLS_KEY_STORE_PATH,
-                TLS_KEY_STORE_PASSWORD,
-                TLS_TRUST_STORE_PATH,
-                TLS_TRUST_STORE_PASSWORD)
-            .build();
+                .required(HOSTS, INDEX)
+                .optional(
+                        INDEX_TYPE,
+                        PRIMARY_KEYS,
+                        KEY_DELIMITER,
+                        USERNAME,
+                        PASSWORD,
+                        MAX_RETRY_COUNT,
+                        MAX_BATCH_SIZE,
+                        TLS_VERIFY_CERTIFICATE,
+                        TLS_VERIFY_HOSTNAME,
+                        TLS_KEY_STORE_PATH,
+                        TLS_KEY_STORE_PASSWORD,
+                        TLS_TRUST_STORE_PATH,
+                        TLS_TRUST_STORE_PASSWORD)
+                .build();
     }
 }

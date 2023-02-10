@@ -22,9 +22,10 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFileScanTaskSplit;
 
+import org.apache.iceberg.Table;
+
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.iceberg.Table;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -36,7 +37,8 @@ import java.util.Map;
 import java.util.Set;
 
 @Slf4j
-public abstract class AbstractSplitEnumerator implements SourceSplitEnumerator<IcebergFileScanTaskSplit, IcebergSplitEnumeratorState> {
+public abstract class AbstractSplitEnumerator
+        implements SourceSplitEnumerator<IcebergFileScanTaskSplit, IcebergSplitEnumeratorState> {
 
     protected final SourceSplitEnumerator.Context<IcebergFileScanTaskSplit> context;
     protected final SourceConfig sourceConfig;
@@ -44,9 +46,10 @@ public abstract class AbstractSplitEnumerator implements SourceSplitEnumerator<I
 
     protected IcebergTableLoader icebergTableLoader;
 
-    public AbstractSplitEnumerator(@NonNull SourceSplitEnumerator.Context<IcebergFileScanTaskSplit> context,
-                                   @NonNull SourceConfig sourceConfig,
-                                   @NonNull Map<Integer, List<IcebergFileScanTaskSplit>> pendingSplits) {
+    public AbstractSplitEnumerator(
+            @NonNull SourceSplitEnumerator.Context<IcebergFileScanTaskSplit> context,
+            @NonNull SourceConfig sourceConfig,
+            @NonNull Map<Integer, List<IcebergFileScanTaskSplit>> pendingSplits) {
         this.context = context;
         this.sourceConfig = sourceConfig;
         this.pendingSplits = new HashMap<>(pendingSplits);
@@ -84,14 +87,12 @@ public abstract class AbstractSplitEnumerator implements SourceSplitEnumerator<I
 
     @Override
     public void registerReader(int subtaskId) {
-        log.debug("Adding reader {} to IcebergSourceEnumerator.",
-            subtaskId);
+        log.debug("Adding reader {} to IcebergSourceEnumerator.", subtaskId);
         assignPendingSplits(Collections.singleton(subtaskId));
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {
-    }
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
 
     protected void refreshPendingSplits() {
         List<IcebergFileScanTaskSplit> newSplits = loadNewSplits(icebergTableLoader.loadTable());
@@ -104,24 +105,26 @@ public abstract class AbstractSplitEnumerator implements SourceSplitEnumerator<I
         int numReaders = context.currentParallelism();
         for (IcebergFileScanTaskSplit newSplit : newSplits) {
             int ownerReader = newSplit.splitId().hashCode() % numReaders;
-            pendingSplits
-                .computeIfAbsent(ownerReader, r -> new ArrayList<>())
-                .add(newSplit);
+            pendingSplits.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(newSplit);
             log.info("Assigning {} to {} reader.", newSplit, ownerReader);
         }
     }
 
     protected void assignPendingSplits(Set<Integer> pendingReaders) {
         for (int pendingReader : pendingReaders) {
-            List<IcebergFileScanTaskSplit> pendingAssignmentForReader = pendingSplits.remove(pendingReader);
+            List<IcebergFileScanTaskSplit> pendingAssignmentForReader =
+                    pendingSplits.remove(pendingReader);
             if (pendingAssignmentForReader != null && !pendingAssignmentForReader.isEmpty()) {
-                log.info("Assign splits {} to reader {}",
-                    pendingAssignmentForReader, pendingReader);
+                log.info(
+                        "Assign splits {} to reader {}", pendingAssignmentForReader, pendingReader);
                 try {
                     context.assignSplit(pendingReader, pendingAssignmentForReader);
                 } catch (Exception e) {
-                    log.error("Failed to assign splits {} to reader {}",
-                        pendingAssignmentForReader, pendingReader, e);
+                    log.error(
+                            "Failed to assign splits {} to reader {}",
+                            pendingAssignmentForReader,
+                            pendingReader,
+                            e);
                     pendingSplits.put(pendingReader, pendingAssignmentForReader);
                 }
             }

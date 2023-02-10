@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch;
 
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset.BINLOG_FILENAME_OFFSET_KEY;
-
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
@@ -30,6 +28,12 @@ import org.apache.seatunnel.connectors.cdc.debezium.EmbeddedDatabaseHistory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlUtils;
+
+import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.source.SourceRecord;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.github.shyiko.mysql.binlog.BinaryLogClient;
 import io.debezium.connector.AbstractSourceInfo;
@@ -56,19 +60,15 @@ import io.debezium.relational.history.TableChanges;
 import io.debezium.schema.DataCollectionId;
 import io.debezium.schema.TopicSelector;
 import io.debezium.util.Collect;
-import org.apache.kafka.connect.data.Struct;
-import org.apache.kafka.connect.source.SourceRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
-/**
- * The context for fetch task that fetching data of snapshot split from MySQL data source.
- */
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset.BINLOG_FILENAME_OFFSET_KEY;
+
+/** The context for fetch task that fetching data of snapshot split from MySQL data source. */
 public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
 
     private static final Logger LOG = LoggerFactory.getLogger(MySqlSourceFetchTaskContext.class);
@@ -87,12 +87,13 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     private MySqlErrorHandler errorHandler;
 
     private Collection<TableChanges.TableChange> engineHistory;
+
     public MySqlSourceFetchTaskContext(
-        JdbcSourceConfig sourceConfig,
-        JdbcDataSourceDialect dataSourceDialect,
-        MySqlConnection connection,
-        BinaryLogClient binaryLogClient,
-        Collection<TableChanges.TableChange> engineHistory) {
+            JdbcSourceConfig sourceConfig,
+            JdbcDataSourceDialect dataSourceDialect,
+            MySqlConnection connection,
+            BinaryLogClient binaryLogClient,
+            Collection<TableChanges.TableChange> engineHistory) {
         super(sourceConfig, dataSourceDialect);
         this.connection = connection;
         this.binaryLogClient = binaryLogClient;
@@ -107,57 +108,58 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         final boolean tableIdCaseInsensitive = connection.isTableIdCaseSensitive();
         this.topicSelector = MySqlTopicSelector.defaultSelector(connectorConfig);
         EmbeddedDatabaseHistory.registerHistory(
-            sourceConfig
-                .getDbzConfiguration()
-                .getString(EmbeddedDatabaseHistory.DATABASE_HISTORY_INSTANCE_NAME),
-            engineHistory);
+                sourceConfig
+                        .getDbzConfiguration()
+                        .getString(EmbeddedDatabaseHistory.DATABASE_HISTORY_INSTANCE_NAME),
+                engineHistory);
         this.databaseSchema =
-            MySqlUtils.createMySqlDatabaseSchema(connectorConfig, tableIdCaseInsensitive);
+                MySqlUtils.createMySqlDatabaseSchema(connectorConfig, tableIdCaseInsensitive);
         this.offsetContext =
-            loadStartingOffsetState(
-                new MySqlOffsetContext.Loader(connectorConfig), sourceSplitBase);
+                loadStartingOffsetState(
+                        new MySqlOffsetContext.Loader(connectorConfig), sourceSplitBase);
         validateAndLoadDatabaseHistory(offsetContext, databaseSchema);
 
         this.taskContext =
-            new MySqlTaskContextImpl(connectorConfig, databaseSchema, binaryLogClient);
+                new MySqlTaskContextImpl(connectorConfig, databaseSchema, binaryLogClient);
         final int queueSize =
-            sourceSplitBase.isSnapshotSplit() ? Integer.MAX_VALUE
-                : getSourceConfig().getDbzConnectorConfig().getMaxQueueSize();
+                sourceSplitBase.isSnapshotSplit()
+                        ? Integer.MAX_VALUE
+                        : getSourceConfig().getDbzConnectorConfig().getMaxQueueSize();
         this.queue =
-            new ChangeEventQueue.Builder<DataChangeEvent>()
-                .pollInterval(connectorConfig.getPollInterval())
-                .maxBatchSize(connectorConfig.getMaxBatchSize())
-                .maxQueueSize(queueSize)
-                .maxQueueSizeInBytes(connectorConfig.getMaxQueueSizeInBytes())
-                .loggingContextSupplier(
-                    () ->
-                        taskContext.configureLoggingContext(
-                            "mysql-cdc-connector-task"))
-                // do not buffer any element, we use signal event
-                // .buffering()
-                .build();
+                new ChangeEventQueue.Builder<DataChangeEvent>()
+                        .pollInterval(connectorConfig.getPollInterval())
+                        .maxBatchSize(connectorConfig.getMaxBatchSize())
+                        .maxQueueSize(queueSize)
+                        .maxQueueSizeInBytes(connectorConfig.getMaxQueueSizeInBytes())
+                        .loggingContextSupplier(
+                                () ->
+                                        taskContext.configureLoggingContext(
+                                                "mysql-cdc-connector-task"))
+                        // do not buffer any element, we use signal event
+                        // .buffering()
+                        .build();
         this.dispatcher =
-            new JdbcSourceEventDispatcher(
-                connectorConfig,
-                topicSelector,
-                databaseSchema,
-                queue,
-                connectorConfig.getTableFilters().dataCollectionFilter(),
-                DataChangeEvent::new,
-                metadataProvider,
-                schemaNameAdjuster);
+                new JdbcSourceEventDispatcher(
+                        connectorConfig,
+                        topicSelector,
+                        databaseSchema,
+                        queue,
+                        connectorConfig.getTableFilters().dataCollectionFilter(),
+                        DataChangeEvent::new,
+                        metadataProvider,
+                        schemaNameAdjuster);
 
         final MySqlChangeEventSourceMetricsFactory changeEventSourceMetricsFactory =
-            new MySqlChangeEventSourceMetricsFactory(
-                new MySqlStreamingChangeEventSourceMetrics(
-                    taskContext, queue, metadataProvider));
+                new MySqlChangeEventSourceMetricsFactory(
+                        new MySqlStreamingChangeEventSourceMetrics(
+                                taskContext, queue, metadataProvider));
         this.snapshotChangeEventSourceMetrics =
-            changeEventSourceMetricsFactory.getSnapshotMetrics(
-                taskContext, queue, metadataProvider);
+                changeEventSourceMetricsFactory.getSnapshotMetrics(
+                        taskContext, queue, metadataProvider);
         this.streamingChangeEventSourceMetrics =
-            (MySqlStreamingChangeEventSourceMetrics)
-                changeEventSourceMetricsFactory.getStreamingMetrics(
-                    taskContext, queue, metadataProvider);
+                (MySqlStreamingChangeEventSourceMetrics)
+                        changeEventSourceMetricsFactory.getStreamingMetrics(
+                                taskContext, queue, metadataProvider);
         this.errorHandler = new MySqlErrorHandler(connectorConfig.getLogicalName(), queue);
     }
 
@@ -231,23 +233,22 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         return MySqlUtils.getBinlogPosition(sourceRecord);
     }
 
-    /**
-     * Loads the connector's persistent offset (if present) via the given loader.
-     */
+    /** Loads the connector's persistent offset (if present) via the given loader. */
     private MySqlOffsetContext loadStartingOffsetState(
-        MySqlOffsetContext.Loader loader, SourceSplitBase mySqlSplit) {
+            MySqlOffsetContext.Loader loader, SourceSplitBase mySqlSplit) {
         Offset offset =
-            mySqlSplit.isSnapshotSplit() ? BinlogOffset.INITIAL_OFFSET
-                : mySqlSplit.asIncrementalSplit().getStartupOffset();
+                mySqlSplit.isSnapshotSplit()
+                        ? BinlogOffset.INITIAL_OFFSET
+                        : mySqlSplit.asIncrementalSplit().getStartupOffset();
 
         MySqlOffsetContext mySqlOffsetContext = loader.load(offset.getOffset());
 
         if (!isBinlogAvailable(mySqlOffsetContext)) {
             throw new IllegalStateException(
-                "The connector is trying to read binlog starting at "
-                    + mySqlOffsetContext.getSourceInfo()
-                    + ", but this is no longer "
-                    + "available on the server. Reconfigure the connector to use a snapshot when needed.");
+                    "The connector is trying to read binlog starting at "
+                            + mySqlOffsetContext.getSourceInfo()
+                            + ", but this is no longer "
+                            + "available on the server. Reconfigure the connector to use a snapshot when needed.");
         }
         return mySqlOffsetContext;
     }
@@ -268,9 +269,9 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         boolean found = logNames.stream().anyMatch(binlogFilename::equals);
         if (!found) {
             LOG.info(
-                "Connector requires binlog file '{}', but MySQL only has {}",
-                binlogFilename,
-                String.join(", ", logNames));
+                    "Connector requires binlog file '{}', but MySQL only has {}",
+                    binlogFilename,
+                    String.join(", ", logNames));
         } else {
             LOG.info("MySQL has the binlog file '{}' required by the connector", binlogFilename);
         }
@@ -278,22 +279,20 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     }
 
     private void validateAndLoadDatabaseHistory(
-        MySqlOffsetContext offset, MySqlDatabaseSchema schema) {
+            MySqlOffsetContext offset, MySqlDatabaseSchema schema) {
         schema.initializeStorage();
         schema.recover(offset);
     }
 
-    /**
-     * A subclass implementation of {@link MySqlTaskContext} which reuses one BinaryLogClient.
-     */
+    /** A subclass implementation of {@link MySqlTaskContext} which reuses one BinaryLogClient. */
     public class MySqlTaskContextImpl extends MySqlTaskContext {
 
         private final BinaryLogClient reusedBinaryLogClient;
 
         public MySqlTaskContextImpl(
-            MySqlConnectorConfig config,
-            MySqlDatabaseSchema schema,
-            BinaryLogClient reusedBinaryLogClient) {
+                MySqlConnectorConfig config,
+                MySqlDatabaseSchema schema,
+                BinaryLogClient reusedBinaryLogClient) {
             super(config, schema);
             this.reusedBinaryLogClient = reusedBinaryLogClient;
         }
@@ -304,9 +303,7 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         }
     }
 
-    /**
-     * Copied from debezium for accessing here.
-     */
+    /** Copied from debezium for accessing here. */
     public static class MySqlEventMetadataProvider implements EventMetadataProvider {
         public static final String SERVER_ID_KEY = "server_id";
 
@@ -319,7 +316,7 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
 
         @Override
         public Instant getEventTimestamp(
-            DataCollectionId source, OffsetContext offset, Object key, Struct value) {
+                DataCollectionId source, OffsetContext offset, Object key, Struct value) {
             if (value == null) {
                 return null;
             }
@@ -333,7 +330,7 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
 
         @Override
         public Map<String, String> getEventSourcePosition(
-            DataCollectionId source, OffsetContext offset, Object key, Struct value) {
+                DataCollectionId source, OffsetContext offset, Object key, Struct value) {
             if (value == null) {
                 return null;
             }
@@ -342,17 +339,17 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                 return null;
             }
             return Collect.hashMapOf(
-                BINLOG_FILENAME_OFFSET_KEY,
-                sourceInfo.getString(BINLOG_FILENAME_OFFSET_KEY),
-                BINLOG_POSITION_OFFSET_KEY,
-                Long.toString(sourceInfo.getInt64(BINLOG_POSITION_OFFSET_KEY)),
-                BINLOG_ROW_IN_EVENT_OFFSET_KEY,
-                Integer.toString(sourceInfo.getInt32(BINLOG_ROW_IN_EVENT_OFFSET_KEY)));
+                    BINLOG_FILENAME_OFFSET_KEY,
+                    sourceInfo.getString(BINLOG_FILENAME_OFFSET_KEY),
+                    BINLOG_POSITION_OFFSET_KEY,
+                    Long.toString(sourceInfo.getInt64(BINLOG_POSITION_OFFSET_KEY)),
+                    BINLOG_ROW_IN_EVENT_OFFSET_KEY,
+                    Integer.toString(sourceInfo.getInt32(BINLOG_ROW_IN_EVENT_OFFSET_KEY)));
         }
 
         @Override
         public String getTransactionId(
-            DataCollectionId source, OffsetContext offset, Object key, Struct value) {
+                DataCollectionId source, OffsetContext offset, Object key, Struct value) {
             return ((MySqlOffsetContext) offset).getTransactionId();
         }
     }

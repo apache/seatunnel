@@ -38,5 +38,4 @@ public class LocalFileCheckPointTest extends AbstractFileCheckPointTest {
         STORAGE = new HdfsStorage(config);
         initStorageData();
     }
-
 }

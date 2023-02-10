@@ -28,7 +28,8 @@ public class PulsarSourceFactoryTest {
     @Test
     void factoryIdentifier() {
         PulsarSourceFactory pulsarSourceFactory = new PulsarSourceFactory();
-        Assertions.assertEquals(PulsarConfigUtil.IDENTIFIER, pulsarSourceFactory.factoryIdentifier());
+        Assertions.assertEquals(
+                PulsarConfigUtil.IDENTIFIER, pulsarSourceFactory.factoryIdentifier());
     }
 
     @Test

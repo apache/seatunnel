@@ -40,8 +40,7 @@ public class TaskGroupImmutableInformation implements IdentifiedDataSerializable
 
     private Set<URL> jars;
 
-    public TaskGroupImmutableInformation(){
-    }
+    public TaskGroupImmutableInformation() {}
 
     @Override
     public int getFactoryId() {

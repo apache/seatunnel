@@ -25,10 +25,9 @@ import org.apache.seatunnel.translation.source.ParallelSource;
 import org.apache.flink.streaming.api.functions.source.ParallelSourceFunction;
 import org.apache.flink.types.Row;
 
-/**
- * The parallel source function implementation of {@link BaseSeaTunnelSourceFunction}
- */
-public class SeaTunnelParallelSource extends BaseSeaTunnelSourceFunction implements ParallelSourceFunction<Row> {
+/** The parallel source function implementation of {@link BaseSeaTunnelSourceFunction} */
+public class SeaTunnelParallelSource extends BaseSeaTunnelSourceFunction
+        implements ParallelSourceFunction<Row> {
 
     protected static final String PARALLEL_SOURCE_STATE_NAME = "parallel-source-states";
 
@@ -39,10 +38,11 @@ public class SeaTunnelParallelSource extends BaseSeaTunnelSourceFunction impleme
 
     @Override
     protected BaseSourceFunction<SeaTunnelRow> createInternalSource() {
-        return new ParallelSource<>(source,
-            restoredState,
-            getRuntimeContext().getNumberOfParallelSubtasks(),
-            getRuntimeContext().getIndexOfThisSubtask());
+        return new ParallelSource<>(
+                source,
+                restoredState,
+                getRuntimeContext().getNumberOfParallelSubtasks(),
+                getRuntimeContext().getIndexOfThisSubtask());
     }
 
     @Override

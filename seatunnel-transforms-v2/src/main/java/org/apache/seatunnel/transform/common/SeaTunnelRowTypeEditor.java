@@ -38,10 +38,15 @@ public class SeaTunnelRowTypeEditor implements Serializable {
 
     public SeaTunnelRowTypeEditor(SeaTunnelRowType rowType) {
         log.info("Input row type: {}", rowType);
-        this.fields = IntStream.range(0, rowType.getTotalFields())
-            .boxed()
-            .map(index -> new Field(rowType.getFieldName(index), rowType.getFieldType(index)))
-            .collect(Collectors.toCollection(LinkedList::new));
+        this.fields =
+                IntStream.range(0, rowType.getTotalFields())
+                        .boxed()
+                        .map(
+                                index ->
+                                        new Field(
+                                                rowType.getFieldName(index),
+                                                rowType.getFieldType(index)))
+                        .collect(Collectors.toCollection(LinkedList::new));
     }
 
     public SeaTunnelRowTypeEditor remove(String... fieldNames) {
@@ -117,11 +122,8 @@ public class SeaTunnelRowTypeEditor implements Serializable {
     @EqualsAndHashCode(of = "name")
     @ToString
     private static class Field implements Serializable {
-        @Getter
-        private String name;
-        @Setter
-        @Getter
-        private SeaTunnelDataType dataType;
+        @Getter private String name;
+        @Setter @Getter private SeaTunnelDataType dataType;
 
         static Field name(String name) {
             return new Field(name, null);

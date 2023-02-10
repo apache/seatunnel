@@ -28,5 +28,4 @@ public class PersistiqFactoryTest {
     void optionRule() {
         Assertions.assertNotNull((new PersistiqSourceFactory()).optionRule());
     }
-
 }

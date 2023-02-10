@@ -18,21 +18,27 @@
 package org.apache.seatunnel.common.exception;
 
 public enum CommonErrorCode implements SeaTunnelErrorCode {
-    FILE_OPERATION_FAILED("COMMON-01", "File operation failed, such as (read,list,write,move,copy,sync) etc..."),
+    FILE_OPERATION_FAILED(
+            "COMMON-01", "File operation failed, such as (read,list,write,move,copy,sync) etc..."),
     JSON_OPERATION_FAILED("COMMON-02", "Json covert/parse operation failed"),
     REFLECT_CLASS_OPERATION_FAILED("COMMON-03", "Reflect class operation failed"),
     SERIALIZE_OPERATION_FAILED("COMMON-04", "Serialize class operation failed"),
     UNSUPPORTED_OPERATION("COMMON-05", "Unsupported operation"),
     ILLEGAL_ARGUMENT("COMMON-06", "Illegal argument"),
     UNSUPPORTED_DATA_TYPE("COMMON-07", "Unsupported data type"),
-    SQL_OPERATION_FAILED("COMMON-08", "Sql operation failed, such as (execute,addBatch,close) etc..."),
+    SQL_OPERATION_FAILED(
+            "COMMON-08", "Sql operation failed, such as (execute,addBatch,close) etc..."),
     TABLE_SCHEMA_GET_FAILED("COMMON-09", "Get table schema from upstream data failed"),
     FLUSH_DATA_FAILED("COMMON-10", "Flush data operation that in sink connector failed"),
-    WRITER_OPERATION_FAILED("COMMON-11", "Sink writer operation failed, such as (open, close) etc..."),
-    READER_OPERATION_FAILED("COMMON-12", "Source reader operation failed, such as (open, close) etc..."),
-    HTTP_OPERATION_FAILED("COMMON-13", "Http operation failed, such as (open, close, response) etc..."),
+    WRITER_OPERATION_FAILED(
+            "COMMON-11", "Sink writer operation failed, such as (open, close) etc..."),
+    READER_OPERATION_FAILED(
+            "COMMON-12", "Source reader operation failed, such as (open, close) etc..."),
+    HTTP_OPERATION_FAILED(
+            "COMMON-13", "Http operation failed, such as (open, close, response) etc..."),
     KERBEROS_AUTHORIZED_FAILED("COMMON-14", "Kerberos authorized failed"),
-    CLASS_NOT_FOUND("COMMON-15", "Class load operation failed");
+    CLASS_NOT_FOUND("COMMON-15", "Class load operation failed"),
+    IMPROPERLY_FORMATTED_JVM_OPTION("COMMON-16", "Encountered improperly formatted JVM option");
 
     private final String code;
     private final String description;

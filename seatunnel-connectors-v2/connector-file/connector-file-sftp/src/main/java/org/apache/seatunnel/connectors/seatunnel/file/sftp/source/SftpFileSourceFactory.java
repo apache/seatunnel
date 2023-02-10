@@ -41,20 +41,23 @@ public class SftpFileSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-            .required(SftpConfig.FILE_PATH)
-            .required(SftpConfig.SFTP_HOST)
-            .required(SftpConfig.SFTP_PORT)
-            .required(SftpConfig.SFTP_USERNAME)
-            .required(SftpConfig.SFTP_PASSWORD)
-            .required(BaseSourceConfig.FILE_TYPE)
-            .conditional(BaseSourceConfig.FILE_TYPE, FileFormat.TEXT, BaseSourceConfig.DELIMITER)
-            .conditional(BaseSourceConfig.FILE_TYPE, Arrays.asList(FileFormat.TEXT, FileFormat.JSON),
-                SeaTunnelSchema.SCHEMA)
-            .optional(BaseSourceConfig.PARSE_PARTITION_FROM_PATH)
-            .optional(BaseSourceConfig.DATE_FORMAT)
-            .optional(BaseSourceConfig.DATETIME_FORMAT)
-            .optional(BaseSourceConfig.TIME_FORMAT)
-            .build();
+                .required(SftpConfig.FILE_PATH)
+                .required(SftpConfig.SFTP_HOST)
+                .required(SftpConfig.SFTP_PORT)
+                .required(SftpConfig.SFTP_USERNAME)
+                .required(SftpConfig.SFTP_PASSWORD)
+                .required(BaseSourceConfig.FILE_TYPE)
+                .conditional(
+                        BaseSourceConfig.FILE_TYPE, FileFormat.TEXT, BaseSourceConfig.DELIMITER)
+                .conditional(
+                        BaseSourceConfig.FILE_TYPE,
+                        Arrays.asList(FileFormat.TEXT, FileFormat.JSON),
+                        SeaTunnelSchema.SCHEMA)
+                .optional(BaseSourceConfig.PARSE_PARTITION_FROM_PATH)
+                .optional(BaseSourceConfig.DATE_FORMAT)
+                .optional(BaseSourceConfig.DATETIME_FORMAT)
+                .optional(BaseSourceConfig.TIME_FORMAT)
+                .build();
     }
 
     @Override

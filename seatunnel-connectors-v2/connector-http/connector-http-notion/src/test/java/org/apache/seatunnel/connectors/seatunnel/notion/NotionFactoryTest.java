@@ -28,5 +28,4 @@ public class NotionFactoryTest {
     void optionRule() {
         Assertions.assertNotNull((new NotionSourceFactory()).optionRule());
     }
-
 }

@@ -51,7 +51,6 @@ public enum RedisDataType {
             Map<String, String> kvMap = jedis.hgetAll(key);
             return Collections.singletonList(JsonUtils.toJsonString(kvMap));
         }
-
     },
     LIST {
         @Override

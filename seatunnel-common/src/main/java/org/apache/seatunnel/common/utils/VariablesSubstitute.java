@@ -29,11 +29,10 @@ import java.util.UUID;
 
 public final class VariablesSubstitute {
 
-    private VariablesSubstitute() {
-    }
+    private VariablesSubstitute() {}
 
     /**
-     * @param text       raw string
+     * @param text raw string
      * @param timeFormat example : "yyyy-MM-dd HH:mm:ss"
      * @return replaced text
      */
@@ -49,8 +48,8 @@ public final class VariablesSubstitute {
     }
 
     /**
-     * @param text       raw string
-     * @param valuesMap  key is variable name, value is substituted string.
+     * @param text raw string
+     * @param valuesMap key is variable name, value is substituted string.
      * @return replaced text
      */
     public static String substitute(String text, Map<String, String> valuesMap) {
@@ -58,4 +57,3 @@ public final class VariablesSubstitute {
         return sub.replace(text);
     }
 }
-

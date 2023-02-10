@@ -36,9 +36,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
-/**
- * DingTalk write class
- */
+/** DingTalk write class */
 public class DingTalkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private RobotClient robotClient;
@@ -53,9 +51,7 @@ public class DingTalkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     }
 
     @Override
-    public void close() throws IOException {
-
-    }
+    public void close() throws IOException {}
 
     private static class RobotClient implements Serializable {
 
@@ -82,8 +78,10 @@ public class DingTalkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             try {
                 return this.client.execute(request);
             } catch (ApiException e) {
-                throw new DingTalkConnectorException(DingTalkConnectorErrorCode.SEND_RESPONSE_FAILED,
-                        "Send response message to DinkTalk server failed", e);
+                throw new DingTalkConnectorException(
+                        DingTalkConnectorErrorCode.SEND_RESPONSE_FAILED,
+                        "Send response message to DinkTalk server failed",
+                        e);
             }
         }
 
@@ -101,11 +99,11 @@ public class DingTalkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                 byte[] signData = mac.doFinal(stringToSign.getBytes(StandardCharsets.UTF_8));
                 return URLEncoder.encode(Base64.getEncoder().encodeToString(signData), "UTF-8");
             } catch (Exception e) {
-                throw new DingTalkConnectorException(DingTalkConnectorErrorCode.GET_SIGN_FAILED,
-                        "Get signature from DinkTalk server failed", e);
+                throw new DingTalkConnectorException(
+                        DingTalkConnectorErrorCode.GET_SIGN_FAILED,
+                        "Get signature from DinkTalk server failed",
+                        e);
             }
         }
     }
-
 }
-

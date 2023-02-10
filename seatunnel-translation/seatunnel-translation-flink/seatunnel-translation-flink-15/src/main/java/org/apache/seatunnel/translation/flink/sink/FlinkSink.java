@@ -37,13 +37,14 @@ import java.util.stream.Collectors;
 
 /**
  * The sink implementation of {@link Sink}, the entrypoint of flink sink translation
+ *
  * @param <InputT> The generic type of input data
  * @param <CommT> The generic type of commit message
  * @param <WriterStateT> The generic type of writer state
  * @param <GlobalCommT> The generic type of global commit message
  */
-public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT> implements Sink<InputT, CommitWrapper<CommT>,
-        FlinkWriterState<WriterStateT>, GlobalCommT> {
+public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT>
+        implements Sink<InputT, CommitWrapper<CommT>, FlinkWriterState<WriterStateT>, GlobalCommT> {
 
     private final SeaTunnelSink<SeaTunnelRow, WriterStateT, CommT, GlobalCommT> sink;
 
@@ -52,14 +53,21 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT> implements Sink
     }
 
     @Override
-    public SinkWriter<InputT, CommitWrapper<CommT>, FlinkWriterState<WriterStateT>> createWriter(Sink.InitContext context, List<FlinkWriterState<WriterStateT>> states) throws IOException {
-        org.apache.seatunnel.api.sink.SinkWriter.Context stContext = new DefaultSinkWriterContext(context.getSubtaskId());
+    public SinkWriter<InputT, CommitWrapper<CommT>, FlinkWriterState<WriterStateT>> createWriter(
+            Sink.InitContext context, List<FlinkWriterState<WriterStateT>> states)
+            throws IOException {
+        org.apache.seatunnel.api.sink.SinkWriter.Context stContext =
+                new DefaultSinkWriterContext(context.getSubtaskId());
 
         if (states == null || states.isEmpty()) {
             return new FlinkSinkWriter<>(sink.createWriter(stContext), 1, sink.getConsumedType());
         } else {
-            List<WriterStateT> restoredState = states.stream().map(FlinkWriterState::getState).collect(Collectors.toList());
-            return new FlinkSinkWriter<>(sink.restoreWriter(stContext, restoredState), states.get(0).getCheckpointId(), sink.getConsumedType());
+            List<WriterStateT> restoredState =
+                    states.stream().map(FlinkWriterState::getState).collect(Collectors.toList());
+            return new FlinkSinkWriter<>(
+                    sink.restoreWriter(stContext, restoredState),
+                    states.get(0).getCheckpointId(),
+                    sink.getConsumedType());
         }
     }
 
@@ -69,7 +77,8 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT> implements Sink
     }
 
     @Override
-    public Optional<GlobalCommitter<CommitWrapper<CommT>, GlobalCommT>> createGlobalCommitter() throws IOException {
+    public Optional<GlobalCommitter<CommitWrapper<CommT>, GlobalCommT>> createGlobalCommitter()
+            throws IOException {
         return sink.createAggregatedCommitter().map(FlinkGlobalCommitter::new);
     }
 
@@ -84,7 +93,8 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT> implements Sink
     }
 
     @Override
-    public Optional<SimpleVersionedSerializer<FlinkWriterState<WriterStateT>>> getWriterStateSerializer() {
+    public Optional<SimpleVersionedSerializer<FlinkWriterState<WriterStateT>>>
+            getWriterStateSerializer() {
         return sink.getWriterStateSerializer().map(FlinkWriterStateSerializer::new);
     }
 }

@@ -33,14 +33,19 @@ public class SingleChoiceOptionTest {
     @Test
     public void test() {
         Option<String> stringOption =
-            Options.key("test_single_choice").singleChoice(String.class, Arrays.asList("A", "B", "C"))
-                .defaultValue("A");
+                Options.key("test_single_choice")
+                        .singleChoice(String.class, Arrays.asList("A", "B", "C"))
+                        .defaultValue("A");
 
         Option<DataSaveMode> saveModeOption =
-            Options.key("save_mode")
-                .singleChoice(DataSaveMode.class, Arrays.asList(DataSaveMode.DROP_SCHEMA, DataSaveMode.KEEP_SCHEMA_DROP_DATA))
-                .defaultValue(DataSaveMode.DROP_SCHEMA)
-                .withDescription("save mode test");
+                Options.key("save_mode")
+                        .singleChoice(
+                                DataSaveMode.class,
+                                Arrays.asList(
+                                        DataSaveMode.DROP_SCHEMA,
+                                        DataSaveMode.KEEP_SCHEMA_DROP_DATA))
+                        .defaultValue(DataSaveMode.DROP_SCHEMA)
+                        .withDescription("save mode test");
 
         OptionRule build = OptionRule.builder().optional(stringOption, saveModeOption).build();
         List<Option<?>> optionalOptions = build.getOptionalOptions();

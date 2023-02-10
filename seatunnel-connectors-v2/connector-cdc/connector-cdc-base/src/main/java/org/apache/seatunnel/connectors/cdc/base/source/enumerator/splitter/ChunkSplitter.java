@@ -26,8 +26,6 @@ import java.util.Collection;
 /** The splitter used to split collection into a set of chunks. */
 public interface ChunkSplitter {
 
-    /**
-     * Generates all snapshot splits (chunks) for the give data collection.
-     */
+    /** Generates all snapshot splits (chunks) for the give data collection. */
     Collection<SnapshotSplit> generateSplits(TableId tableId);
 }

@@ -41,23 +41,28 @@ public class S3FileSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-            .required(S3Config.FILE_PATH)
-            .required(S3Config.FILE_TYPE)
-            .required(S3Config.S3_BUCKET)
-            .required(S3Config.FS_S3A_ENDPOINT)
-            .required(S3Config.S3A_AWS_CREDENTIALS_PROVIDER)
-            .conditional(S3Config.S3A_AWS_CREDENTIALS_PROVIDER,
-                S3Config.S3aAwsCredentialsProvider.SimpleAWSCredentialsProvider, S3Config.S3_ACCESS_KEY,
-                S3Config.S3_SECRET_KEY)
-            .optional(S3Config.S3_PROPERTIES)
-            .conditional(BaseSourceConfig.FILE_TYPE, FileFormat.TEXT, BaseSourceConfig.DELIMITER)
-            .conditional(BaseSourceConfig.FILE_TYPE, Arrays.asList(FileFormat.TEXT, FileFormat.JSON),
-                SeaTunnelSchema.SCHEMA)
-            .optional(BaseSourceConfig.PARSE_PARTITION_FROM_PATH)
-            .optional(BaseSourceConfig.DATE_FORMAT)
-            .optional(BaseSourceConfig.DATETIME_FORMAT)
-            .optional(BaseSourceConfig.TIME_FORMAT)
-            .build();
+                .required(S3Config.FILE_PATH)
+                .required(S3Config.FILE_TYPE)
+                .required(S3Config.S3_BUCKET)
+                .required(S3Config.FS_S3A_ENDPOINT)
+                .required(S3Config.S3A_AWS_CREDENTIALS_PROVIDER)
+                .conditional(
+                        S3Config.S3A_AWS_CREDENTIALS_PROVIDER,
+                        S3Config.S3aAwsCredentialsProvider.SimpleAWSCredentialsProvider,
+                        S3Config.S3_ACCESS_KEY,
+                        S3Config.S3_SECRET_KEY)
+                .optional(S3Config.S3_PROPERTIES)
+                .conditional(
+                        BaseSourceConfig.FILE_TYPE, FileFormat.TEXT, BaseSourceConfig.DELIMITER)
+                .conditional(
+                        BaseSourceConfig.FILE_TYPE,
+                        Arrays.asList(FileFormat.TEXT, FileFormat.JSON),
+                        SeaTunnelSchema.SCHEMA)
+                .optional(BaseSourceConfig.PARSE_PARTITION_FROM_PATH)
+                .optional(BaseSourceConfig.DATE_FORMAT)
+                .optional(BaseSourceConfig.DATETIME_FORMAT)
+                .optional(BaseSourceConfig.TIME_FORMAT)
+                .build();
     }
 
     @Override

@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.influxdb.config;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.Getter;
 
@@ -29,35 +29,41 @@ import java.util.List;
 @Getter
 public class SourceConfig extends InfluxDBConfig {
 
-    public static final Option<String> SQL = Options.key("sql")
-        .stringType()
-        .noDefaultValue()
-        .withDescription("the influxdb server query sql");
+    public static final Option<String> SQL =
+            Options.key("sql")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("the influxdb server query sql");
 
-    public static final Option<String> SQL_WHERE = Options.key("where")
-        .stringType()
-        .noDefaultValue()
-        .withDescription("the influxdb server query sql where condition");
+    public static final Option<String> SQL_WHERE =
+            Options.key("where")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("the influxdb server query sql where condition");
 
-    public static final Option<String> SPLIT_COLUMN = Options.key("split_column")
-        .stringType()
-        .noDefaultValue()
-        .withDescription("the influxdb column which is used as split key");
+    public static final Option<String> SPLIT_COLUMN =
+            Options.key("split_column")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("the influxdb column which is used as split key");
 
-    public static final Option<String> PARTITION_NUM = Options.key("partition_num")
-        .stringType()
-        .defaultValue("0")
-        .withDescription("the influxdb server partition num");
+    public static final Option<String> PARTITION_NUM =
+            Options.key("partition_num")
+                    .stringType()
+                    .defaultValue("0")
+                    .withDescription("the influxdb server partition num");
 
-    public static final Option<String> UPPER_BOUND = Options.key("upper_bound")
-        .stringType()
-        .noDefaultValue()
-        .withDescription("the influxdb server upper bound");
+    public static final Option<String> UPPER_BOUND =
+            Options.key("upper_bound")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("the influxdb server upper bound");
 
-    public static final Option<String> LOWER_BOUND = Options.key("lower_bound")
-        .stringType()
-        .noDefaultValue()
-        .withDescription("the influxdb server lower bound");
+    public static final Option<String> LOWER_BOUND =
+            Options.key("lower_bound")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("the influxdb server lower bound");
 
     public static final String DEFAULT_PARTITIONS = PARTITION_NUM.defaultValue();
     private String sql;
@@ -91,5 +97,4 @@ public class SourceConfig extends InfluxDBConfig {
         }
         return sourceConfig;
     }
-
 }

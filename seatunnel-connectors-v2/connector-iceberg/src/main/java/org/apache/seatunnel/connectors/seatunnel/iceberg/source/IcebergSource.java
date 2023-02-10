@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.source;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
@@ -45,19 +45,23 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan.
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.reader.IcebergSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFileScanTaskSplit;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.types.Types;
 
 import com.google.auto.service.AutoService;
 import lombok.SneakyThrows;
-import org.apache.iceberg.Schema;
-import org.apache.iceberg.types.Types;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 @AutoService(SeaTunnelSource.class)
-public class IcebergSource implements SeaTunnelSource<SeaTunnelRow, IcebergFileScanTaskSplit, IcebergSplitEnumeratorState>,
-    SupportParallelism, SupportColumnProjection {
+public class IcebergSource
+        implements SeaTunnelSource<
+                        SeaTunnelRow, IcebergFileScanTaskSplit, IcebergSplitEnumeratorState>,
+                SupportParallelism,
+                SupportColumnProjection {
 
     private static final long serialVersionUID = 4343414808223919870L;
 
@@ -88,19 +92,20 @@ public class IcebergSource implements SeaTunnelSource<SeaTunnelRow, IcebergFileS
         }
     }
 
-    private SeaTunnelRowType loadSeaTunnelRowType(Schema tableSchema,
-                                                  Config pluginConfig) {
+    private SeaTunnelRowType loadSeaTunnelRowType(Schema tableSchema, Config pluginConfig) {
         List<String> columnNames = new ArrayList<>(tableSchema.columns().size());
         List<SeaTunnelDataType<?>> columnDataTypes = new ArrayList<>(tableSchema.columns().size());
         for (Types.NestedField column : tableSchema.columns()) {
             columnNames.add(column.name());
             columnDataTypes.add(IcebergTypeMapper.mapping(column.type()));
         }
-        SeaTunnelRowType originalRowType = new SeaTunnelRowType(
-            columnNames.toArray(new String[0]),
-            columnDataTypes.toArray(new SeaTunnelDataType[0]));
+        SeaTunnelRowType originalRowType =
+                new SeaTunnelRowType(
+                        columnNames.toArray(new String[0]),
+                        columnDataTypes.toArray(new SeaTunnelDataType[0]));
 
-        CheckResult checkResult = CheckConfigUtil.checkAllExists(pluginConfig, CommonConfig.KEY_FIELDS.key());
+        CheckResult checkResult =
+                CheckConfigUtil.checkAllExists(pluginConfig, CommonConfig.KEY_FIELDS.key());
         if (checkResult.isSuccess()) {
             SeaTunnelSchema configSchema = SeaTunnelSchema.buildWithConfig(pluginConfig);
             SeaTunnelRowType projectedRowType = configSchema.getSeaTunnelRowType();
@@ -108,11 +113,13 @@ public class IcebergSource implements SeaTunnelSource<SeaTunnelRow, IcebergFileS
                 String fieldName = projectedRowType.getFieldName(i);
                 SeaTunnelDataType<?> projectedFieldType = projectedRowType.getFieldType(i);
                 int originalFieldIndex = originalRowType.indexOf(fieldName);
-                SeaTunnelDataType<?> originalFieldType = originalRowType.getFieldType(originalFieldIndex);
+                SeaTunnelDataType<?> originalFieldType =
+                        originalRowType.getFieldType(originalFieldIndex);
                 checkArgument(
-                    projectedFieldType.equals(originalFieldType),
-                    String.format("Illegal field: %s, original: %s <-> projected: %s",
-                        fieldName, originalFieldType, projectedFieldType));
+                        projectedFieldType.equals(originalFieldType),
+                        String.format(
+                                "Illegal field: %s, original: %s <-> projected: %s",
+                                fieldName, originalFieldType, projectedFieldType));
             }
             return projectedRowType;
         }
@@ -121,8 +128,9 @@ public class IcebergSource implements SeaTunnelSource<SeaTunnelRow, IcebergFileS
 
     @Override
     public Boundedness getBoundedness() {
-        return JobMode.BATCH.equals(jobContext.getJobMode()) ?
-            Boundedness.BOUNDED : Boundedness.UNBOUNDED;
+        return JobMode.BATCH.equals(jobContext.getJobMode())
+                ? Boundedness.BOUNDED
+                : Boundedness.UNBOUNDED;
     }
 
     @Override
@@ -137,42 +145,45 @@ public class IcebergSource implements SeaTunnelSource<SeaTunnelRow, IcebergFileS
 
     @Override
     public SourceReader<SeaTunnelRow, IcebergFileScanTaskSplit> createReader(
-        SourceReader.Context readerContext) {
-        return new IcebergSourceReader(readerContext,
-            seaTunnelRowType,
-            tableSchema,
-            projectedSchema,
-            sourceConfig);
+            SourceReader.Context readerContext) {
+        return new IcebergSourceReader(
+                readerContext, seaTunnelRowType, tableSchema, projectedSchema, sourceConfig);
     }
 
     @Override
-    public SourceSplitEnumerator<IcebergFileScanTaskSplit, IcebergSplitEnumeratorState> createEnumerator(
-        SourceSplitEnumerator.Context<IcebergFileScanTaskSplit> enumeratorContext) {
+    public SourceSplitEnumerator<IcebergFileScanTaskSplit, IcebergSplitEnumeratorState>
+            createEnumerator(
+                    SourceSplitEnumerator.Context<IcebergFileScanTaskSplit> enumeratorContext) {
         if (Boundedness.BOUNDED.equals(getBoundedness())) {
-            return new IcebergBatchSplitEnumerator(enumeratorContext,
-                IcebergScanContext.scanContext(sourceConfig, projectedSchema),
+            return new IcebergBatchSplitEnumerator(
+                    enumeratorContext,
+                    IcebergScanContext.scanContext(sourceConfig, projectedSchema),
+                    sourceConfig,
+                    null);
+        }
+        return new IcebergStreamSplitEnumerator(
+                enumeratorContext,
+                IcebergScanContext.streamScanContext(sourceConfig, projectedSchema),
                 sourceConfig,
                 null);
-        }
-        return new IcebergStreamSplitEnumerator(enumeratorContext,
-            IcebergScanContext.streamScanContext(sourceConfig, projectedSchema),
-            sourceConfig,
-            null);
     }
 
     @Override
-    public SourceSplitEnumerator<IcebergFileScanTaskSplit, IcebergSplitEnumeratorState> restoreEnumerator(
-        SourceSplitEnumerator.Context<IcebergFileScanTaskSplit> enumeratorContext,
-        IcebergSplitEnumeratorState checkpointState) {
+    public SourceSplitEnumerator<IcebergFileScanTaskSplit, IcebergSplitEnumeratorState>
+            restoreEnumerator(
+                    SourceSplitEnumerator.Context<IcebergFileScanTaskSplit> enumeratorContext,
+                    IcebergSplitEnumeratorState checkpointState) {
         if (Boundedness.BOUNDED.equals(getBoundedness())) {
-            return new IcebergBatchSplitEnumerator(enumeratorContext,
-                IcebergScanContext.scanContext(sourceConfig, projectedSchema),
+            return new IcebergBatchSplitEnumerator(
+                    enumeratorContext,
+                    IcebergScanContext.scanContext(sourceConfig, projectedSchema),
+                    sourceConfig,
+                    checkpointState);
+        }
+        return new IcebergStreamSplitEnumerator(
+                enumeratorContext,
+                IcebergScanContext.streamScanContext(sourceConfig, projectedSchema),
                 sourceConfig,
                 checkpointState);
-        }
-        return new IcebergStreamSplitEnumerator(enumeratorContext,
-            IcebergScanContext.streamScanContext(sourceConfig, projectedSchema),
-            sourceConfig,
-            checkpointState);
     }
 }

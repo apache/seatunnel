@@ -43,6 +43,5 @@ class AddSplitsTask<SplitT extends SourceSplit> implements SplitFetcherTask {
     }
 
     @Override
-    public void wakeUp() {
-    }
+    public void wakeUp() {}
 }

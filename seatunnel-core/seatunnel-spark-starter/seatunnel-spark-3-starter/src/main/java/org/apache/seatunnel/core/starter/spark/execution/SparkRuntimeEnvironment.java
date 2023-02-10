@@ -17,19 +17,20 @@
 
 package org.apache.seatunnel.core.starter.spark.execution;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.core.starter.execution.RuntimeEnvironment;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import lombok.extern.slf4j.Slf4j;
 import org.apache.spark.SparkConf;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.streaming.Seconds;
 import org.apache.spark.streaming.StreamingContext;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.net.URL;
 import java.util.List;
@@ -93,7 +94,8 @@ public class SparkRuntimeEnvironment implements RuntimeEnvironment {
     @Override
     public void registerPlugin(List<URL> pluginPaths) {
         log.info("register plugins :" + pluginPaths);
-        // TODO we use --jar parameter to support submit multi-jar in spark cluster at now. Refactor it to
+        // TODO we use --jar parameter to support submit multi-jar in spark cluster at now. Refactor
+        // it to
         //  support submit multi-jar in code or remove this logic.
         // this.sparkSession.conf().set("spark.jars",pluginPaths.stream().map(URL::getPath).collect(Collectors.joining(",")));
     }
@@ -127,16 +129,24 @@ public class SparkRuntimeEnvironment implements RuntimeEnvironment {
 
     private SparkConf createSparkConf() {
         SparkConf sparkConf = new SparkConf();
-        this.config.entrySet().forEach(entry -> sparkConf.set(entry.getKey(), String.valueOf(entry.getValue().unwrapped())));
+        this.config
+                .entrySet()
+                .forEach(
+                        entry ->
+                                sparkConf.set(
+                                        entry.getKey(),
+                                        String.valueOf(entry.getValue().unwrapped())));
         sparkConf.setAppName(jobName);
         return sparkConf;
     }
 
     private void createStreamingContext() {
         SparkConf conf = this.sparkSession.sparkContext().getConf();
-        long duration = conf.getLong("spark.stream.batchDuration", DEFAULT_SPARK_STREAMING_DURATION);
+        long duration =
+                conf.getLong("spark.stream.batchDuration", DEFAULT_SPARK_STREAMING_DURATION);
         if (this.streamingContext == null) {
-            this.streamingContext = new StreamingContext(sparkSession.sparkContext(), Seconds.apply(duration));
+            this.streamingContext =
+                    new StreamingContext(sparkSession.sparkContext(), Seconds.apply(duration));
         }
     }
 
@@ -167,6 +177,3 @@ public class SparkRuntimeEnvironment implements RuntimeEnvironment {
         return INSTANCE;
     }
 }
-
-
-

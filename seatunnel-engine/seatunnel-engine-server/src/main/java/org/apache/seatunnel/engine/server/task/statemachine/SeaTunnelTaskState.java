@@ -20,16 +20,13 @@ package org.apache.seatunnel.engine.server.task.statemachine;
 import java.io.Serializable;
 
 /**
- * The state of {@link  org.apache.seatunnel.engine.server.task.SeaTunnelTask},
- * The task usually startCall in the state {@code CREATED} and switch states according to this diagram:
- * <p>
- * CREATED -> INIT  -> WAITING_RESTORE -> READY_START -> STARTING  -> RUNNING  -> PREPARE_CLOSE -> CLOSED
- * |        |          |                          |            |                       |              |
- * |        |          |                          |            |                       |              |
- * |        |          |                          |            |                       |              |
- * |        |          |                          |            |                       |              |
- * +--------+----------+--------------------------+------------+-----------------------+--------------+> CANCELLING ----> CANCELED
- * ... -> FAILED
+ * The state of {@link org.apache.seatunnel.engine.server.task.SeaTunnelTask}, The task usually
+ * startCall in the state {@code CREATED} and switch states according to this diagram:
+ *
+ * <p>CREATED -> INIT -> WAITING_RESTORE -> READY_START -> STARTING -> RUNNING -> PREPARE_CLOSE ->
+ * CLOSED | | | | | | | | | | | | | | | | | | | | | | | | | | | |
+ * +--------+----------+--------------------------+------------+-----------------------+--------------+>
+ * CANCELLING ----> CANCELED ... -> FAILED
  */
 public enum SeaTunnelTaskState implements Serializable {
     CREATED,
