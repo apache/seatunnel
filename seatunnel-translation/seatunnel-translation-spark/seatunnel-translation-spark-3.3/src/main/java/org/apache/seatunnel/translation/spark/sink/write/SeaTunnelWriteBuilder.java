@@ -23,11 +23,13 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.spark.sql.connector.write.Write;
 import org.apache.spark.sql.connector.write.WriteBuilder;
 
-public class SeaTunnelWriteBuilder<StateT, CommitInfoT, AggregatedCommitInfoT> implements WriteBuilder {
+public class SeaTunnelWriteBuilder<StateT, CommitInfoT, AggregatedCommitInfoT>
+        implements WriteBuilder {
 
     private final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
 
-    public SeaTunnelWriteBuilder(SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink) {
+    public SeaTunnelWriteBuilder(
+            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink) {
         this.sink = sink;
     }
 

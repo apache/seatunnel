@@ -25,5 +25,4 @@ public class TeradataJdbcRowConverter extends AbstractJdbcRowConverter {
     public String converterName() {
         return "Teradata";
     }
-
 }

@@ -37,13 +37,16 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-public class SeaTunnelBatchWrite<StateT, CommitInfoT, AggregatedCommitInfoT> implements BatchWrite, StreamingWrite {
+public class SeaTunnelBatchWrite<StateT, CommitInfoT, AggregatedCommitInfoT>
+        implements BatchWrite, StreamingWrite {
 
     private final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
 
     private final SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> aggregatedCommitter;
 
-    public SeaTunnelBatchWrite(SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink) throws IOException {
+    public SeaTunnelBatchWrite(
+            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink)
+            throws IOException {
         this.sink = sink;
         this.aggregatedCommitter = sink.createAggregatedCommitter().orElse(null);
     }
@@ -94,10 +97,11 @@ public class SeaTunnelBatchWrite<StateT, CommitInfoT, AggregatedCommitInfoT> imp
         if (aggregatedCommitter == null || messages.length == 0) {
             return Collections.emptyList();
         }
-        List<CommitInfoT> commitInfos = Arrays.stream(messages)
-                .map(m -> ((SeaTunnelSparkWriterCommitMessage<CommitInfoT>) m).getMessage())
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
+        List<CommitInfoT> commitInfos =
+                Arrays.stream(messages)
+                        .map(m -> ((SeaTunnelSparkWriterCommitMessage<CommitInfoT>) m).getMessage())
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toList());
         return Collections.singletonList(aggregatedCommitter.combine(commitInfos));
     }
 }

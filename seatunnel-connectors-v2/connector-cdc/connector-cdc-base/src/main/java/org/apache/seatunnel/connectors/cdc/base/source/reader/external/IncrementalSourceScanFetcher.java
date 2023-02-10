@@ -17,22 +17,18 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.reader.external;
 
-import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isEndWatermarkEvent;
-import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isHighWatermarkEvent;
-import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isLowWatermarkEvent;
-import static com.google.common.base.Preconditions.checkState;
-
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 
+import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.source.SourceRecord;
+
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.debezium.connector.base.ChangeEventQueue;
 import io.debezium.pipeline.DataChangeEvent;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.connect.data.Struct;
-import org.apache.kafka.connect.source.SourceRecord;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -44,6 +40,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import static com.google.common.base.Preconditions.checkState;
+import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isEndWatermarkEvent;
+import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isHighWatermarkEvent;
+import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isLowWatermarkEvent;
 
 /**
  * Fetcher to fetch data from table split, the split is the snapshot split {@link SnapshotSplit}.
@@ -68,9 +69,9 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
     public IncrementalSourceScanFetcher(FetchTask.Context taskContext, int subtaskId) {
         this.taskContext = taskContext;
         ThreadFactory threadFactory =
-            new ThreadFactoryBuilder()
-                .setNameFormat("debezium-snapshot-reader-" + subtaskId)
-                .build();
+                new ThreadFactoryBuilder()
+                        .setNameFormat("debezium-snapshot-reader-" + subtaskId)
+                        .build();
         this.executorService = Executors.newSingleThreadExecutor(threadFactory);
         this.hasNextElement = new AtomicBoolean(false);
         this.reachEnd = new AtomicBoolean(false);
@@ -85,24 +86,24 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
         this.hasNextElement.set(true);
         this.reachEnd.set(false);
         executorService.submit(
-            () -> {
-                try {
-                    snapshotSplitReadTask.execute(taskContext);
-                } catch (Exception e) {
-                    log.error(
-                        String.format(
-                            "Execute snapshot read task for snapshot split %s fail",
-                            currentSnapshotSplit),
-                        e);
-                    readException = e;
-                }
-            });
+                () -> {
+                    try {
+                        snapshotSplitReadTask.execute(taskContext);
+                    } catch (Exception e) {
+                        log.error(
+                                String.format(
+                                        "Execute snapshot read task for snapshot split %s fail",
+                                        currentSnapshotSplit),
+                                e);
+                        readException = e;
+                    }
+                });
     }
 
     @Override
     public boolean isFinished() {
         return currentSnapshotSplit == null
-            || !snapshotSplitReadTask.isRunning() && !hasNextElement.get() && reachEnd.get();
+                || !snapshotSplitReadTask.isRunning() && !hasNextElement.get() && reachEnd.get();
     }
 
     @Override
@@ -172,19 +173,19 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
 
     private void assertLowWatermark(SourceRecord lowWatermark) {
         checkState(
-            isLowWatermarkEvent(lowWatermark),
-            String.format(
-                "The first record should be low watermark signal event, but actual is %s",
-                lowWatermark));
+                isLowWatermarkEvent(lowWatermark),
+                String.format(
+                        "The first record should be low watermark signal event, but actual is %s",
+                        lowWatermark));
     }
 
     private void checkReadException() {
         if (readException != null) {
             throw new SeaTunnelException(
-                String.format(
-                    "Read split %s error due to %s.",
-                    currentSnapshotSplit, readException.getMessage()),
-                readException);
+                    String.format(
+                            "Read split %s error due to %s.",
+                            currentSnapshotSplit, readException.getMessage()),
+                    readException);
         }
     }
 
@@ -194,10 +195,10 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
             if (executorService != null) {
                 executorService.shutdown();
                 if (executorService.awaitTermination(
-                    READER_CLOSE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                        READER_CLOSE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
                     log.warn(
-                        "Failed to close the scan fetcher in {} seconds.",
-                        READER_CLOSE_TIMEOUT_SECONDS);
+                            "Failed to close the scan fetcher in {} seconds.",
+                            READER_CLOSE_TIMEOUT_SECONDS);
                 }
             }
         } catch (Exception e) {
@@ -208,11 +209,14 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
     private boolean isChangeRecordInChunkRange(SourceRecord record) {
         if (taskContext.isDataChangeRecord(record)) {
             return taskContext.isRecordBetween(
-                record,
-                null == currentSnapshotSplit.getSplitStart() ? null : new Object[]{currentSnapshotSplit.getSplitStart()},
-                null == currentSnapshotSplit.getSplitEnd() ? null : new Object[]{currentSnapshotSplit.getSplitEnd()});
+                    record,
+                    null == currentSnapshotSplit.getSplitStart()
+                            ? null
+                            : new Object[] {currentSnapshotSplit.getSplitStart()},
+                    null == currentSnapshotSplit.getSplitEnd()
+                            ? null
+                            : new Object[] {currentSnapshotSplit.getSplitEnd()});
         }
         return false;
     }
-
 }

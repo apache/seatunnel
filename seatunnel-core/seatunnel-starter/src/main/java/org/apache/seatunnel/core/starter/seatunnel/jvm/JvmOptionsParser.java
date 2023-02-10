@@ -46,15 +46,16 @@ import java.util.regex.Pattern;
 final class JvmOptionsParser {
 
     /**
-     * The main entry point. The exit code is 0 if the JVM options were successfully parsed, otherwise the exit code is 1. If an improperly
-     * formatted line is discovered, the line is output to standard error.
+     * The main entry point. The exit code is 0 if the JVM options were successfully parsed,
+     * otherwise the exit code is 1. If an improperly formatted line is discovered, the line is
+     * output to standard error.
      */
     @SuppressWarnings("checkstyle:RegexpSingleline")
     public static void main(final String[] args) {
         if (args.length != 1) {
             throw new IllegalArgumentException(
-                "Expected one arguments specifying path to PATH_CONF, but was " + Arrays.toString(args)
-            );
+                    "Expected one arguments specifying path to PATH_CONF, but was "
+                            + Arrays.toString(args));
         }
 
         final JvmOptionsParser parser = new JvmOptionsParser();
@@ -71,100 +72,90 @@ final class JvmOptionsParser {
 
         for (final Path jvmOptionsFile : jvmOptionsFiles) {
             final SortedMap<Integer, String> invalidLines = new TreeMap<>();
-            try (
-                InputStream is = Files.newInputStream(jvmOptionsFile);
-                Reader reader = new InputStreamReader(is, StandardCharsets.UTF_8);
-                BufferedReader br = new BufferedReader(reader)
-            ) {
-                parse(JavaVersion.majorVersion(JavaVersion.CURRENT), br, jvmOptions::add, invalidLines::put);
+            try (InputStream is = Files.newInputStream(jvmOptionsFile);
+                    Reader reader = new InputStreamReader(is, StandardCharsets.UTF_8);
+                    BufferedReader br = new BufferedReader(reader)) {
+                parse(
+                        JavaVersion.majorVersion(JavaVersion.CURRENT),
+                        br,
+                        jvmOptions::add,
+                        invalidLines::put);
             }
             if (!invalidLines.isEmpty()) {
-                throw new JvmOptionsParserException(CommonErrorCode.IMPROPERLY_FORMATTED_JVM_OPTION, String.format(
-                        Locale.ROOT,
-                        "encountered [%d] error%s parsing [%s]",
-                        invalidLines.size(),
-                        invalidLines.size() == 1 ? "" : "s",
-                        jvmOptionsFile));
+                throw new JvmOptionsParserException(
+                        CommonErrorCode.IMPROPERLY_FORMATTED_JVM_OPTION,
+                        String.format(
+                                Locale.ROOT,
+                                "encountered [%d] error%s parsing [%s]",
+                                invalidLines.size(),
+                                invalidLines.size() == 1 ? "" : "s",
+                                jvmOptionsFile));
             }
         }
         return jvmOptions;
     }
 
-    /**
-     * Callback for valid JVM options.
-     */
+    /** Callback for valid JVM options. */
     interface JvmOptionConsumer {
         /**
-         * Invoked when a line in the JVM options file matches the specified syntax and the specified major version.
+         * Invoked when a line in the JVM options file matches the specified syntax and the
+         * specified major version.
+         *
          * @param jvmOption the matching JVM option
          */
         void accept(String jvmOption);
     }
 
-    /**
-     * Callback for invalid lines in the JVM options.
-     */
+    /** Callback for invalid lines in the JVM options. */
     interface InvalidLineConsumer {
-        /**
-         * Invoked when a line in the JVM options does not match the specified syntax.
-         */
+        /** Invoked when a line in the JVM options does not match the specified syntax. */
         void accept(int lineNumber, String line);
     }
 
-    private static final Pattern PATTERN = Pattern.compile("((?<start>\\d+)(?<range>-)?(?<end>\\d+)?:)?(?<option>-.*)$");
+    private static final Pattern PATTERN =
+            Pattern.compile("((?<start>\\d+)(?<range>-)?(?<end>\\d+)?:)?(?<option>-.*)$");
 
     /**
-     * Parse the line-delimited JVM options from the specified buffered reader for the specified Java major version.
-     * Valid JVM options are:
+     * Parse the line-delimited JVM options from the specified buffered reader for the specified
+     * Java major version. Valid JVM options are:
+     *
      * <ul>
-     *     <li>
-     *         a line starting with a dash is treated as a JVM option that applies to all versions
-     *     </li>
-     *     <li>
-     *         a line starting with a number followed by a colon is treated as a JVM option that applies to the matching Java major version
-     *         only
-     *     </li>
-     *     <li>
-     *         a line starting with a number followed by a dash followed by a colon is treated as a JVM option that applies to the matching
-     *         Java specified major version and all larger Java major versions
-     *     </li>
-     *     <li>
-     *         a line starting with a number followed by a dash followed by a number followed by a colon is treated as a JVM option that
-     *         applies to the specified range of matching Java major versions
-     *     </li>
+     *   <li>a line starting with a dash is treated as a JVM option that applies to all versions
+     *   <li>a line starting with a number followed by a colon is treated as a JVM option that
+     *       applies to the matching Java major version only
+     *   <li>a line starting with a number followed by a dash followed by a colon is treated as a
+     *       JVM option that applies to the matching Java specified major version and all larger
+     *       Java major versions
+     *   <li>a line starting with a number followed by a dash followed by a number followed by a
+     *       colon is treated as a JVM option that applies to the specified range of matching Java
+     *       major versions
      * </ul>
      *
-     * For example, if the specified Java major version is 8, the following JVM options will be accepted:
+     * For example, if the specified Java major version is 8, the following JVM options will be
+     * accepted:
+     *
      * <ul>
-     *     <li>
-     *         {@code -XX:+PrintGCDateStamps}
-     *     </li>
-     *     <li>
-     *         {@code 8:-XX:+PrintGCDateStamps}
-     *     </li>
-     *     <li>
-     *         {@code 8-:-XX:+PrintGCDateStamps}
-     *     </li>
-     *     <li>
-     *         {@code 7-8:-XX:+PrintGCDateStamps}
-     *     </li>
+     *   <li>{@code -XX:+PrintGCDateStamps}
+     *   <li>{@code 8:-XX:+PrintGCDateStamps}
+     *   <li>{@code 8-:-XX:+PrintGCDateStamps}
+     *   <li>{@code 7-8:-XX:+PrintGCDateStamps}
      * </ul>
+     *
      * and the following JVM options will not be accepted:
+     *
      * <ul>
-     *     <li>
-     *         {@code 9:-Xlog:age*=trace,gc*,safepoint:file=logs/gc.log:utctime,pid,tags:filecount=32,filesize=64m}
-     *     </li>
-     *     <li>
-     *         {@code 9-:-Xlog:age*=trace,gc*,safepoint:file=logs/gc.log:utctime,pid,tags:filecount=32,filesize=64m}
-     *     </li>
-     *     <li>
-     *         {@code 9-10:-Xlog:age*=trace,gc*,safepoint:file=logs/gc.log:utctime,pid,tags:filecount=32,filesize=64m}
-     *     </li>
+     *   <li>{@code
+     *       9:-Xlog:age*=trace,gc*,safepoint:file=logs/gc.log:utctime,pid,tags:filecount=32,filesize=64m}
+     *   <li>{@code
+     *       9-:-Xlog:age*=trace,gc*,safepoint:file=logs/gc.log:utctime,pid,tags:filecount=32,filesize=64m}
+     *   <li>{@code
+     *       9-10:-Xlog:age*=trace,gc*,safepoint:file=logs/gc.log:utctime,pid,tags:filecount=32,filesize=64m}
      * </ul>
      *
-     * If the version syntax specified on a line matches the specified JVM options, the JVM option callback will be invoked with the JVM
-     * option. If the line does not match the specified syntax for the JVM options, the invalid line callback will be invoked with the
-     * contents of the entire line.
+     * If the version syntax specified on a line matches the specified JVM options, the JVM option
+     * callback will be invoked with the JVM option. If the line does not match the specified syntax
+     * for the JVM options, the invalid line callback will be invoked with the contents of the
+     * entire line.
      *
      * @param javaMajorVersion the Java major version to match JVM options against
      * @param br the buffered reader to read line-delimited JVM options from
@@ -210,13 +201,16 @@ final class JvmOptionsParser {
                     }
                     final int upper;
                     if (matcher.group("range") == null) {
-                        // no range is present, apply the JVM option to the specified major version only
+                        // no range is present, apply the JVM option to the specified major version
+                        // only
                         upper = lower;
                     } else if (end == null) {
-                        // a range of the form \\d+- is present, apply the JVM option to all major versions larger than the specified one
+                        // a range of the form \\d+- is present, apply the JVM option to all major
+                        // versions larger than the specified one
                         upper = Integer.MAX_VALUE;
                     } else {
-                        // a range of the form \\d+-\\d+ is present, apply the JVM option to the specified range of major versions
+                        // a range of the form \\d+-\\d+ is present, apply the JVM option to the
+                        // specified range of major versions
                         try {
                             upper = Integer.parseInt(end);
                         } catch (final NumberFormatException e) {
@@ -237,5 +231,4 @@ final class JvmOptionsParser {
             }
         }
     }
-
 }

@@ -74,12 +74,14 @@ public class RedshiftTypeMapper implements JdbcDialectTypeMapper {
 
     private static final String REDSHIFT_TIMETZ = "TIMETZ";
     private static final String REDSHIFT_TIMESTAMP = "TIMESTAMP";
-    private static final String REDSHIFT_TIMESTAMP_WITH_OUT_TIME_ZONE = "TIMESTAMP WITHOUT TIME ZONE";
+    private static final String REDSHIFT_TIMESTAMP_WITH_OUT_TIME_ZONE =
+            "TIMESTAMP WITHOUT TIME ZONE";
 
     private static final String REDSHIFT_TIMESTAMPTZ = "TIMESTAMPTZ";
 
     @Override
-    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException {
+    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
+            throws SQLException {
         String redshiftType = metadata.getColumnTypeName(colIndex).toUpperCase();
         int precision = metadata.getPrecision(colIndex);
         int scale = metadata.getScale(colIndex);
@@ -133,9 +135,9 @@ public class RedshiftTypeMapper implements JdbcDialectTypeMapper {
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
                 throw new UnsupportedOperationException(
-                    String.format(
-                        "Doesn't support REDSHIFT type '%s' on column '%s'  yet.",
-                        redshiftType, jdbcColumnName));
+                        String.format(
+                                "Doesn't support REDSHIFT type '%s' on column '%s'  yet.",
+                                redshiftType, jdbcColumnName));
         }
     }
 }

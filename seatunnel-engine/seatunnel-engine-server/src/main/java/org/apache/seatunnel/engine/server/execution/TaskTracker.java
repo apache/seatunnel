@@ -26,7 +26,8 @@ public class TaskTracker {
     public final TaskExecutionService.TaskGroupExecutionTracker taskGroupExecutionTracker;
     public final Task task;
 
-    public TaskTracker(Task task, TaskExecutionService.TaskGroupExecutionTracker taskGroupExecutionTracker) {
+    public TaskTracker(
+            Task task, TaskExecutionService.TaskGroupExecutionTracker taskGroupExecutionTracker) {
         this.task = task;
         this.taskGroupExecutionTracker = taskGroupExecutionTracker;
     }

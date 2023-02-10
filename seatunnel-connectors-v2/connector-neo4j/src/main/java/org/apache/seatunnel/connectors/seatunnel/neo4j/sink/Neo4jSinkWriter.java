@@ -21,11 +21,12 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkQueryInfo;
 
-import lombok.extern.slf4j.Slf4j;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.Query;
 import org.neo4j.driver.Session;
 import org.neo4j.driver.SessionConfig;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.Map;
@@ -42,18 +43,26 @@ public class Neo4jSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
     public Neo4jSinkWriter(Neo4jSinkQueryInfo neo4jSinkQueryInfo) {
         this.neo4jSinkQueryInfo = neo4jSinkQueryInfo;
         this.driver = this.neo4jSinkQueryInfo.getDriverBuilder().build();
-        this.session = driver.session(SessionConfig.forDatabase(neo4jSinkQueryInfo.getDriverBuilder().getDatabase()));
+        this.session =
+                driver.session(
+                        SessionConfig.forDatabase(
+                                neo4jSinkQueryInfo.getDriverBuilder().getDatabase()));
     }
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
-        final Map<String, Object> queryParamPosition = neo4jSinkQueryInfo.getQueryParamPosition().entrySet().stream()
-            .collect(Collectors.toMap(Map.Entry::getKey, e -> element.getField((Integer) e.getValue())));
+        final Map<String, Object> queryParamPosition =
+                neo4jSinkQueryInfo.getQueryParamPosition().entrySet().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        Map.Entry::getKey,
+                                        e -> element.getField((Integer) e.getValue())));
         final Query query = new Query(neo4jSinkQueryInfo.getQuery(), queryParamPosition);
-        session.writeTransaction(tx -> {
-            tx.run(query);
-            return null;
-        });
+        session.writeTransaction(
+                tx -> {
+                    tx.run(query);
+                    return null;
+                });
     }
 
     @Override
@@ -62,9 +71,7 @@ public class Neo4jSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
     }
 
     @Override
-    public void abortPrepare() {
-
-    }
+    public void abortPrepare() {}
 
     @Override
     public void close() throws IOException {

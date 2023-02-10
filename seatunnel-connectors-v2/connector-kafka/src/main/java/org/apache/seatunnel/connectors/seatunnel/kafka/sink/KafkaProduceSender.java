@@ -42,9 +42,7 @@ public interface KafkaProduceSender<K, V> extends AutoCloseable {
      */
     Optional<KafkaCommitInfo> prepareCommit();
 
-    /**
-     * Abort the current transaction.
-     */
+    /** Abort the current transaction. */
     void abortTransaction();
 
     /**
@@ -60,5 +58,4 @@ public interface KafkaProduceSender<K, V> extends AutoCloseable {
      * @return kafka state List, or empty if no state is available.
      */
     List<KafkaSinkState> snapshotState(long checkpointId);
-
 }

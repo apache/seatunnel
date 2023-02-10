@@ -17,26 +17,25 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils;
 
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlUtils.quote;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.RelationalTableFilters;
 import io.debezium.relational.TableId;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Utilities to discovery matched tables.
- */
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlUtils.quote;
+
+/** Utilities to discovery matched tables. */
 public class TableDiscoveryUtils {
     private static final Logger LOG = LoggerFactory.getLogger(TableDiscoveryUtils.class);
 
     public static List<TableId> listTables(JdbcConnection jdbc, RelationalTableFilters tableFilters)
-        throws SQLException {
+            throws SQLException {
         final List<TableId> capturedTableIds = new ArrayList<>();
         // -------------------
         // READ DATABASE NAMES
@@ -46,12 +45,12 @@ public class TableDiscoveryUtils {
         final List<String> databaseNames = new ArrayList<>();
 
         jdbc.query(
-            "SHOW DATABASES",
-            rs -> {
-                while (rs.next()) {
-                    databaseNames.add(rs.getString(1));
-                }
-            });
+                "SHOW DATABASES",
+                rs -> {
+                    while (rs.next()) {
+                        databaseNames.add(rs.getString(1));
+                    }
+                });
         LOG.info("\t list of available databases is: {}", databaseNames);
 
         // ----------------
@@ -65,24 +64,24 @@ public class TableDiscoveryUtils {
         for (String dbName : databaseNames) {
             try {
                 jdbc.query(
-                    "SHOW FULL TABLES IN " + quote(dbName) + " where Table_Type = 'BASE TABLE'",
-                    rs -> {
-                        while (rs.next()) {
-                            TableId tableId = new TableId(dbName, null, rs.getString(1));
-                            if (tableFilters.dataCollectionFilter().isIncluded(tableId)) {
-                                capturedTableIds.add(tableId);
-                                LOG.info("\t including '{}' for further processing", tableId);
-                            } else {
-                                LOG.info("\t '{}' is filtered out of capturing", tableId);
+                        "SHOW FULL TABLES IN " + quote(dbName) + " where Table_Type = 'BASE TABLE'",
+                        rs -> {
+                            while (rs.next()) {
+                                TableId tableId = new TableId(dbName, null, rs.getString(1));
+                                if (tableFilters.dataCollectionFilter().isIncluded(tableId)) {
+                                    capturedTableIds.add(tableId);
+                                    LOG.info("\t including '{}' for further processing", tableId);
+                                } else {
+                                    LOG.info("\t '{}' is filtered out of capturing", tableId);
+                                }
                             }
-                        }
-                    });
+                        });
             } catch (SQLException e) {
                 // We were unable to execute the query or process the results, so skip this ...
                 LOG.warn(
-                    "\t skipping database '{}' due to error reading tables: {}",
-                    dbName,
-                    e.getMessage());
+                        "\t skipping database '{}' due to error reading tables: {}",
+                        dbName,
+                        e.getMessage());
             }
         }
         return capturedTableIds;

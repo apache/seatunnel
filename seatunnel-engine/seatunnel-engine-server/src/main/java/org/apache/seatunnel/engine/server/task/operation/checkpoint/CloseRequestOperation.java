@@ -36,8 +36,7 @@ public class CloseRequestOperation extends Operation implements IdentifiedDataSe
 
     private TaskLocation readerLocation;
 
-    public CloseRequestOperation() {
-    }
+    public CloseRequestOperation() {}
 
     public CloseRequestOperation(TaskLocation readerLocation) {
         this.readerLocation = readerLocation;
@@ -46,13 +45,21 @@ public class CloseRequestOperation extends Operation implements IdentifiedDataSe
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        RetryUtils.retryWithException(() -> {
-            SourceSeaTunnelTask<?, ?> task = server.getTaskExecutionService().getTask(readerLocation);
-            task.close();
-            return null;
-        }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-            exception -> exception instanceof SeaTunnelException &&
-                !server.taskIsEnded(readerLocation.getTaskGroupLocation()), Constant.OPERATION_RETRY_SLEEP));
+        RetryUtils.retryWithException(
+                () -> {
+                    SourceSeaTunnelTask<?, ?> task =
+                            server.getTaskExecutionService().getTask(readerLocation);
+                    task.close();
+                    return null;
+                },
+                new RetryUtils.RetryMaterial(
+                        Constant.OPERATION_RETRY_TIME,
+                        true,
+                        exception ->
+                                exception instanceof SeaTunnelException
+                                        && !server.taskIsEnded(
+                                                readerLocation.getTaskGroupLocation()),
+                        Constant.OPERATION_RETRY_SLEEP));
     }
 
     @Override

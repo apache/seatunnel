@@ -33,8 +33,6 @@ public class GitlabSourceFactory extends HttpSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return getHttpBuilder()
-                .required(GitlabSourceConfig.ACCESS_TOKEN)
-                .build();
+        return getHttpBuilder().required(GitlabSourceConfig.ACCESS_TOKEN).build();
     }
 }

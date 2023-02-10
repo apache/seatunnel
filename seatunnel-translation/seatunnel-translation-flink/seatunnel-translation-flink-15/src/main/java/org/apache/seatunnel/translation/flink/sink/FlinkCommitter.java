@@ -19,9 +19,10 @@ package org.apache.seatunnel.translation.flink.sink;
 
 import org.apache.seatunnel.api.sink.SinkCommitter;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.flink.api.connector.sink.Committer;
 import org.apache.flink.api.connector.sink.Sink;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -29,8 +30,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * The committer wrapper of {@link SinkCommitter}, which is created by {@link Sink#createCommitter()},
- * used to unify the different sink committer implementations
+ * The committer wrapper of {@link SinkCommitter}, which is created by {@link
+ * Sink#createCommitter()}, used to unify the different sink committer implementations
+ *
  * @param <CommT> The generic type of commit message
  */
 @Slf4j
@@ -43,10 +45,13 @@ public class FlinkCommitter<CommT> implements Committer<CommitWrapper<CommT>> {
     }
 
     @Override
-    public List<CommitWrapper<CommT>> commit(List<CommitWrapper<CommT>> committables) throws IOException {
-        List<CommT> reCommittable = sinkCommitter.commit(committables.stream()
-            .map(CommitWrapper::getCommit)
-            .collect(Collectors.toList()));
+    public List<CommitWrapper<CommT>> commit(List<CommitWrapper<CommT>> committables)
+            throws IOException {
+        List<CommT> reCommittable =
+                sinkCommitter.commit(
+                        committables.stream()
+                                .map(CommitWrapper::getCommit)
+                                .collect(Collectors.toList()));
         if (reCommittable != null && !reCommittable.isEmpty()) {
             log.warn("this version not support re-commit when use flink engine");
         }
@@ -55,6 +60,5 @@ public class FlinkCommitter<CommT> implements Committer<CommitWrapper<CommT>> {
     }
 
     @Override
-    public void close() throws Exception {
-    }
+    public void close() throws Exception {}
 }

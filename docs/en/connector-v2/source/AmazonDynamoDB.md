@@ -17,7 +17,7 @@ Read data from Amazon DynamoDB.
 
 ## Options
 
-| name              | type   | required | default value |
+|       name        |  type  | required | default value |
 |-------------------|--------|----------|---------------|
 | url               | string | yes      | -             |
 | region            | string | yes      | -             |
@@ -65,40 +65,40 @@ schema {
 }
 ```
 
-### common options 
+### common options
 
 Source Plugin common parameters, refer to [Source Plugin](common-options.md) for details
 
 ## Example
 
 ```bash
-  Amazondynamodb {
-    url = "http://127.0.0.1:8000"
-    region = "us-east-1"
-    accessKeyId = "dummy-key"
-    secretAccessKey = "dummy-secret"
-    table = "TableName"
-    schema = {
-      fields {
-        artist = string
-        c_map = "map<string, array<int>>"
-        c_array = "array<int>"
-        c_string = string
-        c_boolean = boolean
-        c_tinyint = tinyint
-        c_smallint = smallint
-        c_int = int
-        c_bigint = bigint
-        c_float = float
-        c_double = double
-        c_decimal = "decimal(30, 8)"
-        c_null = "null"
-        c_bytes = bytes
-        c_date = date
-        c_timestamp = timestamp
-      }
+Amazondynamodb {
+  url = "http://127.0.0.1:8000"
+  region = "us-east-1"
+  accessKeyId = "dummy-key"
+  secretAccessKey = "dummy-secret"
+  table = "TableName"
+  schema = {
+    fields {
+      artist = string
+      c_map = "map<string, array<int>>"
+      c_array = "array<int>"
+      c_string = string
+      c_boolean = boolean
+      c_tinyint = tinyint
+      c_smallint = smallint
+      c_int = int
+      c_bigint = bigint
+      c_float = float
+      c_double = double
+      c_decimal = "decimal(30, 8)"
+      c_null = "null"
+      c_bytes = bytes
+      c_date = date
+      c_timestamp = timestamp
     }
   }
+}
 ```
 
 ## Changelog
@@ -106,3 +106,4 @@ Source Plugin common parameters, refer to [Source Plugin](common-options.md) for
 ### next version
 
 - Add Amazon DynamoDB Source Connector
+

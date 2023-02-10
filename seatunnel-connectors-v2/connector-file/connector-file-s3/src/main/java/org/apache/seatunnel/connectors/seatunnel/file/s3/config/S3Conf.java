@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.s3.config;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -56,11 +56,15 @@ public class S3Conf extends HadoopConf {
         HashMap<String, String> s3Options = new HashMap<>();
         putS3SK(s3Options, config);
         if (CheckConfigUtil.isValidParam(config, S3Config.S3_PROPERTIES.key())) {
-            config.getObject(S3Config.S3_PROPERTIES.key()).forEach((key, value) -> s3Options.put(key, String.valueOf(value.unwrapped())));
+            config.getObject(S3Config.S3_PROPERTIES.key())
+                    .forEach((key, value) -> s3Options.put(key, String.valueOf(value.unwrapped())));
         }
 
-        s3Options.put(S3Config.S3A_AWS_CREDENTIALS_PROVIDER.key(), config.getString(S3Config.S3A_AWS_CREDENTIALS_PROVIDER.key()));
-        s3Options.put(S3Config.FS_S3A_ENDPOINT.key(), config.getString(S3Config.FS_S3A_ENDPOINT.key()));
+        s3Options.put(
+                S3Config.S3A_AWS_CREDENTIALS_PROVIDER.key(),
+                config.getString(S3Config.S3A_AWS_CREDENTIALS_PROVIDER.key()));
+        s3Options.put(
+                S3Config.FS_S3A_ENDPOINT.key(), config.getString(S3Config.FS_S3A_ENDPOINT.key()));
         hadoopConf.setExtraOptions(s3Options);
         return hadoopConf;
     }
@@ -75,7 +79,8 @@ public class S3Conf extends HadoopConf {
     }
 
     private static void putS3SK(Map<String, String> s3Options, Config config) {
-        if (!CheckConfigUtil.isValidParam(config, S3Config.S3_ACCESS_KEY.key()) && !CheckConfigUtil.isValidParam(config, S3Config.S3_SECRET_KEY.key())) {
+        if (!CheckConfigUtil.isValidParam(config, S3Config.S3_ACCESS_KEY.key())
+                && !CheckConfigUtil.isValidParam(config, S3Config.S3_SECRET_KEY.key())) {
             return;
         }
         String accessKey = config.getString(S3Config.S3_ACCESS_KEY.key());
@@ -89,5 +94,4 @@ public class S3Conf extends HadoopConf {
         s3Options.put("fs.s3n.awsAccessKeyId", accessKey);
         s3Options.put("fs.s3n.awsSecretAccessKey", secretKey);
     }
-
 }

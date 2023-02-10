@@ -17,7 +17,7 @@ Source connector for Apache Kafka.
 
 ## Options
 
-| name                                | type    | required | default value            |
+|                name                 |  type   | required |      default value       |
 |-------------------------------------|---------|----------|--------------------------|
 | topic                               | String  | yes      | -                        |
 | bootstrap.servers                   | String  | yes      | -                        |
@@ -88,23 +88,23 @@ The initial consumption pattern of consumers,there are several types:
 
 The time required for consumption mode to be "timestamp".
 
-##  start_mode.offsets
+## start_mode.offsets
 
 The offset required for consumption mode to be specific_offsets.
 
 for example:
 
 ```hocon
-   start_mode.offsets = {
-            info-0 = 70
-            info-1 = 10
-            info-2 = 10
-         }
+start_mode.offsets = {
+         info-0 = 70
+         info-1 = 10
+         info-2 = 10
+      }
 ```
 
 ## Example
 
-###  Simple
+### Simple
 
 ```hocon
 source {
@@ -214,3 +214,4 @@ source {
 - [Improve] Support for dynamic discover topic & partition in streaming mode ([3125](https://github.com/apache/incubator-seatunnel/pull/3125))
 - [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/incubator-seatunnel/pull/3719)
 - [Bug] Fixed the problem that parsing the offset format failed when the startup mode was offset([3810](https://github.com/apache/incubator-seatunnel/pull/3810))
+

@@ -17,13 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.assertion.sink;
 
-import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.RULES;
-
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 
 import com.google.auto.service.AutoService;
+
+import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.RULES;
 
 @AutoService(Factory.class)
 public class AssertSinkFactory implements TableSinkFactory {

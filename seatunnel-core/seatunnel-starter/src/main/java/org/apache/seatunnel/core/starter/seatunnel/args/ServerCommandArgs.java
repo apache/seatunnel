@@ -28,8 +28,9 @@ import lombok.EqualsAndHashCode;
 @EqualsAndHashCode(callSuper = true)
 @Data
 public class ServerCommandArgs extends CommandArgs {
-    @Parameter(names = {"-cn", "--cluster"},
-        description = "The name of cluster")
+    @Parameter(
+            names = {"-cn", "--cluster"},
+            description = "The name of cluster")
     private String clusterName = "seatunnel_default_cluster";
 
     @Override

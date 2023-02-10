@@ -46,5 +46,4 @@ public enum SelectDBConnectorErrorCode implements SeaTunnelErrorCode {
     public String getDescription() {
         return description;
     }
-
 }

@@ -19,8 +19,7 @@ package org.apache.seatunnel.engine.server.task;
 
 public class TaskRuntimeException extends RuntimeException {
 
-    public TaskRuntimeException() {
-    }
+    public TaskRuntimeException() {}
 
     public TaskRuntimeException(String message) {
         super(message);
@@ -34,7 +33,11 @@ public class TaskRuntimeException extends RuntimeException {
         super(cause);
     }
 
-    public TaskRuntimeException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
+    public TaskRuntimeException(
+            String message,
+            Throwable cause,
+            boolean enableSuppression,
+            boolean writableStackTrace) {
         super(message, cause, enableSuppression, writableStackTrace);
     }
 }
