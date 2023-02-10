@@ -26,11 +26,9 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
-import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.format.text.exception.SeaTunnelTextFormatException;
 
@@ -48,10 +46,11 @@ import java.util.Map;
 
 @Builder
 public class TextDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
+    private static final String LIST_DELIMITER = String.valueOf('\002');
+    private static final String MAP_DELIMITER = String.valueOf('\003');
     @NonNull private SeaTunnelRowType seaTunnelRowType;
     @NonNull private String delimiter;
     @Builder.Default private DateUtils.Formatter dateFormatter = DateUtils.Formatter.YYYY_MM_DD;
-
     @Builder.Default
     private DateTimeUtils.Formatter dateTimeFormatter = DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
 
@@ -78,30 +77,13 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
         String[] splits = line.split(delimiter, -1);
         LinkedHashMap<Integer, String> splitsMap = new LinkedHashMap<>();
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
-        int cursor = 0;
-        for (int i = 0; i < fieldTypes.length; i++) {
-            if (fieldTypes[i].getSqlType() == SqlType.ROW) {
-                // row type
-                int totalFields = ((SeaTunnelRowType) fieldTypes[i]).getTotalFields();
-                // if current field is empty
-                if (cursor >= splits.length) {
-                    splitsMap.put(i, null);
-                } else {
-                    ArrayList<String> rowSplits =
-                            new ArrayList<>(
-                                    Arrays.asList(splits).subList(cursor, cursor + totalFields));
-                    splitsMap.put(i, String.join(delimiter, rowSplits));
-                }
-                cursor += totalFields;
-            } else {
-                // not row type
-                // if current field is empty
-                if (cursor >= splits.length) {
-                    splitsMap.put(i, null);
-                    cursor++;
-                } else {
-                    splitsMap.put(i, splits[cursor++]);
-                }
+        for (int i = 0; i < splits.length; i++) {
+            splitsMap.put(i, splits[i]);
+        }
+        if (fieldTypes.length > splits.length) {
+            // contains partition columns
+            for (int i = splits.length; i < fieldTypes.length; i++) {
+                splitsMap.put(i, null);
             }
         }
         return splitsMap;
@@ -114,10 +96,11 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
         switch (fieldType.getSqlType()) {
             case ARRAY:
                 BasicType<?> elementType = ((ArrayType<?, ?>) fieldType).getElementType();
-                ArrayNode jsonNodes = JsonUtils.parseArray(field);
+                String[] elements = field.split(LIST_DELIMITER);
                 ArrayList<Object> objectArrayList = new ArrayList<>();
-                jsonNodes.forEach(
-                        jsonNode -> objectArrayList.add(convert(jsonNode.toString(), elementType)));
+                for (String element : elements) {
+                    objectArrayList.add(convert(element, elementType));
+                }
                 switch (elementType.getSqlType()) {
                     case STRING:
                         return objectArrayList.toArray(new String[0]);
@@ -146,10 +129,11 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                 SeaTunnelDataType<?> keyType = ((MapType<?, ?>) fieldType).getKeyType();
                 SeaTunnelDataType<?> valueType = ((MapType<?, ?>) fieldType).getValueType();
                 LinkedHashMap<Object, Object> objectMap = new LinkedHashMap<>();
-                Map<String, String> fieldsMap = JsonUtils.toMap(field);
-                fieldsMap.forEach(
-                        (key, value) ->
-                                objectMap.put(convert(key, keyType), convert(value, valueType)));
+                String[] kvs = field.split(LIST_DELIMITER);
+                for (String kv : kvs) {
+                    String[] splits = kv.split(MAP_DELIMITER);
+                    objectMap.put(convert(splits[0], keyType), convert(splits[1], valueType));
+                }
                 return objectMap;
             case STRING:
                 return field;

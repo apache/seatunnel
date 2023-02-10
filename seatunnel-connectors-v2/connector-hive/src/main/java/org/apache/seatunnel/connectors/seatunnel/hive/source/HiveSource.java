@@ -23,10 +23,13 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.BaseHdfsFileSource;
@@ -34,14 +37,24 @@ import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
+
+import com.google.auto.service.AutoService;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Table;
 
 import com.google.auto.service.AutoService;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.ORC_INPUT_FORMAT_CLASSNAME;
@@ -98,6 +111,14 @@ public class HiveSource extends BaseHdfsFileSource {
                     pluginConfig.withValue(
                             BaseSourceConfig.FILE_TYPE.key(),
                             ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()));
+            pluginConfig = pluginConfig.withValue(BaseSourceConfig.FILE_TYPE.key(),
+                    ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()));
+            Map<String, Object> schema = parseSchema(tableInformation);
+            ConfigRenderOptions options = ConfigRenderOptions.concise();
+            String render = pluginConfig.root().render(options);
+            ObjectNode jsonNodes = JsonUtils.parseObject(render);
+            jsonNodes.putPOJO(SeaTunnelSchema.SCHEMA.key(), schema);
+            pluginConfig = ConfigFactory.parseString(jsonNodes.toString());
         } else if (PARQUET_INPUT_FORMAT_CLASSNAME.equals(inputFormat)) {
             pluginConfig =
                     pluginConfig.withValue(
@@ -135,5 +156,40 @@ public class HiveSource extends BaseHdfsFileSource {
                     HiveConnectorErrorCode.GET_HDFS_NAMENODE_HOST_FAILED, errorMsg, e);
         }
         super.prepare(pluginConfig);
+    }
+
+    private Map<String, Object> parseSchema(Table table) {
+        LinkedHashMap<String, Object> fields = new LinkedHashMap<>();
+        LinkedHashMap<String, Object> schema = new LinkedHashMap<>();
+        List<FieldSchema> cols = table.getSd().getCols();
+        for (FieldSchema col : cols) {
+            String name = col.getName();
+            String type = col.getType();
+            fields.put(name, covertHiveTypeToSeaTunnelType(type));
+        }
+        schema.put("fields", fields);
+        return schema;
+    }
+
+    private Object covertHiveTypeToSeaTunnelType(String hiveType) {
+        if (hiveType.contains("char")) {
+            return SqlType.STRING.name();
+        }
+        if (hiveType.contains("binary")) {
+            return SqlType.BYTES.name();
+        }
+        if (hiveType.contains("struct")) {
+            LinkedHashMap<String, Object> fields = new LinkedHashMap<>();
+            int start = hiveType.indexOf("<");
+            int end = hiveType.lastIndexOf(">");
+            String[] columns = hiveType.substring(start + 1, end)
+                    .split(",");
+            for (String column : columns) {
+                String[] splits = column.split(":");
+                fields.put(splits[0], covertHiveTypeToSeaTunnelType(splits[1]));
+            }
+            return fields;
+        }
+        return hiveType;
     }
 }

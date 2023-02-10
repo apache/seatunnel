@@ -18,6 +18,9 @@
 package org.apache.seatunnel.format.text;
 
 import org.apache.seatunnel.api.serialization.SerializationSchema;
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -34,9 +37,14 @@ import lombok.NonNull;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Arrays;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Builder
 public class TextSerializationSchema implements SerializationSchema {
+    private static final String LIST_DELIMITER = String.valueOf('\002');
+    private static final String MAP_DELIMITER = String.valueOf('\003');
     @NonNull private SeaTunnelRowType seaTunnelRowType;
     @NonNull private String delimiter;
     @Builder.Default private DateUtils.Formatter dateFormatter = DateUtils.Formatter.YYYY_MM_DD;
@@ -86,8 +94,20 @@ public class TextSerializationSchema implements SerializationSchema {
             case BYTES:
                 return new String((byte[]) field);
             case ARRAY:
+                BasicType<?> elementType = ((ArrayType<?, ?>) fieldType).getElementType();
+                return Arrays.stream((Object[]) field)
+                        .map(f -> convert(f, elementType))
+                        .collect(Collectors.joining(LIST_DELIMITER));
             case MAP:
-                return JsonUtils.toJsonString(field);
+                SeaTunnelDataType<?> keyType = ((MapType<?, ?>) fieldType).getKeyType();
+                SeaTunnelDataType<?> valueType = ((MapType<?, ?>) fieldType).getValueType();
+                return ((Map<Object, Object>) field).entrySet()
+                        .stream()
+                        .map(entry ->
+                                String.join(MAP_DELIMITER,
+                                        convert(entry.getKey(), keyType),
+                                        convert(entry.getValue(), valueType)))
+                        .collect(Collectors.joining(LIST_DELIMITER));
             case ROW:
                 Object[] fields = ((SeaTunnelRow) field).getFields();
                 String[] strings = new String[fields.length];
