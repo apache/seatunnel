@@ -22,8 +22,15 @@ import org.apache.seatunnel.api.configuration.Options;
 
 public class DingTalkConfig {
 
-    public static final Option<String> URL = Options.key("url").stringType().noDefaultValue()
-        .withDescription("DingTalk robot address format is https://oapi.dingtalk.com/robot/send?access_token=XXXXXX");
-    public static final Option<String> SECRET = Options.key("secret").stringType().noDefaultValue()
-        .withDescription("DingTalk robot secret");
+    public static final Option<String> URL =
+            Options.key("url")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "DingTalk robot address format is https://oapi.dingtalk.com/robot/send?access_token=XXXXXX");
+    public static final Option<String> SECRET =
+            Options.key("secret")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("DingTalk robot secret");
 }

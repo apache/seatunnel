@@ -17,10 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
-import static org.apache.parquet.avro.AvroReadSupport.READ_INT96_AS_FIXED;
-import static org.apache.parquet.avro.AvroSchemaConverter.ADD_LIST_ELEMENT_RECORDS;
-import static org.apache.parquet.avro.AvroWriteSupport.WRITE_FIXED_AS_INT96;
-import static org.apache.parquet.avro.AvroWriteSupport.WRITE_OLD_LIST_STRUCTURE;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -30,9 +27,6 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
@@ -40,6 +34,8 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.security.UserGroupInformation;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -50,6 +46,11 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
+import static org.apache.parquet.avro.AvroReadSupport.READ_INT96_AS_FIXED;
+import static org.apache.parquet.avro.AvroSchemaConverter.ADD_LIST_ELEMENT_RECORDS;
+import static org.apache.parquet.avro.AvroWriteSupport.WRITE_FIXED_AS_INT96;
+import static org.apache.parquet.avro.AvroWriteSupport.WRITE_OLD_LIST_STRUCTURE;
 
 @Slf4j
 public abstract class AbstractReadStrategy implements ReadStrategy {
@@ -83,7 +84,8 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     @Override
     public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         this.seaTunnelRowType = seaTunnelRowType;
-        this.seaTunnelRowTypeWithPartition = mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
+        this.seaTunnelRowTypeWithPartition =
+                mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
     }
 
     @Override
@@ -94,26 +96,35 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         configuration.setBoolean(ADD_LIST_ELEMENT_RECORDS, false);
         configuration.setBoolean(WRITE_OLD_LIST_STRUCTURE, false);
         configuration.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, hadoopConf.getHdfsNameKey());
-        configuration.set(String.format("fs.%s.impl", hadoopConf.getSchema()), hadoopConf.getFsHdfsImpl());
+        configuration.set(
+                String.format("fs.%s.impl", hadoopConf.getSchema()), hadoopConf.getFsHdfsImpl());
         hadoopConf.setExtraOptionsForConfiguration(configuration);
         String principal = hadoopConf.getKerberosPrincipal();
         String keytabPath = hadoopConf.getKerberosKeytabPath();
         if (!isKerberosAuthorization && StringUtils.isNotBlank(principal)) {
             // kerberos authentication and only once
             if (StringUtils.isBlank(keytabPath)) {
-                throw new FileConnectorException(CommonErrorCode.KERBEROS_AUTHORIZED_FAILED,
+                throw new FileConnectorException(
+                        CommonErrorCode.KERBEROS_AUTHORIZED_FAILED,
                         "Kerberos keytab path is blank, please check this parameter that in your config file");
             }
             configuration.set("hadoop.security.authentication", "kerberos");
             UserGroupInformation.setConfiguration(configuration);
             try {
-                log.info("Start Kerberos authentication using principal {} and keytab {}", principal, keytabPath);
+                log.info(
+                        "Start Kerberos authentication using principal {} and keytab {}",
+                        principal,
+                        keytabPath);
                 UserGroupInformation.loginUserFromKeytab(principal, keytabPath);
                 log.info("Kerberos authentication successful");
             } catch (IOException e) {
-                String errorMsg = String.format("Kerberos authentication failed using this " +
-                        "principal [%s] and keytab path [%s]", principal, keytabPath);
-                throw new FileConnectorException(CommonErrorCode.KERBEROS_AUTHORIZED_FAILED, errorMsg, e);
+                String errorMsg =
+                        String.format(
+                                "Kerberos authentication failed using this "
+                                        + "principal [%s] and keytab path [%s]",
+                                principal, keytabPath);
+                throw new FileConnectorException(
+                        CommonErrorCode.KERBEROS_AUTHORIZED_FAILED, errorMsg, e);
             }
             isKerberosAuthorization = true;
         }
@@ -166,13 +177,15 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     public void setPluginConfig(Config pluginConfig) {
         this.pluginConfig = pluginConfig;
         if (pluginConfig.hasPath(BaseSourceConfig.PARSE_PARTITION_FROM_PATH.key())) {
-            isMergePartition = pluginConfig.getBoolean(BaseSourceConfig.PARSE_PARTITION_FROM_PATH.key());
+            isMergePartition =
+                    pluginConfig.getBoolean(BaseSourceConfig.PARSE_PARTITION_FROM_PATH.key());
         }
         if (pluginConfig.hasPath(BaseSourceConfig.SKIP_HEADER_ROW_NUMBER.key())) {
             skipHeaderNumber = pluginConfig.getLong(BaseSourceConfig.SKIP_HEADER_ROW_NUMBER.key());
         }
         if (pluginConfig.hasPath(BaseSourceConfig.READ_PARTITIONS.key())) {
-            readPartitions.addAll(pluginConfig.getStringList(BaseSourceConfig.READ_PARTITIONS.key()));
+            readPartitions.addAll(
+                    pluginConfig.getStringList(BaseSourceConfig.READ_PARTITIONS.key()));
         }
     }
 
@@ -207,15 +220,18 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         // create new array to merge partition fields and origin fields
         String[] newFieldNames = new String[fieldNames.length + partitionNames.length];
         // create new array to merge partition fields' data type and origin fields' data type
-        SeaTunnelDataType<?>[] newFieldTypes = new SeaTunnelDataType<?>[fieldTypes.length + partitionTypes.length];
+        SeaTunnelDataType<?>[] newFieldTypes =
+                new SeaTunnelDataType<?>[fieldTypes.length + partitionTypes.length];
         // copy origin field names to new array
         System.arraycopy(fieldNames, 0, newFieldNames, 0, fieldNames.length);
         // copy partitions field name to new array
-        System.arraycopy(partitionNames, 0, newFieldNames, fieldNames.length, partitionNames.length);
+        System.arraycopy(
+                partitionNames, 0, newFieldNames, fieldNames.length, partitionNames.length);
         // copy origin field types to new array
         System.arraycopy(fieldTypes, 0, newFieldTypes, 0, fieldTypes.length);
         // copy partition field types to new array
-        System.arraycopy(partitionTypes, 0, newFieldTypes, fieldTypes.length, partitionTypes.length);
+        System.arraycopy(
+                partitionTypes, 0, newFieldTypes, fieldTypes.length, partitionTypes.length);
         // return merge row type
         return new SeaTunnelRowType(newFieldNames, newFieldTypes);
     }

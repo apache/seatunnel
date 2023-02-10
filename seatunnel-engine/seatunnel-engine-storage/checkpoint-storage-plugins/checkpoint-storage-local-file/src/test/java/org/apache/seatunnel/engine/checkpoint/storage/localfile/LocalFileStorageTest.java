@@ -20,9 +20,6 @@
 
 package org.apache.seatunnel.engine.checkpoint.storage.localfile;
 
-import static org.junit.jupiter.api.condition.OS.LINUX;
-import static org.junit.jupiter.api.condition.OS.MAC;
-
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 
@@ -34,6 +31,9 @@ import org.junit.jupiter.api.condition.EnabledOnOs;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.condition.OS.LINUX;
+import static org.junit.jupiter.api.condition.OS.MAC;
+
 @EnabledOnOs({LINUX, MAC})
 public class LocalFileStorageTest {
 
@@ -42,12 +42,13 @@ public class LocalFileStorageTest {
 
     @BeforeAll
     public static void setup() throws CheckpointStorageException {
-        PipelineState pipelineState = PipelineState.builder()
-            .jobId(JOB_ID)
-            .pipelineId(1)
-            .checkpointId(1)
-            .states(new byte[0])
-            .build();
+        PipelineState pipelineState =
+                PipelineState.builder()
+                        .jobId(JOB_ID)
+                        .pipelineId(1)
+                        .checkpointId(1)
+                        .states(new byte[0])
+                        .build();
         STORAGE.storeCheckPoint(pipelineState);
         pipelineState.setCheckpointId(2);
         STORAGE.storeCheckPoint(pipelineState);
@@ -85,6 +86,4 @@ public class LocalFileStorageTest {
     public static void teardown() {
         STORAGE.deleteCheckpoint(JOB_ID);
     }
-
 }
-

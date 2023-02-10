@@ -22,15 +22,12 @@ import org.apache.seatunnel.api.source.Boundedness;
 
 import org.apache.pulsar.client.api.Message;
 
-/**
- * A implementation which wouldn't stop forever.
- */
+/** A implementation which wouldn't stop forever. */
 public class NeverStopCursor implements StopCursor {
     private static final long serialVersionUID = 1L;
     public static final NeverStopCursor INSTANCE = new NeverStopCursor();
 
-    private NeverStopCursor() {
-    }
+    private NeverStopCursor() {}
 
     @Override
     public Boundedness getBoundedness() {

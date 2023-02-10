@@ -23,9 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/**
- * TaskCallTimer is a time-consuming timer for Task Call method execution
- */
+/** TaskCallTimer is a time-consuming timer for Task Call method execution */
 @Slf4j
 public class TaskCallTimer extends Thread {
 
@@ -43,10 +41,10 @@ public class TaskCallTimer extends Thread {
     AtomicBoolean wait0 = new AtomicBoolean(false);
 
     public TaskCallTimer(
-        long delay,
-        AtomicBoolean keep,
-        TaskExecutionService.RunBusWorkSupplier runBusWorkSupplier,
-        TaskExecutionService.CooperativeTaskWorker cooperativeTaskWorker) {
+            long delay,
+            AtomicBoolean keep,
+            TaskExecutionService.RunBusWorkSupplier runBusWorkSupplier,
+            TaskExecutionService.CooperativeTaskWorker cooperativeTaskWorker) {
         this.delay = delay;
         this.keep = keep;
         this.runBusWorkSupplier = runBusWorkSupplier;
@@ -76,7 +74,6 @@ public class TaskCallTimer extends Thread {
             started = true;
             this.start();
         }
-
     }
 
     public void timerStart(TaskTracker taskTracker) {
@@ -128,9 +125,7 @@ public class TaskCallTimer extends Thread {
         }
     }
 
-    /**
-     * The action to be performed when the task call method execution times out
-     */
+    /** The action to be performed when the task call method execution times out */
     private void timeoutAct(int expiredTimes) {
         if (expiredTimes >= 1) {
             // 1 busWork keep on running

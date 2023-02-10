@@ -17,10 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hbase.sink;
 
-import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.FAMILY_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ROWKEY_COLUMNS;
-import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.TABLE;
-import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ZOOKEEPER_QUORUM;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
@@ -37,13 +34,16 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
 import org.apache.seatunnel.connectors.seatunnel.hbase.exception.HbaseConnectorException;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+
+import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.FAMILY_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ROWKEY_COLUMNS;
+import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ZOOKEEPER_QUORUM;
 
 @AutoService(SeaTunnelSink.class)
 public class HbaseSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
@@ -66,11 +66,18 @@ public class HbaseSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         this.pluginConfig = pluginConfig;
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig,
-                ZOOKEEPER_QUORUM.key(), TABLE.key(), ROWKEY_COLUMNS.key(), FAMILY_NAME.key());
+        CheckResult result =
+                CheckConfigUtil.checkAllExists(
+                        pluginConfig,
+                        ZOOKEEPER_QUORUM.key(),
+                        TABLE.key(),
+                        ROWKEY_COLUMNS.key(),
+                        FAMILY_NAME.key());
         if (!result.isSuccess()) {
-            throw new HbaseConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+            throw new HbaseConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SINK, result.getMsg()));
         }
         this.hbaseParameters = HbaseParameters.buildWithConfig(pluginConfig);
@@ -93,7 +100,9 @@ public class HbaseSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) throws IOException {
-        return new HbaseSinkWriter(seaTunnelRowType, hbaseParameters, rowkeyColumnIndexes, versionColumnIndex);
+    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
+            throws IOException {
+        return new HbaseSinkWriter(
+                seaTunnelRowType, hbaseParameters, rowkeyColumnIndexes, versionColumnIndex);
     }
 }

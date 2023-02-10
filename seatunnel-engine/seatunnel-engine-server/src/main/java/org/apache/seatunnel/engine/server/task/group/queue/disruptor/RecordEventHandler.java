@@ -34,14 +34,18 @@ public class RecordEventHandler implements EventHandler<RecordEvent> {
 
     private final IntermediateQueueFlowLifeCycle intermediateQueueFlowLifeCycle;
 
-    public RecordEventHandler(SeaTunnelTask runningTask, Collector<Record<?>> collector, IntermediateQueueFlowLifeCycle intermediateQueueFlowLifeCycle) {
+    public RecordEventHandler(
+            SeaTunnelTask runningTask,
+            Collector<Record<?>> collector,
+            IntermediateQueueFlowLifeCycle intermediateQueueFlowLifeCycle) {
         this.runningTask = runningTask;
         this.collector = collector;
         this.intermediateQueueFlowLifeCycle = intermediateQueueFlowLifeCycle;
     }
 
     @Override
-    public void onEvent(RecordEvent recordEvent, long sequence, boolean endOfBatch) throws Exception {
+    public void onEvent(RecordEvent recordEvent, long sequence, boolean endOfBatch)
+            throws Exception {
         handleRecord(recordEvent.getRecord(), collector);
     }
 
@@ -61,5 +65,4 @@ public class RecordEventHandler implements EventHandler<RecordEvent> {
             collector.collect(record);
         }
     }
-
 }

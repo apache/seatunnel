@@ -30,10 +30,10 @@ public class PipelineExecutionState implements Serializable {
 
     private final String throwableMsg;
 
-    public PipelineExecutionState(int pipelineId, PipelineStatus pipelineStatus, String throwableMsg) {
+    public PipelineExecutionState(
+            int pipelineId, PipelineStatus pipelineStatus, String throwableMsg) {
         this.pipelineId = pipelineId;
         this.pipelineStatus = pipelineStatus;
         this.throwableMsg = throwableMsg;
     }
-
 }

@@ -45,9 +45,10 @@ public class AmazonDynamoDBSourceReader extends AbstractSingleSplitReader<SeaTun
     protected AmazonDynamoDBSourceOptions amazondynamodbSourceOptions;
     protected SeaTunnelRowDeserializer seaTunnelRowDeserializer;
 
-    public AmazonDynamoDBSourceReader(SingleSplitReaderContext context,
-                                      AmazonDynamoDBSourceOptions amazondynamodbSourceOptions,
-                                      SeaTunnelRowType typeInfo) {
+    public AmazonDynamoDBSourceReader(
+            SingleSplitReaderContext context,
+            AmazonDynamoDBSourceOptions amazondynamodbSourceOptions,
+            SeaTunnelRowType typeInfo) {
         this.context = context;
         this.amazondynamodbSourceOptions = amazondynamodbSourceOptions;
         this.seaTunnelRowDeserializer = new DefaultSeaTunnelRowDeserializer(typeInfo);
@@ -55,13 +56,18 @@ public class AmazonDynamoDBSourceReader extends AbstractSingleSplitReader<SeaTun
 
     @Override
     public void open() throws Exception {
-        dynamoDbClient = DynamoDbClient.builder()
-            .endpointOverride(URI.create(amazondynamodbSourceOptions.getUrl()))
-            // The region is meaningless for local DynamoDb but required for client builder validation
-            .region(Region.of(amazondynamodbSourceOptions.getRegion()))
-            .credentialsProvider(StaticCredentialsProvider.create(
-                AwsBasicCredentials.create(amazondynamodbSourceOptions.getAccessKeyId(), amazondynamodbSourceOptions.getSecretAccessKey())))
-            .build();
+        dynamoDbClient =
+                DynamoDbClient.builder()
+                        .endpointOverride(URI.create(amazondynamodbSourceOptions.getUrl()))
+                        // The region is meaningless for local DynamoDb but required for client
+                        // builder validation
+                        .region(Region.of(amazondynamodbSourceOptions.getRegion()))
+                        .credentialsProvider(
+                                StaticCredentialsProvider.create(
+                                        AwsBasicCredentials.create(
+                                                amazondynamodbSourceOptions.getAccessKeyId(),
+                                                amazondynamodbSourceOptions.getSecretAccessKey())))
+                        .build();
     }
 
     @Override
@@ -72,13 +78,17 @@ public class AmazonDynamoDBSourceReader extends AbstractSingleSplitReader<SeaTun
     @Override
     @SuppressWarnings("magicnumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        ScanResponse scan = dynamoDbClient.scan(ScanRequest.builder()
-            .tableName(amazondynamodbSourceOptions.getTable())
-            .build());
+        ScanResponse scan =
+                dynamoDbClient.scan(
+                        ScanRequest.builder()
+                                .tableName(amazondynamodbSourceOptions.getTable())
+                                .build());
         if (scan.hasItems()) {
-            scan.items().forEach(item -> {
-                output.collect(seaTunnelRowDeserializer.deserialize(item));
-            });
+            scan.items()
+                    .forEach(
+                            item -> {
+                                output.collect(seaTunnelRowDeserializer.deserialize(item));
+                            });
         }
         context.signalNoMoreElement();
     }

@@ -32,8 +32,7 @@ import java.io.Serializable;
 public final class StopConfig implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    @Getter
-    private final StopMode stopMode;
+    @Getter private final StopMode stopMode;
     private final String specificOffsetFile;
     private final Long specificOffsetPos;
     private final Long timestamp;
@@ -49,7 +48,8 @@ public final class StopConfig implements Serializable {
             case TIMESTAMP:
                 return offsetFactory.timestamp(timestamp);
             default:
-                throw new IllegalArgumentException(String.format("The %s mode is not supported.", stopMode));
+                throw new IllegalArgumentException(
+                        String.format("The %s mode is not supported.", stopMode));
         }
     }
 }

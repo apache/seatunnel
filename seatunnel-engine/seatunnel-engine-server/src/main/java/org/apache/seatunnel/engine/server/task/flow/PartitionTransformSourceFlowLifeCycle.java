@@ -28,7 +28,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
-public class PartitionTransformSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle implements OneOutputFlowLifeCycle<T> {
+public class PartitionTransformSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle
+        implements OneOutputFlowLifeCycle<T> {
 
     // TODO: init ring buffer
     private Ringbuffer<T>[] ringbuffers;
@@ -39,7 +40,8 @@ public class PartitionTransformSourceFlowLifeCycle<T> extends AbstractFlowLifeCy
 
     private int alignedBarriersCounter = 0;
 
-    public PartitionTransformSourceFlowLifeCycle(SeaTunnelTask runningTask, CompletableFuture<Void> completableFuture) {
+    public PartitionTransformSourceFlowLifeCycle(
+            SeaTunnelTask runningTask, CompletableFuture<Void> completableFuture) {
         super(runningTask, completableFuture);
     }
 
@@ -51,7 +53,8 @@ public class PartitionTransformSourceFlowLifeCycle<T> extends AbstractFlowLifeCy
                 continue;
             }
             // aligned barrier
-            if (alignedBarriers.get(i) != null && alignedBarriers.get(i).getId() == currentCheckpointId) {
+            if (alignedBarriers.get(i) != null
+                    && alignedBarriers.get(i).getId() == currentCheckpointId) {
                 continue;
             }
             // Batch reads are not used because of aligned barriers.

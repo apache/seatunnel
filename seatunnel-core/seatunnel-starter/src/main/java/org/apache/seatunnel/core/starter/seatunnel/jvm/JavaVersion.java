@@ -25,11 +25,14 @@ import java.util.Objects;
 
 public class JavaVersion {
 
-    public static final List<Integer> CURRENT = parse(System.getProperty("java.specification.version"));
+    public static final List<Integer> CURRENT =
+            parse(System.getProperty("java.specification.version"));
 
     static List<Integer> parse(final String value) {
         if (!value.matches("^0*[0-9]+(\\.[0-9]+)*$")) {
-            throw new JvmOptionsParserException(CommonErrorCode.ILLEGAL_ARGUMENT, String.format("JAVA version [%s] of the system is incorrect", value));
+            throw new JvmOptionsParserException(
+                    CommonErrorCode.ILLEGAL_ARGUMENT,
+                    String.format("JAVA version [%s] of the system is incorrect", value));
         }
 
         final List<Integer> version = new ArrayList<Integer>();
@@ -48,5 +51,4 @@ public class JavaVersion {
             return javaVersion.get(1);
         }
     }
-
 }

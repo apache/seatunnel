@@ -25,9 +25,7 @@ public class TDengineSourceSplit implements SourceSplit {
 
     private String splitId;
 
-    /**
-     * final query statement
-     */
+    /** final query statement */
     private String query;
 
     @Override

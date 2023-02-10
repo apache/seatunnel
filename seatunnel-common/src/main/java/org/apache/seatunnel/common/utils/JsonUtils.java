@@ -17,11 +17,6 @@
 
 package org.apache.seatunnel.common.utils;
 
-import static org.apache.seatunnel.shade.com.fasterxml.jackson.databind.DeserializationFeature.ACCEPT_EMPTY_ARRAY_AS_NULL_OBJECT;
-import static org.apache.seatunnel.shade.com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
-import static org.apache.seatunnel.shade.com.fasterxml.jackson.databind.DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL;
-import static org.apache.seatunnel.shade.com.fasterxml.jackson.databind.MapperFeature.REQUIRE_SETTERS_FOR_GETTERS;
-
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonGenerator;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonParser;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
@@ -48,17 +43,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
 
+import static org.apache.seatunnel.shade.com.fasterxml.jackson.databind.DeserializationFeature.ACCEPT_EMPTY_ARRAY_AS_NULL_OBJECT;
+import static org.apache.seatunnel.shade.com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
+import static org.apache.seatunnel.shade.com.fasterxml.jackson.databind.DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL;
+import static org.apache.seatunnel.shade.com.fasterxml.jackson.databind.MapperFeature.REQUIRE_SETTERS_FOR_GETTERS;
+
 public class JsonUtils {
 
-    /**
-     * can use static singleton, inject: just make sure to reuse!
-     */
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
-            .configure(FAIL_ON_UNKNOWN_PROPERTIES, false)
-            .configure(ACCEPT_EMPTY_ARRAY_AS_NULL_OBJECT, true)
-            .configure(READ_UNKNOWN_ENUM_VALUES_AS_NULL, true)
-            .configure(REQUIRE_SETTERS_FOR_GETTERS, true)
-            .setTimeZone(TimeZone.getDefault());
+    /** can use static singleton, inject: just make sure to reuse! */
+    private static final ObjectMapper OBJECT_MAPPER =
+            new ObjectMapper()
+                    .configure(FAIL_ON_UNKNOWN_PROPERTIES, false)
+                    .configure(ACCEPT_EMPTY_ARRAY_AS_NULL_OBJECT, true)
+                    .configure(READ_UNKNOWN_ENUM_VALUES_AS_NULL, true)
+                    .configure(REQUIRE_SETTERS_FOR_GETTERS, true)
+                    .setTimeZone(TimeZone.getDefault());
 
     private JsonUtils() {
         throw new UnsupportedOperationException("Construct JSONUtils");
@@ -83,7 +82,7 @@ public class JsonUtils {
     /**
      * json representation of object
      *
-     * @param object  object
+     * @param object object
      * @param feature feature
      * @return object to json string
      */
@@ -99,16 +98,15 @@ public class JsonUtils {
     /**
      * This method deserializes the specified Json into an object of the specified class. It is not
      * suitable to use if the specified class is a generic type since it will not have the generic
-     * type information because of the Type Erasure feature of Java. Therefore, this method should not
-     * be used if the desired type is a generic type. Note that this method works fine if the any of
-     * the fields of the specified object are generics, just the object itself should not be a
-     * generic type.
+     * type information because of the Type Erasure feature of Java. Therefore, this method should
+     * not be used if the desired type is a generic type. Note that this method works fine if the
+     * any of the fields of the specified object are generics, just the object itself should not be
+     * a generic type.
      *
-     * @param json  the string from which the object is to be deserialized
+     * @param json the string from which the object is to be deserialized
      * @param clazz the class of T
-     * @param <T>   T
-     * @return an object of type T from the string
-     * classOfT
+     * @param <T> T
+     * @return an object of type T from the string classOfT
      */
     public static <T> T parseObject(String json, Class<T> clazz) {
         if (StringUtils.isEmpty(json)) {
@@ -125,9 +123,9 @@ public class JsonUtils {
     /**
      * json to list
      *
-     * @param json  json string
+     * @param json json string
      * @param clazz class
-     * @param <T>   T
+     * @param <T> T
      * @return list
      */
     public static <T> List<T> toList(String json, Class<T> clazz) {
@@ -136,7 +134,8 @@ public class JsonUtils {
         }
 
         try {
-            CollectionType listType = OBJECT_MAPPER.getTypeFactory().constructCollectionType(ArrayList.class, clazz);
+            CollectionType listType =
+                    OBJECT_MAPPER.getTypeFactory().constructCollectionType(ArrayList.class, clazz);
             return OBJECT_MAPPER.readValue(json, listType);
         } catch (Exception e) {
             throw new RuntimeException("Json parse list exception!", e);
@@ -144,11 +143,11 @@ public class JsonUtils {
     }
 
     /**
-     * Method for finding a JSON Object field with specified name in this
-     * node or its child nodes, and returning value it has.
-     * If no matching field is found in this node or its descendants, returns null.
+     * Method for finding a JSON Object field with specified name in this node or its child nodes,
+     * and returning value it has. If no matching field is found in this node or its descendants,
+     * returns null.
      *
-     * @param jsonNode  json node
+     * @param jsonNode json node
      * @param fieldName Name of field to look for
      * @return Value of first matching node found, if any; null if none
      */
@@ -163,31 +162,28 @@ public class JsonUtils {
     }
 
     /**
-     * json to map
-     * {@link #toMap(String, Class, Class)}
+     * json to map {@link #toMap(String, Class, Class)}
      *
      * @param json json
      * @return json to map
      */
     public static Map<String, String> toMap(String json) {
-        return parseObject(json, new TypeReference<Map<String, String>>() {
-        });
+        return parseObject(json, new TypeReference<Map<String, String>>() {});
     }
 
     public static Map<String, Object> toMap(JsonNode jsonNode) {
         ObjectMapper mapper = new ObjectMapper();
-        return mapper.convertValue(jsonNode, new TypeReference<Map<String, Object>>() {
-        });
+        return mapper.convertValue(jsonNode, new TypeReference<Map<String, Object>>() {});
     }
 
     /**
      * json to map
      *
-     * @param json   json
+     * @param json json
      * @param classK classK
      * @param classV classV
-     * @param <K>    K
-     * @param <V>    V
+     * @param <K> K
+     * @param <V> V
      * @return to map
      */
     public static <K, V> Map<K, V> toMap(String json, Class<K> classK, Class<V> classV) {
@@ -196,8 +192,7 @@ public class JsonUtils {
         }
 
         try {
-            return OBJECT_MAPPER.readValue(json, new TypeReference<Map<K, V>>() {
-            });
+            return OBJECT_MAPPER.readValue(json, new TypeReference<Map<K, V>>() {});
         } catch (Exception e) {
             throw new RuntimeException("json to map exception!", e);
         }
@@ -257,21 +252,17 @@ public class JsonUtils {
         }
     }
 
-    /**
-     * json serializer
-     */
+    /** json serializer */
     public static class JsonDataSerializer extends JsonSerializer<String> {
 
         @Override
-        public void serialize(String value, JsonGenerator gen, SerializerProvider provider) throws IOException {
+        public void serialize(String value, JsonGenerator gen, SerializerProvider provider)
+                throws IOException {
             gen.writeRawValue(value);
         }
-
     }
 
-    /**
-     * json data deserializer
-     */
+    /** json data deserializer */
     public static class JsonDataDeserializer extends JsonDeserializer<String> {
 
         @Override
@@ -283,6 +274,5 @@ public class JsonUtils {
                 return node.toString();
             }
         }
-
     }
 }

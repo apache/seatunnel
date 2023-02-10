@@ -32,5 +32,4 @@ public class JsonField implements Serializable {
 
     @OptionMark(description = "The json fields map")
     private Map<String, String> fields;
-
 }

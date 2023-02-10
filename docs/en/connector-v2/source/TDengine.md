@@ -20,21 +20,22 @@ supports query SQL and can achieve projection effect.
 
 ## Options
 
-| name                       | type    | required | default value |
-|----------------------------|---------|----------|---------------|
-| url                       | string  | yes      | -             |
-| username                       | string     | yes      | -             |
-| password                  | string  | yes      | -             |
-| database                        | string  | yes      |          |
-| stable                     | string  | yes      | -             |
-| lower_bound                | long    | yes       | -             |
-| upper_bound                | long    | yes       | -             |
+|    name     |  type  | required | default value |
+|-------------|--------|----------|---------------|
+| url         | string | yes      | -             |
+| username    | string | yes      | -             |
+| password    | string | yes      | -             |
+| database    | string | yes      |               |
+| stable      | string | yes      | -             |
+| lower_bound | long   | yes      | -             |
+| upper_bound | long   | yes      | -             |
 
-### url [string] 
+### url [string]
 
 the url of the TDengine when you select the TDengine
 
 e.g.
+
 ```
 jdbc:TAOS-RS://localhost:6041/
 ```
@@ -66,6 +67,7 @@ the upper_bound of the migration period
 ## Example
 
 ### source
+
 ```hocon
 source {
         TDengine {
@@ -80,3 +82,4 @@ source {
         }
 }
 ```
+

@@ -17,17 +17,17 @@
 
 package org.apache.seatunnel.core.starter.execution;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.net.URL;
 import java.util.List;
 
 /**
- * Runtime environment for each engine, such as spark flink and st-engine,
- * used to store the engine context objects
+ * Runtime environment for each engine, such as spark flink and st-engine, used to store the engine
+ * context objects
  */
 public interface RuntimeEnvironment {
     RuntimeEnvironment setConfig(Config config);
@@ -45,9 +45,7 @@ public interface RuntimeEnvironment {
     void registerPlugin(List<URL> pluginPaths);
 
     default void initialize(Config config) {
-        this.setConfig(config.getConfig("env"))
-                .setJobMode(getJobMode(config))
-                .prepare();
+        this.setConfig(config.getConfig("env")).setJobMode(getJobMode(config)).prepare();
     }
 
     static JobMode getJobMode(Config config) {

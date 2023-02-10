@@ -17,8 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils;
 
-import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Assertions;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.net.URL;
 import java.nio.file.Files;
@@ -49,7 +50,7 @@ import java.util.stream.Stream;
 public class UniqueDatabase {
 
     private static final String[] CREATE_DATABASE_DDL =
-        new String[]{"CREATE DATABASE $DBNAME$;", "USE $DBNAME$;"};
+            new String[] {"CREATE DATABASE $DBNAME$;", "USE $DBNAME$;"};
     private static final Pattern COMMENT_PATTERN = Pattern.compile("^(.*)--.*$");
 
     private final MySqlContainer container;
@@ -59,21 +60,21 @@ public class UniqueDatabase {
     private final String password;
 
     public UniqueDatabase(
-        MySqlContainer container, String databaseName, String username, String password) {
+            MySqlContainer container, String databaseName, String username, String password) {
         this(
-            container,
-            databaseName,
-            Integer.toUnsignedString(new Random().nextInt(), 36),
-            username,
-            password);
+                container,
+                databaseName,
+                Integer.toUnsignedString(new Random().nextInt(), 36),
+                username,
+                password);
     }
 
     private UniqueDatabase(
-        MySqlContainer container,
-        String databaseName,
-        final String identifier,
-        String username,
-        String password) {
+            MySqlContainer container,
+            String databaseName,
+            final String identifier,
+            String username,
+            String password) {
         this.container = container;
         this.databaseName = databaseName + "_" + identifier;
         this.templateName = databaseName;
@@ -101,45 +102,41 @@ public class UniqueDatabase {
         return password;
     }
 
-    /**
-     * @return Fully qualified table name <code>&lt;databaseName&gt;.&lt;tableName&gt;</code>
-     */
+    /** @return Fully qualified table name <code>&lt;databaseName&gt;.&lt;tableName&gt;</code> */
     public String qualifiedTableName(final String tableName) {
         return String.format("%s.%s", databaseName, tableName);
     }
 
-    /**
-     * Creates the database and populates it with initialization SQL script.
-     */
+    /** Creates the database and populates it with initialization SQL script. */
     public void createAndInitialize() {
         final String ddlFile = String.format("ddl/%s.sql", templateName);
         final URL ddlTestFile = UniqueDatabase.class.getClassLoader().getResource(ddlFile);
         Assertions.assertNotNull(ddlTestFile, "Cannot locate " + ddlFile);
         try {
             try (Connection connection =
-                     DriverManager.getConnection(
-                         container.getJdbcUrl(), username, password);
-                 Statement statement = connection.createStatement()) {
+                            DriverManager.getConnection(
+                                    container.getJdbcUrl(), username, password);
+                    Statement statement = connection.createStatement()) {
                 final List<String> statements =
-                    Arrays.stream(
-                            Stream.concat(
-                                    Arrays.stream(CREATE_DATABASE_DDL),
-                                    Files.readAllLines(
-                                            Paths.get(ddlTestFile.toURI()))
-                                        .stream())
-                                .map(String::trim)
-                                .filter(x -> !x.startsWith("--") && !x.isEmpty())
-                                .map(
-                                    x -> {
-                                        final Matcher m =
-                                            COMMENT_PATTERN.matcher(x);
-                                        return m.matches() ? m.group(1) : x;
-                                    })
-                                .map(this::convertSQL)
-                                .collect(Collectors.joining("\n"))
-                                .split(";"))
-                        .map(x -> x.replace("$$", ";"))
-                        .collect(Collectors.toList());
+                        Arrays.stream(
+                                        Stream.concat(
+                                                        Arrays.stream(CREATE_DATABASE_DDL),
+                                                        Files.readAllLines(
+                                                                Paths.get(ddlTestFile.toURI()))
+                                                                .stream())
+                                                .map(String::trim)
+                                                .filter(x -> !x.startsWith("--") && !x.isEmpty())
+                                                .map(
+                                                        x -> {
+                                                            final Matcher m =
+                                                                    COMMENT_PATTERN.matcher(x);
+                                                            return m.matches() ? m.group(1) : x;
+                                                        })
+                                                .map(this::convertSQL)
+                                                .collect(Collectors.joining("\n"))
+                                                .split(";"))
+                                .map(x -> x.replace("$$", ";"))
+                                .collect(Collectors.toList());
                 for (String stmt : statements) {
                     statement.execute(stmt);
                     log.info(stmt);

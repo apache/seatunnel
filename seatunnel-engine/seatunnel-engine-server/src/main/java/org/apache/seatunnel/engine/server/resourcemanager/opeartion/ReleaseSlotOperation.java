@@ -33,8 +33,7 @@ public class ReleaseSlotOperation extends Operation implements IdentifiedDataSer
     private long jobID;
     private SlotProfile slotProfile;
 
-    public ReleaseSlotOperation() {
-    }
+    public ReleaseSlotOperation() {}
 
     public ReleaseSlotOperation(long jobID, SlotProfile slotProfile) {
         this.jobID = jobID;

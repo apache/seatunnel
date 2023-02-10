@@ -17,12 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.common.source.reader;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class RecordsBySplits<E> implements RecordsWithSplitIds<E> {
 
@@ -30,8 +30,7 @@ public class RecordsBySplits<E> implements RecordsWithSplitIds<E> {
     private final Iterator<Map.Entry<String, Collection<E>>> splitsIterator;
     private Iterator<E> recordsInCurrentSplit;
 
-    public RecordsBySplits(Map<String, Collection<E>> recordsBySplit,
-                           Set<String> finishedSplits) {
+    public RecordsBySplits(Map<String, Collection<E>> recordsBySplit, Set<String> finishedSplits) {
         this.splitsIterator = checkNotNull(recordsBySplit, "recordsBySplit").entrySet().iterator();
         this.finishedSplits = checkNotNull(finishedSplits, "finishedSplits");
     }

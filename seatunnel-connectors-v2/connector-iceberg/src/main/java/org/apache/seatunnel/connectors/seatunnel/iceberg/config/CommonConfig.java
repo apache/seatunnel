@@ -17,15 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.config;
 
-import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.HADOOP;
-import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.HIVE;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.Getter;
 import lombok.ToString;
@@ -33,50 +28,63 @@ import lombok.ToString;
 import java.io.Serializable;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.HADOOP;
+import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.HIVE;
+
 @Getter
 @ToString
 public class CommonConfig implements Serializable {
     private static final long serialVersionUID = 239821141534421580L;
 
-    public static final Option<String> KEY_CATALOG_NAME = Options.key("catalog_name")
-        .stringType()
-        .noDefaultValue()
-        .withDescription(" the iceberg catalog name");
+    public static final Option<String> KEY_CATALOG_NAME =
+            Options.key("catalog_name")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(" the iceberg catalog name");
 
-    public static final Option<IcebergCatalogType> KEY_CATALOG_TYPE = Options.key("catalog_type")
-        .enumType(IcebergCatalogType.class)
-        .noDefaultValue()
-        .withDescription(" the iceberg catalog type");
+    public static final Option<IcebergCatalogType> KEY_CATALOG_TYPE =
+            Options.key("catalog_type")
+                    .enumType(IcebergCatalogType.class)
+                    .noDefaultValue()
+                    .withDescription(" the iceberg catalog type");
 
-    public static final Option<String> KEY_NAMESPACE = Options.key("namespace")
-        .stringType()
-        .noDefaultValue()
-        .withDescription(" the iceberg namespace");
+    public static final Option<String> KEY_NAMESPACE =
+            Options.key("namespace")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(" the iceberg namespace");
 
-    public static final Option<String> KEY_TABLE = Options.key("table")
-        .stringType()
-        .noDefaultValue()
-        .withDescription(" the iceberg table");
+    public static final Option<String> KEY_TABLE =
+            Options.key("table")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(" the iceberg table");
 
-    public static final Option<String> KEY_URI = Options.key("uri")
-        .stringType()
-        .noDefaultValue()
-        .withDescription(" the iceberg server uri");
+    public static final Option<String> KEY_URI =
+            Options.key("uri")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(" the iceberg server uri");
 
-    public static final Option<String> KEY_WAREHOUSE = Options.key("warehouse")
-        .stringType()
-        .noDefaultValue()
-        .withDescription(" the iceberg warehouse");
+    public static final Option<String> KEY_WAREHOUSE =
+            Options.key("warehouse")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(" the iceberg warehouse");
 
-    public static final Option<Boolean> KEY_CASE_SENSITIVE = Options.key("case_sensitive")
-        .booleanType()
-        .defaultValue(false)
-        .withDescription(" the iceberg case_sensitive");
+    public static final Option<Boolean> KEY_CASE_SENSITIVE =
+            Options.key("case_sensitive")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(" the iceberg case_sensitive");
 
-    public static final Option<List<String>> KEY_FIELDS = Options.key("fields")
-        .listType()
-        .noDefaultValue()
-        .withDescription(" the iceberg table fields");
+    public static final Option<List<String>> KEY_FIELDS =
+            Options.key("fields")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription(" the iceberg table fields");
 
     private String catalogName;
     private IcebergCatalogType catalogType;
@@ -88,9 +96,9 @@ public class CommonConfig implements Serializable {
 
     public CommonConfig(Config pluginConfig) {
         String catalogType = checkArgumentNotNull(pluginConfig.getString(KEY_CATALOG_TYPE.key()));
-        checkArgument(HADOOP.getType().equals(catalogType)
-                || HIVE.getType().equals(catalogType),
-            "Illegal catalogType: " + catalogType);
+        checkArgument(
+                HADOOP.getType().equals(catalogType) || HIVE.getType().equals(catalogType),
+                "Illegal catalogType: " + catalogType);
 
         this.catalogType = IcebergCatalogType.valueOf(catalogType.toUpperCase());
         this.catalogName = checkArgumentNotNull(pluginConfig.getString(KEY_CATALOG_NAME.key()));

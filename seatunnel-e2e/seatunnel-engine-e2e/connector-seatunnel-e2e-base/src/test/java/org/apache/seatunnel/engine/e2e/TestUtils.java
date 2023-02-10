@@ -30,21 +30,31 @@ import java.util.Map;
 @Slf4j
 public class TestUtils {
     public static String getResource(String confFile) {
-        return System.getProperty("user.dir") + File.separator + "src" + File.separator + "test" + File.separator +
-            "resources" + File.separator + confFile;
+        return System.getProperty("user.dir")
+                + File.separator
+                + "src"
+                + File.separator
+                + "test"
+                + File.separator
+                + "resources"
+                + File.separator
+                + confFile;
     }
 
     /**
-     * For reduce the config files num, we can define a job config template and then create new job config file base on it.
+     * For reduce the config files num, we can define a job config template and then create new job
+     * config file base on it.
      *
-     * @param templateFile   The basic job configuration file, which often contains some content that needs to be replaced
-     *                       at runtime, generates a new final job configuration file for testing after replacement
-     * @param valueMap       replace kv
+     * @param templateFile The basic job configuration file, which often contains some content that
+     *     needs to be replaced at runtime, generates a new final job configuration file for testing
+     *     after replacement
+     * @param valueMap replace kv
      * @param targetFilePath The new config file path
      */
-    public static void createTestConfigFileFromTemplate(@NonNull String templateFile,
-                                                        @NonNull Map<String, String> valueMap,
-                                                        @NonNull String targetFilePath) {
+    public static void createTestConfigFileFromTemplate(
+            @NonNull String templateFile,
+            @NonNull Map<String, String> valueMap,
+            @NonNull String targetFilePath) {
         String templateFilePath = getResource(templateFile);
         String confContent = FileUtils.readFileToStr(Paths.get(templateFilePath));
         String targetConfContent = VariablesSubstitute.substitute(confContent, valueMap);

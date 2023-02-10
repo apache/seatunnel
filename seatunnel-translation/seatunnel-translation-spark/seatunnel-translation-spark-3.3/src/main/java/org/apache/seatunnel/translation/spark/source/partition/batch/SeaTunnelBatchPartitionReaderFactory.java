@@ -32,7 +32,8 @@ public class SeaTunnelBatchPartitionReaderFactory implements PartitionReaderFact
 
     private final int parallelism;
 
-    public SeaTunnelBatchPartitionReaderFactory(SeaTunnelSource<SeaTunnelRow, ?, ?> source, int parallelism) {
+    public SeaTunnelBatchPartitionReaderFactory(
+            SeaTunnelSource<SeaTunnelRow, ?, ?> source, int parallelism) {
         this.source = source;
         this.parallelism = parallelism;
     }

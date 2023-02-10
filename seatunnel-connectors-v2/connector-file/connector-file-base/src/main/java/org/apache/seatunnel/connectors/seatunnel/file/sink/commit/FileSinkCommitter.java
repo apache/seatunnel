@@ -25,9 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Deprecated interface since 2.3.0-beta, now used {@link FileSinkAggregatedCommitter}
- */
+/** Deprecated interface since 2.3.0-beta, now used {@link FileSinkAggregatedCommitter} */
 @Deprecated
 public class FileSinkCommitter implements SinkCommitter<FileCommitInfo> {
     private final FileSystemUtils fileSystemUtils;
@@ -41,20 +39,22 @@ public class FileSinkCommitter implements SinkCommitter<FileCommitInfo> {
         ArrayList<FileCommitInfo> failedCommitInfos = new ArrayList<>();
         for (FileCommitInfo commitInfo : commitInfos) {
             Map<String, String> needMoveFiles = commitInfo.getNeedMoveFiles();
-            needMoveFiles.forEach((k, v) -> {
-                try {
-                    fileSystemUtils.renameFile(k, v, true);
-                } catch (IOException e) {
-                    failedCommitInfos.add(commitInfo);
-                }
-            });
+            needMoveFiles.forEach(
+                    (k, v) -> {
+                        try {
+                            fileSystemUtils.renameFile(k, v, true);
+                        } catch (IOException e) {
+                            failedCommitInfos.add(commitInfo);
+                        }
+                    });
             fileSystemUtils.deleteFile(commitInfo.getTransactionDir());
         }
         return failedCommitInfos;
     }
 
     /**
-     * Abort the transaction, this method will be called (**Only** on Spark engine) when the commit is failed.
+     * Abort the transaction, this method will be called (**Only** on Spark engine) when the commit
+     * is failed.
      *
      * @param commitInfos The list of commit message, used to abort the commit.
      * @throws IOException throw IOException when close failed.
@@ -64,7 +64,8 @@ public class FileSinkCommitter implements SinkCommitter<FileCommitInfo> {
         for (FileCommitInfo commitInfo : commitInfos) {
             Map<String, String> needMoveFiles = commitInfo.getNeedMoveFiles();
             for (Map.Entry<String, String> entry : needMoveFiles.entrySet()) {
-                if (fileSystemUtils.fileExist(entry.getValue()) && !fileSystemUtils.fileExist(entry.getKey())) {
+                if (fileSystemUtils.fileExist(entry.getValue())
+                        && !fileSystemUtils.fileExist(entry.getKey())) {
                     fileSystemUtils.renameFile(entry.getValue(), entry.getKey(), true);
                 }
             }

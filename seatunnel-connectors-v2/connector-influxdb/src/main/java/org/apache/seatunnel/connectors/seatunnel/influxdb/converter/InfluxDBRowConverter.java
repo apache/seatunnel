@@ -29,7 +29,8 @@ import java.util.List;
 
 public class InfluxDBRowConverter {
 
-    public static SeaTunnelRow convert(List<Object> values, SeaTunnelRowType typeInfo, List<Integer> indexList) {
+    public static SeaTunnelRow convert(
+            List<Object> values, SeaTunnelRowType typeInfo, List<Integer> indexList) {
 
         SeaTunnelDataType<?>[] seaTunnelDataTypes = typeInfo.getFieldTypes();
         List<Object> fields = new ArrayList<>(seaTunnelDataTypes.length);
@@ -56,8 +57,9 @@ public class InfluxDBRowConverter {
             } else if (SqlType.STRING.equals(fieldSqlType)) {
                 seaTunnelField = values.get(columnIndex);
             } else {
-                throw new InfluxdbConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                    "Unsupported data type: " + seaTunnelDataType);
+                throw new InfluxdbConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "Unsupported data type: " + seaTunnelDataType);
             }
 
             fields.add(seaTunnelField);

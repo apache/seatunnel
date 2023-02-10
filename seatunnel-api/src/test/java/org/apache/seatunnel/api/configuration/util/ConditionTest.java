@@ -17,22 +17,25 @@
 
 package org.apache.seatunnel.api.configuration.util;
 
-import static org.apache.seatunnel.api.configuration.OptionTest.TEST_MODE;
-import static org.apache.seatunnel.api.configuration.OptionTest.TEST_NUM;
-
 import org.apache.seatunnel.api.configuration.OptionTest;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import static org.apache.seatunnel.api.configuration.OptionTest.TEST_MODE;
+import static org.apache.seatunnel.api.configuration.OptionTest.TEST_NUM;
+
 public class ConditionTest {
-    private static final Condition<OptionTest.TestMode> TEST_CONDITION = Condition.of(TEST_MODE, OptionTest.TestMode.EARLIEST)
-        .or(TEST_MODE, OptionTest.TestMode.LATEST)
-        .and(TEST_NUM, 1000);
+    private static final Condition<OptionTest.TestMode> TEST_CONDITION =
+            Condition.of(TEST_MODE, OptionTest.TestMode.EARLIEST)
+                    .or(TEST_MODE, OptionTest.TestMode.LATEST)
+                    .and(TEST_NUM, 1000);
 
     @Test
     public void testToString() {
-        Assertions.assertEquals("('option.mode' == EARLIEST || 'option.mode' == LATEST) && 'option.num' == 1000", TEST_CONDITION.toString());
+        Assertions.assertEquals(
+                "('option.mode' == EARLIEST || 'option.mode' == LATEST) && 'option.num' == 1000",
+                TEST_CONDITION.toString());
     }
 
     @Test

@@ -24,5 +24,4 @@ public class PhoenixJdbcRowConverter extends AbstractJdbcRowConverter {
     public String converterName() {
         return "Phoenix";
     }
-
 }

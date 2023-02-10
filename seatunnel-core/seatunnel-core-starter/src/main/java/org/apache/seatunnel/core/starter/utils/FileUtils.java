@@ -36,9 +36,9 @@ public class FileUtils {
     }
 
     /**
-     * Get the seatunnel config path.
-     * In client mode, the path to the config file is directly given by user.
-     * In cluster mode, the path to the config file is the `executor path/config file name`.
+     * Get the seatunnel config path. In client mode, the path to the config file is directly given
+     * by user. In cluster mode, the path to the config file is the `executor path/config file
+     * name`.
      *
      * @param args args
      * @return path of the seatunnel config file.
@@ -52,7 +52,8 @@ public class FileUtils {
             case CLUSTER:
                 return Paths.get(getFileName(args.getConfigFile()));
             default:
-                throw new IllegalArgumentException("Unsupported deploy mode: " + args.getDeployMode());
+                throw new IllegalArgumentException(
+                        "Unsupported deploy mode: " + args.getDeployMode());
         }
     }
 
@@ -69,8 +70,7 @@ public class FileUtils {
     }
 
     /**
-     * Get the file name from the given path.
-     * e.g. seatunnel/conf/config.conf -> config.conf
+     * Get the file name from the given path. e.g. seatunnel/conf/config.conf -> config.conf
      *
      * @param filePath the path to the file
      * @return file name
@@ -80,8 +80,7 @@ public class FileUtils {
     }
 
     /**
-     * Get the file extension from the given path.
-     * e.g. seatunnel/conf/config.conf -> conf
+     * Get the file extension from the given path. e.g. seatunnel/conf/config.conf -> conf
      *
      * @param fullName the file's full name.
      * @return file extension

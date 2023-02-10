@@ -33,7 +33,6 @@ import java.util.Map;
  * Format factory for providing configured instances of Canal JSON to RowData {@link
  * DeserializationSchema}.
  */
-
 public class CanalJsonFormatFactory
         implements DeserializationFormatFactory, SerializationFormatFactory {
 
@@ -64,14 +63,15 @@ public class CanalJsonFormatFactory
     public DeserializationFormat createDeserializationFormat(TableFactoryContext context) {
         Map<String, String> options = context.getOptions().toMap();
         boolean ignoreParseErrors = CanalJsonFormatOptions.getIgnoreParseErrors(options);
-        String  databaseInclude = CanalJsonFormatOptions.getDatabaseInclude(options);
-        String  tableInclude = CanalJsonFormatOptions.getTableInclude(options);
+        String databaseInclude = CanalJsonFormatOptions.getDatabaseInclude(options);
+        String tableInclude = CanalJsonFormatOptions.getTableInclude(options);
 
         // TODO config SeaTunnelRowType
         return new DeserializationFormat() {
             @Override
             public DeserializationSchema createDeserializationSchema() {
-                return new CanalJsonDeserializationSchema(null, databaseInclude, tableInclude, ignoreParseErrors);
+                return new CanalJsonDeserializationSchema(
+                        null, databaseInclude, tableInclude, ignoreParseErrors);
             }
         };
     }

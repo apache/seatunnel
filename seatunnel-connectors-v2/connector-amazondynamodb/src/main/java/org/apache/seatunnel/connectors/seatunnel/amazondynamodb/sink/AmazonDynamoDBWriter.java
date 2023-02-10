@@ -31,9 +31,12 @@ public class AmazonDynamoDBWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     private final DynamoDbSinkClient dynamoDbSinkClient;
     private final SeaTunnelRowSerializer serializer;
 
-    public AmazonDynamoDBWriter(AmazonDynamoDBSourceOptions amazondynamodbSourceOptions, SeaTunnelRowType seaTunnelRowType) {
+    public AmazonDynamoDBWriter(
+            AmazonDynamoDBSourceOptions amazondynamodbSourceOptions,
+            SeaTunnelRowType seaTunnelRowType) {
         dynamoDbSinkClient = new DynamoDbSinkClient(amazondynamodbSourceOptions, seaTunnelRowType);
-        serializer = new DefaultSeaTunnelRowSerializer(seaTunnelRowType, amazondynamodbSourceOptions);
+        serializer =
+                new DefaultSeaTunnelRowSerializer(seaTunnelRowType, amazondynamodbSourceOptions);
     }
 
     @Override

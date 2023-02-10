@@ -6,7 +6,7 @@
 
 Send the data as a file to email.
 
- The tested email version is 1.5.6.
+The tested email version is 1.5.6.
 
 ## Key features
 
@@ -14,17 +14,17 @@ Send the data as a file to email.
 
 ## Options
 
-| name                     | type    | required | default value |
-|--------------------------|---------|----------|---------------|
-| email_from_address       | string  | yes      | -             |
-| email_to_address         | string  | yes      | -             |
-| email_host               | string  | yes      | -             |
-| email_transport_protocol | string  | yes      | -             |
-| email_smtp_auth          | string  | yes      | -             |
-| email_authorization_code | string  | yes      | -             |
-| email_message_headline   | string  | yes      | -             |
-| email_message_content    | string  | yes      | -             |
-| common-options           |         | no       | -             |
+|           name           |  type  | required | default value |
+|--------------------------|--------|----------|---------------|
+| email_from_address       | string | yes      | -             |
+| email_to_address         | string | yes      | -             |
+| email_host               | string | yes      | -             |
+| email_transport_protocol | string | yes      | -             |
+| email_smtp_auth          | string | yes      | -             |
+| email_authorization_code | string | yes      | -             |
+| email_message_headline   | string | yes      | -             |
+| email_message_content    | string | yes      | -             |
+| common-options           |        | no       | -             |
 
 ### email_from_address [string]
 
@@ -62,7 +62,6 @@ The body of the entire message.
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
 
-
 ## Example
 
 ```bash
@@ -85,3 +84,4 @@ Sink plugin common parameters, please refer to [Sink Common Options](common-opti
 ### 2.2.0-beta 2022-09-26
 
 - Add Email Sink Connector
+
