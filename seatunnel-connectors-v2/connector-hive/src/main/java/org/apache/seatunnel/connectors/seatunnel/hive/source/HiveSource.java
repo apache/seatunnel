@@ -17,7 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.source;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
@@ -37,13 +40,6 @@ import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
-
-import com.google.auto.service.AutoService;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Table;
@@ -111,8 +107,10 @@ public class HiveSource extends BaseHdfsFileSource {
                     pluginConfig.withValue(
                             BaseSourceConfig.FILE_TYPE.key(),
                             ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()));
-            pluginConfig = pluginConfig.withValue(BaseSourceConfig.FILE_TYPE.key(),
-                    ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()));
+            pluginConfig =
+                    pluginConfig.withValue(
+                            BaseSourceConfig.FILE_TYPE.key(),
+                            ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()));
             Map<String, Object> schema = parseSchema(tableInformation);
             ConfigRenderOptions options = ConfigRenderOptions.concise();
             String render = pluginConfig.root().render(options);
@@ -182,8 +180,7 @@ public class HiveSource extends BaseHdfsFileSource {
             LinkedHashMap<String, Object> fields = new LinkedHashMap<>();
             int start = hiveType.indexOf("<");
             int end = hiveType.lastIndexOf(">");
-            String[] columns = hiveType.substring(start + 1, end)
-                    .split(",");
+            String[] columns = hiveType.substring(start + 1, end).split(",");
             for (String column : columns) {
                 String[] splits = column.split(":");
                 fields.put(splits[0], covertHiveTypeToSeaTunnelType(splits[1]));

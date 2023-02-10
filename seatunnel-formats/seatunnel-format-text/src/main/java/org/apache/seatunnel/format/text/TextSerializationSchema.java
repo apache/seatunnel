@@ -27,7 +27,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
-import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.format.text.exception.SeaTunnelTextFormatException;
 
@@ -101,13 +100,15 @@ public class TextSerializationSchema implements SerializationSchema {
             case MAP:
                 SeaTunnelDataType<?> keyType = ((MapType<?, ?>) fieldType).getKeyType();
                 SeaTunnelDataType<?> valueType = ((MapType<?, ?>) fieldType).getValueType();
-                return ((Map<Object, Object>) field).entrySet()
-                        .stream()
-                        .map(entry ->
-                                String.join(MAP_DELIMITER,
-                                        convert(entry.getKey(), keyType),
-                                        convert(entry.getValue(), valueType)))
-                        .collect(Collectors.joining(LIST_DELIMITER));
+                return ((Map<Object, Object>) field)
+                        .entrySet().stream()
+                                .map(
+                                        entry ->
+                                                String.join(
+                                                        MAP_DELIMITER,
+                                                        convert(entry.getKey(), keyType),
+                                                        convert(entry.getValue(), valueType)))
+                                .collect(Collectors.joining(LIST_DELIMITER));
             case ROW:
                 Object[] fields = ((SeaTunnelRow) field).getFields();
                 String[] strings = new String[fields.length];

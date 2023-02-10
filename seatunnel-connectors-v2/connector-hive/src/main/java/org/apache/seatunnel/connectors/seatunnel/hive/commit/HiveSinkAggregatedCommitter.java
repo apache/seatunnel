@@ -24,9 +24,6 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggreg
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
 import org.apache.thrift.TException;
 

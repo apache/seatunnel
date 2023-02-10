@@ -79,8 +79,10 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
                     FileConnectorErrorCode.FILE_LIST_GET_FAILED, errorMsg, e);
         }
         if (filePaths.isEmpty()) {
-            throw new FileConnectorException(FileConnectorErrorCode.FILE_LIST_EMPTY, "The target file list is empty," +
-                    "SeaTunnel will not be able to sync empty table");
+            throw new FileConnectorException(
+                    FileConnectorErrorCode.FILE_LIST_EMPTY,
+                    "The target file list is empty,"
+                            + "SeaTunnel will not be able to sync empty table");
         }
         // support user-defined schema
         FileFormat fileFormat =

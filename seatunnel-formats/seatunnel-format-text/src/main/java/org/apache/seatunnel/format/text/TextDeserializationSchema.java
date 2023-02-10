@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.format.text;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
-
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -40,7 +38,6 @@ import lombok.NonNull;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -51,6 +48,7 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
     @NonNull private SeaTunnelRowType seaTunnelRowType;
     @NonNull private String delimiter;
     @Builder.Default private DateUtils.Formatter dateFormatter = DateUtils.Formatter.YYYY_MM_DD;
+
     @Builder.Default
     private DateTimeUtils.Formatter dateTimeFormatter = DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
 
