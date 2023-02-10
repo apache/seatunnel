@@ -27,9 +27,7 @@ import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import java.io.IOException;
 import java.util.Objects;
 
-/**
- * Used to describe the status of the current slot, including resource size and assign status
- */
+/** Used to describe the status of the current slot, including resource size and assign status */
 public class SlotProfile implements IdentifiedDataSerializable {
 
     private Address worker;
@@ -48,7 +46,8 @@ public class SlotProfile implements IdentifiedDataSerializable {
         worker = new Address();
     }
 
-    public SlotProfile(Address worker, int slotID, ResourceProfile resourceProfile, String sequence) {
+    public SlotProfile(
+            Address worker, int slotID, ResourceProfile resourceProfile, String sequence) {
         this.worker = worker;
         this.slotID = slotID;
         this.resourceProfile = resourceProfile;
@@ -89,7 +88,9 @@ public class SlotProfile implements IdentifiedDataSerializable {
             return false;
         }
         SlotProfile that = (SlotProfile) o;
-        return slotID == that.slotID && worker.equals(that.worker) && sequence.equals(that.sequence);
+        return slotID == that.slotID
+                && worker.equals(that.worker)
+                && sequence.equals(that.sequence);
     }
 
     @Override
@@ -107,14 +108,21 @@ public class SlotProfile implements IdentifiedDataSerializable {
 
     @Override
     public String toString() {
-        return "SlotProfile{" +
-            "worker=" + worker +
-            ", slotID=" + slotID +
-            ", ownerJobID=" + ownerJobID +
-            ", assigned=" + assigned +
-            ", resourceProfile=" + resourceProfile +
-            ", sequence='" + sequence + '\'' +
-            '}';
+        return "SlotProfile{"
+                + "worker="
+                + worker
+                + ", slotID="
+                + slotID
+                + ", ownerJobID="
+                + ownerJobID
+                + ", assigned="
+                + assigned
+                + ", resourceProfile="
+                + resourceProfile
+                + ", sequence='"
+                + sequence
+                + '\''
+                + '}';
     }
 
     @Override

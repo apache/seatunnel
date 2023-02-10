@@ -28,9 +28,10 @@ public class ClickhouseBatchStatement {
     private final JdbcBatchStatementExecutor jdbcBatchStatementExecutor;
     private final IntHolder intHolder;
 
-    public ClickhouseBatchStatement(ClickHouseConnectionImpl clickHouseConnection,
-                                    JdbcBatchStatementExecutor jdbcBatchStatementExecutor,
-                                    IntHolder intHolder) {
+    public ClickhouseBatchStatement(
+            ClickHouseConnectionImpl clickHouseConnection,
+            JdbcBatchStatementExecutor jdbcBatchStatementExecutor,
+            IntHolder intHolder) {
         this.clickHouseConnection = clickHouseConnection;
         this.jdbcBatchStatementExecutor = jdbcBatchStatementExecutor;
         this.intHolder = intHolder;
@@ -47,5 +48,4 @@ public class ClickhouseBatchStatement {
     public IntHolder getIntHolder() {
         return intHolder;
     }
-
 }

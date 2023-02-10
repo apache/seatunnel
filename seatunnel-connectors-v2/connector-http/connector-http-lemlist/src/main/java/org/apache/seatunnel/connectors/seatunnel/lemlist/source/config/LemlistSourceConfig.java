@@ -23,9 +23,9 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 
 public class LemlistSourceConfig extends HttpConfig {
     public static final String AUTHORIZATION = "Authorization";
-    public static final Option<String> PASSWORD = Options.key("password")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("Lemlist login api key");
-
+    public static final Option<String> PASSWORD =
+            Options.key("password")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Lemlist login api key");
 }

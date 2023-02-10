@@ -34,7 +34,7 @@ public abstract class AbstractConfiguration {
      * check the configuration keys
      *
      * @param config configuration
-     * @param keys  keys
+     * @param keys keys
      */
     void checkConfiguration(Map<String, String> config, String... keys) {
         for (String key : keys) {
@@ -44,21 +44,23 @@ public abstract class AbstractConfiguration {
         }
     }
 
-    public abstract Configuration buildConfiguration(Map<String, String> config) throws CheckpointStorageException;
+    public abstract Configuration buildConfiguration(Map<String, String> config)
+            throws CheckpointStorageException;
 
     /**
      * set extra options for configuration
      *
      * @param hadoopConf hadoop configuration
-     * @param config     extra options
-     * @param prefix     prefix of extra options
+     * @param config extra options
+     * @param prefix prefix of extra options
      */
-    void setExtraConfiguration(Configuration hadoopConf, Map<String, String> config, String prefix) {
-        config.forEach((k, v) -> {
-            if (k.startsWith(prefix)) {
-                hadoopConf.set(k, v);
-            }
-        });
+    void setExtraConfiguration(
+            Configuration hadoopConf, Map<String, String> config, String prefix) {
+        config.forEach(
+                (k, v) -> {
+                    if (k.startsWith(prefix)) {
+                        hadoopConf.set(k, v);
+                    }
+                });
     }
-
 }

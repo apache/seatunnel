@@ -50,27 +50,25 @@ public class JobMetricsRunner implements Runnable {
             long seconds = Duration.between(lastRunTime, now).getSeconds();
             long averageRead = (jobMetricsSummary.getSourceReadCount() - lastReadCount) / seconds;
             long averageWrite = (jobMetricsSummary.getSinkWriteCount() - lastWriteCount) / seconds;
-            log.info(StringFormatUtils.formatTable(
-                "Job Progress Information",
-                "Job Id",
-                jobId,
-                "Read Count So Far",
-                jobMetricsSummary.getSourceReadCount(),
-
-                "Write Count So Far",
-                jobMetricsSummary.getSinkWriteCount(),
-
-                "Average Read Count",
-                averageRead + "/s",
-
-                "Average Write Count",
-                averageWrite + "/s",
-
-                "Last Statistic Time",
-                DateTimeUtils.toString(lastRunTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS),
-
-                "Current Statistic Time",
-                DateTimeUtils.toString(now, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS)));
+            log.info(
+                    StringFormatUtils.formatTable(
+                            "Job Progress Information",
+                            "Job Id",
+                            jobId,
+                            "Read Count So Far",
+                            jobMetricsSummary.getSourceReadCount(),
+                            "Write Count So Far",
+                            jobMetricsSummary.getSinkWriteCount(),
+                            "Average Read Count",
+                            averageRead + "/s",
+                            "Average Write Count",
+                            averageWrite + "/s",
+                            "Last Statistic Time",
+                            DateTimeUtils.toString(
+                                    lastRunTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS),
+                            "Current Statistic Time",
+                            DateTimeUtils.toString(
+                                    now, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS)));
             lastRunTime = now;
             lastReadCount = jobMetricsSummary.getSourceReadCount();
             lastWriteCount = jobMetricsSummary.getSinkWriteCount();

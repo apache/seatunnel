@@ -17,10 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.util;
 
+import org.apache.commons.lang3.StringUtils;
+
 import com.clickhouse.client.ClickHouseCredentials;
 import com.clickhouse.client.ClickHouseNode;
 import com.clickhouse.client.ClickHouseProtocol;
-import org.apache.commons.lang3.StringUtils;
 
 import java.util.Arrays;
 import java.util.List;
@@ -28,17 +29,30 @@ import java.util.stream.Collectors;
 
 public class ClickhouseUtil {
 
-    public static List<ClickHouseNode> createNodes(String nodeAddress, String database, String username,
-            String password) {
-        return Arrays.stream(nodeAddress.split(",")).map(address -> {
-            String[] nodeAndPort = address.split(":", 2);
-            if (StringUtils.isEmpty(username) && StringUtils.isEmpty(password)) {
-                return ClickHouseNode.builder().host(nodeAndPort[0]).port(ClickHouseProtocol.HTTP,
-                        Integer.parseInt(nodeAndPort[1])).database(database).build();
-            }
-            return ClickHouseNode.builder().host(nodeAndPort[0]).port(ClickHouseProtocol.HTTP,
-                            Integer.parseInt(nodeAndPort[1])).database(database)
-                    .credentials(ClickHouseCredentials.fromUserAndPassword(username, password)).build();
-        }).collect(Collectors.toList());
+    public static List<ClickHouseNode> createNodes(
+            String nodeAddress, String database, String username, String password) {
+        return Arrays.stream(nodeAddress.split(","))
+                .map(
+                        address -> {
+                            String[] nodeAndPort = address.split(":", 2);
+                            if (StringUtils.isEmpty(username) && StringUtils.isEmpty(password)) {
+                                return ClickHouseNode.builder()
+                                        .host(nodeAndPort[0])
+                                        .port(
+                                                ClickHouseProtocol.HTTP,
+                                                Integer.parseInt(nodeAndPort[1]))
+                                        .database(database)
+                                        .build();
+                            }
+                            return ClickHouseNode.builder()
+                                    .host(nodeAndPort[0])
+                                    .port(ClickHouseProtocol.HTTP, Integer.parseInt(nodeAndPort[1]))
+                                    .database(database)
+                                    .credentials(
+                                            ClickHouseCredentials.fromUserAndPassword(
+                                                    username, password))
+                                    .build();
+                        })
+                .collect(Collectors.toList());
     }
 }

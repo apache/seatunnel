@@ -17,9 +17,7 @@
 
 package org.apache.seatunnel.api.sink;
 
-/**
- * The default {@link SinkWriter.Context} implement class.
- */
+/** The default {@link SinkWriter.Context} implement class. */
 public class DefaultSinkWriterContext implements SinkWriter.Context {
     private final int subtask;
 
@@ -31,5 +29,4 @@ public class DefaultSinkWriterContext implements SinkWriter.Context {
     public int getIndexOfSubtask() {
         return subtask;
     }
-
 }

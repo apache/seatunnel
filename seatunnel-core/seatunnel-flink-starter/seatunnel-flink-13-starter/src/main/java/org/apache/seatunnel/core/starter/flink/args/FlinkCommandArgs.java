@@ -37,15 +37,18 @@ import java.util.List;
 @Data
 public class FlinkCommandArgs extends AbstractCommandArgs {
 
-    @Parameter(names = {"-e", "--deploy-mode"},
-        converter = FlinkDeployModeConverter.class,
-        description = "Flink job deploy mode, support [run, run-application]")
+    @Parameter(
+            names = {"-e", "--deploy-mode"},
+            converter = FlinkDeployModeConverter.class,
+            description = "Flink job deploy mode, support [run, run-application]")
     private DeployMode deployMode = DeployMode.RUN;
 
-    @Parameter(names = {"--master", "--target"},
-        converter = FlinkMasterTargetConverter.class,
-        description = "Flink job submitted target master, support [local, remote, yarn-session, yarn-per-job, " +
-            "kubernetes-session, yarn-application, kubernetes-application]")
+    @Parameter(
+            names = {"--master", "--target"},
+            converter = FlinkMasterTargetConverter.class,
+            description =
+                    "Flink job submitted target master, support [local, remote, yarn-session, yarn-per-job, "
+                            + "kubernetes-session, yarn-application, kubernetes-application]")
     private MasterType masterType;
 
     @Override
@@ -60,14 +63,22 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
 
     @Override
     public String toString() {
-        return "FlinkCommandArgs{" +
-            "deployMode=" + deployMode +
-            ", masterType=" + masterType +
-            ", configFile='" + configFile + '\'' +
-            ", variables=" + variables +
-            ", jobName='" + jobName + '\'' +
-            ", originalParameters=" + originalParameters +
-            '}';
+        return "FlinkCommandArgs{"
+                + "deployMode="
+                + deployMode
+                + ", masterType="
+                + masterType
+                + ", configFile='"
+                + configFile
+                + '\''
+                + ", variables="
+                + variables
+                + ", jobName='"
+                + jobName
+                + '\''
+                + ", originalParameters="
+                + originalParameters
+                + '}';
     }
 
     public static class FlinkMasterTargetConverter implements IStringConverter<MasterType> {
@@ -89,9 +100,10 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
             if (MASTER_TYPE_LIST.contains(masterType)) {
                 return masterType;
             } else {
-                throw new IllegalArgumentException("SeaTunnel job on flink engine submitted target only " +
-                    "support these options: [local, remote, yarn-session, yarn-per-job, kubernetes-session, " +
-                    "yarn-application, kubernetes-application]");
+                throw new IllegalArgumentException(
+                        "SeaTunnel job on flink engine submitted target only "
+                                + "support these options: [local, remote, yarn-session, yarn-per-job, kubernetes-session, "
+                                + "yarn-application, kubernetes-application]");
             }
         }
     }
@@ -110,8 +122,9 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
             if (DEPLOY_MODE_TYPE_LIST.contains(deployMode)) {
                 return deployMode;
             } else {
-                throw new IllegalArgumentException("SeaTunnel job on flink engine deploy mode only " +
-                    "support these options: [run, run-application]");
+                throw new IllegalArgumentException(
+                        "SeaTunnel job on flink engine deploy mode only "
+                                + "support these options: [run, run-application]");
             }
         }
     }

@@ -25,7 +25,8 @@ public class OneSignalConnectorException extends SeaTunnelRuntimeException {
         super(seaTunnelErrorCode, errorMessage);
     }
 
-    public OneSignalConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+    public OneSignalConnectorException(
+            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
         super(seaTunnelErrorCode, errorMessage, cause);
     }
 

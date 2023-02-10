@@ -17,11 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.config;
 
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.COLLECTION;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.MATCHQUERY;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.URI;
-
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.Builder;
@@ -29,23 +24,21 @@ import lombok.Getter;
 
 import java.io.Serializable;
 
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.COLLECTION;
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.MATCHQUERY;
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.URI;
 
-
-/**
- * The config of mongodb
- */
+/** The config of mongodb */
 @Builder
 @Getter
 public class MongodbConfig implements Serializable {
 
-    @Builder.Default
-    private String uri = URI.defaultValue();
-    @Builder.Default
-    private String database = DATABASE.defaultValue();
-    @Builder.Default
-    private String collection = COLLECTION.defaultValue();
-    @Builder.Default
-    private String matchQuery = MATCHQUERY.defaultValue();
+    @Builder.Default private String uri = URI.defaultValue();
+    @Builder.Default private String database = DATABASE.defaultValue();
+    @Builder.Default private String collection = COLLECTION.defaultValue();
+    @Builder.Default private String matchQuery = MATCHQUERY.defaultValue();
+
     public static MongodbConfig buildWithConfig(Config config) {
         MongodbConfigBuilder builder = MongodbConfig.builder();
         if (config.hasPath(URI.key())) {
@@ -62,5 +55,4 @@ public class MongodbConfig implements Serializable {
         }
         return builder.build();
     }
-
 }

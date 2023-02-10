@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
@@ -34,8 +36,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcAggregatedCommit
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import com.google.auto.service.AutoService;
 
 import java.io.IOException;
@@ -45,7 +45,7 @@ import java.util.Optional;
 
 @AutoService(SeaTunnelSink.class)
 public class JdbcSink
-    implements SeaTunnelSink<SeaTunnelRow, JdbcSinkState, XidInfo, JdbcAggregatedCommitInfo> {
+        implements SeaTunnelSink<SeaTunnelRow, JdbcSinkState, XidInfo, JdbcAggregatedCommitInfo> {
 
     private Config pluginConfig;
 
@@ -63,8 +63,7 @@ public class JdbcSink
     }
 
     @Override
-    public void prepare(Config pluginConfig)
-        throws PrepareFailException {
+    public void prepare(Config pluginConfig) throws PrepareFailException {
         this.pluginConfig = pluginConfig;
         this.jdbcSinkOptions = new JdbcSinkOptions(this.pluginConfig);
         this.dialect = JdbcDialectLoader.load(jdbcSinkOptions.getJdbcConnectionOptions().getUrl());
@@ -72,46 +71,37 @@ public class JdbcSink
 
     @Override
     public SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> createWriter(SinkWriter.Context context)
-        throws IOException {
+            throws IOException {
         SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> sinkWriter;
         if (jdbcSinkOptions.isExactlyOnce()) {
-            sinkWriter = new JdbcExactlyOnceSinkWriter(
-                context,
-                jobContext,
-                dialect,
-                jdbcSinkOptions,
-                seaTunnelRowType,
-                new ArrayList<>()
-            );
+            sinkWriter =
+                    new JdbcExactlyOnceSinkWriter(
+                            context,
+                            jobContext,
+                            dialect,
+                            jdbcSinkOptions,
+                            seaTunnelRowType,
+                            new ArrayList<>());
         } else {
-            sinkWriter = new JdbcSinkWriter(
-                context,
-                dialect,
-                jdbcSinkOptions,
-                seaTunnelRowType);
+            sinkWriter = new JdbcSinkWriter(context, dialect, jdbcSinkOptions, seaTunnelRowType);
         }
 
         return sinkWriter;
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> restoreWriter(SinkWriter.Context context, List<JdbcSinkState> states)
-        throws IOException {
+    public SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> restoreWriter(
+            SinkWriter.Context context, List<JdbcSinkState> states) throws IOException {
         if (jdbcSinkOptions.isExactlyOnce()) {
             return new JdbcExactlyOnceSinkWriter(
-                context,
-                jobContext,
-                dialect,
-                jdbcSinkOptions,
-                seaTunnelRowType,
-                states
-            );
+                    context, jobContext, dialect, jdbcSinkOptions, seaTunnelRowType, states);
         }
         return SeaTunnelSink.super.restoreWriter(context, states);
     }
 
     @Override
-    public Optional<SinkAggregatedCommitter<XidInfo, JdbcAggregatedCommitInfo>> createAggregatedCommitter() {
+    public Optional<SinkAggregatedCommitter<XidInfo, JdbcAggregatedCommitInfo>>
+            createAggregatedCommitter() {
         if (jdbcSinkOptions.isExactlyOnce()) {
             return Optional.of(new JdbcSinkAggregatedCommitter(jdbcSinkOptions));
         }
@@ -134,7 +124,6 @@ public class JdbcSink
             return Optional.of(new DefaultSerializer<>());
         }
         return Optional.empty();
-
     }
 
     @Override

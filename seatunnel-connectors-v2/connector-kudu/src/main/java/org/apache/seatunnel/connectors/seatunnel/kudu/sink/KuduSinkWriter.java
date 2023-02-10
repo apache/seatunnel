@@ -17,13 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduOutputFormat;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -38,14 +38,13 @@ public class KuduSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private KuduOutputFormat fileWriter;
     private KuduSinkConfig kuduSinkConfig;
 
-    public KuduSinkWriter(@NonNull SeaTunnelRowType seaTunnelRowType,
-                          @NonNull Config pluginConfig) {
+    public KuduSinkWriter(
+            @NonNull SeaTunnelRowType seaTunnelRowType, @NonNull Config pluginConfig) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.pluginConfig = pluginConfig;
 
         kuduSinkConfig = new KuduSinkConfig(this.pluginConfig);
         fileWriter = new KuduOutputFormat(kuduSinkConfig);
-
     }
 
     @Override

@@ -23,7 +23,6 @@ import java.util.Set;
  * An interface for the elements passed from the fetchers to the source reader.
  *
  * @param <E>
- *
  */
 public interface RecordsWithSplitIds<E> {
 

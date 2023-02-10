@@ -17,15 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto;
 
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig;
-
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig;
 
 import lombok.Data;
 
-/**
- * index config by seatunnel
- */
+/** index config by seatunnel */
 @Data
 public class IndexInfo {
 
@@ -40,7 +38,10 @@ public class IndexInfo {
             type = pluginConfig.getString(SinkConfig.INDEX_TYPE.key());
         }
         if (pluginConfig.hasPath(SinkConfig.PRIMARY_KEYS.key())) {
-            primaryKeys = pluginConfig.getStringList(SinkConfig.PRIMARY_KEYS.key()).toArray(new String[0]);
+            primaryKeys =
+                    pluginConfig
+                            .getStringList(SinkConfig.PRIMARY_KEYS.key())
+                            .toArray(new String[0]);
         }
         keyDelimiter = SinkConfig.KEY_DELIMITER.defaultValue();
         if (pluginConfig.hasPath(SinkConfig.KEY_DELIMITER.key())) {

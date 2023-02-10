@@ -5,22 +5,25 @@
 ## Description
 
 A sink plugin which use Enterprise WeChat robot send message
+
 > For example, if the data from upstream is [`"alarmStatus": "firing", "alarmTime": "2022-08-03 01:38:49"，"alarmContent": "The disk usage exceeds the threshold"`], the output content to WeChat Robot is the following:
+>
 > ```
 > alarmStatus: firing 
 > alarmTime: 2022-08-03 01:38:49
 > alarmContent: The disk usage exceeds the threshold
 > ```
-**Tips: WeChat sink only support `string` webhook and the data from source will be treated as body content in web hook.**
+>
+> **Tips: WeChat sink only support `string` webhook and the data from source will be treated as body content in web hook.**
 
 ## Key features
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 
-##  Options
+## Options
 
-| name                  | type   | required | default value |
-| --------------------- |--------|----------| ------------- |
+|         name          |  type  | required | default value |
+|-----------------------|--------|----------|---------------|
 | url                   | String | Yes      | -             |
 | mentioned_list        | array  | No       | -             |
 | mentioned_mobile_list | array  | No       | -             |
@@ -67,4 +70,6 @@ WeChat {
 - Add Enterprise-WeChat Sink Connector
 
 ### 2.3.0-beta 2022-10-20
+
 - [BugFix] Fix Enterprise-WeChat Sink data serialization ([2856](https://github.com/apache/incubator-seatunnel/pull/2856))
+

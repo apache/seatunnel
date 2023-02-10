@@ -30,15 +30,16 @@ public class SparkSinkInjector {
 
     private static final String SINK_NAME = SeaTunnelSink.class.getSimpleName();
 
-    public static DataStreamWriter<Row> inject(DataStreamWriter<Row> dataset, SeaTunnelSink<?, ?, ?, ?> sink) {
+    public static DataStreamWriter<Row> inject(
+            DataStreamWriter<Row> dataset, SeaTunnelSink<?, ?, ?, ?> sink) {
         return dataset.format(SINK_NAME)
-            .outputMode(OutputMode.Append())
-            .option(Constants.SINK_SERIALIZATION, SerializationUtils.objectToString(sink));
+                .outputMode(OutputMode.Append())
+                .option(Constants.SINK_SERIALIZATION, SerializationUtils.objectToString(sink));
     }
 
-    public static DataFrameWriter<Row> inject(DataFrameWriter<Row> dataset, SeaTunnelSink<?, ?, ?, ?> sink) {
+    public static DataFrameWriter<Row> inject(
+            DataFrameWriter<Row> dataset, SeaTunnelSink<?, ?, ?, ?> sink) {
         return dataset.format(SINK_NAME)
-            .option(Constants.SINK_SERIALIZATION, SerializationUtils.objectToString(sink));
+                .option(Constants.SINK_SERIALIZATION, SerializationUtils.objectToString(sink));
     }
-
 }

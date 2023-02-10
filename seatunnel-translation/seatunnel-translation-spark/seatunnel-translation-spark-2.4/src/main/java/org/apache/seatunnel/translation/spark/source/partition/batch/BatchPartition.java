@@ -33,7 +33,8 @@ public class BatchPartition implements InputPartition<InternalRow> {
     protected final Integer parallelism;
     protected final Integer subtaskId;
 
-    public BatchPartition(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer subtaskId) {
+    public BatchPartition(
+            SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer subtaskId) {
         this.source = source;
         this.parallelism = parallelism;
         this.subtaskId = subtaskId;

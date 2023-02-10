@@ -1,6 +1,7 @@
 ---
+
 sidebar_position: 2
----
+-------------------
 
 # Intro to config file
 
@@ -10,7 +11,6 @@ configure the Config file.
 
 The main format of the Config file is `hocon`, for more details of this format type you can refer to [HOCON-GUIDE](https://github.com/lightbend/config/blob/main/HOCON.md),
 BTW, we also support the `json` format, but you should know that the name of the config file should end with `.json`
-
 
 ## Example
 

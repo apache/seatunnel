@@ -27,8 +27,7 @@ import java.io.Serializable;
 import java.util.Collection;
 
 /**
- *
- * <p>Typical workflow:
+ * Typical workflow:
  *
  * <ol>
  *   <li>{@link #open}
@@ -41,13 +40,10 @@ import java.util.Collection;
  *
  * {@link #recover} can be used to get abandoned prepared transactions for cleanup.
  */
+public interface XaFacade extends JdbcConnectionProvider, Serializable, AutoCloseable {
 
-public interface XaFacade
-        extends JdbcConnectionProvider, Serializable, AutoCloseable {
-
-    static XaFacade fromJdbcConnectionOptions(
-            JdbcConnectionOptions jdbcConnectionOptions) {
-        return  new XaFacadeImplAutoLoad(jdbcConnectionOptions);
+    static XaFacade fromJdbcConnectionOptions(JdbcConnectionOptions jdbcConnectionOptions) {
+        return new XaFacadeImplAutoLoad(jdbcConnectionOptions);
     }
 
     void open() throws Exception;
@@ -63,8 +59,7 @@ public interface XaFacade
     /**
      * Commit previously prepared transaction.
      *
-     * @param ignoreUnknown whether to ignore {@link XAException#XAER_NOTA
-     *     XAER_NOTA} error.
+     * @param ignoreUnknown whether to ignore {@link XAException#XAER_NOTA XAER_NOTA} error.
      */
     void commit(Xid xid, boolean ignoreUnknown) throws TransientXaException;
 

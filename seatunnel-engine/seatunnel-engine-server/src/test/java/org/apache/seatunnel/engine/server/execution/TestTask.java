@@ -24,9 +24,7 @@ import lombok.NonNull;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/**
- * For test use, only print logs
- */
+/** For test use, only print logs */
 public class TestTask implements Task {
 
     AtomicBoolean stop;
@@ -41,8 +39,7 @@ public class TestTask implements Task {
         this.isThreadsShare = isThreadsShare;
     }
 
-    @NonNull
-    @Override
+    @NonNull @Override
     public ProgressState call() {
         ProgressState progressState;
         if (!stop.get()) {
@@ -59,8 +56,7 @@ public class TestTask implements Task {
         return progressState;
     }
 
-    @NonNull
-    @Override
+    @NonNull @Override
     public Long getTaskID() {
         return (long) this.hashCode();
     }

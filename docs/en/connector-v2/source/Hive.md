@@ -33,12 +33,12 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 
 ## Options
 
-| name                 | type   | required | default value |
+|         name         |  type  | required | default value |
 |----------------------|--------|----------|---------------|
 | table_name           | string | yes      | -             |
 | metastore_uri        | string | yes      | -             |
 | kerberos_principal   | string | no       | -             |
-| kerberos_keytab_path | string | no       | -             | 
+| kerberos_keytab_path | string | no       | -             |
 | read_partitions      | list   | no       | -             |
 | common-options       |        | no       | -             |
 
@@ -65,7 +65,7 @@ The principal of kerberos authentication
 
 The keytab file path of kerberos authentication
 
-### common options 
+### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
@@ -90,3 +90,4 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 
 - [Improve] Support kerberos authentication ([3840](https://github.com/apache/incubator-seatunnel/pull/3840))
 - Support user-defined partitions ([3842](https://github.com/apache/incubator-seatunnel/pull/3842))
+

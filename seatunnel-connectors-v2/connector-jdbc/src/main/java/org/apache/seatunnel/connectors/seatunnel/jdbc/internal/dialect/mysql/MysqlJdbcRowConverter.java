@@ -24,5 +24,4 @@ public class MysqlJdbcRowConverter extends AbstractJdbcRowConverter {
     public String converterName() {
         return "MySql";
     }
-
 }

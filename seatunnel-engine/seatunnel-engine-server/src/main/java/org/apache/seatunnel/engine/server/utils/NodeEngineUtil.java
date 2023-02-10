@@ -27,16 +27,27 @@ import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
 public class NodeEngineUtil {
 
-    private NodeEngineUtil() {
-    }
+    private NodeEngineUtil() {}
 
-    public static <E> InvocationFuture<E> sendOperationToMasterNode(NodeEngine nodeEngine, Operation operation) {
-        InvocationBuilder invocationBuilder = nodeEngine.getOperationService().createInvocationBuilder(SeaTunnelServer.SERVICE_NAME, operation, nodeEngine.getMasterAddress());
+    public static <E> InvocationFuture<E> sendOperationToMasterNode(
+            NodeEngine nodeEngine, Operation operation) {
+        InvocationBuilder invocationBuilder =
+                nodeEngine
+                        .getOperationService()
+                        .createInvocationBuilder(
+                                SeaTunnelServer.SERVICE_NAME,
+                                operation,
+                                nodeEngine.getMasterAddress());
         return invocationBuilder.invoke();
     }
 
-    public static <E> InvocationFuture<E> sendOperationToMemberNode(NodeEngine nodeEngine, Operation operation, Address memberAddress) {
-        InvocationBuilder invocationBuilder = nodeEngine.getOperationService().createInvocationBuilder(SeaTunnelServer.SERVICE_NAME, operation, memberAddress);
+    public static <E> InvocationFuture<E> sendOperationToMemberNode(
+            NodeEngine nodeEngine, Operation operation, Address memberAddress) {
+        InvocationBuilder invocationBuilder =
+                nodeEngine
+                        .getOperationService()
+                        .createInvocationBuilder(
+                                SeaTunnelServer.SERVICE_NAME, operation, memberAddress);
         return invocationBuilder.invoke();
     }
 }

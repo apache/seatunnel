@@ -30,20 +30,24 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class FileSourceSplitEnumerator implements SourceSplitEnumerator<FileSourceSplit, FileSourceState> {
+public class FileSourceSplitEnumerator
+        implements SourceSplitEnumerator<FileSourceSplit, FileSourceState> {
     private final Context<FileSourceSplit> context;
     private Set<FileSourceSplit> pendingSplit;
     private Set<FileSourceSplit> assignedSplit;
     private final List<String> filePaths;
 
-    public FileSourceSplitEnumerator(SourceSplitEnumerator.Context<FileSourceSplit> context, List<String> filePaths) {
+    public FileSourceSplitEnumerator(
+            SourceSplitEnumerator.Context<FileSourceSplit> context, List<String> filePaths) {
         this.context = context;
         this.filePaths = filePaths;
         this.assignedSplit = new HashSet<>();
     }
 
-    public FileSourceSplitEnumerator(SourceSplitEnumerator.Context<FileSourceSplit> context, List<String> filePaths,
-                                     FileSourceState sourceState) {
+    public FileSourceSplitEnumerator(
+            SourceSplitEnumerator.Context<FileSourceSplit> context,
+            List<String> filePaths,
+            FileSourceState sourceState) {
         this(context, filePaths);
         this.assignedSplit = sourceState.getAssignedSplit();
     }
@@ -83,9 +87,11 @@ public class FileSourceSplitEnumerator implements SourceSplitEnumerator<FileSour
             // if parallelism == 1, we should assign all the splits to reader
             currentTaskSplits.addAll(pendingSplit);
         } else {
-            // if parallelism > 1, according to hashCode of split's id to determine whether to allocate the current task
+            // if parallelism > 1, according to hashCode of split's id to determine whether to
+            // allocate the current task
             for (FileSourceSplit fileSourceSplit : pendingSplit) {
-                int splitOwner = getSplitOwner(fileSourceSplit.splitId(), context.currentParallelism());
+                int splitOwner =
+                        getSplitOwner(fileSourceSplit.splitId(), context.currentParallelism());
                 if (splitOwner == taskId) {
                     currentTaskSplits.add(fileSourceSplit);
                 }
@@ -97,7 +103,12 @@ public class FileSourceSplitEnumerator implements SourceSplitEnumerator<FileSour
         assignedSplit.addAll(currentTaskSplits);
         // remove the assigned splits from pending splits
         currentTaskSplits.forEach(split -> pendingSplit.remove(split));
-        log.info("SubTask {} is assigned to [{}]", taskId, currentTaskSplits.stream().map(FileSourceSplit::splitId).collect(Collectors.joining(",")));
+        log.info(
+                "SubTask {} is assigned to [{}]",
+                taskId,
+                currentTaskSplits.stream()
+                        .map(FileSourceSplit::splitId)
+                        .collect(Collectors.joining(",")));
         context.signalNoMoreSplits(taskId);
     }
 
@@ -122,12 +133,8 @@ public class FileSourceSplitEnumerator implements SourceSplitEnumerator<FileSour
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) {
-
-    }
+    public void notifyCheckpointComplete(long checkpointId) {}
 
     @Override
-    public void handleSplitRequest(int subtaskId) {
-
-    }
+    public void handleSplitRequest(int subtaskId) {}
 }

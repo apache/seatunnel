@@ -46,24 +46,25 @@ import java.util.regex.Pattern;
 public class JdbcRowConverter implements Serializable {
     private static final Pattern NULLABLE = Pattern.compile("Nullable\\((.*)\\)");
     private static final Pattern LOW_CARDINALITY = Pattern.compile("LowCardinality\\((.*)\\)");
-    private static final ClickhouseFieldInjectFunction DEFAULT_INJECT_FUNCTION = new StringInjectFunction();
+    private static final ClickhouseFieldInjectFunction DEFAULT_INJECT_FUNCTION =
+            new StringInjectFunction();
 
     private final String[] projectionFields;
     private final Map<String, ClickhouseFieldInjectFunction> fieldInjectFunctionMap;
     private final Map<String, Function<SeaTunnelRow, Object>> fieldGetterMap;
 
-    public JdbcRowConverter(@NonNull SeaTunnelRowType rowType,
-                            @NonNull Map<String, String> clickhouseTableSchema,
-                            @NonNull String[] projectionFields) {
+    public JdbcRowConverter(
+            @NonNull SeaTunnelRowType rowType,
+            @NonNull Map<String, String> clickhouseTableSchema,
+            @NonNull String[] projectionFields) {
         this.projectionFields = projectionFields;
-        this.fieldInjectFunctionMap = createFieldInjectFunctionMap(
-            projectionFields, clickhouseTableSchema);
-        this.fieldGetterMap = createFieldGetterMap(
-            projectionFields, rowType);
+        this.fieldInjectFunctionMap =
+                createFieldInjectFunctionMap(projectionFields, clickhouseTableSchema);
+        this.fieldGetterMap = createFieldGetterMap(projectionFields, rowType);
     }
 
-    public PreparedStatement toExternal(SeaTunnelRow row,
-                                        PreparedStatement statement) throws SQLException {
+    public PreparedStatement toExternal(SeaTunnelRow row, PreparedStatement statement)
+            throws SQLException {
         for (int i = 0; i < projectionFields.length; i++) {
             String fieldName = projectionFields[i];
             Object fieldValue = fieldGetterMap.get(fieldName).apply(row);
@@ -73,39 +74,41 @@ public class JdbcRowConverter implements Serializable {
                 statement.setObject(i + 1, null);
                 continue;
             }
-            fieldInjectFunctionMap.getOrDefault(fieldName, DEFAULT_INJECT_FUNCTION)
-                .injectFields(statement, i + 1, fieldValue);
+            fieldInjectFunctionMap
+                    .getOrDefault(fieldName, DEFAULT_INJECT_FUNCTION)
+                    .injectFields(statement, i + 1, fieldValue);
         }
         return statement;
     }
 
-    private Map<String, ClickhouseFieldInjectFunction> createFieldInjectFunctionMap(String[] fields,
-                                                                                    Map<String, String> clickhouseTableSchema) {
+    private Map<String, ClickhouseFieldInjectFunction> createFieldInjectFunctionMap(
+            String[] fields, Map<String, String> clickhouseTableSchema) {
         Map<String, ClickhouseFieldInjectFunction> fieldInjectFunctionMap = new HashMap<>();
         for (String field : fields) {
             String fieldType = clickhouseTableSchema.get(field);
-            ClickhouseFieldInjectFunction injectFunction = Arrays.asList(
-                new ArrayInjectFunction(),
-                new MapInjectFunction(),
-                new BigDecimalInjectFunction(),
-                new DateInjectFunction(),
-                new DateTimeInjectFunction(),
-                new LongInjectFunction(),
-                new DoubleInjectFunction(),
-                new FloatInjectFunction(),
-                new IntInjectFunction(),
-                new StringInjectFunction())
-                .stream()
-                .filter(f -> f.isCurrentFieldType(unwrapCommonPrefix(fieldType)))
-                .findFirst()
-                .orElse(new StringInjectFunction());
+            ClickhouseFieldInjectFunction injectFunction =
+                    Arrays.asList(
+                                    new ArrayInjectFunction(),
+                                    new MapInjectFunction(),
+                                    new BigDecimalInjectFunction(),
+                                    new DateInjectFunction(),
+                                    new DateTimeInjectFunction(),
+                                    new LongInjectFunction(),
+                                    new DoubleInjectFunction(),
+                                    new FloatInjectFunction(),
+                                    new IntInjectFunction(),
+                                    new StringInjectFunction())
+                            .stream()
+                            .filter(f -> f.isCurrentFieldType(unwrapCommonPrefix(fieldType)))
+                            .findFirst()
+                            .orElse(new StringInjectFunction());
             fieldInjectFunctionMap.put(field, injectFunction);
         }
         return fieldInjectFunctionMap;
     }
 
-    private Map<String, Function<SeaTunnelRow, Object>> createFieldGetterMap(String[] fields,
-                                                                             SeaTunnelRowType rowType) {
+    private Map<String, Function<SeaTunnelRow, Object>> createFieldGetterMap(
+            String[] fields, SeaTunnelRowType rowType) {
         Map<String, Function<SeaTunnelRow, Object>> fieldGetterMap = new HashMap<>();
         for (int i = 0; i < fields.length; i++) {
             String fieldName = fields[i];

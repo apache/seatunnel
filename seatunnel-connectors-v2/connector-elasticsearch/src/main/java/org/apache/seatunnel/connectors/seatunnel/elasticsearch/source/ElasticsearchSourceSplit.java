@@ -32,12 +32,10 @@ public class ElasticsearchSourceSplit implements SourceSplit {
 
     private String splitId;
 
-    @Getter
-    private SourceIndexInfo sourceIndexInfo;
+    @Getter private SourceIndexInfo sourceIndexInfo;
 
     @Override
     public String splitId() {
         return splitId;
     }
 }
-

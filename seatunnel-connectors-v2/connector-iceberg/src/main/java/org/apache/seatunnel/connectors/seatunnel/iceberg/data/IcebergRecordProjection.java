@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.data;
 
-import lombok.NonNull;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.types.Types;
+
+import lombok.NonNull;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -31,12 +32,14 @@ public class IcebergRecordProjection implements Record {
     private final Types.StructType projectStructType;
     private final Map<Integer, Integer> posMapping;
 
-    public IcebergRecordProjection(@NonNull Record record,
-                                   @NonNull Types.StructType structType,
-                                   @NonNull Types.StructType projectStructType) {
+    public IcebergRecordProjection(
+            @NonNull Record record,
+            @NonNull Types.StructType structType,
+            @NonNull Types.StructType projectStructType) {
         Map<Integer, Integer> posMapping = new HashMap<>();
         for (int projectPos = 0, len = projectStructType.fields().size();
-             projectPos < len; projectPos++) {
+                projectPos < len;
+                projectPos++) {
             Types.NestedField projectField = projectStructType.fields().get(projectPos);
 
             Types.NestedField field = structType.field(projectField.fieldId());
@@ -77,7 +80,8 @@ public class IcebergRecordProjection implements Record {
 
     @Override
     public Record copy(Map<String, Object> overwriteValues) {
-        return new IcebergRecordProjection(record.copy(overwriteValues), structType, projectStructType);
+        return new IcebergRecordProjection(
+                record.copy(overwriteValues), structType, projectStructType);
     }
 
     @Override

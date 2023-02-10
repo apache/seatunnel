@@ -26,7 +26,8 @@ public class JvmOptionsParserException extends SeaTunnelRuntimeException {
         super(seaTunnelErrorCode, errorMessage);
     }
 
-    public JvmOptionsParserException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+    public JvmOptionsParserException(
+            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
         super(seaTunnelErrorCode, errorMessage, cause);
     }
 

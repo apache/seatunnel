@@ -34,30 +34,27 @@ import java.util.Arrays;
 import java.util.function.Function;
 
 @RequiredArgsConstructor
-public class InsertOrUpdateBatchStatementExecutor implements JdbcBatchStatementExecutor<SeaTunnelRow> {
+public class InsertOrUpdateBatchStatementExecutor
+        implements JdbcBatchStatementExecutor<SeaTunnelRow> {
     private final StatementFactory existStmtFactory;
-    @NonNull
-    private final StatementFactory insertStmtFactory;
-    @NonNull
-    private final StatementFactory updateStmtFactory;
+    @NonNull private final StatementFactory insertStmtFactory;
+    @NonNull private final StatementFactory updateStmtFactory;
     private final SeaTunnelRowType keyRowType;
     private final Function<SeaTunnelRow, SeaTunnelRow> keyExtractor;
-    @NonNull
-    private final SeaTunnelRowType valueRowType;
-    @NonNull
-    private final JdbcRowConverter rowConverter;
+    @NonNull private final SeaTunnelRowType valueRowType;
+    @NonNull private final JdbcRowConverter rowConverter;
     private transient PreparedStatement existStatement;
     private transient PreparedStatement insertStatement;
     private transient PreparedStatement updateStatement;
     private transient Boolean preExistFlag;
     private transient boolean submitted;
 
-    public InsertOrUpdateBatchStatementExecutor(StatementFactory insertStmtFactory,
-                                                StatementFactory updateStmtFactory,
-                                                SeaTunnelRowType valueRowType,
-                                                JdbcRowConverter rowConverter) {
-        this(null, insertStmtFactory, updateStmtFactory,
-            null, null, valueRowType, rowConverter);
+    public InsertOrUpdateBatchStatementExecutor(
+            StatementFactory insertStmtFactory,
+            StatementFactory updateStmtFactory,
+            SeaTunnelRowType valueRowType,
+            JdbcRowConverter rowConverter) {
+        this(null, insertStmtFactory, updateStmtFactory, null, null, valueRowType, rowConverter);
     }
 
     @Override
@@ -111,7 +108,8 @@ public class InsertOrUpdateBatchStatementExecutor implements JdbcBatchStatementE
         if (!submitted) {
             executeBatch();
         }
-        for (PreparedStatement statement : Arrays.asList(existStatement, insertStatement, updateStatement)) {
+        for (PreparedStatement statement :
+                Arrays.asList(existStatement, insertStatement, updateStatement)) {
             if (statement != null) {
                 statement.close();
             }
@@ -132,8 +130,9 @@ public class InsertOrUpdateBatchStatementExecutor implements JdbcBatchStatementE
             case UPDATE_AFTER:
                 return true;
             default:
-                throw new JdbcConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
-                    "unsupported row kind: " + record.getRowKind());
+                throw new JdbcConnectorException(
+                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        "unsupported row kind: " + record.getRowKind());
         }
     }
 
