@@ -113,7 +113,8 @@ public class ClientJobProxy implements Job {
                         jobImmutableInformation.getJobConfig().getName(),
                         jobImmutableInformation.getJobId(),
                         jobResult.getStatus()));
-        if (StringUtils.isNotEmpty(jobResult.getError()) || jobResult.getStatus().equals(JobStatus.FAILED)) {
+        if (StringUtils.isNotEmpty(jobResult.getError())
+                || jobResult.getStatus().equals(JobStatus.FAILED)) {
             throw new SeaTunnelEngineException(jobResult.getError());
         }
         return jobResult.getStatus();
