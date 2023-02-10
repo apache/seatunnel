@@ -30,6 +30,7 @@
     <artifactId>connector-elasticsearch</artifactId>
     <properties>
         <elasticsearch-rest-client.version>7.5.1</elasticsearch-rest-client.version>
+        <guava.version>31.1-jre</guava.version>
     </properties>
 
     <dependencies>
@@ -64,7 +65,7 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>31.1-jre</version>
+            <version>${guava.version}</version>
         </dependency>
     </dependencies>
 </project>
