@@ -89,6 +89,8 @@ public class SubPlan {
 
     private Integer pipelineRestoreNum;
 
+    private final Object restoreLock = new Object();
+
     public SubPlan(int pipelineId,
                    int totalPipelineNum,
                    long initializationTimestamp,
@@ -337,7 +339,7 @@ public class SubPlan {
      * restore the pipeline when pipeline failed or canceled by error.
      */
     public void restorePipeline() {
-        synchronized (pipelineRestoreNum) {
+        synchronized (restoreLock) {
             try {
                 pipelineRestoreNum++;
                 LOGGER.info(String.format("Restore pipeline %s", pipelineFullName));
