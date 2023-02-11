@@ -216,11 +216,8 @@ public class CoordinatorService {
                 engineConfig);
 
         // If Job Status is CANCELLING , set needRestore to false
-        if (JobStatus.CANCELLING.equals(jobStatus)) {
-            jobMaster.getPhysicalPlan().neverNeedRestore();
-        }
         try {
-            jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp(), true);
+            jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp(), true, !JobStatus.CANCELLING.equals(jobStatus));
         } catch (Exception e) {
             jobMaster.cancelJob();
             throw new SeaTunnelEngineException(String.format("Job id %s init failed", jobId), e);
@@ -352,7 +349,7 @@ public class CoordinatorService {
             try {
                 runningJobInfoIMap.put(jobId, new JobInfo(System.currentTimeMillis(), jobImmutableInformation));
                 runningJobMasterMap.put(jobId, jobMaster);
-                jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp(), false);
+                jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp(), false, true);
                 // We specify that when init is complete, the submitJob is complete
                 jobSubmitFuture.complete(null);
             } catch (Throwable e) {

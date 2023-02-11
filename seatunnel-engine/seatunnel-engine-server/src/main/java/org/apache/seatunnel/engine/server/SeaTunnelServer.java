@@ -168,7 +168,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
 
             int retryPause = hazelcastRetryPause == null ? 500 : Integer.parseInt(hazelcastRetryPause);
 
-            while (!coordinatorService.isCoordinatorActive() && retryCount < maxRetry && isRunning) {
+            while (!coordinatorService.isCoordinatorActive() && isRunning) {
                 try {
                     LOGGER.warning("This is master node, waiting the coordinator service init finished");
                     Thread.sleep(retryPause);

@@ -41,21 +41,27 @@ import org.apache.commons.lang3.StringUtils;
 public class ClientJobProxy implements Job {
     private static final ILogger LOGGER = Logger.getLogger(ClientJobProxy.class);
     private final SeaTunnelHazelcastClient seaTunnelHazelcastClient;
-    private final JobImmutableInformation jobImmutableInformation;
+
+    private final Long jobId;
 
     public ClientJobProxy(@NonNull SeaTunnelHazelcastClient seaTunnelHazelcastClient,
                           @NonNull JobImmutableInformation jobImmutableInformation) {
         this.seaTunnelHazelcastClient = seaTunnelHazelcastClient;
-        this.jobImmutableInformation = jobImmutableInformation;
-        submitJob();
+        this.jobId = jobImmutableInformation.getJobId();
+        submitJob(jobImmutableInformation);
+    }
+
+    public ClientJobProxy(@NonNull SeaTunnelHazelcastClient seaTunnelHazelcastClient, Long jobId) {
+        this.seaTunnelHazelcastClient = seaTunnelHazelcastClient;
+        this.jobId = jobId;
     }
 
     @Override
     public long getJobId() {
-        return jobImmutableInformation.getJobId();
+        return jobId;
     }
 
-    private void submitJob() {
+    private void submitJob(JobImmutableInformation jobImmutableInformation) {
         LOGGER.info(String.format("start submit job, job id: %s, with plugin jar %s", jobImmutableInformation.getJobId(), jobImmutableInformation.getPluginJarsUrls()));
         ClientMessage request = SeaTunnelSubmitJobCodec.encodeRequest(jobImmutableInformation.getJobId(),
             seaTunnelHazelcastClient.getSerializationService().toData(jobImmutableInformation));
@@ -82,15 +88,13 @@ public class ClientJobProxy implements Job {
                 throw new SeaTunnelEngineException("failed to fetch job result");
             }
         } catch (Exception e) {
-            LOGGER.info(String.format("Job %s (%s) end with unknown state, and throw Exception: %s",
-                jobImmutableInformation.getJobId(),
-                jobImmutableInformation.getJobConfig().getName(),
+            LOGGER.info(String.format("Job (%s) end with unknown state, and throw Exception: %s",
+                jobId,
                 ExceptionUtils.getMessage(e)));
             throw new RuntimeException(e);
         }
-        LOGGER.info(String.format("Job %s (%s) end with state %s",
-            jobImmutableInformation.getJobConfig().getName(),
-            jobImmutableInformation.getJobId(),
+        LOGGER.info(String.format("Job (%s) end with state %s",
+            jobId,
             jobResult.getStatus()));
         if (StringUtils.isNotEmpty(jobResult.getError())) {
             throw new SeaTunnelEngineException(jobResult.getError());
@@ -101,14 +105,14 @@ public class ClientJobProxy implements Job {
     @Override
     public PassiveCompletableFuture<JobResult> doWaitForJobComplete() {
         return new PassiveCompletableFuture<>(seaTunnelHazelcastClient.requestOnMasterAndGetCompletableFuture(
-            SeaTunnelWaitForJobCompleteCodec.encodeRequest(jobImmutableInformation.getJobId()),
+            SeaTunnelWaitForJobCompleteCodec.encodeRequest(jobId),
             SeaTunnelWaitForJobCompleteCodec::decodeResponse).thenApply(jobResult -> seaTunnelHazelcastClient.getSerializationService().toObject(jobResult)));
     }
 
     @Override
     public void cancelJob() {
         PassiveCompletableFuture<Void> cancelFuture = seaTunnelHazelcastClient.requestOnMasterAndGetCompletableFuture(
-            SeaTunnelCancelJobCodec.encodeRequest(jobImmutableInformation.getJobId()));
+            SeaTunnelCancelJobCodec.encodeRequest(jobId));
 
         cancelFuture.join();
     }
@@ -116,7 +120,7 @@ public class ClientJobProxy implements Job {
     @Override
     public JobStatus getJobStatus() {
         int jobStatusOrdinal = seaTunnelHazelcastClient.requestOnMasterAndDecodeResponse(
-            SeaTunnelGetJobStatusCodec.encodeRequest(jobImmutableInformation.getJobId()),
+            SeaTunnelGetJobStatusCodec.encodeRequest(jobId),
             SeaTunnelGetJobStatusCodec::decodeResponse);
         return JobStatus.values()[jobStatusOrdinal];
     }

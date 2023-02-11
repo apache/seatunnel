@@ -161,7 +161,7 @@ public class JobMaster {
         this.engineConfig = engineConfig;
     }
 
-    public void init(long initializationTimestamp, boolean restart) throws Exception {
+    public void init(long initializationTimestamp, boolean restart, boolean canRestoreAgain) throws Exception {
         jobImmutableInformation = nodeEngine.getSerializationService().toObject(
             jobImmutableInformationData);
         LOGGER.info(String.format("Init JobMaster for Job %s (%s) ", jobImmutableInformation.getJobConfig().getName(),
@@ -185,6 +185,9 @@ public class JobMaster {
         this.physicalPlan = planTuple.f0();
         this.physicalPlan.setJobMaster(this);
         this.checkpointPlanMap = planTuple.f1();
+        if (!canRestoreAgain) {
+            this.physicalPlan.neverNeedRestore();
+        }
         Exception initException = null;
         try {
             this.initCheckPointManager();

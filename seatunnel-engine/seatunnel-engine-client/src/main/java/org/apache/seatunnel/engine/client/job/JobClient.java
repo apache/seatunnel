@@ -37,4 +37,8 @@ public class JobClient {
     public ClientJobProxy createJobProxy(@NonNull JobImmutableInformation jobImmutableInformation) {
         return new ClientJobProxy(hazelcastClient, jobImmutableInformation);
     }
+
+    public ClientJobProxy getJobProxy(Long jobId) {
+        return new ClientJobProxy(hazelcastClient, jobId);
+    }
 }

@@ -185,7 +185,7 @@ public class SubPlan {
         synchronized (this) {
             // consistency check
             PipelineStatus current = (PipelineStatus) runningJobStateIMap.get(pipelineLocation);
-            if (current.isEndState()) {
+            if (current.isEndState() && !endState.isEndState()) {
                 String message = "Pipeline is trying to leave terminal state " + current;
                 LOGGER.severe(message);
                 throw new IllegalStateException(message);
