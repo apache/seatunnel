@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog;
 
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
 
 import com.mysql.cj.MysqlType;
 import org.junit.jupiter.api.Assertions;
@@ -30,7 +31,22 @@ public class MysqlDataTypeConvertorTest {
     private MysqlDataTypeConvertor mysqlDataTypeConvertor = MysqlDataTypeConvertor.getInstance();
 
     @Test
-    public void from() {
+    public void toSeaTunnelTypeWithString() {
+        Assertions.assertEquals(
+            new DecimalType(5, 2),
+            mysqlDataTypeConvertor.toSeaTunnelType("DECIMAL(5,2)"));
+
+        Assertions.assertEquals(
+            new DecimalType(5, 0),
+            mysqlDataTypeConvertor.toSeaTunnelType("DECIMAL(5)"));
+
+        Assertions.assertEquals(
+            new DecimalType(10, 0),
+            mysqlDataTypeConvertor.toSeaTunnelType("DECIMAL"));
+    }
+
+    @Test
+    public void toSeaTunnelType() {
         Assertions.assertEquals(BasicType.VOID_TYPE, mysqlDataTypeConvertor.toSeaTunnelType(MysqlType.NULL, Collections.emptyMap()));
         Assertions.assertEquals(BasicType.STRING_TYPE, mysqlDataTypeConvertor.toSeaTunnelType(MysqlType.VARCHAR, Collections.emptyMap()));
     }
