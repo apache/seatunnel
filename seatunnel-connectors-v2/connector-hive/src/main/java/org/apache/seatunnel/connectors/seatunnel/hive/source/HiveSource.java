@@ -32,7 +32,6 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.BaseHdfsFileSource;
@@ -53,6 +52,9 @@ import java.util.List;
 import java.util.Map;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema.SCHEMA;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig.FILE_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig.FILE_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.ORC_INPUT_FORMAT_CLASSNAME;
 import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.PARQUET_INPUT_FORMAT_CLASSNAME;
 import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.TEXT_INPUT_FORMAT_CLASSNAME;
@@ -77,6 +79,25 @@ public class HiveSource extends BaseHdfsFileSource {
                     String.format(
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
+        }
+        result =
+                CheckConfigUtil.checkAtLeastOneExists(
+                        pluginConfig,
+                        SCHEMA.key(),
+                        FILE_TYPE.key(),
+                        FILE_PATH.key(),
+                        FS_DEFAULT_NAME_KEY);
+        if (result.isSuccess()) {
+            throw new HiveConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "Hive source connector does not support these setting [%s]",
+                            String.join(
+                                    ",",
+                                    SCHEMA.key(),
+                                    FILE_TYPE.key(),
+                                    FILE_PATH.key(),
+                                    FS_DEFAULT_NAME_KEY)));
         }
         if (pluginConfig.hasPath(BaseSourceConfig.READ_PARTITIONS.key())) {
             // verify partition list
@@ -105,27 +126,26 @@ public class HiveSource extends BaseHdfsFileSource {
         if (TEXT_INPUT_FORMAT_CLASSNAME.equals(inputFormat)) {
             pluginConfig =
                     pluginConfig.withValue(
-                            BaseSourceConfig.FILE_TYPE.key(),
+                            FILE_TYPE.key(),
                             ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()));
-            pluginConfig =
-                    pluginConfig.withValue(
-                            BaseSourceConfig.FILE_TYPE.key(),
-                            ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()));
+            // Build schema from hive table information
+            // Because the entrySet in typesafe config couldn't keep key-value order
+            // So use jackson to keep key-value order
             Map<String, Object> schema = parseSchema(tableInformation);
             ConfigRenderOptions options = ConfigRenderOptions.concise();
             String render = pluginConfig.root().render(options);
             ObjectNode jsonNodes = JsonUtils.parseObject(render);
-            jsonNodes.putPOJO(SeaTunnelSchema.SCHEMA.key(), schema);
+            jsonNodes.putPOJO(SCHEMA.key(), schema);
             pluginConfig = ConfigFactory.parseString(jsonNodes.toString());
         } else if (PARQUET_INPUT_FORMAT_CLASSNAME.equals(inputFormat)) {
             pluginConfig =
                     pluginConfig.withValue(
-                            BaseSourceConfig.FILE_TYPE.key(),
+                            FILE_TYPE.key(),
                             ConfigValueFactory.fromAnyRef(FileFormat.PARQUET.toString()));
         } else if (ORC_INPUT_FORMAT_CLASSNAME.equals(inputFormat)) {
             pluginConfig =
                     pluginConfig.withValue(
-                            BaseSourceConfig.FILE_TYPE.key(),
+                            FILE_TYPE.key(),
                             ConfigValueFactory.fromAnyRef(FileFormat.ORC.toString()));
         } else {
             throw new HiveConnectorException(
@@ -170,8 +190,13 @@ public class HiveSource extends BaseHdfsFileSource {
     }
 
     private Object covertHiveTypeToSeaTunnelType(String hiveType) {
+        if (hiveType.contains("varchar")) {
+            return SqlType.STRING;
+        }
         if (hiveType.contains("char")) {
-            return SqlType.STRING.name();
+            throw new HiveConnectorException(
+                    CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                    "SeaTunnel hive connector does not supported char type in text table");
         }
         if (hiveType.contains("binary")) {
             return SqlType.BYTES.name();

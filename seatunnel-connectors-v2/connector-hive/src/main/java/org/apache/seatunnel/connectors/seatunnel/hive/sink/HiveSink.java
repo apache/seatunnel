@@ -28,7 +28,6 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink.BaseHdfsFileSink;
@@ -57,12 +56,16 @@ import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConf
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FILE_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FILE_NAME_EXPRESSION;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FILE_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.HAVE_PARTITION;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.IS_PARTITION_FIELD_WRITE_IN_FILE;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.PARTITION_BY;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.PARTITION_DIR_EXPRESSION;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.ROW_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.SINK_COLUMNS;
+import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.METASTORE_URI;
 import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.ORC_OUTPUT_FORMAT_CLASSNAME;
 import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.PARQUET_OUTPUT_FORMAT_CLASSNAME;
+import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.TABLE_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.TEXT_OUTPUT_FORMAT_CLASSNAME;
 
 @AutoService(SeaTunnelSink.class)
@@ -79,8 +82,7 @@ public class HiveSink extends BaseHdfsFileSink {
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig, HiveConfig.METASTORE_URI.key(), HiveConfig.TABLE_NAME.key());
+                CheckConfigUtil.checkAllExists(pluginConfig, METASTORE_URI.key(), TABLE_NAME.key());
         if (!result.isSuccess()) {
             throw new HiveConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -88,12 +90,34 @@ public class HiveSink extends BaseHdfsFileSink {
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SINK, result.getMsg()));
         }
-        if (pluginConfig.hasPath(BaseSinkConfig.PARTITION_DIR_EXPRESSION.key())) {
+        result =
+                CheckConfigUtil.checkAtLeastOneExists(
+                        pluginConfig,
+                        FILE_FORMAT.key(),
+                        FILE_PATH.key(),
+                        FIELD_DELIMITER.key(),
+                        ROW_DELIMITER.key(),
+                        IS_PARTITION_FIELD_WRITE_IN_FILE.key(),
+                        PARTITION_DIR_EXPRESSION.key(),
+                        HAVE_PARTITION.key(),
+                        SINK_COLUMNS.key(),
+                        PARTITION_BY.key());
+        if (result.isSuccess()) {
             throw new HiveConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format(
-                            "Hive sink connector does not support setting %s",
-                            BaseSinkConfig.PARTITION_DIR_EXPRESSION.key()));
+                            "Hive sink connector does not support these setting [%s]",
+                            String.join(
+                                    ",",
+                                    FILE_FORMAT.key(),
+                                    FILE_PATH.key(),
+                                    FIELD_DELIMITER.key(),
+                                    ROW_DELIMITER.key(),
+                                    IS_PARTITION_FIELD_WRITE_IN_FILE.key(),
+                                    PARTITION_DIR_EXPRESSION.key(),
+                                    HAVE_PARTITION.key(),
+                                    SINK_COLUMNS.key(),
+                                    PARTITION_BY.key())));
         }
         Pair<String[], Table> tableInfo = HiveConfig.getTableInfo(pluginConfig);
         dbName = tableInfo.getLeft()[0];
