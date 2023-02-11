@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.common.util;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
@@ -123,7 +124,7 @@ public final class ContainerUtil {
             String seatunnelHomeInContainer) {
         // solve the problem of multi modules such as
         // seatunnel-flink-starter/seatunnel-flink-13-starter
-        final String[] splits = startModuleName.split(File.separator);
+        final String[] splits = StringUtils.split(startModuleName, File.separator);
         final String startJarName = splits[splits.length - 1] + ".jar";
         // copy starter
         final String startJarPath =
