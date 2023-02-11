@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kafka.catalog;
+package org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -26,29 +26,17 @@ import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 
 import java.util.Map;
 
-/**
- * The data type convertor of Kafka, only fields defined in schema has the type.
- * e.g.
- * <pre>
- * schema = {
- *    fields {
- *      name = "string"
- *      age = "int"
- *    }
- * }
- * </pre>
- * <p> Right now the data type of kafka is SeaTunnelType, so we don't need to convert the data type.
- */
-public class KafkaDataTypeConvertor implements DataTypeConvertor<SeaTunnelDataType<?>> {
+public class ElasticSearchDataTypeConvertor implements DataTypeConvertor<SeaTunnelDataType<?>> {
 
-    private static final KafkaDataTypeConvertor INSTANCE = new KafkaDataTypeConvertor();
+    private static final ElasticSearchDataTypeConvertor INSTANCE = new ElasticSearchDataTypeConvertor();
 
-    private KafkaDataTypeConvertor() {
+    private ElasticSearchDataTypeConvertor() {
+
     }
 
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(String connectorDataType) {
-        checkNotNull(connectorDataType, "connectorDataType can not be null");
+        checkNotNull(connectorDataType);
         return SeaTunnelSchema.parseTypeByString(connectorDataType);
     }
 
@@ -62,7 +50,7 @@ public class KafkaDataTypeConvertor implements DataTypeConvertor<SeaTunnelDataTy
         return seaTunnelDataType;
     }
 
-    public static KafkaDataTypeConvertor getInstance() {
+    public static ElasticSearchDataTypeConvertor getInstance() {
         return INSTANCE;
     }
 }

@@ -30,20 +30,20 @@ public interface DataTypeConvertor<T> {
     /**
      * Transfer the data type from connector to SeaTunnel.
      *
-     * @param connectorType e.g. "int", "varchar(255)"
+     * @param connectorDataType e.g. "int", "varchar(255)"
      * @return the data type of SeaTunnel
      */
-    SeaTunnelDataType<?> toSeaTunnelType(String connectorType);
+    SeaTunnelDataType<?> toSeaTunnelType(String connectorDataType);
 
     /**
      * Transfer the data type from connector to SeaTunnel.
      *
-     * @param connectorType      origin data type
+     * @param connectorDataType  origin data type
      * @param dataTypeProperties origin data type properties, e.g. precision, scale, length
      * @return SeaTunnel data type
      */
     // todo: If the origin data type contains the properties, we can remove the dataTypeProperties.
-    SeaTunnelDataType<?> toSeaTunnelType(T connectorType, Map<String, Object> dataTypeProperties) throws DataTypeConvertException;
+    SeaTunnelDataType<?> toSeaTunnelType(T connectorDataType, Map<String, Object> dataTypeProperties) throws DataTypeConvertException;
 
     /**
      * Transfer the data type from SeaTunnel to connector.
