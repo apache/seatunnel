@@ -22,7 +22,8 @@ import lombok.Data;
 import java.io.Serializable;
 
 /**
- * Because Neo4jQueryInfo is one of the Neo4jSink's member variable, So Neo4jQueryInfo need implements Serializable interface
+ * Because Neo4jQueryInfo is one of the Neo4jSink's member variable, So Neo4jQueryInfo need
+ * implements Serializable interface
  */
 @Data
 public abstract class Neo4jQueryInfo implements Serializable {

@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.cdc.debezium.row;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -28,63 +26,60 @@ import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationConve
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
 import org.apache.seatunnel.connectors.cdc.debezium.MetadataConverter;
 
-import io.debezium.connector.AbstractSourceInfo;
-import io.debezium.data.Envelope;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
 
+import io.debezium.connector.AbstractSourceInfo;
+import io.debezium.data.Envelope;
+
 import java.io.Serializable;
 import java.time.ZoneId;
 
-/**
- * Deserialization schema from Debezium object to {@link SeaTunnelRow}.
- */
+import static com.google.common.base.Preconditions.checkNotNull;
+
+/** Deserialization schema from Debezium object to {@link SeaTunnelRow}. */
 public final class SeaTunnelRowDebeziumDeserializeSchema
-    implements DebeziumDeserializationSchema<SeaTunnelRow> {
+        implements DebeziumDeserializationSchema<SeaTunnelRow> {
     private static final long serialVersionUID = 1L;
 
-    /**
-     * TypeInformation of the produced {@link SeaTunnelRow}. *
-     */
+    /** TypeInformation of the produced {@link SeaTunnelRow}. * */
     private final SeaTunnelDataType<SeaTunnelRow> resultTypeInfo;
 
     /**
-     * Runtime converter that converts Kafka {@link SourceRecord}s into {@link SeaTunnelRow} consisted of
+     * Runtime converter that converts Kafka {@link SourceRecord}s into {@link SeaTunnelRow}
+     * consisted of
      */
     private final SeaTunnelRowDebeziumDeserializationConverters converters;
 
-    /**
-     * Validator to validate the row value.
-     */
+    /** Validator to validate the row value. */
     private final ValueValidator validator;
 
-    /**
-     * Returns a builder to build {@link SeaTunnelRowDebeziumDeserializeSchema}.
-     */
+    /** Returns a builder to build {@link SeaTunnelRowDebeziumDeserializeSchema}. */
     public static Builder builder() {
         return new Builder();
     }
 
     SeaTunnelRowDebeziumDeserializeSchema(
-        SeaTunnelRowType physicalDataType,
-        MetadataConverter[] metadataConverters,
-        SeaTunnelRowType resultType,
-        ValueValidator validator,
-        ZoneId serverTimeZone,
-        DebeziumDeserializationConverterFactory userDefinedConverterFactory) {
-        this.converters = new SeaTunnelRowDebeziumDeserializationConverters(
-            physicalDataType,
-            metadataConverters,
-            serverTimeZone,
-            userDefinedConverterFactory
-        );
+            SeaTunnelRowType physicalDataType,
+            MetadataConverter[] metadataConverters,
+            SeaTunnelRowType resultType,
+            ValueValidator validator,
+            ZoneId serverTimeZone,
+            DebeziumDeserializationConverterFactory userDefinedConverterFactory) {
+        this.converters =
+                new SeaTunnelRowDebeziumDeserializationConverters(
+                        physicalDataType,
+                        metadataConverters,
+                        serverTimeZone,
+                        userDefinedConverterFactory);
         this.resultTypeInfo = checkNotNull(resultType);
         this.validator = checkNotNull(validator);
     }
 
     @Override
-    public void deserialize(SourceRecord record, Collector<SeaTunnelRow> collector) throws Exception {
+    public void deserialize(SourceRecord record, Collector<SeaTunnelRow> collector)
+            throws Exception {
         Envelope.Operation operation = Envelope.operationFor(record);
         Struct messageStruct = (Struct) record.value();
         Schema valueSchema = record.valueSchema();
@@ -117,10 +112,11 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
     }
 
     private SeaTunnelRow extractAfterRow(
-        SeaTunnelRowDebeziumDeserializationConverters runtimeConverter,
-        SourceRecord record,
-        Struct value,
-        Schema valueSchema) throws Exception {
+            SeaTunnelRowDebeziumDeserializationConverters runtimeConverter,
+            SourceRecord record,
+            Struct value,
+            Schema valueSchema)
+            throws Exception {
 
         Schema afterSchema = valueSchema.field(Envelope.FieldName.AFTER).schema();
         Struct after = value.getStruct(Envelope.FieldName.AFTER);
@@ -128,11 +124,11 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
     }
 
     private SeaTunnelRow extractBeforeRow(
-        SeaTunnelRowDebeziumDeserializationConverters runtimeConverter,
-        SourceRecord record,
-        Struct value,
-        Schema valueSchema)
-        throws Exception {
+            SeaTunnelRowDebeziumDeserializationConverters runtimeConverter,
+            SourceRecord record,
+            Struct value,
+            Schema valueSchema)
+            throws Exception {
 
         Schema beforeSchema = valueSchema.field(Envelope.FieldName.BEFORE).schema();
         Struct before = value.getStruct(Envelope.FieldName.BEFORE);
@@ -148,25 +144,20 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
     // Builder
     // -------------------------------------------------------------------------------------
 
-    /**
-     * Custom validator to validate the row value.
-     */
+    /** Custom validator to validate the row value. */
     public interface ValueValidator extends Serializable {
         void validate(SeaTunnelRow rowData, RowKind rowKind) throws Exception;
     }
 
-    /**
-     * Builder of {@link SeaTunnelRowDebeziumDeserializeSchema}.
-     */
+    /** Builder of {@link SeaTunnelRowDebeziumDeserializeSchema}. */
     public static class Builder {
         private SeaTunnelRowType physicalRowType;
         private SeaTunnelRowType resultTypeInfo;
         private MetadataConverter[] metadataConverters = new MetadataConverter[0];
-        private ValueValidator validator = (rowData, rowKind) -> {
-        };
+        private ValueValidator validator = (rowData, rowKind) -> {};
         private ZoneId serverTimeZone = ZoneId.of("UTC");
         private DebeziumDeserializationConverterFactory userDefinedConverterFactory =
-            DebeziumDeserializationConverterFactory.DEFAULT;
+                DebeziumDeserializationConverterFactory.DEFAULT;
 
         public Builder setPhysicalRowType(SeaTunnelRowType physicalRowType) {
             this.physicalRowType = physicalRowType;
@@ -194,19 +185,19 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
         }
 
         public Builder setUserDefinedConverterFactory(
-            DebeziumDeserializationConverterFactory userDefinedConverterFactory) {
+                DebeziumDeserializationConverterFactory userDefinedConverterFactory) {
             this.userDefinedConverterFactory = userDefinedConverterFactory;
             return this;
         }
 
         public SeaTunnelRowDebeziumDeserializeSchema build() {
             return new SeaTunnelRowDebeziumDeserializeSchema(
-                physicalRowType,
-                metadataConverters,
-                resultTypeInfo,
-                validator,
-                serverTimeZone,
-                userDefinedConverterFactory);
+                    physicalRowType,
+                    metadataConverters,
+                    resultTypeInfo,
+                    validator,
+                    serverTimeZone,
+                    userDefinedConverterFactory);
         }
     }
 }

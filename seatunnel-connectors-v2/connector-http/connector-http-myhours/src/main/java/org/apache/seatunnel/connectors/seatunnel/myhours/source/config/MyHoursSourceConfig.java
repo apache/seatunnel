@@ -30,12 +30,14 @@ public class MyHoursSourceConfig extends HttpConfig {
     public static final String ACCESS_TOKEN = "accessToken";
     public static final String ACCESS_TOKEN_PREFIX = "Bearer";
     public static final String AUTHORIZATION_URL = "https://api2.myhours.com/api/tokens/login";
-    public static final Option<String> EMAIL = Options.key("email")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("My hours login email address");
-    public static final Option<String> PASSWORD = Options.key("password")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("My hours login password");
+    public static final Option<String> EMAIL =
+            Options.key("email")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("My hours login email address");
+    public static final Option<String> PASSWORD =
+            Options.key("password")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("My hours login password");
 }

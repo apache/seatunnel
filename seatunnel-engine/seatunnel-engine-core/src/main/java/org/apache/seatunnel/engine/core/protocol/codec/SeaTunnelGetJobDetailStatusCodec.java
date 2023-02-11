@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.engine.core.protocol.codec;
 
+import com.hazelcast.client.impl.protocol.ClientMessage;
+import com.hazelcast.client.impl.protocol.Generated;
+import com.hazelcast.client.impl.protocol.codec.builtin.StringCodec;
+
 import static com.hazelcast.client.impl.protocol.ClientMessage.ForwardFrameIterator;
 import static com.hazelcast.client.impl.protocol.ClientMessage.Frame;
 import static com.hazelcast.client.impl.protocol.ClientMessage.PARTITION_ID_FIELD_OFFSET;
@@ -30,10 +34,6 @@ import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCod
 import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCodec.encodeInt;
 import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCodec.encodeLong;
 
-import com.hazelcast.client.impl.protocol.ClientMessage;
-import com.hazelcast.client.impl.protocol.Generated;
-import com.hazelcast.client.impl.protocol.codec.builtin.StringCodec;
-
 /*
  * definitions on the https://github.com/hazelcast/hazelcast-client-protocol
  * to seatunnel-engine/seatunnel-engine-core/src/main/resources/client-protocol-definition/SeaTunnelEngine.yaml
@@ -41,16 +41,18 @@ import com.hazelcast.client.impl.protocol.codec.builtin.StringCodec;
 
 @Generated("56079ba8d58afe5c98dfe2b5dc6c301a")
 public final class SeaTunnelGetJobDetailStatusCodec {
-    //hex: 0xDE0600
+    // hex: 0xDE0600
     public static final int REQUEST_MESSAGE_TYPE = 14550528;
-    //hex: 0xDE0601
+    // hex: 0xDE0601
     public static final int RESPONSE_MESSAGE_TYPE = 14550529;
-    private static final int REQUEST_JOB_ID_FIELD_OFFSET = PARTITION_ID_FIELD_OFFSET + INT_SIZE_IN_BYTES;
-    private static final int REQUEST_INITIAL_FRAME_SIZE = REQUEST_JOB_ID_FIELD_OFFSET + LONG_SIZE_IN_BYTES;
-    private static final int RESPONSE_INITIAL_FRAME_SIZE = RESPONSE_BACKUP_ACKS_FIELD_OFFSET + BYTE_SIZE_IN_BYTES;
+    private static final int REQUEST_JOB_ID_FIELD_OFFSET =
+            PARTITION_ID_FIELD_OFFSET + INT_SIZE_IN_BYTES;
+    private static final int REQUEST_INITIAL_FRAME_SIZE =
+            REQUEST_JOB_ID_FIELD_OFFSET + LONG_SIZE_IN_BYTES;
+    private static final int RESPONSE_INITIAL_FRAME_SIZE =
+            RESPONSE_BACKUP_ACKS_FIELD_OFFSET + BYTE_SIZE_IN_BYTES;
 
-    private SeaTunnelGetJobDetailStatusCodec() {
-    }
+    private SeaTunnelGetJobDetailStatusCodec() {}
 
     public static ClientMessage encodeRequest(long jobId) {
         ClientMessage clientMessage = ClientMessage.createForEncode();
@@ -64,8 +66,7 @@ public final class SeaTunnelGetJobDetailStatusCodec {
         return clientMessage;
     }
 
-    /**
-     */
+    /** */
     public static long decodeRequest(ClientMessage clientMessage) {
         ForwardFrameIterator iterator = clientMessage.frameIterator();
         Frame initialFrame = iterator.next();
@@ -82,11 +83,10 @@ public final class SeaTunnelGetJobDetailStatusCodec {
         return clientMessage;
     }
 
-    /**
-     */
+    /** */
     public static String decodeResponse(ClientMessage clientMessage) {
         ForwardFrameIterator iterator = clientMessage.frameIterator();
-        //empty initial frame
+        // empty initial frame
         iterator.next();
         return StringCodec.decode(iterator);
     }

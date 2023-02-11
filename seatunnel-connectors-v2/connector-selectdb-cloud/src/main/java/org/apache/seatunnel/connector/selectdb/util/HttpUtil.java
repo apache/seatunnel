@@ -21,16 +21,12 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 
-/**
- * util to build http client.
- */
+/** util to build http client. */
 public class HttpUtil {
-    public HttpUtil() {
-    }
+    public HttpUtil() {}
 
-    private static final HttpClientBuilder HTTP_CLIENT_BUILDER = HttpClients
-            .custom()
-            .disableRedirectHandling();
+    private static final HttpClientBuilder HTTP_CLIENT_BUILDER =
+            HttpClients.custom().disableRedirectHandling();
 
     public static CloseableHttpClient getHttpClient() {
         return HTTP_CLIENT_BUILDER.build();

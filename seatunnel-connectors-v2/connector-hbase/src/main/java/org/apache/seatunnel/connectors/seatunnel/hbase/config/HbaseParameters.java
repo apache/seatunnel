@@ -17,6 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hbase.config;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import org.apache.seatunnel.common.config.TypesafeConfigUtils;
+
+import lombok.Builder;
+import lombok.Getter;
+
+import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
+
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ENCODING;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.FAMILY_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.HBASE_EXTRA_CONFIG;
@@ -28,17 +39,6 @@ import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.WAL_WRITE;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.WRITE_BUFFER_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ZOOKEEPER_QUORUM;
-
-import org.apache.seatunnel.common.config.TypesafeConfigUtils;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import lombok.Builder;
-import lombok.Getter;
-
-import java.io.Serializable;
-import java.util.List;
-import java.util.Map;
 
 @Builder
 @Getter
@@ -56,20 +56,15 @@ public class HbaseParameters implements Serializable {
 
     private Map<String, String> hbaseExtraConfig;
 
-    @Builder.Default
-    private String rowkeyDelimiter = ROWKEY_DELIMITER.defaultValue();
+    @Builder.Default private String rowkeyDelimiter = ROWKEY_DELIMITER.defaultValue();
 
-    @Builder.Default
-    private HbaseConfig.NullMode nullMode = NULL_MODE.defaultValue();
+    @Builder.Default private HbaseConfig.NullMode nullMode = NULL_MODE.defaultValue();
 
-    @Builder.Default
-    private boolean walWrite = WAL_WRITE.defaultValue();
+    @Builder.Default private boolean walWrite = WAL_WRITE.defaultValue();
 
-    @Builder.Default
-    private int writeBufferSize = WRITE_BUFFER_SIZE.defaultValue();
+    @Builder.Default private int writeBufferSize = WRITE_BUFFER_SIZE.defaultValue();
 
-    @Builder.Default
-    private HbaseConfig.EnCoding enCoding = ENCODING.defaultValue();
+    @Builder.Default private HbaseConfig.EnCoding enCoding = ENCODING.defaultValue();
 
     public static HbaseParameters buildWithConfig(Config pluginConfig) {
         HbaseParametersBuilder builder = HbaseParameters.builder();
@@ -78,7 +73,8 @@ public class HbaseParameters implements Serializable {
         builder.zookeeperQuorum(pluginConfig.getString(ZOOKEEPER_QUORUM.key()));
         builder.table(pluginConfig.getString(TABLE.key()));
         builder.rowkeyColumns(pluginConfig.getStringList(ROWKEY_COLUMNS.key()));
-        builder.familyNames(TypesafeConfigUtils.configToMap(pluginConfig.getConfig(FAMILY_NAME.key())));
+        builder.familyNames(
+                TypesafeConfigUtils.configToMap(pluginConfig.getConfig(FAMILY_NAME.key())));
 
         // optional parameters
         if (pluginConfig.hasPath(ROWKEY_DELIMITER.key())) {

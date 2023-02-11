@@ -23,13 +23,13 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 - [x] file format
-    - [x] text
-    - [x] csv
-    - [x] json
+  - [x] text
+  - [x] csv
+  - [x] json
 
 ## Options
 
-| name                      | type    | required | default value       |
+|           name            |  type   | required |    default value    |
 |---------------------------|---------|----------|---------------------|
 | host                      | string  | yes      | -                   |
 | port                      | int     | yes      | -                   |
@@ -80,9 +80,9 @@ For example if you read a file from path `sftp://hadoop-cluster/tmp/seatunnel/pa
 
 Every record data from file will be added these two fields:
 
-| name           | age |
-|----------------|-----|
-| tyrantlucifer  | 26  |
+|     name      | age |
+|---------------|-----|
+| tyrantlucifer | 26  |
 
 Tips: **Do not define partition fields in schema option**
 
@@ -158,7 +158,7 @@ schema {
 
 connector will generate data as the following:
 
-| code | data        | success |
+| code |    data     | success |
 |------|-------------|---------|
 | 200  | get success | true    |
 
@@ -174,12 +174,11 @@ tyrantlucifer#26#male
 
 If you do not assign data schema connector will treat the upstream data as the following:
 
-| content                |
-|------------------------|
-| tyrantlucifer#26#male  | 
+|        content        |
+|-----------------------|
+| tyrantlucifer#26#male |
 
 If you assign data schema, you should also assign the option `delimiter` too except CSV file type
-
 
 you should assign schema and delimiter as the following:
 
@@ -198,7 +197,7 @@ schema {
 
 connector will generate data as the following:
 
-| name          | age | gender |
+|     name      | age | gender |
 |---------------|-----|--------|
 | tyrantlucifer | 26  | male   |
 
@@ -231,3 +230,4 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 ### next version
 
 - Add SftpFile Source Connector
+

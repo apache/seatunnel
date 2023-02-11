@@ -31,13 +31,13 @@ import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-public class GetJobStatusOperation extends Operation implements IdentifiedDataSerializable, AllowedDuringPassiveState {
+public class GetJobStatusOperation extends Operation
+        implements IdentifiedDataSerializable, AllowedDuringPassiveState {
     private long jobId;
 
     private int response;
 
-    public GetJobStatusOperation() {
-    }
+    public GetJobStatusOperation() {}
 
     public GetJobStatusOperation(long jobId) {
         this.jobId = jobId;
@@ -68,9 +68,11 @@ public class GetJobStatusOperation extends Operation implements IdentifiedDataSe
     @Override
     public void run() {
         SeaTunnelServer service = getService();
-        CompletableFuture<JobStatus> future = CompletableFuture.supplyAsync(() -> {
-            return service.getCoordinatorService().getJobStatus(jobId);
-        });
+        CompletableFuture<JobStatus> future =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            return service.getCoordinatorService().getJobStatus(jobId);
+                        });
 
         try {
             response = future.get().ordinal();

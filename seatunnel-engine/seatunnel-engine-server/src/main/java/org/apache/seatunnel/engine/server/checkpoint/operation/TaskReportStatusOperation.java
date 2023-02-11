@@ -70,13 +70,16 @@ public class TaskReportStatusOperation extends Operation implements IdentifiedDa
 
     @Override
     public void run() throws Exception {
-        CoordinatorService coordinatorService = ((SeaTunnelServer) getService())
-            .getCoordinatorService();
-        RetryUtils.retryWithException(() -> {
-            coordinatorService.getJobMaster(location.getJobId())
-                .getCheckpointManager()
-                .reportedTask(this);
-            return null;
-        }, new RetryUtils.RetryMaterial(RETRY_NUMBER, true, e -> true, RETRY_INTERVAL));
+        CoordinatorService coordinatorService =
+                ((SeaTunnelServer) getService()).getCoordinatorService();
+        RetryUtils.retryWithException(
+                () -> {
+                    coordinatorService
+                            .getJobMaster(location.getJobId())
+                            .getCheckpointManager()
+                            .reportedTask(this);
+                    return null;
+                },
+                new RetryUtils.RetryMaterial(RETRY_NUMBER, true, e -> true, RETRY_INTERVAL));
     }
 }

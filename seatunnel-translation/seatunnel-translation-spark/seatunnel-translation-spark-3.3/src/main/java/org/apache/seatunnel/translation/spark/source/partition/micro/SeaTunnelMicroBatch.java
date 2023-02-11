@@ -23,7 +23,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.utils.JsonUtils;
 
-import lombok.Getter;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.spark.sql.SparkSession;
@@ -32,6 +31,8 @@ import org.apache.spark.sql.connector.read.PartitionReaderFactory;
 import org.apache.spark.sql.connector.read.streaming.MicroBatchStream;
 import org.apache.spark.sql.connector.read.streaming.Offset;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
+
+import lombok.Getter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -53,10 +54,11 @@ public class SeaTunnelMicroBatch implements MicroBatchStream {
 
     private Offset currentOffset = initialOffset;
 
-    public SeaTunnelMicroBatch(SeaTunnelSource<SeaTunnelRow, ?, ?> source,
-                               int parallelism,
-                               String checkpointLocation,
-                               CaseInsensitiveStringMap caseInsensitiveStringMap) {
+    public SeaTunnelMicroBatch(
+            SeaTunnelSource<SeaTunnelRow, ?, ?> source,
+            int parallelism,
+            String checkpointLocation,
+            CaseInsensitiveStringMap caseInsensitiveStringMap) {
         this.source = source;
         this.parallelism = parallelism;
         this.checkpointLocation = checkpointLocation;
@@ -70,20 +72,41 @@ public class SeaTunnelMicroBatch implements MicroBatchStream {
 
     @Override
     public InputPartition[] planInputPartitions(Offset start, Offset end) {
-        int checkpointInterval = caseInsensitiveStringMap.getInt(Constants.CHECKPOINT_INTERVAL, CHECKPOINT_INTERVAL_DEFAULT);
-        Configuration configuration = SparkSession.getActiveSession().get().sparkContext().hadoopConfiguration();
-        String hdfsRoot = caseInsensitiveStringMap.getOrDefault(Constants.HDFS_ROOT, FileSystem.getDefaultUri(configuration).toString());
+        int checkpointInterval =
+                caseInsensitiveStringMap.getInt(
+                        Constants.CHECKPOINT_INTERVAL, CHECKPOINT_INTERVAL_DEFAULT);
+        Configuration configuration =
+                SparkSession.getActiveSession().get().sparkContext().hadoopConfiguration();
+        String hdfsRoot =
+                caseInsensitiveStringMap.getOrDefault(
+                        Constants.HDFS_ROOT, FileSystem.getDefaultUri(configuration).toString());
         String hdfsUser = caseInsensitiveStringMap.getOrDefault(Constants.HDFS_USER, "");
         List<InputPartition> virtualPartitions;
         if (source instanceof SupportCoordinate) {
             virtualPartitions = new ArrayList<>(1);
-            virtualPartitions.add(new SeaTunnelMicroBatchInputPartition(source, parallelism,
-                    0, 1, checkpointInterval, checkpointLocation, hdfsRoot, hdfsUser));
+            virtualPartitions.add(
+                    new SeaTunnelMicroBatchInputPartition(
+                            source,
+                            parallelism,
+                            0,
+                            1,
+                            checkpointInterval,
+                            checkpointLocation,
+                            hdfsRoot,
+                            hdfsUser));
         } else {
             virtualPartitions = new ArrayList<>(parallelism);
             for (int subtaskId = 0; subtaskId < parallelism; subtaskId++) {
-                virtualPartitions.add(new SeaTunnelMicroBatchInputPartition(source, parallelism,
-                        subtaskId, 1, checkpointInterval, checkpointLocation, hdfsRoot, hdfsUser));
+                virtualPartitions.add(
+                        new SeaTunnelMicroBatchInputPartition(
+                                source,
+                                parallelism,
+                                subtaskId,
+                                1,
+                                checkpointInterval,
+                                checkpointLocation,
+                                hdfsRoot,
+                                hdfsUser));
             }
         }
         return virtualPartitions.toArray(new InputPartition[0]);
@@ -91,7 +114,8 @@ public class SeaTunnelMicroBatch implements MicroBatchStream {
 
     @Override
     public PartitionReaderFactory createReaderFactory() {
-        return new SeaTunnelMicroBatchPartitionReaderFactory(source, parallelism, checkpointLocation, caseInsensitiveStringMap);
+        return new SeaTunnelMicroBatchPartitionReaderFactory(
+                source, parallelism, checkpointLocation, caseInsensitiveStringMap);
     }
 
     @Override

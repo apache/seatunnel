@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerConnectionUtils.createSqlServerConnection;
-
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
@@ -47,8 +45,9 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-/** The {@link JdbcDataSourceDialect} implementation for MySQL datasource. */
+import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerConnectionUtils.createSqlServerConnection;
 
+/** The {@link JdbcDataSourceDialect} implementation for MySQL datasource. */
 public class SqlServerDialect implements JdbcDataSourceDialect {
 
     private static final long serialVersionUID = 1L;
@@ -107,11 +106,11 @@ public class SqlServerDialect implements JdbcDataSourceDialect {
 
     @Override
     public SqlServerSourceFetchTaskContext createFetchTaskContext(
-        SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig) {
+            SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig) {
         final SqlServerConnection jdbcConnection =
-            createSqlServerConnection(taskSourceConfig.getDbzConfiguration());
+                createSqlServerConnection(taskSourceConfig.getDbzConfiguration());
         final SqlServerConnection metaDataConnection =
-            createSqlServerConnection(taskSourceConfig.getDbzConfiguration());
+                createSqlServerConnection(taskSourceConfig.getDbzConfiguration());
 
         List<TableChanges.TableChange> tableChangeList = new ArrayList<>();
         // TODO: support save table schema
@@ -126,7 +125,7 @@ public class SqlServerDialect implements JdbcDataSourceDialect {
         }
 
         return new SqlServerSourceFetchTaskContext(
-            taskSourceConfig, this, jdbcConnection, metaDataConnection, tableChangeList);
+                taskSourceConfig, this, jdbcConnection, metaDataConnection, tableChangeList);
     }
 
     @Override

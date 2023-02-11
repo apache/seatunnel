@@ -18,7 +18,9 @@
 
 package org.apache.seatunnel.format.json.canal;
 
-import static java.lang.String.format;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
@@ -30,12 +32,10 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
-
 import java.io.IOException;
 import java.util.regex.Pattern;
+
+import static java.lang.String.format;
 
 public class CanalJsonDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
 
@@ -81,18 +81,15 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
 
     private final SeaTunnelRowType physicalRowType;
 
-    public CanalJsonDeserializationSchema(SeaTunnelRowType physicalRowType,
-                                          String database,
-                                          String table,
-                                          boolean ignoreParseErrors
-                                          ) {
+    public CanalJsonDeserializationSchema(
+            SeaTunnelRowType physicalRowType,
+            String database,
+            String table,
+            boolean ignoreParseErrors) {
         this.physicalRowType = physicalRowType;
         final SeaTunnelRowType jsonRowType = createJsonRowType(physicalRowType);
-        this.jsonDeserializer = new JsonDeserializationSchema(
-            false,
-            ignoreParseErrors,
-            jsonRowType
-        );
+        this.jsonDeserializer =
+                new JsonDeserializationSchema(false, ignoreParseErrors, jsonRowType);
         this.database = database;
         this.table = table;
         this.fieldNames = physicalRowType.getFieldNames();
@@ -112,23 +109,19 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
         return this.physicalRowType;
     }
 
-    public void deserialize(byte[] message, Collector<SeaTunnelRow> out){
+    public void deserialize(byte[] message, Collector<SeaTunnelRow> out) {
         if (message == null) {
             return;
         }
         ObjectNode jsonNode = (ObjectNode) convertBytes(message);
         assert jsonNode != null;
         if (database != null) {
-            if (!databasePattern
-                .matcher(jsonNode.get(FIELD_DATABASE).asText())
-                .matches()) {
+            if (!databasePattern.matcher(jsonNode.get(FIELD_DATABASE).asText()).matches()) {
                 return;
             }
         }
         if (table != null) {
-            if (!tablePattern
-                .matcher(jsonNode.get(FIELD_TABLE).asText())
-                .matches()) {
+            if (!tablePattern.matcher(jsonNode.get(FIELD_TABLE).asText()).matches()) {
                 return;
             }
         }
@@ -139,8 +132,7 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
                 SeaTunnelRow row = convertJsonNode(dataNode.get(i));
                 out.collect(row);
             }
-        }
-        else if (OP_UPDATE.equals(type)) {
+        } else if (OP_UPDATE.equals(type)) {
             final ArrayNode oldNode = (ArrayNode) jsonNode.get(FIELD_OLD);
             for (int i = 0; i < dataNode.size(); i++) {
                 SeaTunnelRow after = convertJsonNode(dataNode.get(i));
@@ -174,10 +166,11 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
             // this is a DDL change event, and we should skip it.
         } else {
             if (!ignoreParseErrors) {
-                throw new SeaTunnelJsonFormatException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                    format(
-                        "Unknown \"type\" value \"%s\". The Canal JSON message is '%s'",
-                        type, new String(message)));
+                throw new SeaTunnelJsonFormatException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        format(
+                                "Unknown \"type\" value \"%s\". The Canal JSON message is '%s'",
+                                type, new String(message)));
             }
         }
     }
@@ -189,8 +182,10 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
             if (ignoreParseErrors) {
                 return null;
             }
-            throw new SeaTunnelJsonFormatException(CommonErrorCode.JSON_OPERATION_FAILED,
-                String.format("Failed to deserialize JSON '%s'.", new String(message)), t);
+            throw new SeaTunnelJsonFormatException(
+                    CommonErrorCode.JSON_OPERATION_FAILED,
+                    String.format("Failed to deserialize JSON '%s'.", new String(message)),
+                    t);
         }
     }
 
@@ -198,8 +193,7 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
         return jsonDeserializer.convertToRowData(root);
     }
 
-    private static SeaTunnelRowType createJsonRowType(
-        SeaTunnelRowType physicalDataType) {
+    private static SeaTunnelRowType createJsonRowType(SeaTunnelRowType physicalDataType) {
         // Canal JSON contains other information, e.g. "ts", "sql", but we don't need them
         return physicalDataType;
     }
@@ -209,12 +203,11 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
     // ------------------------------------------------------------------------------------------
 
     /** Creates A builder for building a {@link CanalJsonDeserializationSchema}. */
-    public static Builder builder(
-        SeaTunnelRowType physicalDataType) {
+    public static Builder builder(SeaTunnelRowType physicalDataType) {
         return new Builder(physicalDataType);
     }
 
-    public static class Builder{
+    public static class Builder {
 
         private boolean ignoreParseErrors = false;
 
@@ -224,7 +217,7 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
 
         private final SeaTunnelRowType physicalDataType;
 
-        public Builder(SeaTunnelRowType physicalDataType){
+        public Builder(SeaTunnelRowType physicalDataType) {
             this.physicalDataType = physicalDataType;
         }
 
@@ -243,13 +236,9 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
             return this;
         }
 
-        public CanalJsonDeserializationSchema build(){
+        public CanalJsonDeserializationSchema build() {
             return new CanalJsonDeserializationSchema(
-                physicalDataType,
-                database,
-                table,
-                ignoreParseErrors
-                );
+                    physicalDataType, database, table, ignoreParseErrors);
         }
     }
 }

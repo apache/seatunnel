@@ -43,7 +43,8 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
     private volatile boolean noMoreSplit;
     private volatile long latestTimestamp = 0;
 
-    public FakeSourceReader(SourceReader.Context context, SeaTunnelSchema schema, FakeConfig fakeConfig) {
+    public FakeSourceReader(
+            SourceReader.Context context, SeaTunnelSchema schema, FakeConfig fakeConfig) {
         this.context = context;
         this.config = fakeConfig;
         this.fakeDataGenerator = new FakeDataGenerator(schema, fakeConfig);
@@ -72,14 +73,20 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
             if (null != split) {
                 // Randomly generated data are sent directly to the downstream operator
                 fakeDataGenerator.collectFakedRows(split.getRowNum(), output);
-                log.info("{} rows of data have been generated in split({}). Generation time: {}", split.getRowNum(), split.splitId(), latestTimestamp);
+                log.info(
+                        "{} rows of data have been generated in split({}). Generation time: {}",
+                        split.getRowNum(),
+                        split.splitId(),
+                        latestTimestamp);
             } else {
                 if (!noMoreSplit) {
                     log.info("wait split!");
                 }
             }
         }
-        if (splits.isEmpty() && noMoreSplit && Boundedness.BOUNDED.equals(context.getBoundedness())) {
+        if (splits.isEmpty()
+                && noMoreSplit
+                && Boundedness.BOUNDED.equals(context.getBoundedness())) {
             // signal to the source that we have reached the end of the data.
             log.info("Closed the bounded fake source");
             context.signalNoMoreElement();
@@ -103,7 +110,5 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {
-
-    }
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
 }

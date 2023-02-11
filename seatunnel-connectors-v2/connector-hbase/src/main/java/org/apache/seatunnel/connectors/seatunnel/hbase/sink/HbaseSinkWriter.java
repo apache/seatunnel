@@ -48,7 +48,7 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private static final String ALL_COLUMNS = "all_columns";
 
-    private final Configuration hbaseConfiguration  = HBaseConfiguration.create();
+    private final Configuration hbaseConfiguration = HBaseConfiguration.create();
 
     private final Connection hbaseConnection;
 
@@ -64,10 +64,12 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private String defaultFamilyName = "value";
 
-    public HbaseSinkWriter(SeaTunnelRowType seaTunnelRowType,
-                           HbaseParameters hbaseParameters,
-                           List<Integer> rowkeyColumnIndexes,
-                           int versionColumnIndex) throws IOException {
+    public HbaseSinkWriter(
+            SeaTunnelRowType seaTunnelRowType,
+            HbaseParameters hbaseParameters,
+            List<Integer> rowkeyColumnIndexes,
+            int versionColumnIndex)
+            throws IOException {
         this.seaTunnelRowType = seaTunnelRowType;
         this.hbaseParameters = hbaseParameters;
         this.rowkeyColumnIndexes = rowkeyColumnIndexes;
@@ -85,9 +87,10 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         // initialize hbase connection
         hbaseConnection = ConnectionFactory.createConnection(hbaseConfiguration);
         // initialize hbase mutator
-        BufferedMutatorParams bufferedMutatorParams = new BufferedMutatorParams(TableName.valueOf(hbaseParameters.getTable()))
-                .pool(HTable.getDefaultExecutor(hbaseConfiguration))
-                .writeBufferSize(hbaseParameters.getWriteBufferSize());
+        BufferedMutatorParams bufferedMutatorParams =
+                new BufferedMutatorParams(TableName.valueOf(hbaseParameters.getTable()))
+                        .pool(HTable.getDefaultExecutor(hbaseConfiguration))
+                        .writeBufferSize(hbaseParameters.getWriteBufferSize());
         hbaseMutator = hbaseConnection.getBufferedMutator(bufferedMutatorParams);
     }
 
@@ -117,20 +120,26 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         if (!hbaseParameters.isWalWrite()) {
             put.setDurability(Durability.SKIP_WAL);
         }
-        List<Integer> writeColumnIndexes = IntStream.range(0, row.getArity()).boxed()
-                .filter(index -> !rowkeyColumnIndexes.contains(index))
-                .filter(index -> index != versionColumnIndex)
-                .collect(Collectors.toList());
+        List<Integer> writeColumnIndexes =
+                IntStream.range(0, row.getArity())
+                        .boxed()
+                        .filter(index -> !rowkeyColumnIndexes.contains(index))
+                        .filter(index -> index != versionColumnIndex)
+                        .collect(Collectors.toList());
         for (Integer writeColumnIndex : writeColumnIndexes) {
             String fieldName = seaTunnelRowType.getFieldName(writeColumnIndex);
-            String familyName = hbaseParameters.getFamilyNames().getOrDefault(fieldName, defaultFamilyName);
+            String familyName =
+                    hbaseParameters.getFamilyNames().getOrDefault(fieldName, defaultFamilyName);
             byte[] bytes = convertColumnToBytes(row, writeColumnIndex);
             if (bytes != null) {
                 put.addColumn(Bytes.toBytes(familyName), Bytes.toBytes(fieldName), bytes);
             } else {
                 switch (hbaseParameters.getNullMode()) {
                     case EMPTY:
-                        put.addColumn(Bytes.toBytes(familyName), Bytes.toBytes(fieldName), HConstants.EMPTY_BYTE_ARRAY);
+                        put.addColumn(
+                                Bytes.toBytes(familyName),
+                                Bytes.toBytes(fieldName),
+                                HConstants.EMPTY_BYTE_ARRAY);
                         break;
                     case SKIP:
                     default:
@@ -174,7 +183,10 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                 return field.toString()
                         .getBytes(Charset.forName(hbaseParameters.getEnCoding().toString()));
             default:
-                String errorMsg = String.format("Hbase connector does not support this column type [%s]", fieldType.getSqlType());
+                String errorMsg =
+                        String.format(
+                                "Hbase connector does not support this column type [%s]",
+                                fieldType.getSqlType());
                 throw new HbaseConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
         }
     }

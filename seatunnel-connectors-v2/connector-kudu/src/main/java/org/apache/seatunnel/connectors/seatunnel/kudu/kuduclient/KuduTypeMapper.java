@@ -26,6 +26,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorException;
 
 import org.apache.kudu.ColumnSchema;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,22 +53,21 @@ public class KuduTypeMapper {
     private static final String KUDU_DOUBLE = "DOUBLE";
     private static final String KUDU_DECIMAL = "DECIMAL32";
 
-
     // -------------------------string----------------------------
 
     private static final String KUDU_VARCHAR = "STRING";
-
 
     // ------------------------------time-------------------------
 
     private static final String KUDU_UNIXTIME_MICROS = "UNIXTIME_MICROS";
 
-
     // ------------------------------blob-------------------------
 
     private static final String KUDU_BINARY = "BINARY";
     private static final int PRECISION = 20;
-    public static SeaTunnelDataType<?> mapping(List<ColumnSchema> columnSchemaList, int colIndex) throws SQLException {
+
+    public static SeaTunnelDataType<?> mapping(List<ColumnSchema> columnSchemaList, int colIndex)
+            throws SQLException {
         String kuduType = columnSchemaList.get(colIndex).getType().getName().toUpperCase();
         switch (kuduType) {
             case KUDU_BIT:
@@ -92,14 +92,13 @@ public class KuduTypeMapper {
             case KUDU_BINARY:
                 return PrimitiveByteArrayType.INSTANCE;
 
-            //Doesn't support yet
+                // Doesn't support yet
 
             case KUDU_UNKNOWN:
             default:
-                throw new KuduConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                    String.format(
-                        "Doesn't support KUDU type '%s' .",
-                        kuduType));
+                throw new KuduConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        String.format("Doesn't support KUDU type '%s' .", kuduType));
         }
     }
 }

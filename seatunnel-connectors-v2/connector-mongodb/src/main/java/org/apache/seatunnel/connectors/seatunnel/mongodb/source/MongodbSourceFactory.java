@@ -17,11 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.COLLECTION;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.MATCHQUERY;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.URI;
-
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -29,6 +24,11 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 
 import com.google.auto.service.AutoService;
+
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.COLLECTION;
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.MATCHQUERY;
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.URI;
 
 @AutoService(Factory.class)
 public class MongodbSourceFactory implements TableSourceFactory {
@@ -41,7 +41,8 @@ public class MongodbSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(URI, DATABASE, COLLECTION, SeaTunnelSchema.SCHEMA)
-                .optional(MATCHQUERY).build();
+                .optional(MATCHQUERY)
+                .build();
     }
 
     @Override

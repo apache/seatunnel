@@ -4,7 +4,7 @@
 
 ## Description
 
-Used to launch Feishu web hooks using data. 
+Used to launch Feishu web hooks using data.
 
 > For example, if the data from upstream is [`age: 12, name: tyrantlucifer`], the body content is the following: `{"age": 12, "name": "tyrantlucifer"}`
 
@@ -14,10 +14,10 @@ Used to launch Feishu web hooks using data.
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 
-##  Options
+## Options
 
-| name           | type   | required | default value |
-| -------------- |--------| -------- | ------------- |
+|      name      |  type  | required | default value |
+|----------------|--------|----------|---------------|
 | url            | String | Yes      | -             |
 | headers        | Map    | No       | -             |
 | common-options |        | no       | -             |
@@ -49,3 +49,4 @@ Feishu {
 ### 2.2.0-beta 2022-09-26
 
 - Add Feishu Sink Connector
+

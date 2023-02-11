@@ -31,7 +31,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-| name                             | type    | required | default value                                         | remarks                                                                                                |
+|               name               |  type   | required |                     default value                     |                                                remarks                                                 |
 |----------------------------------|---------|----------|-------------------------------------------------------|--------------------------------------------------------------------------------------------------------|
 | path                             | string  | yes      | -                                                     |                                                                                                        |
 | bucket                           | string  | yes      | -                                                     |                                                                                                        |
@@ -64,9 +64,11 @@ The target dir path is required.
 The bucket address of s3 file system, for example: `s3n://seatunnel-test`, if you use `s3a` protocol, this parameter should be `s3a://seatunnel-test`.
 
 ### fs.s3a.endpoint [string]
+
 fs s3a endpoint
 
 ### fs.s3a.aws.credentials.provider [string]
+
 The way to authenticate s3a. We only support `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` and `com.amazonaws.auth.InstanceProfileCredentialsProvider` now.
 
 More information about the credential provider you can see [Hadoop AWS Document](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html#Simple_name.2Fsecret_credentials_with_SimpleAWSCredentialsProvider.2A)
@@ -82,14 +84,16 @@ The access secret of s3 file system. If this parameter is not set, please confir
 ### hadoop_s3_properties [map]
 
 If you need to add a other option, you could add it here and refer to this [link](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)
+
 ```
-     hadoop_s3_properties {
-           "fs.s3a.buffer.dir" = "/data/st_test/s3a"
-           "fs.s3a.fast.upload.buffer" = "disk"
-        }
+hadoop_s3_properties {
+      "fs.s3a.buffer.dir" = "/data/st_test/s3a"
+      "fs.s3a.fast.upload.buffer" = "disk"
+   }
 ```
 
 ### custom_filename [boolean]
+
 Whether custom the filename
 
 ### file_name_expression [string]
@@ -107,8 +111,8 @@ Only used when `custom_filename` is `true`
 
 When the format in the `file_name_expression` parameter is `xxxx-${now}` , `filename_time_format` can specify the time format of the path, and the default value is `yyyy.MM.dd` . The commonly used time formats are listed as follows:
 
-| Symbol | Description        |
-| ------ | ------------------ |
+| Symbol |    Description     |
+|--------|--------------------|
 | y      | Year               |
 | M      | Month              |
 | d      | Day of month       |
@@ -266,6 +270,7 @@ For orc file format simple config with `org.apache.hadoop.fs.s3a.SimpleAWSCreden
 - Add S3File Sink Connector
 
 ### 2.3.0 2022-12-30
+
 - [BugFix] Fixed the following bugs that failed to write data to files ([3258](https://github.com/apache/incubator-seatunnel/pull/3258))
   - When field from upstream is null it will throw NullPointerException
   - Sink columns mapping failed
@@ -280,3 +285,4 @@ For orc file format simple config with `org.apache.hadoop.fs.s3a.SimpleAWSCreden
 ### Next version
 
 - ​	[Improve] Support file compress ([3899](https://github.com/apache/incubator-seatunnel/pull/3899))
+

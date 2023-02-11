@@ -1,6 +1,7 @@
 ---
+
 sidebar_position: 4
----
+-------------------
 
 # Quick Start With Spark
 
@@ -15,7 +16,6 @@ see [Getting Started: standalone](https://spark.apache.org/docs/latest/spark-sta
 
 **Configure SeaTunnel**: Change the setting in `config/seatunnel-env.sh`, it is base on the path your engine install at [deployment](deployment.md).
 Change `SPARK_HOME` to the Spark deployment dir.
-
 
 ## Step 3: Add Job Config File to define a job
 

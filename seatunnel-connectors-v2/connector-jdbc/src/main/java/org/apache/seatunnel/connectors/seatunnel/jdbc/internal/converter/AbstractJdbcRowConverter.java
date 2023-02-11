@@ -35,15 +35,12 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Optional;
 
-/**
- * Base class for all converters that convert between JDBC object and Seatunnel internal object.
- */
+/** Base class for all converters that convert between JDBC object and Seatunnel internal object. */
 public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
 
     public abstract String converterName();
 
-    public AbstractJdbcRowConverter() {
-    }
+    public AbstractJdbcRowConverter() {}
 
     @Override
     @SuppressWarnings("checkstyle:Indentation")
@@ -82,15 +79,20 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                     break;
                 case DATE:
                     Date sqlDate = rs.getDate(resultSetIndex);
-                    fields[fieldIndex] = Optional.ofNullable(sqlDate).map(e -> e.toLocalDate()).orElse(null);
+                    fields[fieldIndex] =
+                            Optional.ofNullable(sqlDate).map(e -> e.toLocalDate()).orElse(null);
                     break;
                 case TIME:
                     Time sqlTime = rs.getTime(resultSetIndex);
-                    fields[fieldIndex] = Optional.ofNullable(sqlTime).map(e -> e.toLocalTime()).orElse(null);
+                    fields[fieldIndex] =
+                            Optional.ofNullable(sqlTime).map(e -> e.toLocalTime()).orElse(null);
                     break;
                 case TIMESTAMP:
                     Timestamp sqlTimestamp = rs.getTimestamp(resultSetIndex);
-                    fields[fieldIndex] = Optional.ofNullable(sqlTimestamp).map(e -> e.toLocalDateTime()).orElse(null);
+                    fields[fieldIndex] =
+                            Optional.ofNullable(sqlTimestamp)
+                                    .map(e -> e.toLocalDateTime())
+                                    .orElse(null);
                     break;
                 case BYTES:
                     fields[fieldIndex] = rs.getBytes(resultSetIndex);
@@ -102,14 +104,18 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                 case ARRAY:
                 case ROW:
                 default:
-                    throw new JdbcConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unexpected value: " + seaTunnelDataType);
+                    throw new JdbcConnectorException(
+                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            "Unexpected value: " + seaTunnelDataType);
             }
         }
         return new SeaTunnelRow(fields);
     }
 
     @Override
-    public PreparedStatement toExternal(SeaTunnelRowType rowType, SeaTunnelRow row, PreparedStatement statement) throws SQLException {
+    public PreparedStatement toExternal(
+            SeaTunnelRowType rowType, SeaTunnelRow row, PreparedStatement statement)
+            throws SQLException {
         for (int fieldIndex = 0; fieldIndex < rowType.getTotalFields(); fieldIndex++) {
             SeaTunnelDataType<?> seaTunnelDataType = rowType.getFieldType(fieldIndex);
             int statementIndex = fieldIndex + 1;
@@ -157,7 +163,8 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                     break;
                 case TIMESTAMP:
                     LocalDateTime localDateTime = (LocalDateTime) row.getField(fieldIndex);
-                    statement.setTimestamp(statementIndex, java.sql.Timestamp.valueOf(localDateTime));
+                    statement.setTimestamp(
+                            statementIndex, java.sql.Timestamp.valueOf(localDateTime));
                     break;
                 case BYTES:
                     statement.setBytes(statementIndex, (byte[]) row.getField(fieldIndex));
@@ -169,7 +176,9 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                 case ARRAY:
                 case ROW:
                 default:
-                    throw new JdbcConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unexpected value: " + seaTunnelDataType);
+                    throw new JdbcConnectorException(
+                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            "Unexpected value: " + seaTunnelDataType);
             }
         }
         return statement;

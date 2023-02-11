@@ -41,16 +41,19 @@ public class LocalFileSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-            .required(LocalSourceConfig.FILE_PATH)
-            .required(BaseSourceConfig.FILE_TYPE)
-            .conditional(BaseSourceConfig.FILE_TYPE, FileFormat.TEXT, BaseSourceConfig.DELIMITER)
-            .conditional(BaseSourceConfig.FILE_TYPE, Arrays.asList(FileFormat.TEXT, FileFormat.JSON),
-                SeaTunnelSchema.SCHEMA)
-            .optional(BaseSourceConfig.PARSE_PARTITION_FROM_PATH)
-            .optional(BaseSourceConfig.DATE_FORMAT)
-            .optional(BaseSourceConfig.DATETIME_FORMAT)
-            .optional(BaseSourceConfig.TIME_FORMAT)
-            .build();
+                .required(LocalSourceConfig.FILE_PATH)
+                .required(BaseSourceConfig.FILE_TYPE)
+                .conditional(
+                        BaseSourceConfig.FILE_TYPE, FileFormat.TEXT, BaseSourceConfig.DELIMITER)
+                .conditional(
+                        BaseSourceConfig.FILE_TYPE,
+                        Arrays.asList(FileFormat.TEXT, FileFormat.JSON),
+                        SeaTunnelSchema.SCHEMA)
+                .optional(BaseSourceConfig.PARSE_PARTITION_FROM_PATH)
+                .optional(BaseSourceConfig.DATE_FORMAT)
+                .optional(BaseSourceConfig.DATETIME_FORMAT)
+                .optional(BaseSourceConfig.TIME_FORMAT)
+                .build();
     }
 
     @Override

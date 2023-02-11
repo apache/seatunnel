@@ -17,5 +17,4 @@
 
 package org.apache.seatunnel.api.transform;
 
-public interface Transformation {
-}
+public interface Transformation {}

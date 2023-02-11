@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import static org.awaitility.Awaitility.given;
-
 import org.apache.seatunnel.connectors.seatunnel.jdbc.util.JdbcCompareUtil;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -27,10 +25,6 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
-import com.google.common.collect.Lists;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
-import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -42,6 +36,11 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.google.common.collect.Lists;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.File;
 import java.io.IOException;
 import java.sql.Connection;
@@ -51,6 +50,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+
+import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class JdbcDmdbIT extends TestSuiteBase implements TestResource {
@@ -64,13 +65,20 @@ public class JdbcDmdbIT extends TestSuiteBase implements TestResource {
     private static final String DATABASE = "SYSDBA";
     private static final String SOURCE_TABLE = "e2e_table_source";
     private static final String SINK_TABLE = "e2e_table_sink";
-    private static final String DM_DRIVER_JAR = "https://repo1.maven.org/maven2/com/dameng/DmJdbcDriver18/8.1.1.193/DmJdbcDriver18-8.1.1.193.jar";
+    private static final String DM_DRIVER_JAR =
+            "https://repo1.maven.org/maven2/com/dameng/DmJdbcDriver18/8.1.1.193/DmJdbcDriver18-8.1.1.193.jar";
 
     @TestContainerExtension
-    private final ContainerExtendedFactory extendedFactory = container -> {
-        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O " + DM_DRIVER_JAR);
-        Assertions.assertEquals(0, extraCommands.getExitCode());
-    };
+    private final ContainerExtendedFactory extendedFactory =
+            container -> {
+                Container.ExecResult extraCommands =
+                        container.execInContainer(
+                                "bash",
+                                "-c",
+                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
+                                        + DM_DRIVER_JAR);
+                Assertions.assertEquals(0, extraCommands.getExitCode());
+            };
 
     private Connection jdbcConnection;
     private GenericContainer<?> dbServer;
@@ -78,12 +86,13 @@ public class JdbcDmdbIT extends TestSuiteBase implements TestResource {
     @BeforeAll
     @Override
     public void startUp() throws Exception {
-        dbServer = new GenericContainer<>(DOCKER_IMAGE)
-                .withNetwork(NETWORK)
-                .withNetworkAliases(HOST)
-                .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
-        dbServer.setPortBindings(Lists.newArrayList(
-                String.format("%s:%s", 5236, 5236)));
+        dbServer =
+                new GenericContainer<>(DOCKER_IMAGE)
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(HOST)
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
+        dbServer.setPortBindings(Lists.newArrayList(String.format("%s:%s", 5236, 5236)));
         Startables.deepStart(Stream.of(dbServer)).join();
         log.info("Dmdb container started");
         // wait for Dmdb fully start
@@ -96,17 +105,18 @@ public class JdbcDmdbIT extends TestSuiteBase implements TestResource {
     }
 
     private void initializeJdbcConnection() throws SQLException {
-        jdbcConnection = DriverManager.getConnection(String.format(
-                URL, dbServer.getHost()), USERNAME, PASSWORD);
+        jdbcConnection =
+                DriverManager.getConnection(
+                        String.format(URL, dbServer.getHost()), USERNAME, PASSWORD);
     }
 
-    /**
-     * init the table for DM_SERVER, DDL and DML for source and sink
-     */
+    /** init the table for DM_SERVER, DDL and DML for source and sink */
     private void initializeJdbcTable() {
         File file = ContainerUtil.getResourcesFile("/init/dm_init.conf");
         Config config = ConfigFactory.parseFile(file);
-        assert config.hasPath("dm_table_source") && config.hasPath("DML") && config.hasPath("dm_table_sink");
+        assert config.hasPath("dm_table_source")
+                && config.hasPath("DML")
+                && config.hasPath("dm_table_sink");
         try (Statement statement = jdbcConnection.createStatement()) {
             // source
             String sourceTableDDL = config.getString("dm_table_source");
@@ -134,12 +144,15 @@ public class JdbcDmdbIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     @DisplayName("JDBC-DM end to end test")
-    public void testJdbcDmdb(TestContainer container) throws IOException, InterruptedException, SQLException {
+    public void testJdbcDmdb(TestContainer container)
+            throws IOException, InterruptedException, SQLException {
         assertHasData(SOURCE_TABLE);
         Container.ExecResult execResult = container.executeJob("/jdbc_dm_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         assertHasData(SINK_TABLE);
-        JdbcCompareUtil.compare(jdbcConnection, String.format("select * from %s.%s limit 1", DATABASE, SOURCE_TABLE),
+        JdbcCompareUtil.compare(
+                jdbcConnection,
+                String.format("select * from %s.%s limit 1", DATABASE, SOURCE_TABLE),
                 String.format("select * from %s.%s limit 1", DATABASE, SINK_TABLE),
                 "DM_BIT, DM_INT, DM_INTEGER, DM_PLS_INTEGER, DM_TINYINT, DM_BYTE, DM_SMALLINT, DM_BIGINT, DM_NUMERIC, DM_NUMBER, "
                         + "DM_DECIMAL, DM_DEC, DM_REAL, DM_FLOAT, DM_DOUBLE_PRECISION, DM_DOUBLE, DM_CHAR, DM_CHARACTER, DM_VARCHAR, DM_VARCHAR2,"

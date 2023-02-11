@@ -2,11 +2,10 @@
 
 > Common parameters of sink connectors
 
-| name              | type   | required | default value |
-| ----------------- | ------ | -------- | ------------- |
+|       name        |  type  | required | default value |
+|-------------------|--------|----------|---------------|
 | source_table_name | string | no       | -             |
 | parallelism       | int    | no       | -             |
-
 
 ### source_table_name [string]
 
@@ -56,3 +55,4 @@ sink {
 
 > If the job only have one source and one(or zero) transform and one sink, You do not need to specify `source_table_name` and `result_table_name` for connector.
 > If the number of any operator in source, transform and sink is greater than 1, you must specify the `source_table_name` and `result_table_name` for each connector in the job.
+

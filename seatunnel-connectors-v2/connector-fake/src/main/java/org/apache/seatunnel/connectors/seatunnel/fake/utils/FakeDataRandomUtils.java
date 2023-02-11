@@ -46,8 +46,10 @@ public class FakeDataRandomUtils {
     }
 
     public BigDecimal randomBigDecimal(int precision, int scale) {
-        return new BigDecimal(RandomStringUtils.randomNumeric(precision - scale) + "." +
-                RandomStringUtils.randomNumeric(scale));
+        return new BigDecimal(
+                RandomStringUtils.randomNumeric(precision - scale)
+                        + "."
+                        + RandomStringUtils.randomNumeric(scale));
     }
 
     public byte[] randomBytes() {
@@ -75,7 +77,8 @@ public class FakeDataRandomUtils {
         if (!CollectionUtils.isEmpty(smallintTemplate)) {
             return randomFromList(smallintTemplate).shortValue();
         }
-        return (short) RandomUtils.nextInt(fakeConfig.getSmallintMin(), fakeConfig.getSmallintMax());
+        return (short)
+                RandomUtils.nextInt(fakeConfig.getSmallintMin(), fakeConfig.getSmallintMax());
     }
 
     public Integer randomInt() {
@@ -99,7 +102,8 @@ public class FakeDataRandomUtils {
         if (!CollectionUtils.isEmpty(floatTemplate)) {
             return randomFromList(floatTemplate).floatValue();
         }
-        return RandomUtils.nextFloat((float) fakeConfig.getFloatMin(), (float) fakeConfig.getFloatMax());
+        return RandomUtils.nextFloat(
+                (float) fakeConfig.getFloatMin(), (float) fakeConfig.getFloatMax());
     }
 
     public Double randomDouble() {

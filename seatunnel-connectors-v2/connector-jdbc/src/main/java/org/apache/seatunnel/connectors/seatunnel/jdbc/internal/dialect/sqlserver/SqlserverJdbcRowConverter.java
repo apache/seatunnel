@@ -25,5 +25,4 @@ public class SqlserverJdbcRowConverter extends AbstractJdbcRowConverter {
     public String converterName() {
         return "Sqlserver";
     }
-
 }

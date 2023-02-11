@@ -25,5 +25,4 @@ public class DmdbJdbcRowConverter extends AbstractJdbcRowConverter {
     public String converterName() {
         return "DM";
     }
-
 }

@@ -29,7 +29,4 @@ public class Edge implements Serializable {
     private Long inputVertexId;
 
     private Long targetVertexId;
-
 }
-
-

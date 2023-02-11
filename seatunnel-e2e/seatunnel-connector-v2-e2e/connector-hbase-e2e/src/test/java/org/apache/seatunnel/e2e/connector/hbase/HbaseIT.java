@@ -21,7 +21,6 @@ import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.TableName;
@@ -37,6 +36,7 @@ import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.client.TableDescriptor;
 import org.apache.hadoop.hbase.client.TableDescriptorBuilder;
 import org.apache.hadoop.hbase.io.compress.Compression;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -50,6 +50,8 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -57,7 +59,8 @@ import java.util.Objects;
 import java.util.stream.Stream;
 
 @Slf4j
-@Disabled("Hbase docker e2e case need user add mapping information of between container id and ip address in hosts file")
+@Disabled(
+        "Hbase docker e2e case need user add mapping information of between container id and ip address in hosts file")
 public class HbaseIT extends TestSuiteBase implements TestResource {
 
     private static final String IMAGE = "harisekhon/hbase:latest";
@@ -83,12 +86,15 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
     @BeforeAll
     @Override
     public void startUp() throws Exception {
-        hbaseContainer = new GenericContainer<>(DockerImageName.parse(IMAGE))
-                .withNetwork(NETWORK)
-                .withNetworkAliases(HOST)
-                .withExposedPorts(PORT)
-                .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
-                .waitingFor(new HostPortWaitStrategy().withStartupTimeout(Duration.ofMinutes(2)));
+        hbaseContainer =
+                new GenericContainer<>(DockerImageName.parse(IMAGE))
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(HOST)
+                        .withExposedPorts(PORT)
+                        .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
+                        .waitingFor(
+                                new HostPortWaitStrategy()
+                                        .withStartupTimeout(Duration.ofMinutes(2)));
         Startables.deepStart(Stream.of(hbaseContainer)).join();
         log.info("Hbase container started");
         this.initialize();
@@ -113,13 +119,13 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         hbaseConnection = ConnectionFactory.createConnection(hbaseConfiguration);
         admin = hbaseConnection.getAdmin();
         table = TableName.valueOf(TABLE_NAME);
-        ColumnFamilyDescriptor familyDescriptor = ColumnFamilyDescriptorBuilder.newBuilder(FAMILY_NAME.getBytes())
-                .setCompressionType(Compression.Algorithm.SNAPPY)
-                .setCompactionCompressionType(Compression.Algorithm.SNAPPY)
-                .build();
-        TableDescriptor tableDescriptor = TableDescriptorBuilder.newBuilder(table)
-                .setColumnFamily(familyDescriptor)
-                .build();
+        ColumnFamilyDescriptor familyDescriptor =
+                ColumnFamilyDescriptorBuilder.newBuilder(FAMILY_NAME.getBytes())
+                        .setCompressionType(Compression.Algorithm.SNAPPY)
+                        .setCompactionCompressionType(Compression.Algorithm.SNAPPY)
+                        .build();
+        TableDescriptor tableDescriptor =
+                TableDescriptorBuilder.newBuilder(table).setColumnFamily(familyDescriptor).build();
         admin.createTable(tableDescriptor);
         log.info("Hbase table has been initialized");
     }

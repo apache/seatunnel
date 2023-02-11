@@ -17,14 +17,10 @@
 
 package org.apache.seatunnel.e2e.connector.tdengine;
 
-import static org.awaitility.Awaitility.given;
-
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
-import lombok.SneakyThrows;
-import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -36,6 +32,9 @@ import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -45,6 +44,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+
+import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class TDengineIT extends TestSuiteBase implements TestResource {
@@ -62,20 +63,26 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
     @BeforeAll
     @Override
     public void startUp() throws Exception {
-        tdengineServer1 = new GenericContainer<>(DOCKER_IMAGE)
-                .withNetwork(NETWORK)
-                .withNetworkAliases(NETWORK_ALIASES1)
-                .withExposedPorts(PORT)
-                .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)))
-                .waitingFor(new HostPortWaitStrategy()
-                        .withStartupTimeout(Duration.ofMinutes(2)));
-        tdengineServer2 = new GenericContainer<>(DOCKER_IMAGE)
-                .withNetwork(NETWORK)
-                .withNetworkAliases(NETWORK_ALIASES2)
-                .withExposedPorts(PORT)
-                .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)))
-                .waitingFor(new HostPortWaitStrategy()
-                        .withStartupTimeout(Duration.ofMinutes(2)));
+        tdengineServer1 =
+                new GenericContainer<>(DOCKER_IMAGE)
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(NETWORK_ALIASES1)
+                        .withExposedPorts(PORT)
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)))
+                        .waitingFor(
+                                new HostPortWaitStrategy()
+                                        .withStartupTimeout(Duration.ofMinutes(2)));
+        tdengineServer2 =
+                new GenericContainer<>(DOCKER_IMAGE)
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(NETWORK_ALIASES2)
+                        .withExposedPorts(PORT)
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)))
+                        .waitingFor(
+                                new HostPortWaitStrategy()
+                                        .withStartupTimeout(Duration.ofMinutes(2)));
         Startables.deepStart(Stream.of(tdengineServer1)).join();
         Startables.deepStart(Stream.of(tdengineServer2)).join();
         log.info("TDengine container started");
@@ -87,7 +94,11 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
                 .atLeast(100, TimeUnit.MILLISECONDS)
                 .pollInterval(1, TimeUnit.SECONDS)
                 .atMost(120, TimeUnit.SECONDS)
-                .untilAsserted(() -> Assertions.assertEquals(Boolean.TRUE, connection1.isValid(100) & connection2.isValid(100)));
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        Boolean.TRUE,
+                                        connection1.isValid(100) & connection2.isValid(100)));
         testDataCount = generateTestDataSet();
         log.info("tdengine testDataCount=" + testDataCount); // rowCount=8
     }
@@ -97,23 +108,25 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
         int rowCount;
         try (Statement stmt = connection1.createStatement()) {
             stmt.execute("CREATE DATABASE power KEEP 3650");
-            stmt.execute("CREATE STABLE power.meters (ts TIMESTAMP, current FLOAT, voltage INT, phase FLOAT) " +
-                    "TAGS (location BINARY(64), groupId INT)");
+            stmt.execute(
+                    "CREATE STABLE power.meters (ts TIMESTAMP, current FLOAT, voltage INT, phase FLOAT) "
+                            + "TAGS (location BINARY(64), groupId INT)");
             String sql = getSQL();
             rowCount = stmt.executeUpdate(sql);
-
         }
         try (Statement stmt = connection2.createStatement()) {
             stmt.execute("CREATE DATABASE power2 KEEP 3650");
-            stmt.execute("CREATE STABLE power2.meters2 (ts TIMESTAMP, current FLOAT, voltage INT, phase FLOAT) " +
-                    "TAGS (location BINARY(64), groupId INT)");
+            stmt.execute(
+                    "CREATE STABLE power2.meters2 (ts TIMESTAMP, current FLOAT, voltage INT, phase FLOAT) "
+                            + "TAGS (location BINARY(64), groupId INT)");
         }
         return rowCount;
     }
 
     @TestTemplate
     public void testTDengine(TestContainer container) throws Exception {
-        Container.ExecResult execResult = container.executeJob("/tdengine/tdengine_source_to_sink.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/tdengine/tdengine_source_to_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
         long rowCountInserted = readSinkDataset();
@@ -133,7 +146,12 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
 
     @SneakyThrows
     private Connection createConnect(GenericContainer<?> tdengineServer) {
-        String jdbcUrl = "jdbc:TAOS-RS://" + tdengineServer.getHost() + ":" + tdengineServer.getFirstMappedPort() + "?user=root&password=taosdata";
+        String jdbcUrl =
+                "jdbc:TAOS-RS://"
+                        + tdengineServer.getHost()
+                        + ":"
+                        + tdengineServer.getFirstMappedPort()
+                        + "?user=root&password=taosdata";
         Connection conn = DriverManager.getConnection(jdbcUrl);
         log.info("TDengine Connected! " + jdbcUrl);
         return conn;
@@ -157,28 +175,40 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
     }
 
     /**
-     * The generated SQL is:
-     * INSERT INTO power.d1001 USING power.meters TAGS(California.SanFrancisco, 2) VALUES('2018-10-03 14:38:05.000',10.30000,219,0.31000)
-     * power.d1001 USING power.meters TAGS(California.SanFrancisco, 2) VALUES('2018-10-03 14:38:15.000',12.60000,218,0.33000)
-     * power.d1001 USING power.meters TAGS(California.SanFrancisco, 2) VALUES('2018-10-03 14:38:16.800',12.30000,221,0.31000)
-     * power.d1002 USING power.meters TAGS(California.SanFrancisco, 3) VALUES('2018-10-03 14:38:16.650',10.30000,218,0.25000)
-     * power.d1003 USING power.meters TAGS(California.LosAngeles, 2) VALUES('2018-10-03 14:38:05.500',11.80000,221,0.28000)
-     * power.d1003 USING power.meters TAGS(California.LosAngeles, 2) VALUES('2018-10-03 14:38:16.600',13.40000,223,0.29000)
-     * power.d1004 USING power.meters TAGS(California.LosAngeles, 3) VALUES('2018-10-03 14:38:05.000',10.80000,223,0.29000)
-     * power.d1004 USING power.meters TAGS(California.LosAngeles, 3) VALUES('2018-10-03 14:38:06.500',11.50000,221,0.35000)
+     * The generated SQL is: INSERT INTO power.d1001 USING power.meters
+     * TAGS(California.SanFrancisco, 2) VALUES('2018-10-03 14:38:05.000',10.30000,219,0.31000)
+     * power.d1001 USING power.meters TAGS(California.SanFrancisco, 2) VALUES('2018-10-03
+     * 14:38:15.000',12.60000,218,0.33000) power.d1001 USING power.meters
+     * TAGS(California.SanFrancisco, 2) VALUES('2018-10-03 14:38:16.800',12.30000,221,0.31000)
+     * power.d1002 USING power.meters TAGS(California.SanFrancisco, 3) VALUES('2018-10-03
+     * 14:38:16.650',10.30000,218,0.25000) power.d1003 USING power.meters
+     * TAGS(California.LosAngeles, 2) VALUES('2018-10-03 14:38:05.500',11.80000,221,0.28000)
+     * power.d1003 USING power.meters TAGS(California.LosAngeles, 2) VALUES('2018-10-03
+     * 14:38:16.600',13.40000,223,0.29000) power.d1004 USING power.meters
+     * TAGS(California.LosAngeles, 3) VALUES('2018-10-03 14:38:05.000',10.80000,223,0.29000)
+     * power.d1004 USING power.meters TAGS(California.LosAngeles, 3) VALUES('2018-10-03
+     * 14:38:06.500',11.50000,221,0.35000)
      */
     private static String getSQL() {
         StringBuilder sb = new StringBuilder("INSERT INTO ");
         for (String line : getRawData()) {
             String[] ps = line.split(",");
-            sb.append("power." + ps[0]).append(" USING power.meters TAGS(")
-                    .append(ps[5]).append(", ") // tag: location
+            sb.append("power." + ps[0])
+                    .append(" USING power.meters TAGS(")
+                    .append(ps[5])
+                    .append(", ") // tag: location
                     .append(ps[6]) // tag: groupId
                     .append(") VALUES(")
-                    .append('\'').append(ps[1]).append('\'').append(",") // ts
-                    .append(ps[2]).append(",") // current
-                    .append(ps[3]).append(",") // voltage
-                    .append(ps[4]).append(") "); // phase
+                    .append('\'')
+                    .append(ps[1])
+                    .append('\'')
+                    .append(",") // ts
+                    .append(ps[2])
+                    .append(",") // current
+                    .append(ps[3])
+                    .append(",") // voltage
+                    .append(ps[4])
+                    .append(") "); // phase
         }
         return sb.toString();
     }
@@ -192,7 +222,6 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
                 "d1003,2018-10-03 14:38:05.500,11.80000,221,0.28000,'California.LosAngeles',2",
                 "d1003,2018-10-03 14:38:16.600,13.40000,223,0.29000,'California.LosAngeles',2",
                 "d1004,2018-10-03 14:38:05.000,10.80000,223,0.29000,'California.LosAngeles',3",
-                "d1004,2018-10-03 14:38:06.500,11.50000,221,0.35000,'California.LosAngeles',3"
-        );
+                "d1004,2018-10-03 14:38:06.500,11.50000,221,0.35000,'California.LosAngeles',3");
     }
 }

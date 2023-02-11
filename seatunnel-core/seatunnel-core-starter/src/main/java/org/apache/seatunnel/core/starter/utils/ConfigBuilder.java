@@ -17,12 +17,12 @@
 
 package org.apache.seatunnel.core.starter.utils;
 
-import org.apache.seatunnel.api.configuration.ConfigAdapter;
-
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
+
+import org.apache.seatunnel.api.configuration.ConfigAdapter;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -32,24 +32,23 @@ import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * Used to build the {@link Config} from config file.
- */
+/** Used to build the {@link Config} from config file. */
 @Slf4j
 public class ConfigBuilder {
 
-    private static final ConfigRenderOptions CONFIG_RENDER_OPTIONS = ConfigRenderOptions.concise().setFormatted(true);
+    private static final ConfigRenderOptions CONFIG_RENDER_OPTIONS =
+            ConfigRenderOptions.concise().setFormatted(true);
 
     private ConfigBuilder() {
         // utility class and cannot be instantiated
     }
 
-    private static Config ofInner(@NonNull Path filePath){
-        return ConfigFactory
-            .parseFile(filePath.toFile())
-            .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-            .resolveWith(ConfigFactory.systemProperties(),
-                ConfigResolveOptions.defaults().setAllowUnresolved(true));
+    private static Config ofInner(@NonNull Path filePath) {
+        return ConfigFactory.parseFile(filePath.toFile())
+                .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
+                .resolveWith(
+                        ConfigFactory.systemProperties(),
+                        ConfigResolveOptions.defaults().setAllowUnresolved(true));
     }
 
     public static Config of(@NonNull String filePath) {
@@ -60,9 +59,10 @@ public class ConfigBuilder {
     public static Config of(@NonNull Path filePath) {
         log.info("Loading config file from path: {}", filePath);
         Optional<ConfigAdapter> adapterSupplier = ConfigAdapterUtils.selectAdapter(filePath);
-        Config config = adapterSupplier
-            .map(adapter -> of(adapter, filePath))
-            .orElseGet(() -> ofInner(filePath));
+        Config config =
+                adapterSupplier
+                        .map(adapter -> of(adapter, filePath))
+                        .orElseGet(() -> ofInner(filePath));
         log.info("Parsed config file: {}", config.root().render(CONFIG_RENDER_OPTIONS));
         return config;
     }
@@ -73,7 +73,9 @@ public class ConfigBuilder {
             Map<String, Object> flattenedMap = configAdapter.loadConfig(filePath);
             return ConfigFactory.parseMap(flattenedMap);
         } catch (Exception warn) {
-            log.warn("Loading config failed with spi {}, fallback to HOCON loader.", configAdapter.getClass().getName());
+            log.warn(
+                    "Loading config failed with spi {}, fallback to HOCON loader.",
+                    configAdapter.getClass().getName());
             return ofInner(filePath);
         }
     }

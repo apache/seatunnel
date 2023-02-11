@@ -17,10 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.createBinaryClient;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.createMySqlConnection;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.isTableIdCaseSensitive;
-
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
@@ -49,8 +45,11 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-/** The {@link JdbcDataSourceDialect} implementation for MySQL datasource. */
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.createBinaryClient;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.createMySqlConnection;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.isTableIdCaseSensitive;
 
+/** The {@link JdbcDataSourceDialect} implementation for MySQL datasource. */
 public class MySqlDialect implements JdbcDataSourceDialect {
 
     private static final long serialVersionUID = 1L;
@@ -99,14 +98,15 @@ public class MySqlDialect implements JdbcDataSourceDialect {
     @Override
     public TableChanges.TableChange queryTableSchema(JdbcConnection jdbc, TableId tableId) {
         if (mySqlSchema == null) {
-            mySqlSchema = new MySqlSchema(sourceConfig, isDataCollectionIdCaseSensitive(sourceConfig));
+            mySqlSchema =
+                    new MySqlSchema(sourceConfig, isDataCollectionIdCaseSensitive(sourceConfig));
         }
         return mySqlSchema.getTableSchema(jdbc, tableId);
     }
 
     @Override
     public MySqlSourceFetchTaskContext createFetchTaskContext(
-        SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig) {
+            SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig) {
         final MySqlConnection jdbcConnection =
                 createMySqlConnection(taskSourceConfig.getDbzConfiguration());
         final BinaryLogClient binaryLogClient =

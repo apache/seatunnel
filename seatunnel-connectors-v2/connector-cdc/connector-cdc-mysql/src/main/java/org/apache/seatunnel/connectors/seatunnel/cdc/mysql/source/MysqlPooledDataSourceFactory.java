@@ -21,7 +21,6 @@ import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionPoolFactory;
 
 /** A MySQL datasource factory. */
-
 public class MysqlPooledDataSourceFactory extends JdbcConnectionPoolFactory {
 
     public static final String JDBC_URL_PATTERN =
