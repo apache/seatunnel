@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.e2e.common.util;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
@@ -25,6 +24,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.factory.FactoryException;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+
+import org.apache.commons.lang3.StringUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.testcontainers.containers.GenericContainer;
