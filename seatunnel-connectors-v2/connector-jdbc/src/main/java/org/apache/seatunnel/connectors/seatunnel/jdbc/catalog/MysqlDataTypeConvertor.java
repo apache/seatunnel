@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertException;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -28,9 +30,11 @@ import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
+import com.google.common.collect.ImmutableMap;
 import com.mysql.cj.MysqlType;
 import org.apache.commons.collections4.MapUtils;
 
+import java.util.Collections;
 import java.util.Map;
 
 public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
@@ -44,9 +48,47 @@ public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
     public static final String PRECISION = "precision";
     public static final String SCALE = "scale";
 
+    public static final Integer DEFAULT_PRECISION = 10;
+
+    public static final Integer DEFAULT_SCALE = 0;
+
+    @Override
+    public SeaTunnelDataType<?> toSeaTunnelType(String connectorType) {
+        checkNotNull(connectorType, "connectorType can not be null");
+        MysqlType mysqlType = MysqlType.getByName(connectorType);
+        Map<String, Object> dataTypeProperties;
+        switch (mysqlType) {
+            case BIGINT_UNSIGNED:
+            case DECIMAL:
+            case DECIMAL_UNSIGNED:
+                // parse precision and scale
+                int left = connectorType.indexOf("(");
+                int right = connectorType.indexOf(")");
+                int precision = DEFAULT_PRECISION;
+                int scale = DEFAULT_SCALE;
+                if (left != -1 && right != -1) {
+                    String[] precisionAndScale = connectorType.substring(left + 1, right).split(",");
+                    if (precisionAndScale.length == 2) {
+                        precision = Integer.parseInt(precisionAndScale[0]);
+                        scale = Integer.parseInt(precisionAndScale[1]);
+                    } else if (precisionAndScale.length == 1) {
+                        precision = Integer.parseInt(precisionAndScale[0]);
+                    }
+                }
+                dataTypeProperties = ImmutableMap.of(PRECISION, precision, SCALE, scale);
+                break;
+            default:
+                dataTypeProperties = Collections.emptyMap();
+                break;
+        }
+        return toSeaTunnelType(mysqlType, dataTypeProperties);
+    }
+
     // todo: It's better to wrapper MysqlType to a pojo in ST, since MysqlType doesn't contains properties.
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(MysqlType mysqlType, Map<String, Object> dataTypeProperties) throws DataTypeConvertException {
+        checkNotNull(mysqlType, "mysqlType can not be null");
+
         switch (mysqlType) {
             case NULL:
                 return BasicType.VOID_TYPE;
@@ -100,12 +142,8 @@ public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
             case BIGINT_UNSIGNED:
             case DECIMAL:
             case DECIMAL_UNSIGNED:
-                Integer precision = MapUtils.getInteger(dataTypeProperties, PRECISION);
-                Integer scale = MapUtils.getInteger(dataTypeProperties, SCALE);
-                if (precision == null || scale == null) {
-                    throw DataTypeConvertException.convertToSeaTunnelDataTypeException(mysqlType,
-                        new IllegalArgumentException("Decimal type must have precision and scale"));
-                }
+                Integer precision = MapUtils.getInteger(dataTypeProperties, PRECISION, DEFAULT_PRECISION);
+                Integer scale = MapUtils.getInteger(dataTypeProperties, SCALE, DEFAULT_SCALE);
                 return new DecimalType(precision, scale);
             // TODO: support 'SET' & 'YEAR' type
             default:
