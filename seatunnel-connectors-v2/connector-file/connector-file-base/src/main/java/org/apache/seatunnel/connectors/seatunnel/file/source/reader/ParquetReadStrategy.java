@@ -42,6 +42,8 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.avro.AvroParquetReader;
+import org.apache.parquet.avro.AvroReadSupport;
+import org.apache.parquet.avro.AvroSchemaConverter;
 import org.apache.parquet.example.data.simple.NanoTime;
 import org.apache.parquet.hadoop.ParquetFileReader;
 import org.apache.parquet.hadoop.ParquetReader;
@@ -53,7 +55,9 @@ import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.OriginalType;
+import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Type;
+import org.apache.parquet.schema.Types;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -66,9 +70,13 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
+
+import static org.apache.parquet.avro.AvroWriteSupport.WRITE_FIXED_AS_INT96;
 
 @Slf4j
 public class ParquetReadStrategy extends AbstractReadStrategy {
@@ -77,6 +85,20 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
     private static final long NANOS_PER_MILLISECOND = 1000000;
     private static final long MILLIS_PER_DAY = TimeUnit.DAYS.toMillis(1L);
     private static final long JULIAN_DAY_NUMBER_FOR_UNIX_EPOCH = 2440588;
+
+    private final Set<String> timestamps = new HashSet<>();
+
+    private AvroSchemaConverter schemaConverter;
+
+    private MessageType originalSchema;
+
+    private MessageType readSchema;
+
+    @Override
+    public void init(HadoopConf conf) {
+        super.init(conf);
+        this.schemaConverter = new AvroSchemaConverter(getConfiguration(hadoopConf));
+    }
 
     @Override
     public void read(String path, Collector<SeaTunnelRow> output)
@@ -90,7 +112,11 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         }
         Path filePath = new Path(path);
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
-        HadoopInputFile hadoopInputFile = HadoopInputFile.fromPath(filePath, getConfiguration());
+        Configuration configuration = getConfiguration();
+        timestamps.add(configuration.get(WRITE_FIXED_AS_INT96));
+        configuration.set(WRITE_FIXED_AS_INT96, String.join(",", timestamps));
+        AvroReadSupport.setRequestedProjection(configuration, schemaConverter.convert(readSchema));
+        HadoopInputFile hadoopInputFile = HadoopInputFile.fromPath(filePath, configuration);
         int fieldsCount = seaTunnelRowType.getTotalFields();
         GenericData dataModel = new GenericData();
         dataModel.addLogicalTypeConversion(new Conversions.DecimalConversion());
@@ -236,16 +262,29 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
             throw new FileConnectorException(CommonErrorCode.READER_OPERATION_FAILED, errorMsg, e);
         }
         FileMetaData fileMetaData = metadata.getFileMetaData();
-        MessageType schema = fileMetaData.getSchema();
-        int fieldCount = schema.getFieldCount();
-        String[] fields = new String[fieldCount];
-        SeaTunnelDataType<?>[] types = new SeaTunnelDataType[fieldCount];
-        for (int i = 0; i < fieldCount; i++) {
-            fields[i] = schema.getFieldName(i);
-            Type type = schema.getType(i);
-            SeaTunnelDataType<?> fieldType = parquetType2SeaTunnelType(type);
-            types[i] = fieldType;
+        originalSchema = fileMetaData.getSchema();
+        if (readColumns.isEmpty()) {
+            for (int i = 0; i < originalSchema.getFieldCount(); i++) {
+                readColumns.add(originalSchema.getFieldName(i));
+            }
         }
+        String[] fields = new String[readColumns.size()];
+        SeaTunnelDataType<?>[] types = new SeaTunnelDataType[readColumns.size()];
+        Type[] readTypes = new Type[readColumns.size()];
+        for (int i = 0; i < readColumns.size(); i++) {
+            fields[i] = readColumns.get(i);
+            Type type = originalSchema.getType(fields[i]);
+            types[i] = parquetType2SeaTunnelType(type);
+            readTypes[i] = type;
+            if (types[i].getSqlType().equals(SqlType.TIMESTAMP)
+                    && type.asPrimitiveType()
+                            .getPrimitiveTypeName()
+                            .name()
+                            .equals(PrimitiveType.PrimitiveTypeName.INT96.name())) {
+                timestamps.add(fields[i]);
+            }
+        }
+        readSchema = Types.buildMessage().addFields(readTypes).named("hive_schema");
         seaTunnelRowType = new SeaTunnelRowType(fields, types);
         seaTunnelRowTypeWithPartition = mergePartitionTypes(path, seaTunnelRowType);
         return getActualSeaTunnelRowTypeInfo();

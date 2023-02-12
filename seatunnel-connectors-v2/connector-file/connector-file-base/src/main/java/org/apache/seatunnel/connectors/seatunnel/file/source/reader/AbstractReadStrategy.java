@@ -69,6 +69,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected Config pluginConfig;
     protected List<String> fileNames = new ArrayList<>();
     protected List<String> readPartitions = new ArrayList<>();
+    protected List<String> readColumns = new ArrayList<>();
     protected boolean isMergePartition = true;
     protected long skipHeaderNumber = BaseSourceConfig.SKIP_HEADER_ROW_NUMBER.defaultValue();
     protected boolean isKerberosAuthorization = false;
@@ -91,7 +92,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         configuration.setBoolean(READ_INT96_AS_FIXED, true);
         configuration.setBoolean(WRITE_FIXED_AS_INT96, true);
         configuration.setBoolean(ADD_LIST_ELEMENT_RECORDS, false);
-        configuration.setBoolean(WRITE_OLD_LIST_STRUCTURE, false);
+        configuration.setBoolean(WRITE_OLD_LIST_STRUCTURE, true);
         configuration.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, hadoopConf.getHdfsNameKey());
         configuration.set(
                 String.format("fs.%s.impl", hadoopConf.getSchema()), hadoopConf.getFsHdfsImpl());
@@ -160,6 +161,9 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         if (pluginConfig.hasPath(BaseSourceConfig.READ_PARTITIONS.key())) {
             readPartitions.addAll(
                     pluginConfig.getStringList(BaseSourceConfig.READ_PARTITIONS.key()));
+        }
+        if (pluginConfig.hasPath(BaseSourceConfig.READ_COLUMNS.key())) {
+            readColumns.addAll(pluginConfig.getStringList(BaseSourceConfig.READ_COLUMNS.key()));
         }
     }
 

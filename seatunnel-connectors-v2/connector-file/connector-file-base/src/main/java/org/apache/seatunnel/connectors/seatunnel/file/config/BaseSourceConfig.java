@@ -98,4 +98,10 @@ public class BaseSourceConfig {
                     .listType()
                     .noDefaultValue()
                     .withDescription("The partitions that the user want to read");
+
+    public static final Option<List<String>> READ_COLUMNS =
+            Options.key("read_columns")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription("The columns list that the user want to read");
 }

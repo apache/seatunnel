@@ -17,41 +17,102 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.writer;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadStrategy;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
 import java.net.URL;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
 public class ParquetReadStrategyTest {
     @Test
-    public void testParquetRead() throws Exception {
-        URL resource = ParquetReadStrategyTest.class.getResource("/test.parquet");
-        assert resource != null;
+    public void testParquetRead1() throws Exception {
+        URL resource = ParquetReadStrategyTest.class.getResource("/timestamp_as_int64.parquet");
+        Assertions.assertNotNull(resource);
         String path = Paths.get(resource.toURI()).toString();
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
         LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
         SeaTunnelRowType seaTunnelRowTypeInfo =
                 parquetReadStrategy.getSeaTunnelRowTypeInfo(localConf, path);
-        assert seaTunnelRowTypeInfo != null;
+        Assertions.assertNotNull(seaTunnelRowTypeInfo);
+        System.out.println(seaTunnelRowTypeInfo);
         TestCollector testCollector = new TestCollector();
         parquetReadStrategy.read(path, testCollector);
     }
 
+    @Test
+    public void testParquetRead2() throws Exception {
+        URL resource = ParquetReadStrategyTest.class.getResource("/hive.parquet");
+        Assertions.assertNotNull(resource);
+        String path = Paths.get(resource.toURI()).toString();
+        ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        parquetReadStrategy.init(localConf);
+        SeaTunnelRowType seaTunnelRowTypeInfo =
+                parquetReadStrategy.getSeaTunnelRowTypeInfo(localConf, path);
+        Assertions.assertNotNull(seaTunnelRowTypeInfo);
+        System.out.println(seaTunnelRowTypeInfo);
+        TestCollector testCollector = new TestCollector();
+        parquetReadStrategy.read(path, testCollector);
+    }
+
+    @Test
+    public void testParquetReadProjection() throws Exception {
+        URL resource = ParquetReadStrategyTest.class.getResource("/timestamp_as_int96.parquet");
+        URL conf = OrcReadStrategyTest.class.getResource("/test_read_parquet.conf");
+        Assertions.assertNotNull(resource);
+        Assertions.assertNotNull(conf);
+        String path = Paths.get(resource.toURI()).toString();
+        String confPath = Paths.get(conf.toURI()).toString();
+        Config pluginConfig = ConfigFactory.parseFile(new File(confPath));
+        ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        parquetReadStrategy.init(localConf);
+        parquetReadStrategy.setPluginConfig(pluginConfig);
+        SeaTunnelRowType seaTunnelRowTypeInfo =
+                parquetReadStrategy.getSeaTunnelRowTypeInfo(localConf, path);
+        Assertions.assertNotNull(seaTunnelRowTypeInfo);
+        System.out.println(seaTunnelRowTypeInfo);
+        TestCollector testCollector = new TestCollector();
+        parquetReadStrategy.read(path, testCollector);
+        List<SeaTunnelRow> rows = testCollector.getRows();
+        for (SeaTunnelRow row : rows) {
+            Assertions.assertEquals(row.getField(0).getClass(), Long.class);
+            Assertions.assertEquals(row.getField(1).getClass(), Byte.class);
+            Assertions.assertEquals(row.getField(2).getClass(), Short.class);
+            Assertions.assertEquals(row.getField(0), 40000000000L);
+            Assertions.assertEquals(row.getField(1), (byte) 1);
+            Assertions.assertEquals(row.getField(2), (short) 1);
+        }
+    }
+
     public static class TestCollector implements Collector<SeaTunnelRow> {
+
+        private final List<SeaTunnelRow> rows = new ArrayList<>();
+
+        public List<SeaTunnelRow> getRows() {
+            return rows;
+        }
 
         @SuppressWarnings("checkstyle:RegexpSingleline")
         @Override
         public void collect(SeaTunnelRow record) {
             System.out.println(record);
+            rows.add(record);
         }
 
         @Override
