@@ -88,11 +88,11 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
 
     private final Set<String> timestamps = new HashSet<>();
 
-    private AvroSchemaConverter schemaConverter;
+    private transient AvroSchemaConverter schemaConverter;
 
-    private MessageType originalSchema;
+    private transient MessageType originalSchema;
 
-    private MessageType readSchema;
+    private transient MessageType readSchema;
 
     @Override
     public void init(HadoopConf conf) {
