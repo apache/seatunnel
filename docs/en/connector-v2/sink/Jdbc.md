@@ -33,7 +33,9 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | user                                      | String  | No       | -             |
 | password                                  | String  | No       | -             |
 | query                                     | String  | No       | -             |
+| pre_sql                                   | Array   | No       | -             |
 | table                                     | String  | No       | -             |
+| post_sql                                  | Array   | No       | -             |
 | primary_keys                              | Array   | No       | -             |
 | support_upsert_by_query_primary_key_exist | Boolean | No       | false         |
 | connection_check_timeout_sec              | Int     | No       | 30            |
@@ -63,9 +65,17 @@ password
 
 The URL of the JDBC connection. Refer to a case: jdbc:postgresql://localhost/test
 
+### pre_sql [array]
+
+The Array of SQL for execution before Sink writer
+
 ### query [string]
 
 Use this sql write upstream input datas to database. e.g `INSERT ...`
+
+### post_sql [array]
+
+The Array of SQL for execution when Sink completed
 
 ### table [string]
 

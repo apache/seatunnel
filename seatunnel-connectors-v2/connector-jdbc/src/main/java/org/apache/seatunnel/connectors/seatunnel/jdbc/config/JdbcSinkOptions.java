@@ -38,6 +38,8 @@ public class JdbcSinkOptions implements Serializable {
     private String table;
     private List<String> primaryKeys;
     private boolean supportUpsertByQueryPrimaryKeyExist;
+    private List<String> preSQL;
+    private List<String> postSQL;
 
     public JdbcSinkOptions(Config config) {
         this.jdbcConnectionOptions = buildJdbcConnectionOptions(config);
@@ -60,6 +62,14 @@ public class JdbcSinkOptions implements Serializable {
             }
         } else {
             this.simpleSQL = config.getString(JdbcConfig.QUERY.key());
+        }
+
+        if (config.hasPath(JdbcConfig.PRE_SQL.key())) {
+            this.preSQL = config.getStringList(JdbcConfig.PRE_SQL.key());
+        }
+
+        if (config.hasPath(JdbcConfig.POST_SQL.key())) {
+            this.postSQL = config.getStringList(JdbcConfig.POST_SQL.key());
         }
     }
 }

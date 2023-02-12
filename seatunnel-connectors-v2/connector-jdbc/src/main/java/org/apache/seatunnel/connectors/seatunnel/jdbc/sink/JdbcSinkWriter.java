@@ -33,10 +33,13 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatc
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
 
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.SerializationUtils;
 
 import java.io.IOException;
+import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -47,6 +50,7 @@ public class JdbcSinkWriter implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSin
             outputFormat;
     private final SinkWriter.Context context;
     private final JdbcConnectionProvider connectionProvider;
+    private final JdbcSinkOptions jdbcSinkOptions;
     private transient boolean isOpen;
 
     public JdbcSinkWriter(
@@ -55,6 +59,7 @@ public class JdbcSinkWriter implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSin
             JdbcSinkOptions jdbcSinkOptions,
             SeaTunnelRowType rowType) {
         this.context = context;
+        this.jdbcSinkOptions = jdbcSinkOptions;
         this.connectionProvider =
                 new SimpleJdbcConnectionProvider(jdbcSinkOptions.getJdbcConnectionOptions());
         this.outputFormat =
@@ -66,6 +71,31 @@ public class JdbcSinkWriter implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSin
         if (!isOpen) {
             isOpen = true;
             outputFormat.open();
+        }
+    }
+
+    @Override
+    public void prepared() throws IOException {
+        if (CollectionUtils.isNotEmpty(jdbcSinkOptions.getPreSQL())) {
+            try {
+                tryOpen();
+                Connection conn = connectionProvider.getOrEstablishConnection();
+                try (Statement stmt = conn.createStatement()) {
+                    for (String preSQL : jdbcSinkOptions.getPreSQL()) {
+                        stmt.execute(preSQL);
+                    }
+                    if (!conn.getAutoCommit()) {
+                        conn.commit();
+                    }
+                } catch (SQLException e) {
+                    if (!conn.getAutoCommit()) {
+                        conn.rollback();
+                    }
+                }
+            } catch (SQLException | ClassNotFoundException e) {
+                throw new JdbcConnectorException(
+                        JdbcConnectorErrorCode.SQL_EXECUTION_FAILED, "Execute preSQL failed", e);
+            }
         }
     }
 
@@ -113,6 +143,28 @@ public class JdbcSinkWriter implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSin
             throw new JdbcConnectorException(
                     CommonErrorCode.WRITER_OPERATION_FAILED, "unable to close JDBC sink write", e);
         }
+
+        if (CollectionUtils.isNotEmpty(jdbcSinkOptions.getPostSQL())) {
+            try {
+                Connection conn = connectionProvider.getOrEstablishConnection();
+                try (Statement stmt = conn.createStatement()) {
+                    for (String postSQL : jdbcSinkOptions.getPostSQL()) {
+                        stmt.execute(postSQL);
+                    }
+                    if (!conn.getAutoCommit()) {
+                        conn.commit();
+                    }
+                } catch (SQLException e) {
+                    if (!conn.getAutoCommit()) {
+                        conn.rollback();
+                    }
+                }
+            } catch (SQLException | ClassNotFoundException e) {
+                throw new JdbcConnectorException(
+                        JdbcConnectorErrorCode.SQL_EXECUTION_FAILED, "Execute postSQL failed", e);
+            }
+        }
+
         outputFormat.close();
     }
 }

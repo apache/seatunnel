@@ -114,6 +114,18 @@ public class JdbcConfig implements Serializable {
                     .defaultValue(false)
                     .withDescription("support upsert by query primary_key exist");
 
+    public static final Option<List<String>> PRE_SQL =
+            Options.key("pre_sql")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription("previous sql before sink");
+
+    public static final Option<List<String>> POST_SQL =
+            Options.key("post_sql")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription("post sql after sink");
+
     // source config
     public static final Option<String> PARTITION_COLUMN =
             Options.key("partition_column")

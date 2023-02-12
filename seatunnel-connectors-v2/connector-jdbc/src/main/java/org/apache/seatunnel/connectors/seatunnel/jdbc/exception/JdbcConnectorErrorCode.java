@@ -27,7 +27,8 @@ public enum JdbcConnectorErrorCode implements SeaTunnelErrorCode {
     CONNECT_DATABASE_FAILED("JDBC-04", "Connector database failed"),
     TRANSACTION_OPERATION_FAILED(
             "JDBC-05", "transaction operation failed, such as (commit, rollback) etc.."),
-    NO_SUITABLE_DIALECT_FACTORY("JDBC-06", "No suitable dialect factory found");
+    NO_SUITABLE_DIALECT_FACTORY("JDBC-06", "No suitable dialect factory found"),
+    SQL_EXECUTION_FAILED("JDBC-07", "Execute SQL failed");
 
     private final String code;
 
