@@ -91,22 +91,21 @@ public class TextReadStrategy extends AbstractReadStrategy {
 
     @Override
     public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path) {
-        SeaTunnelRowType simpleSeaTunnelType = SeaTunnelSchema.buildSimpleTextSchema();
-        this.seaTunnelRowType = simpleSeaTunnelType;
+        this.seaTunnelRowType = SeaTunnelSchema.buildSimpleTextSchema();
         this.seaTunnelRowTypeWithPartition =
-                mergePartitionTypes(fileNames.get(0), simpleSeaTunnelType);
+                mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
+        initFormatter();
+        TextDeserializationSchema.Builder builder =
+                TextDeserializationSchema.builder()
+                        .delimiter(TextFormatConstant.PLACEHOLDER)
+                        .dateFormatter(dateFormat)
+                        .dateTimeFormatter(datetimeFormat)
+                        .timeFormatter(timeFormat);
         if (isMergePartition) {
             deserializationSchema =
-                    TextDeserializationSchema.builder()
-                            .seaTunnelRowType(this.seaTunnelRowTypeWithPartition)
-                            .delimiter(TextFormatConstant.PLACEHOLDER)
-                            .build();
+                    builder.seaTunnelRowType(this.seaTunnelRowTypeWithPartition).build();
         } else {
-            deserializationSchema =
-                    TextDeserializationSchema.builder()
-                            .seaTunnelRowType(this.seaTunnelRowType)
-                            .delimiter(TextFormatConstant.PLACEHOLDER)
-                            .build();
+            deserializationSchema = builder.seaTunnelRowType(this.seaTunnelRowType).build();
         }
         return getActualSeaTunnelRowTypeInfo();
     }
@@ -124,6 +123,22 @@ public class TextReadStrategy extends AbstractReadStrategy {
                 fieldDelimiter = ",";
             }
         }
+        initFormatter();
+        TextDeserializationSchema.Builder builder =
+                TextDeserializationSchema.builder()
+                        .delimiter(fieldDelimiter)
+                        .dateFormatter(dateFormat)
+                        .dateTimeFormatter(datetimeFormat)
+                        .timeFormatter(timeFormat);
+        if (isMergePartition) {
+            deserializationSchema =
+                    builder.seaTunnelRowType(this.seaTunnelRowTypeWithPartition).build();
+        } else {
+            deserializationSchema = builder.seaTunnelRowType(this.seaTunnelRowType).build();
+        }
+    }
+
+    private void initFormatter() {
         if (pluginConfig.hasPath(BaseSourceConfig.DATE_FORMAT.key())) {
             dateFormat =
                     DateUtils.Formatter.parse(
@@ -138,25 +153,6 @@ public class TextReadStrategy extends AbstractReadStrategy {
             timeFormat =
                     TimeUtils.Formatter.parse(
                             pluginConfig.getString(BaseSourceConfig.TIME_FORMAT.key()));
-        }
-        if (isMergePartition) {
-            deserializationSchema =
-                    TextDeserializationSchema.builder()
-                            .seaTunnelRowType(this.seaTunnelRowTypeWithPartition)
-                            .delimiter(fieldDelimiter)
-                            .dateFormatter(dateFormat)
-                            .dateTimeFormatter(datetimeFormat)
-                            .timeFormatter(timeFormat)
-                            .build();
-        } else {
-            deserializationSchema =
-                    TextDeserializationSchema.builder()
-                            .seaTunnelRowType(this.seaTunnelRowType)
-                            .delimiter(fieldDelimiter)
-                            .dateFormatter(dateFormat)
-                            .dateTimeFormatter(datetimeFormat)
-                            .timeFormatter(timeFormat)
-                            .build();
         }
     }
 }
