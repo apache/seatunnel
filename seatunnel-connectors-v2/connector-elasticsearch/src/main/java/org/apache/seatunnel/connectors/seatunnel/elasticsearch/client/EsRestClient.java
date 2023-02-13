@@ -59,6 +59,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class EsRestClient {
@@ -342,6 +343,51 @@ public class EsRestClient {
             }
         } catch (IOException ex) {
             throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.GET_INDEX_DOCS_COUNT_FAILED, ex);
+        }
+    }
+
+    public List<String> listIndex() {
+        String endpoint = "/_cat/indices?format=json";
+        Request request = new Request("GET", endpoint);
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.LIST_INDEX_FAILED,
+                    "GET " + endpoint + " response null");
+            }
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                String entity = EntityUtils.toString(response.getEntity());
+                return JsonUtils.toList(entity, Map.class)
+                    .stream()
+                    .map(map -> map.get("index").toString())
+                    .collect(Collectors.toList());
+            } else {
+                throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.LIST_INDEX_FAILED,
+                    String.format("GET %s response status code=%d", endpoint, response.getStatusLine().getStatusCode()));
+            }
+        } catch (IOException ex) {
+            throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.LIST_INDEX_FAILED, ex);
+        }
+    }
+
+    public void dropIndex(String tableName) {
+        String endpoint = String.format("/%s", tableName);
+        Request request = new Request("DELETE", endpoint);
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.DROP_INDEX_FAILED,
+                    "DELETE " + endpoint + " response null");
+            }
+            // todo: if the index doesn't exist, the response status code is 200?
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                return;
+            } else {
+                throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.DROP_INDEX_FAILED,
+                    String.format("DELETE %s response status code=%d", endpoint, response.getStatusLine().getStatusCode()));
+            }
+        } catch (IOException ex) {
+            throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.DROP_INDEX_FAILED, ex);
         }
     }
 

@@ -53,21 +53,21 @@ public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
     public static final Integer DEFAULT_SCALE = 0;
 
     @Override
-    public SeaTunnelDataType<?> toSeaTunnelType(String connectorType) {
-        checkNotNull(connectorType, "connectorType can not be null");
-        MysqlType mysqlType = MysqlType.getByName(connectorType);
+    public SeaTunnelDataType<?> toSeaTunnelType(String connectorDataType) {
+        checkNotNull(connectorDataType, "connectorDataType can not be null");
+        MysqlType mysqlType = MysqlType.getByName(connectorDataType);
         Map<String, Object> dataTypeProperties;
         switch (mysqlType) {
             case BIGINT_UNSIGNED:
             case DECIMAL:
             case DECIMAL_UNSIGNED:
                 // parse precision and scale
-                int left = connectorType.indexOf("(");
-                int right = connectorType.indexOf(")");
+                int left = connectorDataType.indexOf("(");
+                int right = connectorDataType.indexOf(")");
                 int precision = DEFAULT_PRECISION;
                 int scale = DEFAULT_SCALE;
                 if (left != -1 && right != -1) {
-                    String[] precisionAndScale = connectorType.substring(left + 1, right).split(",");
+                    String[] precisionAndScale = connectorDataType.substring(left + 1, right).split(",");
                     if (precisionAndScale.length == 2) {
                         precision = Integer.parseInt(precisionAndScale[0]);
                         scale = Integer.parseInt(precisionAndScale[1]);
