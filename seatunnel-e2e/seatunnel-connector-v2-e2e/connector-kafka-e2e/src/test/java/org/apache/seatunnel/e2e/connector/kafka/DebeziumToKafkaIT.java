@@ -27,6 +27,9 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.CreateTopicsResult;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -63,6 +66,7 @@ import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -157,6 +161,7 @@ public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .atMost(2, TimeUnit.MINUTES)
                 .untilAsserted(this::initializeJdbcTable);
+        createTopic("cdc.debezium");
     }
 
     @TestTemplate
@@ -259,5 +264,22 @@ public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
             ex.printStackTrace();
         }
         return ip;
+    }
+
+    private void createTopic(String topicName) {
+        Properties props = new Properties();
+        props.put("bootstrap.servers", "kafka:9092");
+        AdminClient adminClient = AdminClient.create(props);
+        ArrayList<NewTopic> topics = new ArrayList<>();
+        NewTopic newTopic = new NewTopic(topicName, 1, (short) 1);
+        topics.add(newTopic);
+        CreateTopicsResult result = adminClient.createTopics(topics);
+        try {
+            System.out.println(result.all().get());
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        }
     }
 }
