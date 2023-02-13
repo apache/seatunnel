@@ -24,7 +24,7 @@ To use this connector you need put hadoop-aws-3.1.4.jar and aws-java-sdk-bundle-
 
 Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
 
-- [ ] [column projection](../../concept/connector-v2-features.md)
+- [x] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 - [x] file format
@@ -43,6 +43,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | bucket                          | string  | yes      | -                                                     |
 | fs.s3a.endpoint                 | string  | yes      | -                                                     |
 | fs.s3a.aws.credentials.provider | string  | yes      | com.amazonaws.auth.InstanceProfileCredentialsProvider |
+| read_columns                    | list    | no       | -                                                     |
 | access_key                      | string  | no       | -                                                     |
 | access_secret                   | string  | no       | -                                                     |
 | hadoop_s3_properties            | map     | no       | -                                                     |
@@ -238,6 +239,20 @@ hadoop_s3_properties {
 #### fields [Config]
 
 The schema of upstream data.
+
+### read_columns [list]
+
+The read column list of the data source, user can use it to implement field projection.
+
+The file type supported column projection as the following shown:
+
+- text
+- json
+- csv
+- orc
+- parquet
+
+**Tips: If the user wants to use this feature when reading `text` `json` `csv` files, the schema option must be configured**
 
 ### common options
 
