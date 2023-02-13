@@ -18,9 +18,6 @@
 
 package org.apache.seatunnel.microbench.base;
 
-import static org.apache.seatunnel.microbench.base.AbstractMicrobenchmark.DEFAULT_TIME;
-
-import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -35,6 +32,8 @@ import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.options.ChainedOptionsBuilder;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.Executors;
@@ -42,12 +41,15 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import static org.apache.seatunnel.microbench.base.AbstractMicrobenchmark.DEFAULT_TIME;
+
 /**
- * All JMH tests need to extend this class to make it easier for you to complete JMHTest, you can also choose to
- * customize runtime conditions (Measurement, Fork, Warmup, etc.)
- * <p>
- * You can run any of the JMH tests as a normal UT, or you can package it and get all the reported results via `java
- * -jar benchmark.jar`, or get the results of a particular Test via `java -jar /benchmarks.jar exampleClassName`.
+ * All JMH tests need to extend this class to make it easier for you to complete JMHTest, you can
+ * also choose to customize runtime conditions (Measurement, Fork, Warmup, etc.)
+ *
+ * <p>You can run any of the JMH tests as a normal UT, or you can package it and get all the
+ * reported results via `java -jar benchmark.jar`, or get the results of a particular Test via `java
+ * -jar /benchmarks.jar exampleClassName`.
  */
 @Warmup(iterations = AbstractMicrobenchmark.DEFAULT_WARMUP_ITERATIONS, time = DEFAULT_TIME)
 @Measurement(iterations = AbstractMicrobenchmark.DEFAULT_MEASURE_ITERATIONS, time = DEFAULT_TIME)
@@ -69,17 +71,20 @@ public class AbstractMicrobenchmark {
 
         String className = getClass().getSimpleName();
 
-        ChainedOptionsBuilder optBuilder = new OptionsBuilder()
-            // set benchmark class name
-            .include(".*" + className + ".*")
-            // add GC profiler
-            .addProfiler(GCProfiler.class)
-            //set jvm args
-            .jvmArgsAppend("-Xmx512m", "-Xms512m", "-XX:MaxDirectMemorySize=512m",
-                "-XX:BiasedLockingStartupDelay=0",
-                "-Djmh.executor=CUSTOM",
-                "-Djmh.executor.class=org.apache.seatunnel.microbench.base.AbstractMicrobenchmark$JmhThreadExecutor"
-            );
+        ChainedOptionsBuilder optBuilder =
+                new OptionsBuilder()
+                        // set benchmark class name
+                        .include(".*" + className + ".*")
+                        // add GC profiler
+                        .addProfiler(GCProfiler.class)
+                        // set jvm args
+                        .jvmArgsAppend(
+                                "-Xmx512m",
+                                "-Xms512m",
+                                "-XX:MaxDirectMemorySize=512m",
+                                "-XX:BiasedLockingStartupDelay=0",
+                                "-Djmh.executor=CUSTOM",
+                                "-Djmh.executor.class=org.apache.seatunnel.microbench.base.AbstractMicrobenchmark$JmhThreadExecutor");
 
         String output = getReportDir();
         if (output != null) {
@@ -98,8 +103,7 @@ public class AbstractMicrobenchmark {
                 }
             }
             if (writeFileStatus) {
-                optBuilder.resultFormat(ResultFormatType.JSON)
-                    .result(filePath);
+                optBuilder.resultFormat(ResultFormatType.JSON).result(filePath);
             }
         }
         return optBuilder;
@@ -117,7 +121,13 @@ public class AbstractMicrobenchmark {
     public static class JmhThreadExecutor extends ThreadPoolExecutor {
         @SuppressWarnings("checkstyle:MagicNumber")
         public JmhThreadExecutor(int size, String name) {
-            super(size, size, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<>(), Executors.defaultThreadFactory());
+            super(
+                    size,
+                    size,
+                    10,
+                    TimeUnit.SECONDS,
+                    new LinkedBlockingQueue<>(),
+                    Executors.defaultThreadFactory());
         }
     }
 }
