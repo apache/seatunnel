@@ -24,15 +24,12 @@ import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 
+import com.google.auto.service.AutoService;
+
 import java.util.Map;
 
+@AutoService(DataTypeConvertor.class)
 public class ElasticSearchDataTypeConvertor implements DataTypeConvertor<SeaTunnelDataType<?>> {
-
-    private static final ElasticSearchDataTypeConvertor INSTANCE = new ElasticSearchDataTypeConvertor();
-
-    private ElasticSearchDataTypeConvertor() {
-
-    }
 
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(String connectorDataType) {
@@ -50,7 +47,8 @@ public class ElasticSearchDataTypeConvertor implements DataTypeConvertor<SeaTunn
         return seaTunnelDataType;
     }
 
-    public static ElasticSearchDataTypeConvertor getInstance() {
-        return INSTANCE;
+    @Override
+    public String getIdentity() {
+        return "Elasticsearch";
     }
 }

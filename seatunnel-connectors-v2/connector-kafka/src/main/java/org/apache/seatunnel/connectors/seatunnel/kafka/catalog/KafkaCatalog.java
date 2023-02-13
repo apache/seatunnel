@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
@@ -211,11 +210,6 @@ public class KafkaCatalog implements Catalog {
     public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists) throws DatabaseNotExistException, CatalogException {
         // todo:
         dropTable(tablePath, ignoreIfNotExists);
-    }
-
-    @Override
-    public DataTypeConvertor<?> getDataTypeConvertor() {
-        return KafkaDataTypeConvertor.getInstance();
     }
 
     private TopicDescription getTopicDescription(String topicName) throws ExecutionException, InterruptedException {

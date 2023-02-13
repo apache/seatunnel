@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
-import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -156,11 +155,6 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         }
     }
 
-    @Override
-    public DataTypeConvertor<MysqlType> getDataTypeConvertor() {
-        return MysqlDataTypeConvertor.getInstance();
-    }
-
     // todo: If the origin source is mysql, we can directly use create table like to create the target table?
     @Override
     protected boolean createTableInternal(TablePath tablePath, CatalogTable table) throws CatalogException {
@@ -219,7 +213,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         Map<String, Object> dataTypeProperties = new HashMap<>();
         dataTypeProperties.put(MysqlDataTypeConvertor.PRECISION, metadata.getPrecision(colIndex));
         dataTypeProperties.put(MysqlDataTypeConvertor.SCALE, metadata.getScale(colIndex));
-        return getDataTypeConvertor().toSeaTunnelType(mysqlType, dataTypeProperties);
+        return new MysqlDataTypeConvertor().toSeaTunnelType(mysqlType, dataTypeProperties);
     }
 
     @SuppressWarnings("MagicNumber")

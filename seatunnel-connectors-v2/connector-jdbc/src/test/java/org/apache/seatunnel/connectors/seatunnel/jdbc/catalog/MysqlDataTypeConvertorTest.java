@@ -28,7 +28,7 @@ import java.util.Collections;
 
 public class MysqlDataTypeConvertorTest {
 
-    private MysqlDataTypeConvertor mysqlDataTypeConvertor = MysqlDataTypeConvertor.getInstance();
+    private final MysqlDataTypeConvertor mysqlDataTypeConvertor = new MysqlDataTypeConvertor();
 
     @Test
     public void toSeaTunnelTypeWithString() {

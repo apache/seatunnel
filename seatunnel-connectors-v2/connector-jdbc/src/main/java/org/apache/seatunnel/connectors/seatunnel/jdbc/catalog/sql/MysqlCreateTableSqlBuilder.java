@@ -50,9 +50,12 @@ public class MysqlCreateTableSqlBuilder {
 
     private List<ConstraintKey> constraintKeys;
 
+    private MysqlDataTypeConvertor mysqlDataTypeConvertor;
+
     private MysqlCreateTableSqlBuilder(String tableName) {
         checkNotNull(tableName, "tableName must not be null");
         this.tableName = tableName;
+        this.mysqlDataTypeConvertor = new MysqlDataTypeConvertor();
     }
 
     public static MysqlCreateTableSqlBuilder builder(TablePath tablePath, CatalogTable catalogTable) {
@@ -147,7 +150,7 @@ public class MysqlCreateTableSqlBuilder {
         // Column name
         columnSqls.add(column.getName());
         // Column type
-        columnSqls.add(MysqlDataTypeConvertor.getInstance().toConnectorType(column.getDataType(), null).getName());
+        columnSqls.add(mysqlDataTypeConvertor.toConnectorType(column.getDataType(), null).getName());
         // Column length
         if (column.getColumnLength() != null) {
             columnSqls.add("(" + column.getColumnLength() + ")");
