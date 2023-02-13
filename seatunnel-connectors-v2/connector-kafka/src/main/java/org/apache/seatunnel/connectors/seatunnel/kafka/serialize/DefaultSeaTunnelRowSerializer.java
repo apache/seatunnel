@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.apache.seatunnel.format.json.canal.CanalJsonSerializationSchema;
+import org.apache.seatunnel.format.json.debezium.DebeziumJsonSerializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
@@ -32,9 +33,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import java.util.List;
 import java.util.function.Function;
 
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CANNAL_FORMAT;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FORMAT;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TEXT_FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.*;
 
 public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<byte[], byte[]> {
 
@@ -90,6 +89,8 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<byt
                         .build();
             case CANNAL_FORMAT:
                 return new CanalJsonSerializationSchema(rowType);
+            case DEBEZIUM_FORMAT:
+                return new DebeziumJsonSerializationSchema(rowType);
             default:
                 throw new SeaTunnelJsonFormatException(
                         CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + format);
