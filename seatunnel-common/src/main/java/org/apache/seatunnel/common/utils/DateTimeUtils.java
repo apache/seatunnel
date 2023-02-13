@@ -24,13 +24,22 @@ import java.util.Map;
 
 public class DateTimeUtils {
 
-    private static final Map<Formatter, DateTimeFormatter> FORMATTER_MAP = new HashMap<Formatter, DateTimeFormatter>();
+    private static final Map<Formatter, DateTimeFormatter> FORMATTER_MAP =
+            new HashMap<Formatter, DateTimeFormatter>();
 
     static {
-        FORMATTER_MAP.put(Formatter.YYYY_MM_DD_HH_MM_SS, DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_HH_MM_SS.value));
-        FORMATTER_MAP.put(Formatter.YYYY_MM_DD_HH_MM_SS_SPOT, DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_HH_MM_SS_SPOT.value));
-        FORMATTER_MAP.put(Formatter.YYYY_MM_DD_HH_MM_SS_SLASH, DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_HH_MM_SS_SLASH.value));
-        FORMATTER_MAP.put(Formatter.YYYY_MM_DD_HH_MM_SS_NO_SPLIT, DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_HH_MM_SS_NO_SPLIT.value));
+        FORMATTER_MAP.put(
+                Formatter.YYYY_MM_DD_HH_MM_SS,
+                DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_HH_MM_SS.value));
+        FORMATTER_MAP.put(
+                Formatter.YYYY_MM_DD_HH_MM_SS_SPOT,
+                DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_HH_MM_SS_SPOT.value));
+        FORMATTER_MAP.put(
+                Formatter.YYYY_MM_DD_HH_MM_SS_SLASH,
+                DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_HH_MM_SS_SLASH.value));
+        FORMATTER_MAP.put(
+                Formatter.YYYY_MM_DD_HH_MM_SS_NO_SPLIT,
+                DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_HH_MM_SS_NO_SPLIT.value));
     }
 
     public static LocalDateTime parse(String dateTime, Formatter formatter) {

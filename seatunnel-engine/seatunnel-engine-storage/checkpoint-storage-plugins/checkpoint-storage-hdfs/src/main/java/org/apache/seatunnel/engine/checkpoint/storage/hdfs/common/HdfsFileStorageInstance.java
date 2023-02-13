@@ -41,7 +41,8 @@ public class HdfsFileStorageInstance {
         return HDFS_STORAGE;
     }
 
-    public static HdfsStorage getOrCreateStorage(Map<String, String> config) throws CheckpointStorageException {
+    public static HdfsStorage getOrCreateStorage(Map<String, String> config)
+            throws CheckpointStorageException {
         if (null != HDFS_STORAGE) {
             return HDFS_STORAGE;
         }
@@ -53,5 +54,4 @@ public class HdfsFileStorageInstance {
             return HDFS_STORAGE;
         }
     }
-
 }

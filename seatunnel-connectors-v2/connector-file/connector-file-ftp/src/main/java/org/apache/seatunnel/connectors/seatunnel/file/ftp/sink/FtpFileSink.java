@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.ftp.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -29,8 +31,6 @@ import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpConf;
 import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import com.google.auto.service.AutoService;
 
 @AutoService(SeaTunnelSink.class)
@@ -42,12 +42,18 @@ public class FtpFileSink extends BaseFileSink {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig,
-                FtpConfig.FTP_HOST.key(), FtpConfig.FTP_PORT.key(),
-                FtpConfig.FTP_USERNAME.key(), FtpConfig.FTP_PASSWORD.key());
+        CheckResult result =
+                CheckConfigUtil.checkAllExists(
+                        pluginConfig,
+                        FtpConfig.FTP_HOST.key(),
+                        FtpConfig.FTP_PORT.key(),
+                        FtpConfig.FTP_USERNAME.key(),
+                        FtpConfig.FTP_PASSWORD.key());
         if (!result.isSuccess()) {
-            throw new FileConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+            throw new FileConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SINK, result.getMsg()));
         }
         super.prepare(pluginConfig);

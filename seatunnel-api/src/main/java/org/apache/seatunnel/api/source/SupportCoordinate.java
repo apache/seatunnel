@@ -17,8 +17,5 @@
 
 package org.apache.seatunnel.api.source;
 
-/**
- * Used to mark whether the interface supports coordination.
- */
-public interface SupportCoordinate {
-}
+/** Used to mark whether the interface supports coordination. */
+public interface SupportCoordinate {}

@@ -22,8 +22,9 @@ import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.command.CommandArgs;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.exception.ExceptionUtils;
+
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class SeaTunnel {
@@ -32,7 +33,7 @@ public class SeaTunnel {
      * This method is the entrypoint of SeaTunnel.
      *
      * @param command commandArgs
-     * @param <T>     commandType
+     * @param <T> commandType
      */
     public static <T extends CommandArgs> void run(Command<T> command) throws CommandException {
         try {
@@ -48,25 +49,25 @@ public class SeaTunnel {
 
     private static void showConfigError(Throwable throwable) {
         log.error(
-            "\n\n===============================================================================\n\n");
+                "\n\n===============================================================================\n\n");
         String errorMsg = throwable.getMessage();
         log.error("Config Error:\n");
         log.error("Reason: {} \n", errorMsg);
         log.error(
-            "\n===============================================================================\n\n\n");
+                "\n===============================================================================\n\n\n");
     }
 
     private static void showFatalError(Throwable throwable) {
         log.error(
-            "\n\n===============================================================================\n\n");
+                "\n\n===============================================================================\n\n");
         String errorMsg = throwable.getMessage();
         log.error("Fatal Error, \n");
         // FIX
         log.error(
-            "Please submit bug report in https://github.com/apache/incubator-seatunnel/issues\n");
+                "Please submit bug report in https://github.com/apache/incubator-seatunnel/issues\n");
         log.error("Reason:{} \n", errorMsg);
         log.error("Exception StackTrace:{} ", ExceptionUtils.getStackTrace(throwable));
         log.error(
-            "\n===============================================================================\n\n\n");
+                "\n===============================================================================\n\n\n");
     }
 }

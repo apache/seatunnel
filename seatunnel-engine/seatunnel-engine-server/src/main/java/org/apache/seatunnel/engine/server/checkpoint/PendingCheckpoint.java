@@ -22,10 +22,11 @@ import org.apache.seatunnel.engine.core.checkpoint.Checkpoint;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 
-import com.beust.jcommander.internal.Nullable;
-import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.beust.jcommander.internal.Nullable;
+import lombok.Getter;
 
 import java.time.Instant;
 import java.util.List;
@@ -54,17 +55,17 @@ public class PendingCheckpoint implements Checkpoint {
 
     private final CompletableFuture<CompletedCheckpoint> completableFuture;
 
-    @Getter
-    private CheckpointException failureCause;
+    @Getter private CheckpointException failureCause;
 
-    public PendingCheckpoint(long jobId,
-                             int pipelineId,
-                             long checkpointId,
-                             long triggerTimestamp,
-                             CheckpointType checkpointType,
-                             Set<Long> notYetAcknowledgedTasks,
-                             Map<Long, TaskStatistics> taskStatistics,
-                             Map<Long, ActionState> actionStates) {
+    public PendingCheckpoint(
+            long jobId,
+            int pipelineId,
+            long checkpointId,
+            long triggerTimestamp,
+            CheckpointType checkpointType,
+            Set<Long> notYetAcknowledgedTasks,
+            Map<Long, TaskStatistics> taskStatistics,
+            Map<Long, ActionState> actionStates) {
         this.jobId = jobId;
         this.pipelineId = pipelineId;
         this.checkpointId = checkpointId;
@@ -113,7 +114,10 @@ public class PendingCheckpoint implements Checkpoint {
         return new PassiveCompletableFuture<>(completableFuture);
     }
 
-    public void acknowledgeTask(TaskLocation taskLocation, List<ActionSubtaskState> states, SubtaskStatus subtaskStatus) {
+    public void acknowledgeTask(
+            TaskLocation taskLocation,
+            List<ActionSubtaskState> states,
+            SubtaskStatus subtaskStatus) {
         boolean exist = notYetAcknowledgedTasks.remove(taskLocation.getTaskID());
         if (!exist) {
             return;
@@ -126,14 +130,16 @@ public class PendingCheckpoint implements Checkpoint {
             if (actionState == null) {
                 return;
             }
-            stateSize += state.getState().stream().filter(Objects::nonNull).map(s -> s.length).count();
+            stateSize +=
+                    state.getState().stream().filter(Objects::nonNull).map(s -> s.length).count();
             actionState.reportState(state.getIndex(), state);
         }
-        statistics.reportSubtaskStatistics(new SubtaskStatistics(
-            taskLocation.getTaskIndex(),
-            Instant.now().toEpochMilli(),
-            stateSize,
-            subtaskStatus));
+        statistics.reportSubtaskStatistics(
+                new SubtaskStatistics(
+                        taskLocation.getTaskIndex(),
+                        Instant.now().toEpochMilli(),
+                        stateSize,
+                        subtaskStatus));
 
         if (isFullyAcknowledged()) {
             LOG.debug("checkpoint is full ack!");
@@ -147,18 +153,17 @@ public class PendingCheckpoint implements Checkpoint {
 
     private CompletedCheckpoint toCompletedCheckpoint() {
         return new CompletedCheckpoint(
-            jobId,
-            pipelineId,
-            checkpointId,
-            triggerTimestamp,
-            checkpointType,
-            System.currentTimeMillis(),
-            actionStates,
-            taskStatistics);
+                jobId,
+                pipelineId,
+                checkpointId,
+                triggerTimestamp,
+                checkpointType,
+                System.currentTimeMillis(),
+                actionStates,
+                taskStatistics);
     }
 
-    public void abortCheckpoint(CheckpointCloseReason closedReason,
-                                @Nullable Throwable cause) {
+    public void abortCheckpoint(CheckpointCloseReason closedReason, @Nullable Throwable cause) {
         if (closedReason.equals(CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET)) {
             completableFuture.complete(null);
         } else {

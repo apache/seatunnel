@@ -18,15 +18,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa;
 
-import static javax.transaction.xa.XAResource.TMSTARTRSCAN;
-
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.DataSourceUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options.JdbcConnectionOptions;
 
-import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,6 +35,8 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import lombok.extern.slf4j.Slf4j;
+
 import javax.sql.XADataSource;
 import javax.transaction.xa.XAException;
 import javax.transaction.xa.XAResource;
@@ -45,8 +44,11 @@ import javax.transaction.xa.Xid;
 
 import java.util.stream.Stream;
 
+import static javax.transaction.xa.XAResource.TMSTARTRSCAN;
+
 @Slf4j
-@Disabled("Temporary fast fix, reason: JdbcDatabaseContainer: ClassNotFoundException: com.mysql.jdbc.Driver")
+@Disabled(
+        "Temporary fast fix, reason: JdbcDatabaseContainer: ClassNotFoundException: com.mysql.jdbc.Driver")
 class XaGroupOpsImplIT {
 
     private static final String MYSQL_DOCKER_IMAGE = "mysql:8.0.29";
@@ -61,17 +63,21 @@ class XaGroupOpsImplIT {
     @BeforeEach
     void before() throws Exception {
         // Non-root users need to grant XA_RECOVER_ADMIN permission
-        mc = new MySQLContainer<>(DockerImageName.parse(MYSQL_DOCKER_IMAGE))
-            .withUsername("root")
-            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_DOCKER_IMAGE)));
+        mc =
+                new MySQLContainer<>(DockerImageName.parse(MYSQL_DOCKER_IMAGE))
+                        .withUsername("root")
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(
+                                        DockerLoggerFactory.getLogger(MYSQL_DOCKER_IMAGE)));
         Startables.deepStart(Stream.of(mc)).join();
 
-        jdbcConnectionOptions = JdbcConnectionOptions.builder()
-            .withUrl(mc.getJdbcUrl())
-            .withUsername(mc.getUsername())
-            .withPassword(mc.getPassword())
-            .withXaDataSourceClassName("com.mysql.cj.jdbc.MysqlXADataSource")
-            .build();
+        jdbcConnectionOptions =
+                JdbcConnectionOptions.builder()
+                        .withUrl(mc.getJdbcUrl())
+                        .withUsername(mc.getUsername())
+                        .withPassword(mc.getPassword())
+                        .withXaDataSourceClassName("com.mysql.cj.jdbc.MysqlXADataSource")
+                        .build();
 
         xidGenerator = new SemanticXidGenerator();
         xidGenerator.open();
@@ -79,19 +85,19 @@ class XaGroupOpsImplIT {
         xaFacade.open();
         xaGroupOps = new XaGroupOpsImpl(xaFacade);
 
-        XADataSource xaDataSource = (XADataSource) DataSourceUtils.buildCommonDataSource(jdbcConnectionOptions);
+        XADataSource xaDataSource =
+                (XADataSource) DataSourceUtils.buildCommonDataSource(jdbcConnectionOptions);
         xaResource = xaDataSource.getXAConnection().getXAResource();
-
     }
 
     @Test
     void testRecoverAndRollback() throws Exception {
         JobContext jobContext = new JobContext();
         SinkWriter.Context writerContext1 = new DefaultSinkWriterContext(1);
-        Xid xid1 =
-            xidGenerator.generateXid(jobContext, writerContext1, System.currentTimeMillis());
+        Xid xid1 = xidGenerator.generateXid(jobContext, writerContext1, System.currentTimeMillis());
         Xid xid2 =
-            xidGenerator.generateXid(jobContext, writerContext1, System.currentTimeMillis() + 1);
+                xidGenerator.generateXid(
+                        jobContext, writerContext1, System.currentTimeMillis() + 1);
 
         xaFacade.start(xid1);
         xaFacade.endAndPrepare(xid1);
@@ -106,14 +112,16 @@ class XaGroupOpsImplIT {
 
         Assertions.assertFalse(checkPreparedXid(xid1));
         Assertions.assertTrue(checkPreparedXid(xid2));
-
     }
 
     private boolean checkPreparedXid(Xid xidCrr) throws XAException {
         Xid[] recover = xaResource.recover(TMSTARTRSCAN);
         for (int i = 0; i < recover.length; i++) {
-            XidImpl xid = new XidImpl(recover[i].getFormatId(), recover[i].getGlobalTransactionId(),
-                recover[i].getBranchQualifier());
+            XidImpl xid =
+                    new XidImpl(
+                            recover[i].getFormatId(),
+                            recover[i].getGlobalTransactionId(),
+                            recover[i].getBranchQualifier());
             if (xid.equals(xidCrr)) {
                 return true;
             }

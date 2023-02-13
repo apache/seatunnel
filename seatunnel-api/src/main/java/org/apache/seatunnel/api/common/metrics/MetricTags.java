@@ -19,8 +19,7 @@ package org.apache.seatunnel.api.common.metrics;
 
 public final class MetricTags {
 
-    private MetricTags() {
-    }
+    private MetricTags() {}
 
     public static final String MEMBER = "member";
 

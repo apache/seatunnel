@@ -20,8 +20,7 @@ package org.apache.seatunnel.api.table.type;
 public class PrimitiveByteArrayType implements SeaTunnelDataType<byte[]> {
     public static final PrimitiveByteArrayType INSTANCE = new PrimitiveByteArrayType();
 
-    private PrimitiveByteArrayType() {
-    }
+    private PrimitiveByteArrayType() {}
 
     @Override
     public Class<byte[]> getTypeClass() {

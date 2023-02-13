@@ -22,8 +22,8 @@ import org.apache.seatunnel.api.source.SourceCommonOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.utils.SerializationUtils;
-import org.apache.seatunnel.translation.spark.source.batch.BatchSourceReader;
-import org.apache.seatunnel.translation.spark.source.micro.MicroBatchSourceReader;
+import org.apache.seatunnel.translation.spark.source.reader.batch.BatchSourceReader;
+import org.apache.seatunnel.translation.spark.source.reader.micro.MicroBatchSourceReader;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
@@ -37,12 +37,14 @@ import org.apache.spark.sql.sources.v2.ReadSupport;
 import org.apache.spark.sql.sources.v2.reader.DataSourceReader;
 import org.apache.spark.sql.sources.v2.reader.streaming.MicroBatchReader;
 import org.apache.spark.sql.types.StructType;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Optional;
 
-public class SeaTunnelSourceSupport implements DataSourceV2, ReadSupport, MicroBatchReadSupport, DataSourceRegister {
+public class SeaTunnelSourceSupport
+        implements DataSourceV2, ReadSupport, MicroBatchReadSupport, DataSourceRegister {
     private static final Logger LOG = LoggerFactory.getLogger(SeaTunnelSourceSupport.class);
     public static final String SEA_TUNNEL_SOURCE_NAME = "SeaTunnelSource";
     public static final Integer CHECKPOINT_INTERVAL_DEFAULT = 10000;
@@ -65,20 +67,39 @@ public class SeaTunnelSourceSupport implements DataSourceV2, ReadSupport, MicroB
     }
 
     @Override
-    public MicroBatchReader createMicroBatchReader(Optional<StructType> rowTypeOptional, String checkpointLocation, DataSourceOptions options) {
+    public MicroBatchReader createMicroBatchReader(
+            Optional<StructType> rowTypeOptional,
+            String checkpointLocation,
+            DataSourceOptions options) {
         SeaTunnelSource<SeaTunnelRow, ?, ?> seaTunnelSource = getSeaTunnelSource(options);
         Integer parallelism = options.getInt(SourceCommonOptions.PARALLELISM.key(), 1);
-        Integer checkpointInterval = options.getInt(Constants.CHECKPOINT_INTERVAL, CHECKPOINT_INTERVAL_DEFAULT);
-        String checkpointPath = StringUtils.replacePattern(checkpointLocation, "sources/\\d+", "sources-state");
-        Configuration configuration = SparkSession.getActiveSession().get().sparkContext().hadoopConfiguration();
-        String hdfsRoot = options.get(Constants.HDFS_ROOT).orElse(FileSystem.getDefaultUri(configuration).toString());
+        Integer checkpointInterval =
+                options.getInt(Constants.CHECKPOINT_INTERVAL, CHECKPOINT_INTERVAL_DEFAULT);
+        String checkpointPath =
+                StringUtils.replacePattern(checkpointLocation, "sources/\\d+", "sources-state");
+        Configuration configuration =
+                SparkSession.getActiveSession().get().sparkContext().hadoopConfiguration();
+        String hdfsRoot =
+                options.get(Constants.HDFS_ROOT)
+                        .orElse(FileSystem.getDefaultUri(configuration).toString());
         String hdfsUser = options.get(Constants.HDFS_USER).orElse("");
         Integer checkpointId = options.getInt(Constants.CHECKPOINT_ID, 1);
-        return new MicroBatchSourceReader(seaTunnelSource, parallelism, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser);
+        return new MicroBatchSourceReader(
+                seaTunnelSource,
+                parallelism,
+                checkpointId,
+                checkpointInterval,
+                checkpointPath,
+                hdfsRoot,
+                hdfsUser);
     }
 
     private SeaTunnelSource<SeaTunnelRow, ?, ?> getSeaTunnelSource(DataSourceOptions options) {
-        return SerializationUtils.stringToObject(options.get(Constants.SOURCE_SERIALIZATION)
-            .orElseThrow(() -> new UnsupportedOperationException("Serialization information for the SeaTunnelSource is required")));
+        return SerializationUtils.stringToObject(
+                options.get(Constants.SOURCE_SERIALIZATION)
+                        .orElseThrow(
+                                () ->
+                                        new UnsupportedOperationException(
+                                                "Serialization information for the SeaTunnelSource is required")));
     }
 }

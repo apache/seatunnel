@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.pulsar.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum PulsarConnectorErrorCode implements SeaTunnelErrorCode {
-
     OPEN_PULSAR_ADMIN_FAILED("PULSAR-01", "Open pulsar admin failed"),
     OPEN_PULSAR_CLIENT_FAILED("PULSAR-02", "Open pulsar client failed"),
     PULSAR_AUTHENTICATION_FAILED("PULSAR-03", "Pulsar authentication failed"),

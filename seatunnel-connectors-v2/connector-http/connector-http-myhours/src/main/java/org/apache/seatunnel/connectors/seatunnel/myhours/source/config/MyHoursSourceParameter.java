@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.myhours.source.config;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -31,7 +31,9 @@ public class MyHoursSourceParameter extends HttpParameter {
         super.buildWithConfig(pluginConfig);
         // put authorization in headers
         this.headers = this.getHeaders() == null ? new HashMap<>() : this.getHeaders();
-        this.headers.put(MyHoursSourceConfig.AUTHORIZATION, MyHoursSourceConfig.ACCESS_TOKEN_PREFIX + " " + accessToken);
+        this.headers.put(
+                MyHoursSourceConfig.AUTHORIZATION,
+                MyHoursSourceConfig.ACCESS_TOKEN_PREFIX + " " + accessToken);
         this.setHeaders(this.headers);
     }
 

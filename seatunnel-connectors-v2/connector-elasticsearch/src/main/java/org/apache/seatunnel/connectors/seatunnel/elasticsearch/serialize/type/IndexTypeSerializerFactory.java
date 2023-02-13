@@ -17,23 +17,28 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.type;
 
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.constant.ElasticsearchVersion;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.ElasticsearchClusterInfo;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.type.impl.NotIndexTypeSerializer;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.type.impl.RequiredIndexTypeSerializer;
+
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.constant.ElasticsearchVersion.ES2;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.constant.ElasticsearchVersion.ES5;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.constant.ElasticsearchVersion.ES6;
-
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.constant.ElasticsearchVersion;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.type.impl.NotIndexTypeSerializer;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.type.impl.RequiredIndexTypeSerializer;
 
 public class IndexTypeSerializerFactory {
 
     private static final String DEFAULT_TYPE = "st";
 
-    private IndexTypeSerializerFactory() {
+    private IndexTypeSerializerFactory() {}
 
-    }
-
-    public static IndexTypeSerializer getIndexTypeSerializer(ElasticsearchVersion elasticsearchVersion, String type) {
+    public static IndexTypeSerializer getIndexTypeSerializer(
+            ElasticsearchClusterInfo elasticsearchClusterInfo, String type) {
+        if (elasticsearchClusterInfo.isOpensearch()) {
+            return new NotIndexTypeSerializer();
+        }
+        ElasticsearchVersion elasticsearchVersion =
+                elasticsearchClusterInfo.getElasticsearchVersion();
         if (elasticsearchVersion == ES2 || elasticsearchVersion == ES5) {
             if (type == null || "".equals(type)) {
                 type = DEFAULT_TYPE;
@@ -47,5 +52,4 @@ public class IndexTypeSerializerFactory {
         }
         return new NotIndexTypeSerializer();
     }
-
 }

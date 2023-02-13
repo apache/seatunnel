@@ -25,9 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * Represent a physical table schema.
- */
+/** Represent a physical table schema. */
 public final class TableSchema implements Serializable {
     private static final long serialVersionUID = 1L;
     private final List<Column> columns;
@@ -43,22 +41,22 @@ public final class TableSchema implements Serializable {
         return new Builder();
     }
 
-    /**
-     * Returns all {@link Column}s of this schema.
-     */
+    /** Returns all {@link Column}s of this schema. */
     public List<Column> getColumns() {
         return columns;
     }
 
     public SeaTunnelRowType toPhysicalRowDataType() {
-        SeaTunnelDataType<?>[] fieldTypes = columns.stream()
-            .filter(Column::isPhysical)
-            .map(Column::getDataType)
-            .toArray(SeaTunnelDataType[]::new);
-        String[] fields = columns.stream()
-            .filter(Column::isPhysical)
-            .map(Column::getName)
-            .toArray(String[]::new);
+        SeaTunnelDataType<?>[] fieldTypes =
+                columns.stream()
+                        .filter(Column::isPhysical)
+                        .map(Column::getDataType)
+                        .toArray(SeaTunnelDataType[]::new);
+        String[] fields =
+                columns.stream()
+                        .filter(Column::isPhysical)
+                        .map(Column::getName)
+                        .toArray(String[]::new);
         return new SeaTunnelRowType(fields, fieldTypes);
     }
 
@@ -122,7 +120,9 @@ public final class TableSchema implements Serializable {
 
         @Override
         public String toString() {
-            return String.format("CONSTRAINT %s PRIMARY KEY (%s) NOT ENFORCED", constraintName, String.join(", ", columnNames));
+            return String.format(
+                    "CONSTRAINT %s PRIMARY KEY (%s) NOT ENFORCED",
+                    constraintName, String.join(", ", columnNames));
         }
 
         @Override
@@ -134,7 +134,8 @@ public final class TableSchema implements Serializable {
                 return false;
             }
             PrimaryKey that = (PrimaryKey) o;
-            return constraintName.equals(that.constraintName) && columnNames.equals(that.columnNames);
+            return constraintName.equals(that.constraintName)
+                    && columnNames.equals(that.columnNames);
         }
 
         @Override
