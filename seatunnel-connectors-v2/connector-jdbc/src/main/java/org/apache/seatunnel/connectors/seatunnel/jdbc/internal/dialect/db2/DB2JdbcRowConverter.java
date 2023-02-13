@@ -25,5 +25,4 @@ public class DB2JdbcRowConverter extends AbstractJdbcRowConverter {
     public String converterName() {
         return "DB2";
     }
-
 }

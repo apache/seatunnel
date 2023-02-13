@@ -17,14 +17,14 @@
 
 package org.apache.seatunnel.transform;
 
-import static org.apache.seatunnel.transform.CopyFieldTransform.DEST_FIELD;
-import static org.apache.seatunnel.transform.CopyFieldTransform.SRC_FIELD;
-
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 
 import com.google.auto.service.AutoService;
+
+import static org.apache.seatunnel.transform.CopyFieldTransform.DEST_FIELD;
+import static org.apache.seatunnel.transform.CopyFieldTransform.SRC_FIELD;
 
 @AutoService(Factory.class)
 public class CopyFieldTransformFactory implements TableTransformFactory {
@@ -35,8 +35,6 @@ public class CopyFieldTransformFactory implements TableTransformFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder()
-                .required(SRC_FIELD, DEST_FIELD)
-                .build();
+        return OptionRule.builder().required(SRC_FIELD, DEST_FIELD).build();
     }
 }

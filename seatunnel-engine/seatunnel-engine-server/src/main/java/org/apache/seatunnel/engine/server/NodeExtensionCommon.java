@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.engine.server;
 
-import static com.hazelcast.cluster.ClusterState.PASSIVE;
-
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.engine.common.Constant;
 
@@ -29,6 +27,8 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.util.HashMap;
 import java.util.Map;
+
+import static com.hazelcast.cluster.ClusterState.PASSIVE;
 
 class NodeExtensionCommon {
     private final Node node;
@@ -42,7 +42,7 @@ class NodeExtensionCommon {
     }
 
     void afterStart() {
-        //TODO seaTunnelServer after start in here
+        // TODO seaTunnelServer after start in here
     }
 
     void beforeClusterStateChange(ClusterState requestedState) {
@@ -51,11 +51,11 @@ class NodeExtensionCommon {
         }
         logger.info("st is preparing to enter the PASSIVE cluster state");
         NodeEngineImpl ne = node.nodeEngine;
-        //TODO This is where cluster state changes are handled
+        // TODO This is where cluster state changes are handled
     }
 
     void onClusterStateChange(ClusterState ignored) {
-        //TODO This is where cluster state changes are handled
+        // TODO This is where cluster state changes are handled
     }
 
     void printNodeInfo(ILogger log, String addToProductName) {
@@ -76,7 +76,8 @@ class NodeExtensionCommon {
     }
 
     private String serializationVersionMessage() {
-        return "Configured Hazelcast Serialization version: " + node.getBuildInfo().getSerializationVersion();
+        return "Configured Hazelcast Serialization version: "
+                + node.getBuildInfo().getSerializationVersion();
     }
 
     private String clusterNameMessage() {

@@ -29,7 +29,8 @@ import java.util.List;
 import java.util.Map;
 
 @Slf4j
-public class FileSinkAggregatedCommitter implements SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo> {
+public class FileSinkAggregatedCommitter
+        implements SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo> {
     protected final FileSystemUtils fileSystemUtils;
 
     public FileSinkAggregatedCommitter(FileSystemUtils fileSystemUtils) {
@@ -37,23 +38,31 @@ public class FileSinkAggregatedCommitter implements SinkAggregatedCommitter<File
     }
 
     @Override
-    public List<FileAggregatedCommitInfo> commit(List<FileAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
+    public List<FileAggregatedCommitInfo> commit(
+            List<FileAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
         List<FileAggregatedCommitInfo> errorAggregatedCommitInfoList = new ArrayList<>();
-        aggregatedCommitInfos.forEach(aggregatedCommitInfo -> {
-            try {
-                for (Map.Entry<String, Map<String, String>> entry : aggregatedCommitInfo.getTransactionMap().entrySet()) {
-                    for (Map.Entry<String, String> mvFileEntry : entry.getValue().entrySet()) {
-                        // first rename temp file
-                        fileSystemUtils.renameFile(mvFileEntry.getKey(), mvFileEntry.getValue(), true);
+        aggregatedCommitInfos.forEach(
+                aggregatedCommitInfo -> {
+                    try {
+                        for (Map.Entry<String, Map<String, String>> entry :
+                                aggregatedCommitInfo.getTransactionMap().entrySet()) {
+                            for (Map.Entry<String, String> mvFileEntry :
+                                    entry.getValue().entrySet()) {
+                                // first rename temp file
+                                fileSystemUtils.renameFile(
+                                        mvFileEntry.getKey(), mvFileEntry.getValue(), true);
+                            }
+                            // second delete transaction directory
+                            fileSystemUtils.deleteFile(entry.getKey());
+                        }
+                    } catch (Exception e) {
+                        log.error(
+                                "commit aggregatedCommitInfo error, aggregatedCommitInfo = {} ",
+                                aggregatedCommitInfo,
+                                e);
+                        errorAggregatedCommitInfoList.add(aggregatedCommitInfo);
                     }
-                    // second delete transaction directory
-                    fileSystemUtils.deleteFile(entry.getKey());
-                }
-            } catch (Exception e) {
-                log.error("commit aggregatedCommitInfo error, aggregatedCommitInfo = {} ", aggregatedCommitInfo, e);
-                errorAggregatedCommitInfoList.add(aggregatedCommitInfo);
-            }
-        });
+                });
         return errorAggregatedCommitInfoList;
     }
 
@@ -70,18 +79,23 @@ public class FileSinkAggregatedCommitter implements SinkAggregatedCommitter<File
         }
         Map<String, Map<String, String>> aggregateCommitInfo = new HashMap<>();
         Map<String, List<String>> partitionDirAndValuesMap = new HashMap<>();
-        commitInfos.forEach(commitInfo -> {
-            Map<String, String> needMoveFileMap = aggregateCommitInfo.computeIfAbsent(commitInfo.getTransactionDir(), k -> new HashMap<>());
-            needMoveFileMap.putAll(commitInfo.getNeedMoveFiles());
-            if (commitInfo.getPartitionDirAndValuesMap() != null && !commitInfo.getPartitionDirAndValuesMap().isEmpty()) {
-                partitionDirAndValuesMap.putAll(commitInfo.getPartitionDirAndValuesMap());
-            }
-        });
+        commitInfos.forEach(
+                commitInfo -> {
+                    Map<String, String> needMoveFileMap =
+                            aggregateCommitInfo.computeIfAbsent(
+                                    commitInfo.getTransactionDir(), k -> new HashMap<>());
+                    needMoveFileMap.putAll(commitInfo.getNeedMoveFiles());
+                    if (commitInfo.getPartitionDirAndValuesMap() != null
+                            && !commitInfo.getPartitionDirAndValuesMap().isEmpty()) {
+                        partitionDirAndValuesMap.putAll(commitInfo.getPartitionDirAndValuesMap());
+                    }
+                });
         return new FileAggregatedCommitInfo(aggregateCommitInfo, partitionDirAndValuesMap);
     }
 
     /**
-     * If {@link #commit(List)} failed, this method will be called (**Only** on Spark engine at now).
+     * If {@link #commit(List)} failed, this method will be called (**Only** on Spark engine at
+     * now).
      *
      * @param aggregatedCommitInfos The list of combine commit message.
      * @throws Exception throw Exception when abort failed.
@@ -92,22 +106,27 @@ public class FileSinkAggregatedCommitter implements SinkAggregatedCommitter<File
         if (aggregatedCommitInfos == null || aggregatedCommitInfos.size() == 0) {
             return;
         }
-        aggregatedCommitInfos.forEach(aggregatedCommitInfo -> {
-            try {
-                for (Map.Entry<String, Map<String, String>> entry : aggregatedCommitInfo.getTransactionMap().entrySet()) {
-                    // rollback the file
-                    for (Map.Entry<String, String> mvFileEntry : entry.getValue().entrySet()) {
-                        if (fileSystemUtils.fileExist(mvFileEntry.getValue()) && !fileSystemUtils.fileExist(mvFileEntry.getKey())) {
-                            fileSystemUtils.renameFile(mvFileEntry.getValue(), mvFileEntry.getKey(), true);
+        aggregatedCommitInfos.forEach(
+                aggregatedCommitInfo -> {
+                    try {
+                        for (Map.Entry<String, Map<String, String>> entry :
+                                aggregatedCommitInfo.getTransactionMap().entrySet()) {
+                            // rollback the file
+                            for (Map.Entry<String, String> mvFileEntry :
+                                    entry.getValue().entrySet()) {
+                                if (fileSystemUtils.fileExist(mvFileEntry.getValue())
+                                        && !fileSystemUtils.fileExist(mvFileEntry.getKey())) {
+                                    fileSystemUtils.renameFile(
+                                            mvFileEntry.getValue(), mvFileEntry.getKey(), true);
+                                }
+                            }
+                            // delete the transaction dir
+                            fileSystemUtils.deleteFile(entry.getKey());
                         }
+                    } catch (Exception e) {
+                        log.error("abort aggregatedCommitInfo error ", e);
                     }
-                    // delete the transaction dir
-                    fileSystemUtils.deleteFile(entry.getKey());
-                }
-            } catch (Exception e) {
-                log.error("abort aggregatedCommitInfo error ", e);
-            }
-        });
+                });
     }
 
     /**
@@ -116,7 +135,5 @@ public class FileSinkAggregatedCommitter implements SinkAggregatedCommitter<File
      * @throws IOException throw IOException when close failed.
      */
     @Override
-    public void close() throws IOException {
-
-    }
+    public void close() throws IOException {}
 }

@@ -17,17 +17,12 @@
 
 package org.apache.seatunnel.e2e.common.container.seatunnel;
 
-import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
-
 import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
-import com.google.auto.service.AutoService;
-import lombok.NoArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -35,10 +30,16 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
+import com.google.auto.service.AutoService;
+import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
+
+import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 
 @NoArgsConstructor
 @Slf4j
@@ -51,16 +52,25 @@ public class SeaTunnelContainer extends AbstractTestContainer {
 
     @Override
     public void startUp() throws Exception {
-        server = new GenericContainer<>(getDockerImage())
-            .withNetwork(NETWORK)
-            .withCommand(ContainerUtil.adaptPathForWin(Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString()))
-            .withNetworkAliases("server")
-            .withExposedPorts()
-            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger("seatunnel-engine:" + JDK_DOCKER_IMAGE)))
-            .waitingFor(Wait.forLogMessage(".*received new worker register.*\\n", 1));
+        server =
+                new GenericContainer<>(getDockerImage())
+                        .withNetwork(NETWORK)
+                        .withCommand(
+                                ContainerUtil.adaptPathForWin(
+                                        Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString()))
+                        .withNetworkAliases("server")
+                        .withExposedPorts()
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(
+                                        DockerLoggerFactory.getLogger(
+                                                "seatunnel-engine:" + JDK_DOCKER_IMAGE)))
+                        .waitingFor(Wait.forLogMessage(".*received new worker register.*\\n", 1));
         copySeaTunnelStarterToContainer(server);
-        server.withCopyFileToContainer(MountableFile.forHostPath(PROJECT_ROOT_PATH + "/seatunnel-engine/seatunnel-engine-common/src/main/resources/"),
-            Paths.get(SEATUNNEL_HOME, "config").toString());
+        server.withCopyFileToContainer(
+                MountableFile.forHostPath(
+                        PROJECT_ROOT_PATH
+                                + "/seatunnel-engine/seatunnel-engine-common/src/main/resources/"),
+                Paths.get(SEATUNNEL_HOME, "config").toString());
         server.start();
         // execute extra commands
         executeExtraCommands(server);
@@ -114,12 +124,14 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     }
 
     @Override
-    public void executeExtraCommands(ContainerExtendedFactory extendedFactory) throws IOException, InterruptedException {
+    public void executeExtraCommands(ContainerExtendedFactory extendedFactory)
+            throws IOException, InterruptedException {
         extendedFactory.extend(server);
     }
 
     @Override
-    public Container.ExecResult executeJob(String confFile) throws IOException, InterruptedException {
+    public Container.ExecResult executeJob(String confFile)
+            throws IOException, InterruptedException {
         return executeJob(server, confFile);
     }
 }

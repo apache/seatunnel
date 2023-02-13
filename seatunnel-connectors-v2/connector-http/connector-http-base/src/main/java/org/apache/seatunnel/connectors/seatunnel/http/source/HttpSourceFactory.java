@@ -50,7 +50,8 @@ public class HttpSourceFactory implements TableSourceFactory {
                 .optional(HttpConfig.JSON_FIELD)
                 .optional(HttpConfig.CONTENT_FIELD)
                 .conditional(HttpConfig.METHOD, HttpRequestMethod.POST, HttpConfig.BODY)
-                .conditional(HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, SeaTunnelSchema.SCHEMA)
+                .conditional(
+                        HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, SeaTunnelSchema.SCHEMA)
                 .optional(HttpConfig.POLL_INTERVAL_MILLS)
                 .optional(HttpConfig.RETRY)
                 .optional(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS)

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.transform;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -28,37 +30,40 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.transform.common.SeaTunnelRowAccessor;
 import org.apache.seatunnel.transform.common.SingleFieldOutputTransform;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import com.google.auto.service.AutoService;
 
 @AutoService(SeaTunnelTransform.class)
 public class ReplaceTransform extends SingleFieldOutputTransform {
 
-    public static final Option<String> KEY_REPLACE_FIELD = Options.key("replace_field")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("The field you want to replace");
+    public static final Option<String> KEY_REPLACE_FIELD =
+            Options.key("replace_field")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The field you want to replace");
 
-    public static final Option<String> KEY_PATTERN = Options.key("pattern")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("The old string that will be replaced");
+    public static final Option<String> KEY_PATTERN =
+            Options.key("pattern")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The old string that will be replaced");
 
-    public static final Option<String> KEY_REPLACEMENT = Options.key("replacement")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("The new string for replace");
+    public static final Option<String> KEY_REPLACEMENT =
+            Options.key("replacement")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The new string for replace");
 
-    public static final Option<Boolean> KEY_IS_REGEX = Options.key("is_regex")
-            .booleanType()
-            .defaultValue(false)
-            .withDescription("Use regex for string match");
+    public static final Option<Boolean> KEY_IS_REGEX =
+            Options.key("is_regex")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Use regex for string match");
 
-    public static final Option<Boolean> KEY_REPLACE_FIRST = Options.key("replace_first")
-            .booleanType()
-            .noDefaultValue()
-            .withDescription("Replace the first match string");
+    public static final Option<Boolean> KEY_REPLACE_FIRST =
+            Options.key("replace_first")
+                    .booleanType()
+                    .noDefaultValue()
+                    .withDescription("Replace the first match string");
 
     private int inputFieldIndex;
     private String replaceField;
@@ -74,8 +79,12 @@ public class ReplaceTransform extends SingleFieldOutputTransform {
 
     @Override
     protected void setConfig(Config pluginConfig) {
-        CheckResult checkResult = CheckConfigUtil.checkAllExists(pluginConfig,
-            KEY_REPLACE_FIELD.key(), KEY_PATTERN.key(), KEY_REPLACEMENT.key());
+        CheckResult checkResult =
+                CheckConfigUtil.checkAllExists(
+                        pluginConfig,
+                        KEY_REPLACE_FIELD.key(),
+                        KEY_PATTERN.key(),
+                        KEY_REPLACEMENT.key());
         if (!checkResult.isSuccess()) {
             throw new IllegalArgumentException("Failed to check config! " + checkResult.getMsg());
         }
@@ -95,7 +104,8 @@ public class ReplaceTransform extends SingleFieldOutputTransform {
     protected void setInputRowType(SeaTunnelRowType rowType) {
         inputFieldIndex = rowType.indexOf(replaceField);
         if (inputFieldIndex == -1) {
-            throw new IllegalArgumentException("Cannot find [" + replaceField + "] field in input row type");
+            throw new IllegalArgumentException(
+                    "Cannot find [" + replaceField + "] field in input row type");
         }
     }
 

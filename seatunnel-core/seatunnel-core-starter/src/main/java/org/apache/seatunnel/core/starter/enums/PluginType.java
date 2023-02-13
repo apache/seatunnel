@@ -17,9 +17,7 @@
 
 package org.apache.seatunnel.core.starter.enums;
 
-/**
- * Plugin type enum
- */
+/** Plugin type enum */
 public enum PluginType {
     SOURCE("source"),
     TRANSFORM("transform"),

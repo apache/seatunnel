@@ -26,7 +26,8 @@ import com.hazelcast.spi.impl.NodeEngine;
 
 import java.util.concurrent.CompletableFuture;
 
-public class KubernetesResourceManager extends AbstractResourceManager implements ThirdPartyResourceManager {
+public class KubernetesResourceManager extends AbstractResourceManager
+        implements ThirdPartyResourceManager {
 
     public KubernetesResourceManager(NodeEngine nodeEngine) {
         super(nodeEngine);

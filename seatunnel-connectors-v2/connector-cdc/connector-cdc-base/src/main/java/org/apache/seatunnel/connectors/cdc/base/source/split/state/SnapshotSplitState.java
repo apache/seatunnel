@@ -23,9 +23,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import lombok.Getter;
 import lombok.Setter;
 
-/**
- * The state of split to describe the snapshot of table(s).
- */
+/** The state of split to describe the snapshot of table(s). */
 @Getter
 @Setter
 public class SnapshotSplitState extends SourceSplitStateBase {
@@ -40,11 +38,11 @@ public class SnapshotSplitState extends SourceSplitStateBase {
     public SnapshotSplit toSourceSplit() {
         final SnapshotSplit snapshotSplit = split.asSnapshotSplit();
         return new SnapshotSplit(
-            snapshotSplit.splitId(),
-            snapshotSplit.getTableId(),
-            snapshotSplit.getSplitKeyType(),
-            snapshotSplit.getSplitStart(),
-            snapshotSplit.getSplitEnd(),
-            getHighWatermark());
+                snapshotSplit.splitId(),
+                snapshotSplit.getTableId(),
+                snapshotSplit.getSplitKeyType(),
+                snapshotSplit.getSplitStart(),
+                snapshotSplit.getSplitEnd(),
+                getHighWatermark());
     }
 }

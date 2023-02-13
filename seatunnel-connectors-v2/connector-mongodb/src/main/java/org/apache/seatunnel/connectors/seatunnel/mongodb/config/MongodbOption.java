@@ -22,10 +22,7 @@ import org.apache.seatunnel.api.configuration.Options;
 
 public class MongodbOption {
     public static final Option<String> URI =
-            Options.key("uri")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("MongoDB uri");
+            Options.key("uri").stringType().noDefaultValue().withDescription("MongoDB uri");
 
     public static final Option<String> DATABASE =
             Options.key("database")
@@ -43,7 +40,8 @@ public class MongodbOption {
             Options.key("matchQuery")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("MatchQuery is a JSON string that specifies the selection criteria using query operators for the documents to be returned from the collection.\n");
+                    .withDescription(
+                            "MatchQuery is a JSON string that specifies the selection criteria using query operators for the documents to be returned from the collection.\n");
 
     // Don't use now
     public static final String FORMAT = "format";

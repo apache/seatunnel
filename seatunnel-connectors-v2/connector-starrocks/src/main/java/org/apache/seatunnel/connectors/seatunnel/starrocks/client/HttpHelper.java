@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.config.RequestConfig;
@@ -32,6 +31,8 @@ import org.apache.http.impl.client.DefaultRedirectStrategy;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -72,7 +73,8 @@ public class HttpHelper {
         }
     }
 
-    public Map<String, Object> doHttpGet(String getUrl, Map<String, String> header) throws IOException {
+    public Map<String, Object> doHttpGet(String getUrl, Map<String, String> header)
+            throws IOException {
         log.info("Executing GET from {}.", getUrl);
         try (CloseableHttpClient httpclient = HttpClients.createDefault()) {
             HttpGet httpGet = new HttpGet(getUrl);
@@ -93,14 +95,17 @@ public class HttpHelper {
     }
 
     @SuppressWarnings("unchecked")
-    public Map<String, Object> doHttpPut(String url, byte[] data, Map<String, String> header) throws IOException {
-        final HttpClientBuilder httpClientBuilder = HttpClients.custom()
-                .setRedirectStrategy(new DefaultRedirectStrategy() {
-                    @Override
-                    protected boolean isRedirectable(String method) {
-                        return true;
-                    }
-                });
+    public Map<String, Object> doHttpPut(String url, byte[] data, Map<String, String> header)
+            throws IOException {
+        final HttpClientBuilder httpClientBuilder =
+                HttpClients.custom()
+                        .setRedirectStrategy(
+                                new DefaultRedirectStrategy() {
+                                    @Override
+                                    protected boolean isRedirectable(String method) {
+                                        return true;
+                                    }
+                                });
         try (CloseableHttpClient httpclient = httpClientBuilder.build()) {
             HttpPut httpPut = new HttpPut(url);
             if (null != header) {
@@ -137,13 +142,15 @@ public class HttpHelper {
     }
 
     private CloseableHttpClient buildHttpClient() {
-        final HttpClientBuilder httpClientBuilder = HttpClients.custom()
-                .setRedirectStrategy(new DefaultRedirectStrategy() {
-                    @Override
-                    protected boolean isRedirectable(String method) {
-                        return true;
-                    }
-                });
+        final HttpClientBuilder httpClientBuilder =
+                HttpClients.custom()
+                        .setRedirectStrategy(
+                                new DefaultRedirectStrategy() {
+                                    @Override
+                                    protected boolean isRedirectable(String method) {
+                                        return true;
+                                    }
+                                });
         return httpClientBuilder.build();
     }
 

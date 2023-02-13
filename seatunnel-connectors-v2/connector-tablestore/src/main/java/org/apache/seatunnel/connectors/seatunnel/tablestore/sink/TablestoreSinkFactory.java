@@ -17,6 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.tablestore.sink;
 
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+
+import com.google.auto.service.AutoService;
+
 import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.ACCESS_KEY_ID;
 import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.ACCESS_KEY_SECRET;
 import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.BATCH_INTERVAL_MS;
@@ -25,13 +32,6 @@ import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.Tables
 import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.INSTANCE_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.PRIMARY_KEYS;
 import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.TABLE;
-
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
-
-import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
 public class TablestoreSinkFactory implements TableSinkFactory {
@@ -43,8 +43,15 @@ public class TablestoreSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-            .required(END_POINT, TABLE, INSTANCE_NAME, ACCESS_KEY_ID, ACCESS_KEY_SECRET, PRIMARY_KEYS, SeaTunnelSchema.SCHEMA)
-            .optional(BATCH_INTERVAL_MS, BATCH_SIZE)
-            .build();
+                .required(
+                        END_POINT,
+                        TABLE,
+                        INSTANCE_NAME,
+                        ACCESS_KEY_ID,
+                        ACCESS_KEY_SECRET,
+                        PRIMARY_KEYS,
+                        SeaTunnelSchema.SCHEMA)
+                .optional(BATCH_INTERVAL_MS, BATCH_SIZE)
+                .build();
     }
 }

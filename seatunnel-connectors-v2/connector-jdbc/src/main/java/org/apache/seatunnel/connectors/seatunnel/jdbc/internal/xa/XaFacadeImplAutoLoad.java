@@ -17,23 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
-import static javax.transaction.xa.XAException.XAER_NOTA;
-import static javax.transaction.xa.XAException.XAER_RMFAIL;
-import static javax.transaction.xa.XAException.XA_HEURCOM;
-import static javax.transaction.xa.XAException.XA_HEURHAZ;
-import static javax.transaction.xa.XAException.XA_HEURMIX;
-import static javax.transaction.xa.XAException.XA_HEURRB;
-import static javax.transaction.xa.XAException.XA_RBBASE;
-import static javax.transaction.xa.XAException.XA_RBTIMEOUT;
-import static javax.transaction.xa.XAException.XA_RBTRANSIENT;
-import static javax.transaction.xa.XAResource.TMENDRSCAN;
-import static javax.transaction.xa.XAResource.TMNOFLAGS;
-import static javax.transaction.xa.XAResource.TMSTARTRSCAN;
-import static java.util.Optional.empty;
-import static java.util.Optional.of;
-
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
@@ -62,19 +45,36 @@ import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static java.util.Optional.empty;
+import static java.util.Optional.of;
+import static javax.transaction.xa.XAException.XAER_NOTA;
+import static javax.transaction.xa.XAException.XAER_RMFAIL;
+import static javax.transaction.xa.XAException.XA_HEURCOM;
+import static javax.transaction.xa.XAException.XA_HEURHAZ;
+import static javax.transaction.xa.XAException.XA_HEURMIX;
+import static javax.transaction.xa.XAException.XA_HEURRB;
+import static javax.transaction.xa.XAException.XA_RBBASE;
+import static javax.transaction.xa.XAException.XA_RBTIMEOUT;
+import static javax.transaction.xa.XAException.XA_RBTRANSIENT;
+import static javax.transaction.xa.XAResource.TMENDRSCAN;
+import static javax.transaction.xa.XAResource.TMNOFLAGS;
+import static javax.transaction.xa.XAResource.TMSTARTRSCAN;
+
 /**
- * Default {@link org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaFacade} implementation.
+ * Default {@link org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaFacade}
+ * implementation.
  */
-public class XaFacadeImplAutoLoad
-    implements XaFacade {
+public class XaFacadeImplAutoLoad implements XaFacade {
 
     private static final long serialVersionUID = 1L;
 
     private static final Logger LOG = LoggerFactory.getLogger(XaFacadeImplAutoLoad.class);
     private static final Set<Integer> TRANSIENT_ERR_CODES =
-        new HashSet<>(Arrays.asList(XA_RBTRANSIENT, XAER_RMFAIL));
+            new HashSet<>(Arrays.asList(XA_RBTRANSIENT, XAER_RMFAIL));
     private static final Set<Integer> HEUR_ERR_CODES =
-        new HashSet<>(Arrays.asList(XA_HEURRB, XA_HEURCOM, XA_HEURHAZ, XA_HEURMIX));
+            new HashSet<>(Arrays.asList(XA_HEURRB, XA_HEURCOM, XA_HEURHAZ, XA_HEURMIX));
     private static final int MAX_RECOVER_CALLS = 100;
 
     private final JdbcConnectionOptions jdbcConnectionOptions;
@@ -93,15 +93,22 @@ public class XaFacadeImplAutoLoad
         try {
             ds = (XADataSource) DataSourceUtils.buildCommonDataSource(jdbcConnectionOptions);
         } catch (Exception e) {
-            throw new JdbcConnectorException(JdbcConnectorErrorCode.CONNECT_DATABASE_FAILED, "unable to build XADataSource", e);
+            throw new JdbcConnectorException(
+                    JdbcConnectorErrorCode.CONNECT_DATABASE_FAILED,
+                    "unable to build XADataSource",
+                    e);
         }
         xaConnection = ds.getXAConnection();
         xaResource = xaConnection.getXAResource();
         if (jdbcConnectionOptions.getTransactionTimeoutSec().isPresent()) {
             try {
-                xaResource.setTransactionTimeout(jdbcConnectionOptions.getTransactionTimeoutSec().get());
+                xaResource.setTransactionTimeout(
+                        jdbcConnectionOptions.getTransactionTimeoutSec().get());
             } catch (XAException e) {
-                throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED, "unable to set XA transaction timeout", e);
+                throw new JdbcConnectorException(
+                        JdbcConnectorErrorCode.XA_OPERATION_FAILED,
+                        "unable to set XA transaction timeout",
+                        e);
             }
         }
         connection = xaConnection.getConnection();
@@ -162,7 +169,9 @@ public class XaFacadeImplAutoLoad
 
     @Override
     public Connection reestablishConnection() {
-        throw new JdbcConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION, "The instance failed to implement this method");
+        throw new JdbcConnectorException(
+                CommonErrorCode.UNSUPPORTED_OPERATION,
+                "The instance failed to implement this method");
     }
 
     @Override
@@ -175,86 +184,89 @@ public class XaFacadeImplAutoLoad
         execute(Command.fromRunnable("end", xid, () -> xaResource.end(xid, XAResource.TMSUCCESS)));
         int prepResult = execute(new Command<>("prepare", of(xid), () -> xaResource.prepare(xid)));
         if (prepResult == XAResource.XA_RDONLY) {
-            throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED, new EmptyXaTransactionException(xid));
+            throw new JdbcConnectorException(
+                    JdbcConnectorErrorCode.XA_OPERATION_FAILED,
+                    new EmptyXaTransactionException(xid));
         } else if (prepResult != XAResource.XA_OK) {
-            throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED,
-                formatErrorMessage("prepare", of(xid), empty(), "response: " + prepResult));
+            throw new JdbcConnectorException(
+                    JdbcConnectorErrorCode.XA_OPERATION_FAILED,
+                    formatErrorMessage("prepare", of(xid), empty(), "response: " + prepResult));
         }
     }
 
     @Override
     public void failAndRollback(Xid xid) {
         execute(
-            Command.fromRunnable(
-                "end (fail)",
-                xid,
-                () -> {
-                    xaResource.end(xid, XAResource.TMFAIL);
-                    xaResource.rollback(xid);
-                },
-                err -> {
-                    if (err.errorCode >= XA_RBBASE) {
-                        rollback(xid);
-                    } else {
-                        LOG.warn(
-                            formatErrorMessage(
-                                "end (fail)", of(xid), of(err.errorCode)));
-                    }
-                }));
+                Command.fromRunnable(
+                        "end (fail)",
+                        xid,
+                        () -> {
+                            xaResource.end(xid, XAResource.TMFAIL);
+                            xaResource.rollback(xid);
+                        },
+                        err -> {
+                            if (err.errorCode >= XA_RBBASE) {
+                                rollback(xid);
+                            } else {
+                                LOG.warn(
+                                        formatErrorMessage(
+                                                "end (fail)", of(xid), of(err.errorCode)));
+                            }
+                        }));
     }
 
     @Override
     public void commit(Xid xid, boolean ignoreUnknown) {
         execute(
-            Command.fromRunnableRecoverByWarn(
-                "commit",
-                xid,
-                () ->
-                    xaResource.commit(
+                Command.fromRunnableRecoverByWarn(
+                        "commit",
                         xid,
-                        false /* not onePhase because the transaction should be prepared already */),
-                e -> buildCommitErrorDesc(e, ignoreUnknown)));
+                        () ->
+                                xaResource.commit(
+                                        xid,
+                                        false /* not onePhase because the transaction should be prepared already */),
+                        e -> buildCommitErrorDesc(e, ignoreUnknown)));
     }
 
     @Override
     public void rollback(Xid xid) {
         execute(
-            Command.fromRunnableRecoverByWarn(
-                "rollback",
-                xid,
-                () -> xaResource.rollback(xid),
-                this::buildRollbackErrorDesc));
+                Command.fromRunnableRecoverByWarn(
+                        "rollback",
+                        xid,
+                        () -> xaResource.rollback(xid),
+                        this::buildRollbackErrorDesc));
     }
 
     private void forget(Xid xid) {
         execute(
-            Command.fromRunnableRecoverByWarn(
-                "forget",
-                xid,
-                () -> xaResource.forget(xid),
-                e -> of("manual cleanup may be required")));
+                Command.fromRunnableRecoverByWarn(
+                        "forget",
+                        xid,
+                        () -> xaResource.forget(xid),
+                        e -> of("manual cleanup may be required")));
     }
 
     @Override
     public Collection<Xid> recover() {
         return execute(
-            new Command<>(
-                "recover",
-                empty(),
-                () -> {
-                    List<Xid> list = recover(TMSTARTRSCAN);
-                    try {
-                        for (int i = 0; list.addAll(recover(TMNOFLAGS)); i++) {
-                            // H2 sometimes returns same tx list here - should probably use
-                            // recover(TMSTARTRSCAN | TMENDRSCAN)
-                            checkState(
-                                i < MAX_RECOVER_CALLS, "too many xa_recover() calls");
-                        }
-                    } finally {
-                        recover(TMENDRSCAN);
-                    }
-                    return list;
-                }));
+                new Command<>(
+                        "recover",
+                        empty(),
+                        () -> {
+                            List<Xid> list = recover(TMSTARTRSCAN);
+                            try {
+                                for (int i = 0; list.addAll(recover(TMNOFLAGS)); i++) {
+                                    // H2 sometimes returns same tx list here - should probably use
+                                    // recover(TMSTARTRSCAN | TMENDRSCAN)
+                                    checkState(
+                                            i < MAX_RECOVER_CALLS, "too many xa_recover() calls");
+                                }
+                            } finally {
+                                recover(TMENDRSCAN);
+                            }
+                            return list;
+                        }));
     }
 
     @Override
@@ -285,19 +297,22 @@ public class XaFacadeImplAutoLoad
         }
     }
 
-    private static RuntimeException wrapException(
-        String action, Optional<Xid> xid, Exception ex) {
+    private static RuntimeException wrapException(String action, Optional<Xid> xid, Exception ex) {
         if (ex instanceof XAException) {
             XAException xa = (XAException) ex;
             if (TRANSIENT_ERR_CODES.contains(xa.errorCode)) {
-                throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED, new TransientXaException(xa));
+                throw new JdbcConnectorException(
+                        JdbcConnectorErrorCode.XA_OPERATION_FAILED, new TransientXaException(xa));
             } else {
-                throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED,
-                    formatErrorMessage(action, xid, of(xa.errorCode), xa.getMessage()));
+                throw new JdbcConnectorException(
+                        JdbcConnectorErrorCode.XA_OPERATION_FAILED,
+                        formatErrorMessage(action, xid, of(xa.errorCode), xa.getMessage()));
             }
         } else {
-            throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED,
-                formatErrorMessage(action, xid, empty(), ex.getMessage()), ex);
+            throw new JdbcConnectorException(
+                    JdbcConnectorErrorCode.XA_OPERATION_FAILED,
+                    formatErrorMessage(action, xid, empty(), ex.getMessage()),
+                    ex);
         }
     }
 
@@ -322,20 +337,18 @@ public class XaFacadeImplAutoLoad
     }
 
     private static String formatErrorMessage(
-        String action, Optional<Xid> xid, Optional<Integer> errorCode, String... more) {
+            String action, Optional<Xid> xid, Optional<Integer> errorCode, String... more) {
         return String.format(
-            "unable to %s%s%s%s",
-            action,
-            xid.map(x -> " XA transaction, xid: " + x).orElse(""),
-            errorCode
-                .map(code -> String.format(", error %d: %s", code, descError(code)))
-                .orElse(""),
-            more == null || more.length == 0 ? "" : ". " + Arrays.toString(more));
+                "unable to %s%s%s%s",
+                action,
+                xid.map(x -> " XA transaction, xid: " + x).orElse(""),
+                errorCode
+                        .map(code -> String.format(", error %d: %s", code, descError(code)))
+                        .orElse(""),
+                more == null || more.length == 0 ? "" : ". " + Arrays.toString(more));
     }
 
-    /**
-     * @return error description from {@link XAException} javadoc from to ease debug.
-     */
+    /** @return error description from {@link XAException} javadoc from to ease debug. */
     private static String descError(int code) {
         switch (code) {
             case XA_HEURCOM:
@@ -396,54 +409,54 @@ public class XaFacadeImplAutoLoad
         private final Function<XAException, Optional<T>> recover;
 
         static Command<Object> fromRunnable(
-            String action, Xid xid, ThrowingRunnable<XAException> runnable) {
+                String action, Xid xid, ThrowingRunnable<XAException> runnable) {
             return fromRunnable(
-                action,
-                xid,
-                runnable,
-                e -> {
-                    throw wrapException(action, of(xid), e);
-                });
+                    action,
+                    xid,
+                    runnable,
+                    e -> {
+                        throw wrapException(action, of(xid), e);
+                    });
         }
 
         static Command<Object> fromRunnableRecoverByWarn(
-            String action,
-            Xid xid,
-            ThrowingRunnable<XAException> runnable,
-            Function<XAException, Optional<String>> err2msg) {
+                String action,
+                Xid xid,
+                ThrowingRunnable<XAException> runnable,
+                Function<XAException, Optional<String>> err2msg) {
             return fromRunnable(
-                action,
-                xid,
-                runnable,
-                e ->
-                    LOG.warn(
-                        formatErrorMessage(
-                            action,
-                            of(xid),
-                            of(e.errorCode),
-                            err2msg.apply(e)
-                                .orElseThrow(
-                                    () ->
-                                        wrapException(
-                                            action, of(xid), e)))));
+                    action,
+                    xid,
+                    runnable,
+                    e ->
+                            LOG.warn(
+                                    formatErrorMessage(
+                                            action,
+                                            of(xid),
+                                            of(e.errorCode),
+                                            err2msg.apply(e)
+                                                    .orElseThrow(
+                                                            () ->
+                                                                    wrapException(
+                                                                            action, of(xid), e)))));
         }
 
         private static Command<Object> fromRunnable(
-            String action,
-            Xid xid,
-            ThrowingRunnable<XAException> runnable,
-            Consumer<XAException> recover) {
+                String action,
+                Xid xid,
+                ThrowingRunnable<XAException> runnable,
+                Consumer<XAException> recover) {
             return new Command<>(
-                action,
-                of(xid),
-                () -> {
-                    runnable.run();
-                    return null;
-                },
-                e -> {
-                    recover.accept(e);
-                    return Optional.of("");
-                });
+                    action,
+                    of(xid),
+                    () -> {
+                        runnable.run();
+                        return null;
+                    },
+                    e -> {
+                        recover.accept(e);
+                        return Optional.of("");
+                    });
         }
 
         private Command(String name, Optional<Xid> xid, Callable<T> callable) {
@@ -451,10 +464,10 @@ public class XaFacadeImplAutoLoad
         }
 
         private Command(
-            String name,
-            Optional<Xid> xid,
-            Callable<T> callable,
-            Function<XAException, Optional<T>> recover) {
+                String name,
+                Optional<Xid> xid,
+                Callable<T> callable,
+                Function<XAException, Optional<T>> recover) {
             this.name = name;
             this.xid = xid;
             this.callable = callable;

@@ -41,7 +41,8 @@ public class NotifyTaskRestoreOperation extends TaskOperation {
 
     private List<ActionSubtaskState> restoredState;
 
-    public NotifyTaskRestoreOperation(TaskLocation taskLocation, List<ActionSubtaskState> restoredState) {
+    public NotifyTaskRestoreOperation(
+            TaskLocation taskLocation, List<ActionSubtaskState> restoredState) {
         super(taskLocation);
         this.restoredState = restoredState;
     }
@@ -78,20 +79,28 @@ public class NotifyTaskRestoreOperation extends TaskOperation {
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        RetryUtils.retryWithException(() -> {
-            TaskGroupContext groupContext = server.getTaskExecutionService().getExecutionContext(taskLocation.getTaskGroupLocation());
-            Task task = groupContext.getTaskGroup().getTask(taskLocation.getTaskID());
-            try {
-                ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-                Thread.currentThread().setContextClassLoader(groupContext.getClassLoader());
-                task.restoreState(restoredState);
-                Thread.currentThread().setContextClassLoader(classLoader);
-            } catch (Exception e) {
-                throw new SeaTunnelException(e);
-            }
-            return null;
-        }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-            exception -> exception instanceof NullPointerException &&
-                !server.taskIsEnded(taskLocation.getTaskGroupLocation()), Constant.OPERATION_RETRY_SLEEP));
+        RetryUtils.retryWithException(
+                () -> {
+                    TaskGroupContext groupContext =
+                            server.getTaskExecutionService()
+                                    .getExecutionContext(taskLocation.getTaskGroupLocation());
+                    Task task = groupContext.getTaskGroup().getTask(taskLocation.getTaskID());
+                    try {
+                        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+                        Thread.currentThread().setContextClassLoader(groupContext.getClassLoader());
+                        task.restoreState(restoredState);
+                        Thread.currentThread().setContextClassLoader(classLoader);
+                    } catch (Exception e) {
+                        throw new SeaTunnelException(e);
+                    }
+                    return null;
+                },
+                new RetryUtils.RetryMaterial(
+                        Constant.OPERATION_RETRY_TIME,
+                        true,
+                        exception ->
+                                exception instanceof NullPointerException
+                                        && !server.taskIsEnded(taskLocation.getTaskGroupLocation()),
+                        Constant.OPERATION_RETRY_SLEEP));
     }
 }

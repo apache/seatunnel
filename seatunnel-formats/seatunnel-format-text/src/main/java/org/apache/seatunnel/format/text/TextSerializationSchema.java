@@ -37,21 +37,20 @@ import java.time.LocalTime;
 
 @Builder
 public class TextSerializationSchema implements SerializationSchema {
-    @NonNull
-    private SeaTunnelRowType seaTunnelRowType;
-    @NonNull
-    private String delimiter;
-    @Builder.Default
-    private DateUtils.Formatter dateFormatter = DateUtils.Formatter.YYYY_MM_DD;
+    @NonNull private SeaTunnelRowType seaTunnelRowType;
+    @NonNull private String delimiter;
+    @Builder.Default private DateUtils.Formatter dateFormatter = DateUtils.Formatter.YYYY_MM_DD;
+
     @Builder.Default
     private DateTimeUtils.Formatter dateTimeFormatter = DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
-    @Builder.Default
-    private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
+
+    @Builder.Default private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
 
     @Override
     public byte[] serialize(SeaTunnelRow element) {
         if (element.getFields().length != seaTunnelRowType.getTotalFields()) {
-            throw new IndexOutOfBoundsException("The data does not match the configured schema information, please check");
+            throw new IndexOutOfBoundsException(
+                    "The data does not match the configured schema information, please check");
         }
         Object[] fields = element.getFields();
         String[] strings = new String[fields.length];
@@ -97,8 +96,11 @@ public class TextSerializationSchema implements SerializationSchema {
                 }
                 return String.join(delimiter, strings);
             default:
-                throw new SeaTunnelTextFormatException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        String.format("SeaTunnel format text not supported for parsing this type [%s]", fieldType.getSqlType()));
+                throw new SeaTunnelTextFormatException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        String.format(
+                                "SeaTunnel format text not supported for parsing this type [%s]",
+                                fieldType.getSqlType()));
         }
     }
 }

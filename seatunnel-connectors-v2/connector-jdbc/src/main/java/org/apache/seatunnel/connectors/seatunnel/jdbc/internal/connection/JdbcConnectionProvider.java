@@ -20,17 +20,13 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection;
 import java.sql.Connection;
 import java.sql.SQLException;
 
-/**
- * JDBC connection provider.
- */
-
+/** JDBC connection provider. */
 public interface JdbcConnectionProvider {
     /**
      * Get existing connection.
      *
      * @return existing connection
      */
-
     Connection getConnection();
 
     /**
@@ -40,8 +36,7 @@ public interface JdbcConnectionProvider {
      * @return true if existing connection is valid
      * @throws SQLException sql exception throw from {@link Connection#isValid(int)}
      */
-    boolean isConnectionValid()
-            throws SQLException;
+    boolean isConnectionValid() throws SQLException;
 
     /**
      * Get existing connection or establish an new one if there is none.
@@ -50,12 +45,9 @@ public interface JdbcConnectionProvider {
      * @throws SQLException sql exception
      * @throws ClassNotFoundException driver class not found
      */
-    Connection getOrEstablishConnection()
-            throws SQLException, ClassNotFoundException;
+    Connection getOrEstablishConnection() throws SQLException, ClassNotFoundException;
 
-    /**
-     * Close possible existing connection.
-     */
+    /** Close possible existing connection. */
     void closeConnection();
 
     /**
@@ -65,6 +57,5 @@ public interface JdbcConnectionProvider {
      * @throws SQLException sql exception
      * @throws ClassNotFoundException driver class not found
      */
-    Connection reestablishConnection()
-            throws SQLException, ClassNotFoundException;
+    Connection reestablishConnection() throws SQLException, ClassNotFoundException;
 }

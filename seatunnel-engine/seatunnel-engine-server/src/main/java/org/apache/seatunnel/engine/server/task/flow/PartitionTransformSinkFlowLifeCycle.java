@@ -27,13 +27,15 @@ import java.io.IOException;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 
-public class PartitionTransformSinkFlowLifeCycle extends AbstractFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>> {
+public class PartitionTransformSinkFlowLifeCycle extends AbstractFlowLifeCycle
+        implements OneInputFlowLifeCycle<Record<?>> {
 
     // TODO: init ring buffer
     private Ringbuffer<Record<?>>[] ringbuffers;
     private final Random random = new Random();
 
-    public PartitionTransformSinkFlowLifeCycle(SeaTunnelTask runningTask, CompletableFuture<Void> completableFuture) {
+    public PartitionTransformSinkFlowLifeCycle(
+            SeaTunnelTask runningTask, CompletableFuture<Void> completableFuture) {
         super(runningTask, completableFuture);
     }
 

@@ -17,12 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg;
 
-import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.HIVE;
-
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.hive.HiveCatalog;
 import org.apache.iceberg.hive.TestHiveMetastore;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,6 +29,8 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
+
+import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.HIVE;
 
 public class TestIcebergMetastore {
 
@@ -49,11 +50,11 @@ public class TestIcebergMetastore {
         String warehousePath = "/tmp/seatunnel/iceberg/hive/";
         new File(warehousePath).mkdirs();
 
-        HiveCatalog catalog = (HiveCatalog) new IcebergCatalogFactory("seatunnel",
-            HIVE,
-            "file://" + warehousePath,
-            METASTORE_URI)
-            .create();
+        HiveCatalog catalog =
+                (HiveCatalog)
+                        new IcebergCatalogFactory(
+                                        "seatunnel", HIVE, "file://" + warehousePath, METASTORE_URI)
+                                .create();
         catalog.createNamespace(Namespace.of("test_database"));
         Assertions.assertTrue(catalog.namespaceExists(Namespace.of("test_database")));
     }

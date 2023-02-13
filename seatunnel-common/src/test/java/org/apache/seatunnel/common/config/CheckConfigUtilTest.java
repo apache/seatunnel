@@ -17,10 +17,6 @@
 
 package org.apache.seatunnel.common.config;
 
-import static org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists;
-import static org.apache.seatunnel.common.config.CheckConfigUtil.checkAtLeastOneExists;
-import static org.apache.seatunnel.common.config.CheckConfigUtil.mergeCheckResults;
-
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
@@ -30,6 +26,10 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+
+import static org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists;
+import static org.apache.seatunnel.common.config.CheckConfigUtil.checkAtLeastOneExists;
+import static org.apache.seatunnel.common.config.CheckConfigUtil.mergeCheckResults;
 
 public class CheckConfigUtilTest {
 
@@ -75,7 +75,8 @@ public class CheckConfigUtilTest {
         Assertions.assertEquals(String.format(errorMsg1, "k3"), finalResult.getMsg());
 
         finalResult = mergeCheckResults(checkResult3, checkResult4);
-        Assertions.assertEquals(String.format(errorMsg1 + "," + errorMsg2, "k3", "k2,k3"), finalResult.getMsg());
+        Assertions.assertEquals(
+                String.format(errorMsg1 + "," + errorMsg2, "k3", "k2,k3"), finalResult.getMsg());
     }
 
     public Config getConfig() {

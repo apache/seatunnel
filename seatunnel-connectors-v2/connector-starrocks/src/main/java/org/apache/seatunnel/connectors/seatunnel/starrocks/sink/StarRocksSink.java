@@ -17,11 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.sink;
 
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.NODE_URLS;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.TABLE;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.USERNAME;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
@@ -37,9 +33,13 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import com.google.auto.service.AutoService;
+
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.NODE_URLS;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.USERNAME;
 
 @AutoService(SeaTunnelSink.class)
 public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
@@ -55,11 +55,20 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         this.pluginConfig = pluginConfig;
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, NODE_URLS.key(), DATABASE.key(), TABLE.key(), USERNAME.key(), PASSWORD.key());
+        CheckResult result =
+                CheckConfigUtil.checkAllExists(
+                        pluginConfig,
+                        NODE_URLS.key(),
+                        DATABASE.key(),
+                        TABLE.key(),
+                        USERNAME.key(),
+                        PASSWORD.key());
         if (!result.isSuccess()) {
-            throw new StarRocksConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                String.format("PluginName: %s, PluginType: %s, Message: %s",
-                    getPluginName(), PluginType.SINK, result.getMsg()));
+            throw new StarRocksConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SINK, result.getMsg()));
         }
     }
 

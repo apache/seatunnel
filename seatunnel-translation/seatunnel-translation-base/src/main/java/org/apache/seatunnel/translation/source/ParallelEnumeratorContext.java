@@ -25,16 +25,16 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
-public class ParallelEnumeratorContext<SplitT extends SourceSplit> implements SourceSplitEnumerator.Context<SplitT> {
+public class ParallelEnumeratorContext<SplitT extends SourceSplit>
+        implements SourceSplitEnumerator.Context<SplitT> {
 
     protected final ParallelSource<?, SplitT, ?> parallelSource;
     protected final Integer parallelism;
     protected final Integer subtaskId;
     protected volatile boolean running = false;
 
-    public ParallelEnumeratorContext(ParallelSource<?, SplitT, ?> parallelSource,
-                                     int parallelism,
-                                     int subtaskId) {
+    public ParallelEnumeratorContext(
+            ParallelSource<?, SplitT, ?> parallelSource, int parallelism, int subtaskId) {
         this.parallelSource = parallelSource;
         this.parallelism = parallelism;
         this.subtaskId = subtaskId;
@@ -73,5 +73,4 @@ public class ParallelEnumeratorContext<SplitT extends SourceSplit> implements So
         // TODO: exception
         throw new RuntimeException("");
     }
-
 }

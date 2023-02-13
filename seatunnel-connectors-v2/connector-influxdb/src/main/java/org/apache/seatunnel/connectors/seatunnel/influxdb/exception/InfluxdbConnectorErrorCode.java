@@ -20,8 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.influxdb.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum InfluxdbConnectorErrorCode implements SeaTunnelErrorCode {
-
-    CONNECT_FAILED("INFLUXDB-01", "Connect influxdb failed, due to influxdb version info is unknown"),
+    CONNECT_FAILED(
+            "INFLUXDB-01", "Connect influxdb failed, due to influxdb version info is unknown"),
     GET_COLUMN_INDEX_FAILED("INFLUXDB-02", "Get column index of query result exception");
 
     private final String code;

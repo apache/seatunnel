@@ -21,15 +21,15 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 By default, we use 2PC commit to ensure `exactly-once`
 
 - [x] file format
-    - [x] text
-    - [x] csv
-    - [x] parquet
-    - [x] orc
-    - [x] json
+  - [x] text
+  - [x] csv
+  - [x] parquet
+  - [x] orc
+  - [x] json
 
-##  Options
+## Options
 
-| name                             | type    | required | default value                              | remarks                                                   |
+|               name               |  type   | required |               default value                |                          remarks                          |
 |----------------------------------|---------|----------|--------------------------------------------|-----------------------------------------------------------|
 | host                             | string  | yes      | -                                          |                                                           |
 | port                             | int     | yes      | -                                          |                                                           |
@@ -73,6 +73,7 @@ The target sftp password is required
 The target dir path is required.
 
 ### custom_filename [boolean]
+
 Whether custom the filename
 
 ### file_name_expression [string]
@@ -90,8 +91,8 @@ Only used when `custom_filename` is `true`
 
 When the format in the `file_name_expression` parameter is `xxxx-${now}` , `filename_time_format` can specify the time format of the path, and the default value is `yyyy.MM.dd` . The commonly used time formats are listed as follows:
 
-| Symbol | Description        |
-| ------ | ------------------ |
+| Symbol |    Description     |
+|--------|--------------------|
 | y      | Year               |
 | M      | Month              |
 | d      | Day of month       |
@@ -209,9 +210,9 @@ SftpFile {
   - When field from upstream is null it will throw NullPointerException
   - Sink columns mapping failed
   - When restore writer from states getting transaction directly failed
-
 - [Improve] Support setting batch size for every file ([3625](https://github.com/apache/incubator-seatunnel/pull/3625))
 
 ### Next version
 
 - [Improve] Support file compress ([3899](https://github.com/apache/incubator-seatunnel/pull/3899))
+

@@ -39,15 +39,11 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Todo: move to common module
- */
+/** Todo: move to common module */
 @Slf4j
 public class ProtoStuffSerializer implements Serializer {
 
-    /**
-     * At the moment it looks like we only have one Schema.
-     */
+    /** At the moment it looks like we only have one Schema. */
     private static final Map<Class<?>, Schema<?>> SCHEMA_CACHE = new ConcurrentHashMap<>();
 
     @SuppressWarnings("unchecked")
@@ -58,9 +54,11 @@ public class ProtoStuffSerializer implements Serializer {
 
     private static final Set<Class<?>> WRAPPERS = new HashSet<>();
 
-    private static final Class<SerializerDeserializerWrapper> WRAPPER_CLASS = SerializerDeserializerWrapper.class;
+    private static final Class<SerializerDeserializerWrapper> WRAPPER_CLASS =
+            SerializerDeserializerWrapper.class;
 
-    private static final Schema<SerializerDeserializerWrapper> WRAPPER_SCHEMA = getSchema(WRAPPER_CLASS);
+    private static final Schema<SerializerDeserializerWrapper> WRAPPER_SCHEMA =
+            getSchema(WRAPPER_CLASS);
 
     static {
         WRAPPERS.add(Boolean.class);
@@ -89,7 +87,6 @@ public class ProtoStuffSerializer implements Serializer {
         WRAPPERS.add(Float[].class);
         WRAPPERS.add(Double[].class);
         WRAPPERS.add(String[].class);
-
     }
 
     @Override
@@ -143,5 +140,4 @@ public class ProtoStuffSerializer implements Serializer {
             this.obj = obj;
         }
     }
-
 }

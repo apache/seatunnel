@@ -29,19 +29,21 @@ public class PartitionTransformAction extends AbstractAction {
 
     private final PartitionSeaTunnelTransform partitionTransformation;
 
-    public PartitionTransformAction(long id,
-                                    @NonNull String name,
-                                    @NonNull List<Action> upstreams,
-                                    @NonNull PartitionSeaTunnelTransform partitionTransformation,
-                                    @NonNull Set<URL> jarUrls) {
+    public PartitionTransformAction(
+            long id,
+            @NonNull String name,
+            @NonNull List<Action> upstreams,
+            @NonNull PartitionSeaTunnelTransform partitionTransformation,
+            @NonNull Set<URL> jarUrls) {
         super(id, name, upstreams, jarUrls);
         this.partitionTransformation = partitionTransformation;
     }
 
-    public PartitionTransformAction(long id,
-                                    @NonNull String name,
-                                    @NonNull PartitionSeaTunnelTransform partitionTransformation,
-                                    @NonNull Set<URL> jarUrls) {
+    public PartitionTransformAction(
+            long id,
+            @NonNull String name,
+            @NonNull PartitionSeaTunnelTransform partitionTransformation,
+            @NonNull Set<URL> jarUrls) {
         super(id, name, jarUrls);
         this.partitionTransformation = partitionTransformation;
     }

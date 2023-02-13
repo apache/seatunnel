@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.email.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
@@ -24,8 +26,6 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.email.exception.EmailConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.email.exception.EmailConnectorException;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.sun.mail.util.MailSSLSocketFactory;
 import lombok.extern.slf4j.Slf4j;
@@ -72,7 +72,6 @@ public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         }
         stringBuffer.deleteCharAt(fields.length - 1);
         stringBuffer.append("\n");
-
     }
 
     @Override
@@ -91,21 +90,26 @@ public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             sf.setTrustAllHosts(true);
             properties.put("mail.smtp.ssl.enable", "true");
             properties.put("mail.smtp.ssl.socketFactory", sf);
-            Session session = Session.getDefaultInstance(properties, new Authenticator() {
-                @Override
-                protected PasswordAuthentication getPasswordAuthentication() {
-                    return new PasswordAuthentication(config.getEmailFromAddress(), config.getEmailAuthorizationCode());
-                }
-            });
-            //Create the default MimeMessage object
+            Session session =
+                    Session.getDefaultInstance(
+                            properties,
+                            new Authenticator() {
+                                @Override
+                                protected PasswordAuthentication getPasswordAuthentication() {
+                                    return new PasswordAuthentication(
+                                            config.getEmailFromAddress(),
+                                            config.getEmailAuthorizationCode());
+                                }
+                            });
+            // Create the default MimeMessage object
             MimeMessage message = new MimeMessage(session);
 
             // Set the email address
             message.setFrom(new InternetAddress(config.getEmailFromAddress()));
 
             // Set the recipient email address
-            message.addRecipient(Message.RecipientType.TO,
-                    new InternetAddress(config.getEmailToAddress()));
+            message.addRecipient(
+                    Message.RecipientType.TO, new InternetAddress(config.getEmailToAddress()));
 
             // Setting the Email subject
             message.setSubject(config.getEmailMessageHeadline());
@@ -133,7 +137,8 @@ public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             Transport.send(message);
             log.info("Sent message successfully....");
         } catch (Exception e) {
-            throw new EmailConnectorException(EmailConnectorErrorCode.SEND_EMAIL_FAILED, "Send email failed", e);
+            throw new EmailConnectorException(
+                    EmailConnectorErrorCode.SEND_EMAIL_FAILED, "Send email failed", e);
         }
     }
 
@@ -150,7 +155,8 @@ public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             fileWriter.close();
             log.info("Create File successfully....");
         } catch (IOException e) {
-            throw new EmailConnectorException(CommonErrorCode.FILE_OPERATION_FAILED, "Create file failed", e);
+            throw new EmailConnectorException(
+                    CommonErrorCode.FILE_OPERATION_FAILED, "Create file failed", e);
         }
     }
 }

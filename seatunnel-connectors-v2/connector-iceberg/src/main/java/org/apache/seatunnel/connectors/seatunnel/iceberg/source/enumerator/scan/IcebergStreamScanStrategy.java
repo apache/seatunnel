@@ -18,24 +18,14 @@
 package org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan;
 
 public enum IcebergStreamScanStrategy {
-    /**
-     * Do a regular table scan then switch to the incremental mode.
-     */
+    /** Do a regular table scan then switch to the incremental mode. */
     TABLE_SCAN_THEN_INCREMENTAL,
-    /**
-     * Start incremental mode from the latest snapshot inclusive.
-     */
+    /** Start incremental mode from the latest snapshot inclusive. */
     FROM_LATEST_SNAPSHOT,
-    /**
-     * Start incremental mode from the earliest snapshot inclusive.
-     */
+    /** Start incremental mode from the earliest snapshot inclusive. */
     FROM_EARLIEST_SNAPSHOT,
-    /**
-     * Start incremental mode from a snapshot with a specific id inclusive.
-     */
+    /** Start incremental mode from a snapshot with a specific id inclusive. */
     FROM_SNAPSHOT_ID,
-    /**
-     * Start incremental mode from a snapshot with a specific timestamp inclusive.
-     */
+    /** Start incremental mode from a snapshot with a specific timestamp inclusive. */
     FROM_SNAPSHOT_TIMESTAMP
 }

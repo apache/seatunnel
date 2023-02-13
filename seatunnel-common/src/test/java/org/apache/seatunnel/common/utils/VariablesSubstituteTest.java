@@ -35,8 +35,9 @@ public class VariablesSubstituteTest {
         String now = newPath.substring(5, 19);
         LocalDateTime.parse(now, df);
 
-        String text = "${var1} is a distributed, high-performance data integration platform for " +
-                "the synchronization and ${var2} of massive data (offline & real-time).";
+        String text =
+                "${var1} is a distributed, high-performance data integration platform for "
+                        + "the synchronization and ${var2} of massive data (offline & real-time).";
 
         HashMap<String, String> valuesMap = new HashMap<>();
         valuesMap.put("var1", "SeaTunnel");

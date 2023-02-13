@@ -35,10 +35,14 @@ public class CommandLineUtilsTest {
         Assertions.assertEquals("app.conf", commandLineArgs.getConfigFile());
         Assertions.assertEquals("cluster", commandLineArgs.getDeployMode().getDeployMode());
 
-        args = new String[]{"-c", "app.conf", "-e", "cluster", "-m", "local[*]", "--queue", "test"};
-        commandLineArgs = CommandLineUtils.parse(args, new SparkCommandArgs(), "seatunnel-spark", true);
+        args =
+                new String[] {
+                    "-c", "app.conf", "-e", "cluster", "-m", "local[*]", "--queue", "test"
+                };
+        commandLineArgs =
+                CommandLineUtils.parse(args, new SparkCommandArgs(), "seatunnel-spark", true);
 
-        Assertions.assertEquals(Arrays.asList("--queue", "test"), commandLineArgs.getOriginalParameters());
-
+        Assertions.assertEquals(
+                Arrays.asList("--queue", "test"), commandLineArgs.getOriginalParameters());
     }
 }

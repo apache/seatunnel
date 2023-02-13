@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.engine.core.dag.logical;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import org.apache.seatunnel.engine.core.serializable.JobDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;
@@ -30,25 +28,22 @@ import lombok.NonNull;
 import java.io.IOException;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 @Data
 public class LogicalEdge implements IdentifiedDataSerializable {
 
-    /**
-     * The input vertex connected to this edge.
-     */
+    /** The input vertex connected to this edge. */
     private LogicalVertex inputVertex;
 
-    /**
-     * The target vertex connected to this edge.
-     */
+    /** The target vertex connected to this edge. */
     private LogicalVertex targetVertex;
 
     private Long inputVertexId;
 
     private Long targetVertexId;
 
-    public LogicalEdge() {
-    }
+    public LogicalEdge() {}
 
     public LogicalEdge(LogicalVertex inputVertex, LogicalVertex targetVertex) {
         this.inputVertex = inputVertex;

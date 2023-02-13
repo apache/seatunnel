@@ -21,9 +21,7 @@ import org.apache.kafka.connect.data.Schema;
 
 import java.io.Serializable;
 
-/**
- * Runtime converter that converts objects of Debezium into objects of internal data structures.
- */
+/** Runtime converter that converts objects of Debezium into objects of internal data structures. */
 @FunctionalInterface
 public interface DebeziumDeserializationConverter extends Serializable {
     Object convert(Object dbzObj, Schema schema) throws Exception;

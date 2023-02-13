@@ -19,8 +19,5 @@ package org.apache.seatunnel.engine.server.dag.physical.config;
 
 import java.io.Serializable;
 
-/**
- * This interface indicates that this class is the configuration information of Flow
- */
-public interface FlowConfig extends Serializable {
-}
+/** This interface indicates that this class is the configuration information of Flow */
+public interface FlowConfig extends Serializable {}
