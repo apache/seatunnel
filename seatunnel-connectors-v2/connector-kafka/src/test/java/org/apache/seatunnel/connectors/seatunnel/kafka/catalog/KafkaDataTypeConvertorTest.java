@@ -26,7 +26,7 @@ import java.util.Collections;
 
 class KafkaDataTypeConvertorTest {
 
-    private KafkaDataTypeConvertor kafkaDataTypeConvertor = KafkaDataTypeConvertor.getInstance();
+    private final KafkaDataTypeConvertor kafkaDataTypeConvertor = new KafkaDataTypeConvertor();
 
     @Test
     void toSeaTunnelType() {

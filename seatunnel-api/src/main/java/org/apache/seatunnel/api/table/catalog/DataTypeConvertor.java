@@ -55,4 +55,6 @@ public interface DataTypeConvertor<T> {
     // todo: If the SeaTunnel data type contains the properties, we can remove the dataTypeProperties.
     T toConnectorType(SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties) throws DataTypeConvertException;
 
+    String getIdentity();
+
 }

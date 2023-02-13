@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableMap;
 import com.mysql.cj.MysqlType;
 import org.apache.commons.collections4.MapUtils;
@@ -37,13 +38,8 @@ import org.apache.commons.collections4.MapUtils;
 import java.util.Collections;
 import java.util.Map;
 
+@AutoService(DataTypeConvertor.class)
 public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
-
-    private MysqlDataTypeConvertor() {
-
-    }
-
-    private static final MysqlDataTypeConvertor INSTANCE = new MysqlDataTypeConvertor();
 
     public static final String PRECISION = "precision";
     public static final String SCALE = "scale";
@@ -193,7 +189,9 @@ public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
         }
     }
 
-    public static MysqlDataTypeConvertor getInstance() {
-        return INSTANCE;
+    @Override
+    public String getIdentity() {
+        return "Mysql";
     }
+
 }
