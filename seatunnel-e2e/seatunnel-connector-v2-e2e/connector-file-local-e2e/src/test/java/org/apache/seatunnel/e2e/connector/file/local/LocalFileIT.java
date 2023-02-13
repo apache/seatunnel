@@ -70,6 +70,10 @@ public class LocalFileIT extends TestSuiteBase {
         Container.ExecResult textReadResult =
                 container.executeJob("/text/local_file_text_to_assert.conf");
         Assertions.assertEquals(0, textReadResult.getExitCode());
+        // test read local text file with projection
+        Container.ExecResult textProjectionResult =
+                container.executeJob("/text/local_file_text_projection_to_assert.conf");
+        Assertions.assertEquals(0, textProjectionResult.getExitCode());
         // test write local json file
         Container.ExecResult jsonWriteResult =
                 container.executeJob("/json/fake_to_local_file_json.conf");
