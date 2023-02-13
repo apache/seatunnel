@@ -28,6 +28,7 @@ import org.apache.seatunnel.format.compatible.debezium.json.CompatibleDebeziumJs
 import org.apache.seatunnel.format.compatible.debezium.json.CompatibleDebeziumJsonSerializationSchema;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.apache.seatunnel.format.json.canal.CanalJsonSerializationSchema;
+import org.apache.seatunnel.format.json.debezium.DebeziumJsonSerializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
@@ -221,6 +222,8 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                 return new CanalJsonSerializationSchema(rowType);
             case COMPATIBLE_DEBEZIUM_JSON:
                 return new CompatibleDebeziumJsonSerializationSchema(rowType, isKey);
+            case DEBEZIUM_FORMAT:
+                return new DebeziumJsonSerializationSchema(rowType);
             default:
                 throw new SeaTunnelJsonFormatException(
                         CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + format);

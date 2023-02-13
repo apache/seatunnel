@@ -18,11 +18,6 @@
 
 package org.apache.seatunnel.format.json.debezium;
 
-import static org.apache.seatunnel.api.table.type.BasicType.FLOAT_TYPE;
-import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
-import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -41,19 +36,22 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.api.table.type.BasicType.FLOAT_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 public class DebeziumJsonSerDeSchemaTest {
 
     private static final SeaTunnelRowType PHYSICAL_DATA_TYPE =
-            new SeaTunnelRowType(new String[]{"id", "name", "description", "weight"}, new SeaTunnelDataType[]{INT_TYPE, STRING_TYPE, STRING_TYPE, FLOAT_TYPE});
+            new SeaTunnelRowType(
+                    new String[] {"id", "name", "description", "weight"},
+                    new SeaTunnelDataType[] {INT_TYPE, STRING_TYPE, STRING_TYPE, FLOAT_TYPE});
 
     @Test
     void testNullRowMessages() throws Exception {
         DebeziumJsonDeserializationSchema deserializationSchema =
-                new DebeziumJsonDeserializationSchema(
-                        PHYSICAL_DATA_TYPE,
-                        false,
-                        false
-                );
+                new DebeziumJsonDeserializationSchema(PHYSICAL_DATA_TYPE, false, false);
         SimpleCollector collector = new SimpleCollector();
 
         deserializationSchema.deserialize(null, collector);
@@ -75,11 +73,7 @@ public class DebeziumJsonSerDeSchemaTest {
             throws Exception {
         List<String> lines = readLines(resourceFile);
         DebeziumJsonDeserializationSchema deserializationSchema =
-                new DebeziumJsonDeserializationSchema(
-                        PHYSICAL_DATA_TYPE,
-                        schemaInclude,
-                        false
-                );
+                new DebeziumJsonDeserializationSchema(PHYSICAL_DATA_TYPE, schemaInclude, false);
 
         SimpleCollector collector = new SimpleCollector();
 
@@ -144,7 +138,6 @@ public class DebeziumJsonSerDeSchemaTest {
                         "{\"before\":null,\"after\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":5.17},\"op\":\"c\"}",
                         "{\"before\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":5.17},\"after\":null,\"op\":\"d\"}");
         assertEquals(expected, actual);
-
     }
     // --------------------------------------------------------------------------------------------
     // Utilities
@@ -170,6 +163,5 @@ public class DebeziumJsonSerDeSchemaTest {
         public Object getCheckpointLock() {
             return null;
         }
-
     }
 }

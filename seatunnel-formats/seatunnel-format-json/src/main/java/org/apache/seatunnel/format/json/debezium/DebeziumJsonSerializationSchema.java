@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.format.json.debezium;
 
-import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
-import static org.apache.seatunnel.format.json.debezium.DebeziumJsonFormatOptions.GENERATE_ROW_SIZE;
-
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -27,6 +24,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
+
+import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
+import static org.apache.seatunnel.format.json.debezium.DebeziumJsonFormatOptions.GENERATE_ROW_SIZE;
 
 public class DebeziumJsonSerializationSchema implements SerializationSchema {
     private static final long serialVersionUID = 1L;
@@ -38,8 +38,7 @@ public class DebeziumJsonSerializationSchema implements SerializationSchema {
 
     private transient SeaTunnelRow genericRow;
 
-    public DebeziumJsonSerializationSchema(
-            SeaTunnelRowType rowType) {
+    public DebeziumJsonSerializationSchema(SeaTunnelRowType rowType) {
         this.jsonSerializer = new JsonSerializationSchema(createJsonRowType(rowType));
         this.genericRow = new SeaTunnelRow(GENERATE_ROW_SIZE);
     }
@@ -63,8 +62,7 @@ public class DebeziumJsonSerializationSchema implements SerializationSchema {
                 default:
                     throw new UnsupportedOperationException(
                             String.format(
-                                    "Unsupported operation '%s' for row kind.",
-                                    row.getRowKind()));
+                                    "Unsupported operation '%s' for row kind.", row.getRowKind()));
             }
         } catch (Throwable t) {
             throw new SeaTunnelJsonFormatException(
@@ -75,7 +73,8 @@ public class DebeziumJsonSerializationSchema implements SerializationSchema {
     }
 
     private static SeaTunnelRowType createJsonRowType(SeaTunnelRowType databaseSchema) {
-        return new SeaTunnelRowType(new String[]{"before", "after", "op"},
-                new SeaTunnelDataType[]{databaseSchema, databaseSchema, STRING_TYPE});
+        return new SeaTunnelRowType(
+                new String[] {"before", "after", "op"},
+                new SeaTunnelDataType[] {databaseSchema, databaseSchema, STRING_TYPE});
     }
 }
