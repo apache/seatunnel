@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.format.json.debezium;
 
-import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
-
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.RowKind;
@@ -30,6 +28,8 @@ import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import java.io.IOException;
+
+import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 
 public class DebeziumJsonDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
     private static final long serialVersionUID = 1L;
@@ -58,17 +58,13 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
     private final boolean ignoreParseErrors;
 
     public DebeziumJsonDeserializationSchema(
-            SeaTunnelRowType rowType,
-            boolean schemaInclude,
-            boolean ignoreParseErrors) {
+            SeaTunnelRowType rowType, boolean schemaInclude, boolean ignoreParseErrors) {
         this.rowType = rowType;
         this.schemaInclude = schemaInclude;
         this.ignoreParseErrors = ignoreParseErrors;
-        this.jsonDeserializer = new JsonDeserializationSchema(
-                false,
-                ignoreParseErrors,
-                createJsonRowType(rowType, schemaInclude)
-        );
+        this.jsonDeserializer =
+                new JsonDeserializationSchema(
+                        false, ignoreParseErrors, createJsonRowType(rowType, schemaInclude));
     }
 
     @Override
@@ -101,7 +97,9 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                 out.collect(after);
             } else if (OP_UPDATE.equals(op)) {
                 if (before == null) {
-                    throw new SeaTunnelJsonFormatException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, String.format(REPLICA_IDENTITY_EXCEPTION, "UPDATE"));
+                    throw new SeaTunnelJsonFormatException(
+                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            String.format(REPLICA_IDENTITY_EXCEPTION, "UPDATE"));
                 }
                 before.setRowKind(RowKind.UPDATE_BEFORE);
                 after.setRowKind(RowKind.UPDATE_AFTER);
@@ -109,21 +107,28 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                 out.collect(after);
             } else if (OP_DELETE.equals(op)) {
                 if (before == null) {
-                    throw new SeaTunnelJsonFormatException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, String.format(REPLICA_IDENTITY_EXCEPTION, "DELETE"));
+                    throw new SeaTunnelJsonFormatException(
+                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            String.format(REPLICA_IDENTITY_EXCEPTION, "DELETE"));
                 }
                 before.setRowKind(RowKind.DELETE);
                 out.collect(before);
             } else {
                 if (!ignoreParseErrors) {
-                    throw new SeaTunnelJsonFormatException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, String.format(
-                            "Unknown \"op\" value \"%s\". The Debezium JSON message is '%s'", op, new String(message)));
+                    throw new SeaTunnelJsonFormatException(
+                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            String.format(
+                                    "Unknown \"op\" value \"%s\". The Debezium JSON message is '%s'",
+                                    op, new String(message)));
                 }
             }
         } catch (Throwable t) {
             // a big try catch to protect the processing.
             if (!ignoreParseErrors) {
-                throw new SeaTunnelJsonFormatException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, String.format(
-                        "Corrupt Debezium JSON message '%s'.", new String(message)), t);
+                throw new SeaTunnelJsonFormatException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        String.format("Corrupt Debezium JSON message '%s'.", new String(message)),
+                        t);
             }
         }
     }
@@ -133,15 +138,18 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
         return this.rowType;
     }
 
-    private static SeaTunnelRowType createJsonRowType(SeaTunnelRowType databaseSchema, boolean schemaInclude) {
-        SeaTunnelRowType payload = new SeaTunnelRowType(new String[]{"before", "after", "op"},
-                        new SeaTunnelDataType[]{databaseSchema, databaseSchema, STRING_TYPE});
+    private static SeaTunnelRowType createJsonRowType(
+            SeaTunnelRowType databaseSchema, boolean schemaInclude) {
+        SeaTunnelRowType payload =
+                new SeaTunnelRowType(
+                        new String[] {"before", "after", "op"},
+                        new SeaTunnelDataType[] {databaseSchema, databaseSchema, STRING_TYPE});
         if (schemaInclude) {
             // when Debezium Kafka connect enables "value.converter.schemas.enable",
             // the JSON will contain "schema" information, but we just ignore "schema"
             // and extract data from "payload".
-            return new SeaTunnelRowType(new String[]{"payload"},
-                    new SeaTunnelDataType[]{payload});
+            return new SeaTunnelRowType(
+                    new String[] {"payload"}, new SeaTunnelDataType[] {payload});
         } else {
             // payload contains some other information, e.g. "source", "ts_ms"
             // but we don't need them.

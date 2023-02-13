@@ -33,7 +33,10 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import java.util.List;
 import java.util.function.Function;
 
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.*;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CANNAL_FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEBEZIUM_FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TEXT_FORMAT;
 
 public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<byte[], byte[]> {
 

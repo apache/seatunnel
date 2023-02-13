@@ -18,14 +18,6 @@
 
 package org.apache.seatunnel.e2e.connector.kafka;
 
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlContainer;
-import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersion;
-import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.UniqueDatabase;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -34,6 +26,12 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
@@ -41,7 +39,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.DockerComposeContainer;
-import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
@@ -56,23 +53,22 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.nio.file.Path;
-import java.sql.*;
 import java.time.Duration;
-import java.util.*;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.given;
 
-@DisabledOnContainer(value = {}, type = {EngineType.SEATUNNEL, EngineType.SPARK})
+@DisabledOnContainer(
+        value = {},
+        type = {EngineType.SEATUNNEL, EngineType.SPARK})
 public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(DebeziumToKafkaIT.class);
 
     private static DockerComposeContainer COMPOSE_CONTAINER;
 
-    //----------------------------------------------------------------------------
+    // ----------------------------------------------------------------------------
     // kafka
 
     private static final String KAFKA_TOPIC = "customer";
@@ -81,31 +77,49 @@ public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
 
     private KafkaConsumer<String, String> kafkaConsumer;
 
-    //----------------------------------------------------------------------------
+    // ----------------------------------------------------------------------------
     // postgres
     private static final String PG_IMAGE = "postgres:alpine3.16";
 
-    private static final String PG_DRIVER_JAR = "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
+    private static final String PG_DRIVER_JAR =
+            "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
 
     private static PostgreSQLContainer<?> POSTGRESQL_CONTAINER;
 
     @TestContainerExtension
-    private final ContainerExtendedFactory extendedFactory = container -> {
-        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O " + PG_DRIVER_JAR);
-        Assertions.assertEquals(0, extraCommands.getExitCode());
+    private final ContainerExtendedFactory extendedFactory =
+            container -> {
+                Container.ExecResult extraCommands =
+                        container.execInContainer(
+                                "bash",
+                                "-c",
+                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
+                                        + PG_DRIVER_JAR);
+                Assertions.assertEquals(0, extraCommands.getExitCode());
 
-        Path jsonPath = ContainerUtil.getResourcesFile("/debezium/register-mysql.json").toPath();
-        container.copyFileToContainer(MountableFile.forHostPath(jsonPath), "/tmp/seatunnel/plugins/Jdbc/register-mysql.json");
-        Container.ExecResult extraCommand = container.execInContainer("bash", "-c", "cd /tmp/seatunnel/plugins/Jdbc && curl -i -X POST -H \"Accept:application/json\" -H  \"Content-Type:application/json\" http://" + getLinuxLocalIp() + ":8083/connectors/ -d @register-mysql.json");
-        Assertions.assertEquals(0, extraCommand.getExitCode());
-    };
+                Path jsonPath =
+                        ContainerUtil.getResourcesFile("/debezium/register-mysql.json").toPath();
+                container.copyFileToContainer(
+                        MountableFile.forHostPath(jsonPath),
+                        "/tmp/seatunnel/plugins/Jdbc/register-mysql.json");
+                Container.ExecResult extraCommand =
+                        container.execInContainer(
+                                "bash",
+                                "-c",
+                                "cd /tmp/seatunnel/plugins/Jdbc && curl -i -X POST -H \"Accept:application/json\" -H  \"Content-Type:application/json\" http://"
+                                        + getLinuxLocalIp()
+                                        + ":8083/connectors/ -d @register-mysql.json");
+                Assertions.assertEquals(0, extraCommand.getExitCode());
+            };
 
     private void createPostgreSQLContainer() throws ClassNotFoundException {
-        POSTGRESQL_CONTAINER = new PostgreSQLContainer<>(DockerImageName.parse(PG_IMAGE))
-                .withNetwork(NETWORK)
-                .withNetworkAliases("postgresql")
-                .withExposedPorts(5432)
-                .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(PG_IMAGE)));
+        POSTGRESQL_CONTAINER =
+                new PostgreSQLContainer<>(DockerImageName.parse(PG_IMAGE))
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases("postgresql")
+                        .withExposedPorts(5432)
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(PG_IMAGE)));
     }
 
     @BeforeAll
@@ -137,8 +151,10 @@ public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testKafakSinkDebeziumFormat(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/kafkasource_debezium_to_kafka.conf");
+    public void testKafakSinkDebeziumFormat(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/kafkasource_debezium_to_kafka.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
         ArrayList<Object> result = new ArrayList<>();
         List<String> expectedResult =
@@ -156,13 +172,13 @@ public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
                         "{\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"4.56\"},\"type\":\"INSERT\"}",
                         "{\"data\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"5.3\"},\"type\":\"DELETE\"}",
                         "{\"data\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"7.88\"},\"type\":\"INSERT\"}",
-                        "{\"data\":{\"id\":109,\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":\"22.2\"},\"type\":\"DELETE\"}"
-                );
+                        "{\"data\":{\"id\":109,\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":\"22.2\"},\"type\":\"DELETE\"}");
 
         ArrayList<String> topics = new ArrayList<>();
         topics.add(KAFKA_TOPIC);
         kafkaConsumer.subscribe(topics);
-        ConsumerRecords<String, String> consumerRecords = kafkaConsumer.poll(Duration.ofSeconds(10000));
+        ConsumerRecords<String, String> consumerRecords =
+                kafkaConsumer.poll(Duration.ofSeconds(10000));
         for (ConsumerRecord<String, String> record : consumerRecords) {
             result.add(record.value());
         }
@@ -173,8 +189,12 @@ public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
         Properties prop = new Properties();
         String bootstrapServers = getBootstrapServers();
         prop.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        prop.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
-        prop.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
+        prop.put(
+                ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+                "org.apache.kafka.common.serialization.StringDeserializer");
+        prop.put(
+                ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+                "org.apache.kafka.common.serialization.StringDeserializer");
         prop.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         prop.put(ConsumerConfig.GROUP_ID_CONFIG, "ONE");
         prop.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
@@ -182,15 +202,19 @@ public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
     }
 
     private void initializeJdbcTable() {
-        try (Connection connection = DriverManager.getConnection(POSTGRESQL_CONTAINER.getJdbcUrl(),
-                POSTGRESQL_CONTAINER.getUsername(), POSTGRESQL_CONTAINER.getPassword())) {
+        try (Connection connection =
+                DriverManager.getConnection(
+                        POSTGRESQL_CONTAINER.getJdbcUrl(),
+                        POSTGRESQL_CONTAINER.getUsername(),
+                        POSTGRESQL_CONTAINER.getPassword())) {
             Statement statement = connection.createStatement();
-            String sink = "create table sink(\n" +
-                    "id INT NOT NULL PRIMARY KEY,\n" +
-                    "first_name varchar(255),\n" +
-                    "last_name varchar(255),\n" +
-                    "email varchar(255)" +
-                    ")";
+            String sink =
+                    "create table sink(\n"
+                            + "id INT NOT NULL PRIMARY KEY,\n"
+                            + "first_name varchar(255),\n"
+                            + "last_name varchar(255),\n"
+                            + "email varchar(255)"
+                            + ")";
             statement.execute(sink);
         } catch (SQLException e) {
             throw new RuntimeException("Initializing PostgreSql table failed!", e);
@@ -210,7 +234,8 @@ public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
     public String getLinuxLocalIp() {
         String ip = "";
         try {
-            Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
+            Enumeration<NetworkInterface> networkInterfaces =
+                    NetworkInterface.getNetworkInterfaces();
             while (networkInterfaces.hasMoreElements()) {
                 NetworkInterface networkInterface = networkInterfaces.nextElement();
                 Enumeration<InetAddress> inetAddresses = networkInterface.getInetAddresses();

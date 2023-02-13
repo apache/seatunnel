@@ -28,7 +28,8 @@ import org.apache.seatunnel.api.table.factory.TableFactoryContext;
 
 import java.util.Map;
 
-public class DebeziumJsonFormatFactory implements DeserializationFormatFactory, SerializationFormatFactory {
+public class DebeziumJsonFormatFactory
+        implements DeserializationFormatFactory, SerializationFormatFactory {
 
     public static final String IDENTIFIER = "debezium-json";
 
@@ -62,7 +63,8 @@ public class DebeziumJsonFormatFactory implements DeserializationFormatFactory, 
         return new DeserializationFormat() {
             @Override
             public DeserializationSchema createDeserializationSchema() {
-                return new DebeziumJsonDeserializationSchema(null, schemaInclude, ignoreParseErrors);
+                return new DebeziumJsonDeserializationSchema(
+                        null, schemaInclude, ignoreParseErrors);
             }
         };
     }

@@ -56,12 +56,29 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.*;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.BOOTSTRAP_SERVERS;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CANNAL_FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.COMMIT_ON_CHECKPOINT;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CONSUMER_GROUP;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEBEZIUM_FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FIELD_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FIELD_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PATTERN;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.SCHEMA;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE_OFFSETS;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE_TIMESTAMP;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TEXT_FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TOPIC;
 
 @AutoService(SeaTunnelSource.class)
 public class KafkaSource
         implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSplit, KafkaSourceState>,
-        SupportParallelism {
+                SupportParallelism {
 
     private static final String DEFAULT_CONSUMER_GROUP = "SeaTunnel-Consumer-Group";
 
@@ -236,11 +253,8 @@ public class KafkaSource
                                     .build();
                     break;
                 case DEBEZIUM_FORMAT:
-                    deserializationSchema = new DebeziumJsonDeserializationSchema(
-                            typeInfo,
-                            true,
-                            false
-                    );
+                    deserializationSchema =
+                            new DebeziumJsonDeserializationSchema(typeInfo, true, false);
                     break;
                 default:
                     throw new SeaTunnelJsonFormatException(

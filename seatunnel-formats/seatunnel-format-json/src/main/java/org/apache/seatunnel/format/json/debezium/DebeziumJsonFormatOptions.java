@@ -27,8 +27,7 @@ public class DebeziumJsonFormatOptions {
 
     public static final int GENERATE_ROW_SIZE = 3;
 
-    public static final Option<Boolean> IGNORE_PARSE_ERRORS =
-            JsonFormatOptions.IGNORE_PARSE_ERRORS;
+    public static final Option<Boolean> IGNORE_PARSE_ERRORS = JsonFormatOptions.IGNORE_PARSE_ERRORS;
 
     public static final Option<Boolean> SCHEMA_INCLUDE =
             Options.key("schema-include")
@@ -42,13 +41,11 @@ public class DebeziumJsonFormatOptions {
 
     public static boolean getSchemaInclude(Map<String, String> options) {
         return Boolean.parseBoolean(
-                options.getOrDefault(SCHEMA_INCLUDE.key(), SCHEMA_INCLUDE.toString())
-        );
+                options.getOrDefault(SCHEMA_INCLUDE.key(), SCHEMA_INCLUDE.toString()));
     }
 
     public static boolean getIgnoreParseErrors(Map<String, String> options) {
         return Boolean.parseBoolean(
-                options.getOrDefault(IGNORE_PARSE_ERRORS.key(), IGNORE_PARSE_ERRORS.toString())
-        );
+                options.getOrDefault(IGNORE_PARSE_ERRORS.key(), IGNORE_PARSE_ERRORS.toString()));
     }
 }
