@@ -31,6 +31,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
+import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -44,10 +45,11 @@ import java.util.Map;
 
 public class TextReadStrategy extends AbstractReadStrategy {
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
-    private String fieldDelimiter = String.valueOf('\001');
-    private DateUtils.Formatter dateFormat = DateUtils.Formatter.YYYY_MM_DD;
-    private DateTimeUtils.Formatter datetimeFormat = DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
-    private TimeUtils.Formatter timeFormat = TimeUtils.Formatter.HH_MM_SS;
+    private String fieldDelimiter = BaseSourceConfig.DELIMITER.defaultValue();
+    private DateUtils.Formatter dateFormat = BaseSourceConfig.DATE_FORMAT.defaultValue();
+    private DateTimeUtils.Formatter datetimeFormat =
+            BaseSourceConfig.DATETIME_FORMAT.defaultValue();
+    private TimeUtils.Formatter timeFormat = BaseSourceConfig.TIME_FORMAT.defaultValue();
 
     @Override
     public void read(String path, Collector<SeaTunnelRow> output)
@@ -97,13 +99,13 @@ public class TextReadStrategy extends AbstractReadStrategy {
             deserializationSchema =
                     TextDeserializationSchema.builder()
                             .seaTunnelRowType(this.seaTunnelRowTypeWithPartition)
-                            .delimiter(String.valueOf('\002'))
+                            .delimiter(TextFormatConstant.PLACEHOLDER)
                             .build();
         } else {
             deserializationSchema =
                     TextDeserializationSchema.builder()
                             .seaTunnelRowType(this.seaTunnelRowType)
-                            .delimiter(String.valueOf('\002'))
+                            .delimiter(TextFormatConstant.PLACEHOLDER)
                             .build();
         }
         return getActualSeaTunnelRowTypeInfo();
