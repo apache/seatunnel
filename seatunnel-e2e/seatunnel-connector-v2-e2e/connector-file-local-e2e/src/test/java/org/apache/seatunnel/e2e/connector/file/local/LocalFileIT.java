@@ -86,6 +86,10 @@ public class LocalFileIT extends TestSuiteBase {
         Container.ExecResult orcReadResult =
                 container.executeJob("/orc/local_file_orc_to_assert.conf");
         Assertions.assertEquals(0, orcReadResult.getExitCode());
+        // test read local orc file with projection
+        Container.ExecResult orcProjectionResult =
+                container.executeJob("/orc/local_file_orc_projection_to_assert.conf");
+        Assertions.assertEquals(0, orcProjectionResult.getExitCode());
         // test write local parquet file
         Container.ExecResult parquetWriteResult =
                 container.executeJob("/parquet/fake_to_local_file_parquet.conf");
@@ -94,5 +98,9 @@ public class LocalFileIT extends TestSuiteBase {
         Container.ExecResult parquetReadResult =
                 container.executeJob("/parquet/local_file_parquet_to_assert.conf");
         Assertions.assertEquals(0, parquetReadResult.getExitCode());
+        // test read local parquet file with projection
+        Container.ExecResult parquetProjectionResult =
+                container.executeJob("/parquet/local_file_parquet_projection_to_assert.conf");
+        Assertions.assertEquals(0, parquetProjectionResult.getExitCode());
     }
 }

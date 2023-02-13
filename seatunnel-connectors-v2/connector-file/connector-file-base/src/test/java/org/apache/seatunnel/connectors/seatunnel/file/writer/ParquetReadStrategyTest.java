@@ -71,7 +71,7 @@ public class ParquetReadStrategyTest {
     }
 
     @Test
-    public void testParquetReadProjection() throws Exception {
+    public void testParquetReadProjection1() throws Exception {
         URL resource = ParquetReadStrategyTest.class.getResource("/timestamp_as_int96.parquet");
         URL conf = OrcReadStrategyTest.class.getResource("/test_read_parquet.conf");
         Assertions.assertNotNull(resource);
@@ -98,6 +98,27 @@ public class ParquetReadStrategyTest {
             Assertions.assertEquals(row.getField(1), (byte) 1);
             Assertions.assertEquals(row.getField(2), (short) 1);
         }
+    }
+
+    @Test
+    public void testParquetReadProjection2() throws Exception {
+        URL resource = ParquetReadStrategyTest.class.getResource("/hive.parquet");
+        URL conf = OrcReadStrategyTest.class.getResource("/test_read_parquet2.conf");
+        Assertions.assertNotNull(resource);
+        Assertions.assertNotNull(conf);
+        String path = Paths.get(resource.toURI()).toString();
+        String confPath = Paths.get(conf.toURI()).toString();
+        Config pluginConfig = ConfigFactory.parseFile(new File(confPath));
+        ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        parquetReadStrategy.init(localConf);
+        parquetReadStrategy.setPluginConfig(pluginConfig);
+        SeaTunnelRowType seaTunnelRowTypeInfo =
+                parquetReadStrategy.getSeaTunnelRowTypeInfo(localConf, path);
+        Assertions.assertNotNull(seaTunnelRowTypeInfo);
+        System.out.println(seaTunnelRowTypeInfo);
+        TestCollector testCollector = new TestCollector();
+        parquetReadStrategy.read(path, testCollector);
     }
 
     public static class TestCollector implements Collector<SeaTunnelRow> {
