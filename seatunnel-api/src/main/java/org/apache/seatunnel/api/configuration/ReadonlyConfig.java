@@ -17,17 +17,11 @@
 
 package org.apache.seatunnel.api.configuration;
 
-import static org.apache.seatunnel.api.configuration.util.ConfigUtil.convertToJsonString;
-import static org.apache.seatunnel.api.configuration.util.ConfigUtil.convertValue;
-import static org.apache.seatunnel.api.configuration.util.ConfigUtil.flatteningMap;
-import static org.apache.seatunnel.api.configuration.util.ConfigUtil.treeMap;
-
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.Serializable;
 import java.util.Collections;
@@ -35,13 +29,16 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.apache.seatunnel.api.configuration.util.ConfigUtil.convertToJsonString;
+import static org.apache.seatunnel.api.configuration.util.ConfigUtil.convertValue;
+import static org.apache.seatunnel.api.configuration.util.ConfigUtil.flatteningMap;
+import static org.apache.seatunnel.api.configuration.util.ConfigUtil.treeMap;
+
 public class ReadonlyConfig implements Serializable {
     private static final long serialVersionUID = 1L;
     private static final ObjectMapper JACKSON_MAPPER = new ObjectMapper();
 
-    /**
-     * Stores the concrete key/value pairs of this configuration object.
-     */
+    /** Stores the concrete key/value pairs of this configuration object. */
     protected final Map<String, Object> confData;
 
     private ReadonlyConfig(Map<String, Object> confData) {
@@ -54,10 +51,10 @@ public class ReadonlyConfig implements Serializable {
 
     public static ReadonlyConfig fromConfig(Config config) {
         try {
-            return fromMap(JACKSON_MAPPER.readValue(
-                config.root().render(ConfigRenderOptions.concise()),
-                new TypeReference<Map<String, Object>>() {
-                }));
+            return fromMap(
+                    JACKSON_MAPPER.readValue(
+                            config.root().render(ConfigRenderOptions.concise()),
+                            new TypeReference<Map<String, Object>>() {}));
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("Json parsing exception.", e);
         }

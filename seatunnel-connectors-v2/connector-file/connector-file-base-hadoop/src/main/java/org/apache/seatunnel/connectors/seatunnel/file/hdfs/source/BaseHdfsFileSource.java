@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.hdfs.source;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -33,36 +35,53 @@ import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSou
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseFileSource;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategyFactory;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import java.io.IOException;
 
 public abstract class BaseHdfsFileSource extends BaseFileSource {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HdfsSourceConfig.FILE_PATH.key(),
-                HdfsSourceConfig.FILE_TYPE.key(), HdfsSourceConfig.DEFAULT_FS.key());
+        CheckResult result =
+                CheckConfigUtil.checkAllExists(
+                        pluginConfig,
+                        HdfsSourceConfig.FILE_PATH.key(),
+                        HdfsSourceConfig.FILE_TYPE.key(),
+                        HdfsSourceConfig.DEFAULT_FS.key());
         if (!result.isSuccess()) {
-            throw new FileConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+            throw new FileConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
-        readStrategy = ReadStrategyFactory.of(pluginConfig.getString(HdfsSourceConfig.FILE_TYPE.key()));
+        readStrategy =
+                ReadStrategyFactory.of(pluginConfig.getString(HdfsSourceConfig.FILE_TYPE.key()));
         readStrategy.setPluginConfig(pluginConfig);
         String path = pluginConfig.getString(HdfsSourceConfig.FILE_PATH.key());
         hadoopConf = new HadoopConf(pluginConfig.getString(HdfsSourceConfig.DEFAULT_FS.key()));
         if (pluginConfig.hasPath(HdfsSourceConfig.HDFS_SITE_PATH.key())) {
-            hadoopConf.setHdfsSitePath(pluginConfig.getString(HdfsSourceConfig.HDFS_SITE_PATH.key()));
+            hadoopConf.setHdfsSitePath(
+                    pluginConfig.getString(HdfsSourceConfig.HDFS_SITE_PATH.key()));
+        }
+        if (pluginConfig.hasPath(HdfsSourceConfig.KERBEROS_PRINCIPAL.key())) {
+            hadoopConf.setKerberosPrincipal(
+                    pluginConfig.getString(HdfsSourceConfig.KERBEROS_PRINCIPAL.key()));
+        }
+        if (pluginConfig.hasPath(HdfsSourceConfig.KERBEROS_KEYTAB_PATH.key())) {
+            hadoopConf.setKerberosKeytabPath(
+                    pluginConfig.getString(HdfsSourceConfig.KERBEROS_KEYTAB_PATH.key()));
         }
         try {
             filePaths = readStrategy.getFileNamesByPath(hadoopConf, path);
         } catch (IOException e) {
             String errorMsg = String.format("Get file list from this path [%s] failed", path);
-            throw new FileConnectorException(FileConnectorErrorCode.FILE_LIST_GET_FAILED, errorMsg, e);
+            throw new FileConnectorException(
+                    FileConnectorErrorCode.FILE_LIST_GET_FAILED, errorMsg, e);
         }
         // support user-defined schema
-        FileFormat fileFormat = FileFormat.valueOf(pluginConfig.getString(HdfsSourceConfig.FILE_TYPE.key()).toUpperCase());
+        FileFormat fileFormat =
+                FileFormat.valueOf(
+                        pluginConfig.getString(HdfsSourceConfig.FILE_TYPE.key()).toUpperCase());
         // only json text csv type support user-defined schema now
         if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA.key())) {
             switch (fileFormat) {
@@ -70,27 +89,30 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
                 case TEXT:
                 case JSON:
                     Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
-                    SeaTunnelRowType userDefinedSchema = SeaTunnelSchema
-                            .buildWithConfig(schemaConfig)
-                            .getSeaTunnelRowType();
+                    SeaTunnelRowType userDefinedSchema =
+                            SeaTunnelSchema.buildWithConfig(schemaConfig).getSeaTunnelRowType();
                     readStrategy.setSeaTunnelRowTypeInfo(userDefinedSchema);
                     rowType = readStrategy.getActualSeaTunnelRowTypeInfo();
                     break;
                 case ORC:
                 case PARQUET:
-                    throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
+                    throw new FileConnectorException(
+                            CommonErrorCode.UNSUPPORTED_OPERATION,
                             "SeaTunnel does not support user-defined schema for [parquet, orc] files");
                 default:
                     // never got in there
-                    throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
+                    throw new FileConnectorException(
+                            CommonErrorCode.ILLEGAL_ARGUMENT,
                             "SeaTunnel does not supported this file format");
             }
         } else {
             try {
                 rowType = readStrategy.getSeaTunnelRowTypeInfo(hadoopConf, filePaths.get(0));
             } catch (FileConnectorException e) {
-                String errorMsg = String.format("Get table schema from file [%s] failed", filePaths.get(0));
-                throw new FileConnectorException(CommonErrorCode.TABLE_SCHEMA_GET_FAILED, errorMsg, e);
+                String errorMsg =
+                        String.format("Get table schema from file [%s] failed", filePaths.get(0));
+                throw new FileConnectorException(
+                        CommonErrorCode.TABLE_SCHEMA_GET_FAILED, errorMsg, e);
             }
         }
     }

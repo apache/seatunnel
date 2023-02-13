@@ -17,52 +17,67 @@
 
 package org.apache.seatunnel.api.table.factory;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SinkCommonOptions;
+import org.apache.seatunnel.api.sink.SupportDataSaveMode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceCommonOptions;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.connector.TableSource;
 
-import lombok.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import lombok.NonNull;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
 
 /**
- * Use SPI to create {@link TableSourceFactory}, {@link TableSinkFactory} and {@link CatalogFactory}.
+ * Use SPI to create {@link TableSourceFactory}, {@link TableSinkFactory} and {@link
+ * CatalogFactory}.
  */
 public final class FactoryUtil {
 
     private static final Logger LOG = LoggerFactory.getLogger(FactoryUtil.class);
 
-    public static <T, SplitT extends SourceSplit, StateT extends Serializable> List<SeaTunnelSource<T, SplitT, StateT>> createAndPrepareSource(
-        List<CatalogTable> multipleTables,
-        Map<String, String> options,
-        ClassLoader classLoader,
-        String factoryIdentifier) {
+    public static <T, SplitT extends SourceSplit, StateT extends Serializable>
+            List<SeaTunnelSource<T, SplitT, StateT>> createAndPrepareSource(
+                    List<CatalogTable> multipleTables,
+                    ReadonlyConfig options,
+                    ClassLoader classLoader,
+                    String factoryIdentifier) {
 
         try {
-            final TableSourceFactory factory = discoverFactory(classLoader, TableSourceFactory.class, factoryIdentifier);
-            List<SeaTunnelSource<T, SplitT, StateT>> sources = new ArrayList<>(multipleTables.size());
+            final TableSourceFactory factory =
+                    discoverFactory(classLoader, TableSourceFactory.class, factoryIdentifier);
+            List<SeaTunnelSource<T, SplitT, StateT>> sources =
+                    new ArrayList<>(multipleTables.size());
             if (factory instanceof SupportMultipleTable) {
-                TableFactoryContext context = new TableFactoryContext(multipleTables, options, classLoader);
+                TableFactoryContext context =
+                        new TableFactoryContext(multipleTables, options, classLoader);
                 SupportMultipleTable multipleTableSourceFactory = (SupportMultipleTable) factory;
                 // TODO: create all source
-                SupportMultipleTable.Result result = multipleTableSourceFactory.applyTables(context);
-                TableSource<T, SplitT, StateT> multipleTableSource = factory.createSource(
-                    new TableFactoryContext(result.getAcceptedTables(), options, classLoader));
+                SupportMultipleTable.Result result =
+                        multipleTableSourceFactory.applyTables(context);
+                TableSource<T, SplitT, StateT> multipleTableSource =
+                        factory.createSource(
+                                new TableFactoryContext(
+                                        result.getAcceptedTables(), options, classLoader));
                 // TODO: handle reading metadata
                 SeaTunnelSource<T, SplitT, StateT> source = multipleTableSource.createSource();
                 sources.add(source);
@@ -70,24 +85,28 @@ public final class FactoryUtil {
             return sources;
         } catch (Throwable t) {
             throw new FactoryException(
-                String.format(
-                    "Unable to create a source for identifier '%s'.", factoryIdentifier),
-                t);
+                    String.format(
+                            "Unable to create a source for identifier '%s'.", factoryIdentifier),
+                    t);
         }
     }
 
-    public static <IN, StateT, CommitInfoT, AggregatedCommitInfoT> SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> createAndPrepareSink(
-        ClassLoader classLoader, String factoryIdentifier) {
+    public static <IN, StateT, CommitInfoT, AggregatedCommitInfoT>
+            SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> createAndPrepareSink(
+                    ClassLoader classLoader, String factoryIdentifier) {
         // todo: do we need to set table?
-        TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT> factory = discoverFactory(classLoader, TableSinkFactory.class, factoryIdentifier);
+        TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT> factory =
+                discoverFactory(classLoader, TableSinkFactory.class, factoryIdentifier);
         return factory.createSink(null).createSink();
     }
 
-    public static Catalog createCatalog(String catalogName,
-                                        Map<String, String> options,
-                                        ClassLoader classLoader,
-                                        String factoryIdentifier) {
-        CatalogFactory catalogFactory = discoverFactory(classLoader, CatalogFactory.class, factoryIdentifier);
+    public static Catalog createCatalog(
+            String catalogName,
+            ReadonlyConfig options,
+            ClassLoader classLoader,
+            String factoryIdentifier) {
+        CatalogFactory catalogFactory =
+                discoverFactory(classLoader, CatalogFactory.class, factoryIdentifier);
         return catalogFactory.createCatalog(catalogName, options);
     }
 
@@ -140,7 +159,8 @@ public final class FactoryUtil {
     }
 
     @SuppressWarnings("unchecked")
-    public static <T extends Factory> List<T> discoverFactories(ClassLoader classLoader, Class<T> factoryClass) {
+    public static <T extends Factory> List<T> discoverFactories(
+            ClassLoader classLoader, Class<T> factoryClass) {
         return discoverFactories(classLoader).stream()
                 .filter(f -> factoryClass.isAssignableFrom(f.getClass()))
                 .map(f -> (T) f)
@@ -150,9 +170,7 @@ public final class FactoryUtil {
     public static List<Factory> discoverFactories(ClassLoader classLoader) {
         try {
             final List<Factory> result = new LinkedList<>();
-            ServiceLoader.load(Factory.class, classLoader)
-                    .iterator()
-                    .forEachRemaining(result::add);
+            ServiceLoader.load(Factory.class, classLoader).iterator().forEachRemaining(result::add);
             return result;
         } catch (ServiceConfigurationError e) {
             LOG.error("Could not load service provider for factories.", e);
@@ -162,7 +180,8 @@ public final class FactoryUtil {
 
     /**
      * This method is called by SeaTunnel Web to get the full option rule of a source.
-     * @return
+     *
+     * @return Option rule
      */
     public static OptionRule sourceFullOptionRule(@NonNull TableSourceFactory factory) {
         OptionRule sourceOptionRule = factory.optionRule();
@@ -173,10 +192,47 @@ public final class FactoryUtil {
         Class<? extends SeaTunnelSource> sourceClass = factory.getSourceClass();
         if (SupportParallelism.class.isAssignableFrom(sourceClass)) {
             OptionRule sourceCommonOptionRule =
-                OptionRule.builder().optional(SourceCommonOptions.PARALLELISM).build();
-            sourceOptionRule.getOptionalOptions().addAll(sourceCommonOptionRule.getOptionalOptions());
+                    OptionRule.builder().optional(SourceCommonOptions.PARALLELISM).build();
+            sourceOptionRule
+                    .getOptionalOptions()
+                    .addAll(sourceCommonOptionRule.getOptionalOptions());
         }
 
         return sourceOptionRule;
+    }
+
+    /**
+     * This method is called by SeaTunnel Web to get the full option rule of a sink.
+     *
+     * @return Option rule
+     */
+    public static OptionRule sinkFullOptionRule(@NonNull TableSinkFactory factory) {
+        OptionRule sinkOptionRule = factory.optionRule();
+        if (sinkOptionRule == null) {
+            throw new FactoryException("sinkOptionRule can not be null");
+        }
+
+        try {
+            TableSink sink = factory.createSink(null);
+            if (SupportDataSaveMode.class.isAssignableFrom(sink.getClass())) {
+                SupportDataSaveMode supportDataSaveModeSink = (SupportDataSaveMode) sink;
+                Option<DataSaveMode> saveMode =
+                        Options.key(SinkCommonOptions.DATA_SAVE_MODE)
+                                .singleChoice(
+                                        DataSaveMode.class,
+                                        supportDataSaveModeSink.supportedDataSaveModeValues())
+                                .noDefaultValue()
+                                .withDescription("data save mode");
+                OptionRule sinkCommonOptionRule = OptionRule.builder().required(saveMode).build();
+                sinkOptionRule
+                        .getOptionalOptions()
+                        .addAll(sinkCommonOptionRule.getOptionalOptions());
+            }
+        } catch (UnsupportedOperationException e) {
+            LOG.warn(
+                    "Add save mode option need sink connector support create sink by TableSinkFactory");
+        }
+
+        return sinkOptionRule;
     }
 }

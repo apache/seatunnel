@@ -21,16 +21,18 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class ThreadPoolExecutorFactory {
-    private ThreadPoolExecutorFactory() {
-    }
+    private ThreadPoolExecutorFactory() {}
 
-    public static ScheduledThreadPoolExecutor createScheduledThreadPoolExecutor(int corePoolSize, String name) {
+    public static ScheduledThreadPoolExecutor createScheduledThreadPoolExecutor(
+            int corePoolSize, String name) {
         AtomicInteger cnt = new AtomicInteger(0);
-        return new ScheduledThreadPoolExecutor(corePoolSize, runnable -> {
-            Thread thread = new Thread(runnable);
-            thread.setDaemon(true);
-            thread.setName(name + "-" + cnt.incrementAndGet());
-            return thread;
-        });
+        return new ScheduledThreadPoolExecutor(
+                corePoolSize,
+                runnable -> {
+                    Thread thread = new Thread(runnable);
+                    thread.setDaemon(true);
+                    thread.setName(name + "-" + cnt.incrementAndGet());
+                    return thread;
+                });
     }
 }

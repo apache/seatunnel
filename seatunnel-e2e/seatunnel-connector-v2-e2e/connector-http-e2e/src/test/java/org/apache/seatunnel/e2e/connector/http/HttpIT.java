@@ -36,9 +36,13 @@ import org.testcontainers.utility.MountableFile;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 public class HttpIT extends TestSuiteBase implements TestResource {
+
+    private static final String TMP_DIR = "/tmp";
 
     private static final String IMAGE = "mockserver/mockserver:5.14.0";
 
@@ -47,16 +51,28 @@ public class HttpIT extends TestSuiteBase implements TestResource {
     @BeforeAll
     @Override
     public void startUp() {
-        this.mockserverContainer = new GenericContainer<>(DockerImageName.parse(IMAGE))
-            .withNetwork(NETWORK)
-            .withNetworkAliases("mockserver")
-            .withExposedPorts(1080)
-            .withCopyFileToContainer(MountableFile.forHostPath(new File(HttpIT.class.getResource(
-                    "/mockserver-config.json").getPath()).getAbsolutePath()),
-                "/tmp/mockserver-config.json")
-            .withEnv("MOCKSERVER_INITIALIZATION_JSON_PATH", "/tmp/mockserver-config.json")
-            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
-            .waitingFor(new HttpWaitStrategy().forPath("/").forStatusCode(404));
+        Optional<URL> resource =
+                Optional.ofNullable(HttpIT.class.getResource(getMockServerConfig()));
+        this.mockserverContainer =
+                new GenericContainer<>(DockerImageName.parse(IMAGE))
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases("mockserver")
+                        .withExposedPorts(1080)
+                        .withCopyFileToContainer(
+                                MountableFile.forHostPath(
+                                        new File(
+                                                        resource.orElseThrow(
+                                                                        () ->
+                                                                                new IllegalArgumentException(
+                                                                                        "Can not get config file of mockServer"))
+                                                                .getPath())
+                                                .getAbsolutePath()),
+                                TMP_DIR + getMockServerConfig())
+                        .withEnv(
+                                "MOCKSERVER_INITIALIZATION_JSON_PATH",
+                                TMP_DIR + getMockServerConfig())
+                        .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
+                        .waitingFor(new HttpWaitStrategy().forPath("/").forStatusCode(404));
         Startables.deepStart(Stream.of(mockserverContainer)).join();
     }
 
@@ -69,8 +85,17 @@ public class HttpIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testHttpSourceToAssertSink(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/http_json_to_assert.conf");
+    public void testSourceToAssertSink(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob(getITTestConf());
         Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    public String getITTestConf() {
+        return "/http_json_to_assert.conf";
+    }
+
+    public String getMockServerConfig() {
+        return "/mockserver-config.json";
     }
 }

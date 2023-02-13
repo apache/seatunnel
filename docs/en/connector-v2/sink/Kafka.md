@@ -1,7 +1,8 @@
 # Kafka
 
 > Kafka sink connector
-## Description
+>
+  ## Description
 
 Write Rows to a Kafka topic.
 
@@ -13,7 +14,7 @@ By default, we will use 2pc to guarantee the message is sent to kafka exactly on
 
 ## Options
 
-| name                 | type   | required | default value |
+|         name         |  type  | required | default value |
 |----------------------|--------|----------|---------------|
 | topic                | string | yes      | -             |
 | bootstrap.servers    | string | yes      | -             |
@@ -30,6 +31,21 @@ By default, we will use 2pc to guarantee the message is sent to kafka exactly on
 ### topic [string]
 
 Kafka Topic.
+
+Currently two formats are supported:
+
+1. Fill in the name of the topic.
+
+2. Use value of a field from upstream data as topic,the format is `${your field name}`, where topic is the value of one of the columns of the upstream data.
+
+   For example, Upstream data is the following:
+
+   | name | age |     data      |
+   |------|-----|---------------|
+   | Jack | 16  | data-example1 |
+   | Mary | 23  | data-example2 |
+
+   If `${name}` is set as the topic. So the first row is sent to Jack topic, and the second row is sent to Mary topic.
 
 ### bootstrap.servers [string]
 
@@ -59,7 +75,7 @@ For example, if you want to use value of fields from upstream data as key, you c
 
 Upstream data is the following:
 
-| name | age | data          |
+| name | age |     data      |
 |------|-----|---------------|
 | Jack | 16  | data-example1 |
 | Mary | 23  | data-example2 |
@@ -150,7 +166,6 @@ Download `aws-msk-iam-auth-1.1.5.jar` from https://github.com/aws/aws-msk-iam-au
 
 Please ensure the IAM policy have `"kafka-cluster:Connect",`. Like this:
 
-
 ```hocon
 "Effect": "Allow",
 "Action": [
@@ -190,4 +205,6 @@ sink {
 
 - [Improve] Support to specify multiple partition keys [3230](https://github.com/apache/incubator-seatunnel/pull/3230)
 - [Improve] Add text format for kafka sink connector [3711](https://github.com/apache/incubator-seatunnel/pull/3711)
+- [Improve] Support extract topic from SeaTunnelRow fields [3742](https://github.com/apache/incubator-seatunnel/pull/3742)
 - [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/incubator-seatunnel/pull/3719)
+

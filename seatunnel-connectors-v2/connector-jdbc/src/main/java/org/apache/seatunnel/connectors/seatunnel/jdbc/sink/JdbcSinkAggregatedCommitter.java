@@ -34,17 +34,15 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class JdbcSinkAggregatedCommitter
-    implements SinkAggregatedCommitter<XidInfo, JdbcAggregatedCommitInfo> {
+        implements SinkAggregatedCommitter<XidInfo, JdbcAggregatedCommitInfo> {
 
     private final XaFacade xaFacade;
     private final XaGroupOps xaGroupOps;
     private final JdbcSinkOptions jdbcSinkOptions;
 
-    public JdbcSinkAggregatedCommitter(
-        JdbcSinkOptions jdbcSinkOptions
-    ) {
-        this.xaFacade = XaFacade.fromJdbcConnectionOptions(
-            jdbcSinkOptions.getJdbcConnectionOptions());
+    public JdbcSinkAggregatedCommitter(JdbcSinkOptions jdbcSinkOptions) {
+        this.xaFacade =
+                XaFacade.fromJdbcConnectionOptions(jdbcSinkOptions.getJdbcConnectionOptions());
         this.xaGroupOps = new XaGroupOpsImpl(xaFacade);
         this.jdbcSinkOptions = jdbcSinkOptions;
     }
@@ -54,18 +52,32 @@ public class JdbcSinkAggregatedCommitter
             try {
                 xaFacade.open();
             } catch (Exception e) {
-                new JdbcConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, "unable to open JDBC sink aggregated committer", e);
+                throw new JdbcConnectorException(
+                        CommonErrorCode.WRITER_OPERATION_FAILED,
+                        "unable to open JDBC sink aggregated committer",
+                        e);
             }
         }
     }
 
     @Override
-    public List<JdbcAggregatedCommitInfo> commit(List<JdbcAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
+    public List<JdbcAggregatedCommitInfo> commit(
+            List<JdbcAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
         tryOpen();
-        return aggregatedCommitInfos.stream().map(aggregatedCommitInfo -> {
-            GroupXaOperationResult<XidInfo> result = xaGroupOps.commit(new ArrayList<>(aggregatedCommitInfo.getXidInfoList()), false, jdbcSinkOptions.getJdbcConnectionOptions().getMaxCommitAttempts());
-            return new JdbcAggregatedCommitInfo(result.getForRetry());
-        }).filter(ainfo -> !ainfo.getXidInfoList().isEmpty()).collect(Collectors.toList());
+        return aggregatedCommitInfos.stream()
+                .map(
+                        aggregatedCommitInfo -> {
+                            GroupXaOperationResult<XidInfo> result =
+                                    xaGroupOps.commit(
+                                            new ArrayList<>(aggregatedCommitInfo.getXidInfoList()),
+                                            false,
+                                            jdbcSinkOptions
+                                                    .getJdbcConnectionOptions()
+                                                    .getMaxCommitAttempts());
+                            return new JdbcAggregatedCommitInfo(result.getForRetry());
+                        })
+                .filter(ainfo -> !ainfo.getXidInfoList().isEmpty())
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -82,14 +94,16 @@ public class JdbcSinkAggregatedCommitter
     }
 
     @Override
-    public void close()
-        throws IOException {
+    public void close() throws IOException {
         try {
             if (xaFacade.isOpen()) {
                 xaFacade.close();
             }
         } catch (Exception e) {
-            new JdbcConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, "unable to close JDBC sink aggregated committer", e);
+            throw new JdbcConnectorException(
+                    CommonErrorCode.WRITER_OPERATION_FAILED,
+                    "unable to close JDBC sink aggregated committer",
+                    e);
         }
     }
 }

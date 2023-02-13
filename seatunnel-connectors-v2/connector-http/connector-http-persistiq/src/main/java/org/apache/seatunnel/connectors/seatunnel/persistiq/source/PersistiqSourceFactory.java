@@ -33,8 +33,6 @@ public class PersistiqSourceFactory extends HttpSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return getHttpBuilder()
-                .required(PersistiqSourceConfig.PASSWORD)
-                .build();
+        return getHttpBuilder().required(PersistiqSourceConfig.PASSWORD).build();
     }
 }

@@ -28,8 +28,15 @@ import java.io.IOException;
 
 public class FakeIT extends TestSuiteBase {
     @TestTemplate
-    public void testFakeConnector(TestContainer container) throws IOException, InterruptedException {
+    public void testFakeConnector(TestContainer container)
+            throws IOException, InterruptedException {
         Container.ExecResult textWriteResult = container.executeJob("/fake_to_assert.conf");
         Assertions.assertEquals(0, textWriteResult.getExitCode());
+        Container.ExecResult fakeWithRange =
+                container.executeJob("/fake_to_assert_with_range.conf");
+        Assertions.assertEquals(0, fakeWithRange.getExitCode());
+        Container.ExecResult fakeWithTemplate =
+                container.executeJob("/fake_to_assert_with_template.conf");
+        Assertions.assertEquals(0, fakeWithTemplate.getExitCode());
     }
 }

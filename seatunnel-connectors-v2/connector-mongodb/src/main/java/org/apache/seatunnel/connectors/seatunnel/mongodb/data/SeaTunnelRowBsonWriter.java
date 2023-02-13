@@ -25,8 +25,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.exception.MongodbConnectorException;
 
-import lombok.Getter;
-import lombok.SneakyThrows;
 import org.bson.AbstractBsonWriter;
 import org.bson.BsonBinary;
 import org.bson.BsonContextType;
@@ -36,6 +34,9 @@ import org.bson.BsonTimestamp;
 import org.bson.BsonWriterSettings;
 import org.bson.types.Decimal128;
 import org.bson.types.ObjectId;
+
+import lombok.Getter;
+import lombok.SneakyThrows;
 
 import java.lang.reflect.Array;
 import java.time.LocalDate;
@@ -52,8 +53,7 @@ public class SeaTunnelRowBsonWriter extends AbstractBsonWriter {
     private final SeaTunnelRowType rowType;
     private final SeaTunnelRow row;
 
-    public SeaTunnelRowBsonWriter(SeaTunnelRowType rowType,
-                                  SeaTunnelRow row) {
+    public SeaTunnelRowBsonWriter(SeaTunnelRowType rowType, SeaTunnelRow row) {
         super(new BsonWriterSettings());
         this.rowType = rowType;
         this.row = row;
@@ -67,7 +67,10 @@ public class SeaTunnelRowBsonWriter extends AbstractBsonWriter {
 
     @Override
     protected void doWriteStartDocument() {
-        BsonContextType contextType = (getState() == State.SCOPE_DOCUMENT) ? BsonContextType.SCOPE_DOCUMENT : BsonContextType.DOCUMENT;
+        BsonContextType contextType =
+                (getState() == State.SCOPE_DOCUMENT)
+                        ? BsonContextType.SCOPE_DOCUMENT
+                        : BsonContextType.DOCUMENT;
         if (BsonContextType.TOP_LEVEL == getContext().getContextType()) {
             setContext(new SeaTunnelContext(getContext(), contextType, rowType, row));
         } else {
@@ -101,7 +104,8 @@ public class SeaTunnelRowBsonWriter extends AbstractBsonWriter {
         ArrayType dataType = (ArrayType) parentDataType.getFieldType(index);
         List dataContainer = (List) createDataContainer(dataType);
 
-        setContext(new SeaTunnelContext(getContext(), BsonContextType.ARRAY, dataType, dataContainer));
+        setContext(
+                new SeaTunnelContext(getContext(), BsonContextType.ARRAY, dataType, dataContainer));
     }
 
     @SneakyThrows
@@ -112,7 +116,8 @@ public class SeaTunnelRowBsonWriter extends AbstractBsonWriter {
         setContext(childContext.getParentContext());
 
         List dataContainer = (List) childContext.getDataContainer();
-        Object[] arrayType = (Object[]) Array.newInstance(dataType.getElementType().getTypeClass(), 0);
+        Object[] arrayType =
+                (Object[]) Array.newInstance(dataType.getElementType().getTypeClass(), 0);
         getContext().write(getName(), dataContainer.toArray(arrayType));
     }
 
@@ -200,64 +205,57 @@ public class SeaTunnelRowBsonWriter extends AbstractBsonWriter {
         SeaTunnelDataType<?> fieldType = getSeaTunnelDataType();
         switch (fieldType.getSqlType()) {
             case DATE:
-                LocalDate localDate = new Date(value)
-                    .toInstant()
-                    .atZone(ZoneOffset.UTC)
-                    .toLocalDate();
+                LocalDate localDate =
+                        new Date(value).toInstant().atZone(ZoneOffset.UTC).toLocalDate();
                 getContext().write(getName(), localDate);
                 break;
             case TIMESTAMP:
             default:
-                LocalDateTime localDateTime = new Date(value)
-                    .toInstant()
-                    .atZone(ZoneOffset.UTC)
-                    .toLocalDateTime();
+                LocalDateTime localDateTime =
+                        new Date(value).toInstant().atZone(ZoneOffset.UTC).toLocalDateTime();
                 getContext().write(getName(), localDateTime);
         }
     }
 
     @Override
     protected void doWriteTimestamp(BsonTimestamp value) {
-        LocalDateTime localDateTime = new Date(value.getValue())
-            .toInstant()
-            .atZone(ZoneOffset.UTC)
-            .toLocalDateTime();
+        LocalDateTime localDateTime =
+                new Date(value.getValue()).toInstant().atZone(ZoneOffset.UTC).toLocalDateTime();
         getContext().write(getName(), localDateTime);
     }
 
     @Override
     protected void doWriteJavaScriptWithScope(String value) {
-        throw new MongodbConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
-            "Unsupported JavaScriptWithScope");
+        throw new MongodbConnectorException(
+                CommonErrorCode.UNSUPPORTED_OPERATION, "Unsupported JavaScriptWithScope");
     }
 
     @Override
     protected void doWriteMaxKey() {
-        throw new MongodbConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
-            "Unsupported MaxKey");
+        throw new MongodbConnectorException(
+                CommonErrorCode.UNSUPPORTED_OPERATION, "Unsupported MaxKey");
     }
 
     @Override
     protected void doWriteMinKey() {
-        throw new MongodbConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
-            "Unsupported MinKey");
+        throw new MongodbConnectorException(
+                CommonErrorCode.UNSUPPORTED_OPERATION, "Unsupported MinKey");
     }
 
     @Override
     protected void doWriteRegularExpression(BsonRegularExpression value) {
-        throw new MongodbConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
-            "Unsupported BsonRegularExpression");
+        throw new MongodbConnectorException(
+                CommonErrorCode.UNSUPPORTED_OPERATION, "Unsupported BsonRegularExpression");
     }
 
     @Override
     protected void doWriteDBPointer(BsonDbPointer value) {
-        throw new MongodbConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
-            "Unsupported BsonDbPointer");
+        throw new MongodbConnectorException(
+                CommonErrorCode.UNSUPPORTED_OPERATION, "Unsupported BsonDbPointer");
     }
 
     @Override
-    public void flush() {
-    }
+    public void flush() {}
 
     private SeaTunnelDataType getSeaTunnelDataType() {
         SeaTunnelDataType dataType = getContext().getDataType();
@@ -298,10 +296,11 @@ public class SeaTunnelRowBsonWriter extends AbstractBsonWriter {
             this(null, contextType, null, null);
         }
 
-        public SeaTunnelContext(final SeaTunnelContext parentContext,
-                                final BsonContextType contextType,
-                                final SeaTunnelDataType dataType,
-                                final Object dataContainer) {
+        public SeaTunnelContext(
+                final SeaTunnelContext parentContext,
+                final BsonContextType contextType,
+                final SeaTunnelDataType dataType,
+                final Object dataContainer) {
             super(parentContext, contextType);
             this.dataType = dataType;
             this.dataContainer = dataContainer;

@@ -23,9 +23,13 @@ public enum KafkaConnectorErrorCode implements SeaTunnelErrorCode {
     VERSION_INCOMPATIBLE("KAFKA-01", "Incompatible KafkaProducer version"),
     GET_TRANSACTIONMANAGER_FAILED("KAFKA-02", "Get transactionManager in KafkaProducer failed"),
     ADD_SPLIT_CHECKPOINT_FAILED("KAFKA-03", "Add the split checkpoint state to reader failed"),
-    ADD_SPLIT_BACK_TO_ENUMERATOR_FAILED("KAFKA-04", "Add a split back to the split enumerator failed,it will only happen when a SourceReader failed"),
-    CONSUME_THREAD_RUN_ERROR("KAFKA-05", "Error occurred when the kafka consumer thread was running"),
-    CONSUME_DATA_FAILED("KAFKA-06", "Kafka failed to consume data");
+    ADD_SPLIT_BACK_TO_ENUMERATOR_FAILED(
+            "KAFKA-04",
+            "Add a split back to the split enumerator failed,it will only happen when a SourceReader failed"),
+    CONSUME_THREAD_RUN_ERROR(
+            "KAFKA-05", "Error occurred when the kafka consumer thread was running"),
+    CONSUME_DATA_FAILED("KAFKA-06", "Kafka failed to consume data"),
+    CONSUMER_CLOSE_FAILED("KAFKA-07", "Kafka failed to close consumer");
 
     private final String code;
     private final String description;

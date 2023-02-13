@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.engine.server.checkpoint.operation;
 
-import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow;
-
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
@@ -35,6 +33,8 @@ import lombok.NoArgsConstructor;
 
 import java.io.IOException;
 
+import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow;
+
 @Getter
 @NoArgsConstructor
 public class CheckpointFinishedOperation extends TaskOperation {
@@ -43,7 +43,8 @@ public class CheckpointFinishedOperation extends TaskOperation {
 
     private boolean successful;
 
-    public CheckpointFinishedOperation(TaskLocation taskLocation, long checkpointId, boolean successful) {
+    public CheckpointFinishedOperation(
+            TaskLocation taskLocation, long checkpointId, boolean successful) {
         super(taskLocation);
         this.checkpointId = checkpointId;
         this.successful = successful;
@@ -76,24 +77,32 @@ public class CheckpointFinishedOperation extends TaskOperation {
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        RetryUtils.retryWithException(() -> {
-            try {
-                TaskGroupContext groupContext = server.getTaskExecutionService().getExecutionContext(taskLocation.getTaskGroupLocation());
-                Task task = groupContext.getTaskGroup().getTask(taskLocation.getTaskID());
-                ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-                Thread.currentThread().setContextClassLoader(groupContext.getClassLoader());
-                if (successful) {
-                    task.notifyCheckpointComplete(checkpointId);
-                } else {
-                    task.notifyCheckpointAborted(checkpointId);
-                }
-                Thread.currentThread().setContextClassLoader(classLoader);
-            } catch (Exception e) {
-                sneakyThrow(e);
-            }
-            return null;
-        }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-            exception -> exception instanceof NullPointerException &&
-                !server.taskIsEnded(taskLocation.getTaskGroupLocation()), Constant.OPERATION_RETRY_SLEEP));
+        RetryUtils.retryWithException(
+                () -> {
+                    try {
+                        TaskGroupContext groupContext =
+                                server.getTaskExecutionService()
+                                        .getExecutionContext(taskLocation.getTaskGroupLocation());
+                        Task task = groupContext.getTaskGroup().getTask(taskLocation.getTaskID());
+                        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+                        Thread.currentThread().setContextClassLoader(groupContext.getClassLoader());
+                        if (successful) {
+                            task.notifyCheckpointComplete(checkpointId);
+                        } else {
+                            task.notifyCheckpointAborted(checkpointId);
+                        }
+                        Thread.currentThread().setContextClassLoader(classLoader);
+                    } catch (Exception e) {
+                        sneakyThrow(e);
+                    }
+                    return null;
+                },
+                new RetryUtils.RetryMaterial(
+                        Constant.OPERATION_RETRY_TIME,
+                        false,
+                        exception ->
+                                exception instanceof NullPointerException
+                                        && !server.taskIsEnded(taskLocation.getTaskGroupLocation()),
+                        Constant.OPERATION_RETRY_SLEEP));
     }
 }

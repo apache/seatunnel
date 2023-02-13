@@ -28,7 +28,8 @@ public class DateTimeInjectFunction implements ClickhouseFieldInjectFunction {
     private static final Pattern PATTERN = Pattern.compile("(DateTime.*)");
 
     @Override
-    public void injectFields(PreparedStatement statement, int index, Object value) throws SQLException {
+    public void injectFields(PreparedStatement statement, int index, Object value)
+            throws SQLException {
         if (value instanceof Timestamp) {
             statement.setTimestamp(index, (Timestamp) value);
         } else if (value instanceof LocalDateTime) {

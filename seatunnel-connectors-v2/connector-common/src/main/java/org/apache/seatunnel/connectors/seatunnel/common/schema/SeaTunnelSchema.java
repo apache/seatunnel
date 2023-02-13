@@ -17,6 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.common.schema;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.JsonNodeType;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.table.type.ArrayType;
@@ -32,20 +38,17 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.utils.JsonUtils;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.JsonNodeType;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-
 import java.io.Serializable;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class SeaTunnelSchema implements Serializable {
 
-    public static final Option<Schema> SCHEMA = Options.key("schema").objectType(Schema.class).noDefaultValue().withDescription("SeaTunnel Schema");
+    public static final Option<Schema> SCHEMA =
+            Options.key("schema")
+                    .objectType(Schema.class)
+                    .noDefaultValue()
+                    .withDescription("SeaTunnel Schema");
     private static final String FIELD_KEY = "fields";
     private static final String SIMPLE_SCHEMA_FILED = "content";
     private final SeaTunnelRowType seaTunnelRowType;
@@ -57,11 +60,12 @@ public class SeaTunnelSchema implements Serializable {
     private static String[] parseMapGeneric(String type) {
         int start = type.indexOf("<");
         int end = type.lastIndexOf(">");
-        String genericType = type
-                // get the content between '<' and '>'
-                .substring(start + 1, end)
-                // replace the space between key and value
-                .replace(" ", "");
+        String genericType =
+                type
+                        // get the content between '<' and '>'
+                        .substring(start + 1, end)
+                        // replace the space between key and value
+                        .replace(" ", "");
         int index;
         if (genericType.startsWith(SqlType.DECIMAL.name())) {
             // if map key is decimal, we should find the index of second ','
@@ -73,7 +77,7 @@ public class SeaTunnelSchema implements Serializable {
         }
         String keyGenericType = genericType.substring(0, index);
         String valueGenericType = genericType.substring(index + 1);
-        return new String[]{keyGenericType, valueGenericType};
+        return new String[] {keyGenericType, valueGenericType};
     }
 
     private static String parseArrayGeneric(String type) {
@@ -89,18 +93,20 @@ public class SeaTunnelSchema implements Serializable {
     private static int[] parseDecimalPS(String type) {
         int start = type.indexOf("(");
         int end = type.lastIndexOf(")");
-        String decimalInfo = type
-                // get the content between '(' and ')'
-                .substring(start + 1, end)
-                // replace the space between precision and scale
-                .replace(" ", "");
+        String decimalInfo =
+                type
+                        // get the content between '(' and ')'
+                        .substring(start + 1, end)
+                        // replace the space between precision and scale
+                        .replace(" ", "");
         String[] split = decimalInfo.split(",");
         if (split.length < 2) {
-            throw new RuntimeException("Decimal type should assign precision and scale information");
+            throw new RuntimeException(
+                    "Decimal type should assign precision and scale information");
         }
         int precision = Integer.parseInt(split[0]);
         int scale = Integer.parseInt(split[1]);
-        return new int[]{precision, scale};
+        return new int[] {precision, scale};
     }
 
     private static SeaTunnelDataType<?> parseTypeByString(String type) {
@@ -144,13 +150,16 @@ public class SeaTunnelSchema implements Serializable {
         try {
             sqlType = SqlType.valueOf(type);
         } catch (IllegalArgumentException e) {
-            String errorMsg = String.format("Field type not support [%s], currently only support [array, map, string, boolean, tinyint, smallint, int, bigint, float, double, decimal, null, bytes, date, time, timestamp]", type.toUpperCase());
+            String errorMsg =
+                    String.format(
+                            "Field type not support [%s], currently only support [array, map, string, boolean, tinyint, smallint, int, bigint, float, double, decimal, null, bytes, date, time, timestamp]",
+                            type.toUpperCase());
             throw new RuntimeException(errorMsg);
         }
         switch (sqlType) {
             case ARRAY:
                 SeaTunnelDataType<?> dataType = parseTypeByString(genericType);
-                switch(dataType.getSqlType()) {
+                switch (dataType.getSqlType()) {
                     case STRING:
                         return ArrayType.STRING_ARRAY_TYPE;
                     case BOOLEAN:
@@ -168,11 +177,15 @@ public class SeaTunnelSchema implements Serializable {
                     case DOUBLE:
                         return ArrayType.DOUBLE_ARRAY_TYPE;
                     default:
-                        String errorMsg = String.format("Array type not support this genericType [%s]", genericType);
+                        String errorMsg =
+                                String.format(
+                                        "Array type not support this genericType [%s]",
+                                        genericType);
                         throw new UnsupportedOperationException(errorMsg);
                 }
             case MAP:
-                return new MapType<>(parseTypeByString(keyGenericType), parseTypeByString(valueGenericType));
+                return new MapType<>(
+                        parseTypeByString(keyGenericType), parseTypeByString(valueGenericType));
             case STRING:
                 return BasicType.STRING_TYPE;
             case BOOLEAN:
@@ -217,15 +230,18 @@ public class SeaTunnelSchema implements Serializable {
     private static Map<String, String> convertJsonToMap(String json) {
         ObjectNode jsonNodes = JsonUtils.parseObject(json);
         LinkedHashMap<String, String> fieldsMap = new LinkedHashMap<>();
-        jsonNodes.fields().forEachRemaining(field -> {
-            String key = field.getKey();
-            JsonNode value = field.getValue();
-            if (value.getNodeType() == JsonNodeType.OBJECT) {
-                fieldsMap.put(key, value.toString());
-            } else {
-                fieldsMap.put(key, value.textValue());
-            }
-        });
+        jsonNodes
+                .fields()
+                .forEachRemaining(
+                        field -> {
+                            String key = field.getKey();
+                            JsonNode value = field.getValue();
+                            if (value.getNodeType() == JsonNodeType.OBJECT) {
+                                fieldsMap.put(key, value.toString());
+                            } else {
+                                fieldsMap.put(key, value.textValue());
+                            }
+                        });
         return fieldsMap;
     }
 
@@ -248,7 +264,10 @@ public class SeaTunnelSchema implements Serializable {
     public static SeaTunnelSchema buildWithConfig(Config schemaConfig) {
         CheckResult checkResult = CheckConfigUtil.checkAllExists(schemaConfig, FIELD_KEY);
         if (!checkResult.isSuccess()) {
-            String errorMsg = String.format("Schema config need option [%s], please correct your config first", FIELD_KEY);
+            String errorMsg =
+                    String.format(
+                            "Schema config need option [%s], please correct your config first",
+                            FIELD_KEY);
             throw new RuntimeException(errorMsg);
         }
         Config fields = schemaConfig.getConfig(FIELD_KEY);
@@ -257,7 +276,9 @@ public class SeaTunnelSchema implements Serializable {
     }
 
     public static SeaTunnelRowType buildSimpleTextSchema() {
-        return new SeaTunnelRowType(new String[]{SIMPLE_SCHEMA_FILED}, new SeaTunnelDataType<?>[]{BasicType.STRING_TYPE});
+        return new SeaTunnelRowType(
+                new String[] {SIMPLE_SCHEMA_FILED},
+                new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
     }
 
     public SeaTunnelRowType getSeaTunnelRowType() {

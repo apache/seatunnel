@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.task.operation.source;
 
 import org.apache.seatunnel.common.utils.RetryUtils;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -36,8 +37,7 @@ public class SourceNoMoreElementOperation extends Operation implements Identifie
     private TaskLocation currentTaskID;
     private TaskLocation enumeratorTaskID;
 
-    public SourceNoMoreElementOperation() {
-    }
+    public SourceNoMoreElementOperation() {}
 
     public SourceNoMoreElementOperation(TaskLocation currentTaskID, TaskLocation enumeratorTaskID) {
         this.currentTaskID = currentTaskID;
@@ -47,14 +47,21 @@ public class SourceNoMoreElementOperation extends Operation implements Identifie
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        RetryUtils.retryWithException(() -> {
-            SourceSplitEnumeratorTask<?> task =
-                server.getTaskExecutionService().getTask(enumeratorTaskID);
-            task.readerFinished(currentTaskID.getTaskID());
-            return null;
-        }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-            exception -> exception instanceof NullPointerException &&
-                !server.taskIsEnded(enumeratorTaskID.getTaskGroupLocation()), Constant.OPERATION_RETRY_SLEEP));
+        RetryUtils.retryWithException(
+                () -> {
+                    SourceSplitEnumeratorTask<?> task =
+                            server.getTaskExecutionService().getTask(enumeratorTaskID);
+                    task.readerFinished(currentTaskID.getTaskID());
+                    return null;
+                },
+                new RetryUtils.RetryMaterial(
+                        Constant.OPERATION_RETRY_TIME,
+                        true,
+                        exception ->
+                                exception instanceof SeaTunnelException
+                                        && !server.taskIsEnded(
+                                                enumeratorTaskID.getTaskGroupLocation()),
+                        Constant.OPERATION_RETRY_SLEEP));
     }
 
     @Override

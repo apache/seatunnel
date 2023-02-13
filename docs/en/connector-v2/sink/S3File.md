@@ -31,28 +31,29 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-| name                              | type    | required | default value                                         | remarks                                                                                                |
-|-----------------------------------|---------|----------|-------------------------------------------------------|--------------------------------------------------------------------------------------------------------|
-| path                              | string  | yes      | -                                                     |                                                                                                        |
-| bucket                            | string  | yes      | -                                                     |                                                                                                        |
-| fs.s3a.endpoint                   | string  | yes      | -                                                     |                                                                                                        |
-| fs.s3a.aws.credentials.provider   | string  | yes      | com.amazonaws.auth.InstanceProfileCredentialsProvider |                                                                                                        |
-| access_key                        | string  | no       | -                                                     | Only used when fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider |
-| access_secret                     | string  | no       | -                                                     | Only used when fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider |
-| custom_filename                   | boolean | no       | false                                                 | Whether you need custom the filename                                                                   |
-| file_name_expression              | string  | no       | "${transactionId}"                                    | Only used when custom_filename is true                                                                 |
-| filename_time_format              | string  | no       | "yyyy.MM.dd"                                          | Only used when custom_filename is true                                                                 |
-| file_format                       | string  | no       | "csv"                                                 |                                                                                                        |
-| field_delimiter                   | string  | no       | '\001'                                                | Only used when file_format is text                                                                     |
-| row_delimiter                     | string  | no       | "\n"                                                  | Only used when file_format is text                                                                     |
-| have_partition                    | boolean | no       | false                                                 | Whether you need processing partitions.                                                                |
-| partition_by                      | array   | no       | -                                                     | Only used then have_partition is true                                                                  |
-| partition_dir_expression          | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/"            | Only used then have_partition is true                                                                  |
-| is_partition_field_write_in_file  | boolean | no       | false                                                 | Only used then have_partition is true                                                                  |
-| sink_columns                      | array   | no       |                                                       | When this parameter is empty, all fields are sink columns                                              |
-| is_enable_transaction             | boolean | no       | true                                                  |                                                                                                        |
-| batch_size                        | int     | no       | 1000000                                               |                                                                                                        |
-| common-options                    | object  | no       | -                                                     |                                                                                                        |
+|               name               |  type   | required |                     default value                     |                                                remarks                                                 |
+|----------------------------------|---------|----------|-------------------------------------------------------|--------------------------------------------------------------------------------------------------------|
+| path                             | string  | yes      | -                                                     |                                                                                                        |
+| bucket                           | string  | yes      | -                                                     |                                                                                                        |
+| fs.s3a.endpoint                  | string  | yes      | -                                                     |                                                                                                        |
+| fs.s3a.aws.credentials.provider  | string  | yes      | com.amazonaws.auth.InstanceProfileCredentialsProvider |                                                                                                        |
+| access_key                       | string  | no       | -                                                     | Only used when fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider |
+| access_secret                    | string  | no       | -                                                     | Only used when fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider |
+| custom_filename                  | boolean | no       | false                                                 | Whether you need custom the filename                                                                   |
+| file_name_expression             | string  | no       | "${transactionId}"                                    | Only used when custom_filename is true                                                                 |
+| filename_time_format             | string  | no       | "yyyy.MM.dd"                                          | Only used when custom_filename is true                                                                 |
+| file_format                      | string  | no       | "csv"                                                 |                                                                                                        |
+| field_delimiter                  | string  | no       | '\001'                                                | Only used when file_format is text                                                                     |
+| row_delimiter                    | string  | no       | "\n"                                                  | Only used when file_format is text                                                                     |
+| have_partition                   | boolean | no       | false                                                 | Whether you need processing partitions.                                                                |
+| partition_by                     | array   | no       | -                                                     | Only used then have_partition is true                                                                  |
+| partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/"            | Only used then have_partition is true                                                                  |
+| is_partition_field_write_in_file | boolean | no       | false                                                 | Only used then have_partition is true                                                                  |
+| sink_columns                     | array   | no       |                                                       | When this parameter is empty, all fields are sink columns                                              |
+| is_enable_transaction            | boolean | no       | true                                                  |                                                                                                        |
+| batch_size                       | int     | no       | 1000000                                               |                                                                                                        |
+| compress_codec                   | string  | no       | none                                                  |                                                                                                        |
+| common-options                   | object  | no       | -                                                     |                                                                                                        |
 
 ### path [string]
 
@@ -63,9 +64,11 @@ The target dir path is required.
 The bucket address of s3 file system, for example: `s3n://seatunnel-test`, if you use `s3a` protocol, this parameter should be `s3a://seatunnel-test`.
 
 ### fs.s3a.endpoint [string]
+
 fs s3a endpoint
 
 ### fs.s3a.aws.credentials.provider [string]
+
 The way to authenticate s3a. We only support `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` and `com.amazonaws.auth.InstanceProfileCredentialsProvider` now.
 
 More information about the credential provider you can see [Hadoop AWS Document](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html#Simple_name.2Fsecret_credentials_with_SimpleAWSCredentialsProvider.2A)
@@ -81,14 +84,16 @@ The access secret of s3 file system. If this parameter is not set, please confir
 ### hadoop_s3_properties [map]
 
 If you need to add a other option, you could add it here and refer to this [link](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)
+
 ```
-     hadoop_s3_properties {
-           "fs.s3a.buffer.dir" = "/data/st_test/s3a"
-           "fs.s3a.fast.upload.buffer" = "disk"
-        }
+hadoop_s3_properties {
+      "fs.s3a.buffer.dir" = "/data/st_test/s3a"
+      "fs.s3a.fast.upload.buffer" = "disk"
+   }
 ```
 
 ### custom_filename [boolean]
+
 Whether custom the filename
 
 ### file_name_expression [string]
@@ -106,8 +111,8 @@ Only used when `custom_filename` is `true`
 
 When the format in the `file_name_expression` parameter is `xxxx-${now}` , `filename_time_format` can specify the time format of the path, and the default value is `yyyy.MM.dd` . The commonly used time formats are listed as follows:
 
-| Symbol | Description        |
-| ------ | ------------------ |
+| Symbol |    Description     |
+|--------|--------------------|
 | y      | Year               |
 | M      | Month              |
 | d      | Day of month       |
@@ -173,6 +178,16 @@ Only support `true` now.
 ### batch_size [int]
 
 The maximum number of rows in a file. For SeaTunnel Engine, the number of lines in the file is determined by `batch_size` and `checkpoint.interval` jointly decide. If the value of `checkpoint.interval` is large enough, sink writer will write rows in a file until the rows in the file larger than `batch_size`. If `checkpoint.interval` is small, the sink writer will create a new file when a new checkpoint trigger.
+
+### compress_codec [string]
+
+The compress codec of files and the details that supported as the following shown:
+
+- txt: `lzo` `none`
+- json: `lzo` `none`
+- csv: `lzo` `none`
+- orc: `lzo` `snappy` `lz4` `zlib` `none`
+- parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`
 
 ### common options
 
@@ -254,7 +269,8 @@ For orc file format simple config with `org.apache.hadoop.fs.s3a.SimpleAWSCreden
 
 - Add S3File Sink Connector
 
-### Next version
+### 2.3.0 2022-12-30
+
 - [BugFix] Fixed the following bugs that failed to write data to files ([3258](https://github.com/apache/incubator-seatunnel/pull/3258))
   - When field from upstream is null it will throw NullPointerException
   - Sink columns mapping failed
@@ -265,3 +281,8 @@ For orc file format simple config with `org.apache.hadoop.fs.s3a.SimpleAWSCreden
   - Decouple hadoop-aws dependencies
 - [Improve] Support setting batch size for every file ([3625](https://github.com/apache/incubator-seatunnel/pull/3625))
 - [Feature]Set S3 AK to optional ([3688](https://github.com/apache/incubator-seatunnel/pull/))
+
+### Next version
+
+- ​	[Improve] Support file compress ([3899](https://github.com/apache/incubator-seatunnel/pull/3899))
+

@@ -35,11 +35,13 @@ public enum ClickhouseFileCopyMethod {
     }
 
     public static ClickhouseFileCopyMethod from(String name) {
-        for (ClickhouseFileCopyMethod clickhouseFileCopyMethod : ClickhouseFileCopyMethod.values()) {
+        for (ClickhouseFileCopyMethod clickhouseFileCopyMethod :
+                ClickhouseFileCopyMethod.values()) {
             if (clickhouseFileCopyMethod.getName().equalsIgnoreCase(name)) {
                 return clickhouseFileCopyMethod;
             }
         }
-        throw new ClickhouseConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, "Unknown ClickhouseFileCopyMethod: " + name);
+        throw new ClickhouseConnectorException(
+                CommonErrorCode.ILLEGAL_ARGUMENT, "Unknown ClickhouseFileCopyMethod: " + name);
     }
 }

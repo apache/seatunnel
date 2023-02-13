@@ -35,35 +35,86 @@ import java.util.stream.Collectors;
 
 public class DAGUtils {
 
-    public static JobDAGInfo getJobDAGInfo(LogicalDag logicalDag, JobImmutableInformation jobImmutableInformation, boolean isPhysicalDAGIInfo) {
-        List<Pipeline> pipelines = new ExecutionPlanGenerator(logicalDag, jobImmutableInformation).generate().getPipelines();
+    public static JobDAGInfo getJobDAGInfo(
+            LogicalDag logicalDag,
+            JobImmutableInformation jobImmutableInformation,
+            boolean isPhysicalDAGIInfo) {
+        List<Pipeline> pipelines =
+                new ExecutionPlanGenerator(logicalDag, jobImmutableInformation)
+                        .generate()
+                        .getPipelines();
         if (isPhysicalDAGIInfo) {
             // Generate ExecutePlan DAG
             Map<Integer, List<Edge>> pipelineWithEdges = new HashMap<>();
             Map<Long, VertexInfo> vertexInfoMap = new HashMap<>();
-            pipelines.forEach(pipeline -> {
-                pipelineWithEdges.put(pipeline.getId(), pipeline.getEdges().stream()
-                    .map(e -> new Edge(e.getLeftVertexId(), e.getRightVertexId())).collect(Collectors.toList()));
-                pipeline.getVertexes().forEach((id, vertex) -> {
-                    vertexInfoMap.put(id, new VertexInfo(vertex.getVertexId(), ActionUtils.getActionType(vertex.getAction()), vertex.getAction().getName()));
-                });
-            });
-            return new JobDAGInfo(jobImmutableInformation.getJobId(), pipelineWithEdges, vertexInfoMap);
+            pipelines.forEach(
+                    pipeline -> {
+                        pipelineWithEdges.put(
+                                pipeline.getId(),
+                                pipeline.getEdges().stream()
+                                        .map(
+                                                e ->
+                                                        new Edge(
+                                                                e.getLeftVertexId(),
+                                                                e.getRightVertexId()))
+                                        .collect(Collectors.toList()));
+                        pipeline.getVertexes()
+                                .forEach(
+                                        (id, vertex) -> {
+                                            vertexInfoMap.put(
+                                                    id,
+                                                    new VertexInfo(
+                                                            vertex.getVertexId(),
+                                                            ActionUtils.getActionType(
+                                                                    vertex.getAction()),
+                                                            vertex.getAction().getName()));
+                                        });
+                    });
+            return new JobDAGInfo(
+                    jobImmutableInformation.getJobId(), pipelineWithEdges, vertexInfoMap);
         } else {
             // Generate LogicalPlan DAG
-            List<Edge> edges = logicalDag.getEdges().stream()
-                .map(e -> new Edge(e.getInputVertexId(), e.getTargetVertexId())).collect(Collectors.toList());
+            List<Edge> edges =
+                    logicalDag.getEdges().stream()
+                            .map(e -> new Edge(e.getInputVertexId(), e.getTargetVertexId()))
+                            .collect(Collectors.toList());
 
             Map<Long, LogicalVertex> logicalVertexMap = logicalDag.getLogicalVertexMap();
-            Map<Long, VertexInfo> vertexInfoMap = logicalVertexMap.values().stream().map(v -> new VertexInfo(v.getVertexId(),
-                ActionUtils.getActionType(v.getAction()), v.getAction().getName())).collect(Collectors.toMap(VertexInfo::getVertexId, Function.identity()));
+            Map<Long, VertexInfo> vertexInfoMap =
+                    logicalVertexMap.values().stream()
+                            .map(
+                                    v ->
+                                            new VertexInfo(
+                                                    v.getVertexId(),
+                                                    ActionUtils.getActionType(v.getAction()),
+                                                    v.getAction().getName()))
+                            .collect(
+                                    Collectors.toMap(VertexInfo::getVertexId, Function.identity()));
 
-            Map<Integer, List<Edge>> pipelineWithEdges = edges.stream().collect(Collectors.groupingBy(e -> {
-                LogicalVertex info = logicalVertexMap.get(e.getInputVertexId() != null ? e.getInputVertexId() : e.getTargetVertexId());
-                return pipelines.stream().filter(p -> p.getActions().containsKey(info.getAction().getId())).findFirst().get().getId();
-            }, Collectors.toList()));
-            return new JobDAGInfo(jobImmutableInformation.getJobId(), pipelineWithEdges, vertexInfoMap);
+            Map<Integer, List<Edge>> pipelineWithEdges =
+                    edges.stream()
+                            .collect(
+                                    Collectors.groupingBy(
+                                            e -> {
+                                                LogicalVertex info =
+                                                        logicalVertexMap.get(
+                                                                e.getInputVertexId() != null
+                                                                        ? e.getInputVertexId()
+                                                                        : e.getTargetVertexId());
+                                                return pipelines.stream()
+                                                        .filter(
+                                                                p ->
+                                                                        p.getActions()
+                                                                                .containsKey(
+                                                                                        info.getAction()
+                                                                                                .getId()))
+                                                        .findFirst()
+                                                        .get()
+                                                        .getId();
+                                            },
+                                            Collectors.toList()));
+            return new JobDAGInfo(
+                    jobImmutableInformation.getJobId(), pipelineWithEdges, vertexInfoMap);
         }
     }
-
 }

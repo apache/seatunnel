@@ -19,8 +19,8 @@
 package org.apache.seatunnel.engine.core.job;
 
 /**
- * An enumeration of all states that a pipeline can be in during its execution. Pipeline usually start in
- * the state {@code CREATED} and switch states according to this diagram:
+ * An enumeration of all states that a pipeline can be in during its execution. Pipeline usually
+ * start in the state {@code CREATED} and switch states according to this diagram:
  *
  * <pre>{@code
  *  CREATED  -> SCHEDULED -> DEPLOYING -> INITIALIZING -> RUNNING -> FINISHED

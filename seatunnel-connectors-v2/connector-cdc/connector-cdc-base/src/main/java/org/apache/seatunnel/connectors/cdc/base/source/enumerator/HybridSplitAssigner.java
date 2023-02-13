@@ -25,18 +25,17 @@ import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWaterm
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 
-import io.debezium.relational.TableId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import io.debezium.relational.TableId;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Assigner for Hybrid split which contains snapshot splits and incremental splits.
- */
+/** Assigner for Hybrid split which contains snapshot splits and incremental splits. */
 public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigner {
 
     private static final Logger LOG = LoggerFactory.getLogger(HybridSplitAssigner.class);
@@ -46,47 +45,39 @@ public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigne
     private final IncrementalSplitAssigner<C> incrementalSplitAssigner;
 
     public HybridSplitAssigner(
-        SplitAssigner.Context<C> context,
-        int currentParallelism,
-        int incrementalParallelism,
-        List<TableId> remainingTables,
-        boolean isTableIdCaseSensitive,
-        DataSourceDialect<C> dialect,
-        OffsetFactory offsetFactory) {
-        this(new SnapshotSplitAssigner<>(
-                context,
-                currentParallelism,
-                remainingTables,
-                isTableIdCaseSensitive,
-                dialect),
-            new IncrementalSplitAssigner<>(
-                context,
-                incrementalParallelism,
-                offsetFactory));
+            SplitAssigner.Context<C> context,
+            int currentParallelism,
+            int incrementalParallelism,
+            List<TableId> remainingTables,
+            boolean isTableIdCaseSensitive,
+            DataSourceDialect<C> dialect,
+            OffsetFactory offsetFactory) {
+        this(
+                new SnapshotSplitAssigner<>(
+                        context,
+                        currentParallelism,
+                        remainingTables,
+                        isTableIdCaseSensitive,
+                        dialect),
+                new IncrementalSplitAssigner<>(context, incrementalParallelism, offsetFactory));
     }
 
     public HybridSplitAssigner(
-        SplitAssigner.Context<C> context,
-        int currentParallelism,
-        int incrementalParallelism,
-        HybridPendingSplitsState checkpoint,
-        DataSourceDialect<C> dialect,
-        OffsetFactory offsetFactory) {
+            SplitAssigner.Context<C> context,
+            int currentParallelism,
+            int incrementalParallelism,
+            HybridPendingSplitsState checkpoint,
+            DataSourceDialect<C> dialect,
+            OffsetFactory offsetFactory) {
         this(
-            new SnapshotSplitAssigner<>(
-                context,
-                currentParallelism,
-                checkpoint.getSnapshotPhaseState(),
-                dialect),
-            new IncrementalSplitAssigner<>(
-                context,
-                incrementalParallelism,
-                offsetFactory));
+                new SnapshotSplitAssigner<>(
+                        context, currentParallelism, checkpoint.getSnapshotPhaseState(), dialect),
+                new IncrementalSplitAssigner<>(context, incrementalParallelism, offsetFactory));
     }
 
     private HybridSplitAssigner(
-        SnapshotSplitAssigner<C> snapshotSplitAssigner,
-        IncrementalSplitAssigner<C> incrementalSplitAssigner) {
+            SnapshotSplitAssigner<C> snapshotSplitAssigner,
+            IncrementalSplitAssigner<C> incrementalSplitAssigner) {
         this.snapshotSplitAssigner = snapshotSplitAssigner;
         this.incrementalSplitAssigner = incrementalSplitAssigner;
     }
@@ -145,7 +136,9 @@ public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigne
 
     @Override
     public PendingSplitsState snapshotState(long checkpointId) {
-        return new HybridPendingSplitsState(snapshotSplitAssigner.snapshotState(checkpointId), incrementalSplitAssigner.snapshotState(checkpointId));
+        return new HybridPendingSplitsState(
+                snapshotSplitAssigner.snapshotState(checkpointId),
+                incrementalSplitAssigner.snapshotState(checkpointId));
     }
 
     @Override

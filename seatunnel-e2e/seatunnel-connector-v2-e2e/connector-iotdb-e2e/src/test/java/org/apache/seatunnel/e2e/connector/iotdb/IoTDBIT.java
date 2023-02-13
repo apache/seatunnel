@@ -17,16 +17,12 @@
 
 package org.apache.seatunnel.e2e.connector.iotdb;
 
-import static org.awaitility.Awaitility.given;
-
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
-import com.google.common.collect.Lists;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.iotdb.rpc.IoTDBConnectionException;
 import org.apache.iotdb.rpc.StatementExecutionException;
 import org.apache.iotdb.session.Session;
@@ -37,6 +33,7 @@ import org.apache.iotdb.tsfile.file.metadata.enums.TSEncoding;
 import org.apache.iotdb.tsfile.read.common.Field;
 import org.apache.iotdb.tsfile.read.common.RowRecord;
 import org.apache.iotdb.tsfile.utils.Binary;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -47,6 +44,9 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.google.common.collect.Lists;
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -56,9 +56,14 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.awaitility.Awaitility.given;
+
 @Slf4j
-@DisabledOnContainer(value = {}, type = {EngineType.SEATUNNEL, EngineType.SPARK},
-    disabledReason = "There is a conflict of thrift version between IoTDB and Spark.Therefore. Refactor starter module, so disabled in flink")
+@DisabledOnContainer(
+        value = {},
+        type = {EngineType.SEATUNNEL, EngineType.SPARK},
+        disabledReason =
+                "There is a conflict of thrift version between IoTDB and Spark.Therefore. Refactor starter module, so disabled in flink")
 public class IoTDBIT extends TestSuiteBase implements TestResource {
 
     private static final String IOTDB_DOCKER_IMAGE = "apache/iotdb:0.13.1-node";
@@ -76,22 +81,24 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
     @BeforeAll
     @Override
     public void startUp() throws Exception {
-        iotdbServer = new GenericContainer<>(IOTDB_DOCKER_IMAGE)
-            .withNetwork(NETWORK)
-            .withNetworkAliases(IOTDB_HOST)
-            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IOTDB_DOCKER_IMAGE)));
-        iotdbServer.setPortBindings(Lists.newArrayList(
-            String.format("%s:6667", IOTDB_PORT)));
+        iotdbServer =
+                new GenericContainer<>(IOTDB_DOCKER_IMAGE)
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(IOTDB_HOST)
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(
+                                        DockerLoggerFactory.getLogger(IOTDB_DOCKER_IMAGE)));
+        iotdbServer.setPortBindings(Lists.newArrayList(String.format("%s:6667", IOTDB_PORT)));
         Startables.deepStart(Stream.of(iotdbServer)).join();
         log.info("IoTDB container started");
         // wait for IoTDB fully start
         session = createSession();
         given().ignoreExceptions()
-            .await()
-            .atLeast(100, TimeUnit.MILLISECONDS)
-            .pollInterval(500, TimeUnit.MILLISECONDS)
-            .atMost(30, TimeUnit.SECONDS)
-            .untilAsserted(() -> session.open());
+                .await()
+                .atLeast(100, TimeUnit.MILLISECONDS)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(() -> session.open());
         testDataset = generateTestDataSet();
     }
 
@@ -106,21 +113,19 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
 
     private Session createSession() {
         return new Session.Builder()
-            .host("localhost")
-            .port(IOTDB_PORT)
-            .username(IOTDB_USERNAME)
-            .password(IOTDB_PASSWORD)
-            .build();
+                .host("localhost")
+                .port(IOTDB_PORT)
+                .username(IOTDB_USERNAME)
+                .password(IOTDB_PASSWORD)
+                .build();
     }
 
-    private List<RowRecord> generateTestDataSet() throws IoTDBConnectionException, StatementExecutionException {
+    private List<RowRecord> generateTestDataSet()
+            throws IoTDBConnectionException, StatementExecutionException {
         session.setStorageGroup(SOURCE_GROUP);
         session.setStorageGroup(SINK_GROUP);
 
-        String[] deviceIds = new String[] {
-            "device_a",
-            "device_b"
-        };
+        String[] deviceIds = new String[] {"device_a", "device_b"};
         LinkedHashMap<String, TSDataType> measurements = new LinkedHashMap<>();
         measurements.put("c_string", TSDataType.TEXT);
         measurements.put("c_boolean", TSDataType.BOOLEAN);
@@ -136,10 +141,16 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
             String devicePath = String.format("%s.%s", SOURCE_GROUP, deviceId);
             ArrayList<String> measurementKeys = new ArrayList<>(measurements.keySet());
             for (String measurement : measurements.keySet()) {
-                session.createTimeseries(String.format("%s.%s", devicePath, measurement),
-                    measurements.get(measurement), TSEncoding.PLAIN, CompressionType.SNAPPY);
-                session.createTimeseries(String.format("%s.%s.%s", SINK_GROUP, deviceId, measurement),
-                    measurements.get(measurement), TSEncoding.PLAIN, CompressionType.SNAPPY);
+                session.createTimeseries(
+                        String.format("%s.%s", devicePath, measurement),
+                        measurements.get(measurement),
+                        TSEncoding.PLAIN,
+                        CompressionType.SNAPPY);
+                session.createTimeseries(
+                        String.format("%s.%s.%s", SINK_GROUP, deviceId, measurement),
+                        measurements.get(measurement),
+                        TSEncoding.PLAIN,
+                        CompressionType.SNAPPY);
             }
 
             for (int rowCount = 0; rowCount < 100; rowCount++) {
@@ -156,25 +167,35 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
                 rowRecords.add(record);
                 log.info("TestDataSet row: {}", record);
 
-                session.insertRecord(devicePath,
-                    record.getTimestamp(),
-                    measurementKeys,
-                    record.getFields().stream().map(f -> f.getDataType()).collect(Collectors.toList()),
-                    record.getFields().stream().map(f -> f.getObjectValue(f.getDataType())).collect(Collectors.toList()));
-
+                session.insertRecord(
+                        devicePath,
+                        record.getTimestamp(),
+                        measurementKeys,
+                        record.getFields().stream()
+                                .map(f -> f.getDataType())
+                                .collect(Collectors.toList()),
+                        record.getFields().stream()
+                                .map(f -> f.getObjectValue(f.getDataType()))
+                                .collect(Collectors.toList()));
             }
         }
         return rowRecords;
     }
 
-    private List<RowRecord> readSinkDataset() throws IoTDBConnectionException, StatementExecutionException {
-        SessionDataSet dataSet = session.executeQueryStatement("SELECT c_string, c_boolean, c_tinyint, c_smallint, c_int, c_bigint, c_float, c_double FROM " + SINK_GROUP + ".* align by device");
+    private List<RowRecord> readSinkDataset()
+            throws IoTDBConnectionException, StatementExecutionException {
+        SessionDataSet dataSet =
+                session.executeQueryStatement(
+                        "SELECT c_string, c_boolean, c_tinyint, c_smallint, c_int, c_bigint, c_float, c_double FROM "
+                                + SINK_GROUP
+                                + ".* align by device");
         List<RowRecord> results = new ArrayList<>();
         while (dataSet.hasNext()) {
             RowRecord record = dataSet.next();
-            List<Field> notContainDeviceField = record.getFields().stream()
-                .filter(field -> !field.getStringValue().startsWith(SINK_GROUP))
-                .collect(Collectors.toList());
+            List<Field> notContainDeviceField =
+                    record.getFields().stream()
+                            .filter(field -> !field.getStringValue().startsWith(SINK_GROUP))
+                            .collect(Collectors.toList());
             record = new RowRecord(record.getTimestamp(), notContainDeviceField);
             results.add(record);
             log.info("SinkDataset row: {}", record);
@@ -199,8 +220,8 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
                 Field testDatasetRowField = testDatasetRowFields.get(fieldIndex);
                 Field sinkDatasetRowField = sinkDatasetRowFields.get(fieldIndex);
                 Assertions.assertEquals(
-                    testDatasetRowField.getObjectValue(testDatasetRowField.getDataType()),
-                    sinkDatasetRowField.getObjectValue(sinkDatasetRowField.getDataType()));
+                        testDatasetRowField.getObjectValue(testDatasetRowField.getDataType()),
+                        sinkDatasetRowField.getObjectValue(sinkDatasetRowField.getDataType()));
             }
         }
     }

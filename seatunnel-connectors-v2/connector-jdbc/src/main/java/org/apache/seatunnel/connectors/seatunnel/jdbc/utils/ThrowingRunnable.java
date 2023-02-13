@@ -17,12 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.utils;
 
-
 /**
  * Similar to a {@link Runnable}, this interface is used to capture a block of code to be executed.
  * In contrast to {@code Runnable}, this interface allows throwing checked exceptions.
  */
-
 @FunctionalInterface
 public interface ThrowingRunnable<E extends Throwable> {
 

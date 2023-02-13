@@ -32,32 +32,33 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-public class JdbcSinkCommitter
-    implements SinkCommitter<XidInfo> {
+public class JdbcSinkCommitter implements SinkCommitter<XidInfo> {
     private final XaFacade xaFacade;
     private final XaGroupOps xaGroupOps;
     private final JdbcConnectionOptions jdbcConnectionOptions;
 
-    public JdbcSinkCommitter(
-        JdbcSinkOptions jdbcSinkOptions
-    )
-        throws IOException {
+    public JdbcSinkCommitter(JdbcSinkOptions jdbcSinkOptions) throws IOException {
         this.jdbcConnectionOptions = jdbcSinkOptions.getJdbcConnectionOptions();
-        this.xaFacade = XaFacade.fromJdbcConnectionOptions(
-            jdbcConnectionOptions);
+        this.xaFacade = XaFacade.fromJdbcConnectionOptions(jdbcConnectionOptions);
         this.xaGroupOps = new XaGroupOpsImpl(xaFacade);
         try {
             xaFacade.open();
         } catch (Exception e) {
-            new JdbcConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, "unable to open JDBC sink committer", e);
+            throw new JdbcConnectorException(
+                    CommonErrorCode.WRITER_OPERATION_FAILED,
+                    "unable to open JDBC sink committer",
+                    e);
         }
     }
 
     @Override
     public List<XidInfo> commit(List<XidInfo> committables) {
         return xaGroupOps
-            .commit(new ArrayList<>(committables), false, jdbcConnectionOptions.getMaxCommitAttempts())
-            .getForRetry();
+                .commit(
+                        new ArrayList<>(committables),
+                        false,
+                        jdbcConnectionOptions.getMaxCommitAttempts())
+                .getForRetry();
     }
 
     @Override
@@ -65,7 +66,8 @@ public class JdbcSinkCommitter
         try {
             xaGroupOps.rollback(commitInfos);
         } catch (Exception e) {
-            new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED, "rollback failed", e);
+            throw new JdbcConnectorException(
+                    JdbcConnectorErrorCode.XA_OPERATION_FAILED, "rollback failed", e);
         }
     }
 }

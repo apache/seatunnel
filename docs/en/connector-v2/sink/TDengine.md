@@ -13,20 +13,21 @@ Used to write data to TDengine. You need to create stable before running seatunn
 
 ## Options
 
-| name                       | type    | required | default value |
-|----------------------------|---------|----------|---------------|
-| url                       | string  | yes      | -             |
-| username                       | string     | yes      | -             |
-| password                  | string  | yes      | -             |
-| database                        | string  | yes      |          |
-| stable                     | string  | yes      | -             |
-| timezone                     | string  | no      | UTC            |
+|   name   |  type  | required | default value |
+|----------|--------|----------|---------------|
+| url      | string | yes      | -             |
+| username | string | yes      | -             |
+| password | string | yes      | -             |
+| database | string | yes      |               |
+| stable   | string | yes      | -             |
+| timezone | string | no       | UTC           |
 
-### url [string] 
+### url [string]
 
 the url of the TDengine when you select the TDengine
 
 e.g.
+
 ```
 jdbc:TAOS-RS://localhost:6041/
 ```
@@ -67,3 +68,4 @@ sink {
         }
 }
 ```
+

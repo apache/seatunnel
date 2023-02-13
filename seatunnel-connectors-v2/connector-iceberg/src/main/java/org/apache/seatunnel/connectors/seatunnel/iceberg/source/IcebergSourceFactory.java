@@ -17,6 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.source;
 
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+
+import com.google.auto.service.AutoService;
+
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig.KEY_CASE_SENSITIVE;
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig.KEY_CATALOG_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig.KEY_CATALOG_TYPE;
@@ -37,8 +44,6 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
-
-import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
 public class IcebergSourceFactory implements TableSourceFactory {
@@ -70,6 +75,7 @@ public class IcebergSourceFactory implements TableSourceFactory {
                 KEY_STREAM_SCAN_STRATEGY
             )
             .build();
+
     }
 
     @Override

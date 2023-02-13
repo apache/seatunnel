@@ -17,17 +17,15 @@
 
 package org.apache.seatunnel.engine.server.persistence;
 
-import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.HDFS_CONFIG_KEY;
-
+import org.apache.seatunnel.engine.common.utils.FactoryUtil;
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
-import org.apache.seatunnel.engine.imap.storage.file.IMapFileStorage;
+import org.apache.seatunnel.engine.imap.storage.api.IMapStorageFactory;
 
 import com.google.common.collect.Maps;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.map.MapLoaderLifecycleSupport;
 import com.hazelcast.map.MapStore;
 import lombok.SneakyThrows;
-import org.apache.hadoop.conf.Configuration;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -41,14 +39,14 @@ public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycl
 
     @Override
     public void init(HazelcastInstance hazelcastInstance, Properties properties, String mapName) {
-        // TODO implemented by loading the factory
-        mapStorage = new IMapFileStorage();
-        Map<String, Object> initMap = new HashMap<>(Maps.fromProperties(properties));
-        Configuration configuration = new Configuration();
-        configuration.set("fs.defaultFS", properties.getProperty("fs.defaultFS"));
-        initMap.put(HDFS_CONFIG_KEY, configuration);
-        mapStorage.initialize(initMap);
 
+        Map<String, Object> initMap = new HashMap<>(Maps.fromProperties(properties));
+        this.mapStorage =
+                FactoryUtil.discoverFactory(
+                                Thread.currentThread().getContextClassLoader(),
+                                IMapStorageFactory.class,
+                                (String) initMap.get("type"))
+                        .create(initMap);
     }
 
     @Override
@@ -97,5 +95,4 @@ public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycl
     public Iterable<Object> loadAllKeys() {
         return mapStorage.loadAllKeys();
     }
-
 }

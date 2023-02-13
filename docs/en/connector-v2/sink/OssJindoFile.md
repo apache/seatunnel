@@ -24,15 +24,15 @@ It only supports hadoop version **2.9.X+**.
 By default, we use 2PC commit to ensure `exactly-once`
 
 - [x] file format
-    - [x] text
-    - [x] csv
-    - [x] parquet
-    - [x] orc
-    - [x] json
+  - [x] text
+  - [x] csv
+  - [x] parquet
+  - [x] orc
+  - [x] json
 
 ## Options
 
-| name                             | type    | required | default value                              | remarks                                                   |
+|               name               |  type   | required |               default value                |                          remarks                          |
 |----------------------------------|---------|----------|--------------------------------------------|-----------------------------------------------------------|
 | path                             | string  | yes      | -                                          |                                                           |
 | bucket                           | string  | yes      | -                                          |                                                           |
@@ -52,6 +52,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | sink_columns                     | array   | no       |                                            | When this parameter is empty, all fields are sink columns |
 | is_enable_transaction            | boolean | no       | true                                       |                                                           |
 | batch_size                       | int     | no       | 1000000                                    |                                                           |
+| compress_codec                   | string  | no       | none                                       |                                                           |
 | common-options                   | object  | no       | -                                          |                                                           |
 
 ### path [string]
@@ -75,6 +76,7 @@ The access secret of oss file system.
 The endpoint of oss file system.
 
 ### custom_filename [boolean]
+
 Whether custom the filename
 
 ### file_name_expression [string]
@@ -92,8 +94,8 @@ Only used when `custom_filename` is `true`
 
 When the format in the `file_name_expression` parameter is `xxxx-${now}` , `filename_time_format` can specify the time format of the path, and the default value is `yyyy.MM.dd` . The commonly used time formats are listed as follows:
 
-| Symbol | Description        |
-| ------ | ------------------ |
+| Symbol |    Description     |
+|--------|--------------------|
 | y      | Year               |
 | M      | Month              |
 | d      | Day of month       |
@@ -156,6 +158,20 @@ Please note that, If `is_enable_transaction` is `true`, we will auto add `${tran
 
 Only support `true` now.
 
+### batch_size [int]
+
+The maximum number of rows in a file. For SeaTunnel Engine, the number of lines in the file is determined by `batch_size` and `checkpoint.interval` jointly decide. If the value of `checkpoint.interval` is large enough, sink writer will write rows in a file until the rows in the file larger than `batch_size`. If `checkpoint.interval` is small, the sink writer will create a new file when a new checkpoint trigger.
+
+### compress_codec [string]
+
+The compress codec of files and the details that supported as the following shown:
+
+- txt: `lzo` `none`
+- json: `lzo` `none`
+- csv: `lzo` `none`
+- orc: `lzo` `snappy` `lz4` `zlib` `none`
+- parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
@@ -166,7 +182,7 @@ For text file format with `have_partition` and `custom_filename` and `sink_colum
 
 ```hocon
 
-  OssFile {
+  OssJindoFile {
     path="/seatunnel/sink"
     bucket = "oss://tyrantlucifer-image-bed"
     access_key = "xxxxxxxxxxx"
@@ -192,7 +208,7 @@ For parquet file format with `sink_columns`
 
 ```hocon
 
-  OssFile {
+  OssJindoFile {
     path = "/seatunnel/sink"
     bucket = "oss://tyrantlucifer-image-bed"
     access_key = "xxxxxxxxxxx"
@@ -221,6 +237,11 @@ For orc file format simple config
 
 ## Changelog
 
-### Next version
+### 2.3.0 2022-12-30
 
 - Add OSS Jindo File Sink Connector
+
+### Next version
+
+- [Improve] Support file compress ([3899](https://github.com/apache/incubator-seatunnel/pull/3899))
+

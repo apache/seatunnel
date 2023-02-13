@@ -38,8 +38,7 @@ public class GetTaskGroupAddressOperation extends Operation implements Identifie
 
     private Address response;
 
-    public GetTaskGroupAddressOperation() {
-    }
+    public GetTaskGroupAddressOperation() {}
 
     public GetTaskGroupAddressOperation(TaskLocation taskLocation) {
         this.taskLocation = taskLocation;
@@ -48,10 +47,20 @@ public class GetTaskGroupAddressOperation extends Operation implements Identifie
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        response = RetryUtils.retryWithException(() -> server.getCoordinatorService().getJobMaster(taskLocation.getJobId())
-                .queryTaskGroupAddress(taskLocation.getTaskGroupLocation().getTaskGroupId()),
-            new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-                Objects::nonNull, Constant.OPERATION_RETRY_SLEEP));
+        response =
+                RetryUtils.retryWithException(
+                        () ->
+                                server.getCoordinatorService()
+                                        .getJobMaster(taskLocation.getJobId())
+                                        .queryTaskGroupAddress(
+                                                taskLocation
+                                                        .getTaskGroupLocation()
+                                                        .getTaskGroupId()),
+                        new RetryUtils.RetryMaterial(
+                                Constant.OPERATION_RETRY_TIME,
+                                true,
+                                Objects::nonNull,
+                                Constant.OPERATION_RETRY_SLEEP));
     }
 
     @Override

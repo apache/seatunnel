@@ -43,19 +43,23 @@ import java.util.Optional;
 
 public class JdbcSinkWriter implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> {
 
-    private final JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> outputFormat;
+    private final JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>>
+            outputFormat;
     private final SinkWriter.Context context;
     private final JdbcConnectionProvider connectionProvider;
     private transient boolean isOpen;
 
     public JdbcSinkWriter(
-        SinkWriter.Context context,
-        JdbcDialect dialect,
-        JdbcSinkOptions jdbcSinkOptions,
-        SeaTunnelRowType rowType) {
+            SinkWriter.Context context,
+            JdbcDialect dialect,
+            JdbcSinkOptions jdbcSinkOptions,
+            SeaTunnelRowType rowType) {
         this.context = context;
-        this.connectionProvider = new SimpleJdbcConnectionProvider(jdbcSinkOptions.getJdbcConnectionOptions());
-        this.outputFormat = new JdbcOutputFormatBuilder(dialect, connectionProvider, jdbcSinkOptions, rowType).build();
+        this.connectionProvider =
+                new SimpleJdbcConnectionProvider(jdbcSinkOptions.getJdbcConnectionOptions());
+        this.outputFormat =
+                new JdbcOutputFormatBuilder(dialect, connectionProvider, jdbcSinkOptions, rowType)
+                        .build();
     }
 
     private void tryOpen() throws IOException {
@@ -71,16 +75,14 @@ public class JdbcSinkWriter implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSin
     }
 
     @Override
-    public void write(SeaTunnelRow element)
-        throws IOException {
+    public void write(SeaTunnelRow element) throws IOException {
         tryOpen();
         SeaTunnelRow copy = SerializationUtils.clone(element);
         outputFormat.writeRecord(copy);
     }
 
     @Override
-    public Optional<XidInfo> prepareCommit()
-        throws IOException {
+    public Optional<XidInfo> prepareCommit() throws IOException {
         tryOpen();
         outputFormat.flush();
         try {
@@ -88,19 +90,19 @@ public class JdbcSinkWriter implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSin
                 connectionProvider.getConnection().commit();
             }
         } catch (SQLException e) {
-            throw new JdbcConnectorException(JdbcConnectorErrorCode.TRANSACTION_OPERATION_FAILED, "commit failed," + e.getMessage(), e);
+            throw new JdbcConnectorException(
+                    JdbcConnectorErrorCode.TRANSACTION_OPERATION_FAILED,
+                    "commit failed," + e.getMessage(),
+                    e);
         }
         return Optional.empty();
     }
 
     @Override
-    public void abortPrepare() {
-
-    }
+    public void abortPrepare() {}
 
     @Override
-    public void close()
-        throws IOException {
+    public void close() throws IOException {
         tryOpen();
         outputFormat.flush();
         try {
@@ -108,7 +110,8 @@ public class JdbcSinkWriter implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSin
                 connectionProvider.getConnection().commit();
             }
         } catch (SQLException e) {
-            throw new JdbcConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, "unable to close JDBC sink write", e);
+            throw new JdbcConnectorException(
+                    CommonErrorCode.WRITER_OPERATION_FAILED, "unable to close JDBC sink write", e);
         }
         outputFormat.close();
     }

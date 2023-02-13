@@ -51,17 +51,30 @@ public class MysqlDialect implements JdbcDialect {
     }
 
     @Override
-    public Optional<String> getUpsertStatement(String tableName, String[] fieldNames, String[] uniqueKeyFields) {
-        String updateClause = Arrays.stream(fieldNames)
-            .map(fieldName -> quoteIdentifier(fieldName) + "=VALUES(" + quoteIdentifier(fieldName) + ")")
-            .collect(Collectors.joining(", "));
-        String upsertSQL = getInsertIntoStatement(tableName, fieldNames) + " ON DUPLICATE KEY UPDATE " + updateClause;
+    public Optional<String> getUpsertStatement(
+            String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+        String updateClause =
+                Arrays.stream(fieldNames)
+                        .map(
+                                fieldName ->
+                                        quoteIdentifier(fieldName)
+                                                + "=VALUES("
+                                                + quoteIdentifier(fieldName)
+                                                + ")")
+                        .collect(Collectors.joining(", "));
+        String upsertSQL =
+                getInsertIntoStatement(tableName, fieldNames)
+                        + " ON DUPLICATE KEY UPDATE "
+                        + updateClause;
         return Optional.of(upsertSQL);
     }
 
     @Override
-    public PreparedStatement creatPreparedStatement(Connection connection, String queryTemplate, int fetchSize) throws SQLException {
-        PreparedStatement statement = connection.prepareStatement(queryTemplate, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+    public PreparedStatement creatPreparedStatement(
+            Connection connection, String queryTemplate, int fetchSize) throws SQLException {
+        PreparedStatement statement =
+                connection.prepareStatement(
+                        queryTemplate, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
         statement.setFetchSize(Integer.MIN_VALUE);
         return statement;
     }

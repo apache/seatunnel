@@ -41,14 +41,42 @@ public class S3FileSinkFactory implements TableSinkFactory {
                 .required(S3Config.S3_BUCKET)
                 .required(S3Config.FS_S3A_ENDPOINT)
                 .required(S3Config.S3A_AWS_CREDENTIALS_PROVIDER)
-                .conditional(S3Config.S3A_AWS_CREDENTIALS_PROVIDER, S3Config.S3aAwsCredentialsProvider.SimpleAWSCredentialsProvider, S3Config.S3_ACCESS_KEY, S3Config.S3_SECRET_KEY)
+                .conditional(
+                        S3Config.S3A_AWS_CREDENTIALS_PROVIDER,
+                        S3Config.S3aAwsCredentialsProvider.SimpleAWSCredentialsProvider,
+                        S3Config.S3_ACCESS_KEY,
+                        S3Config.S3_SECRET_KEY)
                 .optional(S3Config.S3_PROPERTIES)
                 .optional(BaseSinkConfig.FILE_FORMAT)
-                .conditional(BaseSinkConfig.FILE_FORMAT, FileFormat.TEXT, BaseSinkConfig.ROW_DELIMITER, BaseSinkConfig.FIELD_DELIMITER)
+                .conditional(
+                        BaseSinkConfig.FILE_FORMAT,
+                        FileFormat.TEXT,
+                        BaseSinkConfig.ROW_DELIMITER,
+                        BaseSinkConfig.FIELD_DELIMITER,
+                        BaseSinkConfig.TXT_COMPRESS)
+                .conditional(
+                        BaseSinkConfig.FILE_FORMAT, FileFormat.CSV, BaseSinkConfig.TXT_COMPRESS)
+                .conditional(
+                        BaseSinkConfig.FILE_FORMAT, FileFormat.JSON, BaseSinkConfig.TXT_COMPRESS)
+                .conditional(
+                        BaseSinkConfig.FILE_FORMAT, FileFormat.ORC, BaseSinkConfig.ORC_COMPRESS)
+                .conditional(
+                        BaseSinkConfig.FILE_FORMAT,
+                        FileFormat.PARQUET,
+                        BaseSinkConfig.PARQUET_COMPRESS)
                 .optional(BaseSinkConfig.CUSTOM_FILENAME)
-                .conditional(BaseSinkConfig.CUSTOM_FILENAME, true, BaseSinkConfig.FILE_NAME_EXPRESSION, BaseSinkConfig.FILENAME_TIME_FORMAT)
+                .conditional(
+                        BaseSinkConfig.CUSTOM_FILENAME,
+                        true,
+                        BaseSinkConfig.FILE_NAME_EXPRESSION,
+                        BaseSinkConfig.FILENAME_TIME_FORMAT)
                 .optional(BaseSinkConfig.HAVE_PARTITION)
-                .conditional(BaseSinkConfig.HAVE_PARTITION, true, BaseSinkConfig.PARTITION_BY, BaseSinkConfig.PARTITION_DIR_EXPRESSION, BaseSinkConfig.IS_PARTITION_FIELD_WRITE_IN_FILE)
+                .conditional(
+                        BaseSinkConfig.HAVE_PARTITION,
+                        true,
+                        BaseSinkConfig.PARTITION_BY,
+                        BaseSinkConfig.PARTITION_DIR_EXPRESSION,
+                        BaseSinkConfig.IS_PARTITION_FIELD_WRITE_IN_FILE)
                 .optional(BaseSinkConfig.SINK_COLUMNS)
                 .optional(BaseSinkConfig.IS_ENABLE_TRANSACTION)
                 .optional(BaseSinkConfig.DATE_FORMAT)

@@ -23,17 +23,14 @@ package org.apache.seatunnel.engine.checkpoint.storage.hdfs.common;
 public enum FileConfiguration {
     LOCAL("local", new LocalConfiguration()),
     HDFS("hdfs", new HdfsConfiguration()),
-    S3("s3", new S3Configuration());
+    S3("s3", new S3Configuration()),
+    OSS("oss", new OssConfiguration());
 
-    /**
-     * file system type
-     */
-    private String name;
+    /** file system type */
+    private final String name;
 
-    /**
-     * file system configuration
-     */
-    private AbstractConfiguration configuration;
+    /** file system configuration */
+    private final AbstractConfiguration configuration;
 
     FileConfiguration(String name, AbstractConfiguration configuration) {
         this.name = name;
@@ -47,5 +44,4 @@ public enum FileConfiguration {
     public String getName() {
         return name;
     }
-
 }

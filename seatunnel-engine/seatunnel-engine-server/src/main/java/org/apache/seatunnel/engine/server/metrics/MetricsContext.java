@@ -27,17 +27,22 @@ import com.hazelcast.internal.metrics.MetricsCollectionContext;
 import com.hazelcast.internal.metrics.ProbeLevel;
 import com.hazelcast.internal.metrics.ProbeUnit;
 
+import java.io.Serializable;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import java.util.function.BiFunction;
 
-public class MetricsContext implements DynamicMetricsProvider {
+public class MetricsContext implements DynamicMetricsProvider, Serializable {
 
-    private static final BiFunction<String, Unit, AbstractMetric> CREATE_SINGLE_WRITER_METRIC = SingleWriterMetric::new;
-    private static final BiFunction<String, Unit, AbstractMetric> CREATE_THREAD_SAFE_METRICS = ThreadSafeMetric::new;
-    private static final BiFunction<String, Unit, AbstractMetric> CREATE_SINGLE_WRITER_QPS_METRIC = SingleWriterQPSMetric::new;
-    private static final BiFunction<String, Unit, AbstractMetric> CREATE_THREAD_SAFE_QPS_METRIC = ThreadSafeQPSMetric::new;
+    private static final BiFunction<String, Unit, AbstractMetric> CREATE_SINGLE_WRITER_METRIC =
+            SingleWriterMetric::new;
+    private static final BiFunction<String, Unit, AbstractMetric> CREATE_THREAD_SAFE_METRICS =
+            ThreadSafeMetric::new;
+    private static final BiFunction<String, Unit, AbstractMetric> CREATE_SINGLE_WRITER_QPS_METRIC =
+            SingleWriterQPSMetric::new;
+    private static final BiFunction<String, Unit, AbstractMetric> CREATE_THREAD_SAFE_QPS_METRIC =
+            ThreadSafeQPSMetric::new;
 
     private volatile Map<String, AbstractMetric> metrics;
 
@@ -57,8 +62,9 @@ public class MetricsContext implements DynamicMetricsProvider {
         return metric(name, unit, CREATE_THREAD_SAFE_QPS_METRIC);
     }
 
-    private Metric metric(String name, Unit unit, BiFunction<String, Unit, AbstractMetric> metricSupplier) {
-        if (metrics == null) { //first metric being stored
+    private Metric metric(
+            String name, Unit unit, BiFunction<String, Unit, AbstractMetric> metricSupplier) {
+        if (metrics == null) { // first metric being stored
             metrics = new ConcurrentHashMap<>();
         }
 
@@ -76,17 +82,29 @@ public class MetricsContext implements DynamicMetricsProvider {
     @Override
     public void provideDynamicMetrics(MetricDescriptor tagger, MetricsCollectionContext context) {
         if (metrics != null) {
-            metrics.forEach((name, metric) -> {
-                if (metric.get() instanceof Long) {
-                    context.collect(tagger.copy(), name, ProbeLevel.INFO, toProbeUnit(metric.unit()),
-                        (Long) metric.get());
-                } else if (metric.get() instanceof Double) {
-                    context.collect(tagger.copy(), name, ProbeLevel.INFO, toProbeUnit(metric.unit()),
-                        (Double) metric.get());
-                } else {
-                    throw new SeaTunnelException("The value of Metric does not support " + metric.get().getClass().getSimpleName() + " data type");
-                }
-            });
+            metrics.forEach(
+                    (name, metric) -> {
+                        if (metric.get() instanceof Long) {
+                            context.collect(
+                                    tagger.copy(),
+                                    name,
+                                    ProbeLevel.INFO,
+                                    toProbeUnit(metric.unit()),
+                                    (Long) metric.get());
+                        } else if (metric.get() instanceof Double) {
+                            context.collect(
+                                    tagger.copy(),
+                                    name,
+                                    ProbeLevel.INFO,
+                                    toProbeUnit(metric.unit()),
+                                    (Double) metric.get());
+                        } else {
+                            throw new SeaTunnelException(
+                                    "The value of Metric does not support "
+                                            + metric.get().getClass().getSimpleName()
+                                            + " data type");
+                        }
+                    });
         }
     }
 
@@ -94,7 +112,7 @@ public class MetricsContext implements DynamicMetricsProvider {
         return ProbeUnit.valueOf(unit.name());
     }
 
-    private abstract static class AbstractMetric implements Metric {
+    private abstract static class AbstractMetric implements Metric, Serializable {
 
         private final String name;
         private final Unit unit;
@@ -115,13 +133,12 @@ public class MetricsContext implements DynamicMetricsProvider {
         }
 
         protected abstract Object get();
-
     }
 
     private static final class SingleWriterQPSMetric extends AbstractMetric {
 
         private static final AtomicLongFieldUpdater<SingleWriterQPSMetric> VOLATILE_VALUE_UPDATER =
-            AtomicLongFieldUpdater.newUpdater(SingleWriterQPSMetric.class, "value");
+                AtomicLongFieldUpdater.newUpdater(SingleWriterQPSMetric.class, "value");
 
         private volatile long value;
         private final long timestamp;
@@ -167,7 +184,7 @@ public class MetricsContext implements DynamicMetricsProvider {
     private static final class ThreadSafeQPSMetric extends AbstractMetric {
 
         private static final AtomicLongFieldUpdater<ThreadSafeQPSMetric> VOLATILE_VALUE_UPDATER =
-            AtomicLongFieldUpdater.newUpdater(ThreadSafeQPSMetric.class, "value");
+                AtomicLongFieldUpdater.newUpdater(ThreadSafeQPSMetric.class, "value");
 
         private volatile long value;
 
@@ -294,5 +311,4 @@ public class MetricsContext implements DynamicMetricsProvider {
             return VOLATILE_VALUE_UPDATER.get(this);
         }
     }
-
 }

@@ -41,8 +41,7 @@ public class SinkRegisterOperation extends Operation implements IdentifiedDataSe
     private TaskLocation writerTaskID;
     private TaskLocation committerTaskID;
 
-    public SinkRegisterOperation() {
-    }
+    public SinkRegisterOperation() {}
 
     public SinkRegisterOperation(TaskLocation writerTaskID, TaskLocation committerTaskID) {
         this.writerTaskID = writerTaskID;
@@ -53,11 +52,14 @@ public class SinkRegisterOperation extends Operation implements IdentifiedDataSe
     public void run() throws Exception {
         SeaTunnelServer server = getService();
         Address readerAddress = getCallerAddress();
-        RetryUtils.retryWithException(() -> {
-            SinkAggregatedCommitterTask<?, ?> task = server.getTaskExecutionService().getTask(committerTaskID);
-            task.receivedWriterRegister(writerTaskID, readerAddress);
-            return null;
-        }, new RetryUtils.RetryMaterial(RETRY_NUMBER, true, e -> true, RETRY_INTERVAL));
+        RetryUtils.retryWithException(
+                () -> {
+                    SinkAggregatedCommitterTask<?, ?> task =
+                            server.getTaskExecutionService().getTask(committerTaskID);
+                    task.receivedWriterRegister(writerTaskID, readerAddress);
+                    return null;
+                },
+                new RetryUtils.RetryMaterial(RETRY_NUMBER, true, e -> true, RETRY_INTERVAL));
     }
 
     @Override

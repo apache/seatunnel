@@ -25,8 +25,7 @@ public class Constant {
     public static final String DEFAULT_SEATUNNEL_CLUSTER_NAME = "seatunnel";
 
     /**
-     * The default port number for the cluster auto-discovery mechanism's
-     * multicast communication.
+     * The default port number for the cluster auto-discovery mechanism's multicast communication.
      */
     public static final int DEFAULT_SEATUNNEL_MULTICAST_PORT = 53326;
 
@@ -36,7 +35,7 @@ public class Constant {
 
     public static final String HAZELCAST_SEATUNNEL_DEFAULT_YAML = "seatunnel.yaml";
 
-    public static final int OPERATION_RETRY_TIME = 10;
+    public static final int OPERATION_RETRY_TIME = 30;
 
     public static final int OPERATION_RETRY_SLEEP = 2000;
 
@@ -56,5 +55,8 @@ public class Constant {
 
     public static final String IMAP_CHECKPOINT_ID = "engine_checkpoint-id-%d";
 
-    public static final String IMAP_RESOURCE_MANAGER_REGISTER_WORKER = "ResourceManager_RegisterWorker";
+    public static final String IMAP_RESOURCE_MANAGER_REGISTER_WORKER =
+            "ResourceManager_RegisterWorker";
+
+    public static final String IMAP_RUNNING_JOB_METRICS = "engine_runningJobMetrics";
 }

@@ -41,10 +41,10 @@ public final class CheckpointDataSerializerHook implements DataSerializerHook {
     public static final int NOTIFY_TASK_RESTORE_OPERATOR = 5;
     public static final int NOTIFY_TASK_START_OPERATOR = 6;
 
-    public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
-        SeaTunnelFactoryIdConstant.SEATUNNEL_CHECKPOINT_DATA_SERIALIZER_FACTORY,
-        SeaTunnelFactoryIdConstant.SEATUNNEL_CHECKPOINT_DATA_SERIALIZER_FACTORY_ID
-    );
+    public static final int FACTORY_ID =
+            FactoryIdHelper.getFactoryId(
+                    SeaTunnelFactoryIdConstant.SEATUNNEL_CHECKPOINT_DATA_SERIALIZER_FACTORY,
+                    SeaTunnelFactoryIdConstant.SEATUNNEL_CHECKPOINT_DATA_SERIALIZER_FACTORY_ID);
 
     @Override
     public int getFactoryId() {

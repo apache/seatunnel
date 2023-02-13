@@ -22,19 +22,22 @@ import org.apache.seatunnel.api.configuration.Options;
 
 public class SinkCommonOptions {
 
+    public static final String DATA_SAVE_MODE = "save_mode";
+
     public static final Option<String> SOURCE_TABLE_NAME =
-        Options.key("source_table_name")
-            .stringType()
-            .noDefaultValue()
-            .withDescription(
-                "When source_table_name is not specified, " +
-                    "the current plug-in processes the data set dataset output by the previous plugin in the configuration file. " +
-                    "When source_table_name is specified, the current plug-in is processing the data set corresponding to this parameter.");
+            Options.key("source_table_name")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "When source_table_name is not specified, "
+                                    + "the current plug-in processes the data set dataset output by the previous plugin in the configuration file. "
+                                    + "When source_table_name is specified, the current plug-in is processing the data set corresponding to this parameter.");
 
     public static final Option<Integer> PARALLELISM =
-        Options.key("parallelism")
-            .intType()
-            .defaultValue(1)
-            .withDescription("When parallelism is not specified, the parallelism in env is used by default. " +
-                "When parallelism is specified, it will override the parallelism in env.");
+            Options.key("parallelism")
+                    .intType()
+                    .defaultValue(1)
+                    .withDescription(
+                            "When parallelism is not specified, the parallelism in env is used by default. "
+                                    + "When parallelism is specified, it will override the parallelism in env.");
 }

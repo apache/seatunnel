@@ -25,6 +25,12 @@ import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationConve
 import org.apache.seatunnel.connectors.cdc.debezium.MetadataConverter;
 import org.apache.seatunnel.connectors.cdc.debezium.utils.TemporalConversions;
 
+import org.apache.kafka.connect.data.Decimal;
+import org.apache.kafka.connect.data.Field;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.source.SourceRecord;
+
 import io.debezium.data.SpecialValueDecimal;
 import io.debezium.data.VariableScaleDecimal;
 import io.debezium.time.MicroTime;
@@ -32,11 +38,6 @@ import io.debezium.time.MicroTimestamp;
 import io.debezium.time.NanoTime;
 import io.debezium.time.NanoTimestamp;
 import io.debezium.time.Timestamp;
-import org.apache.kafka.connect.data.Decimal;
-import org.apache.kafka.connect.data.Field;
-import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.data.Struct;
-import org.apache.kafka.connect.source.SourceRecord;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
@@ -49,9 +50,7 @@ import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Optional;
 
-/**
- * Deserialization schema from Debezium object to {@link SeaTunnelRow}
- */
+/** Deserialization schema from Debezium object to {@link SeaTunnelRow} */
 public class SeaTunnelRowDebeziumDeserializationConverters implements Serializable {
     private static final long serialVersionUID = -897499476343410567L;
     protected final DebeziumDeserializationConverter[] physicalConverters;
@@ -59,20 +58,24 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
     protected final String[] fieldNames;
 
     public SeaTunnelRowDebeziumDeserializationConverters(
-        SeaTunnelRowType physicalDataType,
-        MetadataConverter[] metadataConverters,
-        ZoneId serverTimeZone,
-        DebeziumDeserializationConverterFactory userDefinedConverterFactory) {
+            SeaTunnelRowType physicalDataType,
+            MetadataConverter[] metadataConverters,
+            ZoneId serverTimeZone,
+            DebeziumDeserializationConverterFactory userDefinedConverterFactory) {
         this.metadataConverters = metadataConverters;
 
         this.physicalConverters =
-            Arrays.stream(physicalDataType.getFieldTypes())
-                .map(type -> createConverter(type, serverTimeZone, userDefinedConverterFactory))
-                .toArray(DebeziumDeserializationConverter[]::new);
+                Arrays.stream(physicalDataType.getFieldTypes())
+                        .map(
+                                type ->
+                                        createConverter(
+                                                type, serverTimeZone, userDefinedConverterFactory))
+                        .toArray(DebeziumDeserializationConverter[]::new);
         this.fieldNames = physicalDataType.getFieldNames();
     }
 
-    public SeaTunnelRow convert(SourceRecord record, Struct struct, Schema schema) throws Exception {
+    public SeaTunnelRow convert(SourceRecord record, Struct struct, Schema schema)
+            throws Exception {
         int arity = physicalConverters.length + metadataConverters.length;
         SeaTunnelRow row = new SeaTunnelRow(arity);
         // physical column
@@ -84,7 +87,9 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
                 row.setField(i, null);
             } else {
                 Schema fieldSchema = field.schema();
-                Object convertedField = SeaTunnelRowDebeziumDeserializationConverters.convertField(physicalConverters[i], fieldValue, fieldSchema);
+                Object convertedField =
+                        SeaTunnelRowDebeziumDeserializationConverters.convertField(
+                                physicalConverters[i], fieldValue, fieldSchema);
                 row.setField(i, convertedField);
             }
         }
@@ -99,13 +104,13 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
     // Runtime Converters
     // -------------------------------------------------------------------------------------
 
-    /**
-     * Creates a runtime converter which is null safe.
-     */
-    private static DebeziumDeserializationConverter createConverter(SeaTunnelDataType<?> type,
-                                                             ZoneId serverTimeZone,
-                                                             DebeziumDeserializationConverterFactory userDefinedConverterFactory) {
-        return wrapIntoNullableConverter(createNotNullConverter(type, serverTimeZone, userDefinedConverterFactory));
+    /** Creates a runtime converter which is null safe. */
+    private static DebeziumDeserializationConverter createConverter(
+            SeaTunnelDataType<?> type,
+            ZoneId serverTimeZone,
+            DebeziumDeserializationConverterFactory userDefinedConverterFactory) {
+        return wrapIntoNullableConverter(
+                createNotNullConverter(type, serverTimeZone, userDefinedConverterFactory));
     }
 
     // --------------------------------------------------------------------------------
@@ -114,16 +119,15 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
     // SerializedLambdas (MSHADE-260).
     // --------------------------------------------------------------------------------
 
-    /**
-     * Creates a runtime converter which assuming input object is not null.
-     */
-    private static DebeziumDeserializationConverter createNotNullConverter(SeaTunnelDataType<?> type,
-                                                                    ZoneId serverTimeZone,
-                                                                    DebeziumDeserializationConverterFactory userDefinedConverterFactory) {
+    /** Creates a runtime converter which assuming input object is not null. */
+    private static DebeziumDeserializationConverter createNotNullConverter(
+            SeaTunnelDataType<?> type,
+            ZoneId serverTimeZone,
+            DebeziumDeserializationConverterFactory userDefinedConverterFactory) {
 
         // user defined converter has a higher resolve order
         Optional<DebeziumDeserializationConverter> converter =
-            userDefinedConverterFactory.createUserDefinedConverter(type, serverTimeZone);
+                userDefinedConverterFactory.createUserDefinedConverter(type, serverTimeZone);
         if (converter.isPresent()) {
             return converter.get();
         }
@@ -166,7 +170,8 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
             case DECIMAL:
                 return wrapNumericConverter(createDecimalConverter());
             case ROW:
-                return createRowConverter((SeaTunnelRowType) type, serverTimeZone, userDefinedConverterFactory);
+                return createRowConverter(
+                        (SeaTunnelRowType) type, serverTimeZone, userDefinedConverterFactory);
             case ARRAY:
             case MAP:
             default:
@@ -382,7 +387,8 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
         return LocalDateTime.of(localDate, localTime);
     }
 
-    private static DebeziumDeserializationConverter convertToLocalTimeZoneTimestamp(ZoneId serverTimeZone) {
+    private static DebeziumDeserializationConverter convertToLocalTimeZoneTimestamp(
+            ZoneId serverTimeZone) {
         return new DebeziumDeserializationConverter() {
             private static final long serialVersionUID = 1L;
 
@@ -395,10 +401,10 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
                     return LocalDateTime.ofInstant(instant, serverTimeZone);
                 }
                 throw new IllegalArgumentException(
-                    "Unable to convert to LocalDateTime from unexpected value '"
-                        + dbzObj
-                        + "' of type "
-                        + dbzObj.getClass().getName());
+                        "Unable to convert to LocalDateTime from unexpected value '"
+                                + dbzObj
+                                + "' of type "
+                                + dbzObj.getClass().getName());
             }
         };
     }
@@ -429,7 +435,7 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
                     return bytes;
                 } else {
                     throw new UnsupportedOperationException(
-                        "Unsupported BYTES value type: " + dbzObj.getClass().getSimpleName());
+                            "Unsupported BYTES value type: " + dbzObj.getClass().getSimpleName());
                 }
             }
         };
@@ -463,13 +469,17 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
         };
     }
 
-    private static DebeziumDeserializationConverter createRowConverter(SeaTunnelRowType rowType,
-                                                                ZoneId serverTimeZone,
-                                                                DebeziumDeserializationConverterFactory userDefinedConverterFactory) {
+    private static DebeziumDeserializationConverter createRowConverter(
+            SeaTunnelRowType rowType,
+            ZoneId serverTimeZone,
+            DebeziumDeserializationConverterFactory userDefinedConverterFactory) {
         final DebeziumDeserializationConverter[] fieldConverters =
-            Arrays.stream(rowType.getFieldTypes())
-                .map(type -> createConverter(type, serverTimeZone, userDefinedConverterFactory))
-                .toArray(DebeziumDeserializationConverter[]::new);
+                Arrays.stream(rowType.getFieldTypes())
+                        .map(
+                                type ->
+                                        createConverter(
+                                                type, serverTimeZone, userDefinedConverterFactory))
+                        .toArray(DebeziumDeserializationConverter[]::new);
         final String[] fieldNames = rowType.getFieldNames();
 
         return new DebeziumDeserializationConverter() {
@@ -488,7 +498,9 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
                         row.setField(i, null);
                     } else {
                         Schema fieldSchema = field.schema();
-                        Object convertedField = SeaTunnelRowDebeziumDeserializationConverters.convertField(fieldConverters[i], fieldValue, fieldSchema);
+                        Object convertedField =
+                                SeaTunnelRowDebeziumDeserializationConverters.convertField(
+                                        fieldConverters[i], fieldValue, fieldSchema);
                         row.setField(i, convertedField);
                     }
                 }
@@ -498,8 +510,8 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
     }
 
     private static Object convertField(
-        DebeziumDeserializationConverter fieldConverter, Object fieldValue, Schema fieldSchema)
-        throws Exception {
+            DebeziumDeserializationConverter fieldConverter, Object fieldValue, Schema fieldSchema)
+            throws Exception {
         if (fieldValue == null) {
             return null;
         } else {
@@ -507,7 +519,8 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
         }
     }
 
-    private static DebeziumDeserializationConverter wrapIntoNullableConverter(DebeziumDeserializationConverter converter) {
+    private static DebeziumDeserializationConverter wrapIntoNullableConverter(
+            DebeziumDeserializationConverter converter) {
         return new DebeziumDeserializationConverter() {
             private static final long serialVersionUID = 1L;
 
@@ -521,7 +534,8 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
         };
     }
 
-    private static DebeziumDeserializationConverter wrapNumericConverter(DebeziumDeserializationConverter converter) {
+    private static DebeziumDeserializationConverter wrapNumericConverter(
+            DebeziumDeserializationConverter converter) {
         return new DebeziumDeserializationConverter() {
             private static final long serialVersionUID = 1L;
 
@@ -529,7 +543,8 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
             public Object convert(Object dbzObj, Schema schema) throws Exception {
                 if (VariableScaleDecimal.LOGICAL_NAME.equals(schema.name())) {
                     SpecialValueDecimal decimal = VariableScaleDecimal.toLogical((Struct) dbzObj);
-                    return converter.convert(decimal.getDecimalValue().orElse(BigDecimal.ZERO), schema);
+                    return converter.convert(
+                            decimal.getDecimalValue().orElse(BigDecimal.ZERO), schema);
                 }
                 return converter.convert(dbzObj, schema);
             }

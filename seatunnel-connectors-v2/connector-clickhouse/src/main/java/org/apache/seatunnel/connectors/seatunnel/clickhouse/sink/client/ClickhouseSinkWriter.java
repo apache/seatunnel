@@ -30,18 +30,24 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.CKCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSinkState;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.tool.IntHolder;
 
-import com.clickhouse.jdbc.internal.ClickHouseConnectionImpl;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
+import com.clickhouse.jdbc.internal.ClickHouseConnectionImpl;
+import com.google.common.base.Strings;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 @Slf4j
-public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitInfo, ClickhouseSinkState> {
+public class ClickhouseSinkWriter
+        implements SinkWriter<SeaTunnelRow, CKCommitInfo, ClickhouseSinkState> {
 
     private final Context context;
     private final ReaderOption option;
@@ -63,7 +69,10 @@ public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitIn
 
         Object shardKey = null;
         if (StringUtils.isNotEmpty(this.option.getShardMetadata().getShardKey())) {
-            int i = this.option.getSeaTunnelRowType().indexOf(this.option.getShardMetadata().getShardKey());
+            int i =
+                    this.option
+                            .getSeaTunnelRowType()
+                            .indexOf(this.option.getShardMetadata().getShardKey());
             shardKey = element.getField(i);
         }
         ClickhouseBatchStatement statement = statementMap.get(shardRouter.getShard(shardKey));
@@ -85,23 +94,26 @@ public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitIn
     }
 
     @Override
-    public void abortPrepare() {
-
-    }
+    public void abortPrepare() {}
 
     @Override
     public void close() throws IOException {
         this.proxy.close();
         for (ClickhouseBatchStatement batchStatement : statementMap.values()) {
-            try (ClickHouseConnectionImpl needClosedConnection = batchStatement.getClickHouseConnection();
-                 JdbcBatchStatementExecutor needClosedStatement = batchStatement.getJdbcBatchStatementExecutor()) {
+            try (ClickHouseConnectionImpl needClosedConnection =
+                            batchStatement.getClickHouseConnection();
+                    JdbcBatchStatementExecutor needClosedStatement =
+                            batchStatement.getJdbcBatchStatementExecutor()) {
                 IntHolder intHolder = batchStatement.getIntHolder();
                 if (intHolder.getValue() > 0) {
                     flush(needClosedStatement);
                     intHolder.setValue(0);
                 }
             } catch (SQLException e) {
-                throw new ClickhouseConnectorException(CommonErrorCode.SQL_OPERATION_FAILED, "Failed to close prepared statement.", e);
+                throw new ClickhouseConnectorException(
+                        CommonErrorCode.SQL_OPERATION_FAILED,
+                        "Failed to close prepared statement.",
+                        e);
             }
         }
     }
@@ -110,7 +122,8 @@ public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitIn
         try {
             clickHouseStatement.addToBatch(row);
         } catch (SQLException e) {
-            throw new ClickhouseConnectorException(CommonErrorCode.SQL_OPERATION_FAILED, "Add row data into batch error", e);
+            throw new ClickhouseConnectorException(
+                    CommonErrorCode.SQL_OPERATION_FAILED, "Add row data into batch error", e);
         }
     }
 
@@ -118,35 +131,79 @@ public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitIn
         try {
             clickHouseStatement.executeBatch();
         } catch (Exception e) {
-            throw new ClickhouseConnectorException(CommonErrorCode.FLUSH_DATA_FAILED, "Clickhouse execute batch statement error", e);
+            throw new ClickhouseConnectorException(
+                    CommonErrorCode.FLUSH_DATA_FAILED,
+                    "Clickhouse execute batch statement error",
+                    e);
         }
     }
 
     private Map<Shard, ClickhouseBatchStatement> initStatementMap() {
         Map<Shard, ClickhouseBatchStatement> result = new HashMap<>(Common.COLLECTION_SIZE);
-        shardRouter.getShards().forEach((weight, s) -> {
-            try {
-                ClickHouseConnectionImpl clickhouseConnection = new ClickHouseConnectionImpl(s.getJdbcUrl(),
-                    this.option.getProperties());
+        shardRouter
+                .getShards()
+                .forEach(
+                        (weight, s) -> {
+                            try {
+                                ClickHouseConnectionImpl clickhouseConnection =
+                                        new ClickHouseConnectionImpl(
+                                                s.getJdbcUrl(), this.option.getProperties());
 
-                JdbcBatchStatementExecutor jdbcBatchStatementExecutor = new JdbcBatchStatementExecutorBuilder()
-                    .setTable(shardRouter.getShardTable())
-                    .setTableEngine(shardRouter.getShardTableEngine())
-                    .setRowType(option.getSeaTunnelRowType())
-                    .setPrimaryKeys(option.getPrimaryKeys())
-                    .setClickhouseTableSchema(option.getTableSchema())
-                    .setAllowExperimentalLightweightDelete(option.isAllowExperimentalLightweightDelete())
-                    .setSupportUpsert(option.isSupportUpsert())
-                    .build();
-                jdbcBatchStatementExecutor.prepareStatements(clickhouseConnection);
-                IntHolder intHolder = new IntHolder();
-                ClickhouseBatchStatement batchStatement =
-                    new ClickhouseBatchStatement(clickhouseConnection, jdbcBatchStatementExecutor, intHolder);
-                result.put(s, batchStatement);
-            } catch (SQLException e) {
-                throw new ClickhouseConnectorException(CommonErrorCode.SQL_OPERATION_FAILED, "Clickhouse prepare statement error: " + e.getMessage(), e);
-            }
-        });
+                                String[] orderByKeys = null;
+                                if (!Strings.isNullOrEmpty(shardRouter.getSortingKey())) {
+                                    orderByKeys =
+                                            Stream.of(shardRouter.getSortingKey().split(","))
+                                                    .map(key -> StringUtils.trim(key))
+                                                    .toArray(value -> new String[value]);
+                                }
+                                JdbcBatchStatementExecutor jdbcBatchStatementExecutor =
+                                        new JdbcBatchStatementExecutorBuilder()
+                                                .setTable(shardRouter.getShardTable())
+                                                .setTableEngine(shardRouter.getShardTableEngine())
+                                                .setRowType(option.getSeaTunnelRowType())
+                                                .setPrimaryKeys(option.getPrimaryKeys())
+                                                .setOrderByKeys(orderByKeys)
+                                                .setClickhouseTableSchema(option.getTableSchema())
+                                                .setAllowExperimentalLightweightDelete(
+                                                        option
+                                                                .isAllowExperimentalLightweightDelete())
+                                                .setClickhouseServerEnableExperimentalLightweightDelete(
+                                                        clickhouseServerEnableExperimentalLightweightDelete(
+                                                                clickhouseConnection))
+                                                .setSupportUpsert(option.isSupportUpsert())
+                                                .build();
+                                jdbcBatchStatementExecutor.prepareStatements(clickhouseConnection);
+                                IntHolder intHolder = new IntHolder();
+                                ClickhouseBatchStatement batchStatement =
+                                        new ClickhouseBatchStatement(
+                                                clickhouseConnection,
+                                                jdbcBatchStatementExecutor,
+                                                intHolder);
+                                result.put(s, batchStatement);
+                            } catch (SQLException e) {
+                                throw new ClickhouseConnectorException(
+                                        CommonErrorCode.SQL_OPERATION_FAILED,
+                                        "Clickhouse prepare statement error: " + e.getMessage(),
+                                        e);
+                            }
+                        });
         return result;
+    }
+
+    private static boolean clickhouseServerEnableExperimentalLightweightDelete(
+            ClickHouseConnectionImpl clickhouseConnection) {
+        String configKey = "allow_experimental_lightweight_delete";
+        try (Statement stmt = clickhouseConnection.createStatement()) {
+            ResultSet resultSet = stmt.executeQuery("SHOW SETTINGS ILIKE '%" + configKey + "%'");
+            while (resultSet.next()) {
+                String name = resultSet.getString("name");
+                if (name.equalsIgnoreCase(configKey)) {
+                    return resultSet.getBoolean("value");
+                }
+            }
+            return false;
+        } catch (SQLException e) {
+            throw new ClickhouseConnectorException(CommonErrorCode.SQL_OPERATION_FAILED, e);
+        }
     }
 }

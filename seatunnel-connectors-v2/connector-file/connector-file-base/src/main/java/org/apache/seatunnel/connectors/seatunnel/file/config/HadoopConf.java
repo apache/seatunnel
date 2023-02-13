@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.config;
 
-import lombok.Data;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+
+import lombok.Data;
 
 import java.io.Serializable;
 import java.util.HashMap;
@@ -32,6 +33,8 @@ public class HadoopConf implements Serializable {
     protected Map<String, String> extraOptions = new HashMap<>();
     protected String hdfsNameKey;
     protected String hdfsSitePath;
+    protected String kerberosPrincipal;
+    protected String kerberosKeytabPath;
 
     public HadoopConf(String hdfsNameKey) {
         this.hdfsNameKey = hdfsNameKey;
