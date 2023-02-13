@@ -47,8 +47,7 @@ public final class JobMetrics implements Serializable {
     private static final Collector<Measurement, ?, Map<String, List<Measurement>>> COLLECTOR =
             Collectors.groupingBy(Measurement::metric);
 
-    @Getter
-    private Map<String, List<Measurement>> metrics; //metric name -> set of measurements
+    @Getter private Map<String, List<Measurement>> metrics; // metric name -> set of measurements
 
     JobMetrics() { // needed for deserialization
     }

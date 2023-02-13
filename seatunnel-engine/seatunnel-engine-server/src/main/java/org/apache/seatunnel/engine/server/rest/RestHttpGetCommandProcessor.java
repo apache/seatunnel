@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.engine.server.rest;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
@@ -25,10 +29,6 @@ import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpGetCommandProcessor;
-
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;
@@ -58,9 +58,12 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         this(textCommandService, new HttpGetCommandProcessor(textCommandService));
     }
 
-    public RestHttpGetCommandProcessor(TextCommandService textCommandService,
-                                       HttpGetCommandProcessor httpGetCommandProcessor) {
-        super(textCommandService, textCommandService.getNode().getLogger(Log4j2HttpGetCommandProcessor.class));
+    public RestHttpGetCommandProcessor(
+            TextCommandService textCommandService,
+            HttpGetCommandProcessor httpGetCommandProcessor) {
+        super(
+                textCommandService,
+                textCommandService.getNode().getLogger(Log4j2HttpGetCommandProcessor.class));
         this.original = httpGetCommandProcessor;
     }
 
@@ -74,7 +77,6 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         }
 
         this.textCommandService.sendResponse(httpGetCommand);
-
     }
 
     @Override
@@ -83,37 +85,104 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     }
 
     private void handleRunningJobsInfo(HttpGetCommand command) {
-        IMap<Long, JobInfo> values = this.textCommandService.getNode().getNodeEngine().getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
-        Map<String, Object> extensionServices = this.textCommandService.getNode().getNodeExtension().createExtensionServices();
-        SeaTunnelServer seaTunnelServer = (SeaTunnelServer) extensionServices.get(Constant.SEATUNNEL_SERVICE_NAME);
-        JsonArray jobs = values.entrySet().stream()
-            .map(jobInfoEntry -> {
-                JsonObject jobInfo = new JsonObject();
+        IMap<Long, JobInfo> values =
+                this.textCommandService
+                        .getNode()
+                        .getNodeEngine()
+                        .getHazelcastInstance()
+                        .getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        Map<String, Object> extensionServices =
+                this.textCommandService.getNode().getNodeExtension().createExtensionServices();
+        SeaTunnelServer seaTunnelServer =
+                (SeaTunnelServer) extensionServices.get(Constant.SEATUNNEL_SERVICE_NAME);
+        JsonArray jobs =
+                values.entrySet().stream()
+                        .map(
+                                jobInfoEntry -> {
+                                    JsonObject jobInfo = new JsonObject();
 
-                JobImmutableInformation jobImmutableInformation = this.textCommandService.getNode().getNodeEngine().getSerializationService()
-                    .toObject(this.textCommandService.getNode().getNodeEngine().getSerializationService()
-                        .toObject(jobInfoEntry.getValue().getJobImmutableInformation()));
-                ClassLoader classLoader = new SeaTunnelChildFirstClassLoader(jobImmutableInformation.getPluginJarsUrls());
-                LogicalDag logicalDag = CustomClassLoadedObject.deserializeWithCustomClassLoader(this.textCommandService.getNode().getNodeEngine().getSerializationService(),
-                    classLoader, jobImmutableInformation.getLogicalDag());
+                                    JobImmutableInformation jobImmutableInformation =
+                                            this.textCommandService
+                                                    .getNode()
+                                                    .getNodeEngine()
+                                                    .getSerializationService()
+                                                    .toObject(
+                                                            this.textCommandService
+                                                                    .getNode()
+                                                                    .getNodeEngine()
+                                                                    .getSerializationService()
+                                                                    .toObject(
+                                                                            jobInfoEntry
+                                                                                    .getValue()
+                                                                                    .getJobImmutableInformation()));
+                                    ClassLoader classLoader =
+                                            new SeaTunnelChildFirstClassLoader(
+                                                    jobImmutableInformation.getPluginJarsUrls());
+                                    LogicalDag logicalDag =
+                                            CustomClassLoadedObject
+                                                    .deserializeWithCustomClassLoader(
+                                                            this.textCommandService
+                                                                    .getNode()
+                                                                    .getNodeEngine()
+                                                                    .getSerializationService(),
+                                                            classLoader,
+                                                            jobImmutableInformation
+                                                                    .getLogicalDag());
 
-                String jobMetrics = seaTunnelServer.getCoordinatorService().getJobMetrics(jobInfoEntry.getKey()).toJsonString();
-                JobStatus jobStatus = seaTunnelServer.getCoordinatorService().getJobStatus(jobInfoEntry.getKey());
-                return jobInfo
-                    .add("jobId", jobInfoEntry.getKey())
-                    .add("jobName", logicalDag.getJobConfig().getName())
-                    .add("jobStatus", jobStatus.toString())
-                    .add("envOptions", JsonUtil.toJsonObject(logicalDag.getJobConfig().getEnvOptions()))
-                    .add("createTime", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(jobImmutableInformation.getCreateTime())))
-                    .add("jobDag", logicalDag.getLogicalDagAsJson())
-                    .add("pluginJarsUrls", (JsonValue) jobImmutableInformation.getPluginJarsUrls().stream().map(url -> {
-                        JsonObject jarUrl = new JsonObject();
-                        jarUrl.add("jarPath", url.toString());
-                        return jarUrl;
-                    }).collect(JsonArray::new, JsonArray::add, JsonArray::add))
-                    .add("isStartWithSavePoint", jobImmutableInformation.isStartWithSavePoint())
-                    .add("metrics", JsonUtil.toJsonObject(getJobMetrics(jobMetrics)));
-            }).collect(JsonArray::new, JsonArray::add, JsonArray::add);
+                                    String jobMetrics =
+                                            seaTunnelServer
+                                                    .getCoordinatorService()
+                                                    .getJobMetrics(jobInfoEntry.getKey())
+                                                    .toJsonString();
+                                    JobStatus jobStatus =
+                                            seaTunnelServer
+                                                    .getCoordinatorService()
+                                                    .getJobStatus(jobInfoEntry.getKey());
+                                    return jobInfo.add("jobId", jobInfoEntry.getKey())
+                                            .add("jobName", logicalDag.getJobConfig().getName())
+                                            .add("jobStatus", jobStatus.toString())
+                                            .add(
+                                                    "envOptions",
+                                                    JsonUtil.toJsonObject(
+                                                            logicalDag
+                                                                    .getJobConfig()
+                                                                    .getEnvOptions()))
+                                            .add(
+                                                    "createTime",
+                                                    new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+                                                            .format(
+                                                                    new Date(
+                                                                            jobImmutableInformation
+                                                                                    .getCreateTime())))
+                                            .add("jobDag", logicalDag.getLogicalDagAsJson())
+                                            .add(
+                                                    "pluginJarsUrls",
+                                                    (JsonValue)
+                                                            jobImmutableInformation
+                                                                    .getPluginJarsUrls().stream()
+                                                                    .map(
+                                                                            url -> {
+                                                                                JsonObject jarUrl =
+                                                                                        new JsonObject();
+                                                                                jarUrl.add(
+                                                                                        "jarPath",
+                                                                                        url
+                                                                                                .toString());
+                                                                                return jarUrl;
+                                                                            })
+                                                                    .collect(
+                                                                            JsonArray::new,
+                                                                            JsonArray::add,
+                                                                            JsonArray::add))
+                                            .add(
+                                                    "isStartWithSavePoint",
+                                                    jobImmutableInformation.isStartWithSavePoint())
+                                            .add(
+                                                    "metrics",
+                                                    JsonUtil.toJsonObject(
+                                                            getJobMetrics(jobMetrics)));
+                                })
+                        .collect(JsonArray::new, JsonArray::add, JsonArray::add);
         this.prepareResponse(command, jobs);
     }
 
@@ -138,4 +207,3 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         return metricsMap;
     }
 }
-
