@@ -37,10 +37,9 @@ Instead of providing members line-by-line as shown above, you also have the opti
 
 If you do not provide ports for the members, Hazelcast automatically tries the ports `5701`, `5702` and so on.
 
-
 ## Advanced Network Configuration
 
-Different kinds of network connections can be established with different socket options. 
+Different kinds of network connections can be established with different socket options.
 
 When using the declarative configuration, specific element names introduce the server socket endpoint configuration for each protocol:
 
@@ -74,3 +73,4 @@ member-server-socket-endpoint-config:
         HEALTH_CHECK:
           enabled: true
 ```
+
