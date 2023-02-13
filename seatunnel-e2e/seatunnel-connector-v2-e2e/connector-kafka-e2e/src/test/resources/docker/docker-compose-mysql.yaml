@@ -34,7 +34,7 @@ services:
   mysql:
     image: quay.io/debezium/example-mysql:2.1
     ports:
-      - 3306:3306
+      - 3307:3306
     environment:
       - MYSQL_ROOT_PASSWORD=debezium
       - MYSQL_USER=mysqluser
