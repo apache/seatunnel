@@ -73,10 +73,13 @@ The iceberg table name in the backend catalog.
 If data columns where selected via schema [config], controls whether the match to the schema will be done with case sensitivity.
 
 ### schema [config]
+
 #### fields [Config]
+
 Use projection to select data columns and columns order.
 
 e.g.
+
 ```
 schema {
     fields {
@@ -87,7 +90,6 @@ schema {
     }
 }
 ```
-
 
 ### start_snapshot_id [long]
 
