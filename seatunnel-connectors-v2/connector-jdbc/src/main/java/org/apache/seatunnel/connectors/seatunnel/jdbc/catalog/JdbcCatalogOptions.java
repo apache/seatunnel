@@ -21,9 +21,11 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
 public class JdbcCatalogOptions {
-    public static final Option<String> BASE_URL = Options.key("base-url")
-        .stringType()
-        .noDefaultValue()
-        .withDescription("URL has to be without database, like \"jdbc:mysql://localhost:5432/\" or" +
-            "\"jdbc:mysql://localhost:5432\" rather than \"jdbc:mysql://localhost:5432/db\"");
+    public static final Option<String> BASE_URL =
+            Options.key("base-url")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "URL has to be without database, like \"jdbc:mysql://localhost:5432/\" or"
+                                    + "\"jdbc:mysql://localhost:5432\" rather than \"jdbc:mysql://localhost:5432/db\"");
 }

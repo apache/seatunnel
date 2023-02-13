@@ -86,6 +86,7 @@ public class KafkaSourceSplit implements SourceSplit {
     }
 
     public KafkaSourceSplit copy() {
-        return new KafkaSourceSplit(this.topicPartition, this.getStartOffset(), this.getEndOffset());
+        return new KafkaSourceSplit(
+                this.topicPartition, this.getStartOffset(), this.getEndOffset());
     }
 }

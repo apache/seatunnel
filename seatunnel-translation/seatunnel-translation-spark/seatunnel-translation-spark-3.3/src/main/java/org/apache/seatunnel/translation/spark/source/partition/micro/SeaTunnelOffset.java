@@ -19,9 +19,10 @@ package org.apache.seatunnel.translation.spark.source.partition.micro;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
 
+import org.apache.spark.sql.connector.read.streaming.Offset;
+
 import lombok.Getter;
 import lombok.Setter;
-import org.apache.spark.sql.connector.read.streaming.Offset;
 
 import java.io.Serializable;
 

@@ -17,9 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.sink;
 
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PARTITION_SPEC;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PROJECT;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.TABLE_NAME;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -28,8 +26,6 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeUtil;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.aliyun.odps.PartitionSpec;
 import com.aliyun.odps.Table;
@@ -40,6 +36,10 @@ import com.aliyun.odps.tunnel.TableTunnel;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+
+import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PARTITION_SPEC;
+import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PROJECT;
+import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.TABLE_NAME;
 
 @Slf4j
 public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
@@ -58,10 +58,18 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             this.tableSchema = table.getSchema();
             TableTunnel tunnel = MaxcomputeUtil.getTableTunnel(pluginConfig);
             if (this.pluginConfig.hasPath(PARTITION_SPEC.key())) {
-                PartitionSpec partitionSpec = new PartitionSpec(this.pluginConfig.getString(PARTITION_SPEC.key()));
-                session = tunnel.createUploadSession(pluginConfig.getString(PROJECT.key()), pluginConfig.getString(TABLE_NAME.key()), partitionSpec);
+                PartitionSpec partitionSpec =
+                        new PartitionSpec(this.pluginConfig.getString(PARTITION_SPEC.key()));
+                session =
+                        tunnel.createUploadSession(
+                                pluginConfig.getString(PROJECT.key()),
+                                pluginConfig.getString(TABLE_NAME.key()),
+                                partitionSpec);
             } else {
-                session = tunnel.createUploadSession(pluginConfig.getString(PROJECT.key()), pluginConfig.getString(TABLE_NAME.key()));
+                session =
+                        tunnel.createUploadSession(
+                                pluginConfig.getString(PROJECT.key()),
+                                pluginConfig.getString(TABLE_NAME.key()));
             }
             this.recordWriter = session.openRecordWriter(Thread.currentThread().getId());
             log.info("open record writer success");
@@ -72,7 +80,8 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     @Override
     public void write(SeaTunnelRow seaTunnelRow) throws IOException {
-        Record record = MaxcomputeTypeMapper.getMaxcomputeRowData(seaTunnelRow, this.seaTunnelRowType);
+        Record record =
+                MaxcomputeTypeMapper.getMaxcomputeRowData(seaTunnelRow, this.seaTunnelRowType);
         recordWriter.write(record);
     }
 
@@ -80,7 +89,7 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     public void close() throws IOException {
         this.recordWriter.close();
         try {
-            this.session.commit(new Long[]{Thread.currentThread().getId()});
+            this.session.commit(new Long[] {Thread.currentThread().getId()});
         } catch (Exception e) {
             throw new MaxcomputeConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, e);
         }

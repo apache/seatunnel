@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.eumerator;
 
-import static org.apache.seatunnel.connectors.cdc.base.utils.ObjectUtils.doubleCompare;
-import static java.math.BigDecimal.ROUND_CEILING;
-
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
@@ -44,6 +41,9 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+
+import static java.math.BigDecimal.ROUND_CEILING;
+import static org.apache.seatunnel.connectors.cdc.base.utils.ObjectUtils.doubleCompare;
 
 /** The {@code ChunkSplitter} used to split table into a set of chunks for JDBC data source. */
 @Slf4j
@@ -90,13 +90,15 @@ public class SqlServerChunkSplitter implements JdbcSourceChunkSplitter {
             }
 
             long end = System.currentTimeMillis();
-            log.info("Split table {} into {} chunks, time cost: {}ms.",
+            log.info(
+                    "Split table {} into {} chunks, time cost: {}ms.",
                     tableId,
                     splits.size(),
                     end - start);
             return splits;
         } catch (Exception e) {
-            throw new RuntimeException(String.format("Generate Splits for table %s error", tableId), e);
+            throw new RuntimeException(
+                    String.format("Generate Splits for table %s error", tableId), e);
         }
     }
 
@@ -132,7 +134,10 @@ public class SqlServerChunkSplitter implements JdbcSourceChunkSplitter {
 
     @Override
     public String buildSplitScanQuery(
-        TableId tableId, SeaTunnelRowType splitKeyType, boolean isFirstSplit, boolean isLastSplit) {
+            TableId tableId,
+            SeaTunnelRowType splitKeyType,
+            boolean isFirstSplit,
+            boolean isLastSplit) {
         return SqlServerUtils.buildSplitScanQuery(tableId, splitKeyType, isFirstSplit, isLastSplit);
     }
 
@@ -288,12 +293,7 @@ public class SqlServerChunkSplitter implements JdbcSourceChunkSplitter {
             Object chunkEnd) {
         // currently, we only support single split column
         return new SnapshotSplit(
-            splitId(tableId, chunkId),
-            tableId,
-            splitKeyType,
-            chunkStart,
-            chunkEnd,
-            null);
+                splitId(tableId, chunkId), tableId, splitKeyType, chunkStart, chunkEnd, null);
     }
 
     // ------------------------------------------------------------------------------------------
@@ -347,7 +347,8 @@ public class SqlServerChunkSplitter implements JdbcSourceChunkSplitter {
         List<Column> primaryKeys = table.primaryKeyColumns();
         if (primaryKeys.isEmpty()) {
             throw new UnsupportedOperationException(
-                    String.format("Incremental snapshot for tables requires primary key,"
+                    String.format(
+                            "Incremental snapshot for tables requires primary key,"
                                     + " but table %s doesn't have primary key.",
                             table.id()));
         }

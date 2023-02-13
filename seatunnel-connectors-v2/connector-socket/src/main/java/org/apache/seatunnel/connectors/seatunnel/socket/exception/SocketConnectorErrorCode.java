@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.socket.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum SocketConnectorErrorCode implements SeaTunnelErrorCode {
-
     SOCKET_SERVER_CONNECT_FAILED("SOCKET-01", "Cannot connect to socket server"),
     SEND_MESSAGE_TO_SOCKET_SERVER_FAILED("SOCKET-02", "Failed to send message to socket server"),
     SOCKET_WRITE_FAILED("SOCKET-03", "Unable to write; interrupted while doing another attempt");

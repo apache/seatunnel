@@ -70,4 +70,6 @@ connector-slack
 connector-socket
 connector-starrocks
 connector-tablestore
+connector-selectdb-cloud
+connector-hbase
 --end--

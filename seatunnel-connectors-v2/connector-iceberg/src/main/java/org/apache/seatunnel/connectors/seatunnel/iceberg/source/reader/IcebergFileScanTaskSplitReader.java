@@ -23,10 +23,11 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnec
 import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFileScanTaskSplit;
 
-import lombok.AllArgsConstructor;
-import lombok.NonNull;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.io.CloseableIterator;
+
+import lombok.AllArgsConstructor;
+import lombok.NonNull;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -43,11 +44,13 @@ public class IcebergFileScanTaskSplitReader implements Closeable {
         OffsetSeekIterator<Record> seekIterator = new OffsetSeekIterator<>(iterator);
         seekIterator.seek(split.getRecordOffset());
 
-        return CloseableIterator.transform(seekIterator, record -> {
-            SeaTunnelRow seaTunnelRow = deserializer.deserialize(record);
-            split.setRecordOffset(split.getRecordOffset() + 1);
-            return seaTunnelRow;
-        });
+        return CloseableIterator.transform(
+                seekIterator,
+                record -> {
+                    SeaTunnelRow seaTunnelRow = deserializer.deserialize(record);
+                    split.setRecordOffset(split.getRecordOffset() + 1);
+                    return seaTunnelRow;
+                });
     }
 
     @Override
@@ -65,9 +68,9 @@ public class IcebergFileScanTaskSplitReader implements Closeable {
                     next();
                 } else {
                     throw new IcebergConnectorException(
-                        IcebergConnectorErrorCode.INVALID_STARTING_RECORD_OFFSET,
-                        String.format(
-                            "Invalid starting record offset %d", startingRecordOffset));
+                            IcebergConnectorErrorCode.INVALID_STARTING_RECORD_OFFSET,
+                            String.format(
+                                    "Invalid starting record offset %d", startingRecordOffset));
                 }
             }
         }

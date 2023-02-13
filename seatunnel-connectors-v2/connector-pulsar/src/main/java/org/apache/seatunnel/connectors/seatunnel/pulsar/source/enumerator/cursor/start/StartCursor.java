@@ -36,9 +36,7 @@ import java.io.Serializable;
 @FunctionalInterface
 public interface StartCursor extends Serializable {
 
-    /**
-     * Helper method for seek the right position for given pulsar consumer.
-     */
+    /** Helper method for seek the right position for given pulsar consumer. */
     void seekPosition(Consumer<?> consumer) throws PulsarClientException;
 
     // --------------------------- Static Factory Methods -----------------------------
@@ -55,7 +53,8 @@ public interface StartCursor extends Serializable {
         return new SubscriptionStartCursor();
     }
 
-    static StartCursor subscription(SubscriptionStartCursor.CursorResetStrategy cursorResetStrategy) {
+    static StartCursor subscription(
+            SubscriptionStartCursor.CursorResetStrategy cursorResetStrategy) {
         return new SubscriptionStartCursor(cursorResetStrategy);
     }
 
@@ -74,5 +73,4 @@ public interface StartCursor extends Serializable {
     static StartCursor timestamp(long timestamp) {
         return new TimestampStartCursor(timestamp);
     }
-
 }

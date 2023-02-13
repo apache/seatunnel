@@ -23,7 +23,8 @@ import java.io.Serializable;
 import java.util.Objects;
 
 /**
- * Basic information about a topic. If the topic is not partitioned, the partition number will be -1.
+ * Basic information about a topic. If the topic is not partitioned, the partition number will be
+ * -1.
  */
 public class TopicPartition implements Serializable {
     private static final long serialVersionUID = 1L;

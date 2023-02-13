@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.source;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -26,8 +28,6 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeUtil;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.aliyun.odps.data.Record;
 import com.aliyun.odps.tunnel.TableTunnel;
@@ -47,7 +47,8 @@ public class MaxcomputeSourceReader implements SourceReader<SeaTunnelRow, Maxcom
     boolean noMoreSplit;
     private SeaTunnelRowType seaTunnelRowType;
 
-    public MaxcomputeSourceReader(Config pluginConfig, SourceReader.Context context, SeaTunnelRowType seaTunnelRowType) {
+    public MaxcomputeSourceReader(
+            Config pluginConfig, SourceReader.Context context, SeaTunnelRowType seaTunnelRowType) {
         this.pluginConfig = pluginConfig;
         this.context = context;
         this.sourceSplits = new HashSet<>();
@@ -55,30 +56,34 @@ public class MaxcomputeSourceReader implements SourceReader<SeaTunnelRow, Maxcom
     }
 
     @Override
-    public void open() {
-    }
+    public void open() {}
 
     @Override
-    public void close() {
-    }
+    public void close() {}
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        sourceSplits.forEach(source -> {
-            try {
-                TableTunnel.DownloadSession session = MaxcomputeUtil.getDownloadSession(pluginConfig);
-                TunnelRecordReader recordReader = session.openRecordReader(source.getSplitId(), source.getRowNum());
-                log.info("open record reader success");
-                Record record;
-                while ((record = recordReader.read()) != null) {
-                    SeaTunnelRow seaTunnelRow = MaxcomputeTypeMapper.getSeaTunnelRowData(record, seaTunnelRowType);
-                    output.collect(seaTunnelRow);
-                }
-                recordReader.close();
-            } catch (Exception e) {
-                throw new MaxcomputeConnectorException(CommonErrorCode.READER_OPERATION_FAILED, e);
-            }
-        });
+        sourceSplits.forEach(
+                source -> {
+                    try {
+                        TableTunnel.DownloadSession session =
+                                MaxcomputeUtil.getDownloadSession(pluginConfig);
+                        TunnelRecordReader recordReader =
+                                session.openRecordReader(source.getSplitId(), source.getRowNum());
+                        log.info("open record reader success");
+                        Record record;
+                        while ((record = recordReader.read()) != null) {
+                            SeaTunnelRow seaTunnelRow =
+                                    MaxcomputeTypeMapper.getSeaTunnelRowData(
+                                            record, seaTunnelRowType);
+                            output.collect(seaTunnelRow);
+                        }
+                        recordReader.close();
+                    } catch (Exception e) {
+                        throw new MaxcomputeConnectorException(
+                                CommonErrorCode.READER_OPERATION_FAILED, e);
+                    }
+                });
         if (this.noMoreSplit && Boundedness.BOUNDED.equals(context.getBoundedness())) {
             // signal to the source that we have reached the end of the data.
             log.info("Closed the bounded Maxcompute source");
@@ -102,6 +107,5 @@ public class MaxcomputeSourceReader implements SourceReader<SeaTunnelRow, Maxcom
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) {
-    }
+    public void notifyCheckpointComplete(long checkpointId) {}
 }

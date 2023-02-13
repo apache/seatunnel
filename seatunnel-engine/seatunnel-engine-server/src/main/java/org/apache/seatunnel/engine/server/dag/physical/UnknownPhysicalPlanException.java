@@ -17,13 +17,10 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
-/**
- * This error will be reported when encountering a physical plan that does not work properly
- */
+/** This error will be reported when encountering a physical plan that does not work properly */
 public class UnknownPhysicalPlanException extends RuntimeException {
 
-    public UnknownPhysicalPlanException() {
-    }
+    public UnknownPhysicalPlanException() {}
 
     public UnknownPhysicalPlanException(String message) {
         super(message);

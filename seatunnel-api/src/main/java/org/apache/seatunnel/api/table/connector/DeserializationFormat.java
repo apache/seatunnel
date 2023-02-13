@@ -34,6 +34,6 @@ public interface DeserializationFormat {
 
     default void applyReadableMetadata(List<String> metadataKeys, SeaTunnelDataType<?> dataType) {
         throw new UnsupportedOperationException(
-            "A decoding format must override this method to apply metadata keys.");
+                "A decoding format must override this method to apply metadata keys.");
     }
 }

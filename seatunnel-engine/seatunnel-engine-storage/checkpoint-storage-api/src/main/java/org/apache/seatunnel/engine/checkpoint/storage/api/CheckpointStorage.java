@@ -44,8 +44,7 @@ public interface CheckpointStorage {
     void asyncStoreCheckPoint(PipelineState state) throws CheckpointStorageException;
 
     /**
-     * get all checkpoint from storage
-     * if no data found, return empty list
+     * get all checkpoint from storage if no data found, return empty list
      *
      * @param jobId job id
      * @return All job's checkpoint data from storage
@@ -54,9 +53,8 @@ public interface CheckpointStorage {
     List<PipelineState> getAllCheckpoints(String jobId) throws CheckpointStorageException;
 
     /**
-     * get latest checkpoint of all pipelines
-     * If an exception occurs on an individual pipeline, it will be ignored.
-     * If all pipeline checkpoint data fails, an exception is throw
+     * get latest checkpoint of all pipelines If an exception occurs on an individual pipeline, it
+     * will be ignored. If all pipeline checkpoint data fails, an exception is throw
      *
      * @param jobId job id
      * @return latest checkpoint data from storage
@@ -65,27 +63,28 @@ public interface CheckpointStorage {
     List<PipelineState> getLatestCheckpoint(String jobId) throws CheckpointStorageException;
 
     /**
-     * get latest checkpoint from storage
-     * if no data found, return empty list
+     * get latest checkpoint from storage if no data found, return empty list
      *
-     * @param jobId      job id
+     * @param jobId job id
      * @param pipelineId pipeline id
      * @return checkpoint data from storage
      * @throws CheckpointStorageException if get checkpoint failed or no checkpoint found
      */
-    PipelineState getLatestCheckpointByJobIdAndPipelineId(String jobId, String pipelineId) throws CheckpointStorageException;
+    PipelineState getLatestCheckpointByJobIdAndPipelineId(String jobId, String pipelineId)
+            throws CheckpointStorageException;
 
     /**
      * get checkpoint by pipeline id from storage
-     * <p>
-     * if no data found, return empty list
      *
-     * @param jobId      job id
+     * <p>if no data found, return empty list
+     *
+     * @param jobId job id
      * @param pipelineId pipeline id
      * @return checkpoint data from storage
      * @throws CheckpointStorageException if get checkpoint failed or no checkpoint found
      */
-    List<PipelineState> getCheckpointsByJobIdAndPipelineId(String jobId, String pipelineId) throws CheckpointStorageException;
+    List<PipelineState> getCheckpointsByJobIdAndPipelineId(String jobId, String pipelineId)
+            throws CheckpointStorageException;
 
     /**
      * Delete all checkpoint data under the job
@@ -104,7 +103,8 @@ public interface CheckpointStorage {
      * @return checkpoint state
      * @throws CheckpointStorageException get checkpoint failed
      */
-    PipelineState getCheckpoint(String jobId, String pipelineId, String checkpointId) throws CheckpointStorageException;
+    PipelineState getCheckpoint(String jobId, String pipelineId, String checkpointId)
+            throws CheckpointStorageException;
 
     /**
      * Delete the checkpoint data.
@@ -113,5 +113,6 @@ public interface CheckpointStorage {
      * @param pipelineId pipeline id
      * @param checkpointId checkpoint id
      */
-    void deleteCheckpoint(String jobId, String pipelineId, String checkpointId) throws CheckpointStorageException;
+    void deleteCheckpoint(String jobId, String pipelineId, String checkpointId)
+            throws CheckpointStorageException;
 }

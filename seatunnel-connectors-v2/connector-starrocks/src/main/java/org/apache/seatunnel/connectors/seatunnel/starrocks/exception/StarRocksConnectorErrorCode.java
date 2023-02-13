@@ -20,8 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum StarRocksConnectorErrorCode implements SeaTunnelErrorCode {
-  FLUSH_DATA_FAILED("STARROCKS-01", "Flush batch data to sink connector failed"),
-  WRITE_RECORDS_FAILED("STARROCKS-02", "Writing records to StarRocks failed.");
+    FLUSH_DATA_FAILED("STARROCKS-01", "Flush batch data to sink connector failed"),
+    WRITE_RECORDS_FAILED("STARROCKS-02", "Writing records to StarRocks failed.");
     private final String code;
     private final String description;
 

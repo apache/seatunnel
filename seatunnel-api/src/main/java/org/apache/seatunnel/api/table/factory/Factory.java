@@ -19,10 +19,7 @@ package org.apache.seatunnel.api.table.factory;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 
-/**
- * todo: use PluginIdentifier.
- * This is the SPI interface.
- */
+/** todo: use PluginIdentifier. This is the SPI interface. */
 public interface Factory {
 
     /**
@@ -37,7 +34,9 @@ public interface Factory {
     /**
      * Returns the rule for options.
      *
-     * <p>1. Used to verify whether the parameters configured by the user conform to the rules of the options;
+     * <p>1. Used to verify whether the parameters configured by the user conform to the rules of
+     * the options;
+     *
      * <p>2. Used for Web-UI to prompt user to configure option value;
      */
     OptionRule optionRule();

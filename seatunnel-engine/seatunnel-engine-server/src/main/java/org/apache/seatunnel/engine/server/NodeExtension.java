@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.engine.server;
 
-import static com.hazelcast.internal.ascii.TextCommandConstants.TextCommandType.HTTP_GET;
-import static com.hazelcast.internal.ascii.TextCommandConstants.TextCommandType.HTTP_POST;
-
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpGetCommandProcessor;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpPostCommandProcessor;
@@ -33,6 +30,9 @@ import com.hazelcast.internal.ascii.TextCommandServiceImpl;
 import lombok.NonNull;
 
 import java.util.Map;
+
+import static com.hazelcast.internal.ascii.TextCommandConstants.TextCommandType.HTTP_GET;
+import static com.hazelcast.internal.ascii.TextCommandConstants.TextCommandType.HTTP_POST;
 
 public class NodeExtension extends DefaultNodeExtension {
     private final NodeExtensionCommon extCommon;
@@ -55,7 +55,8 @@ public class NodeExtension extends DefaultNodeExtension {
     }
 
     @Override
-    public void beforeClusterStateChange(ClusterState currState, ClusterState requestedState, boolean isTransient) {
+    public void beforeClusterStateChange(
+            ClusterState currState, ClusterState requestedState, boolean isTransient) {
         super.beforeClusterStateChange(currState, requestedState, isTransient);
         extCommon.beforeClusterStateChange(requestedState);
     }
