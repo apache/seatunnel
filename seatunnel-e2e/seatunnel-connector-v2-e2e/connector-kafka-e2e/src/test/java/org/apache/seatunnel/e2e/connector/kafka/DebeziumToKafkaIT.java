@@ -268,7 +268,8 @@ public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
 
     private void createTopic(String topicName) {
         Properties props = new Properties();
-        props.put("bootstrap.servers", "kafka:9092");
+        String bootstrapServers = getBootstrapServers();
+        props.put("bootstrap.servers", bootstrapServers);
         AdminClient adminClient = AdminClient.create(props);
         ArrayList<NewTopic> topics = new ArrayList<>();
         NewTopic newTopic = new NewTopic(topicName, 1, (short) 1);
