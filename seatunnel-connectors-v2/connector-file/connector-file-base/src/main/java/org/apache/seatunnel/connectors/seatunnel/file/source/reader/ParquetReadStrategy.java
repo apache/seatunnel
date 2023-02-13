@@ -81,11 +81,6 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
     private int[] indexes;
 
     @Override
-    public void init(HadoopConf conf) {
-        super.init(conf);
-    }
-
-    @Override
     public void read(String path, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
         if (Boolean.FALSE.equals(checkFileType(path))) {
