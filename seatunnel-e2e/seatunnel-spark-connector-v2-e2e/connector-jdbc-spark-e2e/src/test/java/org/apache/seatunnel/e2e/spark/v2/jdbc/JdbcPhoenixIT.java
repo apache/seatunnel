@@ -19,8 +19,6 @@ package org.apache.seatunnel.e2e.spark.v2.jdbc;
 
 import org.apache.seatunnel.e2e.spark.SparkContainer;
 
-import com.google.common.collect.Lists;
-import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,6 +28,9 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
+
+import com.google.common.collect.Lists;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.sql.Connection;
@@ -53,22 +54,28 @@ public class JdbcPhoenixIT extends SparkContainer {
     private static final int PHOENIX_PORT = 8763;
     private static final int PHOENIX_CONTAINER_PORT = 8765;
 
-    private static final String PHOENIX_CONNECT_URL = "jdbc:phoenix:thin:url=http://%s:%s;serialization=PROTOBUF";
-    private static final String PHOENIX_JDBC_DRIVER = "org.apache.phoenix.queryserver.client.Driver";
+    private static final String PHOENIX_CONNECT_URL =
+            "jdbc:phoenix:thin:url=http://%s:%s;serialization=PROTOBUF";
+    private static final String PHOENIX_JDBC_DRIVER =
+            "org.apache.phoenix.queryserver.client.Driver";
 
     private GenericContainer<?> phoenixServer;
 
     private Connection connection;
-    private static final String THIRD_PARTY_PLUGINS_URL = "https://repo1.maven.org/maven2/com/aliyun/phoenix/ali-phoenix-shaded-thin-client/5.2.5-HBase-2.x/ali-phoenix-shaded-thin-client-5.2.5-HBase-2.x.jar";
+    private static final String THIRD_PARTY_PLUGINS_URL =
+            "https://repo1.maven.org/maven2/com/aliyun/phoenix/ali-phoenix-shaded-thin-client/5.2.5-HBase-2.x/ali-phoenix-shaded-thin-client-5.2.5-HBase-2.x.jar";
 
     @BeforeEach
     public void startPhoenixContainer() throws ClassNotFoundException, SQLException {
-        phoenixServer = new GenericContainer<>(PHOENIX_DOCKER_IMAGE)
-            .withNetwork(NETWORK)
-            .withNetworkAliases(PHOENIX_CONTAINER_HOST)
-            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(PHOENIX_DOCKER_IMAGE)));
-        phoenixServer.setPortBindings(Lists.newArrayList(
-            String.format("%s:%s", PHOENIX_PORT, PHOENIX_CONTAINER_PORT)));
+        phoenixServer =
+                new GenericContainer<>(PHOENIX_DOCKER_IMAGE)
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(PHOENIX_CONTAINER_HOST)
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(
+                                        DockerLoggerFactory.getLogger(PHOENIX_DOCKER_IMAGE)));
+        phoenixServer.setPortBindings(
+                Lists.newArrayList(String.format("%s:%s", PHOENIX_PORT, PHOENIX_CONTAINER_PORT)));
         Startables.deepStart(Stream.of(phoenixServer)).join();
         initializeJdbcConnection();
         log.info("phoenix container started");
@@ -77,8 +84,10 @@ public class JdbcPhoenixIT extends SparkContainer {
     }
 
     @Test
-    public void testJdbcPhoenixSourceAndSink() throws IOException, InterruptedException, SQLException {
-        Container.ExecResult execResult = executeSeaTunnelSparkJob("/jdbc/jdbc_phoenix_source_and_sink.conf");
+    public void testJdbcPhoenixSourceAndSink()
+            throws IOException, InterruptedException, SQLException {
+        Container.ExecResult execResult =
+                executeSeaTunnelSparkJob("/jdbc/jdbc_phoenix_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
         // query result
@@ -87,14 +96,15 @@ public class JdbcPhoenixIT extends SparkContainer {
         try (Statement statement = connection.createStatement()) {
             ResultSet resultSet = statement.executeQuery(sql);
             while (resultSet.next()) {
-                result.add(Arrays.asList(
-                    resultSet.getString(1),
-                    resultSet.getBoolean(2),
-                    resultSet.getDouble(3),
-                    resultSet.getFloat(4),
-                    resultSet.getShort(5),
-                    resultSet.getInt(6),
-                    resultSet.getInt(7)));
+                result.add(
+                        Arrays.asList(
+                                resultSet.getString(1),
+                                resultSet.getBoolean(2),
+                                resultSet.getDouble(3),
+                                resultSet.getFloat(4),
+                                resultSet.getShort(5),
+                                resultSet.getInt(6),
+                                resultSet.getInt(7)));
             }
         }
         Assertions.assertIterableEquals(generateTestDataset(), result);
@@ -102,30 +112,34 @@ public class JdbcPhoenixIT extends SparkContainer {
 
     private void initializeJdbcConnection() throws SQLException, ClassNotFoundException {
         Class.forName(PHOENIX_JDBC_DRIVER);
-        connection = DriverManager.getConnection(String.format(PHOENIX_CONNECT_URL, phoenixServer.getHost(), PHOENIX_PORT));
+        connection =
+                DriverManager.getConnection(
+                        String.format(PHOENIX_CONNECT_URL, phoenixServer.getHost(), PHOENIX_PORT));
     }
 
     private void initializePhoenixTable() {
         try {
             Statement statement = connection.createStatement();
-            String createSource = "CREATE TABLE test.source (\n" +
-                "\tf1 VARCHAR PRIMARY KEY,\n" +
-                "\tf2 BOOLEAN,\n" +
-                "\tf3 UNSIGNED_DOUBLE,\n" +
-                "\tf4 UNSIGNED_FLOAT,\n" +
-                "\tf5 UNSIGNED_SMALLINT,\n" +
-                "\tf6 INTEGER,\n" +
-                "\tf7 UNSIGNED_INT\n" +
-                ")";
-            String createSink = "CREATE TABLE test.sink (\n" +
-                "\tf1 VARCHAR PRIMARY KEY,\n" +
-                "\tf2 BOOLEAN,\n" +
-                "\tf3 UNSIGNED_DOUBLE,\n" +
-                "\tf4 UNSIGNED_FLOAT,\n" +
-                "\tf5 UNSIGNED_SMALLINT,\n" +
-                "\tf6 INTEGER,\n" +
-                "\tf7 UNSIGNED_INT\n" +
-                ")";
+            String createSource =
+                    "CREATE TABLE test.source (\n"
+                            + "\tf1 VARCHAR PRIMARY KEY,\n"
+                            + "\tf2 BOOLEAN,\n"
+                            + "\tf3 UNSIGNED_DOUBLE,\n"
+                            + "\tf4 UNSIGNED_FLOAT,\n"
+                            + "\tf5 UNSIGNED_SMALLINT,\n"
+                            + "\tf6 INTEGER,\n"
+                            + "\tf7 UNSIGNED_INT\n"
+                            + ")";
+            String createSink =
+                    "CREATE TABLE test.sink (\n"
+                            + "\tf1 VARCHAR PRIMARY KEY,\n"
+                            + "\tf2 BOOLEAN,\n"
+                            + "\tf3 UNSIGNED_DOUBLE,\n"
+                            + "\tf4 UNSIGNED_FLOAT,\n"
+                            + "\tf5 UNSIGNED_SMALLINT,\n"
+                            + "\tf6 INTEGER,\n"
+                            + "\tf7 UNSIGNED_INT\n"
+                            + ")";
             statement.execute(createSource);
             statement.execute(createSink);
         } catch (SQLException e) {
@@ -143,20 +157,22 @@ public class JdbcPhoenixIT extends SparkContainer {
     private static List<List> generateTestDataset() {
         List<List> rows = new ArrayList<>();
         for (int i = 1; i <= 100; i++) {
-            rows.add(Arrays.asList(String.format("test_%s", i),
-                i % 2 == 0,
-                Double.valueOf(i + 1),
-                Float.valueOf(i + 2),
-                (short) (i + 3),
-                Integer.valueOf(i + 4),
-                i + 5
-            ));
+            rows.add(
+                    Arrays.asList(
+                            String.format("test_%s", i),
+                            i % 2 == 0,
+                            Double.valueOf(i + 1),
+                            Float.valueOf(i + 2),
+                            (short) (i + 3),
+                            Integer.valueOf(i + 4),
+                            i + 5));
         }
         return rows;
     }
 
     private void batchInsertData() throws SQLException, ClassNotFoundException {
-        String sql = "upsert into test.source(f1, f2, f3, f4, f5, f6, f7) values(?, ?, ?, ?, ?, ?, ?)";
+        String sql =
+                "upsert into test.source(f1, f2, f3, f4, f5, f6, f7) values(?, ?, ?, ?, ?, ?, ?)";
 
         try {
             connection.setAutoCommit(false);
@@ -181,8 +197,14 @@ public class JdbcPhoenixIT extends SparkContainer {
     }
 
     @Override
-    protected void executeExtraCommands(GenericContainer<?> container) throws IOException, InterruptedException {
-        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O " + THIRD_PARTY_PLUGINS_URL);
+    protected void executeExtraCommands(GenericContainer<?> container)
+            throws IOException, InterruptedException {
+        Container.ExecResult extraCommands =
+                container.execInContainer(
+                        "bash",
+                        "-c",
+                        "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
+                                + THIRD_PARTY_PLUGINS_URL);
         Assertions.assertEquals(0, extraCommands.getExitCode());
     }
 }

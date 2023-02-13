@@ -1,6 +1,7 @@
 ---
+
 sidebar_position: 4
----
+-------------------
 
 # Deployment SeaTunnel Engine
 
@@ -24,6 +25,7 @@ SeaTunnel Engine supported two ways to set jvm options.
 1. Add JVM Options to `$SEATUNNEL_HOME/bin/seatunnel-cluster.sh`.
 
    Modify the `$SEATUNNEL_HOME/bin/seatunnel-cluster.sh` file and add `JAVA_OPTS="-Xms2G -Xmx2G"` in the first line.
+
 2. Add JVM Options when start SeaTunnel Engine. For example `seatunnel-cluster.sh -DJvmOption="-Xms2G -Xmx2G"`
 
 ## 4. Config SeaTunnel Engine
@@ -73,7 +75,6 @@ The interval between two checkpoints, unit is milliseconds. If the `checkpoint.i
 
 The timeout of a checkpoint. If a checkpoint cannot be completed within the timeout period, a checkpoint failure will be triggered. Therefore, Job will be restored.
 
-
 **max-concurrent**
 
 How many checkpoints can be performed simultaneously at most.
@@ -109,10 +110,9 @@ Task internal exchange queue type. There are currently two types of `disruptor` 
 ```
 seatunnel:
     engine:
-        queue_type: disruptor
+        queue-type: disruptor
         # other config
 ```
-
 
 ## 5. Config SeaTunnel Engine Server
 
@@ -192,6 +192,7 @@ map:
            clusterName: seatunnel-cluster
            fs.defaultFS: hdfs://localhost:9000
 ```
+
 If there is no HDFS and your cluster only have one node, you can config to use local file like this:
 
 ```yaml
@@ -207,7 +208,6 @@ map:
            clusterName: seatunnel-cluster
            fs.defaultFS: file:///
 ```
-
 
 ## 6. Config SeaTunnel Engine Client
 
@@ -237,7 +237,7 @@ hazelcast-client:
 
 ```shell
 mkdir -p $SEATUNNEL_HOME/logs
-nohup seatunnel-cluster.sh &
+nohup bin/seatunnel-cluster.sh 2>&1 &
 ```
 
 The logs will write in `$SEATUNNEL_HOME/logs/seatunnel-engine-server.log`

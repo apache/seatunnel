@@ -26,9 +26,12 @@ import java.util.Objects;
 public class LocalTimeType<T extends Temporal> implements SeaTunnelDataType<T> {
     private static final long serialVersionUID = 2L;
 
-    public static final LocalTimeType<LocalDate> LOCAL_DATE_TYPE = new LocalTimeType<>(LocalDate.class, SqlType.DATE);
-    public static final LocalTimeType<LocalTime> LOCAL_TIME_TYPE = new LocalTimeType<>(LocalTime.class, SqlType.TIME);
-    public static final LocalTimeType<LocalDateTime> LOCAL_DATE_TIME_TYPE = new LocalTimeType<>(LocalDateTime.class, SqlType.TIMESTAMP);
+    public static final LocalTimeType<LocalDate> LOCAL_DATE_TYPE =
+            new LocalTimeType<>(LocalDate.class, SqlType.DATE);
+    public static final LocalTimeType<LocalTime> LOCAL_TIME_TYPE =
+            new LocalTimeType<>(LocalTime.class, SqlType.TIME);
+    public static final LocalTimeType<LocalDateTime> LOCAL_DATE_TIME_TYPE =
+            new LocalTimeType<>(LocalDateTime.class, SqlType.TIMESTAMP);
 
     private final Class<T> typeClass;
     private final SqlType sqlType;

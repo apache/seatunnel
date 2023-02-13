@@ -21,28 +21,30 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeTypeMapper;
 
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
 import com.aliyun.odps.Column;
 import com.aliyun.odps.OdpsType;
 import com.aliyun.odps.data.ArrayRecord;
 import com.aliyun.odps.data.Record;
 import lombok.SneakyThrows;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
 
 import java.sql.SQLException;
 
 public class BasicTypeToOdpsTypeTest {
 
-    private static void testType(String fieldName, SeaTunnelDataType<?> seaTunnelDataType, OdpsType odpsType, Object object) throws SQLException {
-        SeaTunnelRowType typeInfo = new SeaTunnelRowType(new String[]{
-            fieldName
-        }, new SeaTunnelDataType<?>[]{
-            seaTunnelDataType
-        });
+    private static void testType(
+            String fieldName,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            OdpsType odpsType,
+            Object object)
+            throws SQLException {
+        SeaTunnelRowType typeInfo =
+                new SeaTunnelRowType(
+                        new String[] {fieldName}, new SeaTunnelDataType<?>[] {seaTunnelDataType});
 
-        ArrayRecord record = new ArrayRecord(new Column[]{
-            new Column(fieldName, odpsType)
-        });
+        ArrayRecord record = new ArrayRecord(new Column[] {new Column(fieldName, odpsType)});
         record.set(fieldName, object);
 
         SeaTunnelRow seaTunnelRow = MaxcomputeTypeMapper.getSeaTunnelRowData(record, typeInfo);

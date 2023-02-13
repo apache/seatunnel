@@ -23,7 +23,6 @@ import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorException;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Schema;
 import org.apache.kudu.client.Insert;
@@ -35,17 +34,16 @@ import org.apache.kudu.client.PartialRow;
 import org.apache.kudu.client.SessionConfiguration;
 import org.apache.kudu.client.Upsert;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.sql.Timestamp;
 
-/**
- * A Kudu outputFormat
- */
+/** A Kudu outputFormat */
 @Slf4j
-public class KuduOutputFormat
-        implements Serializable {
+public class KuduOutputFormat implements Serializable {
 
     public static final long TIMEOUTMS = 18000;
     public static final long SESSIONTIMEOUTMS = 100000;
@@ -87,7 +85,8 @@ public class KuduOutputFormat
                         break;
                     case UNIXTIME_MICROS:
                         if (element.getField(columnIndex) instanceof Timestamp) {
-                            row.addTimestamp(columnIndex, (Timestamp) element.getField(columnIndex));
+                            row.addTimestamp(
+                                    columnIndex, (Timestamp) element.getField(columnIndex));
                         } else {
                             row.addLong(columnIndex, (Long) element.getField(columnIndex));
                         }
@@ -112,14 +111,18 @@ public class KuduOutputFormat
                         row.addDecimal(columnIndex, (BigDecimal) element.getField(columnIndex));
                         break;
                     default:
-                        throw new KuduConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported column type: " + col.getType());
+                        throw new KuduConnectorException(
+                                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                                "Unsupported column type: " + col.getType());
                 }
             } catch (ClassCastException e) {
-                throw new KuduConnectorException(KuduConnectorErrorCode.DATA_TYPE_CAST_FILED,
-                        "Value type does not match column type " + col.getType() +
-                                " for column " + col.getName());
+                throw new KuduConnectorException(
+                        KuduConnectorErrorCode.DATA_TYPE_CAST_FILED,
+                        "Value type does not match column type "
+                                + col.getType()
+                                + " for column "
+                                + col.getName());
             }
-
         }
     }
 
@@ -156,13 +159,15 @@ public class KuduOutputFormat
                 upsert(element);
                 break;
             default:
-                throw new KuduConnectorException(CommonErrorCode.FLUSH_DATA_FAILED, String.format("Unsupported saveMode: %s.", saveMode.name()));
+                throw new KuduConnectorException(
+                        CommonErrorCode.FLUSH_DATA_FAILED,
+                        String.format("Unsupported saveMode: %s.", saveMode.name()));
         }
     }
 
     private void init() {
-        KuduClient.KuduClientBuilder kuduClientBuilder = new
-                KuduClient.KuduClientBuilder(kuduMaster);
+        KuduClient.KuduClientBuilder kuduClientBuilder =
+                new KuduClient.KuduClientBuilder(kuduMaster);
         kuduClientBuilder.defaultOperationTimeoutMs(TIMEOUTMS);
         this.kuduClient = kuduClientBuilder.build();
         this.kuduSession = kuduClient.newSession();

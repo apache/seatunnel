@@ -17,19 +17,20 @@
 
 package org.apache.seatunnel.e2e.flink.v2.jdbc;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.MountableFile;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.io.IOException;
@@ -52,13 +53,23 @@ public class JdbcSqliteIT extends FlinkContainer {
     private String tmpdir;
     private Config config;
     private static final List<List<Object>> TEST_DATASET = generateTestDataset();
-    private static final String THIRD_PARTY_PLUGINS_URL = "https://repo1.maven.org/maven2/org/xerial/sqlite-jdbc/3.39.3.0/sqlite-jdbc-3.39.3.0.jar";
+    private static final String THIRD_PARTY_PLUGINS_URL =
+            "https://repo1.maven.org/maven2/org/xerial/sqlite-jdbc/3.39.3.0/sqlite-jdbc-3.39.3.0.jar";
 
     private void initTestDb() throws Exception {
-        URI resource = Objects.requireNonNull(JdbcSqliteIT.class.getResource("/jdbc/init_sql/sqlite_init.conf")).toURI();
+        URI resource =
+                Objects.requireNonNull(
+                                JdbcSqliteIT.class.getResource("/jdbc/init_sql/sqlite_init.conf"))
+                        .toURI();
         config = ConfigBuilder.of(Paths.get(resource));
-        CheckConfigUtil.checkAllExists(this.config, "source_table", "sink_table", "type_source_table",
-                "type_sink_table", "insert_type_source_table_sql", "check_type_sink_table_sql");
+        CheckConfigUtil.checkAllExists(
+                this.config,
+                "source_table",
+                "sink_table",
+                "type_source_table",
+                "type_sink_table",
+                "insert_type_source_table_sql",
+                "check_type_sink_table_sql");
         tmpdir = Paths.get(System.getProperty("java.io.tmpdir")).toString();
         Connection connection = null;
         try {
@@ -108,41 +119,58 @@ public class JdbcSqliteIT extends FlinkContainer {
 
     @Test
     public void testJdbcSqliteSourceAndSinkDataType() throws Exception {
-        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/jdbc_sqlite_source_and_sink_datatype.conf");
+        Container.ExecResult execResult =
+                executeSeaTunnelFlinkJob("/jdbc/jdbc_sqlite_source_and_sink_datatype.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        taskManager.copyFileFromContainer(Paths.get("/sqlite/test.db").toString(), new File(tmpdir + "/test.db").toPath().toString());
+        taskManager.copyFileFromContainer(
+                Paths.get("/sqlite/test.db").toString(),
+                new File(tmpdir + "/test.db").toPath().toString());
         checkSinkDataTypeTable();
     }
 
     private void checkSinkDataTypeTable() throws Exception {
-        URI resource = Objects.requireNonNull(JdbcSqliteIT.class.getResource("/jdbc/init_sql/sqlite_init.conf")).toURI();
+        URI resource =
+                Objects.requireNonNull(
+                                JdbcSqliteIT.class.getResource("/jdbc/init_sql/sqlite_init.conf"))
+                        .toURI();
         config = ConfigBuilder.of(Paths.get(resource));
-        CheckConfigUtil.checkAllExists(this.config, "source_table", "sink_table", "type_source_table",
-                "type_sink_table", "insert_type_source_table_sql", "check_type_sink_table_sql");
+        CheckConfigUtil.checkAllExists(
+                this.config,
+                "source_table",
+                "sink_table",
+                "type_source_table",
+                "type_sink_table",
+                "insert_type_source_table_sql",
+                "check_type_sink_table_sql");
 
-        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + tmpdir + "/test.db", "", "")) {
+        try (Connection connection =
+                DriverManager.getConnection("jdbc:sqlite:" + tmpdir + "/test.db", "", "")) {
             Statement statement = connection.createStatement();
-            ResultSet resultSet = statement.executeQuery(config.getString("check_type_sink_table_sql"));
+            ResultSet resultSet =
+                    statement.executeQuery(config.getString("check_type_sink_table_sql"));
             resultSet.next();
             Assertions.assertEquals(resultSet.getInt(1), 2);
         }
     }
 
     @Test
-    public void testJdbcSqliteSourceAndSink() throws IOException, InterruptedException, SQLException {
-        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/jdbc_sqlite_source_and_sink.conf");
+    public void testJdbcSqliteSourceAndSink()
+            throws IOException, InterruptedException, SQLException {
+        Container.ExecResult execResult =
+                executeSeaTunnelFlinkJob("/jdbc/jdbc_sqlite_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-        taskManager.copyFileFromContainer(Paths.get("/sqlite/test.db").toString(), new File(tmpdir + "/test.db").toPath().toString());
+        taskManager.copyFileFromContainer(
+                Paths.get("/sqlite/test.db").toString(),
+                new File(tmpdir + "/test.db").toPath().toString());
         // query result
         String sql = "select age, name from sink order by age asc";
         List<List<Object>> result = new ArrayList<>();
-        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + tmpdir + "/test.db", "", "")) {
+        try (Connection connection =
+                DriverManager.getConnection("jdbc:sqlite:" + tmpdir + "/test.db", "", "")) {
             Statement statement = connection.createStatement();
             ResultSet resultSet = statement.executeQuery(sql);
             while (resultSet.next()) {
-                result.add(Arrays.asList(
-                        resultSet.getInt(1),
-                        resultSet.getString(2)));
+                result.add(Arrays.asList(resultSet.getInt(1), resultSet.getString(2)));
             }
             Assertions.assertIterableEquals(TEST_DATASET, result);
         }
@@ -155,21 +183,31 @@ public class JdbcSqliteIT extends FlinkContainer {
     }
 
     @Override
-    protected void executeExtraCommands(GenericContainer<?> container) throws IOException, InterruptedException {
-        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O " + THIRD_PARTY_PLUGINS_URL);
+    protected void executeExtraCommands(GenericContainer<?> container)
+            throws IOException, InterruptedException {
+        Container.ExecResult extraCommands =
+                container.execInContainer(
+                        "bash",
+                        "-c",
+                        "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
+                                + THIRD_PARTY_PLUGINS_URL);
         Assertions.assertEquals(0, extraCommands.getExitCode());
 
-        Container.ExecResult mkdirCommands1 = jobManager.execInContainer("bash", "-c", "mkdir -p " + "/sqlite");
+        Container.ExecResult mkdirCommands1 =
+                jobManager.execInContainer("bash", "-c", "mkdir -p " + "/sqlite");
         Assertions.assertEquals(0, mkdirCommands1.getExitCode());
-        Container.ExecResult mkdirCommands2 = taskManager.execInContainer("bash", "-c", "mkdir -p " + "/sqlite");
+        Container.ExecResult mkdirCommands2 =
+                taskManager.execInContainer("bash", "-c", "mkdir -p " + "/sqlite");
         Assertions.assertEquals(0, mkdirCommands2.getExitCode());
         jobManager.execInContainer("bash", "-c", "chmod 777 -R /sqlite");
         taskManager.execInContainer("bash", "-c", "chmod 777 -R /sqlite");
         try {
             initTestDb();
             // copy db file to container, dist file path in container is /tmp/seatunnel/data/test.db
-            jobManager.copyFileToContainer(MountableFile.forHostPath(tmpdir + "/test.db"), "/sqlite/test.db");
-            taskManager.copyFileToContainer(MountableFile.forHostPath(tmpdir + "/test.db"), "/sqlite/test.db");
+            jobManager.copyFileToContainer(
+                    MountableFile.forHostPath(tmpdir + "/test.db"), "/sqlite/test.db");
+            taskManager.copyFileToContainer(
+                    MountableFile.forHostPath(tmpdir + "/test.db"), "/sqlite/test.db");
             jobManager.execInContainer("bash", "-c", "chmod 777 /sqlite/test.db");
             taskManager.execInContainer("bash", "-c", "chmod 777 /sqlite/test.db");
         } catch (Exception e) {

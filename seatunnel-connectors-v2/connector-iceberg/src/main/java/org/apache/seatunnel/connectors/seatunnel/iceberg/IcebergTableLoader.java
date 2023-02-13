@@ -17,20 +17,21 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
 
-import lombok.NonNull;
 import org.apache.iceberg.CachingCatalog;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
 
+import lombok.NonNull;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.Serializable;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class IcebergTableLoader implements Closeable, Serializable {
 
@@ -41,8 +42,9 @@ public class IcebergTableLoader implements Closeable, Serializable {
 
     private Catalog catalog;
 
-    public IcebergTableLoader(@NonNull IcebergCatalogFactory icebergCatalogFactory,
-                              @NonNull TableIdentifier tableIdentifier) {
+    public IcebergTableLoader(
+            @NonNull IcebergCatalogFactory icebergCatalogFactory,
+            @NonNull TableIdentifier tableIdentifier) {
         this.icebergCatalogFactory = icebergCatalogFactory;
         this.tableIdentifierStr = tableIdentifier.toString();
     }
@@ -53,8 +55,8 @@ public class IcebergTableLoader implements Closeable, Serializable {
 
     public Table loadTable() {
         TableIdentifier tableIdentifier = TableIdentifier.parse(tableIdentifierStr);
-        checkArgument(catalog.tableExists(tableIdentifier),
-            "Illegal source table: " + tableIdentifier);
+        checkArgument(
+                catalog.tableExists(tableIdentifier), "Illegal source table: " + tableIdentifier);
         return catalog.loadTable(tableIdentifier);
     }
 
@@ -66,12 +68,15 @@ public class IcebergTableLoader implements Closeable, Serializable {
     }
 
     public static IcebergTableLoader create(SourceConfig sourceConfig) {
-        IcebergCatalogFactory catalogFactory = new IcebergCatalogFactory(
-            sourceConfig.getCatalogName(),
-            sourceConfig.getCatalogType(),
-            sourceConfig.getWarehouse(),
-            sourceConfig.getUri());
-        return new IcebergTableLoader(catalogFactory,
-            TableIdentifier.of(Namespace.of(sourceConfig.getNamespace()), sourceConfig.getTable()));
+        IcebergCatalogFactory catalogFactory =
+                new IcebergCatalogFactory(
+                        sourceConfig.getCatalogName(),
+                        sourceConfig.getCatalogType(),
+                        sourceConfig.getWarehouse(),
+                        sourceConfig.getUri());
+        return new IcebergTableLoader(
+                catalogFactory,
+                TableIdentifier.of(
+                        Namespace.of(sourceConfig.getNamespace()), sourceConfig.getTable()));
     }
 }

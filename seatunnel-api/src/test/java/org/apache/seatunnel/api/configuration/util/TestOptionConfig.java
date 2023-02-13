@@ -28,8 +28,7 @@ public class TestOptionConfig {
     @OptionMark(name = "short-value", description = "shortValue")
     private Short shortValue;
 
-    @OptionMark
-    private Integer intValue;
+    @OptionMark private Integer intValue;
 
     @OptionMark(description = "longValue")
     private Long longValue;
@@ -63,5 +62,4 @@ public class TestOptionConfig {
 
     @OptionMark(description = "mapValue")
     private Map<String, String> mapValue;
-
 }

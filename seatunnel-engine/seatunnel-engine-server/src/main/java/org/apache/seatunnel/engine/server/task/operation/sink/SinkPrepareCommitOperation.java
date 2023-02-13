@@ -36,7 +36,8 @@ import java.io.IOException;
 public class SinkPrepareCommitOperation extends BarrierFlowOperation {
     private byte[] commitInfos;
 
-    public SinkPrepareCommitOperation(Barrier checkpointBarrier, TaskLocation taskLocation, byte[] commitInfos) {
+    public SinkPrepareCommitOperation(
+            Barrier checkpointBarrier, TaskLocation taskLocation, byte[] commitInfos) {
         super(checkpointBarrier, taskLocation);
         this.commitInfos = commitInfos;
     }
@@ -70,10 +71,16 @@ public class SinkPrepareCommitOperation extends BarrierFlowOperation {
 
     @Override
     public void run() throws Exception {
-        TaskExecutionService taskExecutionService = ((SeaTunnelServer) getService()).getTaskExecutionService();
-        SinkAggregatedCommitterTask<?, ?> committerTask = taskExecutionService.getTask(taskLocation);
-        ClassLoader classLoader = taskExecutionService.getExecutionContext(taskLocation.getTaskGroupLocation()).getClassLoader();
-        committerTask.receivedWriterCommitInfo(barrier.getId(), SerializationUtils.deserialize(commitInfos, classLoader));
+        TaskExecutionService taskExecutionService =
+                ((SeaTunnelServer) getService()).getTaskExecutionService();
+        SinkAggregatedCommitterTask<?, ?> committerTask =
+                taskExecutionService.getTask(taskLocation);
+        ClassLoader classLoader =
+                taskExecutionService
+                        .getExecutionContext(taskLocation.getTaskGroupLocation())
+                        .getClassLoader();
+        committerTask.receivedWriterCommitInfo(
+                barrier.getId(), SerializationUtils.deserialize(commitInfos, classLoader));
         committerTask.triggerBarrier(barrier);
     }
 }

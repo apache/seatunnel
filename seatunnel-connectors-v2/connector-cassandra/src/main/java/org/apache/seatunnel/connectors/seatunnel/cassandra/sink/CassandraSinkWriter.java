@@ -56,16 +56,21 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
     private final PreparedStatement preparedStatement;
     private final AtomicInteger counter = new AtomicInteger(0);
 
-    public CassandraSinkWriter(CassandraConfig cassandraConfig, SeaTunnelRowType seaTunnelRowType, ColumnDefinitions tableSchema) {
+    public CassandraSinkWriter(
+            CassandraConfig cassandraConfig,
+            SeaTunnelRowType seaTunnelRowType,
+            ColumnDefinitions tableSchema) {
         this.cassandraConfig = cassandraConfig;
         this.seaTunnelRowType = seaTunnelRowType;
         this.tableSchema = tableSchema;
-        this.session = CassandraClient.getCqlSessionBuilder(
-            cassandraConfig.getHost(),
-            cassandraConfig.getKeyspace(),
-            cassandraConfig.getUsername(),
-            cassandraConfig.getPassword(),
-            cassandraConfig.getDatacenter()).build();
+        this.session =
+                CassandraClient.getCqlSessionBuilder(
+                                cassandraConfig.getHost(),
+                                cassandraConfig.getKeyspace(),
+                                cassandraConfig.getUsername(),
+                                cassandraConfig.getPassword(),
+                                cassandraConfig.getDatacenter())
+                        .build();
         this.batchStatement = BatchStatement.builder(cassandraConfig.getBatchType()).build();
         this.boundStatementList = new ArrayList<>();
         this.completionStages = new ArrayList<>();
@@ -84,13 +89,14 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
 
     private void flush() {
         if (cassandraConfig.getAsyncWrite()) {
-            completionStages.forEach(resultStage -> resultStage.whenComplete(
-                (resultSet, error) -> {
-                    if (error != null) {
-                        log.error(ExceptionUtils.getMessage(error));
-                    }
-                }
-            ));
+            completionStages.forEach(
+                    resultStage ->
+                            resultStage.whenComplete(
+                                    (resultSet, error) -> {
+                                        if (error != null) {
+                                            log.error(ExceptionUtils.getMessage(error));
+                                        }
+                                    }));
             completionStages.clear();
         } else {
             try {
@@ -105,7 +111,6 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                 this.boundStatementList.clear();
             }
         }
-
     }
 
     private void addIntoBatch(SeaTunnelRow row, BoundStatement boundStatement) {
@@ -114,7 +119,8 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                 String fieldName = cassandraConfig.getFields().get(i);
                 DataType dataType = tableSchema.get(i).getType();
                 Object fieldValue = row.getField(seaTunnelRowType.indexOf(fieldName));
-                boundStatement = TypeConvertUtil.reconvertAndInject(boundStatement, i, dataType, fieldValue);
+                boundStatement =
+                        TypeConvertUtil.reconvertAndInject(boundStatement, i, dataType, fieldValue);
             }
             if (cassandraConfig.getAsyncWrite()) {
                 completionStages.add(session.executeAsync(boundStatement));
@@ -122,17 +128,19 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                 boundStatementList.add(boundStatement);
             }
         } catch (Exception e) {
-            throw new CassandraConnectorException(CassandraConnectorErrorCode.ADD_BATCH_DATA_FAILED, e);
+            throw new CassandraConnectorException(
+                    CassandraConnectorErrorCode.ADD_BATCH_DATA_FAILED, e);
         }
     }
 
     private String initPrepareCQL() {
         String[] placeholder = new String[cassandraConfig.getFields().size()];
         Arrays.fill(placeholder, "?");
-        return String.format("INSERT INTO %s (%s) VALUES (%s)",
-            cassandraConfig.getTable(),
-            String.join(",", cassandraConfig.getFields()),
-            String.join(",", placeholder));
+        return String.format(
+                "INSERT INTO %s (%s) VALUES (%s)",
+                cassandraConfig.getTable(),
+                String.join(",", cassandraConfig.getFields()),
+                String.join(",", placeholder));
     }
 
     @Override
@@ -143,7 +151,8 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                 this.session.close();
             }
         } catch (Exception e) {
-            throw new CassandraConnectorException(CassandraConnectorErrorCode.CLOSE_CQL_SESSION_FAILED, e);
+            throw new CassandraConnectorException(
+                    CassandraConnectorErrorCode.CLOSE_CQL_SESSION_FAILED, e);
         }
     }
 }

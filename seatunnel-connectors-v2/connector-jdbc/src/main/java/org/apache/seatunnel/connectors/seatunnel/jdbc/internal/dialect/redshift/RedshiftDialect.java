@@ -23,7 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 
 import java.util.Optional;
 
-public class RedshiftDialect  implements JdbcDialect {
+public class RedshiftDialect implements JdbcDialect {
     @Override
     public String dialectName() {
         return "Redshift";
@@ -40,7 +40,8 @@ public class RedshiftDialect  implements JdbcDialect {
     }
 
     @Override
-    public Optional<String> getUpsertStatement(String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+    public Optional<String> getUpsertStatement(
+            String tableName, String[] fieldNames, String[] uniqueKeyFields) {
         return Optional.empty();
     }
 }

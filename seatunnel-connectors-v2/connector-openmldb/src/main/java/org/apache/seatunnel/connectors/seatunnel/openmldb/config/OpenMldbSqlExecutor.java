@@ -25,9 +25,7 @@ public class OpenMldbSqlExecutor {
     private static final SdkOption SDK_OPTION = new SdkOption();
     private static volatile SqlClusterExecutor SQL_EXECUTOR;
 
-    private OpenMldbSqlExecutor() {
-
-    }
+    private OpenMldbSqlExecutor() {}
 
     public static void initSdkOption(OpenMldbParameters openMldbParameters) {
         if (openMldbParameters.getClusterMode()) {

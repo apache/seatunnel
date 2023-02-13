@@ -24,7 +24,8 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import java.util.List;
 import java.util.Set;
 
-public class CoordinatedEnumeratorContext<SplitT extends SourceSplit> implements SourceSplitEnumerator.Context<SplitT> {
+public class CoordinatedEnumeratorContext<SplitT extends SourceSplit>
+        implements SourceSplitEnumerator.Context<SplitT> {
 
     protected final CoordinatedSource<?, SplitT, ?> coordinatedSource;
 
@@ -56,5 +57,4 @@ public class CoordinatedEnumeratorContext<SplitT extends SourceSplit> implements
     public void sendEventToSourceReader(int subtaskId, SourceEvent event) {
         coordinatedSource.handleEnumeratorEvent(subtaskId, event);
     }
-
 }

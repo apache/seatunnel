@@ -42,10 +42,11 @@ public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycl
 
         Map<String, Object> initMap = new HashMap<>(Maps.fromProperties(properties));
         this.mapStorage =
-            FactoryUtil.discoverFactory(Thread.currentThread().getContextClassLoader(), IMapStorageFactory.class,
-                    (String) initMap.get("type"))
-                .create(initMap);
-
+                FactoryUtil.discoverFactory(
+                                Thread.currentThread().getContextClassLoader(),
+                                IMapStorageFactory.class,
+                                (String) initMap.get("type"))
+                        .create(initMap);
     }
 
     @Override
@@ -94,5 +95,4 @@ public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycl
     public Iterable<Object> loadAllKeys() {
         return mapStorage.loadAllKeys();
     }
-
 }

@@ -23,7 +23,8 @@ import java.sql.SQLException;
 
 public class DoubleInjectFunction implements ClickhouseFieldInjectFunction {
     @Override
-    public void injectFields(PreparedStatement statement, int index, Object value) throws SQLException {
+    public void injectFields(PreparedStatement statement, int index, Object value)
+            throws SQLException {
         if (value instanceof BigDecimal) {
             statement.setDouble(index, ((BigDecimal) value).doubleValue());
         } else {

@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import java.sql.Connection;
 import java.sql.SQLException;
 
-public interface JdbcBatchStatementExecutor extends AutoCloseable{
+public interface JdbcBatchStatementExecutor extends AutoCloseable {
 
     void prepareStatements(Connection connection) throws SQLException;
 

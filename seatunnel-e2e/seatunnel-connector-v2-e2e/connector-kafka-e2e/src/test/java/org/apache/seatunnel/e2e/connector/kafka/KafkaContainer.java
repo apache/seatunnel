@@ -17,10 +17,11 @@
 
 package org.apache.seatunnel.e2e.connector.kafka;
 
-import com.github.dockerjava.api.command.InspectContainerResponse;
-import lombok.SneakyThrows;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.DockerImageName;
+
+import com.github.dockerjava.api.command.InspectContainerResponse;
+import lombok.SneakyThrows;
 
 import java.net.Inet4Address;
 import java.net.InetAddress;
@@ -28,12 +29,11 @@ import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.Enumeration;
 
-/**
- * This container wraps Confluent Kafka and Zookeeper (optionally)
- */
+/** This container wraps Confluent Kafka and Zookeeper (optionally) */
 public class KafkaContainer extends GenericContainer<KafkaContainer> {
 
-    private static final DockerImageName DEFAULT_IMAGE_NAME = DockerImageName.parse("confluentinc/cp-kafka");
+    private static final DockerImageName DEFAULT_IMAGE_NAME =
+            DockerImageName.parse("confluentinc/cp-kafka");
 
     public static final int KAFKA_PORT = 9094;
 
@@ -49,8 +49,10 @@ public class KafkaContainer extends GenericContainer<KafkaContainer> {
 
         withExposedPorts(KAFKA_PORT);
 
-        // Use two listeners with different names, it will force Kafka to communicate with itself via internal
-        // listener when KAFKA_INTER_BROKER_LISTENER_NAME is set, otherwise Kafka will try to use the advertised listener
+        // Use two listeners with different names, it will force Kafka to communicate with itself
+        // via internal
+        // listener when KAFKA_INTER_BROKER_LISTENER_NAME is set, otherwise Kafka will try to use
+        // the advertised listener
         withEnv("KAFKA_LISTENERS", "PLAINTEXT://0.0.0.0:" + KAFKA_PORT + ",BROKER://0.0.0.0:9092");
         withEnv("KAFKA_LISTENER_SECURITY_PROTOCOL_MAP", "BROKER:PLAINTEXT,PLAINTEXT:PLAINTEXT");
         withEnv("KAFKA_INTER_BROKER_LISTENER_NAME", "BROKER");
@@ -82,8 +84,9 @@ public class KafkaContainer extends GenericContainer<KafkaContainer> {
     protected void configure() {
         withEnv(
                 "KAFKA_ADVERTISED_LISTENERS",
-                String.format("BROKER://%s:9092", getNetwork() != null ? getNetworkAliases().get(1) : "localhost")
-        );
+                String.format(
+                        "BROKER://%s:9092",
+                        getNetwork() != null ? getNetworkAliases().get(1) : "localhost"));
 
         String command = "#!/bin/bash\n";
         if (externalZookeeperConnect != null) {
@@ -108,18 +111,20 @@ public class KafkaContainer extends GenericContainer<KafkaContainer> {
     @SneakyThrows
     protected void containerIsStarted(InspectContainerResponse containerInfo) {
         String brokerAdvertisedListener = brokerAdvertisedListener(containerInfo);
-        ExecResult result = execInContainer(
-                "kafka-configs",
-                "--alter",
-                "--bootstrap-server",
-                brokerAdvertisedListener,
-                "--entity-type",
-                "brokers",
-                "--entity-name",
-                getEnvMap().get("KAFKA_BROKER_ID"),
-                "--add-config",
-                "advertised.listeners=[" + String.join(",", getBootstrapServers(), brokerAdvertisedListener) + "]"
-        );
+        ExecResult result =
+                execInContainer(
+                        "kafka-configs",
+                        "--alter",
+                        "--bootstrap-server",
+                        brokerAdvertisedListener,
+                        "--entity-type",
+                        "brokers",
+                        "--entity-name",
+                        getEnvMap().get("KAFKA_BROKER_ID"),
+                        "--add-config",
+                        "advertised.listeners=["
+                                + String.join(",", getBootstrapServers(), brokerAdvertisedListener)
+                                + "]");
         if (result.getExitCode() != 0) {
             throw new IllegalStateException(result.toString());
         }
@@ -132,14 +137,15 @@ public class KafkaContainer extends GenericContainer<KafkaContainer> {
     public String getLinuxLocalIp() {
         String ip = "";
         try {
-            Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
+            Enumeration<NetworkInterface> networkInterfaces =
+                    NetworkInterface.getNetworkInterfaces();
             while (networkInterfaces.hasMoreElements()) {
                 NetworkInterface networkInterface = networkInterfaces.nextElement();
                 Enumeration<InetAddress> inetAddresses = networkInterface.getInetAddresses();
                 while (inetAddresses.hasMoreElements()) {
                     InetAddress inetAddress = inetAddresses.nextElement();
                     if (!inetAddress.isLoopbackAddress() && inetAddress instanceof Inet4Address) {
-                        ip =  inetAddress.getHostAddress();
+                        ip = inetAddress.getHostAddress();
                     }
                 }
             }

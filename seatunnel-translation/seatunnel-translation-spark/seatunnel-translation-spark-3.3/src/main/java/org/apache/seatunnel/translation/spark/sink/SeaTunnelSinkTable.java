@@ -24,7 +24,6 @@ import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.translation.spark.sink.write.SeaTunnelWriteBuilder;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
-import com.google.common.collect.Sets;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.spark.sql.connector.catalog.SupportsWrite;
 import org.apache.spark.sql.connector.catalog.Table;
@@ -32,6 +31,8 @@ import org.apache.spark.sql.connector.catalog.TableCapability;
 import org.apache.spark.sql.connector.write.LogicalWriteInfo;
 import org.apache.spark.sql.connector.write.WriteBuilder;
 import org.apache.spark.sql.types.StructType;
+
+import com.google.common.collect.Sets;
 
 import java.util.Map;
 import java.util.Set;

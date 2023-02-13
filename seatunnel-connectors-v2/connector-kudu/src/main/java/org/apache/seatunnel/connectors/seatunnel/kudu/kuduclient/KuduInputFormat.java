@@ -28,7 +28,6 @@ import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorException;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Schema;
 import org.apache.kudu.client.KuduClient;
@@ -36,6 +35,8 @@ import org.apache.kudu.client.KuduException;
 import org.apache.kudu.client.KuduPredicate;
 import org.apache.kudu.client.KuduScanner;
 import org.apache.kudu.client.RowResult;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
@@ -52,26 +53,20 @@ public class KuduInputFormat implements Serializable {
         this.kuduMaster = kuduMaster;
         this.columnsList = Arrays.asList(columnsList.split(","));
         this.tableName = tableName;
-
     }
 
-    /**
-     * Declare the global variable KuduClient and use it to manipulate the Kudu table
-     */
+    /** Declare the global variable KuduClient and use it to manipulate the Kudu table */
     public KuduClient kuduClient;
 
-    /**
-     * Specify kuduMaster address
-     */
+    /** Specify kuduMaster address */
     public String kuduMaster;
+
     public List<String> columnsList;
     public Schema schema;
     public String keyColumn;
     public static final int TIMEOUTMS = 18000;
 
-    /**
-     * Specifies the name of the table
-     */
+    /** Specifies the name of the table */
     public String tableName;
 
     public List<ColumnSchema> getColumnsSchemas() {
@@ -81,12 +76,14 @@ public class KuduInputFormat implements Serializable {
             keyColumn = schema.getPrimaryKeyColumns().get(0).getName();
             columns = schema.getColumns();
         } catch (KuduException e) {
-            throw new KuduConnectorException(CommonErrorCode.TABLE_SCHEMA_GET_FAILED, "get table Columns Schemas Failed");
+            throw new KuduConnectorException(
+                    CommonErrorCode.TABLE_SCHEMA_GET_FAILED, "get table Columns Schemas Failed");
         }
         return columns;
     }
 
-    public static SeaTunnelRow getSeaTunnelRowData(RowResult rs, SeaTunnelRowType typeInfo) throws SQLException {
+    public static SeaTunnelRow getSeaTunnelRowData(RowResult rs, SeaTunnelRowType typeInfo)
+            throws SQLException {
 
         List<Object> fields = new ArrayList<>();
         SeaTunnelDataType<?>[] seaTunnelDataTypes = typeInfo.getFieldTypes();
@@ -107,9 +104,8 @@ public class KuduInputFormat implements Serializable {
                 seatunnelField = rs.getLong(i);
             } else if (seaTunnelDataType instanceof DecimalType) {
                 Object value = rs.getObject(i);
-                seatunnelField = value instanceof BigInteger ?
-                        new BigDecimal((BigInteger) value, 0)
-                        : value;
+                seatunnelField =
+                        value instanceof BigInteger ? new BigDecimal((BigInteger) value, 0) : value;
             } else if (BasicType.FLOAT_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getFloat(i);
             } else if (BasicType.DOUBLE_TYPE.equals(seaTunnelDataType)) {
@@ -117,7 +113,8 @@ public class KuduInputFormat implements Serializable {
             } else if (BasicType.STRING_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getString(i);
             } else {
-                throw new KuduConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                throw new KuduConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
                         "Unsupported data type: " + seaTunnelDataType);
             }
             fields.add(seatunnelField);
@@ -137,21 +134,25 @@ public class KuduInputFormat implements Serializable {
                 seaTunnelDataTypes.add(KuduTypeMapper.mapping(columnSchemaList, i));
             }
         } catch (Exception e) {
-            throw new KuduConnectorException(CommonErrorCode.TABLE_SCHEMA_GET_FAILED, String.format("PluginName: %s, PluginType: %s, Message: %s",
-                    "Kudu", PluginType.SOURCE, ExceptionUtils.getMessage(e)));
+            throw new KuduConnectorException(
+                    CommonErrorCode.TABLE_SCHEMA_GET_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            "Kudu", PluginType.SOURCE, ExceptionUtils.getMessage(e)));
         }
-        return new SeaTunnelRowType(fieldNames.toArray(new String[fieldNames.size()]), seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[seaTunnelDataTypes.size()]));
+        return new SeaTunnelRowType(
+                fieldNames.toArray(new String[fieldNames.size()]),
+                seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[seaTunnelDataTypes.size()]));
     }
 
     public void openInputFormat() {
-        KuduClient.KuduClientBuilder kuduClientBuilder = new
-                KuduClient.KuduClientBuilder(kuduMaster);
+        KuduClient.KuduClientBuilder kuduClientBuilder =
+                new KuduClient.KuduClientBuilder(kuduMaster);
         kuduClientBuilder.defaultOperationTimeoutMs(TIMEOUTMS);
 
         kuduClient = kuduClientBuilder.build();
 
         log.info("The Kudu client is successfully initialized", kuduMaster, kuduClient);
-
     }
 
     /**
@@ -159,7 +160,6 @@ public class KuduInputFormat implements Serializable {
      * @param upperBound End of each slice
      * @return Get the kuduScanner object for each slice
      */
-
     public KuduScanner getKuduBuildSplit(int lowerBound, int upperBound) {
         KuduScanner kuduScanner = null;
         try {
@@ -168,18 +168,20 @@ public class KuduInputFormat implements Serializable {
 
             kuduScannerBuilder.setProjectedColumnNames(columnsList);
 
-            KuduPredicate lowerPred = KuduPredicate.newComparisonPredicate(
-                    schema.getColumn("" + keyColumn),
-                    KuduPredicate.ComparisonOp.GREATER_EQUAL,
-                    lowerBound);
+            KuduPredicate lowerPred =
+                    KuduPredicate.newComparisonPredicate(
+                            schema.getColumn("" + keyColumn),
+                            KuduPredicate.ComparisonOp.GREATER_EQUAL,
+                            lowerBound);
 
-            KuduPredicate upperPred = KuduPredicate.newComparisonPredicate(
-                    schema.getColumn("" + keyColumn),
-                    KuduPredicate.ComparisonOp.LESS,
-                    upperBound);
+            KuduPredicate upperPred =
+                    KuduPredicate.newComparisonPredicate(
+                            schema.getColumn("" + keyColumn),
+                            KuduPredicate.ComparisonOp.LESS,
+                            upperBound);
 
-            kuduScanner = kuduScannerBuilder.addPredicate(lowerPred)
-                    .addPredicate(upperPred).build();
+            kuduScanner =
+                    kuduScannerBuilder.addPredicate(lowerPred).addPredicate(upperPred).build();
         } catch (KuduException e) {
             throw new KuduConnectorException(KuduConnectorErrorCode.GET_KUDUSCAN_OBJECT_FAILED, e);
         }
@@ -191,11 +193,11 @@ public class KuduInputFormat implements Serializable {
             try {
                 kuduClient.close();
             } catch (KuduException e) {
-                throw new KuduConnectorException(KuduConnectorErrorCode.CLOSE_KUDU_CLIENT_FAILED, e);
+                throw new KuduConnectorException(
+                        KuduConnectorErrorCode.CLOSE_KUDU_CLIENT_FAILED, e);
             } finally {
                 kuduClient = null;
             }
         }
-
     }
 }

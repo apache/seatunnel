@@ -26,7 +26,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 
 ## Options
 
-| name                                      | type    | required | default value |
+|                   name                    |  type   | required | default value |
 |-------------------------------------------|---------|----------|---------------|
 | url                                       | String  | Yes      | -             |
 | driver                                    | String  | Yes      | -             |
@@ -129,16 +129,16 @@ Sink plugin common parameters, please refer to [Sink Common Options](common-opti
 
 ## tips
 
-In the case of is_exactly_once = "true", Xa transactions are used. This requires database support, and some databases require some setup : 
-  1 postgres needs to set `max_prepared_transactions > 1` such as `ALTER SYSTEM set max_prepared_transactions to 10`.
-  2 mysql version need >= `8.0.29` and Non-root users need to grant `XA_RECOVER_ADMIN` permissions. such as `grant XA_RECOVER_ADMIN on test_db.* to 'user1'@'%'`.
-  3 mysql can try to add `rewriteBatchedStatements=true` parameter in url for better performance.
+In the case of is_exactly_once = "true", Xa transactions are used. This requires database support, and some databases require some setup :
+1 postgres needs to set `max_prepared_transactions > 1` such as `ALTER SYSTEM set max_prepared_transactions to 10`.
+2 mysql version need >= `8.0.29` and Non-root users need to grant `XA_RECOVER_ADMIN` permissions. such as `grant XA_RECOVER_ADMIN on test_db.* to 'user1'@'%'`.
+3 mysql can try to add `rewriteBatchedStatements=true` parameter in url for better performance.
 
 ## appendix
 
 there are some reference value for params above.
 
-| datasource | driver                                       | url                                                                | xa_data_source_class_name                          | maven                                                                                                       |
+| datasource |                    driver                    |                                url                                 |             xa_data_source_class_name              |                                                    maven                                                    |
 |------------|----------------------------------------------|--------------------------------------------------------------------|----------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
 | MySQL      | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | com.mysql.cj.jdbc.MysqlXADataSource                | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                               |
 | PostgreSQL | org.postgresql.Driver                        | jdbc:postgresql://localhost:5432/postgres                          | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                |
@@ -229,3 +229,4 @@ sink {
 - [Feature] Support Doris JDBC Sink
 - [Feature] Support Redshift JDBC Sink([#3615](https://github.com/apache/incubator-seatunnel/pull/3615))
 - [Improve] Add config item enable upsert by query([#3708](https://github.com/apache/incubator-seatunnel/pull/3708))
+

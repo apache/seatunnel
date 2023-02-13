@@ -15,10 +15,10 @@ Used to read data from Notion.
 - [ ] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
-##  Options
+## Options
 
-| name                        | type   | required | default value |
-| --------------------------- | ------ | -------- | ------------- |
+|            name             |  type  | required | default value |
+|-----------------------------|--------|----------|---------------|
 | url                         | String | Yes      | -             |
 | password                    | String | Yes      | -             |
 | version                     | String | Yes      | -             |
@@ -109,7 +109,7 @@ schema {
 
 connector will generate data as the following:
 
-| code | data        | success |
+| code |    data     | success |
 |------|-------------|---------|
 | 200  | get success | true    |
 
@@ -127,9 +127,9 @@ upstream data is the following:
 
 connector will generate data as the following:
 
-| content |
-|---------|
-| {"code":  200, "data":  "get success", "success":  true}        |
+|                         content                          |
+|----------------------------------------------------------|
+| {"code":  200, "data":  "get success", "success":  true} |
 
 ### schema [Config]
 
@@ -168,6 +168,7 @@ If your return data looks something like this.
   "expensive": 10
 }
 ```
+
 You can configure `content_field = "$.store.book.*"` and the result returned looks like this:
 
 ```json
@@ -186,6 +187,7 @@ You can configure `content_field = "$.store.book.*"` and the result returned loo
   }
 ]
 ```
+
 Then you can get the desired result with a simpler schema,like
 
 ```hocon
@@ -209,7 +211,6 @@ Here is an example:
 
 - Test data can be found at this link [mockserver-contentjson-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-contentjson-config.json)
 - See this link for task configuration [http_contentjson_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_contentjson_to_assert.conf).
-
 
 ### json_field [Config]
 
@@ -272,7 +273,7 @@ source {
 - Test data can be found at this link [mockserver-jsonpath-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-jsonpath-config.json)
 - See this link for task configuration [http_jsonpath_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_jsonpath_to_assert.conf).
 
-### common options 
+### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
@@ -303,3 +304,4 @@ Notion {
 ### next version
 
 - Add Notion Source Connector
+

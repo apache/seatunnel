@@ -39,7 +39,8 @@ public class TaskGroupWithIntermediateDisruptor extends AbstractTaskGroupWithInt
 
     public static final int RING_BUFFER_SIZE = 1024;
 
-    public TaskGroupWithIntermediateDisruptor(TaskGroupLocation taskGroupLocation, String taskGroupName, Collection<Task> tasks) {
+    public TaskGroupWithIntermediateDisruptor(
+            TaskGroupLocation taskGroupLocation, String taskGroupName, Collection<Task> tasks) {
         super(taskGroupLocation, taskGroupName, tasks);
     }
 
@@ -48,18 +49,24 @@ public class TaskGroupWithIntermediateDisruptor extends AbstractTaskGroupWithInt
     @Override
     public void init() {
         disruptor = new ConcurrentHashMap<>();
-        getTasks().stream().filter(SeaTunnelTask.class::isInstance)
-            .map(s -> (SeaTunnelTask) s).forEach(s -> s.setTaskGroup(this));
+        getTasks().stream()
+                .filter(SeaTunnelTask.class::isInstance)
+                .map(s -> (SeaTunnelTask) s)
+                .forEach(s -> s.setTaskGroup(this));
     }
 
     @Override
     public AbstractIntermediateQueue<?> getQueueCache(long id) {
         EventFactory<RecordEvent> eventFactory = new RecordEventFactory();
-        Disruptor<RecordEvent> disruptor = new Disruptor<>(eventFactory, RING_BUFFER_SIZE, DaemonThreadFactory.INSTANCE,
-            ProducerType.SINGLE, new YieldingWaitStrategy());
+        Disruptor<RecordEvent> disruptor =
+                new Disruptor<>(
+                        eventFactory,
+                        RING_BUFFER_SIZE,
+                        DaemonThreadFactory.INSTANCE,
+                        ProducerType.SINGLE,
+                        new YieldingWaitStrategy());
 
         this.disruptor.putIfAbsent(id, disruptor);
         return new IntermediateDisruptor(this.disruptor.get(id));
     }
-
 }
