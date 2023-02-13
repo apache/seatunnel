@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.rest;
 
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
@@ -37,6 +38,7 @@ import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.internal.json.JsonValue;
 import com.hazelcast.internal.util.JsonUtil;
+import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.map.IMap;
 
 import java.text.SimpleDateFormat;
@@ -87,11 +89,13 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         JsonArray jobs = values.entrySet().stream()
             .map(jobInfoEntry -> {
                 JsonObject jobInfo = new JsonObject();
+
                 JobImmutableInformation jobImmutableInformation = this.textCommandService.getNode().getNodeEngine().getSerializationService()
                     .toObject(this.textCommandService.getNode().getNodeEngine().getSerializationService()
                         .toObject(jobInfoEntry.getValue().getJobImmutableInformation()));
-                LogicalDag logicalDag = this.textCommandService.getNode().getNodeEngine().getSerializationService()
-                    .toObject(jobImmutableInformation.getLogicalDag());
+                ClassLoader classLoader = new SeaTunnelChildFirstClassLoader(jobImmutableInformation.getPluginJarsUrls());
+                LogicalDag logicalDag = CustomClassLoadedObject.deserializeWithCustomClassLoader(this.textCommandService.getNode().getNodeEngine().getSerializationService(),
+                    classLoader, jobImmutableInformation.getLogicalDag());
 
                 String jobMetrics = seaTunnelServer.getCoordinatorService().getJobMetrics(jobInfoEntry.getKey()).toJsonString();
                 JobStatus jobStatus = seaTunnelServer.getCoordinatorService().getJobStatus(jobInfoEntry.getKey());
