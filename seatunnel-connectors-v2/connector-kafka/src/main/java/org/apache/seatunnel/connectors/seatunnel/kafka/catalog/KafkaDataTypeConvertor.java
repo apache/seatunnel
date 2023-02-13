@@ -41,11 +41,6 @@ import java.util.Map;
  */
 public class KafkaDataTypeConvertor implements DataTypeConvertor<SeaTunnelDataType<?>> {
 
-    private static final KafkaDataTypeConvertor INSTANCE = new KafkaDataTypeConvertor();
-
-    private KafkaDataTypeConvertor() {
-    }
-
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(String connectorDataType) {
         checkNotNull(connectorDataType, "connectorDataType can not be null");
@@ -62,7 +57,9 @@ public class KafkaDataTypeConvertor implements DataTypeConvertor<SeaTunnelDataTy
         return seaTunnelDataType;
     }
 
-    public static KafkaDataTypeConvertor getInstance() {
-        return INSTANCE;
+    @Override
+    public String getIdentity() {
+        return "Kafka";
     }
+
 }
