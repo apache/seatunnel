@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.e2e.connector.rabbitmq;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
@@ -68,6 +67,7 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class RabbitmqIT extends TestSuiteBase implements TestResource {
+    
     private static final String IMAGE = "rabbitmq:3-management";
     private static final String HOST = "rabbitmq-e2e";
     private static final int PORT = 5672;
@@ -75,16 +75,16 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
     private static final String SINK_QUEUE_NAME = "test1";
     private static final String USERNAME = "guest";
     private static final String PASSWORD = "guest";
-
+    
     private static final Pair<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET =
             generateTestDataSet();
     private static final JsonSerializationSchema JSON_SERIALIZATION_SCHEMA =
             new JsonSerializationSchema(TEST_DATASET.getKey());
-
+    
     private GenericContainer<?> rabbitmqContainer;
     Connection connection;
     RabbitmqClient rabbitmqClient;
-
+    
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -101,7 +101,7 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
         log.info("rabbitmq container started");
         this.initRabbitMQ();
     }
-
+    
     private void initSourceData() throws IOException, InterruptedException {
         List<SeaTunnelRow> rows = TEST_DATASET.getValue();
         for (int i = 0; i < rows.size(); i++) {
@@ -110,72 +110,72 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
                             .getBytes(StandardCharsets.UTF_8));
         }
     }
-
+    
     private static Pair<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
-
+        
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
-                        new String[] {
-                            "id",
-                            "c_map",
-                            "c_array",
-                            "c_string",
-                            "c_boolean",
-                            "c_tinyint",
-                            "c_smallint",
-                            "c_int",
-                            "c_bigint",
-                            "c_float",
-                            "c_double",
-                            "c_decimal",
-                            "c_bytes",
-                            "c_date",
-                            "c_timestamp"
+                        new String[]{
+                                "id",
+                                "c_map",
+                                "c_array",
+                                "c_string",
+                                "c_boolean",
+                                "c_tinyint",
+                                "c_smallint",
+                                "c_int",
+                                "c_bigint",
+                                "c_float",
+                                "c_double",
+                                "c_decimal",
+                                "c_bytes",
+                                "c_date",
+                                "c_timestamp"
                         },
-                        new SeaTunnelDataType[] {
-                            BasicType.LONG_TYPE,
-                            new MapType(BasicType.STRING_TYPE, BasicType.SHORT_TYPE),
-                            ArrayType.BYTE_ARRAY_TYPE,
-                            BasicType.STRING_TYPE,
-                            BasicType.BOOLEAN_TYPE,
-                            BasicType.BYTE_TYPE,
-                            BasicType.SHORT_TYPE,
-                            BasicType.INT_TYPE,
-                            BasicType.LONG_TYPE,
-                            BasicType.FLOAT_TYPE,
-                            BasicType.DOUBLE_TYPE,
-                            new DecimalType(2, 1),
-                            PrimitiveByteArrayType.INSTANCE,
-                            LocalTimeType.LOCAL_DATE_TYPE,
-                            LocalTimeType.LOCAL_DATE_TIME_TYPE
+                        new SeaTunnelDataType[]{
+                                BasicType.LONG_TYPE,
+                                new MapType(BasicType.STRING_TYPE, BasicType.SHORT_TYPE),
+                                ArrayType.BYTE_ARRAY_TYPE,
+                                BasicType.STRING_TYPE,
+                                BasicType.BOOLEAN_TYPE,
+                                BasicType.BYTE_TYPE,
+                                BasicType.SHORT_TYPE,
+                                BasicType.INT_TYPE,
+                                BasicType.LONG_TYPE,
+                                BasicType.FLOAT_TYPE,
+                                BasicType.DOUBLE_TYPE,
+                                new DecimalType(2, 1),
+                                PrimitiveByteArrayType.INSTANCE,
+                                LocalTimeType.LOCAL_DATE_TYPE,
+                                LocalTimeType.LOCAL_DATE_TIME_TYPE
                         });
-
+        
         List<SeaTunnelRow> rows = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
             SeaTunnelRow row =
                     new SeaTunnelRow(
-                            new Object[] {
-                                Long.valueOf(1),
-                                Collections.singletonMap("key", Short.parseShort("1")),
-                                new Byte[] {Byte.parseByte("1")},
-                                "string",
-                                Boolean.FALSE,
-                                Byte.parseByte("1"),
-                                Short.parseShort("1"),
-                                Integer.parseInt("1"),
-                                Long.parseLong("1"),
-                                Float.parseFloat("1.1"),
-                                Double.parseDouble("1.1"),
-                                BigDecimal.valueOf(11, 1),
-                                "test".getBytes(),
-                                LocalDate.now(),
-                                LocalDateTime.now()
+                            new Object[]{
+                                    Long.valueOf(1),
+                                    Collections.singletonMap("key", Short.parseShort("1")),
+                                    new Byte[]{Byte.parseByte("1")},
+                                    "string",
+                                    Boolean.FALSE,
+                                    Byte.parseByte("1"),
+                                    Short.parseShort("1"),
+                                    Integer.parseInt("1"),
+                                    Long.parseLong("1"),
+                                    Float.parseFloat("1.1"),
+                                    Double.parseDouble("1.1"),
+                                    BigDecimal.valueOf(11, 1),
+                                    "test".getBytes(),
+                                    LocalDate.now(),
+                                    LocalDateTime.now()
                             });
             rows.add(row);
         }
         return Pair.of(rowType, rows);
     }
-
+    
     private void initRabbitMQ() {
         try {
             RabbitmqConfig config = new RabbitmqConfig();
@@ -190,9 +190,9 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("init Rabbitmq error", e);
         }
     }
-
+    
     private RabbitmqClient initSinkRabbitMQ() {
-
+        
         try {
             RabbitmqConfig config = new RabbitmqConfig();
             config.setHost(rabbitmqContainer.getHost());
@@ -206,7 +206,7 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("init Rabbitmq error", e);
         }
     }
-
+    
     @AfterAll
     @Override
     public void tearDown() throws Exception {
@@ -215,15 +215,15 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
         }
         rabbitmqContainer.close();
     }
-
+    
     @TestTemplate
     public void testRabbitMQ(TestContainer container) throws Exception {
         // send data to source queue before executeJob start in every testContainer
         initSourceData();
-
+        
         // init consumer client before executeJob start in every testContainer
         RabbitmqClient sinkRabbitmqClient = initSinkRabbitMQ();
-
+        
         Set<String> resultSet = new HashSet<>();
         Handover handover = new Handover<>();
         DefaultConsumer consumer = sinkRabbitmqClient.getQueueingConsumer(handover);
@@ -231,7 +231,7 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
         // assert execute Job code
         Container.ExecResult execResult = container.executeJob("/rabbitmq-to-rabbitmq.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        // consume data when every  testContainer finished
+        // consume data when every testContainer finished
         // try to poll five times
         for (int i = 0; i < 5; i++) {
             Optional<Delivery> deliveryOptional = handover.pollNext();

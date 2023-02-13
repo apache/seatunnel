@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.client;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
@@ -42,49 +41,50 @@ import com.hazelcast.logging.ILogger;
 import lombok.NonNull;
 
 public class SeaTunnelClient implements SeaTunnelClientInstance {
+    
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private final SeaTunnelHazelcastClient hazelcastClient;
-
+    
     public SeaTunnelClient(@NonNull ClientConfig clientConfig) {
         this.hazelcastClient = new SeaTunnelHazelcastClient(clientConfig);
     }
-
+    
     @Override
     public JobExecutionEnvironment createExecutionContext(
-            @NonNull String filePath, @NonNull JobConfig jobConfig) {
+                                                          @NonNull String filePath, @NonNull JobConfig jobConfig) {
         return new JobExecutionEnvironment(jobConfig, filePath, hazelcastClient);
     }
-
+    
     @Override
     public JobExecutionEnvironment restoreExecutionContext(
-            @NonNull String filePath, @NonNull JobConfig jobConfig, @NonNull Long jobId) {
+                                                           @NonNull String filePath, @NonNull JobConfig jobConfig, @NonNull Long jobId) {
         return new JobExecutionEnvironment(jobConfig, filePath, hazelcastClient, true, jobId);
     }
-
+    
     @Override
     public JobClient createJobClient() {
         return new JobClient(hazelcastClient);
     }
-
+    
     @Override
     public void close() {
         hazelcastClient.getHazelcastInstance().shutdown();
     }
-
+    
     public ILogger getLogger() {
         return hazelcastClient.getLogger(getClass());
     }
-
+    
     public String printMessageToMaster(@NonNull String msg) {
         return hazelcastClient.requestOnMasterAndDecodeResponse(
                 SeaTunnelPrintMessageCodec.encodeRequest(msg),
                 SeaTunnelPrintMessageCodec::decodeResponse);
     }
-
+    
     public void shutdown() {
         hazelcastClient.shutdown();
     }
-
+    
     /**
      * get job status and the tasks status
      *
@@ -95,14 +95,14 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
                 SeaTunnelGetJobDetailStatusCodec.encodeRequest(jobId),
                 SeaTunnelGetJobDetailStatusCodec::decodeResponse);
     }
-
+    
     /** list all jobId and job status */
     public String listJobStatus() {
         return hazelcastClient.requestOnMasterAndDecodeResponse(
                 SeaTunnelListJobStatusCodec.encodeRequest(),
                 SeaTunnelListJobStatusCodec::decodeResponse);
     }
-
+    
     /**
      * get one job status
      *
@@ -115,29 +115,29 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
                         SeaTunnelGetJobStatusCodec::decodeResponse);
         return JobStatus.values()[jobStatusOrdinal].toString();
     }
-
+    
     public String getJobMetrics(Long jobId) {
         return hazelcastClient.requestOnMasterAndDecodeResponse(
                 SeaTunnelGetJobMetricsCodec.encodeRequest(jobId),
                 SeaTunnelGetJobMetricsCodec::decodeResponse);
     }
-
+    
     public void savePointJob(Long jobId) {
         PassiveCompletableFuture<Void> cancelFuture =
                 hazelcastClient.requestOnMasterAndGetCompletableFuture(
                         SeaTunnelSavePointJobCodec.encodeRequest(jobId));
-
+        
         cancelFuture.join();
     }
-
+    
     public void cancelJob(Long jobId) {
         PassiveCompletableFuture<Void> cancelFuture =
                 hazelcastClient.requestOnMasterAndGetCompletableFuture(
                         SeaTunnelCancelJobCodec.encodeRequest(jobId));
-
+        
         cancelFuture.join();
     }
-
+    
     public JobDAGInfo getJobInfo(Long jobId) {
         return hazelcastClient
                 .getSerializationService()
@@ -146,7 +146,7 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
                                 SeaTunnelGetJobInfoCodec.encodeRequest(jobId),
                                 SeaTunnelGetJobInfoCodec::decodeResponse));
     }
-
+    
     public JobMetricsSummary getJobMetricsSummary(Long jobId) {
         long sourceReadCount = 0L;
         long sinkWriteCount = 0L;

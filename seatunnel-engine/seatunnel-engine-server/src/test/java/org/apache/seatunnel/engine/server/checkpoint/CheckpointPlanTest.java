@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.api.common.JobContext;
@@ -45,40 +44,40 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 
 public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
-
+    
     @Test
     public void testGenerateCheckpointPlan() {
         final IdGenerator idGenerator = new IdGenerator();
         final LogicalDag logicalDag = new LogicalDag();
         fillVirtualVertex(idGenerator, logicalDag, 2);
         fillVirtualVertex(idGenerator, logicalDag, 3);
-
+        
         JobConfig config = new JobConfig();
         config.setName("test");
-
+        
         JobImmutableInformation jobInfo =
                 new JobImmutableInformation(
                         1,
                         nodeEngine.getSerializationService().toData(logicalDag),
                         config,
                         Collections.emptyList());
-
+        
         IMap<Object, Object> runningJobState =
                 nodeEngine.getHazelcastInstance().getMap("testRunningJobState");
         IMap<Object, Long[]> runningJobStateTimestamp =
                 nodeEngine.getHazelcastInstance().getMap("testRunningJobStateTimestamp");
-
+        
         Map<Integer, CheckpointPlan> checkpointPlans =
                 PlanUtils.fromLogicalDAG(
-                                logicalDag,
-                                nodeEngine,
-                                jobInfo,
-                                System.currentTimeMillis(),
-                                Executors.newCachedThreadPool(),
-                                instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME),
-                                runningJobState,
-                                runningJobStateTimestamp,
-                                QueueType.BLOCKINGQUEUE)
+                        logicalDag,
+                        nodeEngine,
+                        jobInfo,
+                        System.currentTimeMillis(),
+                        Executors.newCachedThreadPool(),
+                        instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME),
+                        runningJobState,
+                        runningJobStateTimestamp,
+                        QueueType.BLOCKINGQUEUE)
                         .f1();
         Assertions.assertNotNull(checkpointPlans);
         Assertions.assertEquals(2, checkpointPlans.size());
@@ -95,20 +94,20 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
         // enum + reader
         Assertions.assertEquals(2, checkpointPlans.get(2).getPipelineActions().size());
     }
-
+    
     private static void fillVirtualVertex(
-            IdGenerator idGenerator, LogicalDag logicalDag, int parallelism) {
+                                          IdGenerator idGenerator, LogicalDag logicalDag, int parallelism) {
         JobContext jobContext = new JobContext();
         jobContext.setJobMode(JobMode.BATCH);
         FakeSource fakeSource = new FakeSource();
         fakeSource.setJobContext(jobContext);
-
+        
         Action fake =
                 new SourceAction<>(
                         idGenerator.getNextId(), "fake", fakeSource, Collections.emptySet());
         fake.setParallelism(parallelism);
         LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, parallelism);
-
+        
         ConsoleSink consoleSink = new ConsoleSink();
         consoleSink.setJobContext(jobContext);
         Action console =
@@ -116,9 +115,9 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
                         idGenerator.getNextId(), "console", consoleSink, Collections.emptySet());
         console.setParallelism(parallelism);
         LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, parallelism);
-
+        
         LogicalEdge edge = new LogicalEdge(fakeVertex, consoleVertex);
-
+        
         logicalDag.getEdges().add(edge);
         logicalDag.addLogicalVertex(fakeVertex);
         logicalDag.addLogicalVertex(consoleVertex);

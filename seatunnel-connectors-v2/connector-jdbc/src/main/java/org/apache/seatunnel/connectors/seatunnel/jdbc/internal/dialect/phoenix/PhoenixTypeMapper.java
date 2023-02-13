@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.phoenix;
 
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -33,15 +32,15 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 
 public class PhoenixTypeMapper implements JdbcDialectTypeMapper {
-
+    
     private static final Logger LOG = LoggerFactory.getLogger(PhoenixTypeMapper.class);
-
+    
     // ============================data types=====================
-
+    
     private static final String PHOENIX_UNKNOWN = "UNKNOWN";
     private static final String PHOENIX_BOOLEAN = "BOOLEAN";
     private static final String PHOENIX_ARRAY = "ARRAY";
-
+    
     // -------------------------number----------------------------
     private static final String PHOENIX_TINYINT = "TINYINT";
     private static final String PHOENIX_UNSIGNED_TINYINT = "UNSIGNED_TINYINT";
@@ -56,11 +55,11 @@ public class PhoenixTypeMapper implements JdbcDialectTypeMapper {
     private static final String PHOENIX_UNSIGNED_FLOAT = "UNSIGNED_FLOAT";
     private static final String PHOENIX_DOUBLE = "DOUBLE";
     private static final String PHOENIX_UNSIGNED_DOUBLE = "UNSIGNED_DOUBLE";
-
+    
     // -------------------------string----------------------------
     private static final String PHOENIX_CHAR = "CHAR";
     private static final String PHOENIX_VARCHAR = "VARCHAR";
-
+    
     // ------------------------------time-------------------------
     private static final String PHOENIX_DATE = "DATE";
     private static final String PHOENIX_TIME = "TIME";
@@ -68,15 +67,14 @@ public class PhoenixTypeMapper implements JdbcDialectTypeMapper {
     private static final String PHOENIX_DATE_UNSIGNED = "UNSIGNED_DATE";
     private static final String PHOENIX_TIME_UNSIGNED = "UNSIGNED_TIME";
     private static final String PHOENIX_TIMESTAMP_UNSIGNED = "UNSIGNED_TIMESTAMP";
-
+    
     // ------------------------------blob-------------------------
     private static final String PHOENIX_BINARY = "BINARY";
     private static final String PHOENIX_VARBINARY = "VARBINARY";
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
-    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
-            throws SQLException {
+    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException {
         String phoenixType = metadata.getColumnTypeName(colIndex).toUpperCase();
         int precision = metadata.getPrecision(colIndex);
         int scale = metadata.getScale(colIndex);
@@ -122,7 +120,7 @@ public class PhoenixTypeMapper implements JdbcDialectTypeMapper {
             case PHOENIX_VARBINARY:
             case PHOENIX_BINARY:
                 return PrimitiveByteArrayType.INSTANCE;
-                // Doesn't support yet
+            // Doesn't support yet
             case PHOENIX_UNKNOWN:
             case PHOENIX_ARRAY:
             default:

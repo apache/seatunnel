@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa;
 
 import org.apache.seatunnel.common.exception.CommonErrorCode;
@@ -67,25 +66,25 @@ import static javax.transaction.xa.XAResource.TMSTARTRSCAN;
  * implementation.
  */
 public class XaFacadeImplAutoLoad implements XaFacade {
-
+    
     private static final long serialVersionUID = 1L;
-
+    
     private static final Logger LOG = LoggerFactory.getLogger(XaFacadeImplAutoLoad.class);
     private static final Set<Integer> TRANSIENT_ERR_CODES =
             new HashSet<>(Arrays.asList(XA_RBTRANSIENT, XAER_RMFAIL));
     private static final Set<Integer> HEUR_ERR_CODES =
             new HashSet<>(Arrays.asList(XA_HEURRB, XA_HEURCOM, XA_HEURHAZ, XA_HEURMIX));
     private static final int MAX_RECOVER_CALLS = 100;
-
+    
     private final JdbcConnectionOptions jdbcConnectionOptions;
     private transient XAResource xaResource;
     private transient Connection connection;
     private transient XAConnection xaConnection;
-
+    
     XaFacadeImplAutoLoad(JdbcConnectionOptions jdbcConnectionOptions) {
         this.jdbcConnectionOptions = jdbcConnectionOptions;
     }
-
+    
     @Override
     public void open() throws SQLException {
         checkState(!isOpen(), "already connected");
@@ -116,7 +115,7 @@ public class XaFacadeImplAutoLoad implements XaFacade {
         connection.setAutoCommit(false);
         checkState(!connection.getAutoCommit());
     }
-
+    
     @Override
     public void close() throws SQLException {
         if (connection != null) {
@@ -138,18 +137,18 @@ public class XaFacadeImplAutoLoad implements XaFacade {
         }
         xaResource = null;
     }
-
+    
     @Override
     public Connection getConnection() {
         checkNotNull(connection);
         return connection;
     }
-
+    
     @Override
     public boolean isConnectionValid() throws SQLException {
         return isOpen() && connection.isValid(connection.getNetworkTimeout());
     }
-
+    
     @Override
     public Connection getOrEstablishConnection() throws SQLException {
         if (!isOpen()) {
@@ -157,7 +156,7 @@ public class XaFacadeImplAutoLoad implements XaFacade {
         }
         return connection;
     }
-
+    
     @Override
     public void closeConnection() {
         try {
@@ -166,19 +165,19 @@ public class XaFacadeImplAutoLoad implements XaFacade {
             LOG.warn("Connection close failed.", e);
         }
     }
-
+    
     @Override
     public Connection reestablishConnection() {
         throw new JdbcConnectorException(
                 CommonErrorCode.UNSUPPORTED_OPERATION,
                 "The instance failed to implement this method");
     }
-
+    
     @Override
     public void start(Xid xid) {
         execute(Command.fromRunnable("start", xid, () -> xaResource.start(xid, TMNOFLAGS)));
     }
-
+    
     @Override
     public void endAndPrepare(Xid xid) {
         execute(Command.fromRunnable("end", xid, () -> xaResource.end(xid, XAResource.TMSUCCESS)));
@@ -193,7 +192,7 @@ public class XaFacadeImplAutoLoad implements XaFacade {
                     formatErrorMessage("prepare", of(xid), empty(), "response: " + prepResult));
         }
     }
-
+    
     @Override
     public void failAndRollback(Xid xid) {
         execute(
@@ -214,20 +213,19 @@ public class XaFacadeImplAutoLoad implements XaFacade {
                             }
                         }));
     }
-
+    
     @Override
     public void commit(Xid xid, boolean ignoreUnknown) {
         execute(
                 Command.fromRunnableRecoverByWarn(
                         "commit",
                         xid,
-                        () ->
-                                xaResource.commit(
-                                        xid,
-                                        false /* not onePhase because the transaction should be prepared already */),
+                        () -> xaResource.commit(
+                                xid,
+                                false /* not onePhase because the transaction should be prepared already */),
                         e -> buildCommitErrorDesc(e, ignoreUnknown)));
     }
-
+    
     @Override
     public void rollback(Xid xid) {
         execute(
@@ -237,7 +235,7 @@ public class XaFacadeImplAutoLoad implements XaFacade {
                         () -> xaResource.rollback(xid),
                         this::buildRollbackErrorDesc));
     }
-
+    
     private void forget(Xid xid) {
         execute(
                 Command.fromRunnableRecoverByWarn(
@@ -246,7 +244,7 @@ public class XaFacadeImplAutoLoad implements XaFacade {
                         () -> xaResource.forget(xid),
                         e -> of("manual cleanup may be required")));
     }
-
+    
     @Override
     public Collection<Xid> recover() {
         return execute(
@@ -268,16 +266,16 @@ public class XaFacadeImplAutoLoad implements XaFacade {
                             return list;
                         }));
     }
-
+    
     @Override
     public boolean isOpen() {
         return xaResource != null;
     }
-
+    
     private List<Xid> recover(int flags) throws XAException {
         return Arrays.asList(xaResource.recover(flags));
     }
-
+    
     private <T> T execute(Command<T> cmd) throws RuntimeException {
         checkState(isOpen(), "not connected");
         LOG.debug("{}, xid={}", cmd.name, cmd.xid);
@@ -296,7 +294,7 @@ public class XaFacadeImplAutoLoad implements XaFacade {
             throw wrapException(cmd.name, cmd.xid, e);
         }
     }
-
+    
     private static RuntimeException wrapException(String action, Optional<Xid> xid, Exception ex) {
         if (ex instanceof XAException) {
             XAException xa = (XAException) ex;
@@ -315,7 +313,7 @@ public class XaFacadeImplAutoLoad implements XaFacade {
                     ex);
         }
     }
-
+    
     private Optional<String> buildCommitErrorDesc(XAException err, boolean ignoreUnknown) {
         if (err.errorCode == XA_HEURCOM) {
             return Optional.of("transaction was heuristically committed earlier");
@@ -325,7 +323,7 @@ public class XaFacadeImplAutoLoad implements XaFacade {
             return empty();
         }
     }
-
+    
     private Optional<String> buildRollbackErrorDesc(XAException err) {
         if (err.errorCode == XA_HEURRB) {
             return Optional.of("transaction was already heuristically rolled back");
@@ -335,9 +333,9 @@ public class XaFacadeImplAutoLoad implements XaFacade {
             return empty();
         }
     }
-
+    
     private static String formatErrorMessage(
-            String action, Optional<Xid> xid, Optional<Integer> errorCode, String... more) {
+                                             String action, Optional<Xid> xid, Optional<Integer> errorCode, String... more) {
         return String.format(
                 "unable to %s%s%s%s",
                 action,
@@ -347,7 +345,7 @@ public class XaFacadeImplAutoLoad implements XaFacade {
                         .orElse(""),
                 more == null || more.length == 0 ? "" : ". " + Arrays.toString(more));
     }
-
+    
     /** @return error description from {@link XAException} javadoc from to ease debug. */
     private static String descError(int code) {
         switch (code) {
@@ -401,15 +399,16 @@ public class XaFacadeImplAutoLoad implements XaFacade {
                 return "";
         }
     }
-
+    
     private static class Command<T> {
+        
         private final String name;
         private final Optional<Xid> xid;
         private final Callable<T> callable;
         private final Function<XAException, Optional<T>> recover;
-
+        
         static Command<Object> fromRunnable(
-                String action, Xid xid, ThrowingRunnable<XAException> runnable) {
+                                            String action, Xid xid, ThrowingRunnable<XAException> runnable) {
             return fromRunnable(
                     action,
                     xid,
@@ -418,34 +417,32 @@ public class XaFacadeImplAutoLoad implements XaFacade {
                         throw wrapException(action, of(xid), e);
                     });
         }
-
+        
         static Command<Object> fromRunnableRecoverByWarn(
-                String action,
-                Xid xid,
-                ThrowingRunnable<XAException> runnable,
-                Function<XAException, Optional<String>> err2msg) {
+                                                         String action,
+                                                         Xid xid,
+                                                         ThrowingRunnable<XAException> runnable,
+                                                         Function<XAException, Optional<String>> err2msg) {
             return fromRunnable(
                     action,
                     xid,
                     runnable,
-                    e ->
-                            LOG.warn(
-                                    formatErrorMessage(
-                                            action,
-                                            of(xid),
-                                            of(e.errorCode),
-                                            err2msg.apply(e)
-                                                    .orElseThrow(
-                                                            () ->
-                                                                    wrapException(
-                                                                            action, of(xid), e)))));
+                    e -> LOG.warn(
+                            formatErrorMessage(
+                                    action,
+                                    of(xid),
+                                    of(e.errorCode),
+                                    err2msg.apply(e)
+                                            .orElseThrow(
+                                                    () -> wrapException(
+                                                            action, of(xid), e)))));
         }
-
+        
         private static Command<Object> fromRunnable(
-                String action,
-                Xid xid,
-                ThrowingRunnable<XAException> runnable,
-                Consumer<XAException> recover) {
+                                                    String action,
+                                                    Xid xid,
+                                                    ThrowingRunnable<XAException> runnable,
+                                                    Consumer<XAException> recover) {
             return new Command<>(
                     action,
                     of(xid),
@@ -458,16 +455,16 @@ public class XaFacadeImplAutoLoad implements XaFacade {
                         return Optional.of("");
                     });
         }
-
+        
         private Command(String name, Optional<Xid> xid, Callable<T> callable) {
             this(name, xid, callable, e -> empty());
         }
-
+        
         private Command(
-                String name,
-                Optional<Xid> xid,
-                Callable<T> callable,
-                Function<XAException, Optional<T>> recover) {
+                        String name,
+                        Optional<Xid> xid,
+                        Callable<T> callable,
+                        Function<XAException, Optional<T>> recover) {
             this.name = name;
             this.xid = xid;
             this.callable = callable;

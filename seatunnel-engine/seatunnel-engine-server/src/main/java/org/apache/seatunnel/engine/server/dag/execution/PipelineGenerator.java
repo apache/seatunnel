@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.dag.execution;
 
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
@@ -32,9 +31,10 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class PipelineGenerator {
+    
     /** The action & vertex ID needs to be regenerated because of split pipeline. */
     private final IdGenerator idGenerator = new IdGenerator();
-
+    
     /**
      * key: the vertex id. <br>
      * value: The input vertices of this vertex.
@@ -42,7 +42,7 @@ public class PipelineGenerator {
      * <p>When chaining vertices, it need to query whether the vertex has multiple input vertices.
      */
     private final Map<Long, List<ExecutionVertex>> inputVerticesMap = new HashMap<>();
-
+    
     /**
      * key: the vertex id. <br>
      * value: The target vertices of this vertex.
@@ -50,27 +50,27 @@ public class PipelineGenerator {
      * <p>When chaining vertices, it need to query whether the vertex has multiple target vertices.
      */
     private final Map<Long, List<ExecutionVertex>> targetVerticesMap = new HashMap<>();
-
+    
     private final Collection<ExecutionVertex> vertices;
-
+    
     private final List<ExecutionEdge> edges;
-
+    
     public PipelineGenerator(Collection<ExecutionVertex> vertices, List<ExecutionEdge> edges) {
         this.vertices = vertices;
         this.edges = edges;
     }
-
+    
     public List<Pipeline> generatePipelines() {
         List<ExecutionEdge> executionEdges = expandEdgeByParallelism(edges);
-
+        
         // Split into multiple unrelated pipelines
         List<List<ExecutionEdge>> edgesList = splitUnrelatedEdges(executionEdges);
-
+        
         edgesList =
                 edgesList.stream()
                         .flatMap(e -> this.splitUnionEdge(e).stream())
                         .collect(Collectors.toList());
-
+        
         // just convert execution plan to pipeline at now. We should split it to multi pipeline with
         // cache in the future
         IdGenerator idGenerator = new IdGenerator();
@@ -109,17 +109,15 @@ public class PipelineGenerator {
                         })
                 .collect(Collectors.toList());
     }
-
+    
     private static List<ExecutionEdge> expandEdgeByParallelism(List<ExecutionEdge> edges) {
         /*
-         *TODO
-         * use SupportCoordinate interface to determine whether the Pipeline needs to be split.
-         * Pipelines without coordinator support can be split into multiple pipelines that do not
-         * interfere with each other
+         * TODO use SupportCoordinate interface to determine whether the Pipeline needs to be split. Pipelines without coordinator support can be split into multiple pipelines that do not interfere
+         * with each other
          */
         return edges;
     }
-
+    
     private List<List<ExecutionEdge>> splitUnionEdge(List<ExecutionEdge> edges) {
         fillVerticesMap(edges);
         if (checkCanSplit(edges)) {
@@ -132,22 +130,20 @@ public class PipelineGenerator {
             return Collections.singletonList(edges);
         }
     }
-
+    
     /** If this execution vertex have partition transform, can't be spilt */
     private boolean checkCanSplit(List<ExecutionEdge> edges) {
         return edges.stream()
-                        .noneMatch(
-                                e ->
-                                        e.getRightVertex().getAction()
-                                                instanceof PartitionTransformAction)
+                .noneMatch(
+                        e -> e.getRightVertex().getAction() instanceof PartitionTransformAction)
                 && edges.stream()
                         .anyMatch(e -> inputVerticesMap.get(e.getRightVertexId()).size() > 1);
     }
-
+    
     private void splitUnionVertex(
-            List<List<ExecutionEdge>> pipelines,
-            List<ExecutionVertex> pipeline,
-            ExecutionVertex currentVertex) {
+                                  List<List<ExecutionEdge>> pipelines,
+                                  List<ExecutionVertex> pipeline,
+                                  ExecutionVertex currentVertex) {
         pipeline.add(
                 recreateVertex(
                         currentVertex,
@@ -167,7 +163,7 @@ public class PipelineGenerator {
             pipeline.remove(pipeline.size() - 1);
         }
     }
-
+    
     private List<ExecutionEdge> createExecutionEdges(List<ExecutionVertex> pipeline) {
         checkArgument(pipeline != null && pipeline.size() > 1);
         List<ExecutionEdge> edges = new ArrayList<>(pipeline.size() - 1);
@@ -176,13 +172,13 @@ public class PipelineGenerator {
         }
         return edges;
     }
-
+    
     private List<ExecutionVertex> recreatePipeline(List<ExecutionVertex> pipeline) {
         return pipeline.stream()
                 .map(vertex -> recreateVertex(vertex, vertex.getParallelism()))
                 .collect(Collectors.toList());
     }
-
+    
     private ExecutionVertex recreateVertex(ExecutionVertex vertex, int parallelism) {
         long id = idGenerator.getNextId();
         Action action = vertex.getAction();
@@ -191,7 +187,7 @@ public class PipelineGenerator {
                 ExecutionPlanGenerator.recreateAction(action, id, parallelism),
                 action instanceof PartitionTransformAction ? vertex.getParallelism() : parallelism);
     }
-
+    
     private void fillVerticesMap(List<ExecutionEdge> edges) {
         inputVerticesMap.clear();
         targetVerticesMap.clear();
@@ -205,7 +201,7 @@ public class PipelineGenerator {
                             .add(edge.getRightVertex());
                 });
     }
-
+    
     private List<ExecutionVertex> getSourceVertices() {
         List<ExecutionVertex> sourceVertices = new ArrayList<>();
         for (ExecutionVertex vertex : vertices) {
@@ -216,19 +212,19 @@ public class PipelineGenerator {
         }
         return sourceVertices;
     }
-
+    
     private static List<List<ExecutionEdge>> splitUnrelatedEdges(List<ExecutionEdge> edges) {
-
+        
         List<List<ExecutionEdge>> edgeList = new ArrayList<>();
         while (!edges.isEmpty()) {
             edgeList.add(findVertexRelatedEdge(edges, edges.get(0).getLeftVertex()));
         }
         return edgeList;
     }
-
+    
     private static List<ExecutionEdge> findVertexRelatedEdge(
-            List<ExecutionEdge> edges, ExecutionVertex vertex) {
-
+                                                             List<ExecutionEdge> edges, ExecutionVertex vertex) {
+        
         List<ExecutionEdge> sourceEdges =
                 edges.stream()
                         .filter(edge -> edge.getLeftVertex().equals(vertex))
@@ -237,10 +233,10 @@ public class PipelineGenerator {
                 edges.stream()
                         .filter(edge -> edge.getRightVertex().equals(vertex))
                         .collect(Collectors.toList());
-
+        
         List<ExecutionEdge> relatedEdges = new ArrayList<>(sourceEdges);
         relatedEdges.addAll(destinationEdges);
-
+        
         List<ExecutionVertex> relatedActions =
                 sourceEdges.stream()
                         .map(ExecutionEdge::getRightVertex)
@@ -249,14 +245,14 @@ public class PipelineGenerator {
                 destinationEdges.stream()
                         .map(ExecutionEdge::getLeftVertex)
                         .collect(Collectors.toList()));
-
+        
         edges.removeAll(relatedEdges);
-
+        
         relatedEdges.addAll(
                 relatedActions.stream()
                         .flatMap(d -> findVertexRelatedEdge(edges, d).stream())
                         .collect(Collectors.toList()));
-
+        
         return relatedEdges;
     }
 }

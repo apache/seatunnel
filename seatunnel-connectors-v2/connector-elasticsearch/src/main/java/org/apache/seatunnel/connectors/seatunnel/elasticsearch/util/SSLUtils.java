@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.util;
 
 import io.airlift.security.pem.PemReader;
@@ -45,13 +44,12 @@ import static java.util.Collections.list;
 
 @SuppressWarnings("MagicNumber")
 public final class SSLUtils {
-
+    
     public static Optional<SSLContext> buildSSLContext(
-            Optional<String> keyStorePath,
-            Optional<String> keyStorePassword,
-            Optional<String> trustStorePath,
-            Optional<String> trustStorePassword)
-            throws GeneralSecurityException, IOException {
+                                                       Optional<String> keyStorePath,
+                                                       Optional<String> keyStorePassword,
+                                                       Optional<String> trustStorePath,
+                                                       Optional<String> trustStorePassword) throws GeneralSecurityException, IOException {
         if (!keyStorePath.isPresent() && !trustStorePath.isPresent()) {
             return Optional.empty();
         }
@@ -59,13 +57,12 @@ public final class SSLUtils {
                 createSSLContext(
                         keyStorePath, keyStorePassword, trustStorePath, trustStorePassword));
     }
-
+    
     private static SSLContext createSSLContext(
-            Optional<String> keyStorePath,
-            Optional<String> keyStorePassword,
-            Optional<String> trustStorePath,
-            Optional<String> trustStorePassword)
-            throws GeneralSecurityException, IOException {
+                                               Optional<String> keyStorePath,
+                                               Optional<String> keyStorePassword,
+                                               Optional<String> trustStorePath,
+                                               Optional<String> trustStorePassword) throws GeneralSecurityException, IOException {
         // load KeyStore if configured and get KeyManagers
         KeyStore keyStore = null;
         KeyManager[] keyManagers = null;
@@ -80,7 +77,7 @@ public final class SSLUtils {
                 keyManagerPassword = new char[0];
             } catch (IOException | GeneralSecurityException ignored) {
                 keyManagerPassword = keyStorePassword.map(String::toCharArray).orElse(null);
-
+                
                 keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
                 try (InputStream in = new FileInputStream(keyStoreFile)) {
                     keyStore.load(in, keyManagerPassword);
@@ -92,19 +89,19 @@ public final class SSLUtils {
             keyManagerFactory.init(keyStore, keyManagerPassword);
             keyManagers = keyManagerFactory.getKeyManagers();
         }
-
+        
         // load TrustStore if configured, otherwise use KeyStore
         KeyStore trustStore = keyStore;
         if (trustStorePath.isPresent()) {
             File trustStoreFile = new File(trustStorePath.get());
             trustStore = loadTrustStore(trustStoreFile, trustStorePassword);
         }
-
+        
         // create TrustManagerFactory
         TrustManagerFactory trustManagerFactory =
                 TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
         trustManagerFactory.init(trustStore);
-
+        
         // get X509TrustManager
         TrustManager[] trustManagers = trustManagerFactory.getTrustManagers();
         if (trustManagers.length != 1 || !(trustManagers[0] instanceof X509TrustManager)) {
@@ -116,9 +113,8 @@ public final class SSLUtils {
         result.init(keyManagers, trustManagers, null);
         return result;
     }
-
-    private static KeyStore loadTrustStore(File trustStorePath, Optional<String> trustStorePassword)
-            throws IOException, GeneralSecurityException {
+    
+    private static KeyStore loadTrustStore(File trustStorePath, Optional<String> trustStorePassword) throws IOException, GeneralSecurityException {
         KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
         try {
             // attempt to read the trust store as a PEM file
@@ -134,13 +130,13 @@ public final class SSLUtils {
         } catch (IOException | GeneralSecurityException ignored) {
             // ignored
         }
-
+        
         try (InputStream in = new FileInputStream(trustStorePath)) {
             trustStore.load(in, trustStorePassword.map(String::toCharArray).orElse(null));
         }
         return trustStore;
     }
-
+    
     private static void validateCertificates(KeyStore keyStore) throws GeneralSecurityException {
         for (String alias : list(keyStore.aliases())) {
             if (!keyStore.isKeyEntry(alias)) {
@@ -150,7 +146,7 @@ public final class SSLUtils {
             if (!(certificate instanceof X509Certificate)) {
                 continue;
             }
-
+            
             try {
                 ((X509Certificate) certificate).checkValidity();
             } catch (CertificateExpiredException e) {

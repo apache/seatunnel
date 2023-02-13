@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlite;
 
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -29,13 +28,13 @@ import java.sql.SQLException;
 
 @Slf4j
 public class SqliteTypeMapper implements JdbcDialectTypeMapper {
-
+    
     // ============================data types=====================
-
+    
     private static final String SQLITE_UNKNOWN = "UNKNOWN";
     private static final String SQLITE_BIT = "BIT";
     private static final String SQLITE_BOOLEAN = "BOOLEAN";
-
+    
     // -------------------------integer----------------------------
     private static final String SQLITE_TINYINT = "TINYINT";
     private static final String SQLITE_TINYINT_UNSIGNED = "TINYINT UNSIGNED";
@@ -58,7 +57,7 @@ public class SqliteTypeMapper implements JdbcDialectTypeMapper {
     private static final String SQLITE_DOUBLE_UNSIGNED = "DOUBLE UNSIGNED";
     private static final String SQLITE_NUMERIC = "NUMERIC";
     private static final String SQLITE_REAL = "REAL";
-
+    
     // -------------------------text----------------------------
     private static final String SQLITE_CHAR = "CHAR";
     private static final String SQLITE_CHARACTER = "CHARACTER";
@@ -75,13 +74,13 @@ public class SqliteTypeMapper implements JdbcDialectTypeMapper {
     private static final String SQLITE_LONGTEXT = "LONGTEXT";
     private static final String SQLITE_JSON = "JSON";
     private static final String SQLITE_CLOB = "CLOB";
-
+    
     // ------------------------------time(text)-------------------------
     private static final String SQLITE_DATE = "DATE";
     private static final String SQLITE_DATETIME = "DATETIME";
     private static final String SQLITE_TIME = "TIME";
     private static final String SQLITE_TIMESTAMP = "TIMESTAMP";
-
+    
     // ------------------------------blob-------------------------
     private static final String SQLITE_TINYBLOB = "TINYBLOB";
     private static final String SQLITE_MEDIUMBLOB = "MEDIUMBLOB";
@@ -90,10 +89,9 @@ public class SqliteTypeMapper implements JdbcDialectTypeMapper {
     private static final String SQLITE_BINARY = "BINARY";
     private static final String SQLITE_VARBINARY = "VARBINARY";
     private static final String SQLITE_LONGVARBINARY = "LONGVARBINARY";
-
+    
     @Override
-    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
-            throws SQLException {
+    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException {
         String columnTypeName = metadata.getColumnTypeName(colIndex).toUpperCase().trim();
         switch (columnTypeName) {
             case SQLITE_BIT:
@@ -144,13 +142,13 @@ public class SqliteTypeMapper implements JdbcDialectTypeMapper {
             case SQLITE_VARCHAR:
             case SQLITE_JSON:
             case SQLITE_LONGTEXT:
-
+            
             case SQLITE_DATE:
             case SQLITE_TIME:
             case SQLITE_DATETIME:
             case SQLITE_TIMESTAMP:
                 return BasicType.STRING_TYPE;
-
+            
             case SQLITE_TINYBLOB:
             case SQLITE_MEDIUMBLOB:
             case SQLITE_BLOB:
@@ -159,8 +157,8 @@ public class SqliteTypeMapper implements JdbcDialectTypeMapper {
             case SQLITE_BINARY:
             case SQLITE_LONGVARBINARY:
                 return PrimitiveByteArrayType.INSTANCE;
-
-                // Doesn't support yet
+            
+            // Doesn't support yet
             case SQLITE_UNKNOWN:
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.format.text;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
@@ -48,15 +47,20 @@ import java.util.Map;
 
 @Builder
 public class TextDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
-    @NonNull private SeaTunnelRowType seaTunnelRowType;
-    @NonNull private String delimiter;
-    @Builder.Default private DateUtils.Formatter dateFormatter = DateUtils.Formatter.YYYY_MM_DD;
-
+    
+    @NonNull
+    private SeaTunnelRowType seaTunnelRowType;
+    @NonNull
+    private String delimiter;
+    @Builder.Default
+    private DateUtils.Formatter dateFormatter = DateUtils.Formatter.YYYY_MM_DD;
+    
     @Builder.Default
     private DateTimeUtils.Formatter dateTimeFormatter = DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
-
-    @Builder.Default private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
-
+    
+    @Builder.Default
+    private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
+    
     @Override
     public SeaTunnelRow deserialize(byte[] message) throws IOException {
         String content = new String(message);
@@ -67,14 +71,14 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
         }
         return new SeaTunnelRow(objects);
     }
-
+    
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
         return seaTunnelRowType;
     }
-
+    
     private Map<Integer, String> splitLineBySeaTunnelRowType(
-            String line, SeaTunnelRowType seaTunnelRowType) {
+                                                             String line, SeaTunnelRowType seaTunnelRowType) {
         String[] splits = line.split(delimiter, -1);
         LinkedHashMap<Integer, String> splitsMap = new LinkedHashMap<>();
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
@@ -106,7 +110,7 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
         }
         return splitsMap;
     }
-
+    
     private Object convert(String field, SeaTunnelDataType<?> fieldType) {
         if (StringUtils.isBlank(field)) {
             return null;
@@ -148,8 +152,7 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                 LinkedHashMap<Object, Object> objectMap = new LinkedHashMap<>();
                 Map<String, String> fieldsMap = JsonUtils.toMap(field);
                 fieldsMap.forEach(
-                        (key, value) ->
-                                objectMap.put(convert(key, keyType), convert(value, valueType)));
+                        (key, value) -> objectMap.put(convert(key, keyType), convert(value, valueType)));
                 return objectMap;
             case STRING:
                 return field;

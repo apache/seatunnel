@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.file.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -35,6 +34,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 @Data
 public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
+    
     private static final long serialVersionUID = 1L;
     protected CompressFormat compressFormat = BaseSinkConfig.COMPRESS_CODEC.defaultValue();
     protected String fieldDelimiter = BaseSinkConfig.FIELD_DELIMITER.defaultValue();
@@ -46,7 +46,7 @@ public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
     protected DateUtils.Formatter dateFormat = DateUtils.Formatter.YYYY_MM_DD;
     protected DateTimeUtils.Formatter datetimeFormat = DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
     protected TimeUtils.Formatter timeFormat = TimeUtils.Formatter.HH_MM_SS;
-
+    
     public BaseFileSinkConfig(@NonNull Config config) {
         if (config.hasPath(BaseSinkConfig.COMPRESS_CODEC.key())) {
             String compressCodec = config.getString(BaseSinkConfig.COMPRESS_CODEC.key());
@@ -59,23 +59,23 @@ public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
                 && StringUtils.isNotEmpty(config.getString(BaseSinkConfig.FIELD_DELIMITER.key()))) {
             this.fieldDelimiter = config.getString(BaseSinkConfig.FIELD_DELIMITER.key());
         }
-
+        
         if (config.hasPath(BaseSinkConfig.ROW_DELIMITER.key())) {
             this.rowDelimiter = config.getString(BaseSinkConfig.ROW_DELIMITER.key());
         }
-
+        
         if (config.hasPath(BaseSinkConfig.FILE_PATH.key())
                 && !StringUtils.isBlank(config.getString(BaseSinkConfig.FILE_PATH.key()))) {
             this.path = config.getString(BaseSinkConfig.FILE_PATH.key());
         }
         checkNotNull(path);
-
+        
         if (config.hasPath(BaseSinkConfig.FILE_NAME_EXPRESSION.key())
                 && !StringUtils.isBlank(
                         config.getString(BaseSinkConfig.FILE_NAME_EXPRESSION.key()))) {
             this.fileNameExpression = config.getString(BaseSinkConfig.FILE_NAME_EXPRESSION.key());
         }
-
+        
         if (config.hasPath(BaseSinkConfig.FILE_FORMAT.key())
                 && !StringUtils.isBlank(config.getString(BaseSinkConfig.FILE_FORMAT.key()))) {
             this.fileFormat =
@@ -83,23 +83,24 @@ public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
                             config.getString(BaseSinkConfig.FILE_FORMAT.key())
                                     .toUpperCase(Locale.ROOT));
         }
-
+        
         if (config.hasPath(BaseSinkConfig.DATE_FORMAT.key())) {
             dateFormat =
                     DateUtils.Formatter.parse(config.getString(BaseSinkConfig.DATE_FORMAT.key()));
         }
-
+        
         if (config.hasPath(BaseSinkConfig.DATETIME_FORMAT.key())) {
             datetimeFormat =
                     DateTimeUtils.Formatter.parse(
                             config.getString(BaseSinkConfig.DATETIME_FORMAT.key()));
         }
-
+        
         if (config.hasPath(BaseSinkConfig.TIME_FORMAT.key())) {
             timeFormat =
                     TimeUtils.Formatter.parse(config.getString(BaseSinkConfig.TIME_FORMAT.key()));
         }
     }
-
-    public BaseFileSinkConfig() {}
+    
+    public BaseFileSinkConfig() {
+    }
 }

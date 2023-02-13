@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.core.starter.flink;
 
 import org.apache.seatunnel.common.config.Common;
@@ -29,12 +28,13 @@ import java.util.Objects;
 
 /** The SeaTunnel flink starter, used to generate the final flink job execute command. */
 public class FlinkStarter implements Starter {
+    
     private static final String APP_NAME = SeaTunnelFlink.class.getName();
     public static final String APP_JAR_NAME = EngineType.FLINK13.getStarterJarName();
     public static final String SHELL_NAME = EngineType.FLINK13.getStarterShellName();
     private final FlinkCommandArgs flinkCommandArgs;
     private final String appJar;
-
+    
     FlinkStarter(String[] args) {
         this.flinkCommandArgs =
                 CommandLineUtils.parse(args, new FlinkCommandArgs(), SHELL_NAME, true);
@@ -43,13 +43,13 @@ public class FlinkStarter implements Starter {
         Common.setStarter(true);
         this.appJar = Common.appStarterDir().resolve(APP_JAR_NAME).toString();
     }
-
+    
     @SuppressWarnings("checkstyle:RegexpSingleline")
     public static void main(String[] args) {
         FlinkStarter flinkStarter = new FlinkStarter(args);
         System.out.println(String.join(" ", flinkStarter.buildCommands()));
     }
-
+    
     @Override
     public List<String> buildCommands() {
         List<String> command = new ArrayList<>();

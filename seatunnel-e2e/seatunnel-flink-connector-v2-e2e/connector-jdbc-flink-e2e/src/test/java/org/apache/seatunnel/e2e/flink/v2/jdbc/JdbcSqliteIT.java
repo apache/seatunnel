@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.e2e.flink.v2.jdbc;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -50,16 +49,17 @@ import java.util.Objects;
 
 @Slf4j
 public class JdbcSqliteIT extends FlinkContainer {
+    
     private String tmpdir;
     private Config config;
     private static final List<List<Object>> TEST_DATASET = generateTestDataset();
     private static final String THIRD_PARTY_PLUGINS_URL =
             "https://repo1.maven.org/maven2/org/xerial/sqlite-jdbc/3.39.3.0/sqlite-jdbc-3.39.3.0.jar";
-
+    
     private void initTestDb() throws Exception {
         URI resource =
                 Objects.requireNonNull(
-                                JdbcSqliteIT.class.getResource("/jdbc/init_sql/sqlite_init.conf"))
+                        JdbcSqliteIT.class.getResource("/jdbc/init_sql/sqlite_init.conf"))
                         .toURI();
         config = ConfigBuilder.of(Paths.get(resource));
         CheckConfigUtil.checkAllExists(
@@ -85,7 +85,7 @@ public class JdbcSqliteIT extends FlinkContainer {
             statement.execute(config.getString("type_source_table"));
             statement.execute(config.getString("type_sink_table"));
             statement.execute(config.getString("insert_type_source_table_sql"));
-
+            
             String sql = "insert into source(age, name) values(?, ?)";
             connection.setAutoCommit(false);
             try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
@@ -108,7 +108,7 @@ public class JdbcSqliteIT extends FlinkContainer {
             throw e;
         }
     }
-
+    
     private static List<List<Object>> generateTestDataset() {
         List<List<Object>> rows = new ArrayList<>();
         for (int i = 1; i <= 100; i++) {
@@ -116,7 +116,7 @@ public class JdbcSqliteIT extends FlinkContainer {
         }
         return rows;
     }
-
+    
     @Test
     public void testJdbcSqliteSourceAndSinkDataType() throws Exception {
         Container.ExecResult execResult =
@@ -127,11 +127,11 @@ public class JdbcSqliteIT extends FlinkContainer {
                 new File(tmpdir + "/test.db").toPath().toString());
         checkSinkDataTypeTable();
     }
-
+    
     private void checkSinkDataTypeTable() throws Exception {
         URI resource =
                 Objects.requireNonNull(
-                                JdbcSqliteIT.class.getResource("/jdbc/init_sql/sqlite_init.conf"))
+                        JdbcSqliteIT.class.getResource("/jdbc/init_sql/sqlite_init.conf"))
                         .toURI();
         config = ConfigBuilder.of(Paths.get(resource));
         CheckConfigUtil.checkAllExists(
@@ -142,9 +142,10 @@ public class JdbcSqliteIT extends FlinkContainer {
                 "type_sink_table",
                 "insert_type_source_table_sql",
                 "check_type_sink_table_sql");
-
-        try (Connection connection =
-                DriverManager.getConnection("jdbc:sqlite:" + tmpdir + "/test.db", "", "")) {
+        
+        try (
+                Connection connection =
+                        DriverManager.getConnection("jdbc:sqlite:" + tmpdir + "/test.db", "", "")) {
             Statement statement = connection.createStatement();
             ResultSet resultSet =
                     statement.executeQuery(config.getString("check_type_sink_table_sql"));
@@ -152,10 +153,9 @@ public class JdbcSqliteIT extends FlinkContainer {
             Assertions.assertEquals(resultSet.getInt(1), 2);
         }
     }
-
+    
     @Test
-    public void testJdbcSqliteSourceAndSink()
-            throws IOException, InterruptedException, SQLException {
+    public void testJdbcSqliteSourceAndSink() throws IOException, InterruptedException, SQLException {
         Container.ExecResult execResult =
                 executeSeaTunnelFlinkJob("/jdbc/jdbc_sqlite_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
@@ -165,8 +165,9 @@ public class JdbcSqliteIT extends FlinkContainer {
         // query result
         String sql = "select age, name from sink order by age asc";
         List<List<Object>> result = new ArrayList<>();
-        try (Connection connection =
-                DriverManager.getConnection("jdbc:sqlite:" + tmpdir + "/test.db", "", "")) {
+        try (
+                Connection connection =
+                        DriverManager.getConnection("jdbc:sqlite:" + tmpdir + "/test.db", "", "")) {
             Statement statement = connection.createStatement();
             ResultSet resultSet = statement.executeQuery(sql);
             while (resultSet.next()) {
@@ -175,16 +176,15 @@ public class JdbcSqliteIT extends FlinkContainer {
             Assertions.assertIterableEquals(TEST_DATASET, result);
         }
     }
-
+    
     @AfterEach
     public void closeResource() throws SQLException, IOException {
         // remove the temp test.db file
         Files.deleteIfExists(new File(tmpdir + "/test.db").toPath());
     }
-
+    
     @Override
-    protected void executeExtraCommands(GenericContainer<?> container)
-            throws IOException, InterruptedException {
+    protected void executeExtraCommands(GenericContainer<?> container) throws IOException, InterruptedException {
         Container.ExecResult extraCommands =
                 container.execInContainer(
                         "bash",
@@ -192,7 +192,7 @@ public class JdbcSqliteIT extends FlinkContainer {
                         "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
                                 + THIRD_PARTY_PLUGINS_URL);
         Assertions.assertEquals(0, extraCommands.getExitCode());
-
+        
         Container.ExecResult mkdirCommands1 =
                 jobManager.execInContainer("bash", "-c", "mkdir -p " + "/sqlite");
         Assertions.assertEquals(0, mkdirCommands1.getExitCode());

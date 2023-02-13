@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
@@ -65,11 +64,12 @@ import java.util.stream.IntStream;
 
 @SuppressWarnings("checkstyle:MagicNumber")
 public class ParquetWriteStrategy extends AbstractWriteStrategy {
+    
     private final Map<String, ParquetWriter<GenericRecord>> beingWrittenWriter;
     private AvroSchemaConverter schemaConverter;
     private Schema schema;
     public static final int[] PRECISION_TO_BYTE_COUNT = new int[38];
-
+    
     static {
         for (int prec = 1; prec <= 38; prec++) {
             // Estimated number of bytes needed.
@@ -77,18 +77,18 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
                     (int) Math.ceil((Math.log(Math.pow(10, prec) - 1) / Math.log(2) + 1) / 8);
         }
     }
-
+    
     public ParquetWriteStrategy(FileSinkConfig fileSinkConfig) {
         super(fileSinkConfig);
         this.beingWrittenWriter = new HashMap<>();
     }
-
+    
     @Override
     public void init(HadoopConf conf, String jobId, String uuidPrefix, int subTaskIndex) {
         super.init(conf, jobId, uuidPrefix, subTaskIndex);
         schemaConverter = new AvroSchemaConverter(getConfiguration(hadoopConf));
     }
-
+    
     @Override
     public void write(@NonNull SeaTunnelRow seaTunnelRow) {
         super.write(seaTunnelRow);
@@ -110,7 +110,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
             throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED, errorMsg, e);
         }
     }
-
+    
     @Override
     public void finishAndCloseFile() {
         this.beingWrittenWriter.forEach(
@@ -129,7 +129,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
                 });
         this.beingWrittenWriter.clear();
     }
-
+    
     private ParquetWriter<GenericRecord> getOrCreateWriter(@NonNull String filePath) {
         if (schema == null) {
             schema = buildAvroSchemaWithRowType(seaTunnelRowType, sinkColumnsIndexInRow);
@@ -163,7 +163,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
         }
         return writer;
     }
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     private Object resolveObject(Object data, SeaTunnelDataType<?> seaTunnelDataType) {
         if (data == null) {
@@ -222,10 +222,10 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
                 throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
         }
     }
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     private Type seaTunnelDataType2ParquetDataType(
-            String fieldName, SeaTunnelDataType<?> seaTunnelDataType) {
+                                                   String fieldName, SeaTunnelDataType<?> seaTunnelDataType) {
         switch (seaTunnelDataType.getSqlType()) {
             case ARRAY:
                 BasicType<?> elementType = ((ArrayType<?, ?>) seaTunnelDataType).getElementType();
@@ -248,51 +248,51 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
                         seaTunnelDataType2ParquetDataType("value", valueType));
             case STRING:
                 return Types.primitive(
-                                PrimitiveType.PrimitiveTypeName.BINARY, Type.Repetition.OPTIONAL)
+                        PrimitiveType.PrimitiveTypeName.BINARY, Type.Repetition.OPTIONAL)
                         .as(LogicalTypeAnnotation.stringType())
                         .named(fieldName);
             case BOOLEAN:
                 return Types.primitive(
-                                PrimitiveType.PrimitiveTypeName.BOOLEAN, Type.Repetition.OPTIONAL)
+                        PrimitiveType.PrimitiveTypeName.BOOLEAN, Type.Repetition.OPTIONAL)
                         .named(fieldName);
             case TINYINT:
                 return Types.primitive(
-                                PrimitiveType.PrimitiveTypeName.INT32, Type.Repetition.OPTIONAL)
+                        PrimitiveType.PrimitiveTypeName.INT32, Type.Repetition.OPTIONAL)
                         .as(LogicalTypeAnnotation.intType(8, true))
                         .as(OriginalType.INT_8)
                         .named(fieldName);
             case SMALLINT:
                 return Types.primitive(
-                                PrimitiveType.PrimitiveTypeName.INT32, Type.Repetition.OPTIONAL)
+                        PrimitiveType.PrimitiveTypeName.INT32, Type.Repetition.OPTIONAL)
                         .as(LogicalTypeAnnotation.intType(16, true))
                         .as(OriginalType.INT_16)
                         .named(fieldName);
             case INT:
                 return Types.primitive(
-                                PrimitiveType.PrimitiveTypeName.INT32, Type.Repetition.OPTIONAL)
+                        PrimitiveType.PrimitiveTypeName.INT32, Type.Repetition.OPTIONAL)
                         .named(fieldName);
             case DATE:
                 return Types.primitive(
-                                PrimitiveType.PrimitiveTypeName.INT32, Type.Repetition.OPTIONAL)
+                        PrimitiveType.PrimitiveTypeName.INT32, Type.Repetition.OPTIONAL)
                         .as(LogicalTypeAnnotation.dateType())
                         .as(OriginalType.DATE)
                         .named(fieldName);
             case BIGINT:
                 return Types.primitive(
-                                PrimitiveType.PrimitiveTypeName.INT64, Type.Repetition.OPTIONAL)
+                        PrimitiveType.PrimitiveTypeName.INT64, Type.Repetition.OPTIONAL)
                         .named(fieldName);
             case TIMESTAMP:
                 return Types.primitive(
-                                PrimitiveType.PrimitiveTypeName.INT64, Type.Repetition.OPTIONAL)
+                        PrimitiveType.PrimitiveTypeName.INT64, Type.Repetition.OPTIONAL)
                         .as(OriginalType.TIMESTAMP_MILLIS)
                         .named(fieldName);
             case FLOAT:
                 return Types.primitive(
-                                PrimitiveType.PrimitiveTypeName.FLOAT, Type.Repetition.OPTIONAL)
+                        PrimitiveType.PrimitiveTypeName.FLOAT, Type.Repetition.OPTIONAL)
                         .named(fieldName);
             case DOUBLE:
                 return Types.primitive(
-                                PrimitiveType.PrimitiveTypeName.DOUBLE, Type.Repetition.OPTIONAL)
+                        PrimitiveType.PrimitiveTypeName.DOUBLE, Type.Repetition.OPTIONAL)
                         .named(fieldName);
             case DECIMAL:
                 int precision = ((DecimalType) seaTunnelDataType).getPrecision();
@@ -305,7 +305,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
                         .named(fieldName);
             case BYTES:
                 return Types.primitive(
-                                PrimitiveType.PrimitiveTypeName.BINARY, Type.Repetition.OPTIONAL)
+                        PrimitiveType.PrimitiveTypeName.BINARY, Type.Repetition.OPTIONAL)
                         .named(fieldName);
             case ROW:
                 SeaTunnelDataType<?>[] fieldTypes =
@@ -326,9 +326,9 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
                 throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
         }
     }
-
+    
     private Schema buildAvroSchemaWithRowType(
-            SeaTunnelRowType seaTunnelRowType, List<Integer> sinkColumnsIndex) {
+                                              SeaTunnelRowType seaTunnelRowType, List<Integer> sinkColumnsIndex) {
         ArrayList<Type> types = new ArrayList<>();
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
         String[] fieldNames = seaTunnelRowType.getFieldNames();

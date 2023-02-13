@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -27,27 +26,31 @@ import java.util.Optional;
 import java.util.Set;
 
 public class ClickhouseSourceSplitEnumerator
-        implements SourceSplitEnumerator<ClickhouseSourceSplit, ClickhouseSourceState> {
-
+        implements
+            SourceSplitEnumerator<ClickhouseSourceSplit, ClickhouseSourceState> {
+    
     private final Context<ClickhouseSourceSplit> context;
     private final Set<Integer> readers;
     private volatile int assigned = -1;
-
+    
     // TODO support read distributed engine use multi split
     ClickhouseSourceSplitEnumerator(Context<ClickhouseSourceSplit> enumeratorContext) {
         this.context = enumeratorContext;
         this.readers = new HashSet<>();
     }
-
+    
     @Override
-    public void open() {}
-
+    public void open() {
+    }
+    
     @Override
-    public void run() throws Exception {}
-
+    public void run() throws Exception {
+    }
+    
     @Override
-    public void close() throws IOException {}
-
+    public void close() throws IOException {
+    }
+    
     @Override
     public void addSplitsBack(List<ClickhouseSourceSplit> splits, int subtaskId) {
         if (splits.isEmpty()) {
@@ -62,15 +65,16 @@ public class ClickhouseSourceSplitEnumerator
             }
         }
     }
-
+    
     @Override
     public int currentUnassignedSplitSize() {
         return assigned < 0 ? 0 : 1;
     }
-
+    
     @Override
-    public void handleSplitRequest(int subtaskId) {}
-
+    public void handleSplitRequest(int subtaskId) {
+    }
+    
     @Override
     public void registerReader(int subtaskId) {
         readers.add(subtaskId);
@@ -79,12 +83,13 @@ public class ClickhouseSourceSplitEnumerator
             context.assignSplit(subtaskId, new ClickhouseSourceSplit());
         }
     }
-
+    
     @Override
     public ClickhouseSourceState snapshotState(long checkpointId) throws Exception {
         return null;
     }
-
+    
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {
+    }
 }

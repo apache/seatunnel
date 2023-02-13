@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.e2e.transform;
 
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -26,26 +25,23 @@ import org.testcontainers.containers.Container;
 import java.io.IOException;
 
 public class TestFilterRowKindIT extends TestSuiteBase {
-
+    
     @TestTemplate
-    public void testFilterRowKindExcludeDelete(TestContainer container)
-            throws IOException, InterruptedException {
+    public void testFilterRowKindExcludeDelete(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 container.executeJob("/filter_row_kind_exclude_delete.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
-
+    
     @TestTemplate
-    public void testFilterRowKindExcludeInsert(TestContainer container)
-            throws IOException, InterruptedException {
+    public void testFilterRowKindExcludeInsert(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 container.executeJob("/filter_row_kind_exclude_insert.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
-
+    
     @TestTemplate
-    public void testFilterRowKindIncludeInsert(TestContainer container)
-            throws IOException, InterruptedException {
+    public void testFilterRowKindIncludeInsert(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 container.executeJob("/filter_row_kind_include_insert.conf");
         Assertions.assertEquals(0, execResult.getExitCode());

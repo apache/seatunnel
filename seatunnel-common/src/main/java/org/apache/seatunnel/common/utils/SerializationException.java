@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,21 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.common.utils;
 
 public class SerializationException extends RuntimeException {
-
+    
     /**
      * Required for serialization support.
      *
      * @see java.io.Serializable
      */
     private static final long serialVersionUID = 2263144814025689516L;
-
+    
     /** Constructs a new {@code SerializationException} without specified detail message. */
-    public SerializationException() {}
-
+    public SerializationException() {
+    }
+    
     /**
      * Constructs a new {@code SerializationException} with specified detail message.
      *
@@ -37,7 +37,7 @@ public class SerializationException extends RuntimeException {
     public SerializationException(final String msg) {
         super(msg);
     }
-
+    
     /**
      * Constructs a new {@code SerializationException} with specified nested {@code Throwable}.
      *
@@ -46,7 +46,7 @@ public class SerializationException extends RuntimeException {
     public SerializationException(final Throwable cause) {
         super(cause);
     }
-
+    
     /**
      * Constructs a new {@code SerializationException} with specified detail message and nested
      * {@code Throwable}.

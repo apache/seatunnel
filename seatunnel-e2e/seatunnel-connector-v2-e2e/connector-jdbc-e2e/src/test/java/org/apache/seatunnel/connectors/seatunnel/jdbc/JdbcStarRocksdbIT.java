@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -29,7 +28,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class JdbcStarRocksdbIT extends AbstractJdbcIT {
-
+    
     private static final String DOCKER_IMAGE = "d87904488/starrocks-starter:2.2.1";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final String NETWORK_ALIASES = "e2e_starRocksdb";
@@ -45,7 +44,7 @@ public class JdbcStarRocksdbIT extends AbstractJdbcIT {
                     + "/"
                     + DATABASE
                     + "?createDatabaseIfNotExist=true";
-
+    
     private static final String SOURCE_TABLE = "e2e_table_source";
     private static final String SINK_TABLE = "e2e_table_sink";
     private static final String SR_DRIVER_JAR =
@@ -53,7 +52,7 @@ public class JdbcStarRocksdbIT extends AbstractJdbcIT {
     private static final String COLUMN_STRING =
             "BIGINT_COL, LARGEINT_COL, SMALLINT_COL, TINYINT_COL, BOOLEAN_COL, DECIMAL_COL, DOUBLE_COL, FLOAT_COL, INT_COL, CHAR_COL, VARCHAR_11_COL, STRING_COL, DATETIME_COL, DATE_COL";
     private static final String CONFIG_FILE = "/jdbc_starrocks_source_to_sink.conf";
-
+    
     private static final String DDL_SOURCE =
             "create table "
                     + DATABASE
@@ -82,7 +81,7 @@ public class JdbcStarRocksdbIT extends AbstractJdbcIT {
                     + "\"in_memory\" = \"false\","
                     + "\"storage_format\" = \"DEFAULT\""
                     + ")";
-
+    
     private static final String DDL_SINK =
             "create table "
                     + DATABASE
@@ -111,7 +110,7 @@ public class JdbcStarRocksdbIT extends AbstractJdbcIT {
                     + "\"in_memory\" = \"false\","
                     + "\"storage_format\" = \"DEFAULT\""
                     + ")";
-
+    
     private static final String INIT_DATA_SQL =
             "insert into "
                     + DATABASE
@@ -135,7 +134,7 @@ public class JdbcStarRocksdbIT extends AbstractJdbcIT {
                     + ")values(\n"
                     + "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?\n"
                     + ")";
-
+    
     @Override
     JdbcCase getJdbcCase() {
         Map<String, String> containerEnv = new HashMap<>();
@@ -164,7 +163,7 @@ public class JdbcStarRocksdbIT extends AbstractJdbcIT {
                 .seaTunnelRow(initTestData())
                 .build();
     }
-
+    
     @Override
     void compareResult() {
         try (Connection connection = initializeJdbcConnection(URL)) {
@@ -180,7 +179,7 @@ public class JdbcStarRocksdbIT extends AbstractJdbcIT {
         }
         clearSinkTable();
     }
-
+    
     @Override
     void clearSinkTable() {
         try (Statement statement = initializeJdbcConnection(URL).createStatement()) {
@@ -189,28 +188,28 @@ public class JdbcStarRocksdbIT extends AbstractJdbcIT {
             throw new RuntimeException("test starrocks server image error", e);
         }
     }
-
+    
     @Override
     SeaTunnelRow initTestData() {
         return new SeaTunnelRow(
-                new Object[] {
-                    1234,
-                    1123456,
-                    12,
-                    1,
-                    0,
-                    2222243.2222243,
-                    2222243.22222,
-                    1.22222,
-                    12,
-                    "a",
-                    "VARCHAR_COL",
-                    "STRING_COL",
-                    "2022-08-13 17:35:59",
-                    "2022-08-13"
+                new Object[]{
+                        1234,
+                        1123456,
+                        12,
+                        1,
+                        0,
+                        2222243.2222243,
+                        2222243.22222,
+                        1.22222,
+                        12,
+                        "a",
+                        "VARCHAR_COL",
+                        "STRING_COL",
+                        "2022-08-13 17:35:59",
+                        "2022-08-13"
                 });
     }
-
+    
     private void assertHasData(String table) {
         try (Statement statement = initializeJdbcConnection(URL).createStatement()) {
             String sql = String.format("select * from %s.%s limit 1", DATABASE, table);

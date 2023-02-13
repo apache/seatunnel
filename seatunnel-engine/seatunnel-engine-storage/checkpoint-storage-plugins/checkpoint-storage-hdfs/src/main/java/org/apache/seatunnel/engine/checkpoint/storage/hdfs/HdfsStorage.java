@@ -1,23 +1,19 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.checkpoint.storage.hdfs;
 
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
@@ -46,15 +42,15 @@ import static org.apache.seatunnel.engine.checkpoint.storage.constants.StorageCo
 
 @Slf4j
 public class HdfsStorage extends AbstractCheckpointStorage {
-
+    
     public FileSystem fs;
     private static final String STORAGE_TMP_SUFFIX = "tmp";
     private static final String STORAGE_TYPE_KEY = "storage.type";
-
+    
     public HdfsStorage(Map<String, String> configuration) throws CheckpointStorageException {
         this.initStorage(configuration);
     }
-
+    
     @Override
     public void initStorage(Map<String, String> configuration) throws CheckpointStorageException {
         if (StringUtils.isNotBlank(configuration.get(STORAGE_NAME_SPACE))) {
@@ -68,9 +64,8 @@ public class HdfsStorage extends AbstractCheckpointStorage {
             throw new CheckpointStorageException("Failed to get file system", e);
         }
     }
-
-    private Configuration getConfiguration(Map<String, String> config)
-            throws CheckpointStorageException {
+    
+    private Configuration getConfiguration(Map<String, String> config) throws CheckpointStorageException {
         String storageType =
                 config.getOrDefault(STORAGE_TYPE_KEY, FileConfiguration.LOCAL.toString());
         config.remove(STORAGE_TYPE_KEY);
@@ -78,7 +73,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                 FileConfiguration.valueOf(storageType.toUpperCase()).getConfiguration(storageType);
         return configuration.buildConfiguration(config);
     }
-
+    
     @Override
     public String storeCheckPoint(PipelineState state) throws CheckpointStorageException {
         byte[] datas;
@@ -94,7 +89,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                                 + state.getJobId()
                                 + "/"
                                 + getCheckPointName(state));
-
+        
         Path tmpFilePath =
                 new Path(
                         getStorageParentDirectory()
@@ -113,7 +108,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
             if (!success) {
                 throw new CheckpointStorageException("Failed to rename tmp file to final file");
             }
-
+            
         } catch (IOException e) {
             throw new CheckpointStorageException("Failed to rename tmp file to final file");
         } finally {
@@ -126,10 +121,10 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                 log.error("Failed to delete tmp file", ioe);
             }
         }
-
+        
         return filePath.getName();
     }
-
+    
     @Override
     public List<PipelineState> getAllCheckpoints(String jobId) throws CheckpointStorageException {
         String path = getStorageParentDirectory() + jobId;
@@ -153,7 +148,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
         }
         return states;
     }
-
+    
     @Override
     public List<PipelineState> getLatestCheckpoint(String jobId) throws CheckpointStorageException {
         String path = getStorageParentDirectory() + jobId;
@@ -172,23 +167,22 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                         log.error("Failed to read pipeline state for file: {}", fileName, e);
                     }
                 });
-
+        
         if (latestPipelineStates.isEmpty()) {
             throw new CheckpointStorageException("No checkpoint found for job, job id:{} " + jobId);
         }
         return latestPipelineStates;
     }
-
+    
     @Override
-    public PipelineState getLatestCheckpointByJobIdAndPipelineId(String jobId, String pipelineId)
-            throws CheckpointStorageException {
+    public PipelineState getLatestCheckpointByJobIdAndPipelineId(String jobId, String pipelineId) throws CheckpointStorageException {
         String path = getStorageParentDirectory() + jobId;
         List<String> fileNames = getFileNames(path);
         if (fileNames.isEmpty()) {
             throw new CheckpointStorageException(
                     "No checkpoint found for job, job id is: " + jobId);
         }
-
+        
         String latestFileName =
                 getLatestCheckpointFileNameByJobIdAndPipelineId(fileNames, pipelineId);
         if (latestFileName == null) {
@@ -200,17 +194,16 @@ public class HdfsStorage extends AbstractCheckpointStorage {
         }
         return readPipelineState(latestFileName, jobId);
     }
-
+    
     @Override
-    public List<PipelineState> getCheckpointsByJobIdAndPipelineId(String jobId, String pipelineId)
-            throws CheckpointStorageException {
+    public List<PipelineState> getCheckpointsByJobIdAndPipelineId(String jobId, String pipelineId) throws CheckpointStorageException {
         String path = getStorageParentDirectory() + jobId;
         List<String> fileNames = getFileNames(path);
         if (fileNames.isEmpty()) {
             throw new CheckpointStorageException(
                     "No checkpoint found for job, job id is: " + jobId);
         }
-
+        
         List<PipelineState> pipelineStates = new ArrayList<>();
         fileNames.forEach(
                 file -> {
@@ -225,7 +218,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                 });
         return pipelineStates;
     }
-
+    
     @Override
     public void deleteCheckpoint(String jobId) {
         String jobPath = getStorageParentDirectory() + jobId;
@@ -235,10 +228,9 @@ public class HdfsStorage extends AbstractCheckpointStorage {
             log.warn("Failed to delete checkpoint for job {}", jobId, e);
         }
     }
-
+    
     @Override
-    public PipelineState getCheckpoint(String jobId, String pipelineId, String checkpointId)
-            throws CheckpointStorageException {
+    public PipelineState getCheckpoint(String jobId, String pipelineId, String checkpointId) throws CheckpointStorageException {
         String path = getStorageParentDirectory() + jobId;
         List<String> fileNames = getFileNames(path);
         if (fileNames.isEmpty()) {
@@ -265,10 +257,9 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                         "No checkpoint found, job(%s), pipeline(%s), checkpoint(%s)",
                         jobId, pipelineId, checkpointId));
     }
-
+    
     @Override
-    public void deleteCheckpoint(String jobId, String pipelineId, String checkpointId)
-            throws CheckpointStorageException {
+    public void deleteCheckpoint(String jobId, String pipelineId, String checkpointId) throws CheckpointStorageException {
         String path = getStorageParentDirectory() + jobId;
         List<String> fileNames = getFileNames(path);
         if (fileNames.isEmpty()) {
@@ -292,7 +283,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                     }
                 });
     }
-
+    
     private List<String> getFileNames(String path) throws CheckpointStorageException {
         try {
             Path parentPath = new Path(path);
@@ -310,15 +301,14 @@ public class HdfsStorage extends AbstractCheckpointStorage {
             throw new CheckpointStorageException("Failed to list files from names" + path, e);
         }
     }
-
+    
     /**
      * Get checkpoint name
      *
      * @param fileName file name
      * @return checkpoint data
      */
-    private PipelineState readPipelineState(String fileName, String jobId)
-            throws CheckpointStorageException {
+    private PipelineState readPipelineState(String fileName, String jobId) throws CheckpointStorageException {
         fileName =
                 getStorageParentDirectory() + jobId + DEFAULT_CHECKPOINT_FILE_PATH_SPLIT + fileName;
         try (FSDataInputStream in = fs.open(new Path(fileName))) {

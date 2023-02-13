@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.common.utils.RetryUtils;
@@ -45,30 +44,33 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class SeaTunnelServer
-        implements ManagedService, MembershipAwareService, LiveOperationsTracker {
-
+        implements
+            ManagedService,
+            MembershipAwareService,
+            LiveOperationsTracker {
+    
     private static final ILogger LOGGER = Logger.getLogger(SeaTunnelServer.class);
-
+    
     public static final String SERVICE_NAME = "st:impl:seaTunnelServer";
-
+    
     private NodeEngineImpl nodeEngine;
     private final LiveOperationRegistry liveOperationRegistry;
-
+    
     private volatile SlotService slotService;
     private TaskExecutionService taskExecutionService;
     private CoordinatorService coordinatorService;
     private ScheduledExecutorService monitorService;
-
+    
     private final SeaTunnelConfig seaTunnelConfig;
-
+    
     private volatile boolean isRunning = true;
-
+    
     public SeaTunnelServer(@NonNull SeaTunnelConfig seaTunnelConfig) {
         this.liveOperationRegistry = new LiveOperationRegistry();
         this.seaTunnelConfig = seaTunnelConfig;
         LOGGER.info("SeaTunnel server start...");
     }
-
+    
     /** Lazy load for Slot Service */
     public SlotService getSlotService() {
         if (slotService == null) {
@@ -86,7 +88,7 @@ public class SeaTunnelServer
         }
         return slotService;
     }
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void init(NodeEngine engine, Properties hzProperties) {
@@ -106,10 +108,11 @@ public class SeaTunnelServer
                 seaTunnelConfig.getEngineConfig().getPrintExecutionInfoInterval(),
                 TimeUnit.SECONDS);
     }
-
+    
     @Override
-    public void reset() {}
-
+    public void reset() {
+    }
+    
     @Override
     public void shutdown(boolean terminate) {
         isRunning = false;
@@ -126,10 +129,11 @@ public class SeaTunnelServer
             coordinatorService.shutdown();
         }
     }
-
+    
     @Override
-    public void memberAdded(MembershipServiceEvent event) {}
-
+    public void memberAdded(MembershipServiceEvent event) {
+    }
+    
     @Override
     public void memberRemoved(MembershipServiceEvent event) {
         try {
@@ -140,20 +144,21 @@ public class SeaTunnelServer
             LOGGER.severe("Error when handle member removed event", e);
         }
     }
-
+    
     @Override
-    public void populate(LiveOperations liveOperations) {}
-
+    public void populate(LiveOperations liveOperations) {
+    }
+    
     /** Used for debugging on call */
     public String printMessage(String message) {
         LOGGER.info(nodeEngine.getThisAddress() + ":" + message);
         return message;
     }
-
+    
     public LiveOperationRegistry getLiveOperationRegistry() {
         return liveOperationRegistry;
     }
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     public CoordinatorService getCoordinatorService() {
         int retryCount = 0;
@@ -168,15 +173,15 @@ public class SeaTunnelServer
                     hazelcastInvocationMaxRetry == null
                             ? 250 * 2
                             : Integer.parseInt(hazelcastInvocationMaxRetry) * 2;
-
+            
             String hazelcastRetryPause =
                     seaTunnelConfig
                             .getHazelcastConfig()
                             .getProperty("hazelcast.invocation.retry.pause.millis");
-
+            
             int retryPause =
                     hazelcastRetryPause == null ? 500 : Integer.parseInt(hazelcastRetryPause);
-
+            
             while (!coordinatorService.isCoordinatorActive()
                     && retryCount < maxRetry
                     && isRunning) {
@@ -192,7 +197,7 @@ public class SeaTunnelServer
             if (coordinatorService.isCoordinatorActive()) {
                 return coordinatorService;
             }
-
+            
             throw new SeaTunnelEngineException(
                     "Can not get coordinator service from an active master node.");
         } else {
@@ -200,11 +205,11 @@ public class SeaTunnelServer
                     "Please don't get coordinator service from an inactive master node");
         }
     }
-
+    
     public TaskExecutionService getTaskExecutionService() {
         return taskExecutionService;
     }
-
+    
     /**
      * return whether task is end
      *
@@ -213,11 +218,11 @@ public class SeaTunnelServer
     public boolean taskIsEnded(@NonNull TaskGroupLocation taskGroupLocation) {
         IMap<Object, Object> runningJobState =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
-
+        
         Object taskState = runningJobState.get(taskGroupLocation);
         return taskState != null && ((ExecutionState) taskState).isEndState();
     }
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     public boolean isMasterNode() {
         // must retry until the cluster have master node
@@ -236,7 +241,7 @@ public class SeaTunnelServer
             throw new SeaTunnelEngineException("cluster have no master node", e);
         }
     }
-
+    
     private void printExecutionInfo() {
         coordinatorService.printExecutionInfo();
         if (coordinatorService.isCoordinatorActive() && this.isMasterNode()) {

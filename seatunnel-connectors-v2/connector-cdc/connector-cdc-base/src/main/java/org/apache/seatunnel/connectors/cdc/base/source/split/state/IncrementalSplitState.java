@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.cdc.base.source.split.state;
 
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
@@ -30,22 +29,22 @@ import java.util.List;
 @Getter
 @Setter
 public class IncrementalSplitState extends SourceSplitStateBase {
-
+    
     private List<TableId> tableIds;
-
+    
     /** Minimum watermark for SnapshotSplits for all tables in this IncrementalSplit */
     private Offset startupOffset;
-
+    
     /** Obtained by configuration, may not end */
     private Offset stopOffset;
-
+    
     public IncrementalSplitState(IncrementalSplit split) {
         super(split);
         this.tableIds = split.getTableIds();
         this.startupOffset = split.getStartupOffset();
         this.stopOffset = split.getStopOffset();
     }
-
+    
     @Override
     public IncrementalSplit toSourceSplit() {
         final IncrementalSplit incrementalSplit = split.asIncrementalSplit();

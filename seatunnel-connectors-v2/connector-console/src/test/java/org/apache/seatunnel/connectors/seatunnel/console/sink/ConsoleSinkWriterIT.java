@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.console.sink;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
@@ -40,9 +39,9 @@ import java.util.HashMap;
 import java.util.Optional;
 
 public class ConsoleSinkWriterIT {
-
+    
     private ConsoleSinkWriter consoleSinkWriter;
-
+    
     @BeforeEach
     void setUp() {
         String[] fieldNames = {};
@@ -50,7 +49,7 @@ public class ConsoleSinkWriterIT {
         SeaTunnelRowType seaTunnelRowType = new SeaTunnelRowType(fieldNames, fieldTypes);
         consoleSinkWriter = new ConsoleSinkWriter(seaTunnelRowType, null);
     }
-
+    
     private Object fieldToStringTest(SeaTunnelDataType<?> dataType, Object value) {
         Optional<Method> fieldToString =
                 ReflectionUtils.getDeclaredMethod(
@@ -67,7 +66,7 @@ public class ConsoleSinkWriterIT {
             throw new RuntimeException(e);
         }
     }
-
+    
     @Test
     void arrayIntTest() {
         Assertions.assertDoesNotThrow(
@@ -81,7 +80,7 @@ public class ConsoleSinkWriterIT {
                     Assertions.assertEquals(intArrString, "[1, 2]");
                 });
     }
-
+    
     @Test
     void stringTest() {
         Assertions.assertDoesNotThrow(
@@ -92,7 +91,7 @@ public class ConsoleSinkWriterIT {
                     Assertions.assertEquals(10, ((String) obj).length());
                 });
     }
-
+    
     @Test
     void hashMapTest() {
         Assertions.assertDoesNotThrow(
@@ -106,16 +105,16 @@ public class ConsoleSinkWriterIT {
                     Assertions.assertEquals("{\"key\":\"value\"}", mapString);
                 });
     }
-
+    
     @Test
     void rowTypeTest() {
         Assertions.assertDoesNotThrow(
                 () -> {
                     String[] fieldNames = {"c_byte", "c_array", "bytes"};
                     SeaTunnelDataType<?>[] fieldTypes = {
-                        BasicType.BYTE_TYPE,
-                        ArrayType.BYTE_ARRAY_TYPE,
-                        PrimitiveByteArrayType.INSTANCE
+                            BasicType.BYTE_TYPE,
+                            ArrayType.BYTE_ARRAY_TYPE,
+                            PrimitiveByteArrayType.INSTANCE
                     };
                     SeaTunnelRowType seaTunnelRowType =
                             new SeaTunnelRowType(fieldNames, fieldTypes);

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.executor;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -31,25 +30,29 @@ import java.util.function.Function;
 
 @RequiredArgsConstructor
 public class InsertOrUpdateBatchStatementExecutor implements JdbcBatchStatementExecutor {
+    
     private final StatementFactory existStmtFactory;
-    @NonNull private final StatementFactory insertStmtFactory;
-    @NonNull private final StatementFactory updateStmtFactory;
+    @NonNull
+    private final StatementFactory insertStmtFactory;
+    @NonNull
+    private final StatementFactory updateStmtFactory;
     private final Function<SeaTunnelRow, SeaTunnelRow> keyExtractor;
     private final JdbcRowConverter keyRowConverter;
-    @NonNull private final JdbcRowConverter valueRowConverter;
+    @NonNull
+    private final JdbcRowConverter valueRowConverter;
     private transient PreparedStatement existStatement;
     private transient PreparedStatement insertStatement;
     private transient PreparedStatement updateStatement;
     private transient Boolean preChangeFlag;
     private transient boolean submitted;
-
+    
     public InsertOrUpdateBatchStatementExecutor(
-            StatementFactory insertStmtFactory,
-            StatementFactory updateStmtFactory,
-            JdbcRowConverter rowConverter) {
+                                                StatementFactory insertStmtFactory,
+                                                StatementFactory updateStmtFactory,
+                                                JdbcRowConverter rowConverter) {
         this(null, insertStmtFactory, updateStmtFactory, null, null, rowConverter);
     }
-
+    
     @Override
     public void prepareStatements(Connection connection) throws SQLException {
         if (upsertMode()) {
@@ -58,11 +61,11 @@ public class InsertOrUpdateBatchStatementExecutor implements JdbcBatchStatementE
         insertStatement = insertStmtFactory.createStatement(connection);
         updateStatement = updateStmtFactory.createStatement(connection);
     }
-
+    
     private boolean upsertMode() {
         return existStmtFactory != null;
     }
-
+    
     private boolean hasInsert(SeaTunnelRow record) throws SQLException {
         if (upsertMode()) {
             return !exist(keyExtractor.apply(record));
@@ -77,7 +80,7 @@ public class InsertOrUpdateBatchStatementExecutor implements JdbcBatchStatementE
                 throw new UnsupportedOperationException();
         }
     }
-
+    
     @Override
     public void addToBatch(SeaTunnelRow record) throws SQLException {
         boolean currentChangeFlag = hasInsert(record);
@@ -99,7 +102,7 @@ public class InsertOrUpdateBatchStatementExecutor implements JdbcBatchStatementE
         preChangeFlag = currentChangeFlag;
         submitted = false;
     }
-
+    
     @Override
     public void executeBatch() throws SQLException {
         if (preChangeFlag != null) {
@@ -113,20 +116,19 @@ public class InsertOrUpdateBatchStatementExecutor implements JdbcBatchStatementE
         }
         submitted = true;
     }
-
+    
     @Override
     public void closeStatements() throws SQLException {
         if (!submitted) {
             executeBatch();
         }
-        for (PreparedStatement statement :
-                Arrays.asList(existStatement, insertStatement, updateStatement)) {
+        for (PreparedStatement statement : Arrays.asList(existStatement, insertStatement, updateStatement)) {
             if (statement != null) {
                 statement.close();
             }
         }
     }
-
+    
     private boolean exist(SeaTunnelRow pk) throws SQLException {
         keyRowConverter.toExternal(pk, existStatement);
         try (ResultSet resultSet = existStatement.executeQuery()) {

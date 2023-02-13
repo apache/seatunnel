@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.serializable;
 
 import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
@@ -40,39 +39,41 @@ import com.hazelcast.spi.annotation.PrivateApi;
  */
 @PrivateApi
 public final class ClientToServerOperationDataSerializerHook implements DataSerializerHook {
+    
     public static final int PRINT_MESSAGE_OPERATOR = 0;
     public static final int SUBMIT_OPERATOR = 1;
-
+    
     public static final int WAIT_FORM_JOB_COMPLETE_OPERATOR = 2;
-
+    
     public static final int CANCEL_JOB_OPERATOR = 3;
-
+    
     public static final int GET_JOB_STATUS_OPERATOR = 4;
-
+    
     public static final int GET_JOB_METRICS_OPERATOR = 5;
-
+    
     public static final int GET_JOB_STATE_OPERATION = 6;
-
+    
     public static final int GET_JOB_INFO_OPERATION = 7;
-
+    
     public static final int SAVEPOINT_JOB_OPERATOR = 8;
-
+    
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
                     SeaTunnelFactoryIdConstant.SEATUNNEL_OPERATION_DATA_SERIALIZER_FACTORY,
                     SeaTunnelFactoryIdConstant.SEATUNNEL_OPERATION_DATA_SERIALIZER_FACTORY_ID);
-
+    
     @Override
     public int getFactoryId() {
         return FACTORY_ID;
     }
-
+    
     @Override
     public DataSerializableFactory createFactory() {
         return new Factory();
     }
-
+    
     private static class Factory implements DataSerializableFactory {
+        
         @SuppressWarnings("checkstyle:returncount")
         @Override
         public IdentifiedDataSerializable create(int typeId) {

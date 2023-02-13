@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter;
 
 import lombok.EqualsAndHashCode;
@@ -31,9 +30,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 @Getter
 @EqualsAndHashCode
 public class ChunkRange {
+    
     private final Object chunkStart;
     private final Object chunkEnd;
-
+    
     /**
      * Returns a {@link ChunkRange} which represents a full table scan with unbounded chunk start
      * and chunk end.
@@ -41,12 +41,12 @@ public class ChunkRange {
     public static ChunkRange all() {
         return new ChunkRange(null, null);
     }
-
+    
     /** Returns a {@link ChunkRange} with the given chunk start and chunk end. */
     public static ChunkRange of(Object chunkStart, Object chunkEnd) {
         return new ChunkRange(chunkStart, chunkEnd);
     }
-
+    
     private ChunkRange(Object chunkStart, Object chunkEnd) {
         if (chunkStart != null || chunkEnd != null) {
             checkArgument(

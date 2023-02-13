@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.openmldb.source;
 
 import org.apache.seatunnel.api.source.Boundedness;
@@ -40,37 +39,39 @@ import java.sql.Timestamp;
 
 @Slf4j
 public class OpenMldbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
+    
     private final OpenMldbParameters openMldbParameters;
     private final SeaTunnelRowType seaTunnelRowType;
     private final SingleSplitReaderContext readerContext;
-
+    
     public OpenMldbSourceReader(
-            OpenMldbParameters openMldbParameters,
-            SeaTunnelRowType seaTunnelRowType,
-            SingleSplitReaderContext readerContext) {
+                                OpenMldbParameters openMldbParameters,
+                                SeaTunnelRowType seaTunnelRowType,
+                                SingleSplitReaderContext readerContext) {
         this.openMldbParameters = openMldbParameters;
         this.seaTunnelRowType = seaTunnelRowType;
         this.readerContext = readerContext;
     }
-
+    
     @Override
     public void open() throws Exception {
         OpenMldbSqlExecutor.initSdkOption(openMldbParameters);
     }
-
+    
     @Override
     public void close() throws IOException {
         OpenMldbSqlExecutor.close();
     }
-
+    
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         int totalFields = seaTunnelRowType.getTotalFields();
         Object[] objects = new Object[totalFields];
         SqlClusterExecutor sqlExecutor = OpenMldbSqlExecutor.getSqlExecutor();
-        try (ResultSet resultSet =
-                sqlExecutor.executeSQL(
-                        openMldbParameters.getDatabase(), openMldbParameters.getSql())) {
+        try (
+                ResultSet resultSet =
+                        sqlExecutor.executeSQL(
+                                openMldbParameters.getDatabase(), openMldbParameters.getSql())) {
             while (resultSet.next()) {
                 for (int i = 0; i < totalFields; i++) {
                     objects[i] = getObject(resultSet, i, seaTunnelRowType.getFieldType(i));
@@ -85,9 +86,8 @@ public class OpenMldbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
             }
         }
     }
-
-    private Object getObject(ResultSet resultSet, int index, SeaTunnelDataType<?> dataType)
-            throws SQLException {
+    
+    private Object getObject(ResultSet resultSet, int index, SeaTunnelDataType<?> dataType) throws SQLException {
         index = index + 1;
         switch (dataType.getSqlType()) {
             case BOOLEAN:

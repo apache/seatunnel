@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -30,11 +29,11 @@ import java.util.Collection;
 
 /** The {@code ChunkSplitter} used to split table into a set of chunks for JDBC data source. */
 public interface JdbcSourceChunkSplitter extends ChunkSplitter {
-
+    
     /** Generates all snapshot splits (chunks) for the give table path. */
     @Override
     Collection<SnapshotSplit> generateSplits(TableId tableId);
-
+    
     /**
      * Query the maximum and minimum value of the column in the table. e.g. query string <code>
      * SELECT MIN(%s) FROM %s WHERE %s > ?</code>
@@ -44,9 +43,8 @@ public interface JdbcSourceChunkSplitter extends ChunkSplitter {
      * @param columnName column name.
      * @return maximum and minimum value.
      */
-    Object[] queryMinMax(JdbcConnection jdbc, TableId tableId, String columnName)
-            throws SQLException;
-
+    Object[] queryMinMax(JdbcConnection jdbc, TableId tableId, String columnName) throws SQLException;
+    
     /**
      * Query the minimum value of the column in the table, and the minimum value must greater than
      * the excludedLowerBound value. e.g. prepare query string <code>
@@ -59,9 +57,8 @@ public interface JdbcSourceChunkSplitter extends ChunkSplitter {
      * @return minimum value.
      */
     Object queryMin(
-            JdbcConnection jdbc, TableId tableId, String columnName, Object excludedLowerBound)
-            throws SQLException;
-
+                    JdbcConnection jdbc, TableId tableId, String columnName, Object excludedLowerBound) throws SQLException;
+    
     /**
      * Query the maximum value of the next chunk, and the next chunk must be greater than or equal
      * to <code>includedLowerBound</code> value [min_1, max_1), [min_2, max_2),... [min_n, null).
@@ -75,13 +72,12 @@ public interface JdbcSourceChunkSplitter extends ChunkSplitter {
      * @return next chunk end value.
      */
     Object queryNextChunkMax(
-            JdbcConnection jdbc,
-            TableId tableId,
-            String columnName,
-            int chunkSize,
-            Object includedLowerBound)
-            throws SQLException;
-
+                             JdbcConnection jdbc,
+                             TableId tableId,
+                             String columnName,
+                             int chunkSize,
+                             Object includedLowerBound) throws SQLException;
+    
     /**
      * Approximate total number of entries in the lookup table.
      *
@@ -90,7 +86,7 @@ public interface JdbcSourceChunkSplitter extends ChunkSplitter {
      * @return approximate row count.
      */
     Long queryApproximateRowCnt(JdbcConnection jdbc, TableId tableId) throws SQLException;
-
+    
     /**
      * Build the scan query sql of the {@link SnapshotSplit}.
      *
@@ -101,11 +97,11 @@ public interface JdbcSourceChunkSplitter extends ChunkSplitter {
      * @return query sql.
      */
     String buildSplitScanQuery(
-            TableId tableId,
-            SeaTunnelRowType splitKeyType,
-            boolean isFirstSplit,
-            boolean isLastSplit);
-
+                               TableId tableId,
+                               SeaTunnelRowType splitKeyType,
+                               boolean isFirstSplit,
+                               boolean isLastSplit);
+    
     /**
      * Checks whether split column is evenly distributed across its range.
      *
@@ -125,7 +121,7 @@ public interface JdbcSourceChunkSplitter extends ChunkSplitter {
                 return false;
         }
     }
-
+    
     /**
      * Get a corresponding SeaTunnel data type from a debezium {@link Column}.
      *
@@ -133,7 +129,7 @@ public interface JdbcSourceChunkSplitter extends ChunkSplitter {
      * @return SeaTunnel data type
      */
     SeaTunnelDataType<?> fromDbzColumn(Column splitColumn);
-
+    
     /**
      * convert dbz column to SeaTunnel row type.
      *
@@ -142,7 +138,7 @@ public interface JdbcSourceChunkSplitter extends ChunkSplitter {
      */
     default SeaTunnelRowType getSplitType(Column splitColumn) {
         return new SeaTunnelRowType(
-                new String[] {splitColumn.name()},
-                new SeaTunnelDataType[] {fromDbzColumn(splitColumn)});
+                new String[]{splitColumn.name()},
+                new SeaTunnelDataType[]{fromDbzColumn(splitColumn)});
     }
 }

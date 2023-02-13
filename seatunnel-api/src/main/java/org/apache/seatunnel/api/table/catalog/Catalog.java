@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.api.table.catalog;
 
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
@@ -30,18 +29,18 @@ import java.util.Optional;
  * the implementation of Catalog.
  */
 public interface Catalog {
-
+    
     default Optional<Factory> getFactory() {
         return Optional.empty();
     }
-
+    
     /**
      * Open the catalog. Used for any required preparation in initialization phase.
      *
      * @throws CatalogException in case of any runtime exception
      */
     void open() throws CatalogException;
-
+    
     /**
      * Close the catalog when it is no longer needed and release any resource that it might be
      * holding.
@@ -49,11 +48,11 @@ public interface Catalog {
      * @throws CatalogException in case of any runtime exception
      */
     void close() throws CatalogException;
-
+    
     // --------------------------------------------------------------------------------------------
     // database
     // --------------------------------------------------------------------------------------------
-
+    
     /**
      * Get the name of the default database for this catalog. The default database will be the
      * current database for the catalog when user's session doesn't specify a current database. The
@@ -64,7 +63,7 @@ public interface Catalog {
      * @throws CatalogException in case of any runtime exception
      */
     String getDefaultDatabase() throws CatalogException;
-
+    
     /**
      * Check if a database exists in this catalog.
      *
@@ -73,7 +72,7 @@ public interface Catalog {
      * @throws CatalogException in case of any runtime exception
      */
     boolean databaseExists(String databaseName) throws CatalogException;
-
+    
     /**
      * Get the names of all databases in this catalog.
      *
@@ -81,11 +80,11 @@ public interface Catalog {
      * @throws CatalogException in case of any runtime exception
      */
     List<String> listDatabases() throws CatalogException;
-
+    
     // --------------------------------------------------------------------------------------------
     // table
     // --------------------------------------------------------------------------------------------
-
+    
     /**
      * Get names of all tables under this database. An empty list is returned if none exists.
      *
@@ -93,7 +92,7 @@ public interface Catalog {
      * @throws CatalogException in case of any runtime exception
      */
     List<String> listTables(String databaseName) throws CatalogException, DatabaseNotExistException;
-
+    
     /**
      * Check if a table exist in this catalog.
      *
@@ -102,7 +101,7 @@ public interface Catalog {
      * @throws CatalogException in case of any runtime exception
      */
     boolean tableExists(TablePath tablePath) throws CatalogException;
-
+    
     /**
      * Return a {@link CatalogTable} identified by the given {@link TablePath}. The framework will
      * resolve the metadata objects when necessary.

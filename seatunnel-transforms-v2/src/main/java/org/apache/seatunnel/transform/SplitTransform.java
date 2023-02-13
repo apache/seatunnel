@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.transform;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -38,19 +37,19 @@ import java.util.stream.IntStream;
 
 @AutoService(SeaTunnelTransform.class)
 public class SplitTransform extends MultipleFieldOutputTransform {
-
+    
     public static final Option<String> KEY_SEPARATOR =
             Options.key("separator")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("The separator to split the field");
-
+    
     public static final Option<String> KEY_SPLIT_FIELD =
             Options.key("split_field")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("The field to be split");
-
+    
     public static final Option<List<String>> KEY_OUTPUT_FIELDS =
             Options.key("output_fields")
                     .listType()
@@ -61,12 +60,12 @@ public class SplitTransform extends MultipleFieldOutputTransform {
     private int splitFieldIndex;
     private String[] outputFields;
     private String[] emptySplits;
-
+    
     @Override
     public String getPluginName() {
         return "Split";
     }
-
+    
     @Override
     protected void setConfig(Config pluginConfig) {
         CheckResult checkResult =
@@ -78,13 +77,13 @@ public class SplitTransform extends MultipleFieldOutputTransform {
         if (!checkResult.isSuccess()) {
             throw new IllegalArgumentException("Failed to check config! " + checkResult.getMsg());
         }
-
+        
         separator = pluginConfig.getString(KEY_SEPARATOR.key());
         splitField = pluginConfig.getString(KEY_SPLIT_FIELD.key());
         outputFields = pluginConfig.getStringList(KEY_OUTPUT_FIELDS.key()).toArray(new String[0]);
         emptySplits = new String[outputFields.length];
     }
-
+    
     @Override
     protected void setInputRowType(SeaTunnelRowType rowType) {
         splitFieldIndex = rowType.indexOf(splitField);
@@ -93,26 +92,26 @@ public class SplitTransform extends MultipleFieldOutputTransform {
                     "Cannot find [" + splitField + "] field in input row type");
         }
     }
-
+    
     @Override
     protected String[] getOutputFieldNames() {
         return outputFields;
     }
-
+    
     @Override
     protected SeaTunnelDataType[] getOutputFieldDataTypes() {
         return IntStream.range(0, outputFields.length)
                 .mapToObj((IntFunction<SeaTunnelDataType>) value -> BasicType.STRING_TYPE)
                 .toArray(value -> new SeaTunnelDataType[value]);
     }
-
+    
     @Override
     protected Object[] getOutputFieldValues(SeaTunnelRowAccessor inputRow) {
         Object splitFieldValue = inputRow.getField(splitFieldIndex);
         if (splitFieldValue == null) {
             return emptySplits;
         }
-
+        
         String[] splitFieldValues =
                 splitFieldValue.toString().split(separator, outputFields.length);
         if (splitFieldValues.length < outputFields.length) {

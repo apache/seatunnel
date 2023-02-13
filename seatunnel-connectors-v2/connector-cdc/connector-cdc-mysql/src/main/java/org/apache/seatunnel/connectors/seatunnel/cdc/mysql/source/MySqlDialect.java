@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
 import org.apache.seatunnel.common.utils.SeaTunnelException;
@@ -51,20 +50,20 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlCon
 
 /** The {@link JdbcDataSourceDialect} implementation for MySQL datasource. */
 public class MySqlDialect implements JdbcDataSourceDialect {
-
+    
     private static final long serialVersionUID = 1L;
     private final MySqlSourceConfig sourceConfig;
     private transient MySqlSchema mySqlSchema;
-
+    
     public MySqlDialect(MySqlSourceConfigFactory configFactory) {
         this.sourceConfig = configFactory.create(0);
     }
-
+    
     @Override
     public String getName() {
         return "MySQL";
     }
-
+    
     @Override
     public boolean isDataCollectionIdCaseSensitive(JdbcSourceConfig sourceConfig) {
         try (JdbcConnection jdbcConnection = openJdbcConnection(sourceConfig)) {
@@ -73,17 +72,17 @@ public class MySqlDialect implements JdbcDataSourceDialect {
             throw new SeaTunnelException("Error reading MySQL variables: " + e.getMessage(), e);
         }
     }
-
+    
     @Override
     public ChunkSplitter createChunkSplitter(JdbcSourceConfig sourceConfig) {
         return new MySqlChunkSplitter(sourceConfig, this);
     }
-
+    
     @Override
     public JdbcConnectionPoolFactory getPooledDataSourceFactory() {
         return new MysqlPooledDataSourceFactory();
     }
-
+    
     @Override
     public List<TableId> discoverDataCollections(JdbcSourceConfig sourceConfig) {
         MySqlSourceConfig mySqlSourceConfig = (MySqlSourceConfig) sourceConfig;
@@ -94,7 +93,7 @@ public class MySqlDialect implements JdbcDataSourceDialect {
             throw new SeaTunnelException("Error to discover tables: " + e.getMessage(), e);
         }
     }
-
+    
     @Override
     public TableChanges.TableChange queryTableSchema(JdbcConnection jdbc, TableId tableId) {
         if (mySqlSchema == null) {
@@ -103,10 +102,10 @@ public class MySqlDialect implements JdbcDataSourceDialect {
         }
         return mySqlSchema.getTableSchema(jdbc, tableId);
     }
-
+    
     @Override
     public MySqlSourceFetchTaskContext createFetchTaskContext(
-            SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig) {
+                                                              SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig) {
         final MySqlConnection jdbcConnection =
                 createMySqlConnection(taskSourceConfig.getDbzConfiguration());
         final BinaryLogClient binaryLogClient =
@@ -125,7 +124,7 @@ public class MySqlDialect implements JdbcDataSourceDialect {
         return new MySqlSourceFetchTaskContext(
                 taskSourceConfig, this, jdbcConnection, binaryLogClient, tableChangeList);
     }
-
+    
     @Override
     public FetchTask<SourceSplitBase> createFetchTask(SourceSplitBase sourceSplitBase) {
         if (sourceSplitBase.isSnapshotSplit()) {

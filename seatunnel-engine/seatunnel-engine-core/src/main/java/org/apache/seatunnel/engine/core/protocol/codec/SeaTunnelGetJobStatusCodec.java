@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.core.protocol.codec;
 
 import com.hazelcast.client.impl.protocol.ClientMessage;
@@ -41,6 +40,7 @@ import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCod
 
 @Generated("069a370867d61e85d3d51ea5453d880a")
 public final class SeaTunnelGetJobStatusCodec {
+    
     // hex: 0xDE0500
     public static final int REQUEST_MESSAGE_TYPE = 14550272;
     // hex: 0xDE0501
@@ -53,9 +53,10 @@ public final class SeaTunnelGetJobStatusCodec {
             RESPONSE_BACKUP_ACKS_FIELD_OFFSET + BYTE_SIZE_IN_BYTES;
     private static final int RESPONSE_INITIAL_FRAME_SIZE =
             RESPONSE_JOB_STATUS_FIELD_OFFSET + INT_SIZE_IN_BYTES;
-
-    private SeaTunnelGetJobStatusCodec() {}
-
+    
+    private SeaTunnelGetJobStatusCodec() {
+    }
+    
     public static ClientMessage encodeRequest(long jobId) {
         ClientMessage clientMessage = ClientMessage.createForEncode();
         clientMessage.setRetryable(true);
@@ -67,23 +68,23 @@ public final class SeaTunnelGetJobStatusCodec {
         clientMessage.add(initialFrame);
         return clientMessage;
     }
-
+    
     public static long decodeRequest(ClientMessage clientMessage) {
         ForwardFrameIterator iterator = clientMessage.frameIterator();
         Frame initialFrame = iterator.next();
         return decodeLong(initialFrame.content, REQUEST_JOB_ID_FIELD_OFFSET);
     }
-
+    
     public static ClientMessage encodeResponse(int jobStatus) {
         ClientMessage clientMessage = ClientMessage.createForEncode();
         Frame initialFrame = new Frame(new byte[RESPONSE_INITIAL_FRAME_SIZE], UNFRAGMENTED_MESSAGE);
         encodeInt(initialFrame.content, TYPE_FIELD_OFFSET, RESPONSE_MESSAGE_TYPE);
         encodeInt(initialFrame.content, RESPONSE_JOB_STATUS_FIELD_OFFSET, jobStatus);
         clientMessage.add(initialFrame);
-
+        
         return clientMessage;
     }
-
+    
     public static int decodeResponse(ClientMessage clientMessage) {
         ForwardFrameIterator iterator = clientMessage.frameIterator();
         Frame initialFrame = iterator.next();

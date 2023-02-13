@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.client.job;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
@@ -40,24 +39,25 @@ import com.hazelcast.logging.Logger;
 import lombok.NonNull;
 
 public class ClientJobProxy implements Job {
+    
     private static final ILogger LOGGER = Logger.getLogger(ClientJobProxy.class);
     private final SeaTunnelHazelcastClient seaTunnelHazelcastClient;
     private final JobImmutableInformation jobImmutableInformation;
     private JobResult jobResult;
-
+    
     public ClientJobProxy(
-            @NonNull SeaTunnelHazelcastClient seaTunnelHazelcastClient,
-            @NonNull JobImmutableInformation jobImmutableInformation) {
+                          @NonNull SeaTunnelHazelcastClient seaTunnelHazelcastClient,
+                          @NonNull JobImmutableInformation jobImmutableInformation) {
         this.seaTunnelHazelcastClient = seaTunnelHazelcastClient;
         this.jobImmutableInformation = jobImmutableInformation;
         submitJob();
     }
-
+    
     @Override
     public long getJobId() {
         return jobImmutableInformation.getJobId();
     }
-
+    
     private void submitJob() {
         LOGGER.info(
                 String.format(
@@ -74,7 +74,7 @@ public class ClientJobProxy implements Job {
                 seaTunnelHazelcastClient.requestOnMasterAndGetCompletableFuture(request);
         submitJobFuture.join();
     }
-
+    
     /**
      * This method will block even the Job turn to a EndState
      *
@@ -119,11 +119,11 @@ public class ClientJobProxy implements Job {
         }
         return jobResult.getStatus();
     }
-
+    
     public JobResult getJobResultCache() {
         return jobResult;
     }
-
+    
     @Override
     public PassiveCompletableFuture<JobResult> doWaitForJobComplete() {
         return new PassiveCompletableFuture<>(
@@ -133,21 +133,20 @@ public class ClientJobProxy implements Job {
                                         jobImmutableInformation.getJobId()),
                                 SeaTunnelWaitForJobCompleteCodec::decodeResponse)
                         .thenApply(
-                                jobResult ->
-                                        seaTunnelHazelcastClient
-                                                .getSerializationService()
-                                                .toObject(jobResult)));
+                                jobResult -> seaTunnelHazelcastClient
+                                        .getSerializationService()
+                                        .toObject(jobResult)));
     }
-
+    
     @Override
     public void cancelJob() {
         PassiveCompletableFuture<Void> cancelFuture =
                 seaTunnelHazelcastClient.requestOnMasterAndGetCompletableFuture(
                         SeaTunnelCancelJobCodec.encodeRequest(jobImmutableInformation.getJobId()));
-
+        
         cancelFuture.join();
     }
-
+    
     @Override
     public JobStatus getJobStatus() {
         int jobStatusOrdinal =

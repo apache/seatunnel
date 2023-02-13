@@ -1,11 +1,10 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -15,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.format.json.canal;
 
 import org.apache.seatunnel.api.source.Collector;
@@ -42,12 +40,12 @@ import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class CanalJsonSerDeSchemaTest {
-
+    
     private static final SeaTunnelRowType PHYSICAL_DATA_TYPE =
             new SeaTunnelRowType(
-                    new String[] {"id", "name", "description", "weight"},
-                    new SeaTunnelDataType[] {INT_TYPE, STRING_TYPE, STRING_TYPE, FLOAT_TYPE});
-
+                    new String[]{"id", "name", "description", "weight"},
+                    new SeaTunnelDataType[]{INT_TYPE, STRING_TYPE, STRING_TYPE, FLOAT_TYPE});
+    
     @Test
     public void testFilteringTables() throws Exception {
         List<String> lines = readLines("canal-data-filter-table.txt");
@@ -58,24 +56,23 @@ public class CanalJsonSerDeSchemaTest {
                         .build();
         runTest(lines, deserializationSchema);
     }
-
+    
     @Test
     public void testDeserializeNullRow() throws Exception {
         final CanalJsonDeserializationSchema deserializationSchema =
                 createCanalJsonDeserializationSchema(null, null);
         final SimpleCollector collector = new SimpleCollector();
-
+        
         deserializationSchema.deserialize(null, collector);
         assertEquals(0, collector.list.size());
     }
-
-    public void runTest(List<String> lines, CanalJsonDeserializationSchema deserializationSchema)
-            throws IOException {
+    
+    public void runTest(List<String> lines, CanalJsonDeserializationSchema deserializationSchema) throws IOException {
         SimpleCollector collector = new SimpleCollector();
         for (String line : lines) {
             deserializationSchema.deserialize(line.getBytes(StandardCharsets.UTF_8), collector);
         }
-
+        
         List<String> expected =
                 Arrays.asList(
                         "SeaTunnelRow{tableId=-1, kind=+I, fields=[101, scooter, Small 2-wheel scooter, 3.14]}",
@@ -107,7 +104,7 @@ public class CanalJsonSerDeSchemaTest {
         List<String> actual =
                 collector.list.stream().map(Object::toString).collect(Collectors.toList());
         assertEquals(expected, actual);
-
+        
         // test Serialization
         CanalJsonSerializationSchema serializationSchema =
                 new CanalJsonSerializationSchema(PHYSICAL_DATA_TYPE);
@@ -115,7 +112,7 @@ public class CanalJsonSerDeSchemaTest {
         for (SeaTunnelRow rowData : collector.list) {
             result.add(new String(serializationSchema.serialize(rowData), StandardCharsets.UTF_8));
         }
-
+        
         List<String> expectedResult =
                 Arrays.asList(
                         "{\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":3.14},\"type\":\"INSERT\"}",
@@ -146,36 +143,36 @@ public class CanalJsonSerDeSchemaTest {
                         "{\"data\":{\"id\":103,\"name\":\"12-pack drill bits\",\"description\":\"12-pack of drill bits with sizes ranging from #40 to #3\",\"weight\":0.8},\"type\":\"DELETE\"}");
         assertEquals(expectedResult, result);
     }
-
+    
     // --------------------------------------------------------------------------------------------
     // Utilities
     // --------------------------------------------------------------------------------------------
-
+    
     private CanalJsonDeserializationSchema createCanalJsonDeserializationSchema(
-            String database, String table) {
+                                                                                String database, String table) {
         return CanalJsonDeserializationSchema.builder(PHYSICAL_DATA_TYPE)
                 .setDatabase(database)
                 .setTable(table)
                 .setIgnoreParseErrors(false)
                 .build();
     }
-
+    
     private static List<String> readLines(String resource) throws IOException {
         final URL url = CanalJsonSerDeSchemaTest.class.getClassLoader().getResource(resource);
         assert url != null;
         Path path = new File(url.getFile()).toPath();
         return Files.readAllLines(path);
     }
-
+    
     private static class SimpleCollector implements Collector<SeaTunnelRow> {
-
+        
         private List<SeaTunnelRow> list = new ArrayList<>();
-
+        
         @Override
         public void collect(SeaTunnelRow record) {
             list.add(record);
         }
-
+        
         @Override
         public Object getCheckpointLock() {
             return null;

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.assertion.excecutor;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -36,6 +35,7 @@ import java.util.Optional;
  * AssertSink, but also other Sink plugin (stateless Object)
  */
 public class AssertExecutor {
+    
     /**
      * determine whether a rowData data is available
      *
@@ -45,16 +45,16 @@ public class AssertExecutor {
      * @return the first rule that can NOT pass, it will be null if pass through all rules
      */
     public Optional<AssertFieldRule> fail(
-            SeaTunnelRow rowData,
-            SeaTunnelRowType rowType,
-            List<AssertFieldRule> assertFieldRules) {
+                                          SeaTunnelRow rowData,
+                                          SeaTunnelRowType rowType,
+                                          List<AssertFieldRule> assertFieldRules) {
         return assertFieldRules.stream()
                 .filter(assertFieldRule -> !pass(rowData, rowType, assertFieldRule))
                 .findFirst();
     }
-
+    
     private boolean pass(
-            SeaTunnelRow rowData, SeaTunnelRowType rowType, AssertFieldRule assertFieldRule) {
+                         SeaTunnelRow rowData, SeaTunnelRowType rowType, AssertFieldRule assertFieldRule) {
         if (Objects.isNull(rowData)) {
             return Boolean.FALSE;
         }
@@ -62,7 +62,7 @@ public class AssertExecutor {
                 Iterables.indexOf(
                         Lists.newArrayList(rowType.getFieldNames()),
                         fieldName -> fieldName.equals(assertFieldRule.getFieldName()));
-
+        
         Object value = rowData.getField(index);
         if (Objects.isNull(value)) {
             return Boolean.FALSE;
@@ -77,7 +77,7 @@ public class AssertExecutor {
         }
         return Boolean.TRUE;
     }
-
+    
     private Boolean checkValue(Object value, List<AssertFieldRule.AssertRule> fieldValueRules) {
         Optional<AssertFieldRule.AssertRule> failValueRule =
                 fieldValueRules.stream().filter(valueRule -> !pass(value, valueRule)).findFirst();
@@ -87,12 +87,12 @@ public class AssertExecutor {
             return Boolean.TRUE;
         }
     }
-
+    
     private boolean pass(Object value, AssertFieldRule.AssertRule valueRule) {
         if (AssertFieldRule.AssertRuleType.NOT_NULL.equals(valueRule.getRuleType())) {
             return Objects.nonNull(value);
         }
-
+        
         if (value instanceof Number
                 && AssertFieldRule.AssertRuleType.MAX.equals(valueRule.getRuleType())) {
             return ((Number) value).doubleValue() <= valueRule.getRuleValue();
@@ -101,18 +101,18 @@ public class AssertExecutor {
                 && AssertFieldRule.AssertRuleType.MIN.equals(valueRule.getRuleType())) {
             return ((Number) value).doubleValue() >= valueRule.getRuleValue();
         }
-
+        
         String valueStr = Objects.isNull(value) ? StringUtils.EMPTY : String.valueOf(value);
         if (AssertFieldRule.AssertRuleType.MAX_LENGTH.equals(valueRule.getRuleType())) {
             return valueStr.length() <= valueRule.getRuleValue();
         }
-
+        
         if (AssertFieldRule.AssertRuleType.MIN_LENGTH.equals(valueRule.getRuleType())) {
             return valueStr.length() >= valueRule.getRuleValue();
         }
         return Boolean.TRUE;
     }
-
+    
     private Boolean checkType(Object value, SeaTunnelDataType<?> fieldType) {
         return value.getClass().equals(fieldType.getTypeClass());
     }

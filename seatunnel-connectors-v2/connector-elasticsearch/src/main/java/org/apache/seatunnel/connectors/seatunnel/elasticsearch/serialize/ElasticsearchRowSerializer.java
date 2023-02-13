@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
@@ -40,18 +39,19 @@ import java.util.function.Function;
 
 /** use in elasticsearch version >= 7.* */
 public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
+    
     private final SeaTunnelRowType seaTunnelRowType;
     private final ObjectMapper objectMapper = new ObjectMapper();
-
+    
     private final IndexSerializer indexSerializer;
-
+    
     private final IndexTypeSerializer indexTypeSerializer;
     private final Function<SeaTunnelRow, String> keyExtractor;
-
+    
     public ElasticsearchRowSerializer(
-            ElasticsearchClusterInfo elasticsearchClusterInfo,
-            IndexInfo indexInfo,
-            SeaTunnelRowType seaTunnelRowType) {
+                                      ElasticsearchClusterInfo elasticsearchClusterInfo,
+                                      IndexInfo indexInfo,
+                                      SeaTunnelRowType seaTunnelRowType) {
         this.indexTypeSerializer =
                 IndexTypeSerializerFactory.getIndexTypeSerializer(
                         elasticsearchClusterInfo, indexInfo.getType());
@@ -62,7 +62,7 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
                 KeyExtractor.createKeyExtractor(
                         seaTunnelRowType, indexInfo.getPrimaryKeys(), indexInfo.getKeyDelimiter());
     }
-
+    
     @Override
     public String serializeRow(SeaTunnelRow row) {
         switch (row.getRowKind()) {
@@ -78,11 +78,11 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
                         "Unsupported write row kind: " + row.getRowKind());
         }
     }
-
+    
     private String serializeUpsert(SeaTunnelRow row) {
         String key = keyExtractor.apply(row);
         Map<String, Object> document = toDocumentMap(row);
-
+        
         try {
             if (key != null) {
                 Map<String, String> upsertMetadata = createMetadata(row, key);
@@ -121,7 +121,7 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
                     e);
         }
     }
-
+    
     private String serializeDelete(SeaTunnelRow row) {
         String key = keyExtractor.apply(row);
         Map<String, String> deleteMetadata = createMetadata(row, key);
@@ -142,7 +142,7 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
                     e);
         }
     }
-
+    
     private Map<String, Object> toDocumentMap(SeaTunnelRow row) {
         String[] fieldNames = seaTunnelRowType.getFieldNames();
         Map<String, Object> doc = new HashMap<>(fieldNames.length);
@@ -158,13 +158,13 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
         }
         return doc;
     }
-
+    
     private Map<String, String> createMetadata(@NonNull SeaTunnelRow row, @NonNull String key) {
         Map<String, String> actionMetadata = createMetadata(row);
         actionMetadata.put("_id", key);
         return actionMetadata;
     }
-
+    
     private Map<String, String> createMetadata(@NonNull SeaTunnelRow row) {
         Map<String, String> actionMetadata = new HashMap<>(2);
         actionMetadata.put("_index", indexSerializer.serialize(row));

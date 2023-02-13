@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.common.Constants;
@@ -31,20 +30,21 @@ import java.util.Map;
 import static com.hazelcast.cluster.ClusterState.PASSIVE;
 
 class NodeExtensionCommon {
+    
     private final Node node;
     private final ILogger logger;
     private final SeaTunnelServer server;
-
+    
     NodeExtensionCommon(Node node, SeaTunnelServer server) {
         this.node = node;
         this.logger = node.getLogger(getClass().getName());
         this.server = server;
     }
-
+    
     void afterStart() {
         // TODO seaTunnelServer after start in here
     }
-
+    
     void beforeClusterStateChange(ClusterState requestedState) {
         if (requestedState != PASSIVE) {
             return;
@@ -53,11 +53,11 @@ class NodeExtensionCommon {
         NodeEngineImpl ne = node.nodeEngine;
         // TODO This is where cluster state changes are handled
     }
-
+    
     void onClusterStateChange(ClusterState ignored) {
         // TODO This is where cluster state changes are handled
     }
-
+    
     void printNodeInfo(ILogger log, String addToProductName) {
         log.info(imdgVersionMessage());
         log.info(clusterNameMessage());
@@ -65,7 +65,7 @@ class NodeExtensionCommon {
         log.info('\n' + Constants.ST_LOGO);
         log.info(Constants.COPYRIGHT_LINE);
     }
-
+    
     private String imdgVersionMessage() {
         String build = node.getBuildInfo().getBuild();
         String revision = node.getBuildInfo().getRevision();
@@ -74,21 +74,21 @@ class NodeExtensionCommon {
         }
         return "Based on Hazelcast IMDG version: " + node.getVersion() + " (" + build + ")";
     }
-
+    
     private String serializationVersionMessage() {
         return "Configured Hazelcast Serialization version: "
                 + node.getBuildInfo().getSerializationVersion();
     }
-
+    
     private String clusterNameMessage() {
         return "Cluster name: " + node.getConfig().getClusterName();
     }
-
+    
     Map<String, Object> createExtensionServices() {
         Map<String, Object> extensionServices = new HashMap<>();
-
+        
         extensionServices.put(Constant.SEATUNNEL_SERVICE_NAME, server);
-
+        
         return extensionServices;
     }
 }

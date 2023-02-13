@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.binlog;
 
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
@@ -47,18 +46,19 @@ import java.util.Map;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset.NO_STOPPING_OFFSET;
 
 public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
+    
     private final IncrementalSplit split;
     private volatile boolean taskRunning = false;
-
+    
     public MySqlBinlogFetchTask(IncrementalSplit split) {
         this.split = split;
     }
-
+    
     @Override
     public void execute(FetchTask.Context context) throws Exception {
         MySqlSourceFetchTaskContext sourceFetchContext = (MySqlSourceFetchTaskContext) context;
         taskRunning = true;
-
+        
         MySqlStreamingChangeEventSource mySqlStreamingChangeEventSource =
                 new MySqlStreamingChangeEventSource(
                         sourceFetchContext.getDbzConnectorConfig(),
@@ -68,46 +68,46 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
                         Clock.SYSTEM,
                         sourceFetchContext.getTaskContext(),
                         sourceFetchContext.getStreamingChangeEventSourceMetrics());
-
+        
         BinlogSplitChangeEventSourceContext changeEventSourceContext =
                 new BinlogSplitChangeEventSourceContext();
-
+        
         mySqlStreamingChangeEventSource.execute(
                 changeEventSourceContext, sourceFetchContext.getOffsetContext());
     }
-
+    
     @Override
     public boolean isRunning() {
         return taskRunning;
     }
-
+    
     @Override
     public SourceSplitBase getSplit() {
         return split;
     }
-
+    
     /**
      * A wrapped task to read all binlog for table and also supports read bounded (from lowWatermark
      * to highWatermark) binlog.
      */
     public static class MySqlBinlogSplitReadTask extends MySqlStreamingChangeEventSource {
-
+        
         private static final Logger LOG = LoggerFactory.getLogger(MySqlBinlogSplitReadTask.class);
         private final IncrementalSplit binlogSplit;
         private final MySqlOffsetContext offsetContext;
         private final JdbcSourceEventDispatcher dispatcher;
         private final ErrorHandler errorHandler;
         private ChangeEventSourceContext context;
-
+        
         public MySqlBinlogSplitReadTask(
-                MySqlConnectorConfig connectorConfig,
-                MySqlOffsetContext offsetContext,
-                MySqlConnection connection,
-                JdbcSourceEventDispatcher dispatcher,
-                ErrorHandler errorHandler,
-                MySqlTaskContext taskContext,
-                MySqlStreamingChangeEventSourceMetrics metrics,
-                IncrementalSplit binlogSplit) {
+                                        MySqlConnectorConfig connectorConfig,
+                                        MySqlOffsetContext offsetContext,
+                                        MySqlConnection connection,
+                                        JdbcSourceEventDispatcher dispatcher,
+                                        ErrorHandler errorHandler,
+                                        MySqlTaskContext taskContext,
+                                        MySqlStreamingChangeEventSourceMetrics metrics,
+                                        IncrementalSplit binlogSplit) {
             super(
                     connectorConfig,
                     connection,
@@ -121,14 +121,13 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
             this.offsetContext = offsetContext;
             this.errorHandler = errorHandler;
         }
-
+        
         @Override
-        public void execute(ChangeEventSourceContext context, MySqlOffsetContext offsetContext)
-                throws InterruptedException {
+        public void execute(ChangeEventSourceContext context, MySqlOffsetContext offsetContext) throws InterruptedException {
             this.context = context;
             super.execute(context, this.offsetContext);
         }
-
+        
         @Override
         protected void handleEvent(MySqlOffsetContext offsetContext, Event event) {
             super.handleEvent(offsetContext, event);
@@ -156,11 +155,11 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
                 }
             }
         }
-
+        
         private boolean isBoundedRead() {
             return !NO_STOPPING_OFFSET.equals(binlogSplit.getStopOffset());
         }
-
+        
         public static BinlogOffset getBinlogPosition(Map<String, ?> offset) {
             Map<String, String> offsetStrMap = new HashMap<>();
             for (Map.Entry<String, ?> entry : offset.entrySet()) {
@@ -171,9 +170,11 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
             return new BinlogOffset(offsetStrMap);
         }
     }
-
+    
     private class BinlogSplitChangeEventSourceContext
-            implements ChangeEventSource.ChangeEventSourceContext {
+            implements
+                ChangeEventSource.ChangeEventSourceContext {
+        
         @Override
         public boolean isRunning() {
             return taskRunning;

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.core.protocol.codec;
 
 import com.hazelcast.client.impl.protocol.ClientMessage;
@@ -38,6 +37,7 @@ import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCod
 
 @Generated("ee7ee4fc67d26f72ccdf418fcb868148")
 public final class SeaTunnelListJobStatusCodec {
+    
     // hex: 0xDE0700
     public static final int REQUEST_MESSAGE_TYPE = 14550784;
     // hex: 0xDE0701
@@ -46,9 +46,10 @@ public final class SeaTunnelListJobStatusCodec {
             PARTITION_ID_FIELD_OFFSET + INT_SIZE_IN_BYTES;
     private static final int RESPONSE_INITIAL_FRAME_SIZE =
             RESPONSE_BACKUP_ACKS_FIELD_OFFSET + BYTE_SIZE_IN_BYTES;
-
-    private SeaTunnelListJobStatusCodec() {}
-
+    
+    private SeaTunnelListJobStatusCodec() {
+    }
+    
     public static ClientMessage encodeRequest() {
         ClientMessage clientMessage = ClientMessage.createForEncode();
         clientMessage.setRetryable(true);
@@ -59,17 +60,17 @@ public final class SeaTunnelListJobStatusCodec {
         clientMessage.add(initialFrame);
         return clientMessage;
     }
-
+    
     public static ClientMessage encodeResponse(String response) {
         ClientMessage clientMessage = ClientMessage.createForEncode();
         Frame initialFrame = new Frame(new byte[RESPONSE_INITIAL_FRAME_SIZE], UNFRAGMENTED_MESSAGE);
         encodeInt(initialFrame.content, TYPE_FIELD_OFFSET, RESPONSE_MESSAGE_TYPE);
         clientMessage.add(initialFrame);
-
+        
         StringCodec.encode(clientMessage, response);
         return clientMessage;
     }
-
+    
     /** */
     public static String decodeResponse(ClientMessage clientMessage) {
         ForwardFrameIterator iterator = clientMessage.frameIterator();

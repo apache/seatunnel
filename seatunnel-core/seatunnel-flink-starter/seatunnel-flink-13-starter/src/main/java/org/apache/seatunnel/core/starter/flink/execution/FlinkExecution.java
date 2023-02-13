@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.core.starter.flink.execution;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -53,33 +52,31 @@ import java.util.stream.Stream;
 /** Used to execute a SeaTunnelTask. */
 @Slf4j
 public class FlinkExecution implements TaskExecution {
+    
     private final FlinkRuntimeEnvironment flinkRuntimeEnvironment;
-    private final PluginExecuteProcessor<DataStream<Row>, FlinkRuntimeEnvironment>
-            sourcePluginExecuteProcessor;
-    private final PluginExecuteProcessor<DataStream<Row>, FlinkRuntimeEnvironment>
-            transformPluginExecuteProcessor;
-    private final PluginExecuteProcessor<DataStream<Row>, FlinkRuntimeEnvironment>
-            sinkPluginExecuteProcessor;
+    private final PluginExecuteProcessor<DataStream<Row>, FlinkRuntimeEnvironment> sourcePluginExecuteProcessor;
+    private final PluginExecuteProcessor<DataStream<Row>, FlinkRuntimeEnvironment> transformPluginExecuteProcessor;
+    private final PluginExecuteProcessor<DataStream<Row>, FlinkRuntimeEnvironment> sinkPluginExecuteProcessor;
     private final List<URL> jarPaths;
-
+    
     public FlinkExecution(Config config) {
         try {
             jarPaths =
                     new ArrayList<>(
                             Collections.singletonList(
                                     new File(
-                                                    Common.appStarterDir()
-                                                            .resolve(FlinkStarter.APP_JAR_NAME)
-                                                            .toString())
-                                            .toURI()
-                                            .toURL()));
+                                            Common.appStarterDir()
+                                                    .resolve(FlinkStarter.APP_JAR_NAME)
+                                                    .toString())
+                                                            .toURI()
+                                                            .toURL()));
         } catch (MalformedURLException e) {
             throw new SeaTunnelException("load flink starter error.", e);
         }
         registerPlugin(config.getConfig("env"));
         JobContext jobContext = new JobContext();
         jobContext.setJobMode(RuntimeEnvironment.getJobMode(config));
-
+        
         this.sourcePluginExecuteProcessor =
                 new SourceExecuteProcessor(
                         jarPaths, config.getConfigList(Constants.SOURCE), jobContext);
@@ -92,15 +89,15 @@ public class FlinkExecution implements TaskExecution {
         this.sinkPluginExecuteProcessor =
                 new SinkExecuteProcessor(
                         jarPaths, config.getConfigList(Constants.SINK), jobContext);
-
+        
         this.flinkRuntimeEnvironment =
                 FlinkRuntimeEnvironment.getInstance(this.registerPlugin(config, jarPaths));
-
+        
         this.sourcePluginExecuteProcessor.setRuntimeEnvironment(flinkRuntimeEnvironment);
         this.transformPluginExecuteProcessor.setRuntimeEnvironment(flinkRuntimeEnvironment);
         this.sinkPluginExecuteProcessor.setRuntimeEnvironment(flinkRuntimeEnvironment);
     }
-
+    
     @Override
     public void execute() throws TaskExecuteException {
         List<DataStream<Row>> dataStreams = new ArrayList<>();
@@ -119,7 +116,7 @@ public class FlinkExecution implements TaskExecution {
             throw new TaskExecuteException("Execute Flink job error", e);
         }
     }
-
+    
     private void registerPlugin(Config envConfig) {
         List<Path> thirdPartyJars = new ArrayList<>();
         if (envConfig.hasPath(EnvCommonOptions.JARS.key())) {
@@ -143,12 +140,11 @@ public class FlinkExecution implements TaskExecution {
                                 })
                         .collect(Collectors.toList());
         jarDependencies.forEach(
-                url ->
-                        FlinkAbstractPluginExecuteProcessor.ADD_URL_TO_CLASSLOADER.accept(
-                                Thread.currentThread().getContextClassLoader(), url));
+                url -> FlinkAbstractPluginExecuteProcessor.ADD_URL_TO_CLASSLOADER.accept(
+                        Thread.currentThread().getContextClassLoader(), url));
         jarPaths.addAll(jarDependencies);
     }
-
+    
     private Config registerPlugin(Config config, List<URL> jars) {
         config =
                 this.injectJarsToConfig(
@@ -156,7 +152,7 @@ public class FlinkExecution implements TaskExecution {
         return this.injectJarsToConfig(
                 config, ConfigUtil.joinPath("env", "pipeline", "classpaths"), jars);
     }
-
+    
     private Config injectJarsToConfig(Config config, String path, List<URL> jars) {
         List<URL> validJars = new ArrayList<>();
         for (URL jarUrl : jars) {
@@ -167,7 +163,7 @@ public class FlinkExecution implements TaskExecution {
                 log.warn("Remove invalid jar when inject jars into config: {}", jarUrl);
             }
         }
-
+        
         if (config.hasPath(path)) {
             Set<URL> paths =
                     Arrays.stream(config.getString(path).split(";"))
@@ -182,7 +178,7 @@ public class FlinkExecution implements TaskExecution {
                                     })
                             .collect(Collectors.toSet());
             paths.addAll(validJars);
-
+            
             config =
                     config.withValue(
                             path,
@@ -191,7 +187,7 @@ public class FlinkExecution implements TaskExecution {
                                             .map(URL::toString)
                                             .distinct()
                                             .collect(Collectors.joining(";"))));
-
+            
         } else {
             config =
                     config.withValue(

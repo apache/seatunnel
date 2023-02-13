@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.e2e.connector.file.local;
 
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -32,7 +31,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 public class LocalFileIT extends TestSuiteBase {
-
+    
     /** Copy data files to container */
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
@@ -54,10 +53,9 @@ public class LocalFileIT extends TestSuiteBase {
                         MountableFile.forHostPath(textPath),
                         "/seatunnel/read/text/name=tyrantlucifer/hobby=coding/e2e.txt");
             };
-
+    
     @TestTemplate
-    public void testLocalFileReadAndWrite(TestContainer container)
-            throws IOException, InterruptedException {
+    public void testLocalFileReadAndWrite(TestContainer container) throws IOException, InterruptedException {
         // test write local text file
         Container.ExecResult textWriteResult =
                 container.executeJob("/text/fake_to_local_file_text.conf");

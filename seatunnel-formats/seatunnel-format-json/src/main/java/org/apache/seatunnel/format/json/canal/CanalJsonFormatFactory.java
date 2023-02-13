@@ -1,11 +1,10 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -15,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.format.json.canal;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
@@ -34,40 +32,44 @@ import java.util.Map;
  * DeserializationSchema}.
  */
 public class CanalJsonFormatFactory
-        implements DeserializationFormatFactory, SerializationFormatFactory {
-
+        implements
+            DeserializationFormatFactory,
+            SerializationFormatFactory {
+    
     public static final String IDENTIFIER = "canal-json";
-
+    
     @Override
     public String factoryIdentifier() {
         return IDENTIFIER;
     }
-
+    
     @Override
     public OptionRule optionRule() {
         // TODO config option rules
         return OptionRule.builder().build();
     }
-
+    
     @Override
     public SerializationFormat createSerializationFormat(TableFactoryContext context) {
         return new SerializationFormat() {
+            
             @Override
             public SerializationSchema createSerializationSchema() {
                 return new CanalJsonSerializationSchema(null);
             }
         };
     }
-
+    
     @Override
     public DeserializationFormat createDeserializationFormat(TableFactoryContext context) {
         Map<String, String> options = context.getOptions().toMap();
         boolean ignoreParseErrors = CanalJsonFormatOptions.getIgnoreParseErrors(options);
         String databaseInclude = CanalJsonFormatOptions.getDatabaseInclude(options);
         String tableInclude = CanalJsonFormatOptions.getTableInclude(options);
-
+        
         // TODO config SeaTunnelRowType
         return new DeserializationFormat() {
+            
             @Override
             public DeserializationSchema createDeserializationSchema() {
                 return new CanalJsonDeserializationSchema(

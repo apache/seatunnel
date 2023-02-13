@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connector.selectdb.sink.committer;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -49,46 +48,47 @@ import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadStatus.SUC
 
 @Slf4j
 public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
+    
     private static final String COMMIT_PATTERN = "http://%s/copy/query";
     private static final int HTTP_TEMPORARY_REDIRECT = 200;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final CloseableHttpClient httpClient;
     private final SelectDBConfig selectdbConfig;
     int maxRetry;
-
+    
     public SelectDBCommitter(Config pluginConfig) {
         this(
                 SelectDBConfig.loadConfig(pluginConfig),
                 SelectDBConfig.loadConfig(pluginConfig).getMaxRetries(),
                 new HttpUtil().getHttpClient());
     }
-
+    
     public SelectDBCommitter(
-            SelectDBConfig selectdbConfig, int maxRetry, CloseableHttpClient client) {
+                             SelectDBConfig selectdbConfig, int maxRetry, CloseableHttpClient client) {
         this.selectdbConfig = selectdbConfig;
         this.maxRetry = maxRetry;
         this.httpClient = client;
     }
-
+    
     @Override
-    public List<SelectDBCommitInfo> commit(List<SelectDBCommitInfo> commitInfos)
-            throws IOException {
+    public List<SelectDBCommitInfo> commit(List<SelectDBCommitInfo> commitInfos) throws IOException {
         for (SelectDBCommitInfo committable : commitInfos) {
             commitTransaction(committable);
         }
         return Collections.emptyList();
     }
-
+    
     @Override
-    public void abort(List<SelectDBCommitInfo> commitInfos) throws IOException {}
-
+    public void abort(List<SelectDBCommitInfo> commitInfos) throws IOException {
+    }
+    
     private void commitTransaction(SelectDBCommitInfo commitInfo) throws IOException {
         long start = System.currentTimeMillis();
         String hostPort = commitInfo.getHostPort();
         String clusterName = commitInfo.getClusterName();
         String copySQL = commitInfo.getCopySQL();
         log.info("commit to cluster {} with copy sql: {}", clusterName, copySQL);
-
+        
         int statusCode = -1;
         String reasonPhrase = null;
         int retry = 0;
@@ -132,7 +132,7 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
                 }
             }
         }
-
+        
         if (!success) {
             throw new SelectDBConnectorException(
                     SelectDBConnectorErrorCode.COMMIT_FAILED,
@@ -146,11 +146,12 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
                             + loadResult);
         }
     }
-
+    
     public boolean handleCommitResponse(String loadResult) throws IOException {
         BaseResponse<CopyIntoResp> baseResponse =
                 objectMapper.readValue(
-                        loadResult, new TypeReference<BaseResponse<CopyIntoResp>>() {});
+                        loadResult, new TypeReference<BaseResponse<CopyIntoResp>>() {
+                        });
         if (baseResponse.getCode() == SUCCESS) {
             CopyIntoResp dataResp = baseResponse.getData();
             if (FAIL.equals(dataResp.getDataCode())) {

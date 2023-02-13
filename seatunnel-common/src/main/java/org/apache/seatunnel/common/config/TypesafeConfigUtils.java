@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.common.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -29,9 +28,10 @@ import java.util.List;
 import java.util.Map;
 
 public final class TypesafeConfigUtils {
-
-    private TypesafeConfigUtils() {}
-
+    
+    private TypesafeConfigUtils() {
+    }
+    
     /**
      * Extract sub config with fixed prefix
      *
@@ -42,16 +42,16 @@ public final class TypesafeConfigUtils {
      */
     @Deprecated
     public static Config extractSubConfig(Config source, String prefix, boolean keepPrefix) {
-
+        
         // use LinkedHashMap to keep insertion order
         Map<String, String> values = new LinkedHashMap<>();
-
+        
         for (Map.Entry<String, ConfigValue> entry : source.entrySet()) {
             final String key = entry.getKey();
             final String value = String.valueOf(entry.getValue().unwrapped());
-
+            
             if (key.startsWith(prefix)) {
-
+                
                 if (keepPrefix) {
                     values.put(key, value);
                 } else {
@@ -59,10 +59,10 @@ public final class TypesafeConfigUtils {
                 }
             }
         }
-
+        
         return ConfigFactory.parseMap(values);
     }
-
+    
     /**
      * Check if config with specific prefix exists
      *
@@ -71,24 +71,24 @@ public final class TypesafeConfigUtils {
      * @return true if it has sub config
      */
     public static boolean hasSubConfig(Config source, String prefix) {
-
+        
         boolean hasConfig = false;
-
+        
         for (Map.Entry<String, ConfigValue> entry : source.entrySet()) {
             final String key = entry.getKey();
-
+            
             if (key.startsWith(prefix)) {
                 hasConfig = true;
                 break;
             }
         }
-
+        
         return hasConfig;
     }
-
+    
     @SuppressWarnings("unchecked")
     public static <T> T getConfig(
-            final Config config, final String configKey, @NonNull final T defaultValue) {
+                                  final Config config, final String configKey, @NonNull final T defaultValue) {
         if (defaultValue.getClass().equals(Long.class)) {
             return config.hasPath(configKey)
                     ? (T) Long.valueOf(config.getString(configKey))
@@ -109,12 +109,12 @@ public final class TypesafeConfigUtils {
         }
         throw new RuntimeException("Unsupported config type, configKey: " + configKey);
     }
-
+    
     public static List<? extends Config> getConfigList(
-            Config config, String configKey, @NonNull List<? extends Config> defaultValue) {
+                                                       Config config, String configKey, @NonNull List<? extends Config> defaultValue) {
         return config.hasPath(configKey) ? config.getConfigList(configKey) : defaultValue;
     }
-
+    
     public static Map<String, String> configToMap(Config config) {
         Map<String, String> configMap = new HashMap<>();
         config.entrySet()

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.type;
 
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.constant.ElasticsearchVersion;
@@ -27,13 +26,14 @@ import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.constant.E
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.constant.ElasticsearchVersion.ES6;
 
 public class IndexTypeSerializerFactory {
-
+    
     private static final String DEFAULT_TYPE = "st";
-
-    private IndexTypeSerializerFactory() {}
-
+    
+    private IndexTypeSerializerFactory() {
+    }
+    
     public static IndexTypeSerializer getIndexTypeSerializer(
-            ElasticsearchClusterInfo elasticsearchClusterInfo, String type) {
+                                                             ElasticsearchClusterInfo elasticsearchClusterInfo, String type) {
         if (elasticsearchClusterInfo.isOpensearch()) {
             return new NotIndexTypeSerializer();
         }

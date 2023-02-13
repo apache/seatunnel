@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.translation.flink.sink;
 
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
@@ -40,26 +39,26 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 public class FlinkGlobalCommitter<CommT, GlobalCommT>
-        implements GlobalCommitter<CommitWrapper<CommT>, GlobalCommT> {
-
+        implements
+            GlobalCommitter<CommitWrapper<CommT>, GlobalCommT> {
+    
     private final SinkAggregatedCommitter<CommT, GlobalCommT> aggregatedCommitter;
-
+    
     FlinkGlobalCommitter(SinkAggregatedCommitter<CommT, GlobalCommT> aggregatedCommitter) {
         this.aggregatedCommitter = aggregatedCommitter;
     }
-
+    
     @Override
-    public List<GlobalCommT> filterRecoveredCommittables(List globalCommittables)
-            throws IOException {
+    public List<GlobalCommT> filterRecoveredCommittables(List globalCommittables) throws IOException {
         return Collections.emptyList();
     }
-
+    
     @Override
     public GlobalCommT combine(List<CommitWrapper<CommT>> committables) throws IOException {
         return aggregatedCommitter.combine(
                 committables.stream().map(CommitWrapper::getCommit).collect(Collectors.toList()));
     }
-
+    
     @Override
     public List<GlobalCommT> commit(List<GlobalCommT> globalCommittables) throws IOException {
         List<GlobalCommT> reCommittable = aggregatedCommitter.commit(globalCommittables);
@@ -69,10 +68,11 @@ public class FlinkGlobalCommitter<CommT, GlobalCommT>
         // TODO re-commit the data
         return new ArrayList<>();
     }
-
+    
     @Override
-    public void endOfInput() throws IOException {}
-
+    public void endOfInput() throws IOException {
+    }
+    
     @Override
     public void close() throws Exception {
         aggregatedCommitter.close();

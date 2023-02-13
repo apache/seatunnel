@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.kudu.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -58,58 +57,60 @@ import java.util.List;
 @Slf4j
 @AutoService(SeaTunnelSource.class)
 public class KuduSource
-        implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit, KuduSourceState>,
-                SupportParallelism {
+        implements
+            SeaTunnelSource<SeaTunnelRow, KuduSourceSplit, KuduSourceState>,
+            SupportParallelism {
+    
     private SeaTunnelRowType rowTypeInfo;
     private KuduInputFormat kuduInputFormat;
     private PartitionParameter partitionParameter;
     public static final int TIMEOUTMS = 18000;
-
+    
     @Override
     public Boundedness getBoundedness() {
         return Boundedness.BOUNDED;
     }
-
+    
     @Override
     public SeaTunnelRowType getProducedType() {
         return this.rowTypeInfo;
     }
-
+    
     @Override
     public SourceReader<SeaTunnelRow, KuduSourceSplit> createReader(
-            SourceReader.Context readerContext) {
+                                                                    SourceReader.Context readerContext) {
         return new KuduSourceReader(kuduInputFormat, readerContext);
     }
-
+    
     @Override
     public Serializer<KuduSourceSplit> getSplitSerializer() {
         return SeaTunnelSource.super.getSplitSerializer();
     }
-
+    
     @Override
     public SourceSplitEnumerator<KuduSourceSplit, KuduSourceState> createEnumerator(
-            SourceSplitEnumerator.Context<KuduSourceSplit> enumeratorContext) {
+                                                                                    SourceSplitEnumerator.Context<KuduSourceSplit> enumeratorContext) {
         return new KuduSourceSplitEnumerator(enumeratorContext, partitionParameter);
     }
-
+    
     @Override
     public SourceSplitEnumerator<KuduSourceSplit, KuduSourceState> restoreEnumerator(
-            SourceSplitEnumerator.Context<KuduSourceSplit> enumeratorContext,
-            KuduSourceState checkpointState) {
+                                                                                     SourceSplitEnumerator.Context<KuduSourceSplit> enumeratorContext,
+                                                                                     KuduSourceState checkpointState) {
         // todo:
         return new KuduSourceSplitEnumerator(enumeratorContext, partitionParameter);
     }
-
+    
     @Override
     public Serializer<KuduSourceState> getEnumeratorStateSerializer() {
         return new DefaultSerializer<>();
     }
-
+    
     @Override
     public String getPluginName() {
         return "Kudu";
     }
-
+    
     @Override
     public void prepare(Config config) {
         String kudumaster = "";
@@ -137,7 +138,7 @@ public class KuduSource
             KuduClient.KuduClientBuilder kuduClientBuilder =
                     new KuduClient.KuduClientBuilder(kudumaster);
             kuduClientBuilder.defaultOperationTimeoutMs(TIMEOUTMS);
-
+            
             KuduClient kuduClient = kuduClientBuilder.build();
             partitionParameter = initPartitionParameter(kuduClient, tableName);
             SeaTunnelRowType seaTunnelRowType =
@@ -148,7 +149,7 @@ public class KuduSource
                     KuduConnectorErrorCode.GENERATE_KUDU_PARAMETERS_FAILED, e);
         }
     }
-
+    
     private PartitionParameter initPartitionParameter(KuduClient kuduClient, String tableName) {
         String keyColumn = null;
         int maxKey = 0;
@@ -195,17 +196,17 @@ public class KuduSource
         return new PartitionParameter(
                 keyColumn, Long.parseLong(minKey + ""), Long.parseLong(maxKey + ""));
     }
-
+    
     public SeaTunnelRowType getSeaTunnelRowType(List<ColumnSchema> columnSchemaList) {
         ArrayList<SeaTunnelDataType<?>> seaTunnelDataTypes = new ArrayList<>();
         ArrayList<String> fieldNames = new ArrayList<>();
         try {
-
+            
             for (int i = 0; i < columnSchemaList.size(); i++) {
                 fieldNames.add(columnSchemaList.get(i).getName());
                 seaTunnelDataTypes.add(KuduTypeMapper.mapping(columnSchemaList, i));
             }
-
+            
         } catch (Exception e) {
             throw new KuduConnectorException(
                     CommonErrorCode.TABLE_SCHEMA_GET_FAILED,

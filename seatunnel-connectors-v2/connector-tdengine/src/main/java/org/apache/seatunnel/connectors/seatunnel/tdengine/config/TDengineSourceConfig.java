@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.tdengine.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -35,10 +34,10 @@ import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengine
 
 @Data
 public class TDengineSourceConfig implements Serializable {
-
+    
     /** jdbc:TAOS-RS://localhost:6041/ */
     private String url;
-
+    
     private String username;
     private String password;
     private String database;
@@ -51,7 +50,7 @@ public class TDengineSourceConfig implements Serializable {
     private String upperBound;
     private List<String> fields;
     private List<String> tags;
-
+    
     public static TDengineSourceConfig buildSourceConfig(Config pluginConfig) {
         TDengineSourceConfig tdengineSourceConfig = new TDengineSourceConfig();
         tdengineSourceConfig.setUrl(pluginConfig.hasPath(URL) ? pluginConfig.getString(URL) : null);
@@ -71,9 +70,9 @@ public class TDengineSourceConfig implements Serializable {
                 pluginConfig.hasPath(TIMEZONE) ? pluginConfig.getString(TIMEZONE) : "UTC");
         return tdengineSourceConfig;
     }
-
+    
     public static class ConfigNames {
-
+        
         public static String URL = "url";
         public static String USERNAME = "username";
         public static String PASSWORD = "password";

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.redis.source;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
@@ -38,32 +37,33 @@ import java.util.Objects;
 import java.util.Set;
 
 public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
+    
     private final RedisParameters redisParameters;
     private final SingleSplitReaderContext context;
     private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private Jedis jedis;
-
+    
     public RedisSourceReader(
-            RedisParameters redisParameters,
-            SingleSplitReaderContext context,
-            DeserializationSchema<SeaTunnelRow> deserializationSchema) {
+                             RedisParameters redisParameters,
+                             SingleSplitReaderContext context,
+                             DeserializationSchema<SeaTunnelRow> deserializationSchema) {
         this.redisParameters = redisParameters;
         this.context = context;
         this.deserializationSchema = deserializationSchema;
     }
-
+    
     @Override
     public void open() throws Exception {
         this.jedis = redisParameters.buildJedis();
     }
-
+    
     @Override
     public void close() throws IOException {
         if (Objects.nonNull(jedis)) {
             jedis.close();
         }
     }
-
+    
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         Set<String> keys = jedis.keys(redisParameters.getKeysPattern());
@@ -72,7 +72,7 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             List<String> values = redisDataType.get(jedis, key);
             for (String value : values) {
                 if (deserializationSchema == null) {
-                    output.collect(new SeaTunnelRow(new Object[] {value}));
+                    output.collect(new SeaTunnelRow(new Object[]{value}));
                 } else {
                     if (redisParameters.getHashKeyParseMode() == RedisConfig.HashKeyParseMode.KV
                             && redisDataType == RedisDataType.HASH) {

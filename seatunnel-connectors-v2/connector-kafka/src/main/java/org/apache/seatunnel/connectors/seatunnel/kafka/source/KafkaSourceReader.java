@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
@@ -51,10 +50,10 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSourceSplit> {
-
+    
     private static final long THREAD_WAIT_TIME = 500L;
     private static final long POLL_TIMEOUT = 10000L;
-
+    
     private final SourceReader.Context context;
     private final ConsumerMetadata metadata;
     private final Set<KafkaSourceSplit> sourceSplits;
@@ -62,15 +61,15 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     private final Map<TopicPartition, KafkaConsumerThread> consumerThreadMap;
     private final ExecutorService executorService;
     private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
-
+    
     private final LinkedBlockingQueue<KafkaSourceSplit> pendingPartitionsQueue;
-
+    
     private volatile boolean running = false;
-
+    
     KafkaSourceReader(
-            ConsumerMetadata metadata,
-            DeserializationSchema<SeaTunnelRow> deserializationSchema,
-            SourceReader.Context context) {
+                      ConsumerMetadata metadata,
+                      DeserializationSchema<SeaTunnelRow> deserializationSchema,
+                      SourceReader.Context context) {
         this.metadata = metadata;
         this.context = context;
         this.sourceSplits = new HashSet<>();
@@ -81,36 +80,36 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                 Executors.newCachedThreadPool(r -> new Thread(r, "Kafka Source Data Consumer"));
         pendingPartitionsQueue = new LinkedBlockingQueue<>();
     }
-
+    
     @Override
-    public void open() {}
-
+    public void open() {
+    }
+    
     @Override
     public void close() throws IOException {
         if (executorService != null) {
             executorService.shutdownNow();
         }
     }
-
+    
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         if (!running) {
             Thread.sleep(THREAD_WAIT_TIME);
             return;
         }
-
+        
         while (pendingPartitionsQueue.size() != 0) {
             sourceSplits.add(pendingPartitionsQueue.poll());
         }
         sourceSplits.forEach(
-                sourceSplit ->
-                        consumerThreadMap.computeIfAbsent(
-                                sourceSplit.getTopicPartition(),
-                                s -> {
-                                    KafkaConsumerThread thread = new KafkaConsumerThread(metadata);
-                                    executorService.submit(thread);
-                                    return thread;
-                                }));
+                sourceSplit -> consumerThreadMap.computeIfAbsent(
+                        sourceSplit.getTopicPartition(),
+                        s -> {
+                            KafkaConsumerThread thread = new KafkaConsumerThread(metadata);
+                            executorService.submit(thread);
+                            return thread;
+                        }));
         sourceSplits.forEach(
                 sourceSplit -> {
                     CompletableFuture<Void> completableFuture = new CompletableFuture<>();
@@ -140,19 +139,16 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                                                         consumer.poll(
                                                                 Duration.ofMillis(POLL_TIMEOUT));
                                                 for (TopicPartition partition : partitions) {
-                                                    List<ConsumerRecord<byte[], byte[]>>
-                                                            recordList = records.records(partition);
-                                                    for (ConsumerRecord<byte[], byte[]> record :
-                                                            recordList) {
-
+                                                    List<ConsumerRecord<byte[], byte[]>> recordList = records.records(partition);
+                                                    for (ConsumerRecord<byte[], byte[]> record : recordList) {
+                                                        
                                                         deserializationSchema.deserialize(
                                                                 record.value(), output);
-
+                                                        
                                                         if (Boundedness.BOUNDED.equals(
-                                                                        context.getBoundedness())
-                                                                && record.offset()
-                                                                        >= sourceSplit
-                                                                                .getEndOffset()) {
+                                                                context.getBoundedness())
+                                                                && record.offset() >= sourceSplit
+                                                                        .getEndOffset()) {
                                                             break;
                                                         }
                                                     }
@@ -164,7 +160,7 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                                                                         .offset();
                                                         sourceSplit.setStartOffset(lastOffset + 1);
                                                     }
-
+                                                    
                                                     if (lastOffset >= sourceSplit.getEndOffset()) {
                                                         sourceSplit.setEndOffset(lastOffset);
                                                     }
@@ -180,13 +176,13 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                     }
                     completableFuture.join();
                 });
-
+        
         if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
             // signal to the source that we have reached the end of the data.
             context.signalNoMoreElement();
         }
     }
-
+    
     @Override
     public List<KafkaSourceSplit> snapshotState(long checkpointId) {
         checkpointOffsetMap.put(
@@ -198,7 +194,7 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                                         KafkaSourceSplit::getStartOffset)));
         return sourceSplits.stream().map(KafkaSourceSplit::copy).collect(Collectors.toList());
     }
-
+    
     @Override
     public void addSplits(List<KafkaSourceSplit> splits) {
         running = true;
@@ -212,12 +208,12 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                     }
                 });
     }
-
+    
     @Override
     public void handleNoMoreSplits() {
         log.info("receive no more splits message, this reader will not add new split.");
     }
-
+    
     @Override
     public void notifyCheckpointComplete(long checkpointId) {
         if (!checkpointOffsetMap.containsKey(checkpointId)) {
@@ -234,8 +230,7 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                                             .put(
                                                     consumer -> {
                                                         if (this.metadata.isCommitOnCheckpoint()) {
-                                                            Map<TopicPartition, OffsetAndMetadata>
-                                                                    offsets = new HashMap<>();
+                                                            Map<TopicPartition, OffsetAndMetadata> offsets = new HashMap<>();
                                                             offsets.put(
                                                                     topicPartition,
                                                                     new OffsetAndMetadata(offset));

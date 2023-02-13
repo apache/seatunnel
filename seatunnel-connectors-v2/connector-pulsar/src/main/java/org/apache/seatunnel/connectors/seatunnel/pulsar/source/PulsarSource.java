@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.pulsar.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -81,10 +80,12 @@ import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProp
 
 @AutoService(SeaTunnelSource.class)
 public class PulsarSource<T>
-        implements SeaTunnelSource<T, PulsarPartitionSplit, PulsarSplitEnumeratorState>,
-                SupportParallelism {
+        implements
+            SeaTunnelSource<T, PulsarPartitionSplit, PulsarSplitEnumeratorState>,
+            SupportParallelism {
+    
     private DeserializationSchema<T> deserialization;
-
+    
     private PulsarAdminConfig adminConfig;
     private PulsarClientConfig clientConfig;
     private PulsarConsumerConfig consumerConfig;
@@ -92,16 +93,16 @@ public class PulsarSource<T>
     private long partitionDiscoveryIntervalMs;
     private StartCursor startCursor;
     private StopCursor stopCursor;
-
+    
     protected int pollTimeout;
     protected long pollInterval;
     protected int batchSize;
-
+    
     @Override
     public String getPluginName() {
         return PulsarConfigUtil.IDENTIFIER;
     }
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void prepare(Config config) throws PrepareFailException {
@@ -118,7 +119,7 @@ public class PulsarSource<T>
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
-
+        
         // admin config
         PulsarAdminConfig.Builder adminConfigBuilder =
                 PulsarAdminConfig.builder().adminUrl(config.getString(ADMIN_SERVICE_URL.key()));
@@ -129,7 +130,7 @@ public class PulsarSource<T>
                 adminConfigBuilder::authPluginClassName);
         setOption(config, AUTH_PARAMS.key(), config::getString, adminConfigBuilder::authParams);
         this.adminConfig = adminConfigBuilder.build();
-
+        
         // client config
         PulsarClientConfig.Builder clientConfigBuilder =
                 PulsarClientConfig.builder().serviceUrl(config.getString(CLIENT_SERVICE_URL.key()));
@@ -140,13 +141,13 @@ public class PulsarSource<T>
                 clientConfigBuilder::authPluginClassName);
         setOption(config, AUTH_PARAMS.key(), config::getString, clientConfigBuilder::authParams);
         this.clientConfig = clientConfigBuilder.build();
-
+        
         // consumer config
         PulsarConsumerConfig.Builder consumerConfigBuilder =
                 PulsarConsumerConfig.builder()
                         .subscriptionName(config.getString(SUBSCRIPTION_NAME.key()));
         this.consumerConfig = consumerConfigBuilder.build();
-
+        
         // source properties
         setOption(
                 config,
@@ -172,12 +173,12 @@ public class PulsarSource<T>
                 POLL_BATCH_SIZE.defaultValue(),
                 config::getInt,
                 v -> this.batchSize = v);
-
+        
         setStartCursor(config);
         setStopCursor(config);
         setPartitionDiscoverer(config);
         setDeserialization(config);
-
+        
         if (partitionDiscoverer instanceof TopicPatternDiscoverer
                 && partitionDiscoveryIntervalMs > 0
                 && Boundedness.BOUNDED == stopCursor.getBoundedness()) {
@@ -186,7 +187,7 @@ public class PulsarSource<T>
                     "Bounded streams do not support dynamic partition discovery.");
         }
     }
-
+    
     private void setStartCursor(Config config) {
         StartMode startMode =
                 getEnum(
@@ -230,7 +231,7 @@ public class PulsarSource<T>
                         String.format("The %s mode is not supported.", startMode));
         }
     }
-
+    
     private void setStopCursor(Config config) {
         SourceProperties.StopMode stopMode =
                 getEnum(
@@ -265,7 +266,7 @@ public class PulsarSource<T>
                         String.format("The %s mode is not supported.", stopMode));
         }
     }
-
+    
     private void setPartitionDiscoverer(Config config) {
         if (config.hasPath(TOPIC.key())) {
             String topic = config.getString(TOPIC.key());
@@ -289,7 +290,7 @@ public class PulsarSource<T>
                             TOPIC.key(), TOPIC_PATTERN.key()));
         }
     }
-
+    
     private void setDeserialization(Config config) {
         String format = config.getString("format");
         // TODO: format SPI
@@ -299,22 +300,21 @@ public class PulsarSource<T>
         deserialization =
                 (DeserializationSchema<T>) new JsonDeserializationSchema(false, false, rowType);
     }
-
+    
     @Override
     public Boundedness getBoundedness() {
         return this.stopCursor instanceof NeverStopCursor
                 ? Boundedness.UNBOUNDED
                 : Boundedness.BOUNDED;
     }
-
+    
     @Override
     public SeaTunnelDataType<T> getProducedType() {
         return deserialization.getProducedType();
     }
-
+    
     @Override
-    public SourceReader<T, PulsarPartitionSplit> createReader(SourceReader.Context readerContext)
-            throws Exception {
+    public SourceReader<T, PulsarPartitionSplit> createReader(SourceReader.Context readerContext) throws Exception {
         return new PulsarSourceReader<>(
                 readerContext,
                 clientConfig,
@@ -325,11 +325,10 @@ public class PulsarSource<T>
                 pollInterval,
                 batchSize);
     }
-
+    
     @Override
     public SourceSplitEnumerator<PulsarPartitionSplit, PulsarSplitEnumeratorState> createEnumerator(
-            SourceSplitEnumerator.Context<PulsarPartitionSplit> enumeratorContext)
-            throws Exception {
+                                                                                                    SourceSplitEnumerator.Context<PulsarPartitionSplit> enumeratorContext) throws Exception {
         return new PulsarSplitEnumerator(
                 enumeratorContext,
                 adminConfig,
@@ -339,13 +338,11 @@ public class PulsarSource<T>
                 stopCursor,
                 consumerConfig.getSubscriptionName());
     }
-
+    
     @Override
-    public SourceSplitEnumerator<PulsarPartitionSplit, PulsarSplitEnumeratorState>
-            restoreEnumerator(
-                    SourceSplitEnumerator.Context<PulsarPartitionSplit> enumeratorContext,
-                    PulsarSplitEnumeratorState checkpointState)
-                    throws Exception {
+    public SourceSplitEnumerator<PulsarPartitionSplit, PulsarSplitEnumeratorState> restoreEnumerator(
+                                                                                                     SourceSplitEnumerator.Context<PulsarPartitionSplit> enumeratorContext,
+                                                                                                     PulsarSplitEnumeratorState checkpointState) throws Exception {
         return new PulsarSplitEnumerator(
                 enumeratorContext,
                 adminConfig,

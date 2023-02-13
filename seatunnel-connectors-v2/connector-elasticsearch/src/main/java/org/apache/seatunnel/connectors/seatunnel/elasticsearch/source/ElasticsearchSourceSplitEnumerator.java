@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -42,34 +41,35 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class ElasticsearchSourceSplitEnumerator
-        implements SourceSplitEnumerator<ElasticsearchSourceSplit, ElasticsearchSourceState> {
-
+        implements
+            SourceSplitEnumerator<ElasticsearchSourceSplit, ElasticsearchSourceState> {
+    
     private SourceSplitEnumerator.Context<ElasticsearchSourceSplit> context;
-
+    
     private Config pluginConfig;
-
+    
     private EsRestClient esRestClient;
-
+    
     private final Object stateLock = new Object();
-
+    
     private Map<Integer, List<ElasticsearchSourceSplit>> pendingSplit;
-
+    
     private List<String> source;
-
+    
     private volatile boolean shouldEnumerate;
-
+    
     public ElasticsearchSourceSplitEnumerator(
-            SourceSplitEnumerator.Context<ElasticsearchSourceSplit> context,
-            Config pluginConfig,
-            List<String> source) {
+                                              SourceSplitEnumerator.Context<ElasticsearchSourceSplit> context,
+                                              Config pluginConfig,
+                                              List<String> source) {
         this(context, null, pluginConfig, source);
     }
-
+    
     public ElasticsearchSourceSplitEnumerator(
-            SourceSplitEnumerator.Context<ElasticsearchSourceSplit> context,
-            ElasticsearchSourceState sourceState,
-            Config pluginConfig,
-            List<String> source) {
+                                              SourceSplitEnumerator.Context<ElasticsearchSourceSplit> context,
+                                              ElasticsearchSourceState sourceState,
+                                              Config pluginConfig,
+                                              List<String> source) {
         this.context = context;
         this.pluginConfig = pluginConfig;
         this.pendingSplit = new HashMap<>();
@@ -80,31 +80,31 @@ public class ElasticsearchSourceSplitEnumerator
         }
         this.source = source;
     }
-
+    
     @Override
     public void open() {
         esRestClient = EsRestClient.createInstance(pluginConfig);
     }
-
+    
     @Override
     public void run() {
         Set<Integer> readers = context.registeredReaders();
         if (shouldEnumerate) {
             List<ElasticsearchSourceSplit> newSplits = getElasticsearchSplit();
-
+            
             synchronized (stateLock) {
                 addPendingSplit(newSplits);
                 shouldEnumerate = false;
             }
-
+            
             assignSplit(readers);
         }
-
+        
         log.debug(
                 "No more splits to assign." + " Sending NoMoreSplitsEvent to reader {}.", readers);
         readers.forEach(context::signalNoMoreSplits);
     }
-
+    
     private void addPendingSplit(Collection<ElasticsearchSourceSplit> splits) {
         int readerCount = context.currentParallelism();
         for (ElasticsearchSourceSplit split : splits) {
@@ -113,14 +113,14 @@ public class ElasticsearchSourceSplitEnumerator
             pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(split);
         }
     }
-
+    
     private static int getSplitOwner(String tp, int numReaders) {
         return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
     }
-
+    
     private void assignSplit(Collection<Integer> readers) {
         log.debug("Assign pendingSplits to readers {}", readers);
-
+        
         for (int reader : readers) {
             List<ElasticsearchSourceSplit> assignmentForReader = pendingSplit.remove(reader);
             if (assignmentForReader != null && !assignmentForReader.isEmpty()) {
@@ -138,7 +138,7 @@ public class ElasticsearchSourceSplitEnumerator
             }
         }
     }
-
+    
     private List<ElasticsearchSourceSplit> getElasticsearchSplit() {
         List<ElasticsearchSourceSplit> splits = new ArrayList<>();
         String scrollTime = SourceConfig.SCROLL_TIME.defaultValue();
@@ -149,7 +149,7 @@ public class ElasticsearchSourceSplitEnumerator
         if (pluginConfig.hasPath(SourceConfig.SCROLL_SIZE.key())) {
             scrollSize = pluginConfig.getInt(SourceConfig.SCROLL_SIZE.key());
         }
-
+        
         List<IndexDocsCount> indexDocsCounts =
                 esRestClient.getIndexDocsCount(pluginConfig.getString(SourceConfig.INDEX.key()));
         indexDocsCounts =
@@ -166,12 +166,12 @@ public class ElasticsearchSourceSplitEnumerator
         }
         return splits;
     }
-
+    
     @Override
     public void close() throws IOException {
         esRestClient.close();
     }
-
+    
     @Override
     public void addSplitsBack(List<ElasticsearchSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
@@ -179,19 +179,19 @@ public class ElasticsearchSourceSplitEnumerator
             assignSplit(Collections.singletonList(subtaskId));
         }
     }
-
+    
     @Override
     public int currentUnassignedSplitSize() {
         return pendingSplit.size();
     }
-
+    
     @Override
     public void handleSplitRequest(int subtaskId) {
         throw new ElasticsearchConnectorException(
                 CommonErrorCode.UNSUPPORTED_OPERATION,
                 "Unsupported handleSplitRequest: " + subtaskId);
     }
-
+    
     @Override
     public void registerReader(int subtaskId) {
         log.debug("Register reader {} to IoTDBSourceSplitEnumerator.", subtaskId);
@@ -199,14 +199,15 @@ public class ElasticsearchSourceSplitEnumerator
             assignSplit(Collections.singletonList(subtaskId));
         }
     }
-
+    
     @Override
     public ElasticsearchSourceState snapshotState(long checkpointId) throws Exception {
         synchronized (stateLock) {
             return new ElasticsearchSourceState(shouldEnumerate, pendingSplit);
         }
     }
-
+    
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {
+    }
 }

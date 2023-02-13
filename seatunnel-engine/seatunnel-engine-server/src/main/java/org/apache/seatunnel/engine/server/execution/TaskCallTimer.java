@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.execution;
 
 import org.apache.seatunnel.engine.server.TaskExecutionService;
@@ -26,36 +25,36 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /** TaskCallTimer is a time-consuming timer for Task Call method execution */
 @Slf4j
 public class TaskCallTimer extends Thread {
-
+    
     long nextExecutionTime;
     long delay;
-
+    
     TaskExecutionService.CooperativeTaskWorker cooperativeTaskWorker;
     AtomicBoolean keep;
     TaskExecutionService.RunBusWorkSupplier runBusWorkSupplier;
-
+    
     TaskTracker taskTracker;
-
+    
     private final Object lock = new Object();
     boolean started = false;
     AtomicBoolean wait0 = new AtomicBoolean(false);
-
+    
     public TaskCallTimer(
-            long delay,
-            AtomicBoolean keep,
-            TaskExecutionService.RunBusWorkSupplier runBusWorkSupplier,
-            TaskExecutionService.CooperativeTaskWorker cooperativeTaskWorker) {
+                         long delay,
+                         AtomicBoolean keep,
+                         TaskExecutionService.RunBusWorkSupplier runBusWorkSupplier,
+                         TaskExecutionService.CooperativeTaskWorker cooperativeTaskWorker) {
         this.delay = delay;
         this.keep = keep;
         this.runBusWorkSupplier = runBusWorkSupplier;
         this.cooperativeTaskWorker = cooperativeTaskWorker;
     }
-
+    
     private void startTimer() {
         nextExecutionTime = System.currentTimeMillis() + delay;
         this.start();
     }
-
+    
     public void reSet(long tmpDelay) {
         nextExecutionTime = System.currentTimeMillis() + tmpDelay;
         if (started) {
@@ -67,7 +66,7 @@ public class TaskCallTimer extends Thread {
             this.start();
         }
     }
-
+    
     public void reSet() {
         nextExecutionTime = System.currentTimeMillis() + delay;
         if (!started) {
@@ -75,7 +74,7 @@ public class TaskCallTimer extends Thread {
             this.start();
         }
     }
-
+    
     public void timerStart(TaskTracker taskTracker) {
         wait0.set(false);
         this.taskTracker = taskTracker;
@@ -89,11 +88,11 @@ public class TaskCallTimer extends Thread {
             this.start();
         }
     }
-
+    
     public void timerStop() {
         wait0.set(true);
     }
-
+    
     @Override
     public void run() {
         while (true) {
@@ -124,7 +123,7 @@ public class TaskCallTimer extends Thread {
             }
         }
     }
-
+    
     /** The action to be performed when the task call method execution times out */
     private void timeoutAct(int expiredTimes) {
         if (expiredTimes >= 1) {

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.file.sink.commit;
 
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
@@ -30,24 +29,24 @@ import java.util.Map;
 
 @Slf4j
 public class FileSinkAggregatedCommitter
-        implements SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo> {
+        implements
+            SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo> {
+    
     protected final FileSystemUtils fileSystemUtils;
-
+    
     public FileSinkAggregatedCommitter(FileSystemUtils fileSystemUtils) {
         this.fileSystemUtils = fileSystemUtils;
     }
-
+    
     @Override
     public List<FileAggregatedCommitInfo> commit(
-            List<FileAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
+                                                 List<FileAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
         List<FileAggregatedCommitInfo> errorAggregatedCommitInfoList = new ArrayList<>();
         aggregatedCommitInfos.forEach(
                 aggregatedCommitInfo -> {
                     try {
-                        for (Map.Entry<String, Map<String, String>> entry :
-                                aggregatedCommitInfo.getTransactionMap().entrySet()) {
-                            for (Map.Entry<String, String> mvFileEntry :
-                                    entry.getValue().entrySet()) {
+                        for (Map.Entry<String, Map<String, String>> entry : aggregatedCommitInfo.getTransactionMap().entrySet()) {
+                            for (Map.Entry<String, String> mvFileEntry : entry.getValue().entrySet()) {
                                 // first rename temp file
                                 fileSystemUtils.renameFile(
                                         mvFileEntry.getKey(), mvFileEntry.getValue(), true);
@@ -65,7 +64,7 @@ public class FileSinkAggregatedCommitter
                 });
         return errorAggregatedCommitInfoList;
     }
-
+    
     /**
      * The logic about how to combine commit message.
      *
@@ -92,7 +91,7 @@ public class FileSinkAggregatedCommitter
                 });
         return new FileAggregatedCommitInfo(aggregateCommitInfo, partitionDirAndValuesMap);
     }
-
+    
     /**
      * If {@link #commit(List)} failed, this method will be called (**Only** on Spark engine at
      * now).
@@ -109,11 +108,9 @@ public class FileSinkAggregatedCommitter
         aggregatedCommitInfos.forEach(
                 aggregatedCommitInfo -> {
                     try {
-                        for (Map.Entry<String, Map<String, String>> entry :
-                                aggregatedCommitInfo.getTransactionMap().entrySet()) {
+                        for (Map.Entry<String, Map<String, String>> entry : aggregatedCommitInfo.getTransactionMap().entrySet()) {
                             // rollback the file
-                            for (Map.Entry<String, String> mvFileEntry :
-                                    entry.getValue().entrySet()) {
+                            for (Map.Entry<String, String> mvFileEntry : entry.getValue().entrySet()) {
                                 if (fileSystemUtils.fileExist(mvFileEntry.getValue())
                                         && !fileSystemUtils.fileExist(mvFileEntry.getKey())) {
                                     fileSystemUtils.renameFile(
@@ -128,12 +125,13 @@ public class FileSinkAggregatedCommitter
                     }
                 });
     }
-
+    
     /**
      * Close this resource.
      *
      * @throws IOException throw IOException when close failed.
      */
     @Override
-    public void close() throws IOException {}
+    public void close() throws IOException {
+    }
 }

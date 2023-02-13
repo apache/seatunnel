@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.util.JdbcCompareUtil;
@@ -51,11 +50,11 @@ import java.sql.Statement;
 import java.util.Properties;
 
 public class JdbcDb2IT extends TestSuiteBase implements TestResource {
-
+    
     private static final Logger LOG = LoggerFactory.getLogger(JdbcDb2IT.class);
     /** <a href="https://hub.docker.com/r/ibmcom/db2">db2 in dockerhub</a> */
     private static final String IMAGE = "ibmcom/db2";
-
+    
     private static final String HOST = "e2e_db2";
     private static final int PORT = 50000;
     private static final int LOCAL_PORT = 50000;
@@ -63,14 +62,14 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
     private static final String PASSWORD = "123456";
     public static final String DB2_DRIVER_JAR =
             "https://repo1.maven.org/maven2/com/ibm/db2/jcc/db2jcc/db2jcc4/db2jcc-db2jcc4.jar";
-
+    
     private static final String DATABASE = "E2E";
     private static final String SOURCE_TABLE = "E2E_TABLE_SOURCE";
     private static final String SINK_TABLE = "E2E_TABLE_SINK";
     private String jdbcUrl;
     private Db2Container db2;
     private Connection jdbcConnection;
-
+    
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
@@ -82,7 +81,7 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
                                         + DB2_DRIVER_JAR);
                 Assertions.assertEquals(0, extraCommands.getExitCode());
             };
-
+    
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -103,7 +102,7 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
         initializeJdbcConnection();
         initializeJdbcTable();
     }
-
+    
     @Override
     public void tearDown() throws Exception {
         if (jdbcConnection != null) {
@@ -113,10 +112,8 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
             db2.close();
         }
     }
-
-    private void initializeJdbcConnection()
-            throws SQLException, ClassNotFoundException, InstantiationException,
-                    IllegalAccessException {
+    
+    private void initializeJdbcConnection() throws SQLException, ClassNotFoundException, InstantiationException, IllegalAccessException {
         Properties properties = new Properties();
         properties.setProperty("user", USER);
         properties.setProperty("password", PASSWORD);
@@ -128,7 +125,7 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
         resultSet.close();
         statement.close();
     }
-
+    
     /** init the table */
     private void initializeJdbcTable() {
         URL resource = JdbcDb2IT.class.getResource("/init/db2_init.conf");
@@ -155,7 +152,7 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("Initializing table failed!", e);
         }
     }
-
+    
     private void assertHasData(String table) {
         try (Statement statement = jdbcConnection.createStatement()) {
             String sql = String.format("select * from \"%s\".%s", USER, table);
@@ -165,16 +162,15 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("server image error", e);
         }
     }
-
+    
     @Test
     void pullImageOK() {
         assertHasData(SOURCE_TABLE);
     }
-
+    
     @TestTemplate
     @DisplayName("JDBC-Db2 end to end test")
-    public void testJdbcSourceAndSink(TestContainer container)
-            throws IOException, InterruptedException, SQLException {
+    public void testJdbcSourceAndSink(TestContainer container) throws IOException, InterruptedException, SQLException {
         assertHasData(SOURCE_TABLE);
         Container.ExecResult execResult = container.executeJob("/jdbc_db2_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
@@ -188,7 +184,7 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
                         + "COL_LONG_VARCHAR, COL_GRAPHIC, COL_VARGRAPHIC, COL_LONG_VARGRAPHIC");
         clearSinkTable();
     }
-
+    
     private void clearSinkTable() {
         try (Statement statement = jdbcConnection.createStatement()) {
             String truncate = String.format("delete from \"%s\".%s where 1=1;", USER, SINK_TABLE);

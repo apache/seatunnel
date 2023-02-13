@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
@@ -37,33 +36,33 @@ import static java.lang.String.format;
  * and stateless.
  */
 public interface JdbcDialect extends Serializable {
-
+    
     /**
      * Get the name of jdbc dialect.
      *
      * @return the dialect name.
      */
     String dialectName();
-
+    
     /**
      * Get converter that convert jdbc object to seatunnel internal object.
      *
      * @return a row converter for the database
      */
     JdbcRowConverter getRowConverter();
-
+    
     /**
      * get jdbc meta-information type to seatunnel data type mapper.
      *
      * @return a type mapper for the database
      */
     JdbcDialectTypeMapper getJdbcDialectTypeMapper();
-
+    
     /** Quotes the identifier for table name or field name */
     default String quoteIdentifier(String identifier) {
         return identifier;
     }
-
+    
     /**
      * Constructs the dialects insert statement for a single row. The returned string will be used
      * as a {@link java.sql.PreparedStatement}. Fields in the statement must be in the same order as
@@ -88,7 +87,7 @@ public interface JdbcDialect extends Serializable {
                 "INSERT INTO %s (%s) VALUES (%s)",
                 quoteIdentifier(tableName), columns, placeholders);
     }
-
+    
     /**
      * Constructs the dialects update statement for a single row with the given condition. The
      * returned string will be used as a {@link java.sql.PreparedStatement}. Fields in the statement
@@ -101,7 +100,7 @@ public interface JdbcDialect extends Serializable {
      * @return the dialects {@code UPDATE} statement.
      */
     default String getUpdateStatement(
-            String tableName, String[] fieldNames, String[] conditionFields) {
+                                      String tableName, String[] fieldNames, String[] conditionFields) {
         String setClause =
                 Arrays.stream(fieldNames)
                         .map(fieldName -> format("%s = :%s", quoteIdentifier(fieldName), fieldName))
@@ -114,7 +113,7 @@ public interface JdbcDialect extends Serializable {
                 "UPDATE %s SET %s WHERE %s",
                 quoteIdentifier(tableName), setClause, conditionClause);
     }
-
+    
     /**
      * Constructs the dialects delete statement for a single row with the given condition. The
      * returned string will be used as a {@link java.sql.PreparedStatement}. Fields in the statement
@@ -134,7 +133,7 @@ public interface JdbcDialect extends Serializable {
         return String.format(
                 "DELETE FROM %s WHERE %s", quoteIdentifier(tableName), conditionClause);
     }
-
+    
     /**
      * Generates a query to determine if a row exists in the table. The returned string will be used
      * as a {@link java.sql.PreparedStatement}.
@@ -153,7 +152,7 @@ public interface JdbcDialect extends Serializable {
         return String.format(
                 "SELECT 1 FROM %s WHERE %s", quoteIdentifier(tableName), fieldExpressions);
     }
-
+    
     /**
      * Constructs the dialects upsert statement if supported; such as MySQL's {@code DUPLICATE KEY
      * UPDATE}, or PostgreSQL's {@code ON CONFLICT... DO UPDATE SET..}.
@@ -167,15 +166,15 @@ public interface JdbcDialect extends Serializable {
      * @return the dialects {@code UPSERT} statement or {@link Optional#empty()}.
      */
     Optional<String> getUpsertStatement(
-            String tableName, String[] fieldNames, String[] uniqueKeyFields);
-
+                                        String tableName, String[] fieldNames, String[] uniqueKeyFields);
+    
     /**
      * Different dialects optimize their PreparedStatement
      *
      * @return The logic about optimize PreparedStatement
      */
     default PreparedStatement creatPreparedStatement(
-            Connection connection, String queryTemplate, int fetchSize) throws SQLException {
+                                                     Connection connection, String queryTemplate, int fetchSize) throws SQLException {
         PreparedStatement statement =
                 connection.prepareStatement(
                         queryTemplate, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
@@ -184,9 +183,9 @@ public interface JdbcDialect extends Serializable {
         }
         return statement;
     }
-
+    
     default ResultSetMetaData getResultSetMetaData(
-            Connection conn, JdbcSourceOptions jdbcSourceOptions) throws SQLException {
+                                                   Connection conn, JdbcSourceOptions jdbcSourceOptions) throws SQLException {
         PreparedStatement ps = conn.prepareStatement(jdbcSourceOptions.getQuery());
         return ps.getMetaData();
     }

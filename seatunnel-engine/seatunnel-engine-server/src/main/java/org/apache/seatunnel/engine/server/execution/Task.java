@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.execution;
 
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
@@ -33,30 +32,42 @@ import java.io.Serializable;
 import java.util.List;
 
 public interface Task
-        extends DynamicMetricsProvider, InternalCheckpointListener, Stateful, Serializable {
-
-    default void init() throws Exception {}
-
-    @NonNull ProgressState call() throws Exception;
-
-    @NonNull Long getTaskID();
-
+        extends
+            DynamicMetricsProvider,
+            InternalCheckpointListener,
+            Stateful,
+            Serializable {
+    
+    default void init() throws Exception {
+    }
+    
+    @NonNull
+    ProgressState call() throws Exception;
+    
+    @NonNull
+    Long getTaskID();
+    
     default boolean isThreadsShare() {
         return false;
     }
-
-    default void close() throws IOException {}
-
-    default void setTaskExecutionContext(TaskExecutionContext taskExecutionContext) {}
-
-    default void triggerBarrier(Barrier barrier) throws Exception {}
-
+    
+    default void close() throws IOException {
+    }
+    
+    default void setTaskExecutionContext(TaskExecutionContext taskExecutionContext) {
+    }
+    
+    default void triggerBarrier(Barrier barrier) throws Exception {
+    }
+    
     @Override
-    default void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {}
-
+    default void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
+    }
+    
     default MetricsContext getMetricsContext() {
         return null;
     }
-
-    default void provideDynamicMetrics(MetricDescriptor tagger, MetricsCollectionContext context) {}
+    
+    default void provideDynamicMetrics(MetricDescriptor tagger, MetricsCollectionContext context) {
+    }
 }

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.translation.source;
 
 import org.apache.seatunnel.api.serialization.Serializer;
@@ -44,38 +43,40 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Serializable>
-        implements BaseSourceFunction<T> {
+        implements
+            BaseSourceFunction<T> {
+    
     protected static final long SLEEP_TIME_INTERVAL = 5L;
     protected final SeaTunnelSource<T, SplitT, StateT> source;
     protected final Map<Integer, List<byte[]>> restoredState;
     protected final Integer parallelism;
-
+    
     protected final Serializer<SplitT> splitSerializer;
     protected final Serializer<StateT> enumeratorStateSerializer;
-
+    
     protected final CoordinatedEnumeratorContext<SplitT> coordinatedEnumeratorContext;
     protected final Map<Integer, CoordinatedReaderContext> readerContextMap;
     protected final Map<Integer, List<SplitT>> restoredSplitStateMap = new HashMap<>();
-
+    
     protected transient volatile SourceSplitEnumerator<SplitT, StateT> splitEnumerator;
     protected transient Map<Integer, SourceReader<T, SplitT>> readerMap = new ConcurrentHashMap<>();
     protected final Map<Integer, AtomicBoolean> readerRunningMap;
     protected final AtomicInteger completedReader = new AtomicInteger(0);
     protected transient volatile ScheduledThreadPoolExecutor executorService;
-
+    
     /** Flag indicating whether the consumer is still running. */
     protected volatile boolean running = true;
-
+    
     public CoordinatedSource(
-            SeaTunnelSource<T, SplitT, StateT> source,
-            Map<Integer, List<byte[]>> restoredState,
-            int parallelism) {
+                             SeaTunnelSource<T, SplitT, StateT> source,
+                             Map<Integer, List<byte[]>> restoredState,
+                             int parallelism) {
         this.source = source;
         this.restoredState = restoredState;
         this.parallelism = parallelism;
         this.splitSerializer = source.getSplitSerializer();
         this.enumeratorStateSerializer = source.getEnumeratorStateSerializer();
-
+        
         this.coordinatedEnumeratorContext = new CoordinatedEnumeratorContext<>(this);
         this.readerContextMap = new ConcurrentHashMap<>(parallelism);
         this.readerRunningMap = new ConcurrentHashMap<>(parallelism);
@@ -86,7 +87,7 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
             log.warn("create split enumerator or readers failed", e);
         }
     }
-
+    
     private void createSplitEnumerator() throws Exception {
         if (restoredState != null && restoredState.size() > 0) {
             StateT restoredEnumeratorState = null;
@@ -115,7 +116,7 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
             splitEnumerator = source.createEnumerator(coordinatedEnumeratorContext);
         }
     }
-
+    
     private void createReaders() throws Exception {
         for (int subtaskId = 0; subtaskId < this.parallelism; subtaskId++) {
             CoordinatedReaderContext readerContext =
@@ -126,7 +127,7 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
             readerMap.put(subtaskId, reader);
         }
     }
-
+    
     @Override
     public void open() throws Exception {
         executorService =
@@ -150,7 +151,7 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
                             }
                         });
     }
-
+    
     @Override
     public void run(Collector<T> collector) throws Exception {
         readerMap
@@ -179,29 +180,29 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
             Thread.sleep(SLEEP_TIME_INTERVAL);
         }
     }
-
+    
     @Override
     public void close() throws IOException {
         running = false;
-
+        
         for (Map.Entry<Integer, SourceReader<T, SplitT>> entry : readerMap.entrySet()) {
             readerRunningMap.get(entry.getKey()).set(false);
             entry.getValue().close();
         }
-
+        
         if (executorService != null) {
             executorService.shutdown();
         }
-
+        
         try (SourceSplitEnumerator<SplitT, StateT> closed = splitEnumerator) {
             // just close the resources
         }
     }
-
+    
     // --------------------------------------------------------------------------------------------
     // Checkpoint & state
     // --------------------------------------------------------------------------------------------
-
+    
     @Override
     public Map<Integer, List<byte[]>> snapshotState(long checkpointId) throws Exception {
         Map<Integer, List<byte[]>> allStates =
@@ -235,7 +236,7 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
         }
         return allStates;
     }
-
+    
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         splitEnumerator.notifyCheckpointComplete(checkpointId);
@@ -251,7 +252,7 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
                             }
                         });
     }
-
+    
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         splitEnumerator.notifyCheckpointAborted(checkpointId);
@@ -267,11 +268,11 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
                             }
                         });
     }
-
+    
     // --------------------------------------------------------------------------------------------
     // Reader context methods
     // --------------------------------------------------------------------------------------------
-
+    
     protected void handleNoMoreElement(int subtaskId) {
         readerRunningMap.get(subtaskId).set(false);
         readerContextMap.remove(subtaskId);
@@ -279,35 +280,35 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
             this.running = false;
         }
     }
-
+    
     protected void handleSplitRequest(int subtaskId) {
         splitEnumerator.handleSplitRequest(subtaskId);
     }
-
+    
     protected void handleReaderEvent(int subtaskId, SourceEvent event) {
         splitEnumerator.handleSourceEvent(subtaskId, event);
     }
-
+    
     // --------------------------------------------------------------------------------------------
     // Enumerator context methods
     // --------------------------------------------------------------------------------------------
-
+    
     public int currentReaderCount() {
         return readerContextMap.size();
     }
-
+    
     public Set<Integer> registeredReaders() {
         return readerMap.keySet();
     }
-
+    
     protected void addSplits(int subtaskId, List<SplitT> splits) {
         readerMap.get(subtaskId).addSplits(splits);
     }
-
+    
     protected void handleNoMoreSplits(int subtaskId) {
         readerMap.get(subtaskId).handleNoMoreSplits();
     }
-
+    
     protected void handleEnumeratorEvent(int subtaskId, SourceEvent event) {
         readerMap.get(subtaskId).handleSourceEvent(event);
     }

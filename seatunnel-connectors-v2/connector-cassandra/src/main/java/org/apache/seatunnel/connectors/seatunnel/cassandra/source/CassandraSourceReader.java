@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.cassandra.source;
 
 import org.apache.seatunnel.api.source.Collector;
@@ -33,34 +32,35 @@ import java.io.IOException;
 
 @Slf4j
 public class CassandraSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
+    
     private final CassandraConfig cassandraConfig;
     private final SingleSplitReaderContext readerContext;
     private CqlSession session;
-
+    
     CassandraSourceReader(CassandraConfig cassandraConfig, SingleSplitReaderContext readerContext) {
         this.cassandraConfig = cassandraConfig;
         this.readerContext = readerContext;
     }
-
+    
     @Override
     public void open() throws Exception {
         session =
                 CassandraClient.getCqlSessionBuilder(
-                                cassandraConfig.getHost(),
-                                cassandraConfig.getKeyspace(),
-                                cassandraConfig.getUsername(),
-                                cassandraConfig.getPassword(),
-                                cassandraConfig.getDatacenter())
+                        cassandraConfig.getHost(),
+                        cassandraConfig.getKeyspace(),
+                        cassandraConfig.getUsername(),
+                        cassandraConfig.getPassword(),
+                        cassandraConfig.getDatacenter())
                         .build();
     }
-
+    
     @Override
     public void close() throws IOException {
         if (session != null) {
             session.close();
         }
     }
-
+    
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         try {
@@ -74,7 +74,8 @@ public class CassandraSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
             this.readerContext.signalNoMoreElement();
         }
     }
-
+    
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {
+    }
 }

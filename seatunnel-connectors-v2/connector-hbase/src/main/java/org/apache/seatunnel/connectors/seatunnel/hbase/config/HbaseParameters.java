@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.hbase.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -43,39 +42,44 @@ import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig
 @Builder
 @Getter
 public class HbaseParameters implements Serializable {
-
+    
     private String zookeeperQuorum;
-
+    
     private String table;
-
+    
     private List<String> rowkeyColumns;
-
+    
     private Map<String, String> familyNames;
-
+    
     private String versionColumn;
-
+    
     private Map<String, String> hbaseExtraConfig;
-
-    @Builder.Default private String rowkeyDelimiter = ROWKEY_DELIMITER.defaultValue();
-
-    @Builder.Default private HbaseConfig.NullMode nullMode = NULL_MODE.defaultValue();
-
-    @Builder.Default private boolean walWrite = WAL_WRITE.defaultValue();
-
-    @Builder.Default private int writeBufferSize = WRITE_BUFFER_SIZE.defaultValue();
-
-    @Builder.Default private HbaseConfig.EnCoding enCoding = ENCODING.defaultValue();
-
+    
+    @Builder.Default
+    private String rowkeyDelimiter = ROWKEY_DELIMITER.defaultValue();
+    
+    @Builder.Default
+    private HbaseConfig.NullMode nullMode = NULL_MODE.defaultValue();
+    
+    @Builder.Default
+    private boolean walWrite = WAL_WRITE.defaultValue();
+    
+    @Builder.Default
+    private int writeBufferSize = WRITE_BUFFER_SIZE.defaultValue();
+    
+    @Builder.Default
+    private HbaseConfig.EnCoding enCoding = ENCODING.defaultValue();
+    
     public static HbaseParameters buildWithConfig(Config pluginConfig) {
         HbaseParametersBuilder builder = HbaseParameters.builder();
-
+        
         // required parameters
         builder.zookeeperQuorum(pluginConfig.getString(ZOOKEEPER_QUORUM.key()));
         builder.table(pluginConfig.getString(TABLE.key()));
         builder.rowkeyColumns(pluginConfig.getStringList(ROWKEY_COLUMNS.key()));
         builder.familyNames(
                 TypesafeConfigUtils.configToMap(pluginConfig.getConfig(FAMILY_NAME.key())));
-
+        
         // optional parameters
         if (pluginConfig.hasPath(ROWKEY_DELIMITER.key())) {
             builder.rowkeyDelimiter(pluginConfig.getString(ROWKEY_DELIMITER.key()));

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -39,30 +38,32 @@ import java.util.Map;
 import java.util.Set;
 
 public class JdbcSourceSplitEnumerator
-        implements SourceSplitEnumerator<JdbcSourceSplit, JdbcSourceState> {
+        implements
+            SourceSplitEnumerator<JdbcSourceSplit, JdbcSourceState> {
+    
     private static final Logger LOG = LoggerFactory.getLogger(JdbcSourceSplitEnumerator.class);
     private final SourceSplitEnumerator.Context<JdbcSourceSplit> enumeratorContext;
-
+    
     private final Map<Integer, List<JdbcSourceSplit>> pendingSplits;
-
+    
     private final Object stateLock = new Object();
     private volatile boolean shouldEnumerate;
-
+    
     private JdbcSourceOptions jdbcSourceOptions;
     private final PartitionParameter partitionParameter;
-
+    
     public JdbcSourceSplitEnumerator(
-            SourceSplitEnumerator.Context<JdbcSourceSplit> enumeratorContext,
-            JdbcSourceOptions jdbcSourceOptions,
-            PartitionParameter partitionParameter) {
+                                     SourceSplitEnumerator.Context<JdbcSourceSplit> enumeratorContext,
+                                     JdbcSourceOptions jdbcSourceOptions,
+                                     PartitionParameter partitionParameter) {
         this(enumeratorContext, jdbcSourceOptions, partitionParameter, null);
     }
-
+    
     public JdbcSourceSplitEnumerator(
-            SourceSplitEnumerator.Context<JdbcSourceSplit> enumeratorContext,
-            JdbcSourceOptions jdbcSourceOptions,
-            PartitionParameter partitionParameter,
-            JdbcSourceState sourceState) {
+                                     SourceSplitEnumerator.Context<JdbcSourceSplit> enumeratorContext,
+                                     JdbcSourceOptions jdbcSourceOptions,
+                                     PartitionParameter partitionParameter,
+                                     JdbcSourceState sourceState) {
         this.enumeratorContext = enumeratorContext;
         this.jdbcSourceOptions = jdbcSourceOptions;
         this.partitionParameter = partitionParameter;
@@ -73,31 +74,31 @@ public class JdbcSourceSplitEnumerator
             this.pendingSplits.putAll(sourceState.getPendingSplits());
         }
     }
-
+    
     @Override
     public void open() {
         // No connection needs to be opened
     }
-
+    
     @Override
     public void run() throws Exception {
         Set<Integer> readers = enumeratorContext.registeredReaders();
         if (shouldEnumerate) {
             Set<JdbcSourceSplit> newSplits = discoverySplits();
-
+            
             synchronized (stateLock) {
                 addPendingSplit(newSplits);
                 shouldEnumerate = false;
             }
-
+            
             assignSplit(readers);
         }
-
+        
         LOG.debug(
                 "No more splits to assign." + " Sending NoMoreSplitsEvent to reader {}.", readers);
         readers.forEach(enumeratorContext::signalNoMoreSplits);
     }
-
+    
     private Set<JdbcSourceSplit> discoverySplits() {
         Set<JdbcSourceSplit> allSplit = new HashSet<>();
         LOG.info("Starting to calculate splits.");
@@ -108,8 +109,8 @@ public class JdbcSourceSplitEnumerator
                             : enumeratorContext.currentParallelism();
             JdbcNumericBetweenParametersProvider jdbcNumericBetweenParametersProvider =
                     new JdbcNumericBetweenParametersProvider(
-                                    partitionParameter.minValue, partitionParameter.maxValue)
-                            .ofBatchNum(partitionNumber);
+                            partitionParameter.minValue, partitionParameter.maxValue)
+                                    .ofBatchNum(partitionNumber);
             Serializable[][] parameterValues =
                     jdbcNumericBetweenParametersProvider.getParameterValues();
             for (int i = 0; i < parameterValues.length; i++) {
@@ -120,12 +121,12 @@ public class JdbcSourceSplitEnumerator
         }
         return allSplit;
     }
-
+    
     @Override
     public void close() throws IOException {
         // nothing
     }
-
+    
     @Override
     public void addSplitsBack(List<JdbcSourceSplit> splits, int subtaskId) {
         LOG.debug("Add back splits {} to JdbcSourceSplitEnumerator.", splits);
@@ -134,7 +135,7 @@ public class JdbcSourceSplitEnumerator
             assignSplit(Collections.singletonList(subtaskId));
         }
     }
-
+    
     private void addPendingSplit(Collection<JdbcSourceSplit> splits) {
         int readerCount = enumeratorContext.currentParallelism();
         for (JdbcSourceSplit split : splits) {
@@ -143,14 +144,14 @@ public class JdbcSourceSplitEnumerator
             pendingSplits.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(split);
         }
     }
-
+    
     private static int getSplitOwner(String tp, int numReaders) {
         return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
     }
-
+    
     private void assignSplit(Collection<Integer> readers) {
         LOG.debug("Assign pendingSplits to readers {}", readers);
-
+        
         for (int reader : readers) {
             List<JdbcSourceSplit> assignmentForReader = pendingSplits.remove(reader);
             if (assignmentForReader != null && !assignmentForReader.isEmpty()) {
@@ -168,19 +169,19 @@ public class JdbcSourceSplitEnumerator
             }
         }
     }
-
+    
     @Override
     public int currentUnassignedSplitSize() {
         return pendingSplits.size();
     }
-
+    
     @Override
     public void handleSplitRequest(int subtaskId) {
         throw new JdbcConnectorException(
                 CommonErrorCode.UNSUPPORTED_OPERATION,
                 String.format("Unsupported handleSplitRequest: %d", subtaskId));
     }
-
+    
     @Override
     public void registerReader(int subtaskId) {
         LOG.debug("Register reader {} to JdbcSourceSplitEnumerator.", subtaskId);
@@ -188,14 +189,15 @@ public class JdbcSourceSplitEnumerator
             assignSplit(Collections.singletonList(subtaskId));
         }
     }
-
+    
     @Override
     public JdbcSourceState snapshotState(long checkpointId) throws Exception {
         synchronized (stateLock) {
             return new JdbcSourceState(shouldEnumerate, pendingSplits);
         }
     }
-
+    
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {
+    }
 }

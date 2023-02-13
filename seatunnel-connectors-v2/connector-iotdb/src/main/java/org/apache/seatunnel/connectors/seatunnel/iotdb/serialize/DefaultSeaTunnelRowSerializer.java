@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.iotdb.serialize;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -37,19 +36,19 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
-
+    
     private final Function<SeaTunnelRow, Long> timestampExtractor;
     private final Function<SeaTunnelRow, String> deviceExtractor;
     private final Function<SeaTunnelRow, List<Object>> valuesExtractor;
     private final List<String> measurements;
     private final List<TSDataType> measurementsType;
-
+    
     public DefaultSeaTunnelRowSerializer(
-            @NonNull SeaTunnelRowType seaTunnelRowType,
-            String storageGroup,
-            String timestampKey,
-            @NonNull String deviceKey,
-            List<String> measurementKeys) {
+                                         @NonNull SeaTunnelRowType seaTunnelRowType,
+                                         String storageGroup,
+                                         String timestampKey,
+                                         @NonNull String deviceKey,
+                                         List<String> measurementKeys) {
         this.timestampExtractor = createTimestampExtractor(seaTunnelRowType, timestampKey);
         this.deviceExtractor = createDeviceExtractor(seaTunnelRowType, deviceKey, storageGroup);
         this.measurements =
@@ -58,7 +57,7 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
         this.valuesExtractor =
                 createValuesExtractor(seaTunnelRowType, measurements, measurementsType);
     }
-
+    
     @Override
     public IoTDBRecord serialize(SeaTunnelRow seaTunnelRow) {
         Long timestamp = timestampExtractor.apply(seaTunnelRow);
@@ -66,13 +65,13 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
         List<Object> values = valuesExtractor.apply(seaTunnelRow);
         return new IoTDBRecord(device, timestamp, measurements, measurementsType, values);
     }
-
+    
     private Function<SeaTunnelRow, Long> createTimestampExtractor(
-            SeaTunnelRowType seaTunnelRowType, String timestampKey) {
+                                                                  SeaTunnelRowType seaTunnelRowType, String timestampKey) {
         if (Strings.isNullOrEmpty(timestampKey)) {
             return row -> System.currentTimeMillis();
         }
-
+        
         int timestampFieldIndex = seaTunnelRowType.indexOf(timestampKey);
         return row -> {
             Object timestamp = row.getField(timestampFieldIndex);
@@ -98,9 +97,9 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             }
         };
     }
-
+    
     private Function<SeaTunnelRow, String> createDeviceExtractor(
-            SeaTunnelRowType seaTunnelRowType, String deviceKey, String storageGroup) {
+                                                                 SeaTunnelRowType seaTunnelRowType, String deviceKey, String storageGroup) {
         int deviceIndex = seaTunnelRowType.indexOf(deviceKey);
         return seaTunnelRow -> {
             String device = seaTunnelRow.getField(deviceIndex).toString();
@@ -113,12 +112,12 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             return storageGroup + "." + device;
         };
     }
-
+    
     private List<String> createMeasurements(
-            SeaTunnelRowType seaTunnelRowType,
-            String timestampKey,
-            String deviceKey,
-            List<String> measurementKeys) {
+                                            SeaTunnelRowType seaTunnelRowType,
+                                            String timestampKey,
+                                            String deviceKey,
+                                            List<String> measurementKeys) {
         if (measurementKeys == null || measurementKeys.isEmpty()) {
             return Stream.of(seaTunnelRowType.getFieldNames())
                     .filter(name -> !name.equals(deviceKey))
@@ -127,9 +126,9 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
         }
         return measurementKeys;
     }
-
+    
     private List<TSDataType> createMeasurementTypes(
-            SeaTunnelRowType seaTunnelRowType, List<String> measurements) {
+                                                    SeaTunnelRowType seaTunnelRowType, List<String> measurements) {
         return measurements.stream()
                 .map(
                         measurement -> {
@@ -140,22 +139,22 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                         })
                 .collect(Collectors.toList());
     }
-
+    
     private Function<SeaTunnelRow, List<Object>> createValuesExtractor(
-            SeaTunnelRowType seaTunnelRowType,
-            List<String> measurements,
-            List<TSDataType> measurementTypes) {
+                                                                       SeaTunnelRowType seaTunnelRowType,
+                                                                       List<String> measurements,
+                                                                       List<TSDataType> measurementTypes) {
         return row -> {
             List<Object> measurementValues = new ArrayList<>(measurements.size());
             for (int i = 0; i < measurements.size(); i++) {
                 String measurement = measurements.get(i);
                 TSDataType measurementDataType = measurementsType.get(i);
-
+                
                 int indexOfSeaTunnelRow = seaTunnelRowType.indexOf(measurement);
                 SeaTunnelDataType seaTunnelDataType =
                         seaTunnelRowType.getFieldType(indexOfSeaTunnelRow);
                 Object seaTunnelFieldValue = row.getField(indexOfSeaTunnelRow);
-
+                
                 Object measurementValue =
                         convert(seaTunnelDataType, measurementDataType, seaTunnelFieldValue);
                 measurementValues.add(measurementValue);
@@ -163,7 +162,7 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             return measurementValues;
         };
     }
-
+    
     private static TSDataType convert(SeaTunnelDataType dataType) {
         switch (dataType.getSqlType()) {
             case STRING:
@@ -186,9 +185,9 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                         "Unsupported data type: " + dataType);
         }
     }
-
+    
     private static Object convert(
-            SeaTunnelDataType seaTunnelType, TSDataType tsDataType, Object value) {
+                                  SeaTunnelDataType seaTunnelType, TSDataType tsDataType, Object value) {
         if (value == null) {
             return null;
         }

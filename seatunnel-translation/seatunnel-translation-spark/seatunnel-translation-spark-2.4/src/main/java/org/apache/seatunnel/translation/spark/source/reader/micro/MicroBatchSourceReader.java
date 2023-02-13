@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.translation.spark.source.reader.micro;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -36,10 +35,10 @@ import java.util.List;
 import java.util.Optional;
 
 public class MicroBatchSourceReader implements MicroBatchReader {
-
+    
     protected final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
     protected final Integer parallelism;
-
+    
     protected final Integer checkpointInterval;
     protected final String checkpointPath;
     protected final String hdfsRoot;
@@ -47,15 +46,15 @@ public class MicroBatchSourceReader implements MicroBatchReader {
     protected Integer checkpointId;
     protected MicroBatchState startOffset;
     protected MicroBatchState endOffset;
-
+    
     public MicroBatchSourceReader(
-            SeaTunnelSource<SeaTunnelRow, ?, ?> source,
-            Integer parallelism,
-            Integer checkpointId,
-            Integer checkpointInterval,
-            String checkpointPath,
-            String hdfsRoot,
-            String hdfsUser) {
+                                  SeaTunnelSource<SeaTunnelRow, ?, ?> source,
+                                  Integer parallelism,
+                                  Integer checkpointId,
+                                  Integer checkpointInterval,
+                                  String checkpointPath,
+                                  String hdfsRoot,
+                                  String hdfsUser) {
         this.source = source;
         this.parallelism = parallelism;
         this.checkpointId = checkpointId;
@@ -64,46 +63,45 @@ public class MicroBatchSourceReader implements MicroBatchReader {
         this.hdfsRoot = hdfsRoot;
         this.hdfsUser = hdfsUser;
     }
-
+    
     @Override
     public void setOffsetRange(Optional<Offset> start, Optional<Offset> end) {
         startOffset = (MicroBatchState) start.orElse(new MicroBatchState(checkpointId));
         this.checkpointId = startOffset.getCheckpointId();
         endOffset =
-                (MicroBatchState)
-                        end.orElse(new MicroBatchState(startOffset.getCheckpointId() + 1));
+                (MicroBatchState) end.orElse(new MicroBatchState(startOffset.getCheckpointId() + 1));
     }
-
+    
     @Override
     public Offset getStartOffset() {
         return startOffset;
     }
-
+    
     @Override
     public Offset getEndOffset() {
         return endOffset;
     }
-
+    
     @Override
     public Offset deserializeOffset(String microBatchState) {
         return SerializationUtils.stringToObject(microBatchState);
     }
-
+    
     @Override
     public void commit(Offset end) {
         // nothing
     }
-
+    
     @Override
     public void stop() {
         // nothing
     }
-
+    
     @Override
     public StructType readSchema() {
         return (StructType) TypeConverterUtils.convert(source.getProducedType());
     }
-
+    
     @Override
     public List<InputPartition<InternalRow>> planInputPartitions() {
         List<InputPartition<InternalRow>> virtualPartitions;

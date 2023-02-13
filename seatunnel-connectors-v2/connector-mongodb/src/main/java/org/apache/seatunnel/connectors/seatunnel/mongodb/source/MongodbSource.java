@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.mongodb.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -44,16 +43,16 @@ import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOp
 
 @AutoService(SeaTunnelSource.class)
 public class MongodbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
-
+    
     private SeaTunnelRowType rowType;
-
+    
     private MongodbConfig params;
-
+    
     @Override
     public String getPluginName() {
         return "MongoDB";
     }
-
+    
     @Override
     public void prepare(Config config) throws PrepareFailException {
         CheckResult result =
@@ -73,20 +72,19 @@ public class MongodbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
             this.rowType = SeaTunnelSchema.buildSimpleTextSchema();
         }
     }
-
+    
     @Override
     public Boundedness getBoundedness() {
         return Boundedness.BOUNDED;
     }
-
+    
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
         return this.rowType;
     }
-
+    
     @Override
-    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext context)
-            throws Exception {
+    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext context) throws Exception {
         boolean useSimpleTextSchema = SeaTunnelSchema.buildSimpleTextSchema().equals(rowType);
         return new MongodbSourceReader(context, this.params, rowType, useSimpleTextSchema);
     }

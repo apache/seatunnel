@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.api.common.metrics;
 
 import lombok.Data;
@@ -44,37 +43,38 @@ import java.util.stream.Collectors;
  */
 @Data
 public final class Measurement implements Serializable {
-
+    
     private Map<String, String> tags; // tag name -> tag value
     private String metric;
     private Object value;
     private long timestamp;
-
-    Measurement() {}
-
+    
+    Measurement() {
+    }
+    
     private Measurement(String metric, Object value, long timestamp, Map<String, String> tags) {
         this.metric = metric;
         this.value = value;
         this.timestamp = timestamp;
         this.tags = new HashMap<>(tags);
     }
-
+    
     /**
      * Builds a {@link Measurement} instance based on timestamp, value and the metric descriptor in
      * map form.
      */
     public static Measurement of(
-            String metric, Object value, long timestamp, Map<String, String> tags) {
+                                 String metric, Object value, long timestamp, Map<String, String> tags) {
         Objects.requireNonNull(tags, "metric");
         Objects.requireNonNull(tags, "tags");
         return new Measurement(metric, value, timestamp, tags);
     }
-
+    
     /** Returns the value associated with this {@link Measurement}. */
     public Object value() {
         return value;
     }
-
+    
     /**
      * Returns the timestamps associated with this {@link Measurement}, the moment when the value
      * was gathered.
@@ -82,12 +82,12 @@ public final class Measurement implements Serializable {
     public long timestamp() {
         return timestamp;
     }
-
+    
     /** Returns the name of the metric. For a list of different metrics see {@link MetricNames}. */
     public String metric() {
         return metric;
     }
-
+    
     /**
      * Returns the value associated with a specific tag, based on the metric description of this
      * particular {@link Measurement}. For a list of possible tag names see {@link MetricTags}.
@@ -95,16 +95,16 @@ public final class Measurement implements Serializable {
     public String tag(String name) {
         return tags.get(name);
     }
-
+    
     public Map<String, String> getTags() {
         return tags;
     }
-
+    
     @Override
     public int hashCode() {
         return 31 * (int) (timestamp * 31 + value.hashCode()) + Objects.hashCode(tags);
     }
-
+    
     @Override
     public boolean equals(Object obj) {
         final Measurement that;
@@ -114,20 +114,20 @@ public final class Measurement implements Serializable {
                         && this.value == that.value
                         && Objects.equals(this.tags, that.tags);
     }
-
+    
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
-
+        
         sb.append(String.format("%s %s", metric, value)).append(" ").append(timestamp).append(" [");
-
+        
         String tags =
                 this.tags.entrySet().stream()
                         .sorted(Comparator.comparing(Map.Entry::getKey))
                         .map(e -> e.getKey() + "=" + e.getValue())
                         .collect(Collectors.joining(", "));
         sb.append(tags).append(']');
-
+        
         return sb.toString();
     }
 }

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils;
 
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -29,12 +28,12 @@ import lombok.extern.slf4j.Slf4j;
 /** Utilities for converting from MySQL types to SeaTunnel types. */
 @Slf4j
 public class MySqlTypeUtils {
-
+    
     // ============================data types=====================
-
+    
     private static final String MYSQL_UNKNOWN = "UNKNOWN";
     private static final String MYSQL_BIT = "BIT";
-
+    
     // -------------------------number----------------------------
     private static final String MYSQL_TINYINT = "TINYINT";
     private static final String MYSQL_TINYINT_UNSIGNED = "TINYINT UNSIGNED";
@@ -54,7 +53,7 @@ public class MySqlTypeUtils {
     private static final String MYSQL_FLOAT_UNSIGNED = "FLOAT UNSIGNED";
     private static final String MYSQL_DOUBLE = "DOUBLE";
     private static final String MYSQL_DOUBLE_UNSIGNED = "DOUBLE UNSIGNED";
-
+    
     // -------------------------string----------------------------
     private static final String MYSQL_CHAR = "CHAR";
     private static final String MYSQL_VARCHAR = "VARCHAR";
@@ -63,14 +62,14 @@ public class MySqlTypeUtils {
     private static final String MYSQL_TEXT = "TEXT";
     private static final String MYSQL_LONGTEXT = "LONGTEXT";
     private static final String MYSQL_JSON = "JSON";
-
+    
     // ------------------------------time-------------------------
     private static final String MYSQL_DATE = "DATE";
     private static final String MYSQL_DATETIME = "DATETIME";
     private static final String MYSQL_TIME = "TIME";
     private static final String MYSQL_TIMESTAMP = "TIMESTAMP";
     private static final String MYSQL_YEAR = "YEAR";
-
+    
     // ------------------------------blob-------------------------
     private static final String MYSQL_TINYBLOB = "TINYBLOB";
     private static final String MYSQL_MEDIUMBLOB = "MEDIUMBLOB";
@@ -79,7 +78,7 @@ public class MySqlTypeUtils {
     private static final String MYSQL_BINARY = "BINARY";
     private static final String MYSQL_VARBINARY = "VARBINARY";
     private static final String MYSQL_GEOMETRY = "GEOMETRY";
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     public static SeaTunnelDataType<?> convertFromColumn(Column column) {
         String typeName = column.typeName();
@@ -135,7 +134,7 @@ public class MySqlTypeUtils {
             case MYSQL_DATETIME:
             case MYSQL_TIMESTAMP:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
-
+            
             case MYSQL_TINYBLOB:
             case MYSQL_MEDIUMBLOB:
             case MYSQL_BLOB:
@@ -143,8 +142,8 @@ public class MySqlTypeUtils {
             case MYSQL_VARBINARY:
             case MYSQL_BINARY:
                 return PrimitiveByteArrayType.INSTANCE;
-
-                // Doesn't support yet
+            
+            // Doesn't support yet
             case MYSQL_GEOMETRY:
             case MYSQL_UNKNOWN:
             default:

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.tdengine.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -48,13 +47,13 @@ import java.util.Objects;
 
 @Slf4j
 public class TDengineSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
-
+    
     private static final DateTimeFormatter FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
     private final Connection conn;
     private final TDengineSourceConfig config;
     private int tagsNum;
-
+    
     @SneakyThrows
     public TDengineSinkWriter(Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
         config = TDengineSourceConfig.buildSourceConfig(pluginConfig);
@@ -78,7 +77,7 @@ public class TDengineSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             }
         }
     }
-
+    
     @SneakyThrows
     @Override
     @SuppressWarnings("checkstyle:RegexpSingleline")
@@ -88,12 +87,13 @@ public class TDengineSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             tags.add(element.getField(i));
         }
         final String tagValues = StringUtils.join(convertDataType(tags.toArray()), ",");
-
+        
         final Object[] metrics =
                 ArrayUtils.subarray(element.getFields(), 1, element.getArity() - tagsNum);
-
-        try (Statement statement =
-                conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
+        
+        try (
+                Statement statement =
+                        conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
             String sql =
                     String.format(
                             "INSERT INTO %s using %s tags ( %s ) VALUES ( %s );",
@@ -109,7 +109,7 @@ public class TDengineSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             }
         }
     }
-
+    
     @Override
     public void close() {
         if (Objects.nonNull(conn)) {
@@ -123,7 +123,7 @@ public class TDengineSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             }
         }
     }
-
+    
     private Object[] convertDataType(Object[] objects) {
         return Arrays.stream(objects)
                 .map(

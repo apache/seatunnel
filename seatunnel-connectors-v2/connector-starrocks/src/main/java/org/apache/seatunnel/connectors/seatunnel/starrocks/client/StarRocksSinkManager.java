@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
 
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
@@ -37,10 +36,10 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class StarRocksSinkManager {
-
+    
     private final SinkConfig sinkConfig;
     private final List<byte[]> batchList;
-
+    
     private StarRocksStreamLoadVisitor starrocksStreamLoadVisitor;
     private ScheduledExecutorService scheduler;
     private ScheduledFuture<?> scheduledFuture;
@@ -48,22 +47,22 @@ public class StarRocksSinkManager {
     private volatile Exception flushException;
     private int batchRowCount = 0;
     private long batchBytesSize = 0;
-
+    
     private Integer batchIntervalMs;
-
+    
     public StarRocksSinkManager(SinkConfig sinkConfig, List<String> fileNames) {
         this.sinkConfig = sinkConfig;
         this.batchList = new ArrayList<>();
         this.batchIntervalMs = sinkConfig.getBatchIntervalMs();
         starrocksStreamLoadVisitor = new StarRocksStreamLoadVisitor(sinkConfig, fileNames);
     }
-
+    
     private void tryInit() throws IOException {
         if (initialize) {
             return;
         }
         initialize = true;
-
+        
         if (batchIntervalMs != null) {
             scheduler =
                     Executors.newSingleThreadScheduledExecutor(
@@ -84,7 +83,7 @@ public class StarRocksSinkManager {
                             TimeUnit.MILLISECONDS);
         }
     }
-
+    
     public synchronized void write(String record) throws IOException {
         tryInit();
         checkFlushException();
@@ -97,16 +96,16 @@ public class StarRocksSinkManager {
             flush();
         }
     }
-
+    
     public synchronized void close() throws IOException {
         if (scheduledFuture != null) {
             scheduledFuture.cancel(false);
             scheduler.shutdown();
         }
-
+        
         flush();
     }
-
+    
     public synchronized void flush() throws IOException {
         checkFlushException();
         if (batchList.isEmpty()) {
@@ -129,7 +128,7 @@ public class StarRocksSinkManager {
                             "The number of retries was exceeded, writing records to StarRocks failed.",
                             e);
                 }
-
+                
                 if (e instanceof StarRocksConnectorException
                         && ((StarRocksConnectorException) e).needReCreateLabel()) {
                     String newLabel = createBatchLabel();
@@ -139,7 +138,7 @@ public class StarRocksSinkManager {
                                     tuple.getLabel(), newLabel));
                     tuple.setLabel(newLabel);
                 }
-
+                
                 try {
                     long backoff =
                             Math.min(
@@ -157,14 +156,14 @@ public class StarRocksSinkManager {
         batchRowCount = 0;
         batchBytesSize = 0;
     }
-
+    
     private void checkFlushException() {
         if (flushException != null) {
             throw new StarRocksConnectorException(
                     StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, flushException);
         }
     }
-
+    
     public String createBatchLabel() {
         StringBuilder sb = new StringBuilder();
         if (!Strings.isNullOrEmpty(sinkConfig.getLabelPrefix())) {

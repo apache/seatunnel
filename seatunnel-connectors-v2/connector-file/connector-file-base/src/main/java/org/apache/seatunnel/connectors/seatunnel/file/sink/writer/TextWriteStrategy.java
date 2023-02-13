@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
 import org.apache.seatunnel.api.serialization.SerializationSchema;
@@ -39,6 +38,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class TextWriteStrategy extends AbstractWriteStrategy {
+    
     private final Map<String, FSDataOutputStream> beingWrittenOutputStream;
     private final Map<String, Boolean> isFirstWrite;
     private final String fieldDelimiter;
@@ -47,7 +47,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
     private final DateTimeUtils.Formatter dateTimeFormat;
     private final TimeUtils.Formatter timeFormat;
     private SerializationSchema serializationSchema;
-
+    
     public TextWriteStrategy(FileSinkConfig fileSinkConfig) {
         super(fileSinkConfig);
         this.beingWrittenOutputStream = new HashMap<>();
@@ -58,7 +58,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
         this.dateTimeFormat = fileSinkConfig.getDatetimeFormat();
         this.timeFormat = fileSinkConfig.getTimeFormat();
     }
-
+    
     @Override
     public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         super.setSeaTunnelRowTypeInfo(seaTunnelRowType);
@@ -72,7 +72,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
                         .timeFormatter(timeFormat)
                         .build();
     }
-
+    
     @Override
     public void write(@NonNull SeaTunnelRow seaTunnelRow) {
         super.write(seaTunnelRow);
@@ -97,7 +97,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
                     e);
         }
     }
-
+    
     @Override
     public void finishAndCloseFile() {
         beingWrittenOutputStream.forEach(
@@ -121,7 +121,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
         beingWrittenOutputStream.clear();
         isFirstWrite.clear();
     }
-
+    
     private FSDataOutputStream getOrCreateOutputStream(@NonNull String filePath) {
         FSDataOutputStream fsDataOutputStream = beingWrittenOutputStream.get(filePath);
         if (fsDataOutputStream == null) {

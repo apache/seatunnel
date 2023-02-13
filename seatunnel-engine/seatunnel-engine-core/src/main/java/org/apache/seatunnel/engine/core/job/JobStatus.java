@@ -1,11 +1,10 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -15,67 +14,67 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.core.job;
 
 /** Possible states of a job once it has been accepted by the dispatcher. */
 public enum JobStatus {
+    
     /**
      * The job has been received by the Dispatcher, and is waiting for the job manager to receive
      * leadership and to be created.
      */
     INITIALIZING(EndState.NOT_END),
-
+    
     /** Job is newly created, no task has started to run. */
     CREATED(EndState.NOT_END),
-
+    
     /** Job is begin schedule but some task not deploy complete. */
     SCHEDULED(EndState.NOT_END),
-
+    
     /** Some tasks are scheduled or running, some may be pending, some may be finished. */
     RUNNING(EndState.NOT_END),
-
+    
     /** The job has failed and is currently waiting for the cleanup to complete. */
     FAILING(EndState.NOT_END),
-
+    
     /** The job has failed with a non-recoverable task failure. */
     FAILED(EndState.GLOBALLY),
-
+    
     /** Job is being cancelled. */
     CANCELLING(EndState.NOT_END),
-
+    
     /** Job has been cancelled. */
     CANCELED(EndState.GLOBALLY),
-
+    
     /** All of the job's tasks have successfully finished. */
     FINISHED(EndState.GLOBALLY),
-
+    
     /** The job is currently undergoing a reset and total restart. */
     RESTARTING(EndState.NOT_END),
-
+    
     /**
      * The job has been suspended which means that it has been stopped but not been removed from a
      * potential HA job store.
      */
     SUSPENDED(EndState.LOCALLY),
-
+    
     /** The job is currently reconciling and waits for task execution report to recover state. */
     RECONCILING(EndState.NOT_END);
-
+    
     // --------------------------------------------------------------------------------------------
-
+    
     private enum EndState {
         NOT_END,
         LOCALLY,
         GLOBALLY
     }
-
+    
     private final EndState endState;
-
+    
     JobStatus(EndState endState) {
         this.endState = endState;
     }
-
+    
     /**
      * Checks whether this state is <i>globally terminal</i>. A globally terminal job is complete
      * and cannot fail any more and will not be restarted or recovered by another standby master
@@ -89,7 +88,7 @@ public enum JobStatus {
     public boolean isGloballyEndState() {
         return endState == EndState.GLOBALLY;
     }
-
+    
     /**
      * Checks whether this state is <i>locally terminal</i>. Locally terminal refers to the state of
      * a job's execution graph within an executing JobManager. If the execution graph is locally

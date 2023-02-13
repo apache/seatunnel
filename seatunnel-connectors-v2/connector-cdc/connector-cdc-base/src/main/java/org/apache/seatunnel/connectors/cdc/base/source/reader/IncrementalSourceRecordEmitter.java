@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.cdc.base.source.reader;
 
 import org.apache.seatunnel.api.source.Collector;
@@ -46,34 +45,33 @@ import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.i
  */
 @Slf4j
 public class IncrementalSourceRecordEmitter<T>
-        implements RecordEmitter<SourceRecords, T, SourceSplitStateBase> {
-
+        implements
+            RecordEmitter<SourceRecords, T, SourceSplitStateBase> {
+    
     protected final DebeziumDeserializationSchema<T> debeziumDeserializationSchema;
     protected final OutputCollector<T> outputCollector;
-
+    
     protected final OffsetFactory offsetFactory;
-
+    
     public IncrementalSourceRecordEmitter(
-            DebeziumDeserializationSchema<T> debeziumDeserializationSchema,
-            OffsetFactory offsetFactory) {
+                                          DebeziumDeserializationSchema<T> debeziumDeserializationSchema,
+                                          OffsetFactory offsetFactory) {
         this.debeziumDeserializationSchema = debeziumDeserializationSchema;
         this.outputCollector = new OutputCollector<>();
         this.offsetFactory = offsetFactory;
     }
-
+    
     @Override
     public void emitRecord(
-            SourceRecords sourceRecords, Collector<T> collector, SourceSplitStateBase splitState)
-            throws Exception {
+                           SourceRecords sourceRecords, Collector<T> collector, SourceSplitStateBase splitState) throws Exception {
         final Iterator<SourceRecord> elementIterator = sourceRecords.iterator();
         while (elementIterator.hasNext()) {
             processElement(elementIterator.next(), collector, splitState);
         }
     }
-
+    
     protected void processElement(
-            SourceRecord element, Collector<T> output, SourceSplitStateBase splitState)
-            throws Exception {
+                                  SourceRecord element, Collector<T> output, SourceSplitStateBase splitState) throws Exception {
         if (isWatermarkEvent(element)) {
             Offset watermark = getWatermark(element);
             if (isHighWatermarkEvent(element) && splitState.isSnapshotSplitState()) {
@@ -92,15 +90,15 @@ public class IncrementalSourceRecordEmitter<T>
             log.info("Meet unknown element {}, just skip.", element);
         }
     }
-
+    
     private Offset getWatermark(SourceRecord watermarkEvent) {
         return getOffsetPosition(watermarkEvent.sourceOffset());
     }
-
+    
     public Offset getOffsetPosition(SourceRecord dataRecord) {
         return getOffsetPosition(dataRecord.sourceOffset());
     }
-
+    
     public Offset getOffsetPosition(Map<String, ?> offset) {
         Map<String, String> offsetStrMap = new HashMap<>();
         for (Map.Entry<String, ?> entry : offset.entrySet()) {
@@ -109,20 +107,21 @@ public class IncrementalSourceRecordEmitter<T>
         }
         return offsetFactory.specific(offsetStrMap);
     }
-
+    
     protected void emitElement(SourceRecord element, Collector<T> output) throws Exception {
         outputCollector.output = output;
         debeziumDeserializationSchema.deserialize(element, outputCollector);
     }
-
+    
     private static class OutputCollector<T> implements Collector<T> {
+        
         private Collector<T> output;
-
+        
         @Override
         public void collect(T record) {
             output.collect(record);
         }
-
+        
         @Override
         public Object getCheckpointLock() {
             return null;

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.scan;
 
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
@@ -40,17 +39,17 @@ import java.util.Map;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.createMySqlConnection;
 
 public class MySqlSnapshotFetchTask implements FetchTask<SourceSplitBase> {
-
+    
     private final SnapshotSplit split;
-
+    
     private volatile boolean taskRunning = false;
-
+    
     private MySqlSnapshotSplitReadTask snapshotSplitReadTask;
-
+    
     public MySqlSnapshotFetchTask(SnapshotSplit split) {
         this.split = split;
     }
-
+    
     @Override
     public void execute(FetchTask.Context context) throws Exception {
         MySqlSourceFetchTaskContext sourceFetchContext = (MySqlSourceFetchTaskContext) context;
@@ -69,10 +68,10 @@ public class MySqlSnapshotFetchTask implements FetchTask<SourceSplitBase> {
         SnapshotResult snapshotResult =
                 snapshotSplitReadTask.execute(
                         changeEventSourceContext, sourceFetchContext.getOffsetContext());
-
+        
         final IncrementalSplit backfillBinlogSplit =
                 createBackfillBinlogSplit(changeEventSourceContext);
-
+        
         // optimization that skip the binlog read when the low watermark equals high
         // watermark
         final boolean binlogBackfillRequired =
@@ -98,9 +97,9 @@ public class MySqlSnapshotFetchTask implements FetchTask<SourceSplitBase> {
                     String.format("Read snapshot for mysql split %s fail", split));
         }
     }
-
+    
     private IncrementalSplit createBackfillBinlogSplit(
-            SnapshotSplitChangeEventSourceContext sourceContext) {
+                                                       SnapshotSplitChangeEventSourceContext sourceContext) {
         return new IncrementalSplit(
                 split.splitId(),
                 Collections.singletonList(split.getTableId()),
@@ -108,26 +107,24 @@ public class MySqlSnapshotFetchTask implements FetchTask<SourceSplitBase> {
                 sourceContext.getHighWatermark(),
                 new ArrayList<>());
     }
-
+    
     private void dispatchBinlogEndEvent(
-            IncrementalSplit backFillBinlogSplit,
-            Map<String, ?> sourcePartition,
-            JdbcSourceEventDispatcher eventDispatcher)
-            throws InterruptedException {
+                                        IncrementalSplit backFillBinlogSplit,
+                                        Map<String, ?> sourcePartition,
+                                        JdbcSourceEventDispatcher eventDispatcher) throws InterruptedException {
         eventDispatcher.dispatchWatermarkEvent(
                 sourcePartition,
                 backFillBinlogSplit,
                 backFillBinlogSplit.getStopOffset(),
                 WatermarkKind.END);
     }
-
+    
     private MySqlBinlogFetchTask.MySqlBinlogSplitReadTask createBackfillBinlogReadTask(
-            IncrementalSplit backfillBinlogSplit, MySqlSourceFetchTaskContext context) {
+                                                                                       IncrementalSplit backfillBinlogSplit, MySqlSourceFetchTaskContext context) {
         final MySqlOffsetContext.Loader loader =
                 new MySqlOffsetContext.Loader(context.getSourceConfig().getDbzConnectorConfig());
         final MySqlOffsetContext mySqlOffsetContext =
-                (MySqlOffsetContext)
-                        loader.load(backfillBinlogSplit.getStartupOffset().getOffset());
+                (MySqlOffsetContext) loader.load(backfillBinlogSplit.getStartupOffset().getOffset());
         // we should only capture events for the current table,
         // otherwise, we may can't find corresponding schema
         Configuration dezConf =
@@ -149,28 +146,29 @@ public class MySqlSnapshotFetchTask implements FetchTask<SourceSplitBase> {
                 context.getStreamingChangeEventSourceMetrics(),
                 backfillBinlogSplit);
     }
-
+    
     @Override
     public boolean isRunning() {
         return taskRunning;
     }
-
+    
     @Override
     public SourceSplitBase getSplit() {
         return split;
     }
-
+    
     /**
      * The {@link ChangeEventSource.ChangeEventSourceContext} implementation for bounded binlog task
      * of a snapshot split task.
      */
     public class SnapshotBinlogSplitChangeEventSourceContext
-            implements ChangeEventSource.ChangeEventSourceContext {
-
+            implements
+                ChangeEventSource.ChangeEventSourceContext {
+        
         public void finished() {
             taskRunning = false;
         }
-
+        
         @Override
         public boolean isRunning() {
             return taskRunning;

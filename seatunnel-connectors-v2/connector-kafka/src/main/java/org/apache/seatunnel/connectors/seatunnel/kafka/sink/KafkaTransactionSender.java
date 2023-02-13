@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
@@ -40,29 +39,29 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.sink.KafkaSinkWrit
  */
 @Slf4j
 public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
-
+    
     private KafkaInternalProducer<K, V> kafkaProducer;
     private String transactionId;
     private final String transactionPrefix;
     private final Properties kafkaProperties;
-
+    
     public KafkaTransactionSender(String transactionPrefix, Properties kafkaProperties) {
         this.transactionPrefix = transactionPrefix;
         this.kafkaProperties = kafkaProperties;
     }
-
+    
     @Override
     public void send(ProducerRecord<K, V> producerRecord) {
         kafkaProducer.send(producerRecord);
     }
-
+    
     @Override
     public void beginTransaction(String transactionId) {
         this.transactionId = transactionId;
         this.kafkaProducer = getTransactionProducer(kafkaProperties, transactionId);
         kafkaProducer.beginTransaction();
     }
-
+    
     @Override
     public Optional<KafkaCommitInfo> prepareCommit() {
         KafkaCommitInfo kafkaCommitInfo =
@@ -73,15 +72,15 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
                         this.kafkaProducer.getEpoch());
         return Optional.of(kafkaCommitInfo);
     }
-
+    
     @Override
     public void abortTransaction() {
         kafkaProducer.abortTransaction();
     }
-
+    
     @Override
     public void abortTransaction(long checkpointId) {
-
+        
         KafkaInternalProducer<K, V> producer;
         if (this.kafkaProducer != null) {
             producer = this.kafkaProducer;
@@ -91,8 +90,8 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
                             this.kafkaProperties,
                             generateTransactionId(this.transactionPrefix, checkpointId));
         }
-
-        for (long i = checkpointId; ; i++) {
+        
+        for (long i = checkpointId;; i++) {
             String transactionId = generateTransactionId(this.transactionPrefix, i);
             producer.setTransactionalId(transactionId);
             if (log.isDebugEnabled()) {
@@ -104,14 +103,14 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
             }
         }
     }
-
+    
     @Override
     public List<KafkaSinkState> snapshotState(long checkpointId) {
         return Lists.newArrayList(
                 new KafkaSinkState(
                         transactionId, transactionPrefix, checkpointId, kafkaProperties));
     }
-
+    
     @Override
     public void close() {
         if (kafkaProducer != null) {
@@ -119,9 +118,9 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
             kafkaProducer.close();
         }
     }
-
+    
     private KafkaInternalProducer<K, V> getTransactionProducer(
-            Properties properties, String transactionId) {
+                                                               Properties properties, String transactionId) {
         Properties transactionProperties = (Properties) properties.clone();
         transactionProperties.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, transactionId);
         KafkaInternalProducer<K, V> transactionProducer =

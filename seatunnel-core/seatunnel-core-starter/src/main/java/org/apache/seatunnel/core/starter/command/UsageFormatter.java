@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.core.starter.command;
 
 import com.beust.jcommander.JCommander;
@@ -26,38 +25,39 @@ import com.beust.jcommander.WrappedParameter;
 import java.util.List;
 
 public class UsageFormatter extends UnixStyleUsageFormatter {
+    
     private static final int INDENT = 3;
-
+    
     public UsageFormatter(JCommander commander) {
         super(commander);
     }
-
+    
     @Override
     public void appendAllParametersDetails(
-            StringBuilder out,
-            int indentCount,
-            String indent,
-            List<ParameterDescription> sortedParameters) {
+                                           StringBuilder out,
+                                           int indentCount,
+                                           String indent,
+                                           List<ParameterDescription> sortedParameters) {
         if (sortedParameters.size() > 0) {
             out.append(indent).append("  Options:\n");
         }
-
+        
         // Calculate prefix indent
         int prefixIndent = 0;
-
+        
         for (ParameterDescription pd : sortedParameters) {
             WrappedParameter parameter = pd.getParameter();
             String prefix = (parameter.required() ? "* " : "  ") + pd.getNames();
-
+            
             if (prefix.length() > prefixIndent) {
                 prefixIndent = prefix.length();
             }
         }
-
+        
         // Append parameters
         for (ParameterDescription pd : sortedParameters) {
             WrappedParameter parameter = pd.getParameter();
-
+            
             String prefix = (parameter.required() ? "* " : "  ") + pd.getNames();
             out.append(indent)
                     .append("  ")
@@ -65,11 +65,11 @@ public class UsageFormatter extends UnixStyleUsageFormatter {
                     .append(s(prefixIndent - prefix.length()))
                     .append(" ");
             final int initialLinePrefixLength = indent.length() + prefixIndent + 3;
-
+            
             // Generate description
             String description = pd.getDescription();
             Object def = pd.getDefault();
-
+            
             if (pd.isDynamicParameter()) {
                 String syntax =
                         "(syntax: "

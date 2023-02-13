@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.tablestore.serialize;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -40,19 +39,19 @@ import java.util.Arrays;
 import java.util.List;
 
 public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
-
+    
     private final SeaTunnelRowType seaTunnelRowType;
     private final TablestoreOptions tablestoreOptions;
-
+    
     public DefaultSeaTunnelRowSerializer(
-            SeaTunnelRowType seaTunnelRowType, TablestoreOptions tablestoreOptions) {
+                                         SeaTunnelRowType seaTunnelRowType, TablestoreOptions tablestoreOptions) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.tablestoreOptions = tablestoreOptions;
     }
-
+    
     @Override
     public RowPutChange serialize(SeaTunnelRow seaTunnelRow) {
-
+        
         PrimaryKeyBuilder primaryKeyBuilder = PrimaryKeyBuilder.createPrimaryKeyBuilder();
         List<Column> columns =
                 new ArrayList<>(
@@ -84,10 +83,10 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                 new RowPutChange(tablestoreOptions.getTable(), primaryKeyBuilder.build());
         rowPutChange.setCondition(new Condition(RowExistenceExpectation.IGNORE));
         columns.forEach(rowPutChange::addColumn);
-
+        
         return rowPutChange;
     }
-
+    
     private ColumnType convertColumnType(SeaTunnelDataType<?> seaTunnelDataType) {
         switch (seaTunnelDataType.getSqlType()) {
             case INT:
@@ -114,7 +113,7 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                         "Unsupported columnType: " + seaTunnelDataType);
         }
     }
-
+    
     private PrimaryKeyType convertPrimaryKeyType(SeaTunnelDataType<?> seaTunnelDataType) {
         switch (seaTunnelDataType.getSqlType()) {
             case INT:
@@ -139,7 +138,7 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                         "Unsupported primaryKeyType: " + seaTunnelDataType);
         }
     }
-
+    
     private Column convertColumn(String columnName, Object value, ColumnType columnType) {
         if (value == null) {
             return null;
@@ -161,9 +160,9 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                         "Unsupported columnType: " + columnType);
         }
     }
-
+    
     private PrimaryKeyColumn convertPrimaryKeyColumn(
-            String columnName, Object value, PrimaryKeyType primaryKeyType) {
+                                                     String columnName, Object value, PrimaryKeyType primaryKeyType) {
         if (value == null) {
             return null;
         }

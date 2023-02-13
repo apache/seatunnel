@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.task.group.queue;
 
 import org.apache.seatunnel.api.table.type.Record;
@@ -28,13 +27,13 @@ import com.lmax.disruptor.dsl.Disruptor;
 import java.io.IOException;
 
 public class IntermediateDisruptor extends AbstractIntermediateQueue<Disruptor<RecordEvent>> {
-
+    
     public IntermediateDisruptor(Disruptor<RecordEvent> queue) {
         super(queue);
     }
-
+    
     private volatile boolean isExecuted;
-
+    
     @Override
     public void received(Record<?> record) {
         getIntermediateQueue().getRingBuffer();
@@ -43,7 +42,7 @@ public class IntermediateDisruptor extends AbstractIntermediateQueue<Disruptor<R
                 getIntermediateQueue().getRingBuffer(),
                 getIntermediateQueueFlowLifeCycle());
     }
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void collect(Collector<Record<?>> collector) throws Exception {
@@ -60,7 +59,7 @@ public class IntermediateDisruptor extends AbstractIntermediateQueue<Disruptor<R
             Thread.sleep(100);
         }
     }
-
+    
     @Override
     public void close() throws IOException {
         getIntermediateQueue().shutdown();

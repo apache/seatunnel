@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.cdc.base.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -62,25 +61,26 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Supplier;
 
 public abstract class IncrementalSource<T, C extends SourceConfig>
-        implements SeaTunnelSource<T, SourceSplitBase, PendingSplitsState> {
-
+        implements
+            SeaTunnelSource<T, SourceSplitBase, PendingSplitsState> {
+    
     protected ReadonlyConfig readonlyConfig;
     protected SourceConfig.Factory<C> configFactory;
     protected OffsetFactory offsetFactory;
-
+    
     protected DataSourceDialect<C> dataSourceDialect;
     protected StartupConfig startupConfig;
-
+    
     protected int incrementalParallelism;
     protected StopConfig stopConfig;
-
+    
     protected StopMode stopMode;
     protected DebeziumDeserializationSchema<T> deserializationSchema;
-
+    
     @Override
     public final void prepare(Config pluginConfig) throws PrepareFailException {
         this.readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
-
+        
         this.startupConfig = getStartupConfig(readonlyConfig);
         this.stopConfig = getStopConfig(readonlyConfig);
         this.stopMode = stopConfig.getStopMode();
@@ -90,7 +90,7 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
         this.deserializationSchema = createDebeziumDeserializationSchema(readonlyConfig);
         this.offsetFactory = createOffsetFactory(readonlyConfig);
     }
-
+    
     protected StartupConfig getStartupConfig(ReadonlyConfig config) {
         return new StartupConfig(
                 config.get(SourceOptions.STARTUP_MODE),
@@ -98,7 +98,7 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                 config.get(SourceOptions.STARTUP_SPECIFIC_OFFSET_POS),
                 config.get(SourceOptions.STARTUP_TIMESTAMP));
     }
-
+    
     private StopConfig getStopConfig(ReadonlyConfig config) {
         return new StopConfig(
                 config.get(SourceOptions.STOP_MODE),
@@ -106,39 +106,37 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                 config.get(SourceOptions.STOP_SPECIFIC_OFFSET_POS),
                 config.get(SourceOptions.STOP_TIMESTAMP));
     }
-
+    
     public abstract SourceConfig.Factory<C> createSourceConfigFactory(ReadonlyConfig config);
-
+    
     public abstract DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(
-            ReadonlyConfig config);
-
+                                                                                         ReadonlyConfig config);
+    
     public abstract DataSourceDialect<C> createDataSourceDialect(ReadonlyConfig config);
-
+    
     public abstract OffsetFactory createOffsetFactory(ReadonlyConfig config);
-
+    
     @Override
     public Boundedness getBoundedness() {
         return stopMode == StopMode.NEVER ? Boundedness.UNBOUNDED : Boundedness.BOUNDED;
     }
-
+    
     @Override
     public SeaTunnelDataType<T> getProducedType() {
         return deserializationSchema.getProducedType();
     }
-
+    
     @SuppressWarnings("MagicNumber")
     @Override
-    public SourceReader<T, SourceSplitBase> createReader(SourceReader.Context readerContext)
-            throws Exception {
+    public SourceReader<T, SourceSplitBase> createReader(SourceReader.Context readerContext) throws Exception {
         // create source config for the given subtask (e.g. unique server id)
         C sourceConfig = configFactory.create(readerContext.getIndexOfSubtask());
         BlockingQueue<RecordsWithSplitIds<SourceRecords>> elementsQueue =
                 new LinkedBlockingQueue<>(1024);
-
+        
         Supplier<IncrementalSourceSplitReader<C>> splitReaderSupplier =
-                () ->
-                        new IncrementalSourceSplitReader<>(
-                                readerContext.getIndexOfSubtask(), dataSourceDialect, sourceConfig);
+                () -> new IncrementalSourceSplitReader<>(
+                        readerContext.getIndexOfSubtask(), dataSourceDialect, sourceConfig);
         return new IncrementalSourceReader<>(
                 elementsQueue,
                 splitReaderSupplier,
@@ -147,15 +145,15 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                 readerContext,
                 sourceConfig);
     }
-
+    
     protected RecordEmitter<SourceRecords, T, SourceSplitStateBase> createRecordEmitter(
-            SourceConfig sourceConfig) {
+                                                                                        SourceConfig sourceConfig) {
         return new IncrementalSourceRecordEmitter<>(deserializationSchema, offsetFactory);
     }
-
+    
     @Override
     public SourceSplitEnumerator<SourceSplitBase, PendingSplitsState> createEnumerator(
-            SourceSplitEnumerator.Context<SourceSplitBase> enumeratorContext) throws Exception {
+                                                                                       SourceSplitEnumerator.Context<SourceSplitBase> enumeratorContext) throws Exception {
         C sourceConfig = configFactory.create(0);
         final List<TableId> remainingTables =
                 dataSourceDialect.discoverDataCollections(sourceConfig);
@@ -168,7 +166,7 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                         new HashMap<>());
         if (sourceConfig.getStartupConfig().getStartupMode() == StartupMode.INITIAL) {
             try {
-
+                
                 boolean isTableIdCaseSensitive =
                         dataSourceDialect.isDataCollectionIdCaseSensitive(sourceConfig);
                 splitAssigner =
@@ -188,15 +186,14 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                     new IncrementalSplitAssigner<>(
                             assignerContext, incrementalParallelism, offsetFactory);
         }
-
+        
         return new IncrementalSourceEnumerator(enumeratorContext, splitAssigner);
     }
-
+    
     @Override
     public SourceSplitEnumerator<SourceSplitBase, PendingSplitsState> restoreEnumerator(
-            SourceSplitEnumerator.Context<SourceSplitBase> enumeratorContext,
-            PendingSplitsState checkpointState)
-            throws Exception {
+                                                                                        SourceSplitEnumerator.Context<SourceSplitBase> enumeratorContext,
+                                                                                        PendingSplitsState checkpointState) throws Exception {
         C sourceConfig = configFactory.create(0);
         final List<TableId> remainingTables =
                 dataSourceDialect.discoverDataCollections(sourceConfig);

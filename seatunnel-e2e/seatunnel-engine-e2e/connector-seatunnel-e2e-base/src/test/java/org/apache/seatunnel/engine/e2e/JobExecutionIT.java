@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.e2e;
 
 import org.apache.seatunnel.common.config.Common;
@@ -40,66 +39,66 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class JobExecutionIT {
+    
     @BeforeAll
     public static void beforeClass() throws Exception {
         SeaTunnelServerStarter.createHazelcastInstance(TestUtils.getClusterName("JobExecutionIT"));
     }
-
+    
     @Test
     public void testSayHello() {
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
         clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
-
+        
         String msg = "Hello world";
         String s = engineClient.printMessageToMaster(msg);
         Assertions.assertEquals(msg, s);
     }
-
+    
     @Test
     public void testExecuteJob() throws Exception {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("batch_fakesource_to_file.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("fake_to_file");
-
+        
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
         clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
         JobExecutionEnvironment jobExecutionEnv =
                 engineClient.createExecutionContext(filePath, jobConfig);
-
+        
         final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-
+        
         CompletableFuture<JobStatus> objectCompletableFuture =
                 CompletableFuture.supplyAsync(
                         () -> {
                             return clientJobProxy.waitForJobComplete();
                         });
-
+        
         Awaitility.await()
                 .atMost(20000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
-                        () ->
-                                Assertions.assertTrue(
-                                        objectCompletableFuture.isDone()
-                                                && JobStatus.FINISHED.equals(
-                                                        objectCompletableFuture.get())));
+                        () -> Assertions.assertTrue(
+                                objectCompletableFuture.isDone()
+                                        && JobStatus.FINISHED.equals(
+                                                objectCompletableFuture.get())));
     }
-
+    
     @Test
     public void cancelJobTest() throws Exception {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("streaming_fakesource_to_file_complex.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("fake_to_file");
-
+        
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
         clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
         JobExecutionEnvironment jobExecutionEnv =
                 engineClient.createExecutionContext(filePath, jobConfig);
-
+        
         final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
         JobStatus jobStatus1 = clientJobProxy.getJobStatus();
         Assertions.assertFalse(jobStatus1.isEndState());
@@ -111,14 +110,13 @@ public class JobExecutionIT {
                         });
         Thread.sleep(1000);
         clientJobProxy.cancelJob();
-
+        
         Awaitility.await()
                 .atMost(20000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
-                        () ->
-                                Assertions.assertTrue(
-                                        objectCompletableFuture.isDone()
-                                                && JobStatus.CANCELED.equals(
-                                                        objectCompletableFuture.get())));
+                        () -> Assertions.assertTrue(
+                                objectCompletableFuture.isDone()
+                                        && JobStatus.CANCELED.equals(
+                                                objectCompletableFuture.get())));
     }
 }

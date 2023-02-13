@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.reader.fetch.scan;
 
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
@@ -42,17 +41,17 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.uti
 
 @Slf4j
 public class SqlServerSnapshotFetchTask implements FetchTask<SourceSplitBase> {
-
+    
     private final SnapshotSplit split;
-
+    
     private volatile boolean taskRunning = false;
-
+    
     private SqlServerSnapshotSplitReadTask snapshotSplitReadTask;
-
+    
     public SqlServerSnapshotFetchTask(SnapshotSplit split) {
         this.split = split;
     }
-
+    
     @Override
     public void execute(FetchTask.Context context) throws Exception {
         SqlServerSourceFetchTaskContext sourceFetchContext =
@@ -69,11 +68,11 @@ public class SqlServerSnapshotFetchTask implements FetchTask<SourceSplitBase> {
                         split);
         SnapshotSplitChangeEventSourceContext changeEventSourceContext =
                 new SnapshotSplitChangeEventSourceContext();
-
+        
         SnapshotResult snapshotResult =
                 snapshotSplitReadTask.execute(
                         changeEventSourceContext, sourceFetchContext.getOffsetContext());
-
+        
         final IncrementalSplit backfillBinlogSplit =
                 createBackFillLsnSplit(changeEventSourceContext);
         // optimization that skip the binlog read when the low watermark equals high
@@ -90,10 +89,9 @@ public class SqlServerSnapshotFetchTask implements FetchTask<SourceSplitBase> {
         }
         // execute stream read task
         if (snapshotResult.isCompletedOrSkipped()) {
-            final SqlServerTransactionLogFetchTask.TransactionLogSplitReadTask
-                    backfillBinlogReadTask =
-                            createBackFillLsnSplitReadTask(backfillBinlogSplit, sourceFetchContext);
-
+            final SqlServerTransactionLogFetchTask.TransactionLogSplitReadTask backfillBinlogReadTask =
+                    createBackFillLsnSplitReadTask(backfillBinlogSplit, sourceFetchContext);
+            
             SqlServerOffsetContext sqlServerOffsetContext =
                     new SqlServerOffsetContext.Loader(sourceFetchContext.getDbzConnectorConfig())
                             .load(backfillBinlogSplit.getStartupOffset().getOffset());
@@ -110,9 +108,9 @@ public class SqlServerSnapshotFetchTask implements FetchTask<SourceSplitBase> {
                     String.format("Read snapshot for SqlServer split %s fail", split));
         }
     }
-
+    
     private IncrementalSplit createBackFillLsnSplit(
-            SnapshotSplitChangeEventSourceContext sourceContext) {
+                                                    SnapshotSplitChangeEventSourceContext sourceContext) {
         return new IncrementalSplit(
                 split.splitId(),
                 Collections.singletonList(split.getTableId()),
@@ -120,10 +118,9 @@ public class SqlServerSnapshotFetchTask implements FetchTask<SourceSplitBase> {
                 sourceContext.getHighWatermark(),
                 new ArrayList<>());
     }
-
-    private SqlServerTransactionLogFetchTask.TransactionLogSplitReadTask
-            createBackFillLsnSplitReadTask(
-                    IncrementalSplit backfillBinlogSplit, SqlServerSourceFetchTaskContext context) {
+    
+    private SqlServerTransactionLogFetchTask.TransactionLogSplitReadTask createBackFillLsnSplitReadTask(
+                                                                                                        IncrementalSplit backfillBinlogSplit, SqlServerSourceFetchTaskContext context) {
         // we should only capture events for the current table,
         // otherwise, we may can't find corresponding schema
         Configuration dezConf =
@@ -148,40 +145,40 @@ public class SqlServerSnapshotFetchTask implements FetchTask<SourceSplitBase> {
                 context.getDatabaseSchema(),
                 backfillBinlogSplit);
     }
-
+    
     private void dispatchLsnEndEvent(
-            IncrementalSplit backFillBinlogSplit,
-            Map<String, ?> sourcePartition,
-            JdbcSourceEventDispatcher eventDispatcher)
-            throws InterruptedException {
+                                     IncrementalSplit backFillBinlogSplit,
+                                     Map<String, ?> sourcePartition,
+                                     JdbcSourceEventDispatcher eventDispatcher) throws InterruptedException {
         eventDispatcher.dispatchWatermarkEvent(
                 sourcePartition,
                 backFillBinlogSplit,
                 backFillBinlogSplit.getStopOffset(),
                 WatermarkKind.END);
     }
-
+    
     @Override
     public boolean isRunning() {
         return taskRunning;
     }
-
+    
     @Override
     public SourceSplitBase getSplit() {
         return split;
     }
-
+    
     /**
      * The {@link ChangeEventSource.ChangeEventSourceContext} implementation for bounded stream task
      * of a snapshot split task.
      */
     public class SnapshotBinlogSplitChangeEventSourceContext
-            implements ChangeEventSource.ChangeEventSourceContext {
-
+            implements
+                ChangeEventSource.ChangeEventSourceContext {
+        
         public void finished() {
             taskRunning = false;
         }
-
+        
         @Override
         public boolean isRunning() {
             return taskRunning;

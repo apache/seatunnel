@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -42,22 +41,22 @@ import java.util.Map;
 
 @AutoService(SeaTunnelSource.class)
 public class ElasticsearchSource
-        implements SeaTunnelSource<
-                        SeaTunnelRow, ElasticsearchSourceSplit, ElasticsearchSourceState>,
-                SupportParallelism,
-                SupportColumnProjection {
-
+        implements
+            SeaTunnelSource<SeaTunnelRow, ElasticsearchSourceSplit, ElasticsearchSourceState>,
+            SupportParallelism,
+            SupportColumnProjection {
+    
     private Config pluginConfig;
-
+    
     private SeaTunnelRowType rowTypeInfo;
-
+    
     private List<String> source;
-
+    
     @Override
     public String getPluginName() {
         return "Elasticsearch";
     }
-
+    
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         this.pluginConfig = pluginConfig;
@@ -82,35 +81,33 @@ public class ElasticsearchSource
             rowTypeInfo = new SeaTunnelRowType(source.toArray(new String[0]), fieldTypes);
         }
     }
-
+    
     @Override
     public Boundedness getBoundedness() {
         return Boundedness.BOUNDED;
     }
-
+    
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
         return this.rowTypeInfo;
     }
-
+    
     @Override
     public SourceReader<SeaTunnelRow, ElasticsearchSourceSplit> createReader(
-            SourceReader.Context readerContext) {
+                                                                             SourceReader.Context readerContext) {
         return new ElasticsearchSourceReader(readerContext, pluginConfig, rowTypeInfo);
     }
-
+    
     @Override
-    public SourceSplitEnumerator<ElasticsearchSourceSplit, ElasticsearchSourceState>
-            createEnumerator(
-                    SourceSplitEnumerator.Context<ElasticsearchSourceSplit> enumeratorContext) {
+    public SourceSplitEnumerator<ElasticsearchSourceSplit, ElasticsearchSourceState> createEnumerator(
+                                                                                                      SourceSplitEnumerator.Context<ElasticsearchSourceSplit> enumeratorContext) {
         return new ElasticsearchSourceSplitEnumerator(enumeratorContext, pluginConfig, source);
     }
-
+    
     @Override
-    public SourceSplitEnumerator<ElasticsearchSourceSplit, ElasticsearchSourceState>
-            restoreEnumerator(
-                    SourceSplitEnumerator.Context<ElasticsearchSourceSplit> enumeratorContext,
-                    ElasticsearchSourceState sourceState) {
+    public SourceSplitEnumerator<ElasticsearchSourceSplit, ElasticsearchSourceState> restoreEnumerator(
+                                                                                                       SourceSplitEnumerator.Context<ElasticsearchSourceSplit> enumeratorContext,
+                                                                                                       ElasticsearchSourceState sourceState) {
         return new ElasticsearchSourceSplitEnumerator(
                 enumeratorContext, sourceState, pluginConfig, source);
     }

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.translation.serialization;
 
 import org.apache.seatunnel.api.table.type.MapType;
@@ -35,12 +34,13 @@ import java.util.Map;
  * @param <T> engine row
  */
 public abstract class RowConverter<T> implements Serializable {
+    
     protected final SeaTunnelDataType<?> dataType;
-
+    
     public RowConverter(SeaTunnelDataType<?> dataType) {
         this.dataType = dataType;
     }
-
+    
     public void validate(SeaTunnelRow seaTunnelRow) throws IOException {
         if (!(dataType instanceof SeaTunnelRowType)) {
             throw new UnsupportedOperationException(
@@ -68,7 +68,7 @@ public abstract class RowConverter<T> implements Serializable {
             throw new UnsupportedOperationException(String.join(",", errors));
         }
     }
-
+    
     protected boolean validate(Object field, SeaTunnelDataType<?> dataType) {
         if (field == null || dataType.getSqlType() == SqlType.NULL) {
             return true;
@@ -119,14 +119,14 @@ public abstract class RowConverter<T> implements Serializable {
                 return false;
         }
     }
-
+    
     /**
      * Convert {@link SeaTunnelRow} to engine's row.
      *
      * @throws IOException Thrown, if the conversion fails.
      */
     public abstract T convert(SeaTunnelRow seaTunnelRow) throws IOException;
-
+    
     /**
      * Convert engine's row to {@link SeaTunnelRow}.
      *

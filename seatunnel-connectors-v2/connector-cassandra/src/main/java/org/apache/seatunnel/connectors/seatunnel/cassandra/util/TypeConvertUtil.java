@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.cassandra.util;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
@@ -57,6 +56,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 public class TypeConvertUtil {
+    
     public static SeaTunnelDataType<?> convert(DataType type) {
         switch (type.getProtocolCode()) {
             case ProtocolConstants.DataType.VARCHAR:
@@ -104,7 +104,7 @@ public class TypeConvertUtil {
                         "Unsupported this data type: " + type);
         }
     }
-
+    
     private static ArrayType<?, ?> convertToArrayType(SeaTunnelDataType<?> dataType) {
         if (dataType.equals(BasicType.STRING_TYPE)) {
             return ArrayType.STRING_ARRAY_TYPE;
@@ -128,7 +128,7 @@ public class TypeConvertUtil {
                     "Unsupported this data type: " + dataType);
         }
     }
-
+    
     public static SeaTunnelRow buildSeaTunnelRow(Row row) {
         DataType subType;
         Class<?> typeClass;
@@ -289,9 +289,9 @@ public class TypeConvertUtil {
         }
         return new SeaTunnelRow(fields);
     }
-
+    
     public static BoundStatement reconvertAndInject(
-            BoundStatement statement, int index, DataType type, Object fileValue) {
+                                                    BoundStatement statement, int index, DataType type, Object fileValue) {
         switch (type.getProtocolCode()) {
             case ProtocolConstants.DataType.VARCHAR:
             case ProtocolConstants.DataType.ASCII:

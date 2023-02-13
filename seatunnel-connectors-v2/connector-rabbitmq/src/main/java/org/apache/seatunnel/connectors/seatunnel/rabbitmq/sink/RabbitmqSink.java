@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -47,19 +46,20 @@ import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.Rabbitmq
 
 @AutoService(SeaTunnelSink.class)
 public class RabbitmqSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
+    
     private SeaTunnelRowType seaTunnelRowType;
     private Config pluginConfig;
     private RabbitmqConfig rabbitMQConfig;
-
+    
     @Override
     public String getPluginName() {
         return "RabbitMQ";
     }
-
+    
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         this.pluginConfig = pluginConfig;
-
+        
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
@@ -78,20 +78,19 @@ public class RabbitmqSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
         }
         rabbitMQConfig = new RabbitmqConfig(pluginConfig);
     }
-
+    
     @Override
     public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         this.seaTunnelRowType = seaTunnelRowType;
     }
-
+    
     @Override
     public SeaTunnelDataType getConsumedType() {
         return seaTunnelRowType;
     }
-
+    
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
-            throws IOException {
+    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) throws IOException {
         return new RabbitmqSinkWriter(rabbitMQConfig, seaTunnelRowType);
     }
 }

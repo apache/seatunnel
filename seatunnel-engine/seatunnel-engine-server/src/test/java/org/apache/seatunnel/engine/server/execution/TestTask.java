@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.execution;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
@@ -26,20 +25,21 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /** For test use, only print logs */
 public class TestTask implements Task {
-
+    
     AtomicBoolean stop;
     long sleep;
     private final ILogger logger;
     boolean isThreadsShare;
-
+    
     public TestTask(AtomicBoolean stop, ILogger logger, long sleep, boolean isThreadsShare) {
         this.stop = stop;
         this.logger = logger;
         this.sleep = sleep;
         this.isThreadsShare = isThreadsShare;
     }
-
-    @NonNull @Override
+    
+    @NonNull
+    @Override
     public ProgressState call() {
         ProgressState progressState;
         if (!stop.get()) {
@@ -55,12 +55,13 @@ public class TestTask implements Task {
         }
         return progressState;
     }
-
-    @NonNull @Override
+    
+    @NonNull
+    @Override
     public Long getTaskID() {
         return (long) this.hashCode();
     }
-
+    
     @Override
     public boolean isThreadsShare() {
         return isThreadsShare;

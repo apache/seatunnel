@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.master;
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
@@ -84,71 +83,72 @@ import java.util.concurrent.ExecutorService;
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
 
 public class JobMaster {
+    
     private static final ILogger LOGGER = Logger.getLogger(JobMaster.class);
-
+    
     private PhysicalPlan physicalPlan;
     private final Data jobImmutableInformationData;
-
+    
     private final NodeEngine nodeEngine;
-
+    
     private final ExecutorService executorService;
-
+    
     private final FlakeIdGenerator flakeIdGenerator;
-
+    
     private final ResourceManager resourceManager;
-
+    
     private final JobHistoryService jobHistoryService;
-
+    
     private CheckpointManager checkpointManager;
-
+    
     private CompletableFuture<JobResult> jobMasterCompleteFuture;
-
+    
     private ClassLoader classLoader;
-
+    
     private JobImmutableInformation jobImmutableInformation;
-
+    
     private JobScheduler jobScheduler;
-
+    
     private LogicalDag logicalDag;
-
+    
     private JobDAGInfo jobDAGInfo;
-
+    
     /**
      * we need store slot used by task in Hazelcast IMap and release or reuse it when a new master
      * node active.
      */
     private final IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap;
-
+    
     private final IMap<Object, Object> runningJobStateIMap;
-
+    
     private final IMap<Object, Object> runningJobStateTimestampsIMap;
-
+    
     private CompletableFuture<Void> scheduleFuture;
-
+    
     private volatile boolean restore = false;
-
+    
     // TODO add config to change value
     private boolean isPhysicalDAGIInfo = true;
-
+    
     private final EngineConfig engineConfig;
-
+    
     private boolean isRunning = true;
-
+    
     private Map<Integer, CheckpointPlan> checkpointPlanMap;
-
+    
     private final IMap<Long, JobInfo> runningJobInfoIMap;
-
+    
     public JobMaster(
-            @NonNull Data jobImmutableInformationData,
-            @NonNull NodeEngine nodeEngine,
-            @NonNull ExecutorService executorService,
-            @NonNull ResourceManager resourceManager,
-            @NonNull JobHistoryService jobHistoryService,
-            @NonNull IMap runningJobStateIMap,
-            @NonNull IMap runningJobStateTimestampsIMap,
-            @NonNull IMap ownedSlotProfilesIMap,
-            @NonNull IMap<Long, JobInfo> runningJobInfoIMap,
-            EngineConfig engineConfig) {
+                     @NonNull Data jobImmutableInformationData,
+                     @NonNull NodeEngine nodeEngine,
+                     @NonNull ExecutorService executorService,
+                     @NonNull ResourceManager resourceManager,
+                     @NonNull JobHistoryService jobHistoryService,
+                     @NonNull IMap runningJobStateIMap,
+                     @NonNull IMap runningJobStateTimestampsIMap,
+                     @NonNull IMap ownedSlotProfilesIMap,
+                     @NonNull IMap<Long, JobInfo> runningJobInfoIMap,
+                     EngineConfig engineConfig) {
         this.jobImmutableInformationData = jobImmutableInformationData;
         this.nodeEngine = nodeEngine;
         this.executorService = executorService;
@@ -164,7 +164,7 @@ public class JobMaster {
         this.runningJobInfoIMap = runningJobInfoIMap;
         this.engineConfig = engineConfig;
     }
-
+    
     public void init(long initializationTimestamp, boolean restart) throws Exception {
         jobImmutableInformation =
                 nodeEngine.getSerializationService().toObject(jobImmutableInformationData);
@@ -179,7 +179,7 @@ public class JobMaster {
                         jobImmutableInformation.getJobConfig().getName(),
                         jobImmutableInformation.getJobId(),
                         jobImmutableInformation.getPluginJarsUrls()));
-
+        
         classLoader =
                 new SeaTunnelChildFirstClassLoader(jobImmutableInformation.getPluginJarsUrls());
         logicalDag =
@@ -187,7 +187,7 @@ public class JobMaster {
                         nodeEngine.getSerializationService(),
                         classLoader,
                         jobImmutableInformation.getLogicalDag());
-
+        
         final Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> planTuple =
                 PlanUtils.fromLogicalDAG(
                         logicalDag,
@@ -216,7 +216,7 @@ public class JobMaster {
             throw initException;
         }
     }
-
+    
     private void initCheckPointManager() throws CheckpointStorageException {
         CheckpointConfig checkpointConfig =
                 mergeEnvAndEngineConfig(
@@ -231,11 +231,11 @@ public class JobMaster {
                         checkpointPlanMap,
                         checkpointConfig);
     }
-
+    
     // TODO replace it after ReadableConfig Support parse yaml format, then use only one config to
     // read engine and env config.
     private CheckpointConfig mergeEnvAndEngineConfig(
-            CheckpointConfig engine, Map<String, Object> env) {
+                                                     CheckpointConfig engine, Map<String, Object> env) {
         CheckpointConfig checkpointConfig = new CheckpointConfig();
         if (env.containsKey(EnvCommonOptions.CHECKPOINT_INTERVAL.key())) {
             checkpointConfig.setCheckpointInterval(
@@ -251,7 +251,7 @@ public class JobMaster {
         checkpointConfig.setStorage(storageConfig);
         return checkpointConfig;
     }
-
+    
     public void initStateFuture() {
         jobMasterCompleteFuture = new CompletableFuture<>();
         PassiveCompletableFuture<JobResult> jobStatusFuture = physicalPlan.initStateFuture();
@@ -269,7 +269,7 @@ public class JobMaster {
                             jobMasterCompleteFuture.complete(jobResult);
                         }));
     }
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     public void run() {
         try {
@@ -298,7 +298,7 @@ public class JobMaster {
             jobMasterCompleteFuture.join();
         }
     }
-
+    
     public void handleCheckpointError(long pipelineId, Throwable e) {
         this.physicalPlan
                 .getPipelineList()
@@ -314,11 +314,11 @@ public class JobMaster {
                             }
                         });
     }
-
+    
     private void removeJobIMap() {
         Long jobId = getJobImmutableInformation().getJobId();
         runningJobStateTimestampsIMap.remove(jobId);
-
+        
         getPhysicalPlan()
                 .getPipelineList()
                 .forEach(
@@ -333,7 +333,7 @@ public class JobMaster {
                                                 runningJobStateTimestampsIMap.remove(
                                                         coordinator.getTaskGroupLocation());
                                             });
-
+                                            
                             pipeline.getPhysicalVertexList()
                                     .forEach(
                                             task -> {
@@ -343,11 +343,11 @@ public class JobMaster {
                                                         task.getTaskGroupLocation());
                                             });
                         });
-
+        
         runningJobStateIMap.remove(jobId);
         runningJobInfoIMap.remove(jobId);
     }
-
+    
     public JobDAGInfo getJobDAGInfo() {
         if (jobDAGInfo == null) {
             jobDAGInfo =
@@ -355,14 +355,14 @@ public class JobMaster {
         }
         return jobDAGInfo;
     }
-
+    
     public PassiveCompletableFuture<Void> reSchedulerPipeline(SubPlan subPlan) {
         if (jobScheduler == null) {
             jobScheduler = new PipelineBaseScheduler(physicalPlan, this);
         }
         return new PassiveCompletableFuture<>(jobScheduler.reSchedulerPipeline(subPlan));
     }
-
+    
     public void releasePipelineResource(SubPlan subPlan) {
         resourceManager
                 .releaseResources(
@@ -372,20 +372,19 @@ public class JobMaster {
                 .join();
         ownedSlotProfilesIMap.remove(subPlan.getPipelineLocation());
     }
-
+    
     public void cleanJob() {
         jobHistoryService.storeJobInfo(jobImmutableInformation.getJobId(), getJobDAGInfo());
         jobHistoryService.storeFinishedJobState(this);
         removeJobIMap();
     }
-
+    
     public Address queryTaskGroupAddress(long taskGroupId) {
         for (PipelineLocation pipelineLocation : ownedSlotProfilesIMap.keySet()) {
             Optional<TaskGroupLocation> currentVertex =
                     ownedSlotProfilesIMap.get(pipelineLocation).keySet().stream()
                             .filter(
-                                    taskGroupLocation ->
-                                            taskGroupLocation.getTaskGroupId() == taskGroupId)
+                                    taskGroupLocation -> taskGroupLocation.getTaskGroupId() == taskGroupId)
                             .findFirst();
             if (currentVertex.isPresent()) {
                 return ownedSlotProfilesIMap
@@ -397,61 +396,58 @@ public class JobMaster {
         throw new IllegalArgumentException(
                 "can't find task group address from task group id: " + taskGroupId);
     }
-
+    
     public ClassLoader getClassLoader() {
         return classLoader;
     }
-
+    
     public void cancelJob() {
         physicalPlan.neverNeedRestore();
         physicalPlan.cancelJob();
     }
-
+    
     public ResourceManager getResourceManager() {
         return resourceManager;
     }
-
+    
     public CheckpointManager getCheckpointManager() {
         return checkpointManager;
     }
-
+    
     public PassiveCompletableFuture<JobResult> getJobMasterCompleteFuture() {
         return new PassiveCompletableFuture<>(jobMasterCompleteFuture);
     }
-
+    
     public JobImmutableInformation getJobImmutableInformation() {
         return jobImmutableInformation;
     }
-
+    
     public JobStatus getJobStatus() {
         return physicalPlan.getJobStatus();
     }
-
+    
     public List<RawJobMetrics> getCurrJobMetrics() {
         return getCurrJobMetrics(ownedSlotProfilesIMap.values());
     }
-
+    
     public List<RawJobMetrics> getCurrJobMetrics(
-            Collection<Map<TaskGroupLocation, SlotProfile>> groupLocations) {
+                                                 Collection<Map<TaskGroupLocation, SlotProfile>> groupLocations) {
         List<RawJobMetrics> metrics = new ArrayList<>();
         for (Map<TaskGroupLocation, SlotProfile> groupLocation : groupLocations) {
             groupLocation.forEach(
                     (taskGroupLocation, slotProfile) -> {
-                        if (taskGroupLocation.getJobId()
-                                == this.getJobImmutableInformation().getJobId()) {
+                        if (taskGroupLocation.getJobId() == this.getJobImmutableInformation().getJobId()) {
                             try {
                                 if (nodeEngine
-                                                .getClusterService()
-                                                .getMember(slotProfile.getWorker())
-                                        != null) {
+                                        .getClusterService()
+                                        .getMember(slotProfile.getWorker()) != null) {
                                     RawJobMetrics rawJobMetrics =
-                                            (RawJobMetrics)
-                                                    NodeEngineUtil.sendOperationToMemberNode(
-                                                                    nodeEngine,
-                                                                    new GetTaskGroupMetricsOperation(
-                                                                            taskGroupLocation),
-                                                                    slotProfile.getWorker())
-                                                            .get();
+                                            (RawJobMetrics) NodeEngineUtil.sendOperationToMemberNode(
+                                                    nodeEngine,
+                                                    new GetTaskGroupMetricsOperation(
+                                                            taskGroupLocation),
+                                                    slotProfile.getWorker())
+                                                    .get();
                                     metrics.add(rawJobMetrics);
                                 }
                             }
@@ -470,7 +466,7 @@ public class JobMaster {
         }
         return metrics;
     }
-
+    
     public void savePipelineMetricsToHistory(PipelineLocation pipelineLocation) {
         List<RawJobMetrics> currJobMetrics =
                 this.getCurrJobMetrics(
@@ -483,9 +479,9 @@ public class JobMaster {
         // Clean TaskGroupContext for TaskExecutionServer
         this.cleanTaskGroupContext(pipelineLocation);
     }
-
+    
     public void removeMetricsContext(
-            PipelineLocation pipelineLocation, PipelineStatus pipelineStatus) {
+                                     PipelineLocation pipelineLocation, PipelineStatus pipelineStatus) {
         if (pipelineStatus.equals(PipelineStatus.FINISHED) && !checkpointManager.isSavePointEnd()
                 || pipelineStatus.equals(PipelineStatus.CANCELED)) {
             IMap<TaskLocation, MetricsContext> map =
@@ -501,7 +497,7 @@ public class JobMaster {
                     .forEach(map::remove);
         }
     }
-
+    
     private void cleanTaskGroupContext(PipelineLocation pipelineLocation) {
         ownedSlotProfilesIMap
                 .get(pipelineLocation)
@@ -509,14 +505,13 @@ public class JobMaster {
                         (taskGroupLocation, slotProfile) -> {
                             try {
                                 if (nodeEngine
-                                                .getClusterService()
-                                                .getMember(slotProfile.getWorker())
-                                        != null) {
+                                        .getClusterService()
+                                        .getMember(slotProfile.getWorker()) != null) {
                                     NodeEngineUtil.sendOperationToMemberNode(
-                                                    nodeEngine,
-                                                    new CleanTaskGroupContextOperation(
-                                                            taskGroupLocation),
-                                                    slotProfile.getWorker())
+                                            nodeEngine,
+                                            new CleanTaskGroupContextOperation(
+                                                    taskGroupLocation),
+                                            slotProfile.getWorker())
                                             .get();
                                 }
                             } catch (HazelcastInstanceNotActiveException e) {
@@ -529,21 +524,20 @@ public class JobMaster {
                             }
                         });
     }
-
+    
     public PhysicalPlan getPhysicalPlan() {
         return physicalPlan;
     }
-
+    
     public void updateTaskExecutionState(TaskExecutionState taskExecutionState) {
         this.physicalPlan
                 .getPipelineList()
                 .forEach(
                         pipeline -> {
-                            if (pipeline.getPipelineLocation().getPipelineId()
-                                    != taskExecutionState.getTaskGroupLocation().getPipelineId()) {
+                            if (pipeline.getPipelineLocation().getPipelineId() != taskExecutionState.getTaskGroupLocation().getPipelineId()) {
                                 return;
                             }
-
+                            
                             pipeline.getCoordinatorVertexList()
                                     .forEach(
                                             task -> {
@@ -553,10 +547,10 @@ public class JobMaster {
                                                                         .getTaskGroupLocation())) {
                                                     return;
                                                 }
-
+                                                
                                                 task.updateTaskExecutionState(taskExecutionState);
                                             });
-
+                                            
                             pipeline.getPhysicalVertexList()
                                     .forEach(
                                             task -> {
@@ -566,34 +560,33 @@ public class JobMaster {
                                                                         .getTaskGroupLocation())) {
                                                     return;
                                                 }
-
+                                                
                                                 task.updateTaskExecutionState(taskExecutionState);
                                             });
                         });
     }
-
+    
     /** Execute savePoint, which will cause the job to end. */
     public CompletableFuture<Void> savePoint() {
         PassiveCompletableFuture<CompletedCheckpoint>[] passiveCompletableFutures =
                 checkpointManager.triggerSavepoints();
         return CompletableFuture.allOf(passiveCompletableFutures);
     }
-
+    
     public Map<TaskGroupLocation, SlotProfile> getOwnedSlotProfiles(
-            PipelineLocation pipelineLocation) {
+                                                                    PipelineLocation pipelineLocation) {
         return ownedSlotProfilesIMap.get(pipelineLocation);
     }
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     public void setOwnedSlotProfiles(
-            @NonNull PipelineLocation pipelineLocation,
-            @NonNull Map<TaskGroupLocation, SlotProfile> pipelineOwnedSlotProfiles) {
+                                     @NonNull PipelineLocation pipelineLocation,
+                                     @NonNull Map<TaskGroupLocation, SlotProfile> pipelineOwnedSlotProfiles) {
         ownedSlotProfilesIMap.put(pipelineLocation, pipelineOwnedSlotProfiles);
         try {
             RetryUtils.retryWithException(
-                    () ->
-                            pipelineOwnedSlotProfiles.equals(
-                                    ownedSlotProfilesIMap.get(pipelineLocation)),
+                    () -> pipelineOwnedSlotProfiles.equals(
+                            ownedSlotProfilesIMap.get(pipelineLocation)),
                     new RetryUtils.RetryMaterial(
                             20,
                             true,
@@ -604,7 +597,7 @@ public class JobMaster {
                     "Can not sync pipeline owned slot profiles with IMap", e);
         }
     }
-
+    
     public SlotProfile getOwnedSlotProfiles(@NonNull TaskGroupLocation taskGroupLocation) {
         return ownedSlotProfilesIMap
                 .get(
@@ -612,20 +605,20 @@ public class JobMaster {
                                 taskGroupLocation.getJobId(), taskGroupLocation.getPipelineId()))
                 .get(taskGroupLocation);
     }
-
+    
     public CompletableFuture<Void> getScheduleFuture() {
         return scheduleFuture;
     }
-
+    
     public ExecutorService getExecutorService() {
         return executorService;
     }
-
+    
     public void interrupt() {
         isRunning = false;
         jobMasterCompleteFuture.cancel(true);
     }
-
+    
     public void markRestore() {
         restore = true;
     }

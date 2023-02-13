@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.common.source;
 
 import org.apache.seatunnel.api.source.SourceEvent;
@@ -24,17 +23,17 @@ import java.util.Collections;
 import java.util.List;
 
 public abstract class AbstractSingleSplitReader<T> implements SourceReader<T, SingleSplit> {
-
+    
     @Override
     public final List<SingleSplit> snapshotState(long checkpointId) throws Exception {
         return Collections.singletonList(new SingleSplit(snapshotStateToBytes(checkpointId)));
     }
-
+    
     protected byte[] snapshotStateToBytes(long checkpointId) throws Exception {
         // default nothing
         return null;
     }
-
+    
     @Override
     public final void addSplits(List<SingleSplit> splits) {
         if (splits.size() > 1) {
@@ -46,21 +45,21 @@ public abstract class AbstractSingleSplitReader<T> implements SourceReader<T, Si
             restoreState(restoredState);
         }
     }
-
+    
     protected void restoreState(byte[] restoredState) {
         // default nothing
     }
-
+    
     @Override
     public final void handleNoMoreSplits() {
         // nothing
     }
-
+    
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         // default nothing
     }
-
+    
     @Override
     public final void handleSourceEvent(SourceEvent sourceEvent) {
         // nothing

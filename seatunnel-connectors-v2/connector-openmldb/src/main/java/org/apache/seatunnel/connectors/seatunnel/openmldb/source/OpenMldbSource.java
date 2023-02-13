@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.openmldb.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -55,16 +54,18 @@ import java.util.List;
 
 @AutoService(SeaTunnelSource.class)
 public class OpenMldbSource extends AbstractSingleSplitSource<SeaTunnelRow>
-        implements SupportColumnProjection {
+        implements
+            SupportColumnProjection {
+    
     private OpenMldbParameters openMldbParameters;
     private JobContext jobContext;
     private SeaTunnelRowType seaTunnelRowType;
-
+    
     @Override
     public String getPluginName() {
         return "OpenMldb";
     }
-
+    
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result =
@@ -114,30 +115,30 @@ public class OpenMldbSource extends AbstractSingleSplitSource<SeaTunnelRow>
                     CommonErrorCode.TABLE_SCHEMA_GET_FAILED, "Failed to initialize data schema");
         }
     }
-
+    
     @Override
     public Boundedness getBoundedness() {
         return JobMode.BATCH.equals(jobContext.getJobMode())
                 ? Boundedness.BOUNDED
                 : Boundedness.UNBOUNDED;
     }
-
+    
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
         return seaTunnelRowType;
     }
-
+    
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(
-            SingleSplitReaderContext readerContext) throws Exception {
+                                                                SingleSplitReaderContext readerContext) throws Exception {
         return new OpenMldbSourceReader(openMldbParameters, seaTunnelRowType, readerContext);
     }
-
+    
     @Override
     public void setJobContext(JobContext jobContext) {
         this.jobContext = jobContext;
     }
-
+    
     private SeaTunnelDataType<?> convertSeaTunnelDataType(int type) {
         switch (type) {
             case Types.BOOLEAN:
@@ -164,7 +165,7 @@ public class OpenMldbSource extends AbstractSingleSplitSource<SeaTunnelRow>
                         "SeaTunnel does not support this data type");
         }
     }
-
+    
     private SeaTunnelRowType convert(List<Column> columnList) {
         String[] fieldsName = new String[columnList.size()];
         SeaTunnelDataType<?>[] fieldsType = new SeaTunnelDataType<?>[columnList.size()];

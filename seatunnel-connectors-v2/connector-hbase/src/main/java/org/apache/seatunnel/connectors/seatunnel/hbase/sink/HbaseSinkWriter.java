@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.hbase.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -45,40 +44,40 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
-
+    
     private static final String ALL_COLUMNS = "all_columns";
-
+    
     private final Configuration hbaseConfiguration = HBaseConfiguration.create();
-
+    
     private final Connection hbaseConnection;
-
+    
     private final BufferedMutator hbaseMutator;
-
+    
     private final SeaTunnelRowType seaTunnelRowType;
-
+    
     private final HbaseParameters hbaseParameters;
-
+    
     private final List<Integer> rowkeyColumnIndexes;
-
+    
     private final int versionColumnIndex;
-
+    
     private String defaultFamilyName = "value";
-
+    
     public HbaseSinkWriter(
-            SeaTunnelRowType seaTunnelRowType,
-            HbaseParameters hbaseParameters,
-            List<Integer> rowkeyColumnIndexes,
-            int versionColumnIndex)
-            throws IOException {
+                           SeaTunnelRowType seaTunnelRowType,
+                           HbaseParameters hbaseParameters,
+                           List<Integer> rowkeyColumnIndexes,
+                           int versionColumnIndex)
+                                                   throws IOException {
         this.seaTunnelRowType = seaTunnelRowType;
         this.hbaseParameters = hbaseParameters;
         this.rowkeyColumnIndexes = rowkeyColumnIndexes;
         this.versionColumnIndex = versionColumnIndex;
-
+        
         if (hbaseParameters.getFamilyNames().size() == 1) {
             defaultFamilyName = hbaseParameters.getFamilyNames().getOrDefault(ALL_COLUMNS, "value");
         }
-
+        
         // initialize hbase configuration
         hbaseConfiguration.set("hbase.zookeeper.quorum", hbaseParameters.getZookeeperQuorum());
         if (hbaseParameters.getHbaseExtraConfig() != null) {
@@ -93,13 +92,13 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                         .writeBufferSize(hbaseParameters.getWriteBufferSize());
         hbaseMutator = hbaseConnection.getBufferedMutator(bufferedMutatorParams);
     }
-
+    
     @Override
     public void write(SeaTunnelRow element) throws IOException {
         Put put = convertRowToPut(element);
         hbaseMutator.mutate(put);
     }
-
+    
     @Override
     public void close() throws IOException {
         if (hbaseMutator != null) {
@@ -109,7 +108,7 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             hbaseConnection.close();
         }
     }
-
+    
     private Put convertRowToPut(SeaTunnelRow row) {
         byte[] rowkey = getRowkeyFromRow(row);
         long timestamp = HConstants.LATEST_TIMESTAMP;
@@ -149,7 +148,7 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         }
         return put;
     }
-
+    
     private byte[] getRowkeyFromRow(SeaTunnelRow row) {
         String[] rowkeyValues = new String[rowkeyColumnIndexes.size()];
         for (int i = 0; i < rowkeyColumnIndexes.size(); i++) {
@@ -157,7 +156,7 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         }
         return Bytes.toBytes(String.join(hbaseParameters.getRowkeyDelimiter(), rowkeyValues));
     }
-
+    
     private byte[] convertColumnToBytes(SeaTunnelRow row, int index) {
         Object field = row.getField(index);
         if (field == null) {

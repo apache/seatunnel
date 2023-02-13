@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.translation.flink.sink;
 
 import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
@@ -44,21 +43,21 @@ import java.util.stream.Collectors;
  * @param <GlobalCommT> The generic type of global commit message
  */
 public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT>
-        implements Sink<InputT, CommitWrapper<CommT>, FlinkWriterState<WriterStateT>, GlobalCommT> {
-
+        implements
+            Sink<InputT, CommitWrapper<CommT>, FlinkWriterState<WriterStateT>, GlobalCommT> {
+    
     private final SeaTunnelSink<SeaTunnelRow, WriterStateT, CommT, GlobalCommT> sink;
-
+    
     public FlinkSink(SeaTunnelSink<SeaTunnelRow, WriterStateT, CommT, GlobalCommT> sink) {
         this.sink = sink;
     }
-
+    
     @Override
     public SinkWriter<InputT, CommitWrapper<CommT>, FlinkWriterState<WriterStateT>> createWriter(
-            Sink.InitContext context, List<FlinkWriterState<WriterStateT>> states)
-            throws IOException {
+                                                                                                 Sink.InitContext context, List<FlinkWriterState<WriterStateT>> states) throws IOException {
         org.apache.seatunnel.api.sink.SinkWriter.Context stContext =
                 new DefaultSinkWriterContext(context.getSubtaskId());
-
+        
         if (states == null || states.isEmpty()) {
             return new FlinkSinkWriter<>(sink.createWriter(stContext), 1, sink.getConsumedType());
         } else {
@@ -70,31 +69,29 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT>
                     sink.getConsumedType());
         }
     }
-
+    
     @Override
     public Optional<Committer<CommitWrapper<CommT>>> createCommitter() throws IOException {
         return sink.createCommitter().map(FlinkCommitter::new);
     }
-
+    
     @Override
-    public Optional<GlobalCommitter<CommitWrapper<CommT>, GlobalCommT>> createGlobalCommitter()
-            throws IOException {
+    public Optional<GlobalCommitter<CommitWrapper<CommT>, GlobalCommT>> createGlobalCommitter() throws IOException {
         return sink.createAggregatedCommitter().map(FlinkGlobalCommitter::new);
     }
-
+    
     @Override
     public Optional<SimpleVersionedSerializer<CommitWrapper<CommT>>> getCommittableSerializer() {
         return sink.getCommitInfoSerializer().map(CommitWrapperSerializer::new);
     }
-
+    
     @Override
     public Optional<SimpleVersionedSerializer<GlobalCommT>> getGlobalCommittableSerializer() {
         return sink.getAggregatedCommitInfoSerializer().map(FlinkSimpleVersionedSerializer::new);
     }
-
+    
     @Override
-    public Optional<SimpleVersionedSerializer<FlinkWriterState<WriterStateT>>>
-            getWriterStateSerializer() {
+    public Optional<SimpleVersionedSerializer<FlinkWriterState<WriterStateT>>> getWriterStateSerializer() {
         return sink.getWriterStateSerializer().map(FlinkWriterStateSerializer::new);
     }
 }

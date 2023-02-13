@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.core.starter.spark;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -59,34 +58,34 @@ import java.util.stream.Stream;
 
 /** A Starter to generate spark-submit command for SeaTunnel job on spark. */
 public class SparkStarter implements Starter {
-
+    
     /** original commandline args */
     protected String[] args;
-
+    
     /** args parsed from {@link #args} */
     protected SparkCommandArgs commandArgs;
-
+    
     /** jars to include on the spark driver and executor classpaths */
     protected List<Path> jars = new ArrayList<>();
-
+    
     /** files to be placed in the working directory of each spark executor */
     protected List<Path> files = new ArrayList<>();
-
+    
     /** spark configuration properties */
     protected Map<String, String> sparkConf;
-
+    
     private SparkStarter(String[] args, SparkCommandArgs commandArgs) {
         this.args = args;
         this.commandArgs = commandArgs;
     }
-
+    
     @SuppressWarnings("checkstyle:RegexpSingleline")
     public static void main(String[] args) throws IOException {
         SparkStarter starter = getInstance(args);
         List<String> command = starter.buildCommands();
         System.out.println(String.join(" ", command));
     }
-
+    
     /**
      * method to get SparkStarter instance, will return {@link ClusterModeSparkStarter} or {@link
      * ClientModeSparkStarter} depending on deploy mode.
@@ -108,7 +107,7 @@ public class SparkStarter implements Starter {
                 throw new IllegalArgumentException("Deploy mode " + deployMode + " not supported");
         }
     }
-
+    
     @Override
     public List<String> buildCommands() throws IOException {
         setSparkConf();
@@ -127,7 +126,7 @@ public class SparkStarter implements Starter {
         // work
         return buildFinal();
     }
-
+    
     /** parse spark configurations from SeaTunnel config file */
     private void setSparkConf() throws FileNotFoundException {
         commandArgs.getVariables().stream()
@@ -150,7 +149,7 @@ public class SparkStarter implements Starter {
             this.sparkConf.put("spark.executor.extraJavaOptions", executorJavaOpts.trim());
         }
     }
-
+    
     /** Get spark configurations from SeaTunnel job config file. */
     static Map<String, String> getSparkConf(String configFile) throws FileNotFoundException {
         File file = new File(configFile);
@@ -163,13 +162,13 @@ public class SparkStarter implements Starter {
                         .resolveWith(
                                 ConfigFactory.systemProperties(),
                                 ConfigResolveOptions.defaults().setAllowUnresolved(true));
-
+        
         return appConfig.getConfig("env").entrySet().stream()
                 .collect(
                         Collectors.toMap(
                                 Map.Entry::getKey, e -> e.getValue().unwrapped().toString()));
     }
-
+    
     /** return connector's jars, which located in 'connectors/spark/*'. */
     private List<Path> getConnectorJarDependencies() {
         Path pluginRootDir = Common.connectorJarDir("seatunnel");
@@ -192,7 +191,7 @@ public class SparkStarter implements Starter {
                 .map(url -> new File(url.getPath()).toPath())
                 .collect(Collectors.toList());
     }
-
+    
     /** build final spark-submit commands */
     protected List<String> buildFinal() {
         List<String> commands = new ArrayList<>();
@@ -214,23 +213,23 @@ public class SparkStarter implements Starter {
         }
         return commands;
     }
-
+    
     /** append option to StringBuilder */
     protected void appendOption(List<String> commands, String option, String value) {
         commands.add(option);
         commands.add("\"" + value.replace("\"", "\\\"") + "\"");
     }
-
+    
     /** append jars option to StringBuilder */
     protected void appendJars(List<String> commands, List<Path> paths) {
         appendPaths(commands, "--jars", paths);
     }
-
+    
     /** append files option to StringBuilder */
     protected void appendFiles(List<String> commands, List<Path> paths) {
         appendPaths(commands, "--files", paths);
     }
-
+    
     /** append comma-split paths option to StringBuilder */
     protected void appendPaths(List<String> commands, String option, List<Path> paths) {
         if (!paths.isEmpty()) {
@@ -238,7 +237,7 @@ public class SparkStarter implements Starter {
             appendOption(commands, option, values);
         }
     }
-
+    
     /** append spark configurations to StringBuilder */
     protected void appendSparkConf(List<String> commands, Map<String, String> sparkConf) {
         for (Map.Entry<String, String> entry : sparkConf.entrySet()) {
@@ -247,74 +246,72 @@ public class SparkStarter implements Starter {
             appendOption(commands, "--conf", key + "=" + value);
         }
     }
-
+    
     /** append appJar to StringBuilder */
     protected void appendAppJar(List<String> commands) {
         commands.add(
                 Common.appStarterDir().resolve(EngineType.SPARK3.getStarterJarName()).toString());
     }
-
+    
     @SuppressWarnings("checkstyle:Indentation")
     private List<PluginIdentifier> getPluginIdentifiers(Config config, PluginType... pluginTypes) {
         return Arrays.stream(pluginTypes)
                 .flatMap(
-                        (Function<PluginType, Stream<PluginIdentifier>>)
-                                pluginType -> {
-                                    List<? extends Config> configList =
-                                            config.getConfigList(pluginType.getType());
-                                    return configList.stream()
-                                            .map(
-                                                    pluginConfig ->
-                                                            PluginIdentifier.of(
-                                                                    "seatunnel",
-                                                                    pluginType.getType(),
-                                                                    pluginConfig.getString(
-                                                                            "plugin_name")));
-                                })
+                        (Function<PluginType, Stream<PluginIdentifier>>) pluginType -> {
+                            List<? extends Config> configList =
+                                    config.getConfigList(pluginType.getType());
+                            return configList.stream()
+                                    .map(
+                                            pluginConfig -> PluginIdentifier.of(
+                                                    "seatunnel",
+                                                    pluginType.getType(),
+                                                    pluginConfig.getString(
+                                                            "plugin_name")));
+                        })
                 .collect(Collectors.toList());
     }
-
+    
     /** a Starter for building spark-submit commands with client mode options */
     private static class ClientModeSparkStarter extends SparkStarter {
-
+        
         /** client mode specified spark options */
         private enum ClientModeSparkConfigs {
-
+            
             /** Memory for driver in client mode */
             DriverMemory("--driver-memory", "spark.driver.memory"),
-
+            
             /** Extra Java options to pass to the driver in client mode */
             DriverJavaOptions("--driver-java-options", "spark.driver.extraJavaOptions"),
-
+            
             /** Extra library path entries to pass to the driver in client mode */
             DriverLibraryPath(" --driver-library-path", "spark.driver.extraLibraryPath"),
-
+            
             /** Extra class path entries to pass to the driver in client mode */
             DriverClassPath("--driver-class-path", "spark.driver.extraClassPath");
-
+            
             private final String optionName;
-
+            
             private final String propertyName;
-
+            
             private static final Map<String, ClientModeSparkConfigs> PROPERTY_NAME_MAP =
                     new HashMap<>();
-
+            
             static {
                 for (ClientModeSparkConfigs config : values()) {
                     PROPERTY_NAME_MAP.put(config.propertyName, config);
                 }
             }
-
+            
             ClientModeSparkConfigs(String optionName, String propertyName) {
                 this.optionName = optionName;
                 this.propertyName = propertyName;
             }
         }
-
+        
         private ClientModeSparkStarter(String[] args, SparkCommandArgs commandArgs) {
             super(args, commandArgs);
         }
-
+        
         @Override
         protected void appendSparkConf(List<String> commands, Map<String, String> sparkConf) {
             for (ClientModeSparkConfigs config : ClientModeSparkConfigs.values()) {
@@ -333,14 +330,14 @@ public class SparkStarter implements Starter {
             }
         }
     }
-
+    
     /** a Starter for building spark-submit commands with cluster mode options */
     private static class ClusterModeSparkStarter extends SparkStarter {
-
+        
         private ClusterModeSparkStarter(String[] args, SparkCommandArgs commandArgs) {
             super(args, commandArgs);
         }
-
+        
         @Override
         public List<String> buildCommands() throws IOException {
             Common.setDeployMode(commandArgs.getDeployMode());

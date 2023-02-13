@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.common.source.reader;
 
 import org.apache.seatunnel.api.source.SourceReader;
@@ -35,15 +34,15 @@ import java.util.function.Supplier;
  * @param <SplitT>
  * @param <SplitStateT>
  */
-public abstract class SingleThreadMultiplexSourceReaderBase<
-                E, T, SplitT extends SourceSplit, SplitStateT>
-        extends SourceReaderBase<E, T, SplitT, SplitStateT> {
-
+public abstract class SingleThreadMultiplexSourceReaderBase<E, T, SplitT extends SourceSplit, SplitStateT>
+        extends
+            SourceReaderBase<E, T, SplitT, SplitStateT> {
+    
     public SingleThreadMultiplexSourceReaderBase(
-            Supplier<SplitReader<E, SplitT>> splitReaderSupplier,
-            RecordEmitter<E, T, SplitStateT> recordEmitter,
-            SourceReaderOptions options,
-            SourceReader.Context context) {
+                                                 Supplier<SplitReader<E, SplitT>> splitReaderSupplier,
+                                                 RecordEmitter<E, T, SplitStateT> recordEmitter,
+                                                 SourceReaderOptions options,
+                                                 SourceReader.Context context) {
         this(
                 new ArrayBlockingQueue<>(options.getElementQueueCapacity()),
                 splitReaderSupplier,
@@ -51,13 +50,13 @@ public abstract class SingleThreadMultiplexSourceReaderBase<
                 options,
                 context);
     }
-
+    
     public SingleThreadMultiplexSourceReaderBase(
-            BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
-            Supplier<SplitReader<E, SplitT>> splitReaderSupplier,
-            RecordEmitter<E, T, SplitStateT> recordEmitter,
-            SourceReaderOptions options,
-            SourceReader.Context context) {
+                                                 BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
+                                                 Supplier<SplitReader<E, SplitT>> splitReaderSupplier,
+                                                 RecordEmitter<E, T, SplitStateT> recordEmitter,
+                                                 SourceReaderOptions options,
+                                                 SourceReader.Context context) {
         super(
                 elementsQueue,
                 new SingleThreadFetcherManager<>(elementsQueue, splitReaderSupplier),
@@ -65,13 +64,13 @@ public abstract class SingleThreadMultiplexSourceReaderBase<
                 options,
                 context);
     }
-
+    
     public SingleThreadMultiplexSourceReaderBase(
-            BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
-            SingleThreadFetcherManager<E, SplitT> splitFetcherManager,
-            RecordEmitter<E, T, SplitStateT> recordEmitter,
-            SourceReaderOptions options,
-            SourceReader.Context context) {
+                                                 BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
+                                                 SingleThreadFetcherManager<E, SplitT> splitFetcherManager,
+                                                 RecordEmitter<E, T, SplitStateT> recordEmitter,
+                                                 SourceReaderOptions options,
+                                                 SourceReader.Context context) {
         super(elementsQueue, splitFetcherManager, recordEmitter, options, context);
     }
 }

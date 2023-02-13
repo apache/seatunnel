@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.e2e.connector.cdc.sqlserver;
 
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -60,29 +59,26 @@ import java.util.stream.Stream;
 import static org.awaitility.Awaitility.await;
 
 @Slf4j
-@DisabledOnContainer(
-        value = {},
-        type = {EngineType.SPARK, EngineType.FLINK},
-        disabledReason = "")
+@DisabledOnContainer(value = {}, type = {EngineType.SPARK, EngineType.FLINK}, disabledReason = "")
 public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
-
+    
     private static final String HOST = "sqlserver-host";
-
+    
     private static final int PORT = 1433;
-
+    
     protected static final Logger LOG = LoggerFactory.getLogger(SqlServerCDCIT.class);
-
+    
     private static final String STATEMENTS_PLACEHOLDER = "#";
-
+    
     private static final Pattern COMMENT_PATTERN = Pattern.compile("^(.*)--.*$");
-
+    
     private static final String DISABLE_DB_CDC =
             "IF EXISTS(select 1 from sys.databases where name='#' AND is_cdc_enabled=1)\n"
                     + "EXEC sys.sp_cdc_disable_db";
-
+    
     private static final String SOURCE_SQL = "select * from column_type_test.dbo.full_types";
     private static final String SINK_SQL = "select * from column_type_test.dbo.full_types_sink";
-
+    
     public static final MSSQLServerContainer MSSQL_SERVER_CONTAINER =
             new MSSQLServerContainer<>("mcr.microsoft.com/mssql/server:2019-latest")
                     .withPassword("Password!")
@@ -91,7 +87,7 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                     .withNetwork(NETWORK)
                     .withNetworkAliases(HOST)
                     .withLogConsumer(new Slf4jLogConsumer(LOG));
-
+    
     @Override
     @BeforeAll
     public void startUp() throws Exception {
@@ -101,7 +97,7 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
         Startables.deepStart(Stream.of(MSSQL_SERVER_CONTAINER)).join();
         log.info("Containers are started.");
     }
-
+    
     @Override
     @AfterAll
     public void tearDown() throws Exception {
@@ -111,12 +107,12 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
         }
         LOG.info("Containers are stopped.");
     }
-
+    
     // Temporary disabled because the test can not be executed successfully
     // https://github.com/apache/incubator-seatunnel/issues/3827
     public void test(TestContainer container) throws IOException, InterruptedException {
         initializeSqlServerTable("column_type_test");
-
+        
         CompletableFuture<Void> executeJobFuture =
                 CompletableFuture.supplyAsync(
                         () -> {
@@ -127,7 +123,7 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                             }
                             return null;
                         });
-
+        
         // snapshot stage
         await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
@@ -135,10 +131,10 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                             Assertions.assertIterableEquals(
                                     querySql(SOURCE_SQL), querySql(SINK_SQL));
                         });
-
+        
         // insert update delete
         updateSourceTable();
-
+        
         // stream stage
         await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
@@ -152,7 +148,7 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                                     querySql(SOURCE_SQL), querySql(SINK_SQL));
                         });
     }
-
+    
     /**
      * Executes a JDBC statement using the default jdbc config without autocommitting the
      * connection.
@@ -161,22 +157,23 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
         final String ddlFile = String.format("ddl/%s.sql", sqlFile);
         final URL ddlTestFile = TestSuiteBase.class.getClassLoader().getResource(ddlFile);
         Assertions.assertNotNull(ddlTestFile, "Cannot locate " + ddlFile);
-        try (Connection connection = getJdbcConnection();
+        try (
+                Connection connection = getJdbcConnection();
                 Statement statement = connection.createStatement()) {
             dropTestDatabase(connection, sqlFile);
             final List<String> statements =
                     Arrays.stream(
-                                    Files.readAllLines(Paths.get(ddlTestFile.toURI())).stream()
-                                            .map(String::trim)
-                                            .filter(x -> !x.startsWith("--") && !x.isEmpty())
-                                            .map(
-                                                    x -> {
-                                                        final Matcher m =
-                                                                COMMENT_PATTERN.matcher(x);
-                                                        return m.matches() ? m.group(1) : x;
-                                                    })
-                                            .collect(Collectors.joining("\n"))
-                                            .split(";"))
+                            Files.readAllLines(Paths.get(ddlTestFile.toURI())).stream()
+                                    .map(String::trim)
+                                    .filter(x -> !x.startsWith("--") && !x.isEmpty())
+                                    .map(
+                                            x -> {
+                                                final Matcher m =
+                                                        COMMENT_PATTERN.matcher(x);
+                                                return m.matches() ? m.group(1) : x;
+                                            })
+                                    .collect(Collectors.joining("\n"))
+                                    .split(";"))
                             .collect(Collectors.toList());
             for (String stmt : statements) {
                 statement.execute(stmt);
@@ -185,7 +182,7 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException(e);
         }
     }
-
+    
     private void updateSourceTable() {
         executeSql(
                 "INSERT INTO column_type_test.dbo.full_types VALUES (3,\n"
@@ -201,20 +198,20 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                         + "                               1, 22, 333, 4444, 55555,\n"
                         + "                               '2018-07-13', '10:23:45', '2018-07-13 11:23:45.34', '2018-07-13 13:23:45.78', '2018-07-13 14:23:45',\n"
                         + "                               '<a>b</a>');");
-
+        
         executeSql("DELETE FROM column_type_test.dbo.full_types where id = 2");
-
+        
         executeSql(
                 "UPDATE column_type_test.dbo.full_types SET val_varchar = 'newvcč' where id = 1");
     }
-
+    
     private Connection getJdbcConnection() throws SQLException {
         return DriverManager.getConnection(
                 MSSQL_SERVER_CONTAINER.getJdbcUrl(),
                 MSSQL_SERVER_CONTAINER.getUsername(),
                 MSSQL_SERVER_CONTAINER.getPassword());
     }
-
+    
     private List<List<Object>> querySql(String sql) {
         try (Connection connection = getJdbcConnection()) {
             ResultSet resultSet = connection.createStatement().executeQuery(sql);
@@ -232,7 +229,7 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException(e);
         }
     }
-
+    
     private void executeSql(String sql) {
         try (Connection connection = getJdbcConnection()) {
             connection.createStatement().execute(sql);
@@ -240,9 +237,8 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException(e);
         }
     }
-
-    private static void dropTestDatabase(Connection connection, String databaseName)
-            throws SQLException {
+    
+    private static void dropTestDatabase(Connection connection, String databaseName) throws SQLException {
         try {
             Awaitility.await("Disabling CDC")
                     .atMost(60, TimeUnit.SECONDS)
@@ -268,9 +264,9 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
             throw new IllegalArgumentException(
                     String.format("Failed to disable CDC on %s", databaseName), e);
         }
-
+        
         connection.createStatement().execute("USE master");
-
+        
         try {
             Awaitility.await(String.format("Dropping database %s", databaseName))
                     .atMost(60, TimeUnit.SECONDS)
@@ -306,7 +302,7 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
             throw new IllegalStateException("Failed to drop test database", e);
         }
     }
-
+    
     /**
      * Disables CDC for a given database, if not already disabled.
      *

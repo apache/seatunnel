@@ -1,11 +1,10 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -15,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -49,10 +47,10 @@ import java.sql.Timestamp;
  * builder
  */
 public class JdbcInputFormat implements Serializable {
-
+    
     private static final long serialVersionUID = 2L;
     protected static final Logger LOG = LoggerFactory.getLogger(JdbcInputFormat.class);
-
+    
     protected JdbcConnectionProvider connectionProvider;
     protected JdbcRowConverter jdbcRowConverter;
     protected String queryTemplate;
@@ -60,21 +58,21 @@ public class JdbcInputFormat implements Serializable {
     protected int fetchSize;
     // Boolean to distinguish between default value and explicitly set autoCommit mode.
     protected Boolean autoCommit;
-
+    
     protected transient PreparedStatement statement;
     protected transient ResultSet resultSet;
-
+    
     protected boolean hasNext;
-
+    
     protected JdbcDialect jdbcDialect;
-
+    
     public JdbcInputFormat(
-            JdbcConnectionProvider connectionProvider,
-            JdbcDialect jdbcDialect,
-            SeaTunnelRowType typeInfo,
-            String queryTemplate,
-            int fetchSize,
-            Boolean autoCommit) {
+                           JdbcConnectionProvider connectionProvider,
+                           JdbcDialect jdbcDialect,
+                           SeaTunnelRowType typeInfo,
+                           String queryTemplate,
+                           int fetchSize,
+                           Boolean autoCommit) {
         this.connectionProvider = connectionProvider;
         this.jdbcRowConverter = jdbcDialect.getRowConverter();
         this.typeInfo = typeInfo;
@@ -83,18 +81,18 @@ public class JdbcInputFormat implements Serializable {
         this.autoCommit = autoCommit;
         this.jdbcDialect = jdbcDialect;
     }
-
+    
     public void openInputFormat() {
         // called once per inputFormat (on open)
         try {
             Connection dbConn = connectionProvider.getOrEstablishConnection();
-
+            
             // set autoCommit mode only if it was explicitly configured.
             // keep connection default otherwise.
             if (autoCommit != null) {
                 dbConn.setAutoCommit(autoCommit);
             }
-
+            
             statement = jdbcDialect.creatPreparedStatement(dbConn, queryTemplate, fetchSize);
         } catch (SQLException se) {
             throw new JdbcConnectorException(
@@ -108,7 +106,7 @@ public class JdbcInputFormat implements Serializable {
                     cnfe);
         }
     }
-
+    
     public void closeInputFormat() {
         // called once per inputFormat (on close)
         try {
@@ -120,10 +118,10 @@ public class JdbcInputFormat implements Serializable {
         } finally {
             statement = null;
         }
-
+        
         connectionProvider.closeConnection();
     }
-
+    
     /**
      * Connects to the source database and executes the query
      *
@@ -185,7 +183,7 @@ public class JdbcInputFormat implements Serializable {
                     CommonErrorCode.SQL_OPERATION_FAILED, "open() failed." + se.getMessage(), se);
         }
     }
-
+    
     /**
      * Closes all resources used.
      *
@@ -201,7 +199,7 @@ public class JdbcInputFormat implements Serializable {
             LOG.info("Inputformat ResultSet couldn't be closed - " + se.getMessage());
         }
     }
-
+    
     /**
      * Checks whether all data has been read.
      *
@@ -210,7 +208,7 @@ public class JdbcInputFormat implements Serializable {
     public boolean reachedEnd() {
         return !hasNext;
     }
-
+    
     /** Convert a row of data to seatunnelRow */
     public SeaTunnelRow nextRecord() {
         try {

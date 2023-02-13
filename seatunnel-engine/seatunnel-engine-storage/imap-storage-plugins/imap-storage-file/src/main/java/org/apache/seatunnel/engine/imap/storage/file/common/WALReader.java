@@ -1,23 +1,19 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.imap.storage.file.common;
 
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
@@ -44,15 +40,16 @@ import java.util.Set;
 import static org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils.WAL_DATA_METADATA_LENGTH;
 
 public class WALReader {
+    
     private static final int DEFAULT_QUERY_LIST_SIZE = 1024;
     private FileSystem fs;
     private final Serializer serializer;
-
+    
     public WALReader(FileSystem fs, Serializer serializer) throws IOException {
         this.serializer = serializer;
         this.fs = fs;
     }
-
+    
     private List<IMapFileData> readAllData(Path parentPath) throws IOException {
         List<String> fileNames = getFileNames(parentPath);
         if (CollectionUtils.isEmpty(fileNames)) {
@@ -64,7 +61,7 @@ public class WALReader {
         }
         return result;
     }
-
+    
     public Set<Object> loadAllKeys(Path parentPath) throws IOException {
         List<IMapFileData> allData = readAllData(parentPath);
         if (CollectionUtils.isEmpty(allData)) {
@@ -89,9 +86,8 @@ public class WALReader {
         }
         return result;
     }
-
-    public Map<Object, Object> loadAllData(Path parentPath, Set<Object> searchKeys)
-            throws IOException {
+    
+    public Map<Object, Object> loadAllData(Path parentPath, Set<Object> searchKeys) throws IOException {
         List<IMapFileData> allData = readAllData(parentPath);
         if (CollectionUtils.isEmpty(allData)) {
             return new HashMap<>();
@@ -120,7 +116,7 @@ public class WALReader {
         }
         return result;
     }
-
+    
     private List<IMapFileData> readData(Path path) throws IOException {
         List<IMapFileData> result = new ArrayList<>(DEFAULT_QUERY_LIST_SIZE);
         long length = fs.getFileStatus(path).getLen();
@@ -129,7 +125,7 @@ public class WALReader {
             in.readFully(datas);
             int startIndex = 0;
             while (startIndex + WAL_DATA_METADATA_LENGTH < datas.length) {
-
+                
                 byte[] metadata = new byte[WAL_DATA_METADATA_LENGTH];
                 System.arraycopy(datas, startIndex, metadata, 0, WAL_DATA_METADATA_LENGTH);
                 int dataLength = WALDataUtils.byteArrayToInt(metadata);
@@ -146,10 +142,10 @@ public class WALReader {
         }
         return result;
     }
-
+    
     private List<String> getFileNames(Path parentPath) {
         try {
-
+            
             RemoteIterator<LocatedFileStatus> fileStatusRemoteIterator =
                     fs.listFiles(parentPath, true);
             List<String> fileNames = new ArrayList<>();
@@ -164,7 +160,7 @@ public class WALReader {
             throw new IMapStorageException(e, "get file names error,path is s%", parentPath);
         }
     }
-
+    
     private Object deserializeData(byte[] data, String className) {
         try {
             Class<?> clazz = ClassUtils.getClass(className);
@@ -177,7 +173,7 @@ public class WALReader {
                         e, "deserialize data error: data is s%, className is s%", data, className);
             }
         } catch (ClassNotFoundException e) {
-            //  log.error("deserialize data error, class name is {}", className, e);
+            // log.error("deserialize data error, class name is {}", className, e);
             throw new IMapStorageException(
                     e, "deserialize data error, class name is {}", className);
         }

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.task.operation.sink;
 
 import org.apache.seatunnel.common.utils.SerializationUtils;
@@ -34,41 +33,42 @@ import java.io.IOException;
 
 @NoArgsConstructor
 public class SinkPrepareCommitOperation extends BarrierFlowOperation {
+    
     private byte[] commitInfos;
-
+    
     public SinkPrepareCommitOperation(
-            Barrier checkpointBarrier, TaskLocation taskLocation, byte[] commitInfos) {
+                                      Barrier checkpointBarrier, TaskLocation taskLocation, byte[] commitInfos) {
         super(checkpointBarrier, taskLocation);
         this.commitInfos = commitInfos;
     }
-
+    
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
         out.writeByteArray(commitInfos);
     }
-
+    
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
         commitInfos = in.readByteArray();
     }
-
+    
     @Override
     public String getServiceName() {
         return SeaTunnelServer.SERVICE_NAME;
     }
-
+    
     @Override
     public int getFactoryId() {
         return TaskDataSerializerHook.FACTORY_ID;
     }
-
+    
     @Override
     public int getClassId() {
         return TaskDataSerializerHook.SINK_PREPARE_COMMIT_TYPE;
     }
-
+    
     @Override
     public void run() throws Exception {
         TaskExecutionService taskExecutionService =

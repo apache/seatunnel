@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connector.selectdb.serialize;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -32,13 +31,16 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 public class SelectDBBaseSerializer {
-    @Builder.Default private DateUtils.Formatter dateFormatter = DateUtils.Formatter.YYYY_MM_DD;
-
+    
+    @Builder.Default
+    private DateUtils.Formatter dateFormatter = DateUtils.Formatter.YYYY_MM_DD;
+    
     @Builder.Default
     private DateTimeUtils.Formatter dateTimeFormatter = DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
-
-    @Builder.Default private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
-
+    
+    @Builder.Default
+    private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
+    
     protected String convert(SeaTunnelDataType dataType, Object val) {
         if (val == null) {
             return null;

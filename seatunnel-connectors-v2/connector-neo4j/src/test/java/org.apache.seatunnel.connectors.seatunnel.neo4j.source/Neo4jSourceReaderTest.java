@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.neo4j.source;
 
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -49,6 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class Neo4jSourceReaderTest {
+    
     @Test
     void convertType() {
         assertEquals(
@@ -62,11 +62,9 @@ class Neo4jSourceReaderTest {
         assertNull(Neo4jSourceReader.convertType(BasicType.VOID_TYPE, NullValue.NULL));
         assertEquals(
                 (byte) 1,
-                ((byte[])
-                                Neo4jSourceReader.convertType(
-                                        PrimitiveByteArrayType.INSTANCE,
-                                        new BytesValue(new byte[] {(byte) 1})))
-                        [0]);
+                ((byte[]) Neo4jSourceReader.convertType(
+                        PrimitiveByteArrayType.INSTANCE,
+                        new BytesValue(new byte[]{(byte) 1})))[0]);
         assertEquals(
                 LocalDate.MIN,
                 Neo4jSourceReader.convertType(
@@ -86,28 +84,25 @@ class Neo4jSourceReaderTest {
                         new MapType<>(BasicType.STRING_TYPE, BasicType.BOOLEAN_TYPE),
                         new MapValue(Collections.singletonMap("1", BooleanValue.FALSE))));
         assertArrayEquals(
-                new Object[] {"foo", "bar"},
-                (Object[])
-                        Neo4jSourceReader.convertType(
-                                STRING_ARRAY_TYPE,
-                                new ListValue(new StringValue("foo"), new StringValue("bar"))));
+                new Object[]{"foo", "bar"},
+                (Object[]) Neo4jSourceReader.convertType(
+                        STRING_ARRAY_TYPE,
+                        new ListValue(new StringValue("foo"), new StringValue("bar"))));
         assertEquals(1, Neo4jSourceReader.convertType(BasicType.INT_TYPE, new IntegerValue(1)));
         assertEquals(
                 1.1F, Neo4jSourceReader.convertType(BasicType.FLOAT_TYPE, new FloatValue(1.1F)));
-
+        
         assertThrows(
                 Neo4jConnectorException.class,
                 () -> Neo4jSourceReader.convertType(BasicType.SHORT_TYPE, new IntegerValue(256)));
         assertThrows(
                 LossyCoercion.class,
-                () ->
-                        Neo4jSourceReader.convertType(
-                                BasicType.INT_TYPE, new IntegerValue(Integer.MAX_VALUE + 1L)));
+                () -> Neo4jSourceReader.convertType(
+                        BasicType.INT_TYPE, new IntegerValue(Integer.MAX_VALUE + 1L)));
         assertThrows(
                 Neo4jConnectorException.class,
-                () ->
-                        Neo4jSourceReader.convertType(
-                                new MapType<>(BasicType.INT_TYPE, BasicType.BOOLEAN_TYPE),
-                                new MapValue(Collections.singletonMap("1", BooleanValue.FALSE))));
+                () -> Neo4jSourceReader.convertType(
+                        new MapType<>(BasicType.INT_TYPE, BasicType.BOOLEAN_TYPE),
+                        new MapValue(Collections.singletonMap("1", BooleanValue.FALSE))));
     }
 }

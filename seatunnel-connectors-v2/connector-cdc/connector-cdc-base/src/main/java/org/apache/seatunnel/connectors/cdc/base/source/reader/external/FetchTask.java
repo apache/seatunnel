@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.cdc.base.source.reader.external;
 
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
@@ -34,34 +33,35 @@ import java.util.Map;
 
 /** The task to fetching data of a Split. */
 public interface FetchTask<Split> {
-
+    
     /** Execute current task. */
     void execute(Context context) throws Exception;
-
+    
     /** Returns current task is running or not. */
     boolean isRunning();
-
+    
     /** Returns the split that the task used. */
     Split getSplit();
-
+    
     /** Base context used in the execution of fetch task. */
     interface Context {
+        
         void configure(SourceSplitBase sourceSplitBase);
-
+        
         ChangeEventQueue<DataChangeEvent> getQueue();
-
+        
         TableId getTableId(SourceRecord record);
-
+        
         Tables.TableFilter getTableFilter();
-
+        
         Offset getStreamOffset(SourceRecord record);
-
+        
         boolean isDataChangeRecord(SourceRecord record);
-
+        
         boolean isRecordBetween(SourceRecord record, Object[] splitStart, Object[] splitEnd);
-
+        
         void rewriteOutputBuffer(Map<Struct, SourceRecord> outputBuffer, SourceRecord changeRecord);
-
+        
         List<SourceRecord> formatMessageTimestamp(Collection<SourceRecord> snapshotRecords);
     }
 }

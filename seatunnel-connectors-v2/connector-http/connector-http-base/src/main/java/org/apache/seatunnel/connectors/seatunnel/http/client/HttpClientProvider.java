@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.http.client;
 
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
@@ -64,6 +63,7 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class HttpClientProvider implements AutoCloseable {
+    
     private static final String ENCODING = "UTF-8";
     private static final String APPLICATION_JSON = "application/json";
     private static final int CONNECT_TIMEOUT = 6000 * 2;
@@ -76,12 +76,12 @@ public class HttpClientProvider implements AutoCloseable {
                     .build();
     private final CloseableHttpClient httpClient;
     private final Retryer<CloseableHttpResponse> retryer;
-
+    
     public HttpClientProvider(HttpParameter httpParameter) {
         this.httpClient = HttpClients.createDefault();
         this.retryer = buildRetryer(httpParameter);
     }
-
+    
     private Retryer<CloseableHttpResponse> buildRetryer(HttpParameter httpParameter) {
         if (httpParameter.getRetry() < 1) {
             return RetryerBuilder.<CloseableHttpResponse>newBuilder().build();
@@ -96,6 +96,7 @@ public class HttpClientProvider implements AutoCloseable {
                                 TimeUnit.MILLISECONDS))
                 .withRetryListener(
                         new RetryListener() {
+                            
                             @Override
                             public <V> void onRetry(Attempt<V> attempt) {
                                 if (attempt.hasException()) {
@@ -109,14 +110,13 @@ public class HttpClientProvider implements AutoCloseable {
                         })
                 .build();
     }
-
+    
     public HttpResponse execute(
-            String url,
-            String method,
-            Map<String, String> headers,
-            Map<String, String> params,
-            String body)
-            throws Exception {
+                                String url,
+                                String method,
+                                Map<String, String> headers,
+                                Map<String, String> params,
+                                String body) throws Exception {
         // convert method option to uppercase
         method = method.toUpperCase(Locale.ROOT);
         if (HttpPost.METHOD_NAME.equals(method)) {
@@ -134,7 +134,7 @@ public class HttpClientProvider implements AutoCloseable {
         // if http method that user assigned is not support by http provider, default do get
         return doGet(url, headers, params);
     }
-
+    
     /**
      * Send a get request without request headers and request parameters
      *
@@ -145,7 +145,7 @@ public class HttpClientProvider implements AutoCloseable {
     public HttpResponse doGet(String url) throws Exception {
         return doGet(url, Collections.emptyMap(), Collections.emptyMap());
     }
-
+    
     /**
      * Send a get request with request parameters
      *
@@ -157,7 +157,7 @@ public class HttpClientProvider implements AutoCloseable {
     public HttpResponse doGet(String url, Map<String, String> params) throws Exception {
         return doGet(url, Collections.emptyMap(), params);
     }
-
+    
     /**
      * Send a get request with request headers and request parameters
      *
@@ -167,8 +167,7 @@ public class HttpClientProvider implements AutoCloseable {
      * @return http response result
      * @throws Exception information
      */
-    public HttpResponse doGet(String url, Map<String, String> headers, Map<String, String> params)
-            throws Exception {
+    public HttpResponse doGet(String url, Map<String, String> headers, Map<String, String> params) throws Exception {
         // Create access address
         URIBuilder uriBuilder = new URIBuilder(url);
         // add parameter to uri
@@ -182,7 +181,7 @@ public class HttpClientProvider implements AutoCloseable {
         // return http response
         return getResponse(httpGet);
     }
-
+    
     /**
      * Send a post request without request headers and request parameters
      *
@@ -193,7 +192,7 @@ public class HttpClientProvider implements AutoCloseable {
     public HttpResponse doPost(String url) throws Exception {
         return doPost(url, Collections.emptyMap(), Collections.emptyMap());
     }
-
+    
     /**
      * Send post request with request parameters
      *
@@ -205,7 +204,7 @@ public class HttpClientProvider implements AutoCloseable {
     public HttpResponse doPost(String url, Map<String, String> params) throws Exception {
         return doPost(url, Collections.emptyMap(), params);
     }
-
+    
     /**
      * Send a post request with request headers and request parameters
      *
@@ -215,8 +214,7 @@ public class HttpClientProvider implements AutoCloseable {
      * @return http response result
      * @throws Exception information
      */
-    public HttpResponse doPost(String url, Map<String, String> headers, Map<String, String> params)
-            throws Exception {
+    public HttpResponse doPost(String url, Map<String, String> headers, Map<String, String> params) throws Exception {
         // create a new http get
         HttpPost httpPost = new HttpPost(url);
         // set default request config
@@ -228,7 +226,7 @@ public class HttpClientProvider implements AutoCloseable {
         // return http response
         return getResponse(httpPost);
     }
-
+    
     /**
      * Send a post request with request body and without headers
      *
@@ -240,7 +238,7 @@ public class HttpClientProvider implements AutoCloseable {
     public HttpResponse doPost(String url, String body) throws Exception {
         return doPost(url, Collections.emptyMap(), body);
     }
-
+    
     /**
      * Send a post request with request headers and request body
      *
@@ -250,8 +248,7 @@ public class HttpClientProvider implements AutoCloseable {
      * @return http response result
      * @throws Exception information
      */
-    public HttpResponse doPost(String url, Map<String, String> headers, String body)
-            throws Exception {
+    public HttpResponse doPost(String url, Map<String, String> headers, String body) throws Exception {
         // create a new http post
         HttpPost httpPost = new HttpPost(url);
         // set default request config
@@ -263,7 +260,7 @@ public class HttpClientProvider implements AutoCloseable {
         // return http response
         return getResponse(httpPost);
     }
-
+    
     /**
      * Send a post request with request headers , request parameters and request body
      *
@@ -275,8 +272,7 @@ public class HttpClientProvider implements AutoCloseable {
      * @throws Exception information
      */
     public HttpResponse doPost(
-            String url, Map<String, String> headers, Map<String, String> params, String body)
-            throws Exception {
+                               String url, Map<String, String> headers, Map<String, String> params, String body) throws Exception {
         // create a new http get
         HttpPost httpPost = new HttpPost(url);
         // set default request config
@@ -290,7 +286,7 @@ public class HttpClientProvider implements AutoCloseable {
         // return http response
         return getResponse(httpPost);
     }
-
+    
     /**
      * Send a put request without request parameters
      *
@@ -301,7 +297,7 @@ public class HttpClientProvider implements AutoCloseable {
     public HttpResponse doPut(String url) throws Exception {
         return doPut(url, Collections.emptyMap());
     }
-
+    
     /**
      * Send a put request with request parameters
      *
@@ -320,7 +316,7 @@ public class HttpClientProvider implements AutoCloseable {
         // return http response
         return getResponse(httpPut);
     }
-
+    
     /**
      * Send delete request without request parameters
      *
@@ -336,7 +332,7 @@ public class HttpClientProvider implements AutoCloseable {
         // return http response
         return getResponse(httpDelete);
     }
-
+    
     /**
      * Send delete request with request parameters
      *
@@ -349,11 +345,11 @@ public class HttpClientProvider implements AutoCloseable {
         if (params == null) {
             params = new HashMap<>(INITIAL_CAPACITY);
         }
-
+        
         params.put("_method", "delete");
         return doPost(url, params);
     }
-
+    
     private HttpResponse getResponse(HttpRequestBase request) throws Exception {
         // execute request
         try (CloseableHttpResponse httpResponse = retryWithException(request)) {
@@ -368,20 +364,19 @@ public class HttpClientProvider implements AutoCloseable {
         }
         return new HttpResponse(HttpStatus.SC_INTERNAL_SERVER_ERROR);
     }
-
+    
     private CloseableHttpResponse retryWithException(HttpRequestBase request) throws Exception {
         return retryer.call(() -> httpClient.execute(request));
     }
-
+    
     private void addParameters(URIBuilder builder, Map<String, String> params) {
         if (Objects.isNull(params) || params.isEmpty()) {
             return;
         }
         params.forEach(builder::setParameter);
     }
-
-    private void addParameters(HttpEntityEnclosingRequestBase request, Map<String, String> params)
-            throws UnsupportedEncodingException {
+    
+    private void addParameters(HttpEntityEnclosingRequestBase request, Map<String, String> params) throws UnsupportedEncodingException {
         if (Objects.isNull(params) || params.isEmpty()) {
             return;
         }
@@ -396,26 +391,26 @@ public class HttpClientProvider implements AutoCloseable {
         // Set to the request's http object
         request.setEntity(new UrlEncodedFormEntity(parameters, ENCODING));
     }
-
+    
     private void addHeaders(HttpRequestBase request, Map<String, String> headers) {
         if (Objects.isNull(headers) || headers.isEmpty()) {
             return;
         }
         headers.forEach(request::addHeader);
     }
-
+    
     private void addBody(HttpEntityEnclosingRequestBase request, String body) {
         request.addHeader(HTTP.CONTENT_TYPE, APPLICATION_JSON);
-
+        
         if (StringUtils.isBlank(body)) {
             body = "";
         }
-
+        
         StringEntity entity = new StringEntity(body, ContentType.APPLICATION_JSON);
         entity.setContentEncoding(new BasicHeader(HTTP.CONTENT_TYPE, APPLICATION_JSON));
         request.setEntity(entity);
     }
-
+    
     @Override
     public void close() throws IOException {
         if (Objects.nonNull(httpClient)) {

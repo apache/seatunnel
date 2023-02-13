@@ -1,11 +1,10 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -15,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.format.json;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
@@ -46,15 +44,16 @@ import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
 public class RowToJsonConverters implements Serializable {
-
+    
     private static final long serialVersionUID = 6988876688930916940L;
-
+    
     public RowToJsonConverter createConverter(SeaTunnelDataType<?> type) {
         return wrapIntoNullableConverter(createNotNullConverter(type));
     }
-
+    
     private RowToJsonConverter wrapIntoNullableConverter(RowToJsonConverter converter) {
         return new RowToJsonConverter() {
+            
             @Override
             public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
                 if (value == null) {
@@ -64,7 +63,7 @@ public class RowToJsonConverters implements Serializable {
             }
         };
     }
-
+    
     private RowToJsonConverter createNotNullConverter(SeaTunnelDataType<?> type) {
         SqlType sqlType = type.getSqlType();
         switch (sqlType) {
@@ -72,6 +71,7 @@ public class RowToJsonConverters implements Serializable {
                 return createRowConverter((SeaTunnelRowType) type);
             case NULL:
                 return new RowToJsonConverter() {
+                    
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
                         return null;
@@ -79,6 +79,7 @@ public class RowToJsonConverters implements Serializable {
                 };
             case BOOLEAN:
                 return new RowToJsonConverter() {
+                    
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
                         return mapper.getNodeFactory().booleanNode((Boolean) value);
@@ -86,6 +87,7 @@ public class RowToJsonConverters implements Serializable {
                 };
             case TINYINT:
                 return new RowToJsonConverter() {
+                    
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
                         return mapper.getNodeFactory().numberNode((byte) value);
@@ -93,6 +95,7 @@ public class RowToJsonConverters implements Serializable {
                 };
             case SMALLINT:
                 return new RowToJsonConverter() {
+                    
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
                         return mapper.getNodeFactory().numberNode((short) value);
@@ -100,6 +103,7 @@ public class RowToJsonConverters implements Serializable {
                 };
             case INT:
                 return new RowToJsonConverter() {
+                    
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
                         return mapper.getNodeFactory().numberNode((int) value);
@@ -107,6 +111,7 @@ public class RowToJsonConverters implements Serializable {
                 };
             case BIGINT:
                 return new RowToJsonConverter() {
+                    
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
                         return mapper.getNodeFactory().numberNode((long) value);
@@ -114,6 +119,7 @@ public class RowToJsonConverters implements Serializable {
                 };
             case FLOAT:
                 return new RowToJsonConverter() {
+                    
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
                         return mapper.getNodeFactory().numberNode((float) value);
@@ -121,6 +127,7 @@ public class RowToJsonConverters implements Serializable {
                 };
             case DOUBLE:
                 return new RowToJsonConverter() {
+                    
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
                         return mapper.getNodeFactory().numberNode((double) value);
@@ -128,6 +135,7 @@ public class RowToJsonConverters implements Serializable {
                 };
             case DECIMAL:
                 return new RowToJsonConverter() {
+                    
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
                         return mapper.getNodeFactory().numberNode((BigDecimal) value);
@@ -135,6 +143,7 @@ public class RowToJsonConverters implements Serializable {
                 };
             case BYTES:
                 return new RowToJsonConverter() {
+                    
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
                         return mapper.getNodeFactory().binaryNode((byte[]) value);
@@ -142,6 +151,7 @@ public class RowToJsonConverters implements Serializable {
                 };
             case STRING:
                 return new RowToJsonConverter() {
+                    
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
                         return mapper.getNodeFactory().textNode((String) value);
@@ -149,6 +159,7 @@ public class RowToJsonConverters implements Serializable {
                 };
             case DATE:
                 return new RowToJsonConverter() {
+                    
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
                         return mapper.getNodeFactory()
@@ -157,6 +168,7 @@ public class RowToJsonConverters implements Serializable {
                 };
             case TIME:
                 return new RowToJsonConverter() {
+                    
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
                         return mapper.getNodeFactory()
@@ -165,6 +177,7 @@ public class RowToJsonConverters implements Serializable {
                 };
             case TIMESTAMP:
                 return new RowToJsonConverter() {
+                    
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
                         return mapper.getNodeFactory()
@@ -182,12 +195,13 @@ public class RowToJsonConverters implements Serializable {
                         CommonErrorCode.UNSUPPORTED_DATA_TYPE, "unsupported parse type: " + type);
         }
     }
-
+    
     private RowToJsonConverter createRowConverter(SeaTunnelRowType rowType) {
         final RowToJsonConverter[] fieldConverters =
                 Arrays.stream(rowType.getFieldTypes())
                         .map(
                                 new Function<SeaTunnelDataType<?>, Object>() {
+                                    
                                     @Override
                                     public Object apply(SeaTunnelDataType<?> seaTunnelDataType) {
                                         return createConverter(seaTunnelDataType);
@@ -195,6 +209,7 @@ public class RowToJsonConverters implements Serializable {
                                 })
                         .toArray(
                                 new IntFunction<RowToJsonConverter[]>() {
+                                    
                                     @Override
                                     public RowToJsonConverter[] apply(int value) {
                                         return new RowToJsonConverter[value];
@@ -202,19 +217,20 @@ public class RowToJsonConverters implements Serializable {
                                 });
         final String[] fieldNames = rowType.getFieldNames();
         final int arity = fieldNames.length;
-
+        
         return new RowToJsonConverter() {
+            
             @Override
             public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
                 ObjectNode node;
-
+                
                 // reuse could be a NullNode if last record is null.
                 if (reuse == null || reuse.isNull()) {
                     node = mapper.createObjectNode();
                 } else {
                     node = (ObjectNode) reuse;
                 }
-
+                
                 for (int i = 0; i < arity; i++) {
                     String fieldName = fieldNames[i];
                     SeaTunnelRow row = (SeaTunnelRow) value;
@@ -223,19 +239,20 @@ public class RowToJsonConverters implements Serializable {
                             fieldConverters[i].convert(
                                     mapper, node.get(fieldName), row.getField(i)));
                 }
-
+                
                 return node;
             }
         };
     }
-
+    
     private RowToJsonConverter createArrayConverter(ArrayType arrayType) {
         final RowToJsonConverter elementConverter = createConverter(arrayType.getElementType());
         return new RowToJsonConverter() {
+            
             @Override
             public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
                 ArrayNode node;
-
+                
                 // reuse could be a NullNode if last record is null.
                 if (reuse == null || reuse.isNull()) {
                     node = mapper.createArrayNode();
@@ -243,34 +260,35 @@ public class RowToJsonConverters implements Serializable {
                     node = (ArrayNode) reuse;
                     node.removeAll();
                 }
-
+                
                 Object[] arrayData = (Object[]) value;
                 int numElements = arrayData.length;
                 for (int i = 0; i < numElements; i++) {
                     Object element = arrayData[i];
                     node.add(elementConverter.convert(mapper, null, element));
                 }
-
+                
                 return node;
             }
         };
     }
-
+    
     private RowToJsonConverter createMapConverter(
-            String typeSummary, SeaTunnelDataType<?> keyType, SeaTunnelDataType<?> valueType) {
+                                                  String typeSummary, SeaTunnelDataType<?> keyType, SeaTunnelDataType<?> valueType) {
         if (!SqlType.STRING.equals(keyType.getSqlType())) {
             throw new SeaTunnelJsonFormatException(
                     CommonErrorCode.UNSUPPORTED_DATA_TYPE,
                     "JSON format doesn't support non-string as key type of map. The type is: "
                             + typeSummary);
         }
-
+        
         final RowToJsonConverter valueConverter = createConverter(valueType);
         return new RowToJsonConverter() {
+            
             @Override
             public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
                 ObjectNode node;
-
+                
                 // reuse could be a NullNode if last record is null.
                 if (reuse == null || reuse.isNull()) {
                     node = mapper.createObjectNode();
@@ -278,7 +296,7 @@ public class RowToJsonConverters implements Serializable {
                     node = (ObjectNode) reuse;
                     node.removeAll();
                 }
-
+                
                 Map<String, ?> mapData = (Map) value;
                 for (Map.Entry<String, ?> entry : mapData.entrySet()) {
                     String fieldName = entry.getKey();
@@ -286,13 +304,14 @@ public class RowToJsonConverters implements Serializable {
                             fieldName,
                             valueConverter.convert(mapper, node.get(fieldName), entry.getValue()));
                 }
-
+                
                 return node;
             }
         };
     }
-
+    
     public interface RowToJsonConverter extends Serializable {
+        
         JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value);
     }
 }

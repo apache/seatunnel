@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.translation.flink.source;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -52,34 +51,38 @@ import java.util.concurrent.atomic.AtomicLong;
  * translation
  */
 public abstract class BaseSeaTunnelSourceFunction extends RichSourceFunction<Row>
-        implements CheckpointListener, ResultTypeQueryable<Row>, CheckpointedFunction {
+        implements
+            CheckpointListener,
+            ResultTypeQueryable<Row>,
+            CheckpointedFunction {
+    
     private static final Logger LOG = LoggerFactory.getLogger(BaseSeaTunnelSourceFunction.class);
-
+    
     protected final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
     protected transient volatile BaseSourceFunction<SeaTunnelRow> internalSource;
-
+    
     protected transient ListState<Map<Integer, List<byte[]>>> sourceState;
     protected transient volatile Map<Integer, List<byte[]>> restoredState;
-
+    
     protected final AtomicLong latestCompletedCheckpointId = new AtomicLong(0);
     protected final AtomicLong latestTriggerCheckpointId = new AtomicLong(0);
-
+    
     /** Flag indicating whether the consumer is still running. */
     private volatile boolean running = true;
-
+    
     public BaseSeaTunnelSourceFunction(SeaTunnelSource<SeaTunnelRow, ?, ?> source) {
         this.source = source;
     }
-
+    
     @Override
     public void open(Configuration parameters) throws Exception {
         super.open(parameters);
         this.internalSource = createInternalSource();
         this.internalSource.open();
     }
-
+    
     protected abstract BaseSourceFunction<SeaTunnelRow> createInternalSource();
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void run(SourceFunction.SourceContext<Row> sourceContext) throws Exception {
@@ -100,13 +103,13 @@ public abstract class BaseSeaTunnelSourceFunction extends RichSourceFunction<Row
             }
         }
     }
-
+    
     @Override
     public void close() throws Exception {
         cancel();
         LOG.debug("Close the SeaTunnelSourceFunction of Flink.");
     }
-
+    
     @Override
     public void cancel() {
         running = false;
@@ -119,24 +122,24 @@ public abstract class BaseSeaTunnelSourceFunction extends RichSourceFunction<Row
             throw new RuntimeException(e);
         }
     }
-
+    
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         internalSource.notifyCheckpointComplete(checkpointId);
         latestCompletedCheckpointId.set(checkpointId);
     }
-
+    
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         internalSource.notifyCheckpointAborted(checkpointId);
     }
-
+    
     @SuppressWarnings("unchecked")
     @Override
     public TypeInformation<Row> getProducedType() {
         return (TypeInformation<Row>) TypeConverterUtils.convert(source.getProducedType());
     }
-
+    
     @Override
     public void snapshotState(FunctionSnapshotContext snapshotContext) throws Exception {
         final long checkpointId = snapshotContext.getCheckpointId();
@@ -148,7 +151,7 @@ public abstract class BaseSeaTunnelSourceFunction extends RichSourceFunction<Row
             sourceState.add(internalSource.snapshotState(checkpointId));
         }
     }
-
+    
     @Override
     public void initializeState(FunctionInitializationContext initializeContext) throws Exception {
         this.restoredState = new HashMap<>();
@@ -161,8 +164,7 @@ public abstract class BaseSeaTunnelSourceFunction extends RichSourceFunction<Row
                                         Types.MAP(
                                                 BasicTypeInfo.INT_TYPE_INFO,
                                                 Types.LIST(
-                                                        PrimitiveArrayTypeInfo
-                                                                .BYTE_PRIMITIVE_ARRAY_TYPE_INFO))));
+                                                        PrimitiveArrayTypeInfo.BYTE_PRIMITIVE_ARRAY_TYPE_INFO))));
         if (initializeContext.isRestored()) {
             // populate actual holder for restored state
             sourceState.get().forEach(map -> restoredState.putAll(map));
@@ -175,6 +177,6 @@ public abstract class BaseSeaTunnelSourceFunction extends RichSourceFunction<Row
                     getRuntimeContext().getIndexOfThisSubtask());
         }
     }
-
+    
     protected abstract String getStateName();
 }

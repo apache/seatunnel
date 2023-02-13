@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.file.sink.util;
 
 import org.apache.seatunnel.common.exception.CommonErrorCode;
@@ -39,16 +38,17 @@ import java.util.List;
 
 @Slf4j
 public class FileSystemUtils implements Serializable {
+    
     private static final int WRITE_BUFFER_SIZE = 2048;
-
+    
     private final HadoopConf hadoopConf;
-
+    
     private transient Configuration configuration;
-
+    
     public FileSystemUtils(HadoopConf hadoopConf) {
         this.hadoopConf = hadoopConf;
     }
-
+    
     public Configuration getConfiguration(HadoopConf hadoopConf) {
         Configuration configuration = new Configuration();
         configuration.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, hadoopConf.getHdfsNameKey());
@@ -57,7 +57,7 @@ public class FileSystemUtils implements Serializable {
         hadoopConf.setExtraOptionsForConfiguration(configuration);
         return configuration;
     }
-
+    
     public FileSystem getFileSystem(@NonNull String path) throws IOException {
         if (configuration == null) {
             configuration = getConfiguration(hadoopConf);
@@ -67,13 +67,13 @@ public class FileSystemUtils implements Serializable {
         fileSystem.setWriteChecksum(false);
         return fileSystem;
     }
-
+    
     public FSDataOutputStream getOutputStream(@NonNull String outFilePath) throws IOException {
         FileSystem fileSystem = getFileSystem(outFilePath);
         Path path = new Path(outFilePath);
         return fileSystem.create(path, true, WRITE_BUFFER_SIZE);
     }
-
+    
     public void createFile(@NonNull String filePath) throws IOException {
         FileSystem fileSystem = getFileSystem(filePath);
         Path path = new Path(filePath);
@@ -82,7 +82,7 @@ public class FileSystemUtils implements Serializable {
                     CommonErrorCode.FILE_OPERATION_FAILED, "create file " + filePath + " error");
         }
     }
-
+    
     public void deleteFile(@NonNull String file) throws IOException {
         FileSystem fileSystem = getFileSystem(file);
         Path path = new Path(file);
@@ -93,7 +93,7 @@ public class FileSystemUtils implements Serializable {
             }
         }
     }
-
+    
     /**
      * rename file
      *
@@ -102,14 +102,13 @@ public class FileSystemUtils implements Serializable {
      * @param rmWhenExist if this is true, we will delete the target file when it already exists
      * @throws IOException throw IOException
      */
-    public void renameFile(@NonNull String oldName, @NonNull String newName, boolean rmWhenExist)
-            throws IOException {
+    public void renameFile(@NonNull String oldName, @NonNull String newName, boolean rmWhenExist) throws IOException {
         FileSystem fileSystem = getFileSystem(newName);
         log.info("begin rename file oldName :[" + oldName + "] to newName :[" + newName + "]");
-
+        
         Path oldPath = new Path(oldName);
         Path newPath = new Path(newName);
-
+        
         if (!fileExist(oldPath.toString())) {
             log.warn(
                     "rename file :["
@@ -119,7 +118,7 @@ public class FileSystemUtils implements Serializable {
                             + "] already finished in the last commit, skip");
             return;
         }
-
+        
         if (rmWhenExist) {
             if (fileExist(newName) && fileExist(oldName)) {
                 fileSystem.delete(newPath, true);
@@ -129,7 +128,7 @@ public class FileSystemUtils implements Serializable {
         if (!fileExist(newPath.getParent().toString())) {
             createDir(newPath.getParent().toString());
         }
-
+        
         if (fileSystem.rename(oldPath, newPath)) {
             log.info("rename file :[" + oldPath + "] to [" + newPath + "] finish");
         } else {
@@ -138,7 +137,7 @@ public class FileSystemUtils implements Serializable {
                     "rename file :[" + oldPath + "] to [" + newPath + "] error");
         }
     }
-
+    
     public void createDir(@NonNull String filePath) throws IOException {
         FileSystem fileSystem = getFileSystem(filePath);
         Path dfs = new Path(filePath);
@@ -147,13 +146,13 @@ public class FileSystemUtils implements Serializable {
                     CommonErrorCode.FILE_OPERATION_FAILED, "create dir " + filePath + " error");
         }
     }
-
+    
     public boolean fileExist(@NonNull String filePath) throws IOException {
         FileSystem fileSystem = getFileSystem(filePath);
         Path fileName = new Path(filePath);
         return fileSystem.exists(fileName);
     }
-
+    
     /** get the dir in filePath */
     public List<Path> dirList(@NonNull String filePath) throws IOException {
         FileSystem fileSystem = getFileSystem(filePath);

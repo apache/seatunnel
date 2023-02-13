@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.checkpoint.operation;
 
 import org.apache.seatunnel.common.utils.RetryUtils;
@@ -38,36 +37,36 @@ import java.io.IOException;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TaskReportStatusOperation extends Operation implements IdentifiedDataSerializable {
-
+    
     private static final int RETRY_NUMBER = 20;
-
+    
     private static final int RETRY_INTERVAL = 2000;
-
+    
     private TaskLocation location;
     private SeaTunnelTaskState status;
-
+    
     @Override
     public int getFactoryId() {
         return CheckpointDataSerializerHook.FACTORY_ID;
     }
-
+    
     @Override
     public int getClassId() {
         return CheckpointDataSerializerHook.TASK_REPORT_STATUS_OPERATOR;
     }
-
+    
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         out.writeObject(location);
         out.writeObject(status);
     }
-
+    
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         location = in.readObject(TaskLocation.class);
         status = in.readObject();
     }
-
+    
     @Override
     public void run() throws Exception {
         CoordinatorService coordinatorService =

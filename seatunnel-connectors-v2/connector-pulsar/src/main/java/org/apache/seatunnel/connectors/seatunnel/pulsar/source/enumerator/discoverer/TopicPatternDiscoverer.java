@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.discoverer;
 
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorErrorCode;
@@ -38,16 +37,17 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class TopicPatternDiscoverer implements PulsarDiscoverer {
+    
     private static final long serialVersionUID = 1L;
     private static final Logger LOG = LoggerFactory.getLogger(TopicPatternDiscoverer.class);
-
+    
     private final Pattern topicPattern;
     private final RegexSubscriptionMode subscriptionMode;
     private final String namespace;
-
+    
     public TopicPatternDiscoverer(Pattern topicPattern) {
         this.topicPattern = topicPattern;
-
+        
         this.subscriptionMode = RegexSubscriptionMode.AllTopics;
         // Extract the namespace from topic pattern regex.
         // If no namespace provided in the regex, we would directly use "default" as the namespace.
@@ -55,7 +55,7 @@ public class TopicPatternDiscoverer implements PulsarDiscoverer {
         NamespaceName namespaceName = destination.getNamespaceObject();
         this.namespace = namespaceName.toString();
     }
-
+    
     @Override
     public Set<TopicPartition> getSubscribedTopicPartitions(PulsarAdmin pulsarAdmin) {
         LOG.debug("Fetching descriptions for all topics on pulsar cluster");
@@ -92,7 +92,7 @@ public class TopicPatternDiscoverer implements PulsarDiscoverer {
                     PulsarConnectorErrorCode.GET_TOPIC_PARTITION_FAILED, e);
         }
     }
-
+    
     private boolean matchesSubscriptionMode(String topic) {
         TopicName topicName = TopicName.get(topic);
         // Filter the topic persistence.

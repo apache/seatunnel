@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jira.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -42,13 +41,14 @@ import static org.apache.seatunnel.connectors.seatunnel.http.util.AuthorizationU
 @Slf4j
 @AutoService(SeaTunnelSource.class)
 public class JiraSource extends HttpSource {
+    
     private final JiraSourceParameter jiraSourceParameter = new JiraSourceParameter();
-
+    
     @Override
     public String getPluginName() {
         return "Jira";
     }
-
+    
     @Override
     public Boundedness getBoundedness() {
         if (JobMode.BATCH.equals(jobContext.getJobMode())) {
@@ -57,7 +57,7 @@ public class JiraSource extends HttpSource {
         throw new UnsupportedOperationException(
                 "Jira source connector not support unbounded operation");
     }
-
+    
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result =
@@ -77,10 +77,10 @@ public class JiraSource extends HttpSource {
         jiraSourceParameter.buildWithConfig(pluginConfig, accessToken);
         buildSchemaWithConfig(pluginConfig);
     }
-
+    
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(
-            SingleSplitReaderContext readerContext) throws Exception {
+                                                                SingleSplitReaderContext readerContext) throws Exception {
         return new HttpSourceReader(
                 this.jiraSourceParameter,
                 readerContext,

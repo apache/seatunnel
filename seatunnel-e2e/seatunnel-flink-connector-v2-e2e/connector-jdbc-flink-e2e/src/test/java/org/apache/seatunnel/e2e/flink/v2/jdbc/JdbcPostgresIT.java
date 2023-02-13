@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.e2e.flink.v2.jdbc;
 
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
@@ -52,11 +51,12 @@ import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class JdbcPostgresIT extends FlinkContainer {
+    
     private static final String DOCKER_IMAGE = "postgres:14-alpine";
     private PostgreSQLContainer<?> pg;
     private static final String THIRD_PARTY_PLUGINS_URL =
             "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     @BeforeEach
     public void startPostgreSqlContainer() throws Exception {
@@ -79,10 +79,11 @@ public class JdbcPostgresIT extends FlinkContainer {
                 .untilAsserted(() -> initializeJdbcTable());
         batchInsertData();
     }
-
+    
     private void initializeJdbcTable() {
-        try (Connection connection =
-                DriverManager.getConnection(pg.getJdbcUrl(), pg.getUsername(), pg.getPassword())) {
+        try (
+                Connection connection =
+                        DriverManager.getConnection(pg.getJdbcUrl(), pg.getUsername(), pg.getPassword())) {
             Statement statement = connection.createStatement();
             String source =
                     "create table source(\n"
@@ -102,12 +103,13 @@ public class JdbcPostgresIT extends FlinkContainer {
             throw new RuntimeException("Initializing Mysql table failed!", e);
         }
     }
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     private void batchInsertData() {
         String sql = "insert into source(name, age) values(?,?)";
-        try (Connection connection =
-                DriverManager.getConnection(pg.getJdbcUrl(), pg.getUsername(), pg.getPassword())) {
+        try (
+                Connection connection =
+                        DriverManager.getConnection(pg.getJdbcUrl(), pg.getUsername(), pg.getPassword())) {
             connection.setAutoCommit(false);
             PreparedStatement preparedStatement = connection.prepareStatement(sql);
             for (List row : generateTestDataset()) {
@@ -121,7 +123,7 @@ public class JdbcPostgresIT extends FlinkContainer {
             throw new RuntimeException("Batch insert data failed!", e);
         }
     }
-
+    
     @Test
     public void testJdbcPostgresSourceAndSink() throws Exception {
         Container.ExecResult execResult =
@@ -129,13 +131,13 @@ public class JdbcPostgresIT extends FlinkContainer {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
         Assertions.assertIterableEquals(generateTestDataset(), queryResult());
     }
-
+    
     @Test
     public void testJdbcPostgresSourceAndSinkParallel() throws Exception {
         Container.ExecResult execResult =
                 executeSeaTunnelFlinkJob("/jdbc/jdbc_postgres_source_and_sink_parallel.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-
+        
         // Sorting is required, because it is read in parallel, so there will be out of order
         List<List> sortedResult =
                 queryResult().stream()
@@ -143,38 +145,39 @@ public class JdbcPostgresIT extends FlinkContainer {
                         .collect(Collectors.toList());
         Assertions.assertIterableEquals(generateTestDataset(), sortedResult);
     }
-
+    
     @Test
     public void testJdbcPostgresSourceAndSinkParallelUpperLower() throws Exception {
         Container.ExecResult execResult =
                 executeSeaTunnelFlinkJob(
                         "/jdbc/jdbc_postgres_source_and_sink_parallel_upper_lower.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-
+        
         // Sorting is required, because it is read in parallel, so there will be out of order
         List<List> sortedResult =
                 queryResult().stream()
                         .sorted(Comparator.comparing(list -> (Integer) list.get(1)))
                         .collect(Collectors.toList());
-
+        
         // lower=1 upper=50
         List<List> limit50 = generateTestDataset().stream().limit(50).collect(Collectors.toList());
         Assertions.assertIterableEquals(limit50, sortedResult);
     }
-
+    
     @Test
     public void testJdbcPostgresSourceAndSinkXA() throws Exception {
         Container.ExecResult execResult =
                 executeSeaTunnelFlinkJob("/jdbc/jdbc_postgres_source_and_sink_xa.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-
+        
         Assertions.assertIterableEquals(generateTestDataset(), queryResult());
     }
-
+    
     private List<List> queryResult() {
         List<List> result = new ArrayList<>();
-        try (Connection connection =
-                DriverManager.getConnection(pg.getJdbcUrl(), pg.getUsername(), pg.getPassword())) {
+        try (
+                Connection connection =
+                        DriverManager.getConnection(pg.getJdbcUrl(), pg.getUsername(), pg.getPassword())) {
             Statement statement = connection.createStatement();
             String sql = "select name , age from sink ";
             ResultSet resultSet = statement.executeQuery(sql);
@@ -188,7 +191,7 @@ public class JdbcPostgresIT extends FlinkContainer {
         }
         return result;
     }
-
+    
     private static List<List> generateTestDataset() {
         List<List> rows = new ArrayList<>();
         for (int i = 1; i <= 1000; i++) {
@@ -196,17 +199,16 @@ public class JdbcPostgresIT extends FlinkContainer {
         }
         return rows;
     }
-
+    
     @AfterEach
     public void closePostgreSqlContainer() {
         if (pg != null) {
             pg.stop();
         }
     }
-
+    
     @Override
-    protected void executeExtraCommands(GenericContainer<?> container)
-            throws IOException, InterruptedException {
+    protected void executeExtraCommands(GenericContainer<?> container) throws IOException, InterruptedException {
         Container.ExecResult extraCommands =
                 container.execInContainer(
                         "bash",

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.client;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
@@ -64,17 +63,17 @@ import java.util.Optional;
 
 @Slf4j
 public class EsRestClient {
-
+    
     private static final int CONNECTION_REQUEST_TIMEOUT = 10 * 1000;
-
+    
     private static final int SOCKET_TIMEOUT = 5 * 60 * 1000;
-
+    
     private final RestClient restClient;
-
+    
     private EsRestClient(RestClient restClient) {
         this.restClient = restClient;
     }
-
+    
     public static EsRestClient createInstance(Config pluginConfig) {
         List<String> hosts = pluginConfig.getStringList(EsClusterConnectionConfig.HOSTS.key());
         Optional<String> username = Optional.empty();
@@ -140,17 +139,17 @@ public class EsRestClient {
                 truststorePath,
                 truststorePassword);
     }
-
+    
     public static EsRestClient createInstance(
-            List<String> hosts,
-            Optional<String> username,
-            Optional<String> password,
-            boolean tlsVerifyCertificate,
-            boolean tlsVerifyHostnames,
-            Optional<String> keystorePath,
-            Optional<String> keystorePassword,
-            Optional<String> truststorePath,
-            Optional<String> truststorePassword) {
+                                              List<String> hosts,
+                                              Optional<String> username,
+                                              Optional<String> password,
+                                              boolean tlsVerifyCertificate,
+                                              boolean tlsVerifyHostnames,
+                                              Optional<String> keystorePath,
+                                              Optional<String> keystorePassword,
+                                              Optional<String> truststorePath,
+                                              Optional<String> truststorePassword) {
         RestClientBuilder restClientBuilder =
                 getRestClientBuilder(
                         hosts,
@@ -164,31 +163,30 @@ public class EsRestClient {
                         truststorePassword);
         return new EsRestClient(restClientBuilder.build());
     }
-
+    
     private static RestClientBuilder getRestClientBuilder(
-            List<String> hosts,
-            Optional<String> username,
-            Optional<String> password,
-            boolean tlsVerifyCertificate,
-            boolean tlsVerifyHostnames,
-            Optional<String> keystorePath,
-            Optional<String> keystorePassword,
-            Optional<String> truststorePath,
-            Optional<String> truststorePassword) {
+                                                          List<String> hosts,
+                                                          Optional<String> username,
+                                                          Optional<String> password,
+                                                          boolean tlsVerifyCertificate,
+                                                          boolean tlsVerifyHostnames,
+                                                          Optional<String> keystorePath,
+                                                          Optional<String> keystorePassword,
+                                                          Optional<String> truststorePath,
+                                                          Optional<String> truststorePassword) {
         HttpHost[] httpHosts = new HttpHost[hosts.size()];
         for (int i = 0; i < hosts.size(); i++) {
             httpHosts[i] = HttpHost.create(hosts.get(i));
         }
-
+        
         RestClientBuilder restClientBuilder =
                 RestClient.builder(httpHosts)
                         .setRequestConfigCallback(
-                                requestConfigBuilder ->
-                                        requestConfigBuilder
-                                                .setConnectionRequestTimeout(
-                                                        CONNECTION_REQUEST_TIMEOUT)
-                                                .setSocketTimeout(SOCKET_TIMEOUT));
-
+                                requestConfigBuilder -> requestConfigBuilder
+                                        .setConnectionRequestTimeout(
+                                                CONNECTION_REQUEST_TIMEOUT)
+                                        .setSocketTimeout(SOCKET_TIMEOUT));
+        
         restClientBuilder.setHttpClientConfigCallback(
                 httpClientBuilder -> {
                     if (username.isPresent()) {
@@ -198,7 +196,7 @@ public class EsRestClient {
                                 new UsernamePasswordCredentials(username.get(), password.get()));
                         httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
                     }
-
+                    
                     try {
                         if (tlsVerifyCertificate) {
                             Optional<SSLContext> sslContext =
@@ -225,7 +223,7 @@ public class EsRestClient {
                 });
         return restClientBuilder;
     }
-
+    
     public BulkResponse bulk(String requestBody) {
         Request request = new Request("POST", "/_bulk");
         request.setJsonEntity(requestBody);
@@ -257,7 +255,7 @@ public class EsRestClient {
                     e);
         }
     }
-
+    
     public ElasticsearchClusterInfo getClusterInfo() {
         Request request = new Request("GET", "/");
         try {
@@ -280,7 +278,7 @@ public class EsRestClient {
                     e);
         }
     }
-
+    
     public void close() {
         try {
             restClient.close();
@@ -288,7 +286,7 @@ public class EsRestClient {
             log.warn("close elasticsearch connection error", e);
         }
     }
-
+    
     /**
      * first time to request search documents by scroll call /${index}/_search?scroll=${scroll}
      *
@@ -298,20 +296,20 @@ public class EsRestClient {
      * @param scrollSize fetch documents count in one request
      */
     public ScrollResult searchByScroll(
-            String index, List<String> source, String scrollTime, int scrollSize) {
+                                       String index, List<String> source, String scrollTime, int scrollSize) {
         Map<String, Object> param = new HashMap<>();
         Map<String, Object> query = new HashMap<>();
         query.put("match_all", new HashMap<String, String>());
         param.put("query", query);
         param.put("_source", source);
-        param.put("sort", new String[] {"_doc"});
+        param.put("sort", new String[]{"_doc"});
         param.put("size", scrollSize);
         String endpoint = "/" + index + "/_search?scroll=" + scrollTime;
         ScrollResult scrollResult =
                 getDocsFromScrollRequest(endpoint, JsonUtils.toJsonString(param));
         return scrollResult;
     }
-
+    
     /**
      * scroll to get result call _search/scroll
      *
@@ -326,7 +324,7 @@ public class EsRestClient {
                 getDocsFromScrollRequest("/_search/scroll", JsonUtils.toJsonString(param));
         return scrollResult;
     }
-
+    
     private ScrollResult getDocsFromScrollRequest(String endpoint, String requestBody) {
         Request request = new Request("POST", endpoint);
         request.setJsonEntity(requestBody);
@@ -340,7 +338,7 @@ public class EsRestClient {
             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
                 String entity = EntityUtils.toString(response.getEntity());
                 ObjectNode responseJson = JsonUtils.parseObject(entity);
-
+                
                 JsonNode shards = responseJson.get("_shards");
                 int totalShards = shards.get("total").intValue();
                 int successful = shards.get("successful").intValue();
@@ -349,7 +347,7 @@ public class EsRestClient {
                         String.format(
                                 "POST %s,total shards(%d)!= successful shards(%d)",
                                 endpoint, totalShards, successful));
-
+                
                 ScrollResult scrollResult = getDocsFromScrollResponse(responseJson);
                 return scrollResult;
             } else {
@@ -366,16 +364,16 @@ public class EsRestClient {
                     e);
         }
     }
-
+    
     private ScrollResult getDocsFromScrollResponse(ObjectNode responseJson) {
         ScrollResult scrollResult = new ScrollResult();
         String scrollId = responseJson.get("_scroll_id").asText();
         scrollResult.setScrollId(scrollId);
-
+        
         JsonNode hitsNode = responseJson.get("hits").get("hits");
         List<Map<String, Object>> docs = new ArrayList<>(hitsNode.size());
         scrollResult.setDocs(docs);
-
+        
         Iterator<JsonNode> iter = hitsNode.iterator();
         while (iter.hasNext()) {
             Map<String, Object> doc = new HashMap<>();
@@ -383,8 +381,7 @@ public class EsRestClient {
             doc.put("_index", hitNode.get("_index").textValue());
             doc.put("_id", hitNode.get("_id").textValue());
             JsonNode source = hitNode.get("_source");
-            for (Iterator<Map.Entry<String, JsonNode>> iterator = source.fields();
-                    iterator.hasNext(); ) {
+            for (Iterator<Map.Entry<String, JsonNode>> iterator = source.fields(); iterator.hasNext();) {
                 Map.Entry<String, JsonNode> entry = iterator.next();
                 String fieldName = entry.getKey();
                 if (entry.getValue() instanceof TextNode) {
@@ -397,7 +394,7 @@ public class EsRestClient {
         }
         return scrollResult;
     }
-
+    
     public List<IndexDocsCount> getIndexDocsCount(String index) {
         String endpoint = String.format("/_cat/indices/%s?h=index,docsCount&format=json", index);
         Request request = new Request("GET", endpoint);
@@ -425,7 +422,7 @@ public class EsRestClient {
                     ElasticsearchConnectorErrorCode.GET_INDEX_DOCS_COUNT_FAILED, ex);
         }
     }
-
+    
     /**
      * get es field name and type mapping realtion
      *
@@ -453,14 +450,14 @@ public class EsRestClient {
             String entity = EntityUtils.toString(response.getEntity());
             log.info(String.format("GET %s respnse=%s", endpoint, entity));
             ObjectNode responseJson = JsonUtils.parseObject(entity);
-            for (Iterator<JsonNode> it = responseJson.elements(); it.hasNext(); ) {
+            for (Iterator<JsonNode> it = responseJson.elements(); it.hasNext();) {
                 JsonNode indexProperty = it.next();
                 JsonNode mappingsProperty = indexProperty.get("mappings");
                 if (mappingsProperty.has("mappingsProperty")) {
                     JsonNode properties = mappingsProperty.get("properties");
                     mapping = getFieldTypeMappingFromProperties(properties, source);
                 } else {
-                    for (Iterator<JsonNode> iter = mappingsProperty.iterator(); iter.hasNext(); ) {
+                    for (Iterator<JsonNode> iter = mappingsProperty.iterator(); iter.hasNext();) {
                         JsonNode typeNode = iter.next();
                         JsonNode properties = typeNode.get("properties");
                         mapping.putAll(getFieldTypeMappingFromProperties(properties, source));
@@ -473,9 +470,9 @@ public class EsRestClient {
         }
         return mapping;
     }
-
+    
     private static Map<String, String> getFieldTypeMappingFromProperties(
-            JsonNode properties, List<String> source) {
+                                                                         JsonNode properties, List<String> source) {
         Map<String, String> mapping = new HashMap<>();
         for (String field : source) {
             JsonNode fieldProperty = properties.get(field);

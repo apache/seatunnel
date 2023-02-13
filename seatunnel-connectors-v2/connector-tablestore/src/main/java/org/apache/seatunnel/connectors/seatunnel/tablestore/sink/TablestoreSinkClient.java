@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.tablestore.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -40,6 +39,7 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class TablestoreSinkClient {
+    
     private final TablestoreOptions tablestoreOptions;
     private ScheduledExecutorService scheduler;
     private ScheduledFuture<?> scheduledFuture;
@@ -47,12 +47,12 @@ public class TablestoreSinkClient {
     private volatile Exception flushException;
     private SyncClient syncClient;
     private final List<RowPutChange> batchList;
-
+    
     public TablestoreSinkClient(TablestoreOptions tablestoreOptions, SeaTunnelRowType typeInfo) {
         this.tablestoreOptions = tablestoreOptions;
         this.batchList = new ArrayList<>();
     }
-
+    
     private void tryInit() throws IOException {
         if (initialize) {
             return;
@@ -63,7 +63,7 @@ public class TablestoreSinkClient {
                         tablestoreOptions.getAccessKeyId(),
                         tablestoreOptions.getAccessKeySecret(),
                         tablestoreOptions.getInstanceName());
-
+        
         scheduler =
                 Executors.newSingleThreadScheduledExecutor(
                         new ThreadFactoryBuilder()
@@ -81,10 +81,10 @@ public class TablestoreSinkClient {
                         tablestoreOptions.getBatchIntervalMs(),
                         tablestoreOptions.getBatchIntervalMs(),
                         TimeUnit.MILLISECONDS);
-
+        
         initialize = true;
     }
-
+    
     public void write(RowPutChange rowPutChange) throws IOException {
         tryInit();
         checkFlushException();
@@ -94,7 +94,7 @@ public class TablestoreSinkClient {
             flush();
         }
     }
-
+    
     public void close() throws IOException {
         if (scheduledFuture != null) {
             scheduledFuture.cancel(false);
@@ -105,7 +105,7 @@ public class TablestoreSinkClient {
             syncClient.shutdown();
         }
     }
-
+    
     synchronized void flush() throws IOException {
         checkFlushException();
         if (batchList.isEmpty()) {
@@ -114,17 +114,17 @@ public class TablestoreSinkClient {
         BatchWriteRowRequest batchWriteRowRequest = new BatchWriteRowRequest();
         batchList.forEach(batchWriteRowRequest::addRowChange);
         BatchWriteRowResponse response = syncClient.batchWriteRow(batchWriteRowRequest);
-
+        
         if (!response.isAllSucceed()) {
             throw new TablestoreConnectorException(
                     TablestoreConnectorErrorCode.WRITE_ROW_FAILED,
                     String.format(
                             "Failed to send these rows of data: '%s'.", response.getFailedRows()));
         }
-
+        
         batchList.clear();
     }
-
+    
     private void checkFlushException() {
         if (flushException != null) {
             throw new TablestoreConnectorException(

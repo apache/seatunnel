@@ -1,11 +1,10 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -15,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.core.job;
 
 /**
@@ -46,14 +44,15 @@ package org.apache.seatunnel.engine.core.job;
  * states.
  */
 public enum PipelineStatus {
+    
     CREATED,
-
+    
     SCHEDULED,
-
+    
     DEPLOYING,
-
+    
     RUNNING,
-
+    
     /**
      * This state marks "successfully completed". It can only be reached when a program reaches the
      * "end of its input". The "end of input" can be reached when consuming a bounded input (fix set
@@ -61,18 +60,18 @@ public enum PipelineStatus {
      * input look like it reached its end at a specific point.
      */
     FINISHED,
-
+    
     CANCELING,
-
+    
     CANCELED,
-
+    
     FAILED,
-
+    
     RECONCILING,
-
+    
     /** Restoring last possible valid state of the pipeline if it has it. */
     INITIALIZING;
-
+    
     public boolean isEndState() {
         return this == FINISHED || this == CANCELED || this == FAILED;
     }

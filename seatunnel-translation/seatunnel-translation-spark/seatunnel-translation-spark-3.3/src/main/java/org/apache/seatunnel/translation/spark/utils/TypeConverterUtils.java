@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.translation.spark.utils;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
@@ -38,10 +37,11 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TypeConverterUtils {
+    
     private static final Map<DataType, SeaTunnelDataType<?>> TO_SEA_TUNNEL_TYPES =
             new HashMap<>(16);
     public static final String ROW_KIND_FIELD = "op";
-
+    
     static {
         TO_SEA_TUNNEL_TYPES.put(DataTypes.NullType, BasicType.VOID_TYPE);
         TO_SEA_TUNNEL_TYPES.put(DataTypes.StringType, BasicType.STRING_TYPE);
@@ -56,12 +56,12 @@ public class TypeConverterUtils {
         TO_SEA_TUNNEL_TYPES.put(DataTypes.DateType, LocalTimeType.LOCAL_DATE_TYPE);
         TO_SEA_TUNNEL_TYPES.put(DataTypes.TimestampType, LocalTimeType.LOCAL_DATE_TIME_TYPE);
     }
-
+    
     private TypeConverterUtils() {
         throw new UnsupportedOperationException(
                 "TypeConverterUtils is a utility class and cannot be instantiated");
     }
-
+    
     public static DataType convert(SeaTunnelDataType<?> dataType) {
         checkNotNull(dataType, "The SeaTunnel's data type is required.");
         switch (dataType.getSqlType()) {
@@ -87,8 +87,8 @@ public class TypeConverterUtils {
                 return DataTypes.BinaryType;
             case DATE:
                 return DataTypes.DateType;
-                // case TIME:
-                // TODO: not support now, how reconvert?
+            // case TIME:
+            // TODO: not support now, how reconvert?
             case TIMESTAMP:
                 return DataTypes.TimestampType;
             case ARRAY:
@@ -108,7 +108,7 @@ public class TypeConverterUtils {
         }
         throw new IllegalArgumentException("Unsupported SeaTunnel's data type: " + dataType);
     }
-
+    
     private static StructType convert(SeaTunnelRowType rowType) {
         // TODO: row kind
         StructField[] fields = new StructField[rowType.getFieldNames().length];
@@ -122,7 +122,7 @@ public class TypeConverterUtils {
         }
         return new StructType(fields);
     }
-
+    
     public static SeaTunnelDataType<?> convert(DataType sparkType) {
         checkNotNull(sparkType, "The Spark's data type is required.");
         SeaTunnelDataType<?> dataType = TO_SEA_TUNNEL_TYPES.get(sparkType);
@@ -147,7 +147,7 @@ public class TypeConverterUtils {
         }
         throw new IllegalArgumentException("Unsupported Spark's data type: " + sparkType.sql());
     }
-
+    
     private static ArrayType<?, ?> convert(org.apache.spark.sql.types.ArrayType arrayType) {
         switch (convert(arrayType.elementType()).getSqlType()) {
             case STRING:
@@ -171,7 +171,7 @@ public class TypeConverterUtils {
                         String.format("Unsupported Spark's array type: %s.", arrayType.sql()));
         }
     }
-
+    
     private static SeaTunnelRowType convert(StructType structType) {
         StructField[] structFields = structType.fields();
         String[] fieldNames = new String[structFields.length];

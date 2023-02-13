@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
@@ -31,27 +30,27 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class OracleDialect implements JdbcDialect {
-
+    
     private static final int DEFAULT_ORACLE_FETCH_SIZE = 128;
-
+    
     @Override
     public String dialectName() {
         return "Oracle";
     }
-
+    
     @Override
     public JdbcRowConverter getRowConverter() {
         return new OracleJdbcRowConverter();
     }
-
+    
     @Override
     public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
         return new OracleTypeMapper();
     }
-
+    
     @Override
     public Optional<String> getUpsertStatement(
-            String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+                                               String tableName, String[] fieldNames, String[] uniqueKeyFields) {
         List<String> nonUniqueKeyFields =
                 Arrays.stream(fieldNames)
                         .filter(fieldName -> !Arrays.asList(uniqueKeyFields).contains(fieldName))
@@ -60,25 +59,23 @@ public class OracleDialect implements JdbcDialect {
                 Arrays.stream(fieldNames)
                         .map(fieldName -> ":" + fieldName + " " + quoteIdentifier(fieldName))
                         .collect(Collectors.joining(", "));
-
+        
         String usingClause = String.format("SELECT %s FROM DUAL", valuesBinding);
         String onConditions =
                 Arrays.stream(uniqueKeyFields)
                         .map(
-                                fieldName ->
-                                        String.format(
-                                                "TARGET.%s=SOURCE.%s",
-                                                quoteIdentifier(fieldName),
-                                                quoteIdentifier(fieldName)))
+                                fieldName -> String.format(
+                                        "TARGET.%s=SOURCE.%s",
+                                        quoteIdentifier(fieldName),
+                                        quoteIdentifier(fieldName)))
                         .collect(Collectors.joining(" AND "));
         String updateSetClause =
                 nonUniqueKeyFields.stream()
                         .map(
-                                fieldName ->
-                                        String.format(
-                                                "TARGET.%s=SOURCE.%s",
-                                                quoteIdentifier(fieldName),
-                                                quoteIdentifier(fieldName)))
+                                fieldName -> String.format(
+                                        "TARGET.%s=SOURCE.%s",
+                                        quoteIdentifier(fieldName),
+                                        quoteIdentifier(fieldName)))
                         .collect(Collectors.joining(", "));
         String insertFields =
                 Arrays.stream(fieldNames)
@@ -88,7 +85,7 @@ public class OracleDialect implements JdbcDialect {
                 Arrays.stream(fieldNames)
                         .map(fieldName -> "SOURCE." + quoteIdentifier(fieldName))
                         .collect(Collectors.joining(", "));
-
+        
         String upsertSQL =
                 String.format(
                         " MERGE INTO %s TARGET"
@@ -104,13 +101,13 @@ public class OracleDialect implements JdbcDialect {
                         updateSetClause,
                         insertFields,
                         insertValues);
-
+        
         return Optional.of(upsertSQL);
     }
-
+    
     @Override
     public PreparedStatement creatPreparedStatement(
-            Connection connection, String queryTemplate, int fetchSize) throws SQLException {
+                                                    Connection connection, String queryTemplate, int fetchSize) throws SQLException {
         PreparedStatement statement =
                 connection.prepareStatement(
                         queryTemplate, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);

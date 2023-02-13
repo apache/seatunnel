@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -35,15 +34,15 @@ import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
 public class IcebergStreamSplitEnumerator extends AbstractSplitEnumerator {
-
+    
     private final IcebergScanContext icebergScanContext;
     private final AtomicReference<IcebergEnumeratorPosition> enumeratorPosition;
-
+    
     public IcebergStreamSplitEnumerator(
-            @NonNull SourceSplitEnumerator.Context<IcebergFileScanTaskSplit> context,
-            @NonNull IcebergScanContext icebergScanContext,
-            @NonNull SourceConfig sourceConfig,
-            IcebergSplitEnumeratorState restoreState) {
+                                        @NonNull SourceSplitEnumerator.Context<IcebergFileScanTaskSplit> context,
+                                        @NonNull IcebergScanContext icebergScanContext,
+                                        @NonNull SourceConfig sourceConfig,
+                                        IcebergSplitEnumeratorState restoreState) {
         super(
                 context,
                 sourceConfig,
@@ -54,12 +53,12 @@ public class IcebergStreamSplitEnumerator extends AbstractSplitEnumerator {
             enumeratorPosition.set(restoreState.getLastEnumeratedPosition());
         }
     }
-
+    
     @Override
     public IcebergSplitEnumeratorState snapshotState(long checkpointId) throws Exception {
         return new IcebergSplitEnumeratorState(enumeratorPosition.get(), pendingSplits);
     }
-
+    
     @Override
     public void handleSplitRequest(int subtaskId) {
         synchronized (this) {
@@ -69,7 +68,7 @@ public class IcebergStreamSplitEnumerator extends AbstractSplitEnumerator {
             assignPendingSplits(Collections.singleton(subtaskId));
         }
     }
-
+    
     @Override
     protected List<IcebergFileScanTaskSplit> loadNewSplits(Table table) {
         IcebergEnumerationResult result =

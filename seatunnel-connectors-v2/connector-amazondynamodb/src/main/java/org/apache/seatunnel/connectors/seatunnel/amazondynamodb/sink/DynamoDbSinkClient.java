@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -46,6 +45,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 public class DynamoDbSinkClient {
+    
     private final AmazonDynamoDBSourceOptions amazondynamodbSourceOptions;
     private ScheduledExecutorService scheduler;
     private ScheduledFuture<?> scheduledFuture;
@@ -54,14 +54,14 @@ public class DynamoDbSinkClient {
     private DynamoDbClient dynamoDbClient;
     private final List<WriteRequest> batchList;
     protected SeaTunnelRowDeserializer seaTunnelRowDeserializer;
-
+    
     public DynamoDbSinkClient(
-            AmazonDynamoDBSourceOptions amazondynamodbSourceOptions, SeaTunnelRowType typeInfo) {
+                              AmazonDynamoDBSourceOptions amazondynamodbSourceOptions, SeaTunnelRowType typeInfo) {
         this.amazondynamodbSourceOptions = amazondynamodbSourceOptions;
         this.batchList = new ArrayList<>();
         this.seaTunnelRowDeserializer = new DefaultSeaTunnelRowDeserializer(typeInfo);
     }
-
+    
     private void tryInit() throws IOException {
         if (initialize) {
             return;
@@ -78,7 +78,7 @@ public class DynamoDbSinkClient {
                                                 amazondynamodbSourceOptions.getAccessKeyId(),
                                                 amazondynamodbSourceOptions.getSecretAccessKey())))
                         .build();
-
+        
         scheduler =
                 Executors.newSingleThreadScheduledExecutor(
                         new ThreadFactoryBuilder()
@@ -96,10 +96,10 @@ public class DynamoDbSinkClient {
                         amazondynamodbSourceOptions.getBatchIntervalMs(),
                         amazondynamodbSourceOptions.getBatchIntervalMs(),
                         TimeUnit.MILLISECONDS);
-
+        
         initialize = true;
     }
-
+    
     public synchronized void write(PutItemRequest putItemRequest) throws IOException {
         tryInit();
         checkFlushException();
@@ -112,7 +112,7 @@ public class DynamoDbSinkClient {
             flush();
         }
     }
-
+    
     public synchronized void close() throws IOException {
         if (scheduledFuture != null) {
             scheduledFuture.cancel(false);
@@ -123,7 +123,7 @@ public class DynamoDbSinkClient {
             dynamoDbClient.close();
         }
     }
-
+    
     synchronized void flush() throws IOException {
         checkFlushException();
         if (batchList.isEmpty()) {
@@ -133,10 +133,10 @@ public class DynamoDbSinkClient {
         requestItems.put(amazondynamodbSourceOptions.getTable(), batchList);
         dynamoDbClient.batchWriteItem(
                 BatchWriteItemRequest.builder().requestItems(requestItems).build());
-
+        
         batchList.clear();
     }
-
+    
     private void checkFlushException() {
         if (flushException != null) {
             throw new AmazonDynamoDBConnectorException(

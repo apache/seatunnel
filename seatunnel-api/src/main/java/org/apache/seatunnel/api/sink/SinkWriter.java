@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.api.sink;
 
 import java.io.IOException;
@@ -33,7 +32,7 @@ import java.util.Optional;
  * @param <StateT> The type of state.
  */
 public interface SinkWriter<T, CommitInfoT, StateT> {
-
+    
     /**
      * write data to third party data receiver.
      *
@@ -41,7 +40,7 @@ public interface SinkWriter<T, CommitInfoT, StateT> {
      * @throws IOException throw IOException when write data failed.
      */
     void write(T element) throws IOException;
-
+    
     /**
      * prepare the commit, will be called before {@link #snapshotState(long checkpointId)}. If you
      * need to use 2pc, you can return the commit info in this method, and receive the commit info
@@ -51,7 +50,7 @@ public interface SinkWriter<T, CommitInfoT, StateT> {
      * @return the commit info need to commit
      */
     Optional<CommitInfoT> prepareCommit() throws IOException;
-
+    
     /**
      * @return The writer's state.
      * @throws IOException if fail to snapshot writer's state.
@@ -59,7 +58,7 @@ public interface SinkWriter<T, CommitInfoT, StateT> {
     default List<StateT> snapshotState(long checkpointId) throws IOException {
         return Collections.emptyList();
     }
-
+    
     /**
      * Used to abort the {@link #prepareCommit()}, if the prepareCommit failed, there is no
      * CommitInfoT, so the rollback work cannot be done by {@link SinkCommitter}. But we can use
@@ -67,16 +66,16 @@ public interface SinkWriter<T, CommitInfoT, StateT> {
      * at now.
      */
     void abortPrepare();
-
+    
     /**
      * call it when SinkWriter close
      *
      * @throws IOException if close failed
      */
     void close() throws IOException;
-
+    
     interface Context extends Serializable {
-
+        
         /** @return The index of this subtask. */
         int getIndexOfSubtask();
     }

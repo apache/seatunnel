@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.slack.client;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -39,14 +38,15 @@ import static org.apache.seatunnel.connectors.seatunnel.slack.config.SlackConfig
 
 @Slf4j
 public class SlackClient {
+    
     private final Config pluginConfig;
     private final MethodsClient methodsClient;
-
+    
     public SlackClient(Config pluginConfig) {
         this.pluginConfig = pluginConfig;
         this.methodsClient = Slack.getInstance().methods();
     }
-
+    
     /** Find conversation ID using the conversations.list method */
     public String findConversation() {
         String conversionId = "";
@@ -55,10 +55,9 @@ public class SlackClient {
             // Get Conversion List
             ConversationsListResponse conversationsListResponse =
                     methodsClient.conversationsList(
-                            r ->
-                                    r
-                                            // The Token used to initialize app
-                                            .token(pluginConfig.getString(OAUTH_TOKEN.key())));
+                            r -> r
+                                    // The Token used to initialize app
+                                    .token(pluginConfig.getString(OAUTH_TOKEN.key())));
             channels = conversationsListResponse.getChannels();
             for (Conversation channel : channels) {
                 if (channel.getName().equals(pluginConfig.getString(SLACK_CHANNEL.key()))) {
@@ -74,26 +73,26 @@ public class SlackClient {
         }
         return conversionId;
     }
-
+    
     /** Post a message to a channel using Channel ID and message text */
     public boolean publishMessage(String channelId, String text) {
         boolean publishMessageSuccess = false;
         try {
             ChatPostMessageResponse chatPostMessageResponse =
                     methodsClient.chatPostMessage(
-                            r ->
-                                    r
-                                            // The Token used to initialize app
-                                            .token(pluginConfig.getString(SLACK_CHANNEL.key()))
-                                            .channel(channelId)
-                                            .text(text));
+                            r -> r
+                                    // The Token used to initialize app
+                                    .token(pluginConfig.getString(SLACK_CHANNEL.key()))
+                                    .channel(channelId)
+                                    .text(text));
             publishMessageSuccess = chatPostMessageResponse.isOk();
         } catch (IOException | SlackApiException e) {
             log.error("error: {}", ExceptionUtils.getMessage(e));
         }
         return publishMessageSuccess;
     }
-
+    
     /** Close Conversion */
-    public void closeMethodClient() {}
+    public void closeMethodClient() {
+    }
 }

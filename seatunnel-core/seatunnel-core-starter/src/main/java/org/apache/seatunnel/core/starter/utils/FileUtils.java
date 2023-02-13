@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.core.starter.utils;
 
 import org.apache.seatunnel.common.exception.CommonErrorCode;
@@ -30,11 +29,11 @@ import java.nio.file.Paths;
 
 @Slf4j
 public class FileUtils {
-
+    
     private FileUtils() {
         throw new UnsupportedOperationException("This class cannot be instantiated");
     }
-
+    
     /**
      * Get the seatunnel config path. In client mode, the path to the config file is directly given
      * by user. In cluster mode, the path to the config file is the `executor path/config file
@@ -56,7 +55,7 @@ public class FileUtils {
                         "Unsupported deploy mode: " + args.getDeployMode());
         }
     }
-
+    
     /**
      * Check whether the conf file exists.
      *
@@ -68,7 +67,7 @@ public class FileUtils {
             throw new SeaTunnelRuntimeException(CommonErrorCode.FILE_OPERATION_FAILED, message);
         }
     }
-
+    
     /**
      * Get the file name from the given path. e.g. seatunnel/conf/config.conf -> config.conf
      *
@@ -78,7 +77,7 @@ public class FileUtils {
     private static String getFileName(@NonNull String filePath) {
         return filePath.substring(filePath.lastIndexOf(File.separatorChar) + 1);
     }
-
+    
     /**
      * Get the file extension from the given path. e.g. seatunnel/conf/config.conf -> conf
      *

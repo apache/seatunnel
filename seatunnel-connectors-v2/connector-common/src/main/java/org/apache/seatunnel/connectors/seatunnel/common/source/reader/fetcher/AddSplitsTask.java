@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.common.source.reader.fetcher;
 
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -30,10 +29,11 @@ import java.util.Map;
 @RequiredArgsConstructor
 @ToString(of = {"splitsToAdd"})
 class AddSplitsTask<SplitT extends SourceSplit> implements SplitFetcherTask {
+    
     private final SplitReader<?, SplitT> splitReader;
     private final Collection<SplitT> splitsToAdd;
     private final Map<String, SplitT> assignedSplits;
-
+    
     @Override
     public void run() {
         for (SplitT s : splitsToAdd) {
@@ -41,7 +41,8 @@ class AddSplitsTask<SplitT extends SourceSplit> implements SplitFetcherTask {
         }
         splitReader.handleSplitsChanges(new SplitsAddition<>(splitsToAdd));
     }
-
+    
     @Override
-    public void wakeUp() {}
+    public void wakeUp() {
+    }
 }

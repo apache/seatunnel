@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.format.text;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
@@ -35,6 +34,7 @@ import java.io.IOException;
 import java.util.Map;
 
 public class TextFormatSchemaTest {
+    
     public String content =
             "[1,2,3,4,5,6]#"
                     + "{\"tyrantlucifer\":18,\"Kris\":21}#"
@@ -52,52 +52,52 @@ public class TextFormatSchemaTest {
                     + "2022-09-24#"
                     + "22:45:00#"
                     + "2022-09-24 22:45:00";
-
+    
     public SeaTunnelRowType seaTunnelRowType;
-
+    
     @SuppressWarnings("checkstyle:Indentation")
     @BeforeEach
     public void initSeaTunnelRowType() {
         seaTunnelRowType =
                 new SeaTunnelRowType(
-                        new String[] {
-                            "array_field",
-                            "map_field",
-                            "string_field",
-                            "boolean_field",
-                            "tinyint_field",
-                            "smallint_field",
-                            "int_field",
-                            "bigint_field",
-                            "float_field",
-                            "double_field",
-                            "decimal_field",
-                            "null_field",
-                            "bytes_field",
-                            "date_field",
-                            "time_field",
-                            "timestamp_field"
+                        new String[]{
+                                "array_field",
+                                "map_field",
+                                "string_field",
+                                "boolean_field",
+                                "tinyint_field",
+                                "smallint_field",
+                                "int_field",
+                                "bigint_field",
+                                "float_field",
+                                "double_field",
+                                "decimal_field",
+                                "null_field",
+                                "bytes_field",
+                                "date_field",
+                                "time_field",
+                                "timestamp_field"
                         },
-                        new SeaTunnelDataType<?>[] {
-                            ArrayType.INT_ARRAY_TYPE,
-                            new MapType<>(BasicType.STRING_TYPE, BasicType.INT_TYPE),
-                            BasicType.STRING_TYPE,
-                            BasicType.BOOLEAN_TYPE,
-                            BasicType.BYTE_TYPE,
-                            BasicType.SHORT_TYPE,
-                            BasicType.INT_TYPE,
-                            BasicType.LONG_TYPE,
-                            BasicType.FLOAT_TYPE,
-                            BasicType.DOUBLE_TYPE,
-                            new DecimalType(30, 8),
-                            BasicType.VOID_TYPE,
-                            PrimitiveByteArrayType.INSTANCE,
-                            LocalTimeType.LOCAL_DATE_TYPE,
-                            LocalTimeType.LOCAL_TIME_TYPE,
-                            LocalTimeType.LOCAL_DATE_TIME_TYPE
+                        new SeaTunnelDataType<?>[]{
+                                ArrayType.INT_ARRAY_TYPE,
+                                new MapType<>(BasicType.STRING_TYPE, BasicType.INT_TYPE),
+                                BasicType.STRING_TYPE,
+                                BasicType.BOOLEAN_TYPE,
+                                BasicType.BYTE_TYPE,
+                                BasicType.SHORT_TYPE,
+                                BasicType.INT_TYPE,
+                                BasicType.LONG_TYPE,
+                                BasicType.FLOAT_TYPE,
+                                BasicType.DOUBLE_TYPE,
+                                new DecimalType(30, 8),
+                                BasicType.VOID_TYPE,
+                                PrimitiveByteArrayType.INSTANCE,
+                                LocalTimeType.LOCAL_DATE_TYPE,
+                                LocalTimeType.LOCAL_TIME_TYPE,
+                                LocalTimeType.LOCAL_DATE_TIME_TYPE
                         });
     }
-
+    
     @Test
     public void testParse() throws IOException {
         TextDeserializationSchema deserializationSchema =

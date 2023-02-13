@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.cdc.base.source.reader.external;
 
 import org.apache.seatunnel.common.utils.SeaTunnelException;
@@ -51,21 +50,21 @@ import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.W
  */
 @Slf4j
 public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, SourceSplitBase> {
-
+    
     public AtomicBoolean hasNextElement;
     public AtomicBoolean reachEnd;
-
+    
     private final FetchTask.Context taskContext;
     private final ExecutorService executorService;
     private volatile ChangeEventQueue<DataChangeEvent> queue;
     private volatile Throwable readException;
-
+    
     // task to read snapshot for current split
     private FetchTask<SourceSplitBase> snapshotSplitReadTask;
     private SnapshotSplit currentSnapshotSplit;
-
+    
     private static final long READER_CLOSE_TIMEOUT_SECONDS = 30L;
-
+    
     public IncrementalSourceScanFetcher(FetchTask.Context taskContext, int subtaskId) {
         this.taskContext = taskContext;
         ThreadFactory threadFactory =
@@ -76,7 +75,7 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
         this.hasNextElement = new AtomicBoolean(false);
         this.reachEnd = new AtomicBoolean(false);
     }
-
+    
     @Override
     public void submitTask(FetchTask<SourceSplitBase> fetchTask) {
         this.snapshotSplitReadTask = fetchTask;
@@ -99,17 +98,17 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
                     }
                 });
     }
-
+    
     @Override
     public boolean isFinished() {
         return currentSnapshotSplit == null
                 || !snapshotSplitReadTask.isRunning() && !hasNextElement.get() && reachEnd.get();
     }
-
+    
     @Override
     public Iterator<SourceRecords> pollSplitRecords() throws InterruptedException {
         checkReadException();
-
+        
         if (hasNextElement.get()) {
             // eg:
             // data input: [low watermark event][snapshot events][high watermark event][change
@@ -130,20 +129,20 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
                         assertLowWatermark(lowWatermark);
                         continue;
                     }
-
+                    
                     if (highWatermark == null && isHighWatermarkEvent(record)) {
                         highWatermark = record;
                         // snapshot events capture end and begin to capture binlog events
                         reachChangeLogStart = true;
                         continue;
                     }
-
+                    
                     if (reachChangeLogStart && isEndWatermarkEvent(record)) {
                         // capture to end watermark events, stop the loop
                         reachChangeLogEnd = true;
                         break;
                     }
-
+                    
                     if (!reachChangeLogStart) {
                         outputBuffer.put((Struct) record.key(), record);
                     } else {
@@ -156,12 +155,12 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
             }
             // snapshot split return its data once
             hasNextElement.set(false);
-
+            
             final List<SourceRecord> normalizedRecords = new ArrayList<>();
             normalizedRecords.add(lowWatermark);
             normalizedRecords.addAll(taskContext.formatMessageTimestamp(outputBuffer.values()));
             normalizedRecords.add(highWatermark);
-
+            
             final List<SourceRecords> sourceRecordsSet = new ArrayList<>();
             sourceRecordsSet.add(new SourceRecords(normalizedRecords));
             return sourceRecordsSet.iterator();
@@ -170,7 +169,7 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
         reachEnd.compareAndSet(false, true);
         return null;
     }
-
+    
     private void assertLowWatermark(SourceRecord lowWatermark) {
         checkState(
                 isLowWatermarkEvent(lowWatermark),
@@ -178,7 +177,7 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
                         "The first record should be low watermark signal event, but actual is %s",
                         lowWatermark));
     }
-
+    
     private void checkReadException() {
         if (readException != null) {
             throw new SeaTunnelException(
@@ -188,7 +187,7 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
                     readException);
         }
     }
-
+    
     @Override
     public void close() {
         try {
@@ -205,17 +204,17 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
             log.error("Close scan fetcher error", e);
         }
     }
-
+    
     private boolean isChangeRecordInChunkRange(SourceRecord record) {
         if (taskContext.isDataChangeRecord(record)) {
             return taskContext.isRecordBetween(
                     record,
                     null == currentSnapshotSplit.getSplitStart()
                             ? null
-                            : new Object[] {currentSnapshotSplit.getSplitStart()},
+                            : new Object[]{currentSnapshotSplit.getSplitStart()},
                     null == currentSnapshotSplit.getSplitEnd()
                             ? null
-                            : new Object[] {currentSnapshotSplit.getSplitEnd()});
+                            : new Object[]{currentSnapshotSplit.getSplitEnd()});
         }
         return false;
     }

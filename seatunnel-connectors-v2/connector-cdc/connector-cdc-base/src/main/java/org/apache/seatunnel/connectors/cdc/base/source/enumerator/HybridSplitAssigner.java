@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
@@ -37,21 +36,21 @@ import java.util.Optional;
 
 /** Assigner for Hybrid split which contains snapshot splits and incremental splits. */
 public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigner {
-
+    
     private static final Logger LOG = LoggerFactory.getLogger(HybridSplitAssigner.class);
-
+    
     private final SnapshotSplitAssigner<C> snapshotSplitAssigner;
-
+    
     private final IncrementalSplitAssigner<C> incrementalSplitAssigner;
-
+    
     public HybridSplitAssigner(
-            SplitAssigner.Context<C> context,
-            int currentParallelism,
-            int incrementalParallelism,
-            List<TableId> remainingTables,
-            boolean isTableIdCaseSensitive,
-            DataSourceDialect<C> dialect,
-            OffsetFactory offsetFactory) {
+                               SplitAssigner.Context<C> context,
+                               int currentParallelism,
+                               int incrementalParallelism,
+                               List<TableId> remainingTables,
+                               boolean isTableIdCaseSensitive,
+                               DataSourceDialect<C> dialect,
+                               OffsetFactory offsetFactory) {
         this(
                 new SnapshotSplitAssigner<>(
                         context,
@@ -61,32 +60,32 @@ public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigne
                         dialect),
                 new IncrementalSplitAssigner<>(context, incrementalParallelism, offsetFactory));
     }
-
+    
     public HybridSplitAssigner(
-            SplitAssigner.Context<C> context,
-            int currentParallelism,
-            int incrementalParallelism,
-            HybridPendingSplitsState checkpoint,
-            DataSourceDialect<C> dialect,
-            OffsetFactory offsetFactory) {
+                               SplitAssigner.Context<C> context,
+                               int currentParallelism,
+                               int incrementalParallelism,
+                               HybridPendingSplitsState checkpoint,
+                               DataSourceDialect<C> dialect,
+                               OffsetFactory offsetFactory) {
         this(
                 new SnapshotSplitAssigner<>(
                         context, currentParallelism, checkpoint.getSnapshotPhaseState(), dialect),
                 new IncrementalSplitAssigner<>(context, incrementalParallelism, offsetFactory));
     }
-
+    
     private HybridSplitAssigner(
-            SnapshotSplitAssigner<C> snapshotSplitAssigner,
-            IncrementalSplitAssigner<C> incrementalSplitAssigner) {
+                                SnapshotSplitAssigner<C> snapshotSplitAssigner,
+                                IncrementalSplitAssigner<C> incrementalSplitAssigner) {
         this.snapshotSplitAssigner = snapshotSplitAssigner;
         this.incrementalSplitAssigner = incrementalSplitAssigner;
     }
-
+    
     @Override
     public void open() {
         snapshotSplitAssigner.open();
     }
-
+    
     @Override
     public Optional<SourceSplitBase> getNext() {
         if (!snapshotSplitAssigner.noMoreSplits()) {
@@ -107,18 +106,18 @@ public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigne
         // no more splits for the assigner
         return Optional.empty();
     }
-
+    
     @Override
     public boolean waitingForCompletedSplits() {
         return snapshotSplitAssigner.waitingForCompletedSplits();
     }
-
+    
     @Override
     public void onCompletedSplits(List<SnapshotSplitWatermark> completedSplitWatermarks) {
         snapshotSplitAssigner.onCompletedSplits(completedSplitWatermarks);
         incrementalSplitAssigner.onCompletedSplits(completedSplitWatermarks);
     }
-
+    
     @Override
     public void addSplits(Collection<SourceSplitBase> splits) {
         List<SourceSplitBase> snapshotSplits = new ArrayList<>();
@@ -133,14 +132,14 @@ public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigne
         snapshotSplitAssigner.addSplits(snapshotSplits);
         incrementalSplitAssigner.addSplits(incrementalSplits);
     }
-
+    
     @Override
     public PendingSplitsState snapshotState(long checkpointId) {
         return new HybridPendingSplitsState(
                 snapshotSplitAssigner.snapshotState(checkpointId),
                 incrementalSplitAssigner.snapshotState(checkpointId));
     }
-
+    
     @Override
     public void notifyCheckpointComplete(long checkpointId) {
         snapshotSplitAssigner.notifyCheckpointComplete(checkpointId);

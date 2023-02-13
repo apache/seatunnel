@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorErrorCode;
@@ -30,13 +29,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 public class KafkaConsumerThread implements Runnable {
-
+    
     private final KafkaConsumer<byte[], byte[]> consumer;
     private static final String CLIENT_ID_PREFIX = "seatunnel";
     private final ConsumerMetadata metadata;
-
+    
     private final LinkedBlockingQueue<Consumer<KafkaConsumer<byte[], byte[]>>> tasks;
-
+    
     public KafkaConsumerThread(ConsumerMetadata metadata) {
         this.metadata = metadata;
         this.tasks = new LinkedBlockingQueue<>();
@@ -47,7 +46,7 @@ public class KafkaConsumerThread implements Runnable {
                         this.metadata.getProperties(),
                         !this.metadata.isCommitOnCheckpoint());
     }
-
+    
     @Override
     public void run() {
         try {
@@ -70,16 +69,16 @@ public class KafkaConsumerThread implements Runnable {
             }
         }
     }
-
+    
     public LinkedBlockingQueue<Consumer<KafkaConsumer<byte[], byte[]>>> getTasks() {
         return tasks;
     }
-
+    
     private KafkaConsumer<byte[], byte[]> initConsumer(
-            String bootstrapServer,
-            String consumerGroup,
-            Properties properties,
-            boolean autoCommit) {
+                                                       String bootstrapServer,
+                                                       String consumerGroup,
+                                                       Properties properties,
+                                                       boolean autoCommit) {
         Properties props = new Properties();
         properties.forEach(
                 (key, value) -> props.setProperty(String.valueOf(key), String.valueOf(value)));
@@ -101,7 +100,7 @@ public class KafkaConsumerThread implements Runnable {
                 ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
                 ByteArrayDeserializer.class.getName());
         props.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, String.valueOf(autoCommit));
-
+        
         // Disable auto create topics feature
         props.setProperty(ConsumerConfig.ALLOW_AUTO_CREATE_TOPICS_CONFIG, "false");
         return new KafkaConsumer<>(props);

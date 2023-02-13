@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.core.protocol.codec;
 
 import com.hazelcast.client.impl.protocol.ClientMessage;
@@ -36,6 +35,7 @@ import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCod
 
 @Generated("c0a6d0c9d7eb912e8b10861931a0a695")
 public final class SeaTunnelPrintMessageCodec {
+    
     // hex: 0xDE0100
     public static final int REQUEST_MESSAGE_TYPE = 14549248;
     // hex: 0xDE0101
@@ -44,9 +44,10 @@ public final class SeaTunnelPrintMessageCodec {
             PARTITION_ID_FIELD_OFFSET + INT_SIZE_IN_BYTES;
     private static final int RESPONSE_INITIAL_FRAME_SIZE =
             RESPONSE_BACKUP_ACKS_FIELD_OFFSET + BYTE_SIZE_IN_BYTES;
-
-    private SeaTunnelPrintMessageCodec() {}
-
+    
+    private SeaTunnelPrintMessageCodec() {
+    }
+    
     public static ClientMessage encodeRequest(java.lang.String message) {
         ClientMessage clientMessage = ClientMessage.createForEncode();
         clientMessage.setRetryable(false);
@@ -59,14 +60,14 @@ public final class SeaTunnelPrintMessageCodec {
         StringCodec.encode(clientMessage, message);
         return clientMessage;
     }
-
+    
     public static java.lang.String decodeRequest(ClientMessage clientMessage) {
         ClientMessage.ForwardFrameIterator iterator = clientMessage.frameIterator();
         // empty initial frame
         iterator.next();
         return StringCodec.decode(iterator);
     }
-
+    
     public static ClientMessage encodeResponse(java.lang.String response) {
         ClientMessage clientMessage = ClientMessage.createForEncode();
         ClientMessage.Frame initialFrame =
@@ -74,11 +75,11 @@ public final class SeaTunnelPrintMessageCodec {
                         new byte[RESPONSE_INITIAL_FRAME_SIZE], UNFRAGMENTED_MESSAGE);
         encodeInt(initialFrame.content, TYPE_FIELD_OFFSET, RESPONSE_MESSAGE_TYPE);
         clientMessage.add(initialFrame);
-
+        
         StringCodec.encode(clientMessage, response);
         return clientMessage;
     }
-
+    
     /** */
     public static java.lang.String decodeResponse(ClientMessage clientMessage) {
         ClientMessage.ForwardFrameIterator iterator = clientMessage.frameIterator();

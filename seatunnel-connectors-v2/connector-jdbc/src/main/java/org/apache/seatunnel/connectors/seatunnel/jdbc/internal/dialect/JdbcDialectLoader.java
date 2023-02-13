@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
@@ -31,11 +30,12 @@ import java.util.stream.Collectors;
 
 /** Utility for working with {@link JdbcDialect}. */
 public final class JdbcDialectLoader {
-
+    
     private static final Logger LOG = LoggerFactory.getLogger(JdbcDialectLoader.class);
-
-    private JdbcDialectLoader() {}
-
+    
+    private JdbcDialectLoader() {
+    }
+    
     /**
      * Loads the unique JDBC Dialect that can handle the given database url.
      *
@@ -47,7 +47,7 @@ public final class JdbcDialectLoader {
     public static JdbcDialect load(String url) {
         ClassLoader cl = Thread.currentThread().getContextClassLoader();
         List<JdbcDialectFactory> foundFactories = discoverFactories(cl);
-
+        
         if (foundFactories.isEmpty()) {
             throw new JdbcConnectorException(
                     JdbcConnectorErrorCode.NO_SUITABLE_DIALECT_FACTORY,
@@ -55,10 +55,10 @@ public final class JdbcDialectLoader {
                             "Could not find any jdbc dialect factories that implement '%s' in the classpath.",
                             JdbcDialectFactory.class.getName()));
         }
-
+        
         final List<JdbcDialectFactory> matchingFactories =
                 foundFactories.stream().filter(f -> f.acceptsURL(url)).collect(Collectors.toList());
-
+        
         if (matchingFactories.isEmpty()) {
             throw new JdbcConnectorException(
                     JdbcConnectorErrorCode.NO_SUITABLE_DIALECT_FACTORY,
@@ -88,10 +88,10 @@ public final class JdbcDialectLoader {
                                     .sorted()
                                     .collect(Collectors.joining("\n"))));
         }
-
+        
         return matchingFactories.get(0).create();
     }
-
+    
     private static List<JdbcDialectFactory> discoverFactories(ClassLoader classLoader) {
         try {
             final List<JdbcDialectFactory> result = new LinkedList<>();

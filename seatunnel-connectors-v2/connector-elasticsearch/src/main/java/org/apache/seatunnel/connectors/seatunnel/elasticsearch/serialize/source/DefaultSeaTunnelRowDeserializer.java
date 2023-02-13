@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.source;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
@@ -54,13 +53,14 @@ import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.VOID_TYPE;
 
 public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer {
-
+    
     private final SeaTunnelRowType rowTypeInfo;
-
+    
     private final ObjectMapper mapper = new ObjectMapper();
-
+    
     private final Map<Integer, DateTimeFormatter> dateTimeFormatterMap =
             new HashMap<Integer, DateTimeFormatter>() {
+                
                 {
                     put("yyyy-MM-dd HH".length(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH"));
                     put(
@@ -89,16 +89,16 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS"));
                 }
             };
-
+    
     public DefaultSeaTunnelRowDeserializer(SeaTunnelRowType rowTypeInfo) {
         this.rowTypeInfo = rowTypeInfo;
     }
-
+    
     @Override
     public SeaTunnelRow deserialize(ElasticsearchRecord rowRecord) {
         return convert(rowRecord);
     }
-
+    
     SeaTunnelRow convert(ElasticsearchRecord rowRecord) {
         Object[] seaTunnelFields = new Object[rowTypeInfo.getTotalFields()];
         String fieldName = null;
@@ -123,9 +123,8 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
         }
         return new SeaTunnelRow(seaTunnelFields);
     }
-
-    Object convertValue(SeaTunnelDataType<?> fieldType, String fieldValue)
-            throws JsonProcessingException {
+    
+    Object convertValue(SeaTunnelDataType<?> fieldType, String fieldValue) throws JsonProcessingException {
         if (BOOLEAN_TYPE.equals(fieldType)) {
             return Boolean.parseBoolean(fieldValue);
         } else if (BYTE_TYPE.equals(fieldType)) {
@@ -165,10 +164,11 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
         } else if (fieldType instanceof MapType) {
             MapType<?, ?> mapType = (MapType<?, ?>) fieldType;
             SeaTunnelDataType<?> keyType = mapType.getKeyType();
-
+            
             SeaTunnelDataType<?> valueType = mapType.getValueType();
             Map<String, String> stringMap =
-                    mapper.readValue(fieldValue, new TypeReference<HashMap<String, String>>() {});
+                    mapper.readValue(fieldValue, new TypeReference<HashMap<String, String>>() {
+                    });
             Map<Object, Object> convertMap = new HashMap<Object, Object>();
             for (Map.Entry<String, String> entry : stringMap.entrySet()) {
                 Object convertKey = convertValue(keyType, entry.getKey());
@@ -185,7 +185,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                     CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unexpected value: " + fieldType);
         }
     }
-
+    
     private LocalDateTime parseDate(String fieldValue) {
         String formatDate = fieldValue.replace("T", " ");
         if (fieldValue.length() == "yyyyMMdd".length()

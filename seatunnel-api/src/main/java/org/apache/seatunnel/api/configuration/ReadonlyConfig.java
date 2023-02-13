@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.api.configuration;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
@@ -35,45 +34,47 @@ import static org.apache.seatunnel.api.configuration.util.ConfigUtil.flatteningM
 import static org.apache.seatunnel.api.configuration.util.ConfigUtil.treeMap;
 
 public class ReadonlyConfig implements Serializable {
+    
     private static final long serialVersionUID = 1L;
     private static final ObjectMapper JACKSON_MAPPER = new ObjectMapper();
-
+    
     /** Stores the concrete key/value pairs of this configuration object. */
     protected final Map<String, Object> confData;
-
+    
     private ReadonlyConfig(Map<String, Object> confData) {
         this.confData = confData;
     }
-
+    
     public static ReadonlyConfig fromMap(Map<String, Object> map) {
         return new ReadonlyConfig(treeMap(map));
     }
-
+    
     public static ReadonlyConfig fromConfig(Config config) {
         try {
             return fromMap(
                     JACKSON_MAPPER.readValue(
                             config.root().render(ConfigRenderOptions.concise()),
-                            new TypeReference<Map<String, Object>>() {}));
+                            new TypeReference<Map<String, Object>>() {
+                            }));
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("Json parsing exception.", e);
         }
     }
-
+    
     public <T> T get(Option<T> option) {
         return getOptional(option).orElseGet(option::defaultValue);
     }
-
+    
     public Map<String, String> toMap() {
         if (confData.isEmpty()) {
             return Collections.emptyMap();
         }
-
+        
         Map<String, String> result = new HashMap<>();
         toMap(result);
         return result;
     }
-
+    
     public void toMap(Map<String, String> result) {
         if (confData.isEmpty()) {
             return;
@@ -83,7 +84,7 @@ public class ReadonlyConfig implements Serializable {
             result.put(entry.getKey(), convertToJsonString(entry.getValue()));
         }
     }
-
+    
     @SuppressWarnings("unchecked")
     public <T> Optional<T> getOptional(Option<T> option) {
         if (option == null) {
@@ -107,7 +108,7 @@ public class ReadonlyConfig implements Serializable {
         }
         return Optional.of(convertValue(value, option.typeReference()));
     }
-
+    
     @Override
     public int hashCode() {
         int hash = 0;
@@ -116,7 +117,7 @@ public class ReadonlyConfig implements Serializable {
         }
         return hash;
     }
-
+    
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -128,7 +129,7 @@ public class ReadonlyConfig implements Serializable {
         Map<String, Object> otherConf = ((ReadonlyConfig) obj).confData;
         return this.confData.equals(otherConf);
     }
-
+    
     @Override
     public String toString() {
         return convertToJsonString(this.confData);

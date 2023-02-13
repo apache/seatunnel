@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.http.source;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
@@ -47,44 +46,45 @@ import java.util.Objects;
 
 @Slf4j
 public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
+    
     protected final SingleSplitReaderContext context;
     protected final HttpParameter httpParameter;
     protected HttpClientProvider httpClient;
     private final DeserializationCollector deserializationCollector;
     private static final Option[] DEFAULT_OPTIONS = {
-        Option.SUPPRESS_EXCEPTIONS, Option.ALWAYS_RETURN_LIST, Option.DEFAULT_PATH_LEAF_TO_NULL
+            Option.SUPPRESS_EXCEPTIONS, Option.ALWAYS_RETURN_LIST, Option.DEFAULT_PATH_LEAF_TO_NULL
     };
     private JsonPath[] jsonPaths;
     private final JsonField jsonField;
     private final String contentJson;
     private final Configuration jsonConfiguration =
             Configuration.defaultConfiguration().addOptions(DEFAULT_OPTIONS);
-
+    
     public HttpSourceReader(
-            HttpParameter httpParameter,
-            SingleSplitReaderContext context,
-            DeserializationSchema<SeaTunnelRow> deserializationSchema,
-            JsonField jsonField,
-            String contentJson) {
+                            HttpParameter httpParameter,
+                            SingleSplitReaderContext context,
+                            DeserializationSchema<SeaTunnelRow> deserializationSchema,
+                            JsonField jsonField,
+                            String contentJson) {
         this.context = context;
         this.httpParameter = httpParameter;
         this.deserializationCollector = new DeserializationCollector(deserializationSchema);
         this.jsonField = jsonField;
         this.contentJson = contentJson;
     }
-
+    
     @Override
     public void open() {
         httpClient = new HttpClientProvider(httpParameter);
     }
-
+    
     @Override
     public void close() throws IOException {
         if (Objects.nonNull(httpClient)) {
             httpClient.close();
         }
     }
-
+    
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         try {
@@ -129,11 +129,11 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             }
         }
     }
-
+    
     private List<Map<String, String>> parseToMap(List<List<String>> datas, JsonField jsonField) {
         List<Map<String, String>> decodeDatas = new ArrayList<>(datas.size());
-        String[] keys = jsonField.getFields().keySet().toArray(new String[] {});
-
+        String[] keys = jsonField.getFields().keySet().toArray(new String[]{});
+        
         for (List<String> data : datas) {
             Map<String, String> decodeData = new HashMap<>(jsonField.getFields().size());
             final int[] index = {0};
@@ -144,10 +144,10 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                     });
             decodeDatas.add(decodeData);
         }
-
+        
         return decodeDatas;
     }
-
+    
     private List<List<String>> decodeJSON(String data) {
         ReadContext jsonReadContext = JsonPath.using(jsonConfiguration).parse(data);
         List<List<String>> results = new ArrayList<>(jsonPaths.length);
@@ -169,17 +169,17 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                                 result.size()));
             }
         }
-
+        
         return dataFlip(results);
     }
-
+    
     private String getPartOfJson(String data) {
         ReadContext jsonReadContext = JsonPath.using(jsonConfiguration).parse(data);
         return JsonUtils.toJsonString(jsonReadContext.read(JsonPath.compile(contentJson)));
     }
-
+    
     private List<List<String>> dataFlip(List<List<String>> results) {
-
+        
         List<List<String>> datas = new ArrayList<>();
         for (int i = 0; i < results.size(); i++) {
             List<String> result = results.get(i);
@@ -201,13 +201,13 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         }
         return datas;
     }
-
+    
     private void initJsonPath(JsonField jsonField) {
         jsonPaths = new JsonPath[jsonField.getFields().size()];
         for (int index = 0; index < jsonField.getFields().keySet().size(); index++) {
             jsonPaths[index] =
                     JsonPath.compile(
-                            jsonField.getFields().values().toArray(new String[] {})[index]);
+                            jsonField.getFields().values().toArray(new String[]{})[index]);
         }
     }
 }

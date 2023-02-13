@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.core.starter.flink.args;
 
 import org.apache.seatunnel.common.config.Common;
@@ -36,21 +35,14 @@ import java.util.List;
 @EqualsAndHashCode(callSuper = true)
 @Data
 public class FlinkCommandArgs extends AbstractCommandArgs {
-
-    @Parameter(
-            names = {"-e", "--deploy-mode"},
-            converter = FlinkDeployModeConverter.class,
-            description = "Flink job deploy mode, support [run, run-application]")
+    
+    @Parameter(names = {"-e", "--deploy-mode"}, converter = FlinkDeployModeConverter.class, description = "Flink job deploy mode, support [run, run-application]")
     private DeployMode deployMode = DeployMode.RUN;
-
-    @Parameter(
-            names = {"--master", "--target"},
-            converter = FlinkMasterTargetConverter.class,
-            description =
-                    "Flink job submitted target master, support [local, remote, yarn-session, yarn-per-job, "
-                            + "kubernetes-session, yarn-application, kubernetes-application]")
+    
+    @Parameter(names = {"--master", "--target"}, converter = FlinkMasterTargetConverter.class, description = "Flink job submitted target master, support [local, remote, yarn-session, yarn-per-job, "
+            + "kubernetes-session, yarn-application, kubernetes-application]")
     private MasterType masterType;
-
+    
     @Override
     public Command<?> buildCommand() {
         Common.setDeployMode(getDeployMode());
@@ -60,7 +52,7 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
             return new FlinkTaskExecuteCommand(this);
         }
     }
-
+    
     @Override
     public String toString() {
         return "FlinkCommandArgs{"
@@ -80,10 +72,11 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
                 + originalParameters
                 + '}';
     }
-
+    
     public static class FlinkMasterTargetConverter implements IStringConverter<MasterType> {
+        
         private static final List<MasterType> MASTER_TYPE_LIST = new ArrayList<>();
-
+        
         static {
             MASTER_TYPE_LIST.add(MasterType.LOCAL);
             MASTER_TYPE_LIST.add(MasterType.REMOTE);
@@ -93,7 +86,7 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
             MASTER_TYPE_LIST.add(MasterType.YARN_APPLICATION);
             MASTER_TYPE_LIST.add(MasterType.KUBERNETES_APPLICATION);
         }
-
+        
         @Override
         public MasterType convert(String value) {
             MasterType masterType = MasterType.valueOf(value.toUpperCase().replaceAll("-", "_"));
@@ -107,15 +100,16 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
             }
         }
     }
-
+    
     public static class FlinkDeployModeConverter implements IStringConverter<DeployMode> {
+        
         private static final List<DeployMode> DEPLOY_MODE_TYPE_LIST = new ArrayList<>();
-
+        
         static {
             DEPLOY_MODE_TYPE_LIST.add(DeployMode.RUN);
             DEPLOY_MODE_TYPE_LIST.add(DeployMode.RUN_APPLICATION);
         }
-
+        
         @Override
         public DeployMode convert(String value) {
             DeployMode deployMode = DeployMode.valueOf(value.toUpperCase().replaceAll("-", "_"));

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.common.source.reader.fetcher;
 
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -35,18 +34,19 @@ import java.util.function.Consumer;
 @Slf4j
 @RequiredArgsConstructor
 class FetchTask<E, SplitT extends SourceSplit> implements SplitFetcherTask {
+    
     private static final int OFFER_TIMEOUT_MILLIS = 10000;
-
+    
     private final SplitReader<E, SplitT> splitReader;
     private final BlockingQueue<RecordsWithSplitIds<E>> elementsQueue;
     private final Consumer<Collection<String>> splitFinishedCallback;
     private final int fetcherIndex;
-
+    
     @Getter(value = AccessLevel.PRIVATE)
     private volatile boolean wakeup;
-
+    
     private volatile RecordsWithSplitIds<E> lastRecords;
-
+    
     @Override
     public void run() throws IOException {
         try {
@@ -54,7 +54,7 @@ class FetchTask<E, SplitT extends SourceSplit> implements SplitFetcherTask {
                 lastRecords = splitReader.fetch();
                 log.debug("Fetch records from split fetcher {}", fetcherIndex);
             }
-
+            
             if (!isWakeup()) {
                 if (elementsQueue.offer(lastRecords, OFFER_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)) {
                     if (!lastRecords.finishedSplits().isEmpty()) {
@@ -78,12 +78,12 @@ class FetchTask<E, SplitT extends SourceSplit> implements SplitFetcherTask {
             }
         }
     }
-
+    
     @Override
     public void wakeUp() {
         // Set the wakeup flag first.
         wakeup = true;
-
+        
         if (lastRecords == null) {
             splitReader.wakeUp();
         } else {

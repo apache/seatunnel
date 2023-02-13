@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.persistiq.source.config;
 
 import org.apache.seatunnel.api.configuration.Option;
@@ -22,8 +21,9 @@ import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 
 public class PersistiqSourceConfig extends HttpConfig {
+    
     public static final String X_API_KEY = "x-api-key";
-
+    
     public static final Option<String> PASSWORD =
             Options.key("password")
                     .stringType()

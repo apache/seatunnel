@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.core.starter.flink.execution;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -47,19 +46,18 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class SinkExecuteProcessor
-        extends FlinkAbstractPluginExecuteProcessor<
-                SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>> {
-
+        extends
+            FlinkAbstractPluginExecuteProcessor<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>> {
+    
     private static final String PLUGIN_TYPE = PluginType.SINK.getType();
-
+    
     protected SinkExecuteProcessor(
-            List<URL> jarPaths, List<? extends Config> pluginConfigs, JobContext jobContext) {
+                                   List<URL> jarPaths, List<? extends Config> pluginConfigs, JobContext jobContext) {
         super(jarPaths, pluginConfigs, jobContext);
     }
-
+    
     @Override
-    protected List<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>>
-            initializePlugins(List<URL> jarPaths, List<? extends Config> pluginConfigs) {
+    protected List<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>> initializePlugins(List<URL> jarPaths, List<? extends Config> pluginConfigs) {
         SeaTunnelSinkPluginDiscovery sinkPluginDiscovery =
                 new SeaTunnelSinkPluginDiscovery(ADD_URL_TO_CLASSLOADER);
         List<URL> pluginJars = new ArrayList<>();
@@ -75,14 +73,9 @@ public class SinkExecuteProcessor
                                     pluginJars.addAll(
                                             sinkPluginDiscovery.getPluginJarPaths(
                                                     Lists.newArrayList(pluginIdentifier)));
-                                    SeaTunnelSink<
-                                                    SeaTunnelRow,
-                                                    Serializable,
-                                                    Serializable,
-                                                    Serializable>
-                                            seaTunnelSink =
-                                                    sinkPluginDiscovery.createPluginInstance(
-                                                            pluginIdentifier);
+                                    SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable> seaTunnelSink =
+                                            sinkPluginDiscovery.createPluginInstance(
+                                                    pluginIdentifier);
                                     seaTunnelSink.prepare(sinkConfig);
                                     seaTunnelSink.setJobContext(jobContext);
                                     if (SupportDataSaveMode.class.isAssignableFrom(
@@ -98,10 +91,9 @@ public class SinkExecuteProcessor
         jarPaths.addAll(pluginJars);
         return sinks;
     }
-
+    
     @Override
-    public List<DataStream<Row>> execute(List<DataStream<Row>> upstreamDataStreams)
-            throws TaskExecuteException {
+    public List<DataStream<Row>> execute(List<DataStream<Row>> upstreamDataStreams) throws TaskExecuteException {
         DataStream<Row> input = upstreamDataStreams.get(0);
         for (int i = 0; i < plugins.size(); i++) {
             Config sinkConfig = pluginConfigs.get(i);

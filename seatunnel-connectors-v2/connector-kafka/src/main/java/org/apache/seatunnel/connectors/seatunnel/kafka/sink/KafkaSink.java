@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -52,12 +51,12 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TOPI
  */
 @AutoService(SeaTunnelSink.class)
 public class KafkaSink
-        implements SeaTunnelSink<
-                SeaTunnelRow, KafkaSinkState, KafkaCommitInfo, KafkaAggregatedCommitInfo> {
-
+        implements
+            SeaTunnelSink<SeaTunnelRow, KafkaSinkState, KafkaCommitInfo, KafkaAggregatedCommitInfo> {
+    
     private Config pluginConfig;
     private SeaTunnelRowType seaTunnelRowType;
-
+    
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result =
@@ -71,45 +70,45 @@ public class KafkaSink
         }
         this.pluginConfig = pluginConfig;
     }
-
+    
     @Override
     public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         this.seaTunnelRowType = seaTunnelRowType;
     }
-
+    
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
         return this.seaTunnelRowType;
     }
-
+    
     @Override
     public SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState> createWriter(
-            SinkWriter.Context context) {
+                                                                                  SinkWriter.Context context) {
         return new KafkaSinkWriter(
                 context, seaTunnelRowType, pluginConfig, Collections.emptyList());
     }
-
+    
     @Override
     public SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState> restoreWriter(
-            SinkWriter.Context context, List<KafkaSinkState> states) {
+                                                                                   SinkWriter.Context context, List<KafkaSinkState> states) {
         return new KafkaSinkWriter(context, seaTunnelRowType, pluginConfig, states);
     }
-
+    
     @Override
     public Optional<Serializer<KafkaSinkState>> getWriterStateSerializer() {
         return Optional.of(new DefaultSerializer<>());
     }
-
+    
     @Override
     public Optional<SinkCommitter<KafkaCommitInfo>> createCommitter() {
         return Optional.of(new KafkaSinkCommitter(pluginConfig));
     }
-
+    
     @Override
     public Optional<Serializer<KafkaCommitInfo>> getCommitInfoSerializer() {
         return Optional.of(new DefaultSerializer<>());
     }
-
+    
     @Override
     public String getPluginName() {
         return "Kafka";

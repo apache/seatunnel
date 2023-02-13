@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.e2e.connector.tdengine;
 
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -49,17 +48,18 @@ import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class TDengineIT extends TestSuiteBase implements TestResource {
+    
     private static final String DOCKER_IMAGE = "tdengine/tdengine:3.0.2.1";
     private static final String NETWORK_ALIASES1 = "flink_e2e_tdengine_src";
     private static final String NETWORK_ALIASES2 = "flink_e2e_tdengine_sink";
     private static final int PORT = 6041;
-
+    
     private GenericContainer<?> tdengineServer1;
     private GenericContainer<?> tdengineServer2;
     private Connection connection1;
     private Connection connection2;
     private int testDataCount;
-
+    
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -95,14 +95,13 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
                 .pollInterval(1, TimeUnit.SECONDS)
                 .atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
-                        () ->
-                                Assertions.assertEquals(
-                                        Boolean.TRUE,
-                                        connection1.isValid(100) & connection2.isValid(100)));
+                        () -> Assertions.assertEquals(
+                                Boolean.TRUE,
+                                connection1.isValid(100) & connection2.isValid(100)));
         testDataCount = generateTestDataSet();
         log.info("tdengine testDataCount=" + testDataCount); // rowCount=8
     }
-
+    
     @SneakyThrows
     private int generateTestDataSet() {
         int rowCount;
@@ -122,17 +121,17 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
         }
         return rowCount;
     }
-
+    
     @TestTemplate
     public void testTDengine(TestContainer container) throws Exception {
         Container.ExecResult execResult =
                 container.executeJob("/tdengine/tdengine_source_to_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-
+        
         long rowCountInserted = readSinkDataset();
         Assertions.assertEquals(rowCountInserted, testDataCount);
     }
-
+    
     @SneakyThrows
     private long readSinkDataset() {
         long rowCount;
@@ -143,7 +142,7 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
         }
         return rowCount;
     }
-
+    
     @SneakyThrows
     private Connection createConnect(GenericContainer<?> tdengineServer) {
         String jdbcUrl =
@@ -156,7 +155,7 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
         log.info("TDengine Connected! " + jdbcUrl);
         return conn;
     }
-
+    
     @AfterAll
     @Override
     public void tearDown() throws Exception {
@@ -173,7 +172,7 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
             tdengineServer2.stop();
         }
     }
-
+    
     /**
      * The generated SQL is: INSERT INTO power.d1001 USING power.meters
      * TAGS(California.SanFrancisco, 2) VALUES('2018-10-03 14:38:05.000',10.30000,219,0.31000)
@@ -212,7 +211,7 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
         }
         return sb.toString();
     }
-
+    
     private static List<String> getRawData() {
         return Arrays.asList(
                 "d1001,2018-10-03 14:38:05.000,10.30000,219,0.31000,'California.SanFrancisco',2",

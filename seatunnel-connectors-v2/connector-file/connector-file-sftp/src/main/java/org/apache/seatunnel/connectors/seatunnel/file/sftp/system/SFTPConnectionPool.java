@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.file.sftp.system;
 
 import org.apache.hadoop.util.StringUtils;
@@ -34,7 +33,7 @@ import java.util.Iterator;
 import java.util.Set;
 
 public class SFTPConnectionPool {
-
+    
     public static final Logger LOG = LoggerFactory.getLogger(SFTPFileSystem.class);
     // Maximum number of allowed live connections. This doesn't mean we cannot
     // have more live connections. It means that when we have more
@@ -46,16 +45,16 @@ public class SFTPConnectionPool {
             new HashMap<ConnectionInfo, HashSet<ChannelSftp>>();
     private HashMap<ChannelSftp, ConnectionInfo> con2infoMap =
             new HashMap<ChannelSftp, ConnectionInfo>();
-
+    
     SFTPConnectionPool(int maxConnection, int liveConnectionCount) {
         this.maxConnection = maxConnection;
         this.liveConnectionCount = liveConnectionCount;
     }
-
+    
     synchronized ChannelSftp getFromPool(ConnectionInfo info) throws IOException {
         Set<ChannelSftp> cons = idleConnections.get(info);
         ChannelSftp channel;
-
+        
         if (cons != null && cons.size() > 0) {
             Iterator<ChannelSftp> it = cons.iterator();
             if (it.hasNext()) {
@@ -68,7 +67,7 @@ public class SFTPConnectionPool {
         }
         return null;
     }
-
+    
     synchronized void returnToPool(ChannelSftp channel) {
         ConnectionInfo info = con2infoMap.get(channel);
         HashSet<ChannelSftp> cons = idleConnections.get(info);
@@ -78,14 +77,14 @@ public class SFTPConnectionPool {
         }
         cons.add(channel);
     }
-
+    
     /** Shutdown the connection pool and close all open connections. */
     synchronized void shutdown() {
         if (this.con2infoMap == null) {
             return; // already shutdown in case it is called
         }
         LOG.info("Inside shutdown, con2infoMap size=" + con2infoMap.size());
-
+        
         this.maxConnection = 0;
         Set<ChannelSftp> cons = con2infoMap.keySet();
         if (cons != null && cons.size() > 0) {
@@ -106,21 +105,20 @@ public class SFTPConnectionPool {
         this.idleConnections = null;
         this.con2infoMap = null;
     }
-
+    
     public synchronized int getMaxConnection() {
         return maxConnection;
     }
-
+    
     public synchronized void setMaxConnection(int maxConn) {
         this.maxConnection = maxConn;
     }
-
-    public ChannelSftp connect(String host, int port, String user, String password, String keyFile)
-            throws IOException {
+    
+    public ChannelSftp connect(String host, int port, String user, String password, String keyFile) throws IOException {
         // get connection from pool
         ConnectionInfo info = new ConnectionInfo(host, port, user);
         ChannelSftp channel = getFromPool(info);
-
+        
         if (channel != null) {
             if (channel.isConnected()) {
                 return channel;
@@ -132,7 +130,7 @@ public class SFTPConnectionPool {
                 }
             }
         }
-
+        
         // create a new connection and add to pool
         JSch jsch = new JSch();
         Session session = null;
@@ -140,43 +138,43 @@ public class SFTPConnectionPool {
             if (user == null || user.length() == 0) {
                 user = System.getProperty("user.name");
             }
-
+            
             if (password == null) {
                 password = "";
             }
-
+            
             if (keyFile != null && keyFile.length() > 0) {
                 jsch.addIdentity(keyFile);
             }
-
+            
             if (port <= 0) {
                 session = jsch.getSession(user, host);
             } else {
                 session = jsch.getSession(user, host, port);
             }
-
+            
             session.setPassword(password);
-
+            
             java.util.Properties config = new java.util.Properties();
             config.put("StrictHostKeyChecking", "no");
             session.setConfig(config);
-
+            
             session.connect();
             channel = (ChannelSftp) session.openChannel("sftp");
             channel.connect();
-
+            
             synchronized (this) {
                 con2infoMap.put(channel, info);
                 liveConnectionCount++;
             }
-
+            
             return channel;
-
+            
         } catch (JSchException e) {
             throw new IOException(StringUtils.stringifyException(e));
         }
     }
-
+    
     void disconnect(ChannelSftp channel) throws IOException {
         if (channel != null) {
             // close connection if too many active connections
@@ -198,73 +196,74 @@ public class SFTPConnectionPool {
                         throw new IOException(StringUtils.stringifyException(e));
                     }
                 }
-
+                
             } else {
                 returnToPool(channel);
             }
         }
     }
-
+    
     public int getIdleCount() {
         return this.idleConnections.size();
     }
-
+    
     public int getLiveConnCount() {
         return this.liveConnectionCount;
     }
-
+    
     public int getConnPoolSize() {
         return this.con2infoMap.size();
     }
-
+    
     /**
      * Class to capture the minimal set of information that distinguish between different
      * connections.
      */
     static class ConnectionInfo {
+        
         private String host = "";
         private int port;
         private String user = "";
-
+        
         ConnectionInfo(String hst, int prt, String usr) {
             this.host = hst;
             this.port = prt;
             this.user = usr;
         }
-
+        
         public String getHost() {
             return host;
         }
-
+        
         public void setHost(String hst) {
             this.host = hst;
         }
-
+        
         public int getPort() {
             return port;
         }
-
+        
         public void setPort(int prt) {
             this.port = prt;
         }
-
+        
         public String getUser() {
             return user;
         }
-
+        
         public void setUser(String usr) {
             this.user = usr;
         }
-
+        
         @Override
         public boolean equals(Object obj) {
             if (this == obj) {
                 return true;
             }
-
+            
             if (obj instanceof ConnectionInfo) {
                 ConnectionInfo con = (ConnectionInfo) obj;
-
+                
                 boolean ret = true;
                 if (this.host == null || !this.host.equalsIgnoreCase(con.host)) {
                     ret = false;
@@ -280,7 +279,7 @@ public class SFTPConnectionPool {
                 return false;
             }
         }
-
+        
         @Override
         public int hashCode() {
             int hashCode = 0;

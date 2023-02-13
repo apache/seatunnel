@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.translation.flink.utils;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
@@ -45,9 +44,9 @@ import java.util.Map;
 
 @SuppressWarnings("checkstyle:MagicNumber")
 public class TypeConverterUtils {
-
+    
     private static final Map<Class<?>, BridgedType> BRIDGED_TYPES = new HashMap<>(32);
-
+    
     static {
         // basic types
         BRIDGED_TYPES.put(
@@ -123,12 +122,12 @@ public class TypeConverterUtils {
                 BridgedType.of(
                         ArrayType.DOUBLE_ARRAY_TYPE, BasicArrayTypeInfo.DOUBLE_ARRAY_TYPE_INFO));
     }
-
+    
     private TypeConverterUtils() {
         throw new UnsupportedOperationException(
                 "TypeConverterUtils is a utility class and cannot be instantiated");
     }
-
+    
     public static SeaTunnelDataType<?> convert(TypeInformation<?> dataType) {
         BridgedType bridgedType = BRIDGED_TYPES.get(dataType.getTypeClass());
         if (bridgedType != null) {
@@ -154,7 +153,7 @@ public class TypeConverterUtils {
         }
         throw new IllegalArgumentException("Unsupported Flink's data type: " + dataType);
     }
-
+    
     public static TypeInformation<?> convert(SeaTunnelDataType<?> dataType) {
         BridgedType bridgedType = BRIDGED_TYPES.get(dataType.getTypeClass());
         if (bridgedType != null) {
@@ -179,25 +178,26 @@ public class TypeConverterUtils {
         }
         throw new IllegalArgumentException("Unsupported SeaTunnel's data type: " + dataType);
     }
-
+    
     public static class BridgedType {
+        
         private final SeaTunnelDataType<?> seaTunnelType;
         private final TypeInformation<?> flinkType;
-
+        
         private BridgedType(SeaTunnelDataType<?> seaTunnelType, TypeInformation<?> flinkType) {
             this.seaTunnelType = seaTunnelType;
             this.flinkType = flinkType;
         }
-
+        
         public static BridgedType of(
-                SeaTunnelDataType<?> seaTunnelType, TypeInformation<?> flinkType) {
+                                     SeaTunnelDataType<?> seaTunnelType, TypeInformation<?> flinkType) {
             return new BridgedType(seaTunnelType, flinkType);
         }
-
+        
         public TypeInformation<?> getFlinkType() {
             return flinkType;
         }
-
+        
         public SeaTunnelDataType<?> getSeaTunnelType() {
             return seaTunnelType;
         }

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.iotdb.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -45,29 +44,30 @@ import static org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceCon
 
 @Slf4j
 public class IoTDBSourceSplitEnumerator
-        implements SourceSplitEnumerator<IoTDBSourceSplit, IoTDBSourceState> {
-
+        implements
+            SourceSplitEnumerator<IoTDBSourceSplit, IoTDBSourceState> {
+    
     /**
      * A SQL statement can contain at most one where We split the SQL using the where keyword
      * Therefore, it can be split into two SQL at most
      */
     private static final int SQL_WHERE_SPLIT_LENGTH = 2;
-
+    
     private final Object stateLock = new Object();
     private final Context<IoTDBSourceSplit> context;
     private final Map<String, Object> conf;
     private final Map<Integer, List<IoTDBSourceSplit>> pendingSplit;
     private volatile boolean shouldEnumerate;
-
+    
     public IoTDBSourceSplitEnumerator(
-            SourceSplitEnumerator.Context<IoTDBSourceSplit> context, Map<String, Object> conf) {
+                                      SourceSplitEnumerator.Context<IoTDBSourceSplit> context, Map<String, Object> conf) {
         this(context, conf, null);
     }
-
+    
     public IoTDBSourceSplitEnumerator(
-            SourceSplitEnumerator.Context<IoTDBSourceSplit> context,
-            Map<String, Object> conf,
-            IoTDBSourceState sourceState) {
+                                      SourceSplitEnumerator.Context<IoTDBSourceSplit> context,
+                                      Map<String, Object> conf,
+                                      IoTDBSourceState sourceState) {
         this.context = context;
         this.conf = conf;
         this.pendingSplit = new HashMap<>();
@@ -77,29 +77,30 @@ public class IoTDBSourceSplitEnumerator
             this.pendingSplit.putAll(sourceState.getPendingSplit());
         }
     }
-
+    
     @Override
-    public void open() {}
-
+    public void open() {
+    }
+    
     @Override
     public void run() {
         Set<Integer> readers = context.registeredReaders();
         if (shouldEnumerate) {
             Set<IoTDBSourceSplit> newSplits = getIotDBSplit();
-
+            
             synchronized (stateLock) {
                 addPendingSplit(newSplits);
                 shouldEnumerate = false;
             }
-
+            
             assignSplit(readers);
         }
-
+        
         log.debug(
                 "No more splits to assign." + " Sending NoMoreSplitsEvent to reader {}.", readers);
         readers.forEach(context::signalNoMoreSplits);
     }
-
+    
     /**
      * split the time range into numPartitions parts if numPartitions is 1, use the whole time range
      * if numPartitions < (end - start), use (start-end) partitions
@@ -175,7 +176,7 @@ public class IoTDBSourceSplitEnumerator
         }
         return iotDBSourceSplits;
     }
-
+    
     @Override
     public void addSplitsBack(List<IoTDBSourceSplit> splits, int subtaskId) {
         log.debug("Add back splits {} to IoTDBSourceSplitEnumerator.", splits);
@@ -184,12 +185,12 @@ public class IoTDBSourceSplitEnumerator
             assignSplit(Collections.singletonList(subtaskId));
         }
     }
-
+    
     @Override
     public int currentUnassignedSplitSize() {
         return pendingSplit.size();
     }
-
+    
     @Override
     public void registerReader(int subtaskId) {
         log.debug("Register reader {} to IoTDBSourceSplitEnumerator.", subtaskId);
@@ -197,7 +198,7 @@ public class IoTDBSourceSplitEnumerator
             assignSplit(Collections.singletonList(subtaskId));
         }
     }
-
+    
     private void addPendingSplit(Collection<IoTDBSourceSplit> splits) {
         int readerCount = context.currentParallelism();
         for (IoTDBSourceSplit split : splits) {
@@ -206,10 +207,10 @@ public class IoTDBSourceSplitEnumerator
             pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(split);
         }
     }
-
+    
     private void assignSplit(Collection<Integer> readers) {
         log.debug("Assign pendingSplits to readers {}", readers);
-
+        
         for (int reader : readers) {
             List<IoTDBSourceSplit> assignmentForReader = pendingSplit.remove(reader);
             if (assignmentForReader != null && !assignmentForReader.isEmpty()) {
@@ -227,28 +228,28 @@ public class IoTDBSourceSplitEnumerator
             }
         }
     }
-
+    
     @Override
     public IoTDBSourceState snapshotState(long checkpointId) throws Exception {
         synchronized (stateLock) {
             return new IoTDBSourceState(shouldEnumerate, pendingSplit);
         }
     }
-
+    
     private static int getSplitOwner(String tp, int numReaders) {
         return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
     }
-
+    
     @Override
     public void notifyCheckpointComplete(long checkpointId) {
         // nothing to do
     }
-
+    
     @Override
     public void close() {
         // nothing to do
     }
-
+    
     @Override
     public void handleSplitRequest(int subtaskId) {
         throw new IotdbConnectorException(

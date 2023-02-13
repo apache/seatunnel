@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -69,27 +68,28 @@ import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Clickh
 
 @AutoService(SeaTunnelSink.class)
 public class ClickhouseSink
-        implements SeaTunnelSink<SeaTunnelRow, ClickhouseSinkState, CKCommitInfo, CKAggCommitInfo> {
-
+        implements
+            SeaTunnelSink<SeaTunnelRow, ClickhouseSinkState, CKCommitInfo, CKAggCommitInfo> {
+    
     private ReaderOption option;
-
+    
     @Override
     public String getPluginName() {
         return "Clickhouse";
     }
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void prepare(Config config) throws PrepareFailException {
         CheckResult result =
                 CheckConfigUtil.checkAllExists(config, HOST.key(), DATABASE.key(), TABLE.key());
-
+        
         boolean isCredential = config.hasPath(USERNAME.key()) || config.hasPath(PASSWORD.key());
-
+        
         if (isCredential) {
             result = CheckConfigUtil.checkAllExists(config, USERNAME.key(), PASSWORD.key());
         }
-
+        
         if (!result.isSuccess()) {
             throw new ClickhouseConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -102,9 +102,9 @@ public class ClickhouseSink
                         .put(BULK_SIZE.key(), BULK_SIZE.defaultValue())
                         .put(SPLIT_MODE.key(), SPLIT_MODE.defaultValue())
                         .build();
-
+        
         config = config.withFallback(ConfigFactory.parseMap(defaultConfig));
-
+        
         List<ClickHouseNode> nodes;
         if (!isCredential) {
             nodes =
@@ -121,21 +121,20 @@ public class ClickhouseSink
                             config.getString(USERNAME.key()),
                             config.getString(PASSWORD.key()));
         }
-
+        
         Properties clickhouseProperties = new Properties();
         if (CheckConfigUtil.isValidParam(config, CLICKHOUSE_CONFIG.key())) {
             config.getObject(CLICKHOUSE_CONFIG.key())
                     .forEach(
-                            (key, value) ->
-                                    clickhouseProperties.put(
-                                            key, String.valueOf(value.unwrapped())));
+                            (key, value) -> clickhouseProperties.put(
+                                    key, String.valueOf(value.unwrapped())));
         }
-
+        
         if (isCredential) {
             clickhouseProperties.put("user", config.getString(USERNAME.key()));
             clickhouseProperties.put("password", config.getString(PASSWORD.key()));
         }
-
+        
         ClickhouseProxy proxy = new ClickhouseProxy(nodes.get(0));
         Map<String, String> tableSchema =
                 proxy.getClickhouseTableSchema(config.getString(TABLE.key()));
@@ -157,7 +156,7 @@ public class ClickhouseSink
             }
         }
         ShardMetadata metadata;
-
+        
         if (isCredential) {
             metadata =
                     new ShardMetadata(
@@ -183,9 +182,9 @@ public class ClickhouseSink
                             config.getBoolean(SPLIT_MODE.key()),
                             new Shard(1, 1, nodes.get(0)));
         }
-
+        
         proxy.close();
-
+        
         String[] primaryKeys = null;
         if (config.hasPath(PRIMARY_KEY.key())) {
             String primaryKey = config.getString(PRIMARY_KEY.key());
@@ -194,7 +193,7 @@ public class ClickhouseSink
                         CommonErrorCode.ILLEGAL_ARGUMENT,
                         "sharding_key and primary_key must be consistent to ensure correct processing of cdc events");
             }
-            primaryKeys = new String[] {primaryKey};
+            primaryKeys = new String[]{primaryKey};
         }
         boolean supportUpsert = SUPPORT_UPSERT.defaultValue();
         if (config.hasPath(SUPPORT_UPSERT.key())) {
@@ -218,29 +217,29 @@ public class ClickhouseSink
                         .allowExperimentalLightweightDelete(allowExperimentalLightweightDelete)
                         .build();
     }
-
+    
     @Override
     public SinkWriter<SeaTunnelRow, CKCommitInfo, ClickhouseSinkState> createWriter(
-            SinkWriter.Context context) throws IOException {
+                                                                                    SinkWriter.Context context) throws IOException {
         return new ClickhouseSinkWriter(option, context);
     }
-
+    
     @Override
     public SinkWriter<SeaTunnelRow, CKCommitInfo, ClickhouseSinkState> restoreWriter(
-            SinkWriter.Context context, List<ClickhouseSinkState> states) throws IOException {
+                                                                                     SinkWriter.Context context, List<ClickhouseSinkState> states) throws IOException {
         return SeaTunnelSink.super.restoreWriter(context, states);
     }
-
+    
     @Override
     public Optional<Serializer<ClickhouseSinkState>> getWriterStateSerializer() {
         return Optional.of(new DefaultSerializer<>());
     }
-
+    
     @Override
     public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         this.option.setSeaTunnelRowType(seaTunnelRowType);
     }
-
+    
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
         return this.option.getSeaTunnelRowType();

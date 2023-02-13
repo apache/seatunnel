@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.common.utils;
 
 import org.apache.seatunnel.common.exception.CommonErrorCode;
@@ -41,7 +40,7 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class FileUtils {
-
+    
     public static List<URL> searchJarFiles(@NonNull Path directory) throws IOException {
         try (Stream<Path> paths = Files.walk(directory, FileVisitOption.FOLLOW_LINKS)) {
             return paths.filter(path -> path.toString().endsWith(".jar"))
@@ -57,7 +56,7 @@ public class FileUtils {
                     .collect(Collectors.toList());
         }
     }
-
+    
     public static String readFileToStr(Path path) {
         try {
             byte[] bytes = Files.readAllBytes(path);
@@ -67,7 +66,7 @@ public class FileUtils {
                     CommonErrorCode.FILE_OPERATION_FAILED, ExceptionUtils.getMessage(e));
         }
     }
-
+    
     public static void writeStringToFile(String filePath, String str) {
         PrintStream ps = null;
         try {
@@ -83,7 +82,7 @@ public class FileUtils {
             }
         }
     }
-
+    
     public static void createParentFile(File file) {
         File parentFile = file.getParentFile();
         if (null != parentFile && !parentFile.exists()) {
@@ -91,7 +90,7 @@ public class FileUtils {
             createParentFile(parentFile);
         }
     }
-
+    
     /**
      * create a new file, delete the old one if it is exists.
      *
@@ -102,12 +101,12 @@ public class FileUtils {
         if (file.exists()) {
             file.delete();
         }
-
+        
         if (!file.getParentFile().exists()) {
             createParentFile(file);
         }
     }
-
+    
     /**
      * return the line number of file
      *
@@ -124,7 +123,7 @@ public class FileUtils {
                     e);
         }
     }
-
+    
     /**
      * return the line number of all files in the dirPath
      *
@@ -152,7 +151,7 @@ public class FileUtils {
         }
         return getFileLineNumber(file.getPath());
     }
-
+    
     /**
      * create a dir, if the dir exists, clear the files and sub dirs in the dir.
      *
@@ -163,7 +162,7 @@ public class FileUtils {
         File file = new File(dirPath);
         file.mkdirs();
     }
-
+    
     /**
      * clear dir and the sub dir
      *
@@ -178,7 +177,7 @@ public class FileUtils {
             file.delete();
         }
     }
-
+    
     private static void deleteFiles(@NonNull File file) {
         try {
             File[] files = file.listFiles();
@@ -190,7 +189,7 @@ public class FileUtils {
                 thisFile.delete();
             }
             file.delete();
-
+            
         } catch (Exception e) {
             String errorMsg = String.format("Delete file [%s] failed", file.getPath());
             throw new SeaTunnelRuntimeException(CommonErrorCode.FILE_OPERATION_FAILED, errorMsg, e);

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.e2e.common.container.flink;
 
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -33,37 +32,37 @@ import java.io.File;
 @NoArgsConstructor
 @AutoService(TestContainer.class)
 public class Flink15Container extends AbstractTestFlinkContainer {
-
+    
     @Override
     public TestContainerId identifier() {
         return TestContainerId.FLINK_1_15;
     }
-
+    
     @Override
     protected String getDockerImage() {
         return "tyrantlucifer/flink:1.15.3-scala_2.12_hadoop27";
     }
-
+    
     @Override
     protected String getStartModuleName() {
         return "seatunnel-flink-starter" + File.separator + "seatunnel-flink-15-starter";
     }
-
+    
     @Override
     protected String getStartShellName() {
         return "start-seatunnel-flink-15-connector-v2.sh";
     }
-
+    
     @Override
     protected String getConnectorType() {
         return "seatunnel";
     }
-
+    
     @Override
     protected String getConnectorModulePath() {
         return "seatunnel-connectors-v2";
     }
-
+    
     @Override
     protected String getConnectorNamePrefix() {
         return "connector-";

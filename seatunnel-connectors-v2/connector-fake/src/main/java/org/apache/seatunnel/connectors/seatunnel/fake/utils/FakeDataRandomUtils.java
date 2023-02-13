@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.fake.utils;
 
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
@@ -30,32 +29,33 @@ import java.time.LocalTime;
 import java.util.List;
 
 public class FakeDataRandomUtils {
+    
     private final FakeConfig fakeConfig;
-
+    
     public FakeDataRandomUtils(FakeConfig fakeConfig) {
         this.fakeConfig = fakeConfig;
     }
-
+    
     private static <T> T randomFromList(List<T> list) {
         int index = RandomUtils.nextInt(0, list.size() - 1);
         return list.get(index);
     }
-
+    
     public Boolean randomBoolean() {
         return RandomUtils.nextInt(0, 2) == 1;
     }
-
+    
     public BigDecimal randomBigDecimal(int precision, int scale) {
         return new BigDecimal(
                 RandomStringUtils.randomNumeric(precision - scale)
                         + "."
                         + RandomStringUtils.randomNumeric(scale));
     }
-
+    
     public byte[] randomBytes() {
         return RandomStringUtils.randomAlphabetic(fakeConfig.getBytesLength()).getBytes();
     }
-
+    
     public String randomString() {
         List<String> stringTemplate = fakeConfig.getStringTemplate();
         if (!CollectionUtils.isEmpty(stringTemplate)) {
@@ -63,7 +63,7 @@ public class FakeDataRandomUtils {
         }
         return RandomStringUtils.randomAlphabetic(fakeConfig.getStringLength());
     }
-
+    
     public Byte randomTinyint() {
         List<Integer> tinyintTemplate = fakeConfig.getTinyintTemplate();
         if (!CollectionUtils.isEmpty(tinyintTemplate)) {
@@ -71,16 +71,15 @@ public class FakeDataRandomUtils {
         }
         return (byte) RandomUtils.nextInt(fakeConfig.getTinyintMin(), fakeConfig.getTinyintMax());
     }
-
+    
     public Short randomSmallint() {
         List<Integer> smallintTemplate = fakeConfig.getSmallintTemplate();
         if (!CollectionUtils.isEmpty(smallintTemplate)) {
             return randomFromList(smallintTemplate).shortValue();
         }
-        return (short)
-                RandomUtils.nextInt(fakeConfig.getSmallintMin(), fakeConfig.getSmallintMax());
+        return (short) RandomUtils.nextInt(fakeConfig.getSmallintMin(), fakeConfig.getSmallintMax());
     }
-
+    
     public Integer randomInt() {
         List<Integer> intTemplate = fakeConfig.getIntTemplate();
         if (!CollectionUtils.isEmpty(intTemplate)) {
@@ -88,7 +87,7 @@ public class FakeDataRandomUtils {
         }
         return RandomUtils.nextInt(fakeConfig.getIntMin(), fakeConfig.getIntMax());
     }
-
+    
     public Long randomBigint() {
         List<Long> bigTemplate = fakeConfig.getBigTemplate();
         if (!CollectionUtils.isEmpty(bigTemplate)) {
@@ -96,7 +95,7 @@ public class FakeDataRandomUtils {
         }
         return RandomUtils.nextLong(fakeConfig.getBigintMin(), fakeConfig.getBigintMax());
     }
-
+    
     public Float randomFloat() {
         List<Double> floatTemplate = fakeConfig.getFloatTemplate();
         if (!CollectionUtils.isEmpty(floatTemplate)) {
@@ -105,7 +104,7 @@ public class FakeDataRandomUtils {
         return RandomUtils.nextFloat(
                 (float) fakeConfig.getFloatMin(), (float) fakeConfig.getFloatMax());
     }
-
+    
     public Double randomDouble() {
         List<Double> doubleTemplate = fakeConfig.getDoubleTemplate();
         if (!CollectionUtils.isEmpty(doubleTemplate)) {
@@ -113,15 +112,15 @@ public class FakeDataRandomUtils {
         }
         return RandomUtils.nextDouble(fakeConfig.getDoubleMin(), fakeConfig.getDoubleMax());
     }
-
+    
     public LocalDate randomLocalDate() {
         return randomLocalDateTime().toLocalDate();
     }
-
+    
     public LocalTime randomLocalTime() {
         return randomLocalDateTime().toLocalTime();
     }
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     public LocalDateTime randomLocalDateTime() {
         int year;

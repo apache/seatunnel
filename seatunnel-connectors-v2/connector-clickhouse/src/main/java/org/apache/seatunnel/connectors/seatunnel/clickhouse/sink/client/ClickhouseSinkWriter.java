@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -47,26 +46,27 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class ClickhouseSinkWriter
-        implements SinkWriter<SeaTunnelRow, CKCommitInfo, ClickhouseSinkState> {
-
+        implements
+            SinkWriter<SeaTunnelRow, CKCommitInfo, ClickhouseSinkState> {
+    
     private final Context context;
     private final ReaderOption option;
     private final ShardRouter shardRouter;
     private final transient ClickhouseProxy proxy;
     private final Map<Shard, ClickhouseBatchStatement> statementMap;
-
+    
     ClickhouseSinkWriter(ReaderOption option, Context context) {
         this.option = option;
         this.context = context;
-
+        
         this.proxy = new ClickhouseProxy(option.getShardMetadata().getDefaultShard().getNode());
         this.shardRouter = new ShardRouter(proxy, option.getShardMetadata());
         this.statementMap = initStatementMap();
     }
-
+    
     @Override
     public void write(SeaTunnelRow element) throws IOException {
-
+        
         Object shardKey = null;
         if (StringUtils.isNotEmpty(this.option.getShardMetadata().getShardKey())) {
             int i =
@@ -87,20 +87,22 @@ public class ClickhouseSinkWriter
             sizeHolder.setValue(0);
         }
     }
-
+    
     @Override
     public Optional<CKCommitInfo> prepareCommit() throws IOException {
         return Optional.empty();
     }
-
+    
     @Override
-    public void abortPrepare() {}
-
+    public void abortPrepare() {
+    }
+    
     @Override
     public void close() throws IOException {
         this.proxy.close();
         for (ClickhouseBatchStatement batchStatement : statementMap.values()) {
-            try (ClickHouseConnectionImpl needClosedConnection =
+            try (
+                    ClickHouseConnectionImpl needClosedConnection =
                             batchStatement.getClickHouseConnection();
                     JdbcBatchStatementExecutor needClosedStatement =
                             batchStatement.getJdbcBatchStatementExecutor()) {
@@ -117,7 +119,7 @@ public class ClickhouseSinkWriter
             }
         }
     }
-
+    
     private void addIntoBatch(SeaTunnelRow row, JdbcBatchStatementExecutor clickHouseStatement) {
         try {
             clickHouseStatement.addToBatch(row);
@@ -126,7 +128,7 @@ public class ClickhouseSinkWriter
                     CommonErrorCode.SQL_OPERATION_FAILED, "Add row data into batch error", e);
         }
     }
-
+    
     private void flush(JdbcBatchStatementExecutor clickHouseStatement) {
         try {
             clickHouseStatement.executeBatch();
@@ -137,7 +139,7 @@ public class ClickhouseSinkWriter
                     e);
         }
     }
-
+    
     private Map<Shard, ClickhouseBatchStatement> initStatementMap() {
         Map<Shard, ClickhouseBatchStatement> result = new HashMap<>(Common.COLLECTION_SIZE);
         shardRouter
@@ -148,7 +150,7 @@ public class ClickhouseSinkWriter
                                 ClickHouseConnectionImpl clickhouseConnection =
                                         new ClickHouseConnectionImpl(
                                                 s.getJdbcUrl(), this.option.getProperties());
-
+                                
                                 String[] orderByKeys = null;
                                 if (!Strings.isNullOrEmpty(shardRouter.getSortingKey())) {
                                     orderByKeys =
@@ -189,9 +191,9 @@ public class ClickhouseSinkWriter
                         });
         return result;
     }
-
+    
     private static boolean clickhouseServerEnableExperimentalLightweightDelete(
-            ClickHouseConnectionImpl clickhouseConnection) {
+                                                                               ClickHouseConnectionImpl clickhouseConnection) {
         String configKey = "allow_experimental_lightweight_delete";
         try (Statement stmt = clickhouseConnection.createStatement()) {
             ResultSet resultSet = stmt.executeQuery("SHOW SETTINGS ILIKE '%" + configKey + "%'");

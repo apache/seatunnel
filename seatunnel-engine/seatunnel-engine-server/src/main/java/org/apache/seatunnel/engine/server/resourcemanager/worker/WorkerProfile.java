@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.resourcemanager.worker;
 
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
@@ -34,36 +33,36 @@ import java.io.IOException;
  */
 @Data
 public class WorkerProfile implements IdentifiedDataSerializable {
-
+    
     private Address address;
-
+    
     private ResourceProfile profile;
-
+    
     private ResourceProfile unassignedResource;
-
+    
     private SlotProfile[] assignedSlots;
-
+    
     private SlotProfile[] unassignedSlots;
-
+    
     public WorkerProfile(Address address) {
         this.address = address;
         this.unassignedResource = new ResourceProfile();
     }
-
+    
     public WorkerProfile() {
         address = new Address();
     }
-
+    
     @Override
     public int getFactoryId() {
         return ResourceDataSerializerHook.FACTORY_ID;
     }
-
+    
     @Override
     public int getClassId() {
         return ResourceDataSerializerHook.WORKER_PROFILE_TYPE;
     }
-
+    
     @Override
     public void writeData(ObjectDataOutput out) throws IOException {
         out.writeObject(address);
@@ -78,7 +77,7 @@ public class WorkerProfile implements IdentifiedDataSerializable {
             out.writeObject(unassignedSlot);
         }
     }
-
+    
     @Override
     public void readData(ObjectDataInput in) throws IOException {
         address = in.readObject();

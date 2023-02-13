@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.hudi.source;
 
 import org.apache.seatunnel.api.source.Collector;
@@ -46,31 +45,33 @@ import java.util.Properties;
 import java.util.Set;
 
 public class HudiSourceReader implements SourceReader<SeaTunnelRow, HudiSourceSplit> {
-
+    
     private static final long THREAD_WAIT_TIME = 500L;
-
+    
     private final String confPaths;
-
+    
     private final Set<HudiSourceSplit> sourceSplits;
-
+    
     private final SourceReader.Context context;
-
+    
     private final SeaTunnelRowType seaTunnelRowType;
-
+    
     public HudiSourceReader(
-            String confPaths, SourceReader.Context context, SeaTunnelRowType seaTunnelRowType) {
+                            String confPaths, SourceReader.Context context, SeaTunnelRowType seaTunnelRowType) {
         this.confPaths = confPaths;
         this.context = context;
         this.sourceSplits = new HashSet<>();
         this.seaTunnelRowType = seaTunnelRowType;
     }
-
+    
     @Override
-    public void open() {}
-
+    public void open() {
+    }
+    
     @Override
-    public void close() {}
-
+    public void close() {
+    }
+    
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         if (sourceSplits.isEmpty()) {
@@ -122,20 +123,22 @@ public class HudiSourceReader implements SourceReader<SeaTunnelRow, HudiSourceSp
                 });
         context.signalNoMoreElement();
     }
-
+    
     @Override
     public List<HudiSourceSplit> snapshotState(long checkpointId) {
         return new ArrayList<>(sourceSplits);
     }
-
+    
     @Override
     public void addSplits(List<HudiSourceSplit> splits) {
         sourceSplits.addAll(splits);
     }
-
+    
     @Override
-    public void handleNoMoreSplits() {}
-
+    public void handleNoMoreSplits() {
+    }
+    
     @Override
-    public void notifyCheckpointComplete(long checkpointId) {}
+    public void notifyCheckpointComplete(long checkpointId) {
+    }
 }

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -44,24 +43,24 @@ import java.sql.Timestamp;
 /** A Kudu outputFormat */
 @Slf4j
 public class KuduOutputFormat implements Serializable {
-
+    
     public static final long TIMEOUTMS = 18000;
     public static final long SESSIONTIMEOUTMS = 100000;
-
+    
     private final String kuduMaster;
     private final String kuduTableName;
     private final KuduSinkConfig.SaveMode saveMode;
     private KuduClient kuduClient;
     private KuduSession kuduSession;
     private KuduTable kuduTable;
-
+    
     public KuduOutputFormat(KuduSinkConfig kuduSinkConfig) {
         this.kuduMaster = kuduSinkConfig.getKuduMaster();
         this.kuduTableName = kuduSinkConfig.getKuduTableName();
         this.saveMode = kuduSinkConfig.getSaveMode();
         init();
     }
-
+    
     private void transform(PartialRow row, SeaTunnelRow element, Schema schema) {
         int columnCount = schema.getColumnCount();
         for (int columnIndex = 0; columnIndex < columnCount; columnIndex++) {
@@ -125,7 +124,7 @@ public class KuduOutputFormat implements Serializable {
             }
         }
     }
-
+    
     private void upsert(SeaTunnelRow element) {
         Upsert upsert = kuduTable.newUpsert();
         Schema schema = kuduTable.getSchema();
@@ -137,7 +136,7 @@ public class KuduOutputFormat implements Serializable {
             throw new KuduConnectorException(KuduConnectorErrorCode.KUDU_UPSERT_FAILED, e);
         }
     }
-
+    
     private void insert(SeaTunnelRow element) {
         Insert insert = kuduTable.newInsert();
         Schema schema = kuduTable.getSchema();
@@ -149,7 +148,7 @@ public class KuduOutputFormat implements Serializable {
             throw new KuduConnectorException(KuduConnectorErrorCode.KUDU_INSERT_FAILED, e);
         }
     }
-
+    
     public void write(SeaTunnelRow element) {
         switch (saveMode) {
             case APPEND:
@@ -164,7 +163,7 @@ public class KuduOutputFormat implements Serializable {
                         String.format("Unsupported saveMode: %s.", saveMode.name()));
         }
     }
-
+    
     private void init() {
         KuduClient.KuduClientBuilder kuduClientBuilder =
                 new KuduClient.KuduClientBuilder(kuduMaster);
@@ -180,7 +179,7 @@ public class KuduOutputFormat implements Serializable {
         }
         log.info("The Kudu client for Master: {} is initialized successfully.", kuduMaster);
     }
-
+    
     public void closeOutputFormat() {
         if (kuduClient != null) {
             try {

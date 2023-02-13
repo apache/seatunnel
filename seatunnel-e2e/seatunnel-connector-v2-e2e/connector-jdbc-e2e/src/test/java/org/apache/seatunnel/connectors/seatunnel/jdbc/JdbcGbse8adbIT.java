@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -29,7 +28,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class JdbcGbse8adbIT extends AbstractJdbcIT {
-
+    
     private static final String DOCKER_IMAGE = "shihd/gbase8a:1.0";
     private static final String NETWORK_ALIASES = "e2e_gbase8aDb";
     private static final String DRIVER_CLASS = "com.gbase.jdbc.Driver";
@@ -85,7 +84,7 @@ public class JdbcGbse8adbIT extends AbstractJdbcIT {
                     + ")values(\n"
                     + "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?\n"
                     + ")";
-
+    
     @Override
     JdbcCase getJdbcCase() {
         Map<String, String> containerEnv = new HashMap<>();
@@ -111,38 +110,38 @@ public class JdbcGbse8adbIT extends AbstractJdbcIT {
                 .seaTunnelRow(initTestData())
                 .build();
     }
-
+    
     @Override
     void compareResult() {
         // do nothing
     }
-
+    
     @Override
     void clearSinkTable() {
         // do nothing
     }
-
+    
     @Override
     SeaTunnelRow initTestData() {
         return new SeaTunnelRow(
-                new Object[] {
-                    "varchar",
-                    "char10col1",
-                    "text_col".getBytes(StandardCharsets.UTF_8),
-                    122,
-                    122.0,
-                    122,
-                    100,
-                    1212,
-                    122.0,
-                    3112121,
-                    new java.sql.Date(LocalDate.now().toEpochDay()),
-                    new Timestamp(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)),
-                    new Timestamp(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)),
-                    "blob".getBytes(StandardCharsets.UTF_8)
+                new Object[]{
+                        "varchar",
+                        "char10col1",
+                        "text_col".getBytes(StandardCharsets.UTF_8),
+                        122,
+                        122.0,
+                        122,
+                        100,
+                        1212,
+                        122.0,
+                        3112121,
+                        new java.sql.Date(LocalDate.now().toEpochDay()),
+                        new Timestamp(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)),
+                        new Timestamp(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)),
+                        "blob".getBytes(StandardCharsets.UTF_8)
                 });
     }
-
+    
     protected Connection createAndChangeDatabase(Connection connection) {
         try {
             connection.prepareStatement("CREATE DATABASE test").executeUpdate();

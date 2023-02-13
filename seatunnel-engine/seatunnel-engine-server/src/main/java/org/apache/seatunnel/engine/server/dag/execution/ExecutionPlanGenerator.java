@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.dag.execution;
 
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
@@ -45,15 +44,16 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class ExecutionPlanGenerator {
+    
     /** The action ID needs to be regenerated because of the source, sink, and chain. */
     private final IdGenerator idGenerator = new IdGenerator();
-
+    
     /**
      * key: the id of the execution vertex. <br>
      * value: the execution vertex.
      */
     private final Map<Long, ExecutionVertex> executionVertexMap = new HashMap<>();
-
+    
     /**
      * key: the vertex id. <br>
      * value: The input vertices of this vertex.
@@ -61,7 +61,7 @@ public class ExecutionPlanGenerator {
      * <p>When chaining vertices, it need to query whether the vertex has multiple input vertices.
      */
     private final Map<Long, List<LogicalVertex>> inputVerticesMap = new HashMap<>();
-
+    
     /**
      * key: the vertex id. <br>
      * value: The target vertices of this vertex.
@@ -69,7 +69,7 @@ public class ExecutionPlanGenerator {
      * <p>When chaining vertices, it need to query whether the vertex has multiple target vertices.
      */
     private final Map<Long, List<LogicalVertex>> targetVerticesMap = new HashMap<>();
-
+    
     /**
      * key: logical vertex id. <br>
      * value: execution vertex id.
@@ -78,27 +78,27 @@ public class ExecutionPlanGenerator {
      * ExecutionVertex}.
      */
     private final Map<Long, Long> logicalToExecutionMap = new HashMap<>();
-
+    
     /**
      * When chaining, the edge will be removed {@link #findChainedVertices} if it can be chained.
      */
     private final List<LogicalEdge> logicalEdges;
-
+    
     private final List<LogicalVertex> logicalVertices;
-
+    
     private final JobImmutableInformation jobImmutableInformation;
-
+    
     public ExecutionPlanGenerator(
-            @NonNull LogicalDag logicalPlan,
-            @NonNull JobImmutableInformation jobImmutableInformation) {
+                                  @NonNull LogicalDag logicalPlan,
+                                  @NonNull JobImmutableInformation jobImmutableInformation) {
         checkArgument(
                 logicalPlan.getEdges().size() > 0, "ExecutionPlan Builder must have LogicalPlan.");
-
+        
         this.logicalEdges = new ArrayList<>(logicalPlan.getEdges());
         this.logicalVertices = new ArrayList<>(logicalPlan.getLogicalVertexMap().values());
         this.jobImmutableInformation = jobImmutableInformation;
     }
-
+    
     public ExecutionPlan generate() {
         fillVerticesMap();
         getSourceVertices()
@@ -120,21 +120,20 @@ public class ExecutionPlanGenerator {
                         .generatePipelines(),
                 jobImmutableInformation);
     }
-
+    
     public List<ExecutionEdge> createExecutionEdges() {
         return logicalEdges.stream()
                 .map(
-                        logicalEdge ->
-                                new ExecutionEdge(
-                                        executionVertexMap.get(
-                                                logicalToExecutionMap.get(
-                                                        logicalEdge.getInputVertexId())),
-                                        executionVertexMap.get(
-                                                logicalToExecutionMap.get(
-                                                        logicalEdge.getTargetVertexId()))))
+                        logicalEdge -> new ExecutionEdge(
+                                executionVertexMap.get(
+                                        logicalToExecutionMap.get(
+                                                logicalEdge.getInputVertexId())),
+                                executionVertexMap.get(
+                                        logicalToExecutionMap.get(
+                                                logicalEdge.getTargetVertexId()))))
                 .collect(Collectors.toList());
     }
-
+    
     private void fillVerticesMap() {
         logicalEdges.forEach(
                 logicalEdge -> {
@@ -148,7 +147,7 @@ public class ExecutionPlanGenerator {
                             .add(logicalEdge.getTargetVertex());
                 });
     }
-
+    
     private List<LogicalVertex> getSourceVertices() {
         List<LogicalVertex> sourceVertices = new ArrayList<>();
         for (LogicalVertex logicalVertex : logicalVertices) {
@@ -159,7 +158,7 @@ public class ExecutionPlanGenerator {
         }
         return sourceVertices;
     }
-
+    
     private void createExecutionVertex(LogicalVertex logicalVertex) {
         if (logicalToExecutionMap.containsKey(logicalVertex.getVertexId())) {
             return;
@@ -194,7 +193,7 @@ public class ExecutionPlanGenerator {
         executionVertexMap.put(newId, executionVertex);
         logicalToExecutionMap.put(logicalVertex.getVertexId(), executionVertex.getVertexId());
     }
-
+    
     public static Action recreateAction(Action action, Long id, int parallelism) {
         Action newAction;
         if (action instanceof PartitionTransformAction) {
@@ -231,9 +230,9 @@ public class ExecutionPlanGenerator {
         newAction.setParallelism(parallelism);
         return newAction;
     }
-
+    
     private void findChainedVertices(
-            LogicalVertex logicalVertex, List<LogicalVertex> chainedVertices) {
+                                     LogicalVertex logicalVertex, List<LogicalVertex> chainedVertices) {
         Action action = logicalVertex.getAction();
         // Currently only support Transform action chaining.
         if (action instanceof TransformAction) {
@@ -251,7 +250,7 @@ public class ExecutionPlanGenerator {
         } else {
             return;
         }
-
+        
         // It cannot chain to any target vertex if it has multiple target vertices.
         if (targetVerticesMap.get(logicalVertex.getVertexId()).size() == 1) {
             findChainedVertices(

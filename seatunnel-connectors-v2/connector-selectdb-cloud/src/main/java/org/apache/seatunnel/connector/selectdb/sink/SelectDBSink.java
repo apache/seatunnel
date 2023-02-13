@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connector.selectdb.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -55,16 +54,17 @@ import static org.apache.seatunnel.connector.selectdb.config.SelectDBConfig.USER
 
 @AutoService(SeaTunnelSink.class)
 public class SelectDBSink
-        implements SeaTunnelSink<
-                SeaTunnelRow, SelectDBSinkState, SelectDBCommitInfo, SelectDBCommitInfo> {
+        implements
+            SeaTunnelSink<SeaTunnelRow, SelectDBSinkState, SelectDBCommitInfo, SelectDBCommitInfo> {
+    
     private Config pluginConfig;
     private SeaTunnelRowType seaTunnelRowType;
-
+    
     @Override
     public String getPluginName() {
         return "SelectDBCloud";
     }
-
+    
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         this.pluginConfig = pluginConfig;
@@ -84,57 +84,56 @@ public class SelectDBSink
                             getPluginName(), PluginType.SINK, result.getMsg()));
         }
     }
-
+    
     @Override
     public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         this.seaTunnelRowType = seaTunnelRowType;
     }
-
+    
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
         return this.seaTunnelRowType;
     }
-
+    
     @Override
     public SinkWriter<SeaTunnelRow, SelectDBCommitInfo, SelectDBSinkState> createWriter(
-            SinkWriter.Context context) throws IOException {
+                                                                                        SinkWriter.Context context) throws IOException {
         SelectDBSinkWriter dorisWriter =
                 new SelectDBSinkWriter(
                         context, Collections.emptyList(), seaTunnelRowType, pluginConfig);
         dorisWriter.initializeLoad(Collections.emptyList());
         return dorisWriter;
     }
-
+    
     @Override
     public SinkWriter<SeaTunnelRow, SelectDBCommitInfo, SelectDBSinkState> restoreWriter(
-            SinkWriter.Context context, List<SelectDBSinkState> states) throws IOException {
+                                                                                         SinkWriter.Context context, List<SelectDBSinkState> states) throws IOException {
         SelectDBSinkWriter dorisWriter =
                 new SelectDBSinkWriter(context, states, seaTunnelRowType, pluginConfig);
         dorisWriter.initializeLoad(states);
         return dorisWriter;
     }
-
+    
     @Override
     public Optional<Serializer<SelectDBSinkState>> getWriterStateSerializer() {
         return Optional.of(new SelectDBSinkStateSerializer());
     }
-
+    
     @Override
     public Optional<SinkCommitter<SelectDBCommitInfo>> createCommitter() throws IOException {
         return Optional.of(new SelectDBCommitter(pluginConfig));
     }
-
+    
     @Override
     public Optional<Serializer<SelectDBCommitInfo>> getCommitInfoSerializer() {
         return Optional.of(new SelectDBCommitInfoSerializer());
     }
-
+    
     @Override
-    public Optional<SinkAggregatedCommitter<SelectDBCommitInfo, SelectDBCommitInfo>>
-            createAggregatedCommitter() throws IOException {
+    public Optional<SinkAggregatedCommitter<SelectDBCommitInfo, SelectDBCommitInfo>> createAggregatedCommitter() throws IOException {
         return Optional.empty();
     }
-
+    
     @Override
     public Optional<Serializer<SelectDBCommitInfo>> getAggregatedCommitInfoSerializer() {
         return Optional.empty();

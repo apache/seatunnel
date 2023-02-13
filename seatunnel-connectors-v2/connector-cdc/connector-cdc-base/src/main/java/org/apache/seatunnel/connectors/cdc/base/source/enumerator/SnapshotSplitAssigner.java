@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
@@ -42,10 +41,11 @@ import java.util.Optional;
 
 /** Assigner for snapshot split. */
 public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssigner {
+    
     private static final Logger LOG = LoggerFactory.getLogger(SnapshotSplitAssigner.class);
-
+    
     private final SplitAssigner.Context<C> context;
-
+    
     private final C sourceConfig;
     private final List<TableId> alreadyProcessedTables;
     private final List<SnapshotSplit> remainingSplits;
@@ -55,19 +55,19 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
     private final int currentParallelism;
     private final LinkedList<TableId> remainingTables;
     private final boolean isRemainingTablesCheckpointed;
-
+    
     private ChunkSplitter chunkSplitter;
     private boolean isTableIdCaseSensitive;
-
+    
     private Long checkpointIdToFinish;
     private final DataSourceDialect<C> dialect;
-
+    
     SnapshotSplitAssigner(
-            SplitAssigner.Context<C> context,
-            int currentParallelism,
-            List<TableId> remainingTables,
-            boolean isTableIdCaseSensitive,
-            DataSourceDialect<C> dialect) {
+                          SplitAssigner.Context<C> context,
+                          int currentParallelism,
+                          List<TableId> remainingTables,
+                          boolean isTableIdCaseSensitive,
+                          DataSourceDialect<C> dialect) {
         this(
                 context,
                 currentParallelism,
@@ -81,12 +81,12 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
                 true,
                 dialect);
     }
-
+    
     SnapshotSplitAssigner(
-            SplitAssigner.Context<C> context,
-            int currentParallelism,
-            SnapshotPhaseState checkpoint,
-            DataSourceDialect<C> dialect) {
+                          SplitAssigner.Context<C> context,
+                          int currentParallelism,
+                          SnapshotPhaseState checkpoint,
+                          DataSourceDialect<C> dialect) {
         this(
                 context,
                 currentParallelism,
@@ -100,19 +100,19 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
                 checkpoint.isRemainingTablesCheckpointed(),
                 dialect);
     }
-
+    
     private SnapshotSplitAssigner(
-            SplitAssigner.Context<C> context,
-            int currentParallelism,
-            List<TableId> alreadyProcessedTables,
-            List<SnapshotSplit> remainingSplits,
-            Map<String, SnapshotSplit> assignedSplits,
-            Map<String, Offset> splitCompletedOffsets,
-            boolean assignerCompleted,
-            List<TableId> remainingTables,
-            boolean isTableIdCaseSensitive,
-            boolean isRemainingTablesCheckpointed,
-            DataSourceDialect<C> dialect) {
+                                  SplitAssigner.Context<C> context,
+                                  int currentParallelism,
+                                  List<TableId> alreadyProcessedTables,
+                                  List<SnapshotSplit> remainingSplits,
+                                  Map<String, SnapshotSplit> assignedSplits,
+                                  Map<String, Offset> splitCompletedOffsets,
+                                  boolean assignerCompleted,
+                                  List<TableId> remainingTables,
+                                  boolean isTableIdCaseSensitive,
+                                  boolean isRemainingTablesCheckpointed,
+                                  DataSourceDialect<C> dialect) {
         this.context = context;
         this.sourceConfig = context.getSourceConfig();
         this.currentParallelism = currentParallelism;
@@ -126,11 +126,11 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
         this.isTableIdCaseSensitive = isTableIdCaseSensitive;
         this.dialect = dialect;
     }
-
+    
     @Override
     public void open() {
         chunkSplitter = dialect.createChunkSplitter(sourceConfig);
-
+        
         // the legacy state didn't snapshot remaining tables, discovery remaining table here
         if (!isRemainingTablesCheckpointed && !assignerCompleted) {
             try {
@@ -144,7 +144,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
             }
         }
     }
-
+    
     @Override
     public Optional<SourceSplitBase> getNext() {
         if (chunkSplitter == null) {
@@ -172,12 +172,12 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
             }
         }
     }
-
+    
     @Override
     public boolean waitingForCompletedSplits() {
         return !allSplitsCompleted();
     }
-
+    
     @Override
     public void onCompletedSplits(List<SnapshotSplitWatermark> completedSplitWatermarks) {
         completedSplitWatermarks.forEach(
@@ -195,7 +195,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
             }
         }
     }
-
+    
     @Override
     public void addSplits(Collection<SourceSplitBase> splits) {
         for (SourceSplitBase split : splits) {
@@ -206,7 +206,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
             splitCompletedOffsets.remove(split.splitId());
         }
     }
-
+    
     @Override
     public SnapshotPhaseState snapshotState(long checkpointId) {
         SnapshotPhaseState state =
@@ -226,7 +226,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
         }
         return state;
     }
-
+    
     @Override
     public void notifyCheckpointComplete(long checkpointId) {
         // we have waited for at-least one complete checkpoint after all snapshot-splits are
@@ -236,12 +236,12 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
             LOG.info("Snapshot split assigner is turn into completed status.");
         }
     }
-
+    
     /** Indicates there is no more splits available in this assigner. */
     public boolean noMoreSplits() {
         return remainingTables.isEmpty() && remainingSplits.isEmpty();
     }
-
+    
     /**
      * Returns whether the snapshot split assigner is completed, which indicates there is no more
      * splits and all records of splits have been completely processed in the pipeline.
@@ -249,17 +249,17 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
     public boolean isCompleted() {
         return assignerCompleted;
     }
-
+    
     public Map<String, SnapshotSplit> getAssignedSplits() {
         return assignedSplits;
     }
-
+    
     public Map<String, Offset> getSplitCompletedOffsets() {
         return splitCompletedOffsets;
     }
-
+    
     // -------------------------------------------------------------------------------------------
-
+    
     /**
      * Returns whether all splits are completed which means no more splits and all assigned splits
      * are completed.

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.common.loader;
 
 import java.net.URL;
@@ -23,24 +22,26 @@ import java.util.List;
 import java.util.function.Consumer;
 
 public abstract class SeaTunnelBaseClassLoader extends URLClassLoader {
-    protected static final Consumer<Throwable> NOOP_EXCEPTION_HANDLER = classLoadingException -> {};
-
+    
+    protected static final Consumer<Throwable> NOOP_EXCEPTION_HANDLER = classLoadingException -> {
+    };
+    
     private final Consumer<Throwable> classLoadingExceptionHandler;
-
+    
     protected SeaTunnelBaseClassLoader(List<URL> urls) {
         this(urls.toArray(new URL[0]), SeaTunnelBaseClassLoader.class.getClassLoader());
     }
-
+    
     protected SeaTunnelBaseClassLoader(URL[] urls, ClassLoader parent) {
         this(urls, parent, NOOP_EXCEPTION_HANDLER);
     }
-
+    
     protected SeaTunnelBaseClassLoader(
-            URL[] urls, ClassLoader parent, Consumer<Throwable> classLoadingExceptionHandler) {
+                                       URL[] urls, ClassLoader parent, Consumer<Throwable> classLoadingExceptionHandler) {
         super(urls, parent);
         this.classLoadingExceptionHandler = classLoadingExceptionHandler;
     }
-
+    
     @Override
     protected final Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
         try {
@@ -50,9 +51,8 @@ public abstract class SeaTunnelBaseClassLoader extends URLClassLoader {
             throw classLoadingException;
         }
     }
-
-    protected Class<?> loadClassWithoutExceptionHandling(String name, boolean resolve)
-            throws ClassNotFoundException {
+    
+    protected Class<?> loadClassWithoutExceptionHandling(String name, boolean resolve) throws ClassNotFoundException {
         return super.loadClass(name, resolve);
     }
 }

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.db2;
 
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -34,13 +33,13 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 
 public class DB2TypeMapper implements JdbcDialectTypeMapper {
-
+    
     private static final Logger LOG = LoggerFactory.getLogger(JdbcDialect.class);
-
+    
     // reference https://www.ibm.com/docs/en/ssw_ibm_i_75/pdf/rbafzpdf.pdf
     // ============================data types=====================
     private static final String DB2_BOOLEAN = "BOOLEAN";
-
+    
     private static final String DB2_ROWID = "ROWID";
     private static final String DB2_SMALLINT = "SMALLINT";
     private static final String DB2_INTEGER = "INTEGER";
@@ -67,26 +66,25 @@ public class DB2TypeMapper implements JdbcDialectTypeMapper {
     private static final String DB2_VARGRAPHIC = "VARGRAPHIC";
     private static final String DB2_LONG_VARGRAPHIC = "LONG VARGRAPHIC";
     private static final String DB2_DBCLOB = "DBCLOB";
-
+    
     // ---------------------------binary---------------------------
     private static final String DB2_BINARY = "BINARY";
     private static final String DB2_VARBINARY = "VARBINARY";
-
+    
     // ------------------------------time-------------------------
     private static final String DB2_DATE = "DATE";
     private static final String DB2_TIME = "TIME";
     private static final String DB2_TIMESTAMP = "TIMESTAMP";
-
+    
     // ------------------------------blob-------------------------
     private static final String DB2_BLOB = "BLOB";
-
+    
     // other
     private static final String DB2_XML = "XML";
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
-    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
-            throws SQLException {
+    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException {
         String columnType = metadata.getColumnTypeName(colIndex).toUpperCase();
         int precision = metadata.getPrecision(colIndex);
         switch (columnType) {

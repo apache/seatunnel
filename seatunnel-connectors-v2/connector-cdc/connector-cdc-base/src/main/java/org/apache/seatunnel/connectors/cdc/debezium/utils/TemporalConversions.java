@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.cdc.debezium.utils;
 
 import java.time.Duration;
@@ -29,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 
 /** Temporal conversion constants. */
 public final class TemporalConversions {
-
+    
     static final long MILLISECONDS_PER_SECOND = TimeUnit.SECONDS.toMillis(1);
     static final long MICROSECONDS_PER_SECOND = TimeUnit.SECONDS.toMicros(1);
     static final long MICROSECONDS_PER_MILLISECOND = TimeUnit.MILLISECONDS.toMicros(1);
@@ -40,9 +39,10 @@ public final class TemporalConversions {
     static final long SECONDS_PER_DAY = TimeUnit.DAYS.toSeconds(1);
     static final long MICROSECONDS_PER_DAY = TimeUnit.DAYS.toMicros(1);
     static final LocalDate EPOCH = LocalDate.ofEpochDay(0);
-
-    private TemporalConversions() {}
-
+    
+    private TemporalConversions() {
+    }
+    
     @SuppressWarnings("MagicNumber")
     public static LocalDate toLocalDate(Object obj) {
         if (obj == null) {
@@ -79,7 +79,7 @@ public final class TemporalConversions {
                         + "' of type "
                         + obj.getClass().getName());
     }
-
+    
     public static LocalTime toLocalTime(Object obj) {
         if (obj == null) {
             return null;
@@ -131,7 +131,7 @@ public final class TemporalConversions {
                         + "' of type "
                         + obj.getClass().getName());
     }
-
+    
     @SuppressWarnings("MagicNumber")
     public static LocalDateTime toLocalDateTime(Object obj, ZoneId serverTimeZone) {
         if (obj == null) {

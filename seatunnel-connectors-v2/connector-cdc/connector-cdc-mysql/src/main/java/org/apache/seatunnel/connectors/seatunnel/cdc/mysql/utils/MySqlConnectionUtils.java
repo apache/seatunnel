@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils;
 
 import org.apache.seatunnel.common.utils.SeaTunnelException;
@@ -41,13 +40,13 @@ import java.util.Map;
 
 /** MySQL connection Utilities. */
 public class MySqlConnectionUtils {
-
+    
     /** Creates a new {@link MySqlConnection}, but not open the connection. */
     public static MySqlConnection createMySqlConnection(Configuration dbzConfiguration) {
         return new MySqlConnection(
                 new MySqlConnection.MySqlConnectionConfiguration(dbzConfiguration));
     }
-
+    
     /** Creates a new {@link BinaryLogClient} for consuming mysql binlog. */
     public static BinaryLogClient createBinaryClient(Configuration dbzConfiguration) {
         final MySqlConnectorConfig connectorConfig = new MySqlConnectorConfig(dbzConfiguration);
@@ -57,10 +56,10 @@ public class MySqlConnectionUtils {
                 connectorConfig.username(),
                 connectorConfig.password());
     }
-
+    
     /** Creates a new {@link MySqlDatabaseSchema} to monitor the latest MySql database schemas. */
     public static MySqlDatabaseSchema createMySqlDatabaseSchema(
-            MySqlConnectorConfig dbzMySqlConfig, boolean isTableIdCaseSensitive) {
+                                                                MySqlConnectorConfig dbzMySqlConfig, boolean isTableIdCaseSensitive) {
         TopicSelector<TableId> topicSelector = MySqlTopicSelector.defaultSelector(dbzMySqlConfig);
         SchemaNameAdjuster schemaNameAdjuster = SchemaNameAdjuster.create();
         MySqlValueConverters valueConverters = getValueConverters(dbzMySqlConfig);
@@ -71,7 +70,7 @@ public class MySqlConnectionUtils {
                 schemaNameAdjuster,
                 isTableIdCaseSensitive);
     }
-
+    
     /** Fetch earliest binlog offsets in MySql Server. */
     @SuppressWarnings("checkstyle:MagicNumber")
     public static BinlogOffset earliestBinlogOffset(JdbcConnection jdbc) {
@@ -85,7 +84,7 @@ public class MySqlConnectionUtils {
                 };
         return getBinlogOffset(jdbc, showMasterStmt, getCurrentBinlogOffset);
     }
-
+    
     /** Fetch current binlog offsets in MySql Server. */
     @SuppressWarnings("checkstyle:MagicNumber")
     public static BinlogOffset currentBinlogOffset(JdbcConnection jdbc) {
@@ -101,11 +100,11 @@ public class MySqlConnectionUtils {
                 };
         return getBinlogOffset(jdbc, showMasterStmt, getCurrentBinlogOffset);
     }
-
+    
     private static BinlogOffset getBinlogOffset(
-            JdbcConnection jdbc,
-            String showMasterStmt,
-            JdbcConnection.ResultSetMapper<BinlogOffset> function) {
+                                                JdbcConnection jdbc,
+                                                String showMasterStmt,
+                                                JdbcConnection.ResultSetMapper<BinlogOffset> function) {
         try {
             return jdbc.queryAndMap(
                     showMasterStmt,
@@ -127,9 +126,9 @@ public class MySqlConnectionUtils {
                     e);
         }
     }
-
+    
     // --------------------------------------------------------------------------------------------
-
+    
     private static MySqlValueConverters getValueConverters(MySqlConnectorConfig dbzMySqlConfig) {
         TemporalPrecisionMode timePrecisionMode = dbzMySqlConfig.getTemporalPrecisionMode();
         JdbcValueConverters.DecimalMode decimalMode = dbzMySqlConfig.getDecimalMode();
@@ -142,7 +141,7 @@ public class MySqlConnectionUtils {
                         bigIntUnsignedHandlingModeStr);
         JdbcValueConverters.BigIntUnsignedMode bigIntUnsignedMode =
                 bigIntUnsignedHandlingMode.asBigIntUnsignedMode();
-
+        
         boolean timeAdjusterEnabled =
                 dbzMySqlConfig.getConfig().getBoolean(MySqlConnectorConfig.ENABLE_TIME_ADJUSTER);
         return new MySqlValueConverters(
@@ -153,21 +152,21 @@ public class MySqlConnectionUtils {
                 timeAdjusterEnabled ? MySqlValueConverters::adjustTemporal : x -> x,
                 MySqlValueConverters::defaultParsingErrorHandler);
     }
-
+    
     public static boolean isTableIdCaseSensitive(JdbcConnection connection) {
         return !"0"
                 .equals(
                         readMySqlSystemVariables(connection)
                                 .get(MySqlSystemVariables.LOWER_CASE_TABLE_NAMES));
     }
-
+    
     public static Map<String, String> readMySqlSystemVariables(JdbcConnection connection) {
         // Read the system variables from the MySQL instance and get the current database name ...
         return querySystemVariables(connection, "SHOW VARIABLES");
     }
-
+    
     private static Map<String, String> querySystemVariables(
-            JdbcConnection connection, String statement) {
+                                                            JdbcConnection connection, String statement) {
         final Map<String, String> variables = new HashMap<>();
         try {
             connection.query(
@@ -184,7 +183,7 @@ public class MySqlConnectionUtils {
         } catch (SQLException e) {
             throw new SeaTunnelException("Error reading MySQL variables: " + e.getMessage(), e);
         }
-
+        
         return variables;
     }
 }

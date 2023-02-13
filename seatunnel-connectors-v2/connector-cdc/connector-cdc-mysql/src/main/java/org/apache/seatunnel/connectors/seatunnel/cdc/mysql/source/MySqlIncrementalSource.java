@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -43,14 +42,16 @@ import java.time.ZoneId;
 
 @AutoService(SeaTunnelSource.class)
 public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig>
-        implements SupportParallelism {
+        implements
+            SupportParallelism {
+    
     static final String IDENTIFIER = "MySQL-CDC";
-
+    
     @Override
     public String getPluginName() {
         return IDENTIFIER;
     }
-
+    
     @Override
     public SourceConfig.Factory<JdbcSourceConfig> createSourceConfigFactory(ReadonlyConfig config) {
         MySqlSourceConfigFactory configFactory = new MySqlSourceConfigFactory();
@@ -60,11 +61,11 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
         configFactory.stopOptions(stopConfig);
         return configFactory;
     }
-
+    
     @SuppressWarnings("unchecked")
     @Override
     public DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(
-            ReadonlyConfig config) {
+                                                                                ReadonlyConfig config) {
         JdbcSourceConfig jdbcSourceConfig = configFactory.create(0);
         String baseUrl = config.get(JdbcCatalogOptions.BASE_URL);
         // TODO: support multi-table
@@ -83,19 +84,18 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
                                 config.get(JdbcSourceOptions.TABLE_NAME)));
         SeaTunnelRowType physicalRowType = table.getTableSchema().toPhysicalRowDataType();
         String zoneId = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
-        return (DebeziumDeserializationSchema<T>)
-                SeaTunnelRowDebeziumDeserializeSchema.builder()
-                        .setPhysicalRowType(physicalRowType)
-                        .setResultTypeInfo(physicalRowType)
-                        .setServerTimeZone(ZoneId.of(zoneId))
-                        .build();
+        return (DebeziumDeserializationSchema<T>) SeaTunnelRowDebeziumDeserializeSchema.builder()
+                .setPhysicalRowType(physicalRowType)
+                .setResultTypeInfo(physicalRowType)
+                .setServerTimeZone(ZoneId.of(zoneId))
+                .build();
     }
-
+    
     @Override
     public DataSourceDialect<JdbcSourceConfig> createDataSourceDialect(ReadonlyConfig config) {
         return new MySqlDialect((MySqlSourceConfigFactory) configFactory);
     }
-
+    
     @Override
     public OffsetFactory createOffsetFactory(ReadonlyConfig config) {
         return new BinlogOffsetFactory(

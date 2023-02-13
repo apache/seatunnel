@@ -1,13 +1,12 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog;
 
 import org.apache.seatunnel.api.table.catalog.Catalog;
@@ -43,26 +41,27 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public abstract class AbstractJdbcCatalog implements Catalog {
+    
     private static final Logger LOG = LoggerFactory.getLogger(AbstractJdbcCatalog.class);
-
+    
     protected final String catalogName;
     protected final String defaultDatabase;
     protected final String username;
     protected final String pwd;
     protected final String baseUrl;
     protected final String defaultUrl;
-
+    
     public AbstractJdbcCatalog(
-            String catalogName,
-            String defaultDatabase,
-            String username,
-            String pwd,
-            String baseUrl) {
-
+                               String catalogName,
+                               String defaultDatabase,
+                               String username,
+                               String pwd,
+                               String baseUrl) {
+        
         checkArgument(StringUtils.isNotBlank(username));
         checkArgument(StringUtils.isNotBlank(pwd));
         checkArgument(StringUtils.isNotBlank(baseUrl));
-
+        
         baseUrl = baseUrl.trim();
         validateJdbcUrlWithoutDatabase(baseUrl);
         this.catalogName = catalogName;
@@ -72,23 +71,23 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
         this.defaultUrl = this.baseUrl + defaultDatabase;
     }
-
+    
     /**
      * URL has to be without database, like "jdbc:mysql://localhost:5432/" or
      * "jdbc:mysql://localhost:5432" rather than "jdbc:mysql://localhost:5432/db".
      */
     public static void validateJdbcUrlWithoutDatabase(String url) {
         String[] parts = url.trim().split("\\/+");
-
+        
         checkArgument(parts.length == 2);
     }
-
+    
     public AbstractJdbcCatalog(String catalogName, String username, String pwd, String defaultUrl) {
-
+        
         checkArgument(StringUtils.isNotBlank(username));
         checkArgument(StringUtils.isNotBlank(pwd));
         checkArgument(StringUtils.isNotBlank(defaultUrl));
-
+        
         defaultUrl = defaultUrl.trim();
         validateJdbcUrlWithDatabase(defaultUrl);
         this.catalogName = catalogName;
@@ -99,7 +98,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         this.baseUrl = strings[0];
         this.defaultDatabase = strings[1];
     }
-
+    
     /**
      * URL has to be with database, like "jdbc:mysql://localhost:5432/db" rather than
      * "jdbc:mysql://localhost:5432/".
@@ -109,7 +108,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         String[] parts = url.trim().split("\\/+");
         checkArgument(parts.length == 3);
     }
-
+    
     /**
      * Ensure that the url was validated {@link #validateJdbcUrlWithDatabase}.
      *
@@ -122,28 +121,28 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         res[1] = defaultUrl.substring(index, defaultUrl.length());
         return res;
     }
-
+    
     @Override
     public String getDefaultDatabase() {
         return defaultDatabase;
     }
-
+    
     public String getCatalogName() {
         return catalogName;
     }
-
+    
     public String getUsername() {
         return username;
     }
-
+    
     public String getPassword() {
         return pwd;
     }
-
+    
     public String getBaseUrl() {
         return baseUrl;
     }
-
+    
     @Override
     public void open() throws CatalogException {
         try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd)) {
@@ -152,23 +151,23 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             throw new CatalogException(
                     String.format("Failed connecting to %s via JDBC.", defaultUrl), e);
         }
-
+        
         LOG.info("Catalog {} established connection to {}", catalogName, defaultUrl);
     }
-
+    
     @Override
     public void close() throws CatalogException {
         LOG.info("Catalog {} closing", catalogName);
     }
-
+    
     protected Optional<TableSchema.PrimaryKey> getPrimaryKey(
-            DatabaseMetaData metaData, String schema, String table) throws SQLException {
-
+                                                             DatabaseMetaData metaData, String schema, String table) throws SQLException {
+        
         // According to the Javadoc of java.sql.DatabaseMetaData#getPrimaryKeys,
         // the returned primary key columns are ordered by COLUMN_NAME, not by KEY_SEQ.
         // We need to sort them based on the KEY_SEQ value.
         ResultSet rs = metaData.getPrimaryKeys(null, schema, table);
-
+        
         Map<Integer, String> keySeqColumnName = new HashMap<>();
         String pkName = null;
         while (rs.next()) {
@@ -189,14 +188,14 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         }
         return Optional.empty();
     }
-
+    
     @Override
     public boolean databaseExists(String databaseName) throws CatalogException {
         checkArgument(StringUtils.isNotBlank(databaseName));
-
+        
         return listDatabases().contains(databaseName);
     }
-
+    
     @Override
     public boolean tableExists(TablePath tablePath) throws CatalogException {
         try {

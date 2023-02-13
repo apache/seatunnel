@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.influxdb.source;
 
 import org.apache.seatunnel.api.source.Boundedness;
@@ -44,30 +43,31 @@ import java.util.Queue;
 
 @Slf4j
 public class InfluxdbSourceReader implements SourceReader<SeaTunnelRow, InfluxDBSourceSplit> {
+    
     private InfluxDB influxdb;
     InfluxDBConfig config;
-
+    
     private final SourceReader.Context context;
-
+    
     private final SeaTunnelRowType seaTunnelRowType;
-
+    
     List<Integer> columnsIndexList;
     private final Queue<InfluxDBSourceSplit> pendingSplits;
-
+    
     private volatile boolean noMoreSplitsAssignment;
-
+    
     InfluxdbSourceReader(
-            InfluxDBConfig config,
-            Context readerContext,
-            SeaTunnelRowType seaTunnelRowType,
-            List<Integer> columnsIndexList) {
+                         InfluxDBConfig config,
+                         Context readerContext,
+                         SeaTunnelRowType seaTunnelRowType,
+                         List<Integer> columnsIndexList) {
         this.config = config;
         this.pendingSplits = new LinkedList<>();
         this.context = readerContext;
         this.seaTunnelRowType = seaTunnelRowType;
         this.columnsIndexList = columnsIndexList;
     }
-
+    
     public void connect() throws ConnectException {
         if (influxdb == null) {
             influxdb = InfluxDBClient.getInfluxDB(config);
@@ -82,12 +82,12 @@ public class InfluxdbSourceReader implements SourceReader<SeaTunnelRow, InfluxDB
             log.info("connect influxdb successful. sever version :{}.", version);
         }
     }
-
+    
     @Override
     public void open() throws Exception {
         connect();
     }
-
+    
     @Override
     public void close() {
         if (influxdb != null) {
@@ -95,7 +95,7 @@ public class InfluxdbSourceReader implements SourceReader<SeaTunnelRow, InfluxDB
             influxdb = null;
         }
     }
-
+    
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) {
         while (!pendingSplits.isEmpty()) {
@@ -104,7 +104,7 @@ public class InfluxdbSourceReader implements SourceReader<SeaTunnelRow, InfluxDB
                 read(split, output);
             }
         }
-
+        
         if (Boundedness.BOUNDED.equals(context.getBoundedness())
                 && noMoreSplitsAssignment
                 && pendingSplits.isEmpty()) {
@@ -113,26 +113,27 @@ public class InfluxdbSourceReader implements SourceReader<SeaTunnelRow, InfluxDB
             context.signalNoMoreElement();
         }
     }
-
+    
     @Override
     public List<InfluxDBSourceSplit> snapshotState(long checkpointId) {
         return new ArrayList<>(pendingSplits);
     }
-
+    
     @Override
     public void addSplits(List<InfluxDBSourceSplit> splits) {
         pendingSplits.addAll(splits);
     }
-
+    
     @Override
     public void handleNoMoreSplits() {
         log.info("Reader received NoMoreSplits event.");
         noMoreSplitsAssignment = true;
     }
-
+    
     @Override
-    public void notifyCheckpointComplete(long checkpointId) {}
-
+    public void notifyCheckpointComplete(long checkpointId) {
+    }
+    
     private void read(InfluxDBSourceSplit split, Collector<SeaTunnelRow> output) {
         QueryResult queryResult = influxdb.query(new Query(split.getQuery(), config.getDatabase()));
         for (QueryResult.Result result : queryResult.getResults()) {

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.iceberg.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -58,24 +57,24 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 @AutoService(SeaTunnelSource.class)
 public class IcebergSource
-        implements SeaTunnelSource<
-                        SeaTunnelRow, IcebergFileScanTaskSplit, IcebergSplitEnumeratorState>,
-                SupportParallelism,
-                SupportColumnProjection {
-
+        implements
+            SeaTunnelSource<SeaTunnelRow, IcebergFileScanTaskSplit, IcebergSplitEnumeratorState>,
+            SupportParallelism,
+            SupportColumnProjection {
+    
     private static final long serialVersionUID = 4343414808223919870L;
-
+    
     private SourceConfig sourceConfig;
     private Schema tableSchema;
     private Schema projectedSchema;
     private SeaTunnelRowType seaTunnelRowType;
     private JobContext jobContext;
-
+    
     @Override
     public String getPluginName() {
         return "Iceberg";
     }
-
+    
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         this.sourceConfig = SourceConfig.loadConfig(pluginConfig);
@@ -83,7 +82,7 @@ public class IcebergSource
         this.seaTunnelRowType = loadSeaTunnelRowType(tableSchema, pluginConfig);
         this.projectedSchema = tableSchema.select(seaTunnelRowType.getFieldNames());
     }
-
+    
     @SneakyThrows
     private Schema loadIcebergSchema(SourceConfig sourceConfig) {
         try (IcebergTableLoader icebergTableLoader = IcebergTableLoader.create(sourceConfig)) {
@@ -91,7 +90,7 @@ public class IcebergSource
             return icebergTableLoader.loadTable().schema();
         }
     }
-
+    
     private SeaTunnelRowType loadSeaTunnelRowType(Schema tableSchema, Config pluginConfig) {
         List<String> columnNames = new ArrayList<>(tableSchema.columns().size());
         List<SeaTunnelDataType<?>> columnDataTypes = new ArrayList<>(tableSchema.columns().size());
@@ -103,7 +102,7 @@ public class IcebergSource
                 new SeaTunnelRowType(
                         columnNames.toArray(new String[0]),
                         columnDataTypes.toArray(new SeaTunnelDataType[0]));
-
+        
         CheckResult checkResult =
                 CheckConfigUtil.checkAllExists(pluginConfig, CommonConfig.KEY_FIELDS.key());
         if (checkResult.isSuccess()) {
@@ -125,35 +124,34 @@ public class IcebergSource
         }
         return originalRowType;
     }
-
+    
     @Override
     public Boundedness getBoundedness() {
         return JobMode.BATCH.equals(jobContext.getJobMode())
                 ? Boundedness.BOUNDED
                 : Boundedness.UNBOUNDED;
     }
-
+    
     @Override
     public void setJobContext(JobContext jobContext) {
         this.jobContext = jobContext;
     }
-
+    
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
         return seaTunnelRowType;
     }
-
+    
     @Override
     public SourceReader<SeaTunnelRow, IcebergFileScanTaskSplit> createReader(
-            SourceReader.Context readerContext) {
+                                                                             SourceReader.Context readerContext) {
         return new IcebergSourceReader(
                 readerContext, seaTunnelRowType, tableSchema, projectedSchema, sourceConfig);
     }
-
+    
     @Override
-    public SourceSplitEnumerator<IcebergFileScanTaskSplit, IcebergSplitEnumeratorState>
-            createEnumerator(
-                    SourceSplitEnumerator.Context<IcebergFileScanTaskSplit> enumeratorContext) {
+    public SourceSplitEnumerator<IcebergFileScanTaskSplit, IcebergSplitEnumeratorState> createEnumerator(
+                                                                                                         SourceSplitEnumerator.Context<IcebergFileScanTaskSplit> enumeratorContext) {
         if (Boundedness.BOUNDED.equals(getBoundedness())) {
             return new IcebergBatchSplitEnumerator(
                     enumeratorContext,
@@ -167,12 +165,11 @@ public class IcebergSource
                 sourceConfig,
                 null);
     }
-
+    
     @Override
-    public SourceSplitEnumerator<IcebergFileScanTaskSplit, IcebergSplitEnumeratorState>
-            restoreEnumerator(
-                    SourceSplitEnumerator.Context<IcebergFileScanTaskSplit> enumeratorContext,
-                    IcebergSplitEnumeratorState checkpointState) {
+    public SourceSplitEnumerator<IcebergFileScanTaskSplit, IcebergSplitEnumeratorState> restoreEnumerator(
+                                                                                                          SourceSplitEnumerator.Context<IcebergFileScanTaskSplit> enumeratorContext,
+                                                                                                          IcebergSplitEnumeratorState checkpointState) {
         if (Boundedness.BOUNDED.equals(getBoundedness())) {
             return new IcebergBatchSplitEnumerator(
                     enumeratorContext,

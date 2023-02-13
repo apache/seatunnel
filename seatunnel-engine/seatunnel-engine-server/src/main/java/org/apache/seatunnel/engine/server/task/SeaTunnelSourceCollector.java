@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.api.common.metrics.Unit;
@@ -30,22 +29,22 @@ import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVE
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_QPS;
 
 public class SeaTunnelSourceCollector<T> implements Collector<T> {
-
+    
     private final Object checkpointLock;
-
+    
     private final List<OneInputFlowLifeCycle<Record<?>>> outputs;
-
+    
     private final MetricsContext metricsContext;
-
+    
     public SeaTunnelSourceCollector(
-            Object checkpointLock,
-            List<OneInputFlowLifeCycle<Record<?>>> outputs,
-            MetricsContext metricsContext) {
+                                    Object checkpointLock,
+                                    List<OneInputFlowLifeCycle<Record<?>>> outputs,
+                                    MetricsContext metricsContext) {
         this.checkpointLock = checkpointLock;
         this.outputs = outputs;
         this.metricsContext = metricsContext;
     }
-
+    
     @Override
     public void collect(T row) {
         try {
@@ -56,12 +55,12 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
             throw new RuntimeException(e);
         }
     }
-
+    
     @Override
     public Object getCheckpointLock() {
         return checkpointLock;
     }
-
+    
     public void sendRecordToNext(Record<?> record) throws IOException {
         synchronized (checkpointLock) {
             for (OneInputFlowLifeCycle<Record<?>> output : outputs) {

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.core.protocol.codec;
 
 import com.hazelcast.client.impl.protocol.ClientMessage;
@@ -40,6 +39,7 @@ import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCod
 
 @Generated("b8660c8a07cf0fd33e4191f33a26b46e")
 public final class SeaTunnelCancelJobCodec {
+    
     // hex: 0xDE0400
     public static final int REQUEST_MESSAGE_TYPE = 14550016;
     // hex: 0xDE0401
@@ -50,9 +50,10 @@ public final class SeaTunnelCancelJobCodec {
             REQUEST_JOB_ID_FIELD_OFFSET + LONG_SIZE_IN_BYTES;
     private static final int RESPONSE_INITIAL_FRAME_SIZE =
             RESPONSE_BACKUP_ACKS_FIELD_OFFSET + BYTE_SIZE_IN_BYTES;
-
-    private SeaTunnelCancelJobCodec() {}
-
+    
+    private SeaTunnelCancelJobCodec() {
+    }
+    
     public static ClientMessage encodeRequest(long jobId) {
         ClientMessage clientMessage = ClientMessage.createForEncode();
         clientMessage.setRetryable(true);
@@ -64,19 +65,19 @@ public final class SeaTunnelCancelJobCodec {
         clientMessage.add(initialFrame);
         return clientMessage;
     }
-
+    
     public static long decodeRequest(ClientMessage clientMessage) {
         ForwardFrameIterator iterator = clientMessage.frameIterator();
         Frame initialFrame = iterator.next();
         return decodeLong(initialFrame.content, REQUEST_JOB_ID_FIELD_OFFSET);
     }
-
+    
     public static ClientMessage encodeResponse() {
         ClientMessage clientMessage = ClientMessage.createForEncode();
         Frame initialFrame = new Frame(new byte[RESPONSE_INITIAL_FRAME_SIZE], UNFRAGMENTED_MESSAGE);
         encodeInt(initialFrame.content, TYPE_FIELD_OFFSET, RESPONSE_MESSAGE_TYPE);
         clientMessage.add(initialFrame);
-
+        
         return clientMessage;
     }
 }

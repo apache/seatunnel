@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.pulsar.config;
 
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorErrorCode;
@@ -33,11 +32,12 @@ import org.apache.pulsar.client.impl.auth.AuthenticationDisabled;
 import org.apache.pulsar.shade.org.apache.commons.lang3.StringUtils;
 
 public class PulsarConfigUtil {
-
+    
     public static final String IDENTIFIER = "pulsar";
-
-    private PulsarConfigUtil() {}
-
+    
+    private PulsarConfigUtil() {
+    }
+    
     public static PulsarAdmin createAdmin(PulsarAdminConfig config) {
         PulsarAdminBuilder builder = PulsarAdmin.builder();
         builder.serviceHttpUrl(config.getAdminUrl());
@@ -49,7 +49,7 @@ public class PulsarConfigUtil {
                     PulsarConnectorErrorCode.OPEN_PULSAR_ADMIN_FAILED, e);
         }
     }
-
+    
     public static PulsarClient createClient(PulsarClientConfig config) {
         ClientBuilder builder = PulsarClient.builder();
         builder.serviceUrl(config.getServiceUrl());
@@ -61,19 +61,19 @@ public class PulsarConfigUtil {
                     PulsarConnectorErrorCode.OPEN_PULSAR_CLIENT_FAILED, e);
         }
     }
-
+    
     public static ConsumerBuilder<byte[]> createConsumerBuilder(
-            PulsarClient client, PulsarConsumerConfig config) {
+                                                                PulsarClient client, PulsarConsumerConfig config) {
         ConsumerBuilder<byte[]> builder = client.newConsumer(Schema.BYTES);
         builder.subscriptionName(config.getSubscriptionName());
         return builder;
     }
-
+    
     private static Authentication createAuthentication(BasePulsarConfig config) {
         if (StringUtils.isBlank(config.getAuthPluginClassName())) {
             return AuthenticationDisabled.INSTANCE;
         }
-
+        
         if (StringUtils.isNotBlank(config.getAuthPluginClassName())) {
             try {
                 return AuthenticationFactory.create(

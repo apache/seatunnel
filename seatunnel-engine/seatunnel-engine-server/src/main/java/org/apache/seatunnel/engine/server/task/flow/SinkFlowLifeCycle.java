@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.task.flow;
 
 import org.apache.seatunnel.api.common.metrics.Unit;
@@ -55,39 +54,42 @@ import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
 import static org.apache.seatunnel.engine.server.task.AbstractTask.serializeStates;
 
 public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCommitInfoT, StateT>
-        extends ActionFlowLifeCycle
-        implements OneInputFlowLifeCycle<Record<?>>, InternalCheckpointListener {
-
+        extends
+            ActionFlowLifeCycle
+        implements
+            OneInputFlowLifeCycle<Record<?>>,
+            InternalCheckpointListener {
+    
     private final SinkAction<T, StateT, CommitInfoT, AggregatedCommitInfoT> sinkAction;
     private SinkWriter<T, CommitInfoT, StateT> writer;
-
+    
     private transient Optional<Serializer<StateT>> writerStateSerializer;
-
+    
     private final int indexID;
-
+    
     private final TaskLocation taskLocation;
-
+    
     private Address committerTaskAddress;
-
+    
     private final TaskLocation committerTaskLocation;
-
+    
     private Optional<SinkCommitter<CommitInfoT>> committer;
-
+    
     private Optional<CommitInfoT> lastCommitInfo;
-
+    
     private MetricsContext metricsContext;
-
+    
     private final boolean containAggCommitter;
-
+    
     public SinkFlowLifeCycle(
-            SinkAction<T, StateT, CommitInfoT, AggregatedCommitInfoT> sinkAction,
-            TaskLocation taskLocation,
-            int indexID,
-            SeaTunnelTask runningTask,
-            TaskLocation committerTaskLocation,
-            boolean containAggCommitter,
-            CompletableFuture<Void> completableFuture,
-            MetricsContext metricsContext) {
+                             SinkAction<T, StateT, CommitInfoT, AggregatedCommitInfoT> sinkAction,
+                             TaskLocation taskLocation,
+                             int indexID,
+                             SeaTunnelTask runningTask,
+                             TaskLocation committerTaskLocation,
+                             boolean containAggCommitter,
+                             CompletableFuture<Void> completableFuture,
+                             MetricsContext metricsContext) {
         super(sinkAction, runningTask, completableFuture);
         this.sinkAction = sinkAction;
         this.indexID = indexID;
@@ -96,13 +98,13 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         this.containAggCommitter = containAggCommitter;
         this.metricsContext = metricsContext;
     }
-
+    
     @Override
     public void init() throws Exception {
         this.writerStateSerializer = sinkAction.getSink().getWriterStateSerializer();
         this.committer = sinkAction.getSink().createCommitter();
     }
-
+    
     @Override
     public void open() throws Exception {
         super.open();
@@ -111,21 +113,20 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         }
         registerCommitter();
     }
-
+    
     private Address getCommitterTaskAddress() throws ExecutionException, InterruptedException {
-        return (Address)
-                runningTask
-                        .getExecutionContext()
-                        .sendToMaster(new GetTaskGroupAddressOperation(committerTaskLocation))
-                        .get();
+        return (Address) runningTask
+                .getExecutionContext()
+                .sendToMaster(new GetTaskGroupAddressOperation(committerTaskLocation))
+                .get();
     }
-
+    
     @Override
     public void close() throws IOException {
         super.close();
         writer.close();
     }
-
+    
     private void registerCommitter() {
         if (containAggCommitter) {
             runningTask
@@ -136,7 +137,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     .join();
         }
     }
-
+    
     @Override
     public void received(Record<?> record) {
         try {
@@ -163,17 +164,16 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     }
                     if (containAggCommitter) {
                         lastCommitInfo.ifPresent(
-                                commitInfoT ->
-                                        runningTask
-                                                .getExecutionContext()
-                                                .sendToMember(
-                                                        new SinkPrepareCommitOperation(
-                                                                barrier,
-                                                                committerTaskLocation,
-                                                                SerializationUtils.serialize(
-                                                                        commitInfoT)),
-                                                        committerTaskAddress)
-                                                .join());
+                                commitInfoT -> runningTask
+                                        .getExecutionContext()
+                                        .sendToMember(
+                                                new SinkPrepareCommitOperation(
+                                                        barrier,
+                                                        committerTaskLocation,
+                                                        SerializationUtils.serialize(
+                                                                commitInfoT)),
+                                                committerTaskAddress)
+                                        .join());
                     }
                 } else {
                     if (containAggCommitter) {
@@ -197,21 +197,21 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
             throw new RuntimeException(e);
         }
     }
-
+    
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         if (committer.isPresent() && lastCommitInfo.isPresent()) {
             committer.get().commit(Collections.singletonList(lastCommitInfo.get()));
         }
     }
-
+    
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         if (committer.isPresent() && lastCommitInfo.isPresent()) {
             committer.get().abort(Collections.singletonList(lastCommitInfo.get()));
         }
     }
-
+    
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
         List<StateT> states = new ArrayList<>();
@@ -222,12 +222,10 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                             .map(ActionSubtaskState::getState)
                             .flatMap(Collection::stream)
                             .map(
-                                    bytes ->
-                                            sneaky(
-                                                    () ->
-                                                            writerStateSerializer
-                                                                    .get()
-                                                                    .deserialize(bytes)))
+                                    bytes -> sneaky(
+                                            () -> writerStateSerializer
+                                                    .get()
+                                                    .deserialize(bytes)))
                             .collect(Collectors.toList());
         }
         if (states.isEmpty()) {

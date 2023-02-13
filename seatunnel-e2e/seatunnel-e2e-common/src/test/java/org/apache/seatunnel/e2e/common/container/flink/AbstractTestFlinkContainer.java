@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.e2e.common.container.flink;
 
 import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
@@ -44,24 +43,24 @@ import java.util.stream.Stream;
  */
 @NoArgsConstructor
 public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
-
+    
     protected static final List<String> DEFAULT_FLINK_PROPERTIES =
             Arrays.asList(
                     "jobmanager.rpc.address: jobmanager",
                     "taskmanager.numberOfTaskSlots: 10",
                     "parallelism.default: 4",
                     "env.java.opts: -Doracle.jdbc.timezoneAsRegion=false");
-
+    
     protected static final String DEFAULT_DOCKER_IMAGE = "flink:1.13.6-scala_2.11";
-
+    
     protected GenericContainer<?> jobManager;
     protected GenericContainer<?> taskManager;
-
+    
     @Override
     protected String getDockerImage() {
         return DEFAULT_DOCKER_IMAGE;
     }
-
+    
     @Override
     public void startUp() throws Exception {
         final String dockerImage = getDockerImage();
@@ -82,7 +81,7 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
                                         .withStartupTimeout(Duration.ofMinutes(2)));
         copySeaTunnelStarterToContainer(jobManager);
         copySeaTunnelStarterLoggingToContainer(jobManager);
-
+        
         taskManager =
                 new GenericContainer<>(dockerImage)
                         .withCommand("taskmanager")
@@ -99,17 +98,17 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
                                         .withRegEx(
                                                 ".*Successful registration at resource manager.*")
                                         .withStartupTimeout(Duration.ofMinutes(2)));
-
+        
         Startables.deepStart(Stream.of(jobManager)).join();
         Startables.deepStart(Stream.of(taskManager)).join();
         // execute extra commands
         executeExtraCommands(jobManager);
     }
-
+    
     protected List<String> getFlinkProperties() {
         return DEFAULT_FLINK_PROPERTIES;
     }
-
+    
     @Override
     public void tearDown() throws Exception {
         if (taskManager != null) {
@@ -119,21 +118,19 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
             jobManager.stop();
         }
     }
-
+    
     @Override
     protected List<String> getExtraStartShellCommands() {
         return Collections.emptyList();
     }
-
-    public void executeExtraCommands(ContainerExtendedFactory extendedFactory)
-            throws IOException, InterruptedException {
+    
+    public void executeExtraCommands(ContainerExtendedFactory extendedFactory) throws IOException, InterruptedException {
         extendedFactory.extend(jobManager);
         extendedFactory.extend(taskManager);
     }
-
+    
     @Override
-    public Container.ExecResult executeJob(String confFile)
-            throws IOException, InterruptedException {
+    public Container.ExecResult executeJob(String confFile) throws IOException, InterruptedException {
         return executeJob(jobManager, confFile);
     }
 }

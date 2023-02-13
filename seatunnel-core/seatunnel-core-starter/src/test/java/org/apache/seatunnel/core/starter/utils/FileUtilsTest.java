@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.core.starter.utils;
 
 import org.apache.seatunnel.common.config.DeployMode;
@@ -33,7 +32,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class FileUtilsTest {
-
+    
     @Test
     public void getConfigPath() throws URISyntaxException {
         // test client mode.
@@ -43,25 +42,22 @@ public class FileUtilsTest {
                 Paths.get(FileUtilsTest.class.getResource("/flink.batch.conf").toURI());
         sparkCommandArgs.setConfigFile(expectConfPath.toString());
         Assertions.assertEquals(expectConfPath, FileUtils.getConfigPath(sparkCommandArgs));
-
+        
         // test cluster mode
         sparkCommandArgs.setDeployMode(DeployMode.CLUSTER);
         Assertions.assertEquals(
                 "flink.batch.conf", FileUtils.getConfigPath(sparkCommandArgs).toString());
     }
-
+    
     @EqualsAndHashCode(callSuper = true)
     @Data
     private static class SparkCommandArgs extends AbstractCommandArgs {
-
-        @Parameter(
-                names = {"-c", "--config"},
-                description = "Config file",
-                required = true)
+        
+        @Parameter(names = {"-c", "--config"}, description = "Config file", required = true)
         private String configFile;
-
+        
         private DeployMode deployMode;
-
+        
         @Override
         public Command<?> buildCommand() {
             return null;

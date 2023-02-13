@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.cdc.base.relational.connection;
 
 import org.apache.seatunnel.common.utils.SeaTunnelException;
@@ -32,33 +31,33 @@ import java.sql.SQLException;
 
 /** A factory to create JDBC connection. */
 public class JdbcConnectionFactory implements JdbcConnection.ConnectionFactory {
-
+    
     private static final Logger LOG = LoggerFactory.getLogger(JdbcConnectionFactory.class);
-
+    
     private final JdbcSourceConfig sourceConfig;
     private final JdbcConnectionPoolFactory jdbcConnectionPoolFactory;
-
+    
     public JdbcConnectionFactory(
-            JdbcSourceConfig sourceConfig, JdbcConnectionPoolFactory jdbcConnectionPoolFactory) {
+                                 JdbcSourceConfig sourceConfig, JdbcConnectionPoolFactory jdbcConnectionPoolFactory) {
         this.sourceConfig = sourceConfig;
         this.jdbcConnectionPoolFactory = jdbcConnectionPoolFactory;
     }
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public Connection connect(JdbcConfiguration config) throws SQLException {
         final int connectRetryTimes = sourceConfig.getConnectMaxRetries();
-
+        
         final ConnectionPoolId connectionPoolId =
                 new ConnectionPoolId(
                         sourceConfig.getHostname(),
                         sourceConfig.getPort(),
                         sourceConfig.getUsername());
-
+        
         HikariDataSource dataSource =
                 JdbcConnectionPools.getInstance(jdbcConnectionPoolFactory)
                         .getOrCreateConnectionPool(connectionPoolId, sourceConfig);
-
+        
         int i = 0;
         while (i < connectRetryTimes) {
             try {

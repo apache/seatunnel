@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.cassandra;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
@@ -85,6 +84,7 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class CassandraIT extends TestSuiteBase implements TestResource {
+    
     private static final String CASSANDRA_DOCKER_IMAGE = "cassandra";
     private static final String HOST = "cassandra";
     private static final Integer PORT = 9042;
@@ -101,7 +101,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
     private Config config;
     private CassandraContainer<?> container;
     private CqlSession session;
-
+    
     @TestTemplate
     public void testCassandra(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob(CASSANDRA_JOB_CONFIG);
@@ -111,7 +111,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
         clearSinkTable();
         Assertions.assertNull(getRow());
     }
-
+    
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -133,7 +133,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
         this.initializeCassandraTable();
         this.batchInsertData();
     }
-
+    
     private void initializeCassandraTable() {
         initCassandraConfig();
         createKeyspace();
@@ -150,7 +150,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("Initializing Cassandra table failed!", e);
         }
     }
-
+    
     private void initConnection() {
         try {
             File file = new File(CASSANDRA_DRIVER_CONFIG);
@@ -167,15 +167,15 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("Init connection failed!", e);
         }
     }
-
+    
     private void batchInsertData() {
         try {
             BatchStatement batchStatement = BatchStatement.builder(BatchType.UNLOGGED).build();
             BoundStatement boundStatement =
                     session.prepare(
-                                    SimpleStatement.builder(config.getString(INSERT_CQL))
-                                            .setKeyspace(KEYSPACE)
-                                            .build())
+                            SimpleStatement.builder(config.getString(INSERT_CQL))
+                                    .setKeyspace(KEYSPACE)
+                                    .build())
                             .bind();
             for (SeaTunnelRow row : TEST_DATASET.getValue()) {
                 boundStatement =
@@ -215,11 +215,11 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("Batch insert data failed!", e);
         }
     }
-
+    
     private void compareResult() throws IOException {
         String sourceCql = "select * from " + SOURCE_TABLE;
         String sinkCql = "select * from " + SINK_TABLE;
-
+        
         List<String> columnList =
                 Arrays.stream(generateTestDataSet().getKey().getFieldNames())
                         .collect(Collectors.toList());
@@ -257,7 +257,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
             }
         }
     }
-
+    
     private void createKeyspace() {
         try {
             this.session.execute(
@@ -269,7 +269,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("Create keyspace failed!", e);
         }
     }
-
+    
     private void clearSinkTable() {
         try {
             session.execute(
@@ -280,59 +280,59 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("Test Cassandra server image failed!", e);
         }
     }
-
+    
     private static Pair<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
-                        new String[] {
-                            "id",
-                            "c_ascii",
-                            "c_bigint",
-                            "c_blob",
-                            "c_boolean",
-                            "c_decimal",
-                            "c_double",
-                            "c_float",
-                            "c_int",
-                            "c_timestamp",
-                            "c_uuid",
-                            "c_text",
-                            "c_varint",
-                            "c_timeuuid",
-                            "c_inet",
-                            "c_date",
-                            "c_smallint",
-                            "c_tinyint",
-                            "c_list_float",
-                            "c_list_int",
-                            "c_set_double",
-                            "c_set_bigint",
-                            "c_map"
+                        new String[]{
+                                "id",
+                                "c_ascii",
+                                "c_bigint",
+                                "c_blob",
+                                "c_boolean",
+                                "c_decimal",
+                                "c_double",
+                                "c_float",
+                                "c_int",
+                                "c_timestamp",
+                                "c_uuid",
+                                "c_text",
+                                "c_varint",
+                                "c_timeuuid",
+                                "c_inet",
+                                "c_date",
+                                "c_smallint",
+                                "c_tinyint",
+                                "c_list_float",
+                                "c_list_int",
+                                "c_set_double",
+                                "c_set_bigint",
+                                "c_map"
                         },
-                        new SeaTunnelDataType[] {
-                            BasicType.LONG_TYPE,
-                            BasicType.STRING_TYPE,
-                            BasicType.LONG_TYPE,
-                            ArrayType.BYTE_ARRAY_TYPE,
-                            BasicType.BOOLEAN_TYPE,
-                            new DecimalType(9, 4),
-                            BasicType.DOUBLE_TYPE,
-                            BasicType.FLOAT_TYPE,
-                            BasicType.INT_TYPE,
-                            LocalTimeType.LOCAL_DATE_TIME_TYPE,
-                            BasicType.STRING_TYPE,
-                            BasicType.STRING_TYPE,
-                            BasicType.STRING_TYPE,
-                            BasicType.STRING_TYPE,
-                            BasicType.STRING_TYPE,
-                            LocalTimeType.LOCAL_DATE_TYPE,
-                            BasicType.SHORT_TYPE,
-                            BasicType.BYTE_TYPE,
-                            ArrayType.FLOAT_ARRAY_TYPE,
-                            ArrayType.INT_ARRAY_TYPE,
-                            ArrayType.DOUBLE_ARRAY_TYPE,
-                            ArrayType.LONG_ARRAY_TYPE,
-                            new MapType<>(BasicType.STRING_TYPE, BasicType.INT_TYPE)
+                        new SeaTunnelDataType[]{
+                                BasicType.LONG_TYPE,
+                                BasicType.STRING_TYPE,
+                                BasicType.LONG_TYPE,
+                                ArrayType.BYTE_ARRAY_TYPE,
+                                BasicType.BOOLEAN_TYPE,
+                                new DecimalType(9, 4),
+                                BasicType.DOUBLE_TYPE,
+                                BasicType.FLOAT_TYPE,
+                                BasicType.INT_TYPE,
+                                LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                BasicType.STRING_TYPE,
+                                BasicType.STRING_TYPE,
+                                BasicType.STRING_TYPE,
+                                BasicType.STRING_TYPE,
+                                BasicType.STRING_TYPE,
+                                LocalTimeType.LOCAL_DATE_TYPE,
+                                BasicType.SHORT_TYPE,
+                                BasicType.BYTE_TYPE,
+                                ArrayType.FLOAT_ARRAY_TYPE,
+                                ArrayType.INT_ARRAY_TYPE,
+                                ArrayType.DOUBLE_ARRAY_TYPE,
+                                ArrayType.LONG_ARRAY_TYPE,
+                                new MapType<>(BasicType.STRING_TYPE, BasicType.INT_TYPE)
                         });
         List<SeaTunnelRow> rows = new ArrayList<>();
         for (int i = 0; i < 50; ++i) {
@@ -340,30 +340,30 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
             try {
                 row =
                         new SeaTunnelRow(
-                                new Object[] {
-                                    (long) i,
-                                    String.valueOf(i),
-                                    (long) i,
-                                    ByteBuffer.wrap(new byte[] {Byte.parseByte("1")}),
-                                    Boolean.FALSE,
-                                    BigDecimal.valueOf(11L, 2),
-                                    Double.parseDouble("1.1"),
-                                    Float.parseFloat("2.1"),
-                                    i,
-                                    Instant.now(),
-                                    UUID.randomUUID(),
-                                    "text",
-                                    new BigInteger("12345678909876543210"),
-                                    Uuids.timeBased(),
-                                    InetAddress.getByName("1.2.3.4"),
-                                    LocalDate.now(),
-                                    Short.parseShort("1"),
-                                    Byte.parseByte("1"),
-                                    Collections.singletonList((float) i),
-                                    Collections.singletonList(i),
-                                    Collections.singleton(Double.valueOf("1.1")),
-                                    Collections.singleton((long) i),
-                                    Collections.singletonMap("key_" + i, i)
+                                new Object[]{
+                                        (long) i,
+                                        String.valueOf(i),
+                                        (long) i,
+                                        ByteBuffer.wrap(new byte[]{Byte.parseByte("1")}),
+                                        Boolean.FALSE,
+                                        BigDecimal.valueOf(11L, 2),
+                                        Double.parseDouble("1.1"),
+                                        Float.parseFloat("2.1"),
+                                        i,
+                                        Instant.now(),
+                                        UUID.randomUUID(),
+                                        "text",
+                                        new BigInteger("12345678909876543210"),
+                                        Uuids.timeBased(),
+                                        InetAddress.getByName("1.2.3.4"),
+                                        LocalDate.now(),
+                                        Short.parseShort("1"),
+                                        Byte.parseByte("1"),
+                                        Collections.singletonList((float) i),
+                                        Collections.singletonList(i),
+                                        Collections.singleton(Double.valueOf("1.1")),
+                                        Collections.singleton((long) i),
+                                        Collections.singletonMap("key_" + i, i)
                                 });
             } catch (UnknownHostException e) {
                 throw new RuntimeException("Generate Test DataSet Failed!", e);
@@ -372,7 +372,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
         }
         return Pair.of(rowType, rows);
     }
-
+    
     private Row getRow() {
         try {
             String sql = String.format("select * from %s limit 1", SINK_TABLE);
@@ -383,7 +383,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("test cassandra server image failed!", e);
         }
     }
-
+    
     private void initCassandraConfig() {
         File file = ContainerUtil.getResourcesFile(INIT_CASSANDRA_PATH);
         Config config = ConfigFactory.parseFile(file);
@@ -392,7 +392,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
                 && config.hasPath(INSERT_CQL);
         this.config = config;
     }
-
+    
     @AfterAll
     @Override
     public void tearDown() throws Exception {

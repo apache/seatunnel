@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.translation.spark.source.partition.micro;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -39,37 +38,37 @@ import java.util.List;
 
 @Getter
 public class SeaTunnelMicroBatch implements MicroBatchStream {
-
+    
     public static final Integer CHECKPOINT_INTERVAL_DEFAULT = 10000;
-
+    
     private final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
-
+    
     private final int parallelism;
-
+    
     private final String checkpointLocation;
-
+    
     private final CaseInsensitiveStringMap caseInsensitiveStringMap;
-
+    
     private final Offset initialOffset = SeaTunnelOffset.of(0L);
-
+    
     private Offset currentOffset = initialOffset;
-
+    
     public SeaTunnelMicroBatch(
-            SeaTunnelSource<SeaTunnelRow, ?, ?> source,
-            int parallelism,
-            String checkpointLocation,
-            CaseInsensitiveStringMap caseInsensitiveStringMap) {
+                               SeaTunnelSource<SeaTunnelRow, ?, ?> source,
+                               int parallelism,
+                               String checkpointLocation,
+                               CaseInsensitiveStringMap caseInsensitiveStringMap) {
         this.source = source;
         this.parallelism = parallelism;
         this.checkpointLocation = checkpointLocation;
         this.caseInsensitiveStringMap = caseInsensitiveStringMap;
     }
-
+    
     @Override
     public Offset latestOffset() {
         return currentOffset;
     }
-
+    
     @Override
     public InputPartition[] planInputPartitions(Offset start, Offset end) {
         int checkpointInterval =
@@ -111,28 +110,28 @@ public class SeaTunnelMicroBatch implements MicroBatchStream {
         }
         return virtualPartitions.toArray(new InputPartition[0]);
     }
-
+    
     @Override
     public PartitionReaderFactory createReaderFactory() {
         return new SeaTunnelMicroBatchPartitionReaderFactory(
                 source, parallelism, checkpointLocation, caseInsensitiveStringMap);
     }
-
+    
     @Override
     public Offset initialOffset() {
         return initialOffset;
     }
-
+    
     @Override
     public Offset deserializeOffset(String json) {
         return JsonUtils.parseObject(json, SeaTunnelOffset.class);
     }
-
+    
     @Override
     public void commit(Offset end) {
         this.currentOffset = ((SeaTunnelOffset) end).inc();
     }
-
+    
     @Override
     public void stop() {
         // do nothing

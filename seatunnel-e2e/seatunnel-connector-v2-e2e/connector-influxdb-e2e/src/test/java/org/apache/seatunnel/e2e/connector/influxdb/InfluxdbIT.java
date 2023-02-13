@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.e2e.connector.influxdb;
 
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -59,21 +58,22 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class InfluxdbIT extends TestSuiteBase implements TestResource {
+    
     private static final String IMAGE = "influxdb:1.8";
     private static final String HOST = "influxdb-host";
     private static final int PORT = 8086;
     private static final String INFLUXDB_DATABASE = "test";
     private static final String INFLUXDB_SOURCE_MEASUREMENT = "source";
     private static final String INFLUXDB_SINK_MEASUREMENT = "sink";
-
+    
     private static final Pair<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET =
             generateTestDataSet();
-
+    
     private GenericContainer<?> influxdbContainer;
     private String influxDBConnectUrl;
-
+    
     private InfluxDB influxDB;
-
+    
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -95,13 +95,13 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
         this.initializeInfluxDBClient();
         this.initSourceData();
     }
-
+    
     private void initSourceData() {
         influxDB.createDatabase(INFLUXDB_DATABASE);
         BatchPoints batchPoints = BatchPoints.database(INFLUXDB_DATABASE).build();
         List<SeaTunnelRow> rows = TEST_DATASET.getValue();
         SeaTunnelRowType rowType = TEST_DATASET.getKey();
-
+        
         for (int i = 0; i < rows.size(); i++) {
             SeaTunnelRow row = rows.get(i);
             Point point =
@@ -120,53 +120,53 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
         }
         influxDB.write(batchPoints);
     }
-
+    
     private static Pair<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
-                        new String[] {
-                            "time",
-                            "label",
-                            "c_string",
-                            "c_double",
-                            "c_bigint",
-                            "c_float",
-                            "c_int",
-                            "c_smallint",
-                            "c_boolean"
+                        new String[]{
+                                "time",
+                                "label",
+                                "c_string",
+                                "c_double",
+                                "c_bigint",
+                                "c_float",
+                                "c_int",
+                                "c_smallint",
+                                "c_boolean"
                         },
-                        new SeaTunnelDataType[] {
-                            BasicType.LONG_TYPE,
-                            BasicType.STRING_TYPE,
-                            BasicType.STRING_TYPE,
-                            BasicType.DOUBLE_TYPE,
-                            BasicType.LONG_TYPE,
-                            BasicType.FLOAT_TYPE,
-                            BasicType.INT_TYPE,
-                            BasicType.SHORT_TYPE,
-                            BasicType.BOOLEAN_TYPE
+                        new SeaTunnelDataType[]{
+                                BasicType.LONG_TYPE,
+                                BasicType.STRING_TYPE,
+                                BasicType.STRING_TYPE,
+                                BasicType.DOUBLE_TYPE,
+                                BasicType.LONG_TYPE,
+                                BasicType.FLOAT_TYPE,
+                                BasicType.INT_TYPE,
+                                BasicType.SHORT_TYPE,
+                                BasicType.BOOLEAN_TYPE
                         });
-
+        
         List<SeaTunnelRow> rows = new ArrayList<>();
         for (int i = 0; i < 100; i++) {
             SeaTunnelRow row =
                     new SeaTunnelRow(
-                            new Object[] {
-                                new Date().getTime(),
-                                String.format("label_%s", i),
-                                String.format("f1_%s", i),
-                                Double.parseDouble("1.1"),
-                                Long.parseLong("1"),
-                                Float.parseFloat("1.1"),
-                                Integer.valueOf(i),
-                                Short.parseShort("1"),
-                                i % 2 == 0 ? Boolean.TRUE : Boolean.FALSE
+                            new Object[]{
+                                    new Date().getTime(),
+                                    String.format("label_%s", i),
+                                    String.format("f1_%s", i),
+                                    Double.parseDouble("1.1"),
+                                    Long.parseLong("1"),
+                                    Float.parseFloat("1.1"),
+                                    Integer.valueOf(i),
+                                    Short.parseShort("1"),
+                                    i % 2 == 0 ? Boolean.TRUE : Boolean.FALSE
                             });
             rows.add(row);
         }
         return Pair.of(rowType, rows);
     }
-
+    
     @AfterAll
     @Override
     public void tearDown() throws Exception {
@@ -175,7 +175,7 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
         }
         influxdbContainer.stop();
     }
-
+    
     @TestTemplate
     public void testInfluxdb(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/influxdb-to-influxdb.conf");
@@ -195,19 +195,19 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
                 sinkQueryResult.getResults().get(0).getSeries().get(0).getValues();
         int rowSize = sourceValues.size();
         int colSize = sourceValues.get(0).size();
-
+        
         for (int row = 0; row < rowSize; row++) {
             for (int col = 0; col < colSize; col++) {
                 Object sourceColValue = sourceValues.get(row).get(col);
                 Object sinkColValue = sinkValues.get(row).get(col);
-
+                
                 if (!Objects.deepEquals(sourceColValue, sinkColValue)) {
                     Assertions.assertEquals(sourceColValue, sinkColValue);
                 }
             }
         }
     }
-
+    
     private void initializeInfluxDBClient() throws ConnectException {
         InfluxDBConfig influxDBConfig = new InfluxDBConfig(influxDBConnectUrl);
         influxDB = InfluxDBClient.getInfluxDB(influxDBConfig);

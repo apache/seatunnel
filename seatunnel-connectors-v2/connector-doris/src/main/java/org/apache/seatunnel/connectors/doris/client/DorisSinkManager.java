@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.doris.client;
 
 import org.apache.seatunnel.common.exception.CommonErrorCode;
@@ -38,10 +37,10 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class DorisSinkManager {
-
+    
     private final SinkConfig sinkConfig;
     private final List<byte[]> batchList;
-
+    
     private final DorisStreamLoadVisitor dorisStreamLoadVisitor;
     private ScheduledExecutorService scheduler;
     private ScheduledFuture<?> scheduledFuture;
@@ -49,22 +48,22 @@ public class DorisSinkManager {
     private volatile Exception flushException;
     private int batchRowCount = 0;
     private long batchBytesSize = 0;
-
+    
     private final Integer batchIntervalMs;
-
+    
     public DorisSinkManager(SinkConfig sinkConfig, List<String> fileNames) {
         this.sinkConfig = sinkConfig;
         this.batchList = new ArrayList<>();
         this.batchIntervalMs = sinkConfig.getBatchIntervalMs();
         dorisStreamLoadVisitor = new DorisStreamLoadVisitor(sinkConfig, fileNames);
     }
-
+    
     private void tryInit() throws IOException {
         if (initialize) {
             return;
         }
         initialize = true;
-
+        
         scheduler =
                 Executors.newSingleThreadScheduledExecutor(
                         new ThreadFactoryBuilder().setNameFormat("Doris-sink-output-%s").build());
@@ -81,7 +80,7 @@ public class DorisSinkManager {
                         batchIntervalMs,
                         TimeUnit.MILLISECONDS);
     }
-
+    
     public synchronized void write(String record) throws IOException {
         tryInit();
         checkFlushException();
@@ -94,16 +93,16 @@ public class DorisSinkManager {
             flush();
         }
     }
-
+    
     public synchronized void close() throws IOException {
         if (scheduledFuture != null) {
             scheduledFuture.cancel(false);
             scheduler.shutdown();
         }
-
+        
         flush();
     }
-
+    
     public synchronized void flush() throws IOException {
         checkFlushException();
         if (batchList.isEmpty()) {
@@ -125,7 +124,7 @@ public class DorisSinkManager {
                             "The number of retries was exceeded,writing records to Doris failed.",
                             e);
                 }
-
+                
                 if (e instanceof DorisConnectorException
                         && ((DorisConnectorException) e).needReCreateLabel()) {
                     String newLabel = createBatchLabel();
@@ -135,7 +134,7 @@ public class DorisSinkManager {
                                     tuple.getLabel(), newLabel));
                     tuple.setLabel(newLabel);
                 }
-
+                
                 try {
                     long backoff =
                             Math.min(
@@ -155,13 +154,13 @@ public class DorisSinkManager {
         batchRowCount = 0;
         batchBytesSize = 0;
     }
-
+    
     private void checkFlushException() {
         if (flushException != null) {
             throw new DorisConnectorException(CommonErrorCode.FLUSH_DATA_FAILED, flushException);
         }
     }
-
+    
     public String createBatchLabel() {
         String labelPrefix = "";
         if (!Strings.isNullOrEmpty(sinkConfig.getLabelPrefix())) {

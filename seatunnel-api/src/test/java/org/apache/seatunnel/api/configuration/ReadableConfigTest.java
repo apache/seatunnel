@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.api.configuration;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
@@ -37,16 +36,17 @@ import java.util.Map;
 
 @SuppressWarnings("checkstyle:StaticVariableName")
 public class ReadableConfigTest {
+    
     private static final String CONFIG_PATH = "/conf/option-test.conf";
     private static ReadonlyConfig config;
     private static Map<String, String> map;
-
+    
     @BeforeAll
     public static void prepare() throws URISyntaxException {
         Config rawConfig =
                 ConfigFactory.parseFile(
-                                Paths.get(ReadableConfigTest.class.getResource(CONFIG_PATH).toURI())
-                                        .toFile())
+                        Paths.get(ReadableConfigTest.class.getResource(CONFIG_PATH).toURI())
+                                .toFile())
                         .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
                         .resolveWith(
                                 ConfigFactory.systemProperties(),
@@ -60,7 +60,7 @@ public class ReadableConfigTest {
         map.put("patch.note", "hollow");
         map.put("name", "saitou");
     }
-
+    
     @Test
     public void testBooleanOption() {
         Assertions.assertEquals(
@@ -75,7 +75,7 @@ public class ReadableConfigTest {
                 IllegalArgumentException.class,
                 () -> config.get(Options.key("option.string").booleanType().noDefaultValue()));
     }
-
+    
     @Test
     public void testIntOption() {
         Assertions.assertEquals(
@@ -91,7 +91,7 @@ public class ReadableConfigTest {
                 IllegalArgumentException.class,
                 () -> config.get(Options.key("option.long").intType().noDefaultValue()));
     }
-
+    
     @Test
     public void testLongOption() {
         Assertions.assertEquals(
@@ -105,7 +105,7 @@ public class ReadableConfigTest {
                 IllegalArgumentException.class,
                 () -> config.get(Options.key("option.bool").intType().noDefaultValue()));
     }
-
+    
     @Test
     public void testFloatOption() {
         Assertions.assertEquals(
@@ -121,7 +121,7 @@ public class ReadableConfigTest {
                 IllegalArgumentException.class,
                 () -> config.get(Options.key("option.bool-str").floatType().noDefaultValue()));
     }
-
+    
     @Test
     public void testDoubleOption() {
         Assertions.assertEquals(
@@ -141,7 +141,7 @@ public class ReadableConfigTest {
                 IllegalArgumentException.class,
                 () -> config.get(Options.key("option.bool-str").doubleType().noDefaultValue()));
     }
-
+    
     @Test
     public void testStringOption() {
         Assertions.assertEquals(
@@ -157,7 +157,7 @@ public class ReadableConfigTest {
         Assertions.assertNull(
                 config.get(Options.key("option.not-exist").stringType().noDefaultValue()));
     }
-
+    
     @Test
     public void testEnumOption() {
         Assertions.assertEquals(
@@ -168,18 +168,17 @@ public class ReadableConfigTest {
                                 .noDefaultValue()));
         Assertions.assertThrows(
                 IllegalArgumentException.class,
-                () ->
-                        config.get(
-                                Options.key("option.string")
-                                        .enumType(OptionTest.TestMode.class)
-                                        .noDefaultValue()));
+                () -> config.get(
+                        Options.key("option.string")
+                                .enumType(OptionTest.TestMode.class)
+                                .noDefaultValue()));
         Assertions.assertNull(
                 config.get(
                         Options.key("option.not-exist")
                                 .enumType(OptionTest.TestMode.class)
                                 .noDefaultValue()));
     }
-
+    
     @Test
     public void testBasicMapOption() {
         Assertions.assertEquals(
@@ -200,7 +199,7 @@ public class ReadableConfigTest {
                                 .enumType(OptionTest.TestMode.class)
                                 .noDefaultValue()));
     }
-
+    
     @Test
     public void testBasicListOption() {
         List<String> list = new ArrayList<>();
@@ -215,15 +214,15 @@ public class ReadableConfigTest {
         Assertions.assertEquals(
                 list, config.get(Options.key("option.list").listType().noDefaultValue()));
     }
-
+    
     @Test
     public void testComplexTypeOption() {
         List<Map<String, List<Map<String, String>>>> complexType =
                 config.get(
                         Options.key("option.complex-type")
                                 .type(
-                                        new TypeReference<
-                                                List<Map<String, List<Map<String, String>>>>>() {})
+                                        new TypeReference<List<Map<String, List<Map<String, String>>>>>() {
+                                        })
                                 .noDefaultValue());
         Assertions.assertEquals(1, complexType.size());
         Assertions.assertEquals(2, complexType.get(0).size());

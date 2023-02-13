@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.redshift;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -31,17 +30,16 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 public class RedshiftJdbcClient {
-
+    
     private static volatile RedshiftJdbcClient INSTANCE = null;
-
+    
     private final Connection connection;
-
-    public static RedshiftJdbcClient getInstance(Config config)
-            throws S3RedshiftJdbcConnectorException {
+    
+    public static RedshiftJdbcClient getInstance(Config config) throws S3RedshiftJdbcConnectorException {
         if (INSTANCE == null) {
             synchronized (RedshiftJdbcClient.class) {
                 if (INSTANCE == null) {
-
+                    
                     try {
                         INSTANCE =
                                 new RedshiftJdbcClient(
@@ -59,13 +57,13 @@ public class RedshiftJdbcClient {
         }
         return INSTANCE;
     }
-
+    
     private RedshiftJdbcClient(String url, String user, String password)
-            throws SQLException, ClassNotFoundException {
+                                                                         throws SQLException, ClassNotFoundException {
         Class.forName("com.amazon.redshift.jdbc42.Driver");
         this.connection = DriverManager.getConnection(url, user, password);
     }
-
+    
     public boolean checkTableExists(String tableName) {
         boolean flag = false;
         try {
@@ -82,13 +80,13 @@ public class RedshiftJdbcClient {
         }
         return flag;
     }
-
+    
     public boolean execute(String sql) throws Exception {
         try (Statement statement = connection.createStatement()) {
             return statement.execute(sql);
         }
     }
-
+    
     public synchronized void close() throws SQLException {
         connection.close();
     }

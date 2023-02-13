@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.e2e.connector.elasticsearch;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
@@ -60,30 +59,30 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class ElasticsearchIT extends TestSuiteBase implements TestResource {
-
+    
     private List<String> testDataset;
-
+    
     private ElasticsearchContainer container;
-
+    
     private EsRestClient esRestClient;
-
+    
     @BeforeEach
     @Override
     public void startUp() throws Exception {
         container =
                 new ElasticsearchContainer(
-                                DockerImageName.parse("elasticsearch:8.0.0")
-                                        .asCompatibleSubstituteFor(
-                                                "docker.elastic.co/elasticsearch/elasticsearch"))
-                        .withNetwork(NETWORK)
-                        .withEnv("cluster.routing.allocation.disk.threshold_enabled", "false")
-                        .withNetworkAliases("elasticsearch")
-                        .withPassword("elasticsearch")
-                        .withStartupAttempts(5)
-                        .withStartupTimeout(Duration.ofMinutes(5))
-                        .withLogConsumer(
-                                new Slf4jLogConsumer(
-                                        DockerLoggerFactory.getLogger("elasticsearch:8.0.0")));
+                        DockerImageName.parse("elasticsearch:8.0.0")
+                                .asCompatibleSubstituteFor(
+                                        "docker.elastic.co/elasticsearch/elasticsearch"))
+                                                .withNetwork(NETWORK)
+                                                .withEnv("cluster.routing.allocation.disk.threshold_enabled", "false")
+                                                .withNetworkAliases("elasticsearch")
+                                                .withPassword("elasticsearch")
+                                                .withStartupAttempts(5)
+                                                .withStartupTimeout(Duration.ofMinutes(5))
+                                                .withLogConsumer(
+                                                        new Slf4jLogConsumer(
+                                                                DockerLoggerFactory.getLogger("elasticsearch:8.0.0")));
         Startables.deepStart(Stream.of(container)).join();
         log.info("Elasticsearch container started");
         esRestClient =
@@ -100,13 +99,13 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         testDataset = generateTestDataSet();
         createIndexDocs();
     }
-
+    
     /** create a index,and bulk some documents */
     private void createIndexDocs() {
         StringBuilder requestBody = new StringBuilder();
         Map<String, String> indexInner = new HashMap<>();
         indexInner.put("_index", "st");
-
+        
         Map<String, Map<String, String>> indexParam = new HashMap<>();
         indexParam.put("index", indexInner);
         String indexHeader = "{\"index\":{\"_index\":\"st_index\"}\n";
@@ -118,57 +117,55 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         }
         esRestClient.bulk(requestBody.toString());
     }
-
+    
     @TestTemplate
-    public void testElasticsearch(TestContainer container)
-            throws IOException, InterruptedException {
+    public void testElasticsearch(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 container.executeJob("/elasticsearch/elasticsearch_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         List<String> sinData = readSinkData();
         Assertions.assertIterableEquals(testDataset, sinData);
     }
-
-    private List<String> generateTestDataSet()
-            throws JsonProcessingException, UnknownHostException {
+    
+    private List<String> generateTestDataSet() throws JsonProcessingException, UnknownHostException {
         String[] fields =
-                new String[] {
-                    "c_map",
-                    "c_array",
-                    "c_string",
-                    "c_boolean",
-                    "c_tinyint",
-                    "c_smallint",
-                    "c_int",
-                    "c_bigint",
-                    "c_float",
-                    "c_double",
-                    "c_decimal",
-                    "c_bytes",
-                    "c_date",
-                    "c_timestamp"
+                new String[]{
+                        "c_map",
+                        "c_array",
+                        "c_string",
+                        "c_boolean",
+                        "c_tinyint",
+                        "c_smallint",
+                        "c_int",
+                        "c_bigint",
+                        "c_float",
+                        "c_double",
+                        "c_decimal",
+                        "c_bytes",
+                        "c_date",
+                        "c_timestamp"
                 };
-
+        
         List<String> documents = new ArrayList<>();
         ObjectMapper objectMapper = new ObjectMapper();
         for (int i = 0; i < 100; i++) {
             Map<String, Object> doc = new HashMap<>();
             Object[] values =
-                    new Object[] {
-                        Collections.singletonMap("key", Short.parseShort(String.valueOf(i))),
-                        new Byte[] {Byte.parseByte("1")},
-                        "string",
-                        Boolean.FALSE,
-                        Byte.parseByte("1"),
-                        Short.parseShort("1"),
-                        i,
-                        Long.parseLong("1"),
-                        Float.parseFloat("1.1"),
-                        Double.parseDouble("1.1"),
-                        BigDecimal.valueOf(11, 1),
-                        "test".getBytes(),
-                        LocalDate.now().toString(),
-                        LocalDateTime.now().toString()
+                    new Object[]{
+                            Collections.singletonMap("key", Short.parseShort(String.valueOf(i))),
+                            new Byte[]{Byte.parseByte("1")},
+                            "string",
+                            Boolean.FALSE,
+                            Byte.parseByte("1"),
+                            Short.parseShort("1"),
+                            i,
+                            Long.parseLong("1"),
+                            Float.parseFloat("1.1"),
+                            Double.parseDouble("1.1"),
+                            BigDecimal.valueOf(11, 1),
+                            "test".getBytes(),
+                            LocalDate.now().toString(),
+                            LocalDateTime.now().toString()
                     };
             for (int j = 0; j < fields.length; j++) {
                 doc.put(fields[j], values[j]);
@@ -177,7 +174,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         }
         return documents;
     }
-
+    
     private List<String> readSinkData() throws InterruptedException {
         // wait for index refresh
         Thread.sleep(2000);
@@ -215,7 +212,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         .collect(Collectors.toList());
         return docs;
     }
-
+    
     @AfterEach
     @Override
     public void tearDown() {

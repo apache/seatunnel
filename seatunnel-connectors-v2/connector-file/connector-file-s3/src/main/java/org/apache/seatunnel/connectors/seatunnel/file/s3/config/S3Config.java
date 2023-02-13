@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.file.s3.config;
 
 import org.apache.seatunnel.api.configuration.Option;
@@ -24,6 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 import java.util.Map;
 
 public class S3Config extends BaseSourceConfig {
+    
     public static final Option<String> S3_ACCESS_KEY =
             Options.key("access_key")
                     .stringType()
@@ -41,13 +41,13 @@ public class S3Config extends BaseSourceConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("fs s3a endpoint");
-
+    
     public static final Option<S3aAwsCredentialsProvider> S3A_AWS_CREDENTIALS_PROVIDER =
             Options.key("fs.s3a.aws.credentials.provider")
                     .enumType(S3aAwsCredentialsProvider.class)
                     .defaultValue(S3aAwsCredentialsProvider.InstanceProfileCredentialsProvider)
                     .withDescription("s3a aws credentials provider");
-
+    
     /**
      * The current key for that config option. if you need to add a new option, you can add it here
      * and refer to this:
@@ -61,22 +61,23 @@ public class S3Config extends BaseSourceConfig {
                     .mapType()
                     .noDefaultValue()
                     .withDescription("S3 properties");
-
+    
     public enum S3aAwsCredentialsProvider {
+        
         SimpleAWSCredentialsProvider("org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"),
-
+        
         InstanceProfileCredentialsProvider("com.amazonaws.auth.InstanceProfileCredentialsProvider");
-
+        
         private String provider;
-
+        
         S3aAwsCredentialsProvider(String provider) {
             this.provider = provider;
         }
-
+        
         public String getProvider() {
             return provider;
         }
-
+        
         @Override
         public String toString() {
             return provider;

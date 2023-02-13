@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.kudu.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -32,36 +31,37 @@ import lombok.NonNull;
 
 @Data
 public class KuduSinkConfig {
-
+    
     public static final Option<String> KUDU_MASTER =
             Options.key("kudu_master")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("kudu master address");
-
+    
     public static final Option<SaveMode> KUDU_SAVE_MODE =
             Options.key("save_mode")
                     .enumType(SaveMode.class)
                     .noDefaultValue()
                     .withDescription("Storage mode,append is now supported");
-
+    
     public static final Option<String> KUDU_TABLE_NAME =
             Options.key("kudu_table")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("kudu table name");
-
+    
     private SaveMode saveMode;
-
+    
     private String kuduMaster;
-
+    
     /** Specifies the name of the table */
     private String kuduTableName;
-
+    
     public enum SaveMode {
+        
         APPEND(),
         OVERWRITE();
-
+        
         public static SaveMode fromStr(String str) {
             if ("overwrite".equals(str)) {
                 return OVERWRITE;
@@ -70,7 +70,7 @@ public class KuduSinkConfig {
             }
         }
     }
-
+    
     public KuduSinkConfig(@NonNull Config pluginConfig) {
         if (pluginConfig.hasPath(KUDU_SAVE_MODE.key())
                 && pluginConfig.hasPath(KUDU_MASTER.key())

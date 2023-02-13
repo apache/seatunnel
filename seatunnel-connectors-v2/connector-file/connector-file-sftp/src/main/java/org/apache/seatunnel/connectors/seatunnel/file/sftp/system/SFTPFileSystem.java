@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.file.sftp.system;
 
 import org.apache.hadoop.conf.Configuration;
@@ -45,12 +44,12 @@ import java.util.Vector;
 
 /** SFTP FileSystem. */
 public class SFTPFileSystem extends FileSystem {
-
+    
     public static final Logger LOG = LoggerFactory.getLogger(SFTPFileSystem.class);
-
+    
     private SFTPConnectionPool connectionPool;
     private URI uri;
-
+    
     private static final int DEFAULT_SFTP_PORT = 22;
     public static final int DEFAULT_MAX_CONNECTION = 5;
     public static final int DEFAULT_BUFFER_SIZE = 1024 * 1024;
@@ -81,9 +80,9 @@ public class SFTPFileSystem extends FileSystem {
     public static final String E_DPATH_EXIST = "Destination path %s already exist, cannot rename!";
     public static final String E_FAILED_GETHOME = "Failed to get home directory";
     public static final String E_FAILED_DISCONNECT = "Failed to disconnect";
-
+    
     private void setConfigurationFromURI(URI uriInfo, Configuration conf) throws IOException {
-
+        
         // get host information from URI
         String host = uriInfo.getHost();
         host = (host == null) ? conf.get(FS_SFTP_HOST, null) : host;
@@ -91,11 +90,11 @@ public class SFTPFileSystem extends FileSystem {
             throw new IOException(E_HOST_NULL);
         }
         conf.set(FS_SFTP_HOST, host);
-
+        
         int port = uriInfo.getPort();
         port = (port == -1) ? conf.getInt(FS_SFTP_HOST_PORT, DEFAULT_SFTP_PORT) : port;
         conf.setInt(FS_SFTP_HOST_PORT, port);
-
+        
         // get user/password information from URI
         String userAndPwdFromUri = uriInfo.getUserInfo();
         if (userAndPwdFromUri != null) {
@@ -107,41 +106,41 @@ public class SFTPFileSystem extends FileSystem {
                 conf.set(FS_SFTP_PASSWORD_PREFIX + host + "." + user, userPasswdInfo[1]);
             }
         }
-
+        
         String user = conf.get(FS_SFTP_USER_PREFIX + host);
         if (user == null || user.equals("")) {
             throw new IllegalStateException(E_USER_NULL);
         }
-
+        
         int connectionMax = conf.getInt(FS_SFTP_CONNECTION_MAX, DEFAULT_MAX_CONNECTION);
         connectionPool = new SFTPConnectionPool(connectionMax, connectionMax);
     }
-
+    
     private ChannelSftp connect() throws IOException {
         Configuration conf = getConf();
-
+        
         String host = conf.get(FS_SFTP_HOST, null);
         int port = conf.getInt(FS_SFTP_HOST_PORT, DEFAULT_SFTP_PORT);
         String user = conf.get(FS_SFTP_USER_PREFIX + host, null);
         String pwd = conf.get(FS_SFTP_PASSWORD_PREFIX + host + "." + user, null);
         String keyFile = conf.get(FS_SFTP_KEYFILE, null);
-
+        
         ChannelSftp channel = connectionPool.connect(host, port, user, pwd, keyFile);
-
+        
         return channel;
     }
-
+    
     private void disconnect(ChannelSftp channel) throws IOException {
         connectionPool.disconnect(channel);
     }
-
+    
     private Path makeAbsolute(Path workDir, Path path) {
         if (path.isAbsolute()) {
             return path;
         }
         return new Path(workDir, path);
     }
-
+    
     private boolean exists(ChannelSftp channel, Path file) throws IOException {
         try {
             getFileStatus(channel, file);
@@ -152,7 +151,7 @@ public class SFTPFileSystem extends FileSystem {
             throw new IOException(E_FILE_STATUS, ioe);
         }
     }
-
+    
     /**
      * Convenience method, so that we don't open a new connection when using this method from within
      * another method. Otherwise every API invocation incurs the overhead of opening/closing a TCP
@@ -207,11 +206,10 @@ public class SFTPFileSystem extends FileSystem {
         }
         return fileStat;
     }
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
-    private FileStatus getFileStatus(ChannelSftp channel, LsEntry sftpFile, Path parentPath)
-            throws IOException {
-
+    private FileStatus getFileStatus(ChannelSftp channel, LsEntry sftpFile, Path parentPath) throws IOException {
+        
         SftpATTRS attr = sftpFile.getAttrs();
         long length = attr.getSize();
         boolean isDir = attr.isDir();
@@ -220,9 +218,9 @@ public class SFTPFileSystem extends FileSystem {
             String link = parentPath.toUri().getPath() + "/" + sftpFile.getFilename();
             try {
                 link = channel.realpath(link);
-
+                
                 Path linkParent = new Path("/", link);
-
+                
                 FileStatus fstat = getFileStatus(channel, linkParent);
                 isDir = fstat.isDirectory();
                 length = fstat.getLen();
@@ -242,7 +240,7 @@ public class SFTPFileSystem extends FileSystem {
         String user = Integer.toString(attr.getUId());
         String group = Integer.toString(attr.getGId());
         Path filePath = new Path(parentPath, sftpFile.getFilename());
-
+        
         return new FileStatus(
                 length,
                 isDir,
@@ -255,18 +253,17 @@ public class SFTPFileSystem extends FileSystem {
                 group,
                 filePath.makeQualified(this.getUri(), this.getWorkingDirectory()));
     }
-
+    
     private FsPermission getPermissions(LsEntry sftpFile) {
         return new FsPermission((short) sftpFile.getAttrs().getPermissions());
     }
-
+    
     /**
      * Convenience method, so that we don't open a new connection when using this method from within
      * another method. Otherwise every API invocation incurs the overhead of opening/closing a TCP
      * connection.
      */
-    private boolean mkdirs(ChannelSftp client, Path file, FsPermission permission)
-            throws IOException {
+    private boolean mkdirs(ChannelSftp client, Path file, FsPermission permission) throws IOException {
         boolean created = true;
         Path workDir;
         try {
@@ -297,7 +294,7 @@ public class SFTPFileSystem extends FileSystem {
         }
         return created;
     }
-
+    
     private boolean isFile(ChannelSftp channel, Path file) throws IOException {
         try {
             return !getFileStatus(channel, file).isDirectory();
@@ -307,7 +304,7 @@ public class SFTPFileSystem extends FileSystem {
             throw new IOException(E_FILE_CHECK_FAILED, ioe);
         }
     }
-
+    
     /**
      * Convenience method, so that we don't open a new connection when using this method from within
      * another method. Otherwise every API invocation incurs the overhead of opening/closing a TCP
@@ -356,7 +353,7 @@ public class SFTPFileSystem extends FileSystem {
             return status;
         }
     }
-
+    
     /**
      * Convenience method, so that we don't open a new connection when using this method from within
      * another method. Otherwise every API invocation incurs the overhead of opening/closing a TCP
@@ -373,7 +370,7 @@ public class SFTPFileSystem extends FileSystem {
         Path absolute = makeAbsolute(workDir, file);
         FileStatus fileStat = getFileStatus(client, absolute);
         if (!fileStat.isDirectory()) {
-            return new FileStatus[] {fileStat};
+            return new FileStatus[]{fileStat};
         }
         Vector<LsEntry> sftpFiles;
         try {
@@ -392,7 +389,7 @@ public class SFTPFileSystem extends FileSystem {
         }
         return fileStats.toArray(new FileStatus[fileStats.size()]);
     }
-
+    
     private boolean rename(ChannelSftp channel, Path src, Path dst) throws IOException {
         Path workDir;
         try {
@@ -402,7 +399,7 @@ public class SFTPFileSystem extends FileSystem {
         }
         Path absoluteSrc = makeAbsolute(workDir, src);
         Path absoluteDst = makeAbsolute(workDir, dst);
-
+        
         if (!exists(channel, absoluteSrc)) {
             throw new IOException(String.format(E_SPATH_NOTEXIST, src));
         }
@@ -420,26 +417,26 @@ public class SFTPFileSystem extends FileSystem {
         }
         return renamed;
     }
-
+    
     @Override
     public void initialize(URI uriInfo, Configuration conf) throws IOException {
         super.initialize(uriInfo, conf);
-
+        
         setConfigurationFromURI(uriInfo, conf);
         setConf(conf);
         this.uri = uriInfo;
     }
-
+    
     @Override
     public String getScheme() {
         return "sftp";
     }
-
+    
     @Override
     public URI getUri() {
         return uri;
     }
-
+    
     @Override
     public FSDataInputStream open(Path f, int bufferSize) throws IOException {
         ChannelSftp channel = connect();
@@ -459,30 +456,29 @@ public class SFTPFileSystem extends FileSystem {
         try {
             // the path could be a symbolic link, so get the real path
             absolute = new Path("/", channel.realpath(absolute.toUri().getPath()));
-
+            
             is = channel.get(absolute.toUri().getPath());
         } catch (SftpException e) {
             throw new IOException(e);
         }
-
+        
         FSDataInputStream fis = new FSDataInputStream(new SFTPInputStream(is, channel, statistics));
         return fis;
     }
-
+    
     /**
      * A stream obtained via this call must be closed before using other APIs of this class or else
      * the invocation will block.
      */
     @Override
     public FSDataOutputStream create(
-            Path f,
-            FsPermission permission,
-            boolean overwrite,
-            int bufferSize,
-            short replication,
-            long blockSize,
-            Progressable progress)
-            throws IOException {
+                                     Path f,
+                                     FsPermission permission,
+                                     boolean overwrite,
+                                     int bufferSize,
+                                     short replication,
+                                     long blockSize,
+                                     Progressable progress) throws IOException {
         final ChannelSftp client = connect();
         Path workDir;
         try {
@@ -516,25 +512,24 @@ public class SFTPFileSystem extends FileSystem {
         }
         FSDataOutputStream fos =
                 new FSDataOutputStream(os, statistics) {
+                    
                     @Override
                     public void close() throws IOException {
                         super.close();
                         disconnect(client);
                     }
                 };
-
+        
         return fos;
     }
-
+    
     @Override
-    public FSDataOutputStream append(Path f, int bufferSize, Progressable progress)
-            throws IOException {
+    public FSDataOutputStream append(Path f, int bufferSize, Progressable progress) throws IOException {
         throw new IOException(E_NOT_SUPPORTED);
     }
-
+    
     /*
-     * The parent of source and destination can be different. It is suppose to
-     * work like 'move'
+     * The parent of source and destination can be different. It is suppose to work like 'move'
      */
     @Override
     public boolean rename(Path src, Path dst) throws IOException {
@@ -546,7 +541,7 @@ public class SFTPFileSystem extends FileSystem {
             disconnect(channel);
         }
     }
-
+    
     @Override
     public boolean delete(Path f, boolean recursive) throws IOException {
         ChannelSftp channel = connect();
@@ -557,7 +552,7 @@ public class SFTPFileSystem extends FileSystem {
             disconnect(channel);
         }
     }
-
+    
     @Override
     public FileStatus[] listStatus(Path f) throws IOException {
         ChannelSftp client = connect();
@@ -568,18 +563,18 @@ public class SFTPFileSystem extends FileSystem {
             disconnect(client);
         }
     }
-
+    
     @Override
     public void setWorkingDirectory(Path newDir) {
         // we do not maintain the working directory state
     }
-
+    
     @Override
     public Path getWorkingDirectory() {
         // Return home directory always since we do not maintain state.
         return getHomeDirectory();
     }
-
+    
     @Override
     public Path getHomeDirectory() {
         ChannelSftp channel = null;
@@ -597,7 +592,7 @@ public class SFTPFileSystem extends FileSystem {
             }
         }
     }
-
+    
     @Override
     public boolean mkdirs(Path f, FsPermission permission) throws IOException {
         ChannelSftp client = connect();
@@ -608,7 +603,7 @@ public class SFTPFileSystem extends FileSystem {
             disconnect(client);
         }
     }
-
+    
     @Override
     public FileStatus getFileStatus(Path f) throws IOException {
         ChannelSftp channel = connect();

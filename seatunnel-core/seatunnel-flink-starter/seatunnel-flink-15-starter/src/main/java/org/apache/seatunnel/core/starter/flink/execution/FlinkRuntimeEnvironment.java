@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.core.starter.flink.execution;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -56,38 +55,39 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
+    
     private static final String RESULT_TABLE_NAME = "result_table_name";
     private static volatile FlinkRuntimeEnvironment INSTANCE = null;
     private Config config;
-
+    
     private StreamExecutionEnvironment environment;
-
+    
     private StreamTableEnvironment tableEnvironment;
-
+    
     private JobMode jobMode;
-
+    
     private String jobName = Constants.LOGO;
-
+    
     private FlinkRuntimeEnvironment(Config config) {
         this.initialize(config);
     }
-
+    
     @Override
     public FlinkRuntimeEnvironment setConfig(Config config) {
         this.config = config;
         return this;
     }
-
+    
     @Override
     public Config getConfig() {
         return config;
     }
-
+    
     @Override
     public CheckResult checkConfig() {
         return EnvironmentUtil.checkRestartStrategy(config);
     }
-
+    
     @Override
     public FlinkRuntimeEnvironment prepare() {
         createStreamEnvironment();
@@ -97,43 +97,41 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
         }
         return this;
     }
-
+    
     public String getJobName() {
         return jobName;
     }
-
+    
     public boolean isStreaming() {
         return JobMode.STREAMING.equals(jobMode);
     }
-
+    
     @Override
     public FlinkRuntimeEnvironment setJobMode(JobMode jobMode) {
         this.jobMode = jobMode;
         return this;
     }
-
+    
     @Override
     public JobMode getJobMode() {
         return jobMode;
     }
-
+    
     @Override
     public void registerPlugin(List<URL> pluginPaths) {
         pluginPaths.forEach(url -> log.info("register plugins : {}", url));
         List<Configuration> configurations = new ArrayList<>();
         try {
             configurations.add(
-                    (Configuration)
-                            Objects.requireNonNull(
-                                            ReflectionUtils.getDeclaredMethod(
-                                                    StreamExecutionEnvironment.class,
-                                                    "getConfiguration"))
-                                    .orElseThrow(
-                                            () ->
-                                                    new RuntimeException(
-                                                            "can't find "
-                                                                    + "method: getConfiguration"))
-                                    .invoke(this.environment));
+                    (Configuration) Objects.requireNonNull(
+                            ReflectionUtils.getDeclaredMethod(
+                                    StreamExecutionEnvironment.class,
+                                    "getConfiguration"))
+                            .orElseThrow(
+                                    () -> new RuntimeException(
+                                            "can't find "
+                                                    + "method: getConfiguration"))
+                            .invoke(this.environment));
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -159,15 +157,15 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
                             classpath.stream().distinct().collect(Collectors.toList()));
                 });
     }
-
+    
     public StreamExecutionEnvironment getStreamExecutionEnvironment() {
         return environment;
     }
-
+    
     public StreamTableEnvironment getStreamTableEnvironment() {
         return tableEnvironment;
     }
-
+    
     private void createStreamTableEnvironment() {
         EnvironmentSettings environmentSettings =
                 EnvironmentSettings.newInstance().inStreamingMode().build();
@@ -181,37 +179,37 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
             config.setIdleStateRetentionTime(Time.seconds(min), Time.seconds(max));
         }
     }
-
+    
     private void createStreamEnvironment() {
         Configuration configuration = new Configuration();
         EnvironmentUtil.initConfiguration(config, configuration);
         environment = StreamExecutionEnvironment.getExecutionEnvironment(configuration);
         setTimeCharacteristic();
-
+        
         setCheckpoint();
-
+        
         EnvironmentUtil.setRestartStrategy(config, environment.getConfig());
-
+        
         if (config.hasPath(ConfigKeyName.BUFFER_TIMEOUT_MILLIS)) {
             long timeout = config.getLong(ConfigKeyName.BUFFER_TIMEOUT_MILLIS);
             environment.setBufferTimeout(timeout);
         }
-
+        
         if (config.hasPath(ConfigKeyName.PARALLELISM)) {
             int parallelism = config.getInt(ConfigKeyName.PARALLELISM);
             environment.setParallelism(parallelism);
         }
-
+        
         if (config.hasPath(ConfigKeyName.MAX_PARALLELISM)) {
             int max = config.getInt(ConfigKeyName.MAX_PARALLELISM);
             environment.setMaxParallelism(max);
         }
-
+        
         if (this.jobMode.equals(JobMode.BATCH)) {
             environment.setRuntimeMode(RuntimeExecutionMode.BATCH);
         }
     }
-
+    
     private void setTimeCharacteristic() {
         if (config.hasPath(ConfigKeyName.TIME_CHARACTERISTIC)) {
             String timeType = config.getString(ConfigKeyName.TIME_CHARACTERISTIC);
@@ -233,13 +231,13 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
             }
         }
     }
-
+    
     private void setCheckpoint() {
         if (config.hasPath(ConfigKeyName.CHECKPOINT_INTERVAL)) {
             CheckpointConfig checkpointConfig = environment.getCheckpointConfig();
             long interval = config.getLong(ConfigKeyName.CHECKPOINT_INTERVAL);
             environment.enableCheckpointing(interval);
-
+            
             if (config.hasPath(ConfigKeyName.CHECKPOINT_MODE)) {
                 String mode = config.getString(ConfigKeyName.CHECKPOINT_MODE);
                 switch (mode.toLowerCase()) {
@@ -256,12 +254,12 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
                         break;
                 }
             }
-
+            
             if (config.hasPath(ConfigKeyName.CHECKPOINT_TIMEOUT)) {
                 long timeout = config.getLong(ConfigKeyName.CHECKPOINT_TIMEOUT);
                 checkpointConfig.setCheckpointTimeout(timeout);
             }
-
+            
             if (config.hasPath(ConfigKeyName.CHECKPOINT_DATA_URI)) {
                 String uri = config.getString(ConfigKeyName.CHECKPOINT_DATA_URI);
                 StateBackend fsStateBackend = new FsStateBackend(uri);
@@ -276,12 +274,12 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
                     environment.setStateBackend(fsStateBackend);
                 }
             }
-
+            
             if (config.hasPath(ConfigKeyName.MAX_CONCURRENT_CHECKPOINTS)) {
                 int max = config.getInt(ConfigKeyName.MAX_CONCURRENT_CHECKPOINTS);
                 checkpointConfig.setMaxConcurrentCheckpoints(max);
             }
-
+            
             if (config.hasPath(ConfigKeyName.CHECKPOINT_CLEANUP_MODE)) {
                 boolean cleanup = config.getBoolean(ConfigKeyName.CHECKPOINT_CLEANUP_MODE);
                 if (cleanup) {
@@ -292,19 +290,19 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
                             CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
                 }
             }
-
+            
             if (config.hasPath(ConfigKeyName.MIN_PAUSE_BETWEEN_CHECKPOINTS)) {
                 long minPause = config.getLong(ConfigKeyName.MIN_PAUSE_BETWEEN_CHECKPOINTS);
                 checkpointConfig.setMinPauseBetweenCheckpoints(minPause);
             }
-
+            
             if (config.hasPath(ConfigKeyName.FAIL_ON_CHECKPOINTING_ERRORS)) {
                 int failNum = config.getInt(ConfigKeyName.FAIL_ON_CHECKPOINTING_ERRORS);
                 checkpointConfig.setTolerableCheckpointFailureNumber(failNum);
             }
         }
     }
-
+    
     public void registerResultTable(Config config, DataStream<Row> dataStream) {
         if (config.hasPath(RESULT_TABLE_NAME)) {
             String name = config.getString(RESULT_TABLE_NAME);
@@ -319,7 +317,7 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
             }
         }
     }
-
+    
     public static FlinkRuntimeEnvironment getInstance(Config config) {
         if (INSTANCE == null) {
             synchronized (FlinkRuntimeEnvironment.class) {

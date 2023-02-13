@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.e2e.common;
 
 import org.apache.seatunnel.e2e.common.container.spark.AbstractTestSparkContainer;
@@ -31,22 +30,21 @@ import java.io.IOException;
 @Slf4j
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class AbstractSparkContainer extends AbstractTestSparkContainer {
-
+    
     @Override
     @BeforeAll
     public void startUp() throws Exception {
         super.startUp();
         log.info("The TestContainer[{}] is running.", identifier());
     }
-
+    
     @AfterAll
     public void tearDown() throws Exception {
         super.tearDown();
         log.info("The TestContainer[{}] is closed.", identifier());
     }
-
-    public Container.ExecResult executeSeaTunnelSparkJob(String confFile)
-            throws IOException, InterruptedException {
+    
+    public Container.ExecResult executeSeaTunnelSparkJob(String confFile) throws IOException, InterruptedException {
         return executeJob(confFile);
     }
 }

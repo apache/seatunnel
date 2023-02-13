@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -35,9 +34,10 @@ import java.util.function.Function;
 
 @AllArgsConstructor
 public class KeyExtractor implements Function<SeaTunnelRow, String>, Serializable {
+    
     private final FieldFormatter[] fieldFormatters;
     private final String keyDelimiter;
-
+    
     @Override
     public String apply(SeaTunnelRow row) {
         StringBuilder builder = new StringBuilder();
@@ -50,13 +50,13 @@ public class KeyExtractor implements Function<SeaTunnelRow, String>, Serializabl
         }
         return builder.toString();
     }
-
+    
     public static Function<SeaTunnelRow, String> createKeyExtractor(
-            SeaTunnelRowType rowType, String[] primaryKeys, String keyDelimiter) {
+                                                                    SeaTunnelRowType rowType, String[] primaryKeys, String keyDelimiter) {
         if (primaryKeys == null) {
             return row -> null;
         }
-
+        
         List<FieldFormatter> fieldFormatters = new ArrayList<>(primaryKeys.length);
         for (String fieldName : primaryKeys) {
             int fieldIndex = rowType.indexOf(fieldName);
@@ -66,9 +66,9 @@ public class KeyExtractor implements Function<SeaTunnelRow, String>, Serializabl
         }
         return new KeyExtractor(fieldFormatters.toArray(new FieldFormatter[0]), keyDelimiter);
     }
-
+    
     private static FieldFormatter createFieldFormatter(
-            int fieldIndex, SeaTunnelDataType fieldType) {
+                                                       int fieldIndex, SeaTunnelDataType fieldType) {
         return row -> {
             switch (fieldType.getSqlType()) {
                 case ROW:
@@ -91,8 +91,9 @@ public class KeyExtractor implements Function<SeaTunnelRow, String>, Serializabl
             }
         };
     }
-
+    
     private interface FieldFormatter extends Serializable {
+        
         String format(SeaTunnelRow row);
     }
 }

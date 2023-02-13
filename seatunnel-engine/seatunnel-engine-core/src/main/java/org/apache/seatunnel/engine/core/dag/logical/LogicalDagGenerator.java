@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.core.dag.logical;
 
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -34,23 +33,24 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public class LogicalDagGenerator {
+    
     private static final ILogger LOGGER = Logger.getLogger(LogicalDagGenerator.class);
     private List<Action> actions;
     private JobConfig jobConfig;
     private IdGenerator idGenerator;
-
+    
     private final Map<Long, LogicalVertex> logicalVertexMap = new HashMap<>();
-
+    
     /**
      * key: input vertex id; <br>
      * value: target vertices id;
      */
     private final Map<Long, Set<Long>> inputVerticesMap = new HashMap<>();
-
+    
     public LogicalDagGenerator(
-            @NonNull List<Action> actions,
-            @NonNull JobConfig jobConfig,
-            @NonNull IdGenerator idGenerator) {
+                               @NonNull List<Action> actions,
+                               @NonNull JobConfig jobConfig,
+                               @NonNull IdGenerator idGenerator) {
         this.actions = actions;
         this.jobConfig = jobConfig;
         this.idGenerator = idGenerator;
@@ -58,7 +58,7 @@ public class LogicalDagGenerator {
             throw new IllegalStateException("No actions define in the job. Cannot execute.");
         }
     }
-
+    
     public LogicalDag generate() {
         actions.forEach(this::createLogicalVertex);
         Set<LogicalEdge> logicalEdges = createLogicalEdges();
@@ -67,7 +67,7 @@ public class LogicalDagGenerator {
         logicalDag.getLogicalVertexMap().putAll(logicalVertexMap);
         return logicalDag;
     }
-
+    
     private void createLogicalVertex(Action action) {
         final Long logicalVertexId = action.getId();
         if (logicalVertexMap.containsKey(logicalVertexId)) {
@@ -82,24 +82,22 @@ public class LogicalDagGenerator {
                                     .computeIfAbsent(inputAction.getId(), id -> new HashSet<>())
                                     .add(logicalVertexId);
                         });
-
+        
         final LogicalVertex logicalVertex =
                 new LogicalVertex(logicalVertexId, action, action.getParallelism());
         logicalVertexMap.put(logicalVertexId, logicalVertex);
     }
-
+    
     private Set<LogicalEdge> createLogicalEdges() {
         return inputVerticesMap.entrySet().stream()
                 .map(
-                        entry ->
-                                entry.getValue().stream()
-                                        .map(
-                                                targetId ->
-                                                        new LogicalEdge(
-                                                                logicalVertexMap.get(
-                                                                        entry.getKey()),
-                                                                logicalVertexMap.get(targetId)))
-                                        .collect(Collectors.toList()))
+                        entry -> entry.getValue().stream()
+                                .map(
+                                        targetId -> new LogicalEdge(
+                                                logicalVertexMap.get(
+                                                        entry.getKey()),
+                                                logicalVertexMap.get(targetId)))
+                                .collect(Collectors.toList()))
                 .flatMap(Collection::stream)
                 .collect(Collectors.toSet());
     }

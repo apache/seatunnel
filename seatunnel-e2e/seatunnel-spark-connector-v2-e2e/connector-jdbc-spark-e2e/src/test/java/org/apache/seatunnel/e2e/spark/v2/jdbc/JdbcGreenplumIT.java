@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.e2e.spark.v2.jdbc;
 
 import org.apache.seatunnel.e2e.spark.SparkContainer;
@@ -49,7 +48,7 @@ import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class JdbcGreenplumIT extends SparkContainer {
-
+    
     private static final String GREENPLUM_IMAGE = "datagrip/greenplum:6.8";
     private static final String GREENPLUM_CONTAINER_HOST = "spark_e2e_greenplum";
     private static final int GREENPLUM_CONTAINER_PORT = 5432;
@@ -58,14 +57,14 @@ public class JdbcGreenplumIT extends SparkContainer {
     private static final String GREENPLUM_PASSWORD = "pivotal";
     private static final String GREENPLUM_DRIVER = "org.postgresql.Driver";
     private static final String GREENPLUM_JDBC_URL = "jdbc:postgresql://%s:%s/testdb";
-
+    
     private static final List<List> TEST_DATASET = generateTestDataset();
     private static final String THIRD_PARTY_PLUGINS_URL =
             "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
-
+    
     private GenericContainer<?> greenplumServer;
     private Connection jdbcConnection;
-
+    
     @BeforeEach
     public void startGreenplumContainer() throws ClassNotFoundException, SQLException {
         greenplumServer =
@@ -91,14 +90,13 @@ public class JdbcGreenplumIT extends SparkContainer {
         initializeJdbcTable();
         batchInsertData();
     }
-
+    
     @Test
-    public void testJdbcGreenplumSourceAndSink()
-            throws IOException, InterruptedException, SQLException {
+    public void testJdbcGreenplumSourceAndSink() throws IOException, InterruptedException, SQLException {
         Container.ExecResult execResult =
                 executeSeaTunnelSparkJob("/jdbc/jdbc_greenplum_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-
+        
         // query result
         String sql = "select age, name from sink order by age asc";
         List<Object> result = new ArrayList<>();
@@ -110,7 +108,7 @@ public class JdbcGreenplumIT extends SparkContainer {
         }
         Assertions.assertIterableEquals(TEST_DATASET, result);
     }
-
+    
     private void initializeJdbcConnection() throws SQLException {
         jdbcConnection =
                 DriverManager.getConnection(
@@ -119,7 +117,7 @@ public class JdbcGreenplumIT extends SparkContainer {
                         GREENPLUM_USER,
                         GREENPLUM_PASSWORD);
     }
-
+    
     private void initializeJdbcTable() throws SQLException {
         try (Statement statement = jdbcConnection.createStatement()) {
             String createSource =
@@ -136,7 +134,7 @@ public class JdbcGreenplumIT extends SparkContainer {
             statement.execute(createSink);
         }
     }
-
+    
     private static List<List> generateTestDataset() {
         List<List> rows = new ArrayList<>();
         for (int i = 1; i <= 100; i++) {
@@ -144,10 +142,10 @@ public class JdbcGreenplumIT extends SparkContainer {
         }
         return rows;
     }
-
+    
     private void batchInsertData() throws SQLException {
         String sql = "insert into source(age, name) values(?, ?)";
-
+        
         try {
             jdbcConnection.setAutoCommit(false);
             try (PreparedStatement preparedStatement = jdbcConnection.prepareStatement(sql)) {
@@ -164,7 +162,7 @@ public class JdbcGreenplumIT extends SparkContainer {
             throw e;
         }
     }
-
+    
     @AfterEach
     public void closeGreenplumContainer() throws SQLException {
         if (jdbcConnection != null) {
@@ -174,10 +172,9 @@ public class JdbcGreenplumIT extends SparkContainer {
             greenplumServer.stop();
         }
     }
-
+    
     @Override
-    protected void executeExtraCommands(GenericContainer<?> container)
-            throws IOException, InterruptedException {
+    protected void executeExtraCommands(GenericContainer<?> container) throws IOException, InterruptedException {
         Container.ExecResult extraCommands =
                 container.execInContainer(
                         "bash",

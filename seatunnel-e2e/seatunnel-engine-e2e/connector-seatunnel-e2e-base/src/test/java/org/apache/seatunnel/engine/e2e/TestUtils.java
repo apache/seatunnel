@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.e2e;
 
 import org.apache.seatunnel.common.utils.FileUtils;
@@ -29,6 +28,7 @@ import java.util.Map;
 
 @Slf4j
 public class TestUtils {
+    
     public static String getResource(String confFile) {
         return System.getProperty("user.dir")
                 + File.separator
@@ -40,7 +40,7 @@ public class TestUtils {
                 + File.separator
                 + confFile;
     }
-
+    
     /**
      * For reduce the config files num, we can define a job config template and then create new job
      * config file base on it.
@@ -52,16 +52,16 @@ public class TestUtils {
      * @param targetFilePath The new config file path
      */
     public static void createTestConfigFileFromTemplate(
-            @NonNull String templateFile,
-            @NonNull Map<String, String> valueMap,
-            @NonNull String targetFilePath) {
+                                                        @NonNull String templateFile,
+                                                        @NonNull Map<String, String> valueMap,
+                                                        @NonNull String targetFilePath) {
         String templateFilePath = getResource(templateFile);
         String confContent = FileUtils.readFileToStr(Paths.get(templateFilePath));
         String targetConfContent = VariablesSubstitute.substitute(confContent, valueMap);
         FileUtils.createNewFile(targetFilePath);
         FileUtils.writeStringToFile(targetFilePath, targetConfContent);
     }
-
+    
     public static String getClusterName(String testClassName) {
         return System.getProperty("user.name") + "_" + testClassName;
     }

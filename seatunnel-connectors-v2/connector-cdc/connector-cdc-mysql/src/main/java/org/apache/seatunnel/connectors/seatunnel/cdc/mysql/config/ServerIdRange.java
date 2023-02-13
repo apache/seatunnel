@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config;
 
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
@@ -29,27 +28,28 @@ import static com.google.common.base.Preconditions.checkArgument;
  * @see JdbcSourceOptions#SERVER_ID
  */
 public class ServerIdRange implements Serializable {
+    
     private static final long serialVersionUID = 1L;
-
+    
     /** Start of the range (inclusive). */
     private final int startServerId;
-
+    
     /** End of the range (inclusive). */
     private final int endServerId;
-
+    
     public ServerIdRange(int startServerId, int endServerId) {
         this.startServerId = startServerId;
         this.endServerId = endServerId;
     }
-
+    
     public int getStartServerId() {
         return startServerId;
     }
-
+    
     public int getEndServerId() {
         return endServerId;
     }
-
+    
     public int getServerId(int subTaskId) {
         checkArgument(subTaskId >= 0, "Subtask ID %s shouldn't be a negative number.", subTaskId);
         if (subTaskId > getNumberOfServerIds()) {
@@ -63,11 +63,11 @@ public class ServerIdRange implements Serializable {
         }
         return startServerId + subTaskId;
     }
-
+    
     public int getNumberOfServerIds() {
         return endServerId - startServerId + 1;
     }
-
+    
     @Override
     public String toString() {
         if (startServerId == endServerId) {
@@ -76,7 +76,7 @@ public class ServerIdRange implements Serializable {
             return startServerId + "-" + endServerId;
         }
     }
-
+    
     /**
      * Returns a {@link ServerIdRange} from a server id range string which likes '5400-5408' or a
      * single server id likes '5400'.
@@ -100,7 +100,7 @@ public class ServerIdRange implements Serializable {
             return new ServerIdRange(serverId, serverId);
         }
     }
-
+    
     private static int parseServerId(String serverIdValue) {
         try {
             return Integer.parseInt(serverIdValue);

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.cdc.base.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -29,9 +28,9 @@ import java.util.Properties;
 /** A {@link SourceConfig.Factory} to provide {@link SourceConfig} of JDBC data source. */
 @SuppressWarnings("checkstyle:MagicNumber")
 public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<JdbcSourceConfig> {
-
+    
     private static final long serialVersionUID = 1L;
-
+    
     protected int port;
     protected String hostname;
     protected String username;
@@ -50,19 +49,19 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
     protected int connectMaxRetries = JdbcSourceOptions.CONNECT_MAX_RETRIES.defaultValue();
     protected int connectionPoolSize = JdbcSourceOptions.CONNECTION_POOL_SIZE.defaultValue();
     protected Properties dbzProperties;
-
+    
     /** Integer port number of the database server. */
     public JdbcSourceConfigFactory hostname(String hostname) {
         this.hostname = hostname;
         return this;
     }
-
+    
     /** Integer port number of the database server. */
     public JdbcSourceConfigFactory port(int port) {
         this.port = port;
         return this;
     }
-
+    
     /**
      * An optional list of regular expressions that match database names to be monitored; any
      * database name not included in the whitelist will be excluded from monitoring. By default all
@@ -72,7 +71,7 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         this.databaseList = Arrays.asList(databaseList);
         return this;
     }
-
+    
     /**
      * An optional list of regular expressions that match fully-qualified table identifiers for
      * tables to be monitored; any table not included in the list will be excluded from monitoring.
@@ -83,19 +82,19 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         this.tableList = Arrays.asList(tableList);
         return this;
     }
-
+    
     /** Name of the user to use when connecting to the database server. */
     public JdbcSourceConfigFactory username(String username) {
         this.username = username;
         return this;
     }
-
+    
     /** Password to use when connecting to the database server. */
     public JdbcSourceConfigFactory password(String password) {
         this.password = password;
         return this;
     }
-
+    
     /**
      * The session time zone in database server, e.g. "America/Los_Angeles". It controls how the
      * TIMESTAMP type converted to STRING. See more
@@ -105,7 +104,7 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         this.serverTimeZone = timeZone;
         return this;
     }
-
+    
     /**
      * The split size (number of rows) of table snapshot, captured tables are split into multiple
      * splits when read the snapshot of table.
@@ -114,7 +113,7 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         this.splitSize = splitSize;
         return this;
     }
-
+    
     /**
      * The upper bound of split key evenly distribution factor, the factor is used to determine
      * whether the table is evenly distribution or not.
@@ -123,7 +122,7 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         this.distributionFactorUpper = distributionFactorUpper;
         return this;
     }
-
+    
     /**
      * The lower bound of split key evenly distribution factor, the factor is used to determine
      * whether the table is evenly distribution or not.
@@ -132,13 +131,13 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         this.distributionFactorLower = distributionFactorLower;
         return this;
     }
-
+    
     /** The maximum fetch size for per poll when read table snapshot. */
     public JdbcSourceConfigFactory fetchSize(int fetchSize) {
         this.fetchSize = fetchSize;
         return this;
     }
-
+    
     /**
      * The maximum time that the connector should wait after trying to connect to the database
      * server before timing out.
@@ -147,43 +146,43 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         this.connectTimeoutMillis = connectTimeoutMillis;
         return this;
     }
-
+    
     /** The connection pool size. */
     public JdbcSourceConfigFactory connectionPoolSize(int connectionPoolSize) {
         this.connectionPoolSize = connectionPoolSize;
         return this;
     }
-
+    
     /** The max retry times to get connection. */
     public JdbcSourceConfigFactory connectMaxRetries(int connectMaxRetries) {
         this.connectMaxRetries = connectMaxRetries;
         return this;
     }
-
+    
     /** Whether the {@link SourceConfig} should output the schema changes or not. */
     public JdbcSourceConfigFactory includeSchemaChanges(boolean includeSchemaChanges) {
         this.includeSchemaChanges = includeSchemaChanges;
         return this;
     }
-
+    
     /** The Debezium connector properties. For example, "snapshot.mode". */
     public JdbcSourceConfigFactory debeziumProperties(Properties properties) {
         this.dbzProperties = properties;
         return this;
     }
-
+    
     /** Specifies the startup options. */
     public JdbcSourceConfigFactory startupOptions(StartupConfig startupConfig) {
         this.startupConfig = startupConfig;
         return this;
     }
-
+    
     /** Specifies the stop options. */
     public JdbcSourceConfigFactory stopOptions(StopConfig stopConfig) {
         this.stopConfig = stopConfig;
         return this;
     }
-
+    
     public JdbcSourceConfigFactory fromReadonlyConfig(ReadonlyConfig config) {
         this.port = config.get(JdbcSourceOptions.PORT);
         this.hostname = config.get(JdbcSourceOptions.HOSTNAME);
@@ -211,7 +210,7 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
                 .ifPresent(map -> dbzProperties.putAll(map));
         return this;
     }
-
+    
     @Override
     public abstract JdbcSourceConfig create(int subtask);
 }

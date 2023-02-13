@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.api.serialization.Serializer;
@@ -59,41 +58,42 @@ import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTask
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.WAITING_RESTORE;
 
 public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
-        extends CoordinatorTask {
-
+        extends
+            CoordinatorTask {
+    
     private static final ILogger LOGGER = Logger.getLogger(SinkAggregatedCommitterTask.class);
     private static final long serialVersionUID = 5906594537520393503L;
-
+    
     private SeaTunnelTaskState currState;
     private final SinkAction<?, ?, CommandInfoT, AggregatedCommitInfoT> sink;
     private final int maxWriterSize;
-
+    
     private final SinkAggregatedCommitter<CommandInfoT, AggregatedCommitInfoT> aggregatedCommitter;
-
+    
     private transient Serializer<AggregatedCommitInfoT> aggregatedCommitInfoSerializer;
     private Map<Long, Address> writerAddressMap;
-
+    
     private ConcurrentMap<Long, List<CommandInfoT>> commitInfoCache;
-
+    
     private ConcurrentMap<Long, List<AggregatedCommitInfoT>> checkpointCommitInfoMap;
-
+    
     private Map<Long, Integer> checkpointBarrierCounter;
     private CompletableFuture<Void> completableFuture;
-
+    
     private volatile boolean receivedSinkWriter;
-
+    
     public SinkAggregatedCommitterTask(
-            long jobID,
-            TaskLocation taskID,
-            SinkAction<?, ?, CommandInfoT, AggregatedCommitInfoT> sink,
-            SinkAggregatedCommitter<CommandInfoT, AggregatedCommitInfoT> aggregatedCommitter) {
+                                       long jobID,
+                                       TaskLocation taskID,
+                                       SinkAction<?, ?, CommandInfoT, AggregatedCommitInfoT> sink,
+                                       SinkAggregatedCommitter<CommandInfoT, AggregatedCommitInfoT> aggregatedCommitter) {
         super(jobID, taskID);
         this.sink = sink;
         this.aggregatedCommitter = aggregatedCommitter;
         this.maxWriterSize = sink.getParallelism();
         this.receivedSinkWriter = false;
     }
-
+    
     @Override
     public void init() throws Exception {
         super.init();
@@ -108,20 +108,21 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
         LOGGER.info(
                 "starting seatunnel sink aggregated committer task, sink name: " + sink.getName());
     }
-
+    
     public void receivedWriterRegister(TaskLocation writerID, Address address) {
         this.writerAddressMap.put(writerID.getTaskID(), address);
         if (maxWriterSize <= writerAddressMap.size()) {
             receivedSinkWriter = true;
         }
     }
-
-    @NonNull @Override
+    
+    @NonNull
+    @Override
     public ProgressState call() throws Exception {
         stateProcess();
         return progress.toState();
     }
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     protected void stateProcess() throws Exception {
         switch (currState) {
@@ -162,7 +163,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
             case CLOSED:
                 this.close();
                 return;
-                // TODO support cancel by outside
+            // TODO support cancel by outside
             case CANCELLING:
                 this.close();
                 currState = CANCELED;
@@ -171,14 +172,14 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
                 throw new IllegalArgumentException("Unknown Enumerator State: " + currState);
         }
     }
-
+    
     @Override
     public void close() throws IOException {
         aggregatedCommitter.close();
         progress.done();
         completableFuture.complete(null);
     }
-
+    
     @Override
     public void triggerBarrier(Barrier barrier) throws Exception {
         Integer count =
@@ -212,7 +213,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
                                             new ActionSubtaskState(sink.getId(), -1, states))));
         }
     }
-
+    
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
         List<AggregatedCommitInfoT> aggregatedCommitInfos =
@@ -220,26 +221,24 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
                         .map(ActionSubtaskState::getState)
                         .flatMap(Collection::stream)
                         .map(
-                                bytes ->
-                                        sneaky(
-                                                () ->
-                                                        aggregatedCommitInfoSerializer.deserialize(
-                                                                bytes)))
+                                bytes -> sneaky(
+                                        () -> aggregatedCommitInfoSerializer.deserialize(
+                                                bytes)))
                         .collect(Collectors.toList());
         aggregatedCommitter.commit(aggregatedCommitInfos);
         restoreComplete.complete(null);
     }
-
+    
     public void receivedWriterCommitInfo(long checkpointID, CommandInfoT commitInfos) {
         commitInfoCache.computeIfAbsent(checkpointID, id -> new CopyOnWriteArrayList<>());
         commitInfoCache.get(checkpointID).add(commitInfos);
     }
-
+    
     @Override
     public Set<URL> getJarsUrl() {
         return new HashSet<>(sink.getJarUrls());
     }
-
+    
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         List<AggregatedCommitInfoT> aggregatedCommitInfo = new ArrayList<>();
@@ -254,7 +253,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
         aggregatedCommitter.commit(aggregatedCommitInfo);
         tryClose(checkpointId);
     }
-
+    
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         aggregatedCommitter.abort(checkpointCommitInfoMap.get(checkpointId));

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.common.config;
 
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
@@ -40,15 +39,16 @@ import static com.hazelcast.internal.config.DomConfigHelper.getBooleanValue;
 import static com.hazelcast.internal.config.DomConfigHelper.getIntegerValue;
 
 public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor {
+    
     private static final ILogger LOGGER = Logger.getLogger(YamlSeaTunnelDomConfigProcessor.class);
-
+    
     private final SeaTunnelConfig config;
-
+    
     YamlSeaTunnelDomConfigProcessor(boolean domLevel3, SeaTunnelConfig config) {
         super(domLevel3);
         this.config = config;
     }
-
+    
     @Override
     public void buildConfig(Node rootNode) {
         for (Node node : childElements(rootNode)) {
@@ -65,7 +65,7 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             }
         }
     }
-
+    
     private boolean handleNode(Node node, String name) {
         if (SeaTunnelConfigSections.ENGINE.isEqual(name)) {
             parseEngineConfig(node, config);
@@ -74,7 +74,7 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
         }
         return false;
     }
-
+    
     private SlotServiceConfig parseSlotServiceConfig(Node slotServiceNode) {
         SlotServiceConfig slotServiceConfig = new SlotServiceConfig();
         for (Node node : childElements(slotServiceNode)) {
@@ -90,7 +90,7 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
         }
         return slotServiceConfig;
     }
-
+    
     private void parseEngineConfig(Node engineNode, SeaTunnelConfig config) {
         final EngineConfig engineConfig = config.getEngineConfig();
         for (Node node : childElements(engineNode)) {
@@ -126,7 +126,7 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             }
         }
     }
-
+    
     private CheckpointConfig parseCheckpointConfig(Node checkpointNode) {
         CheckpointConfig checkpointConfig = new CheckpointConfig();
         for (Node node : childElements(checkpointNode)) {
@@ -157,10 +157,10 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                 LOGGER.warning("Unrecognized element: " + name);
             }
         }
-
+        
         return checkpointConfig;
     }
-
+    
     private CheckpointStorageConfig parseCheckpointStorageConfig(Node checkpointStorageConfigNode) {
         CheckpointStorageConfig checkpointStorageConfig = new CheckpointStorageConfig();
         for (Node node : childElements(checkpointStorageConfigNode)) {
@@ -181,7 +181,7 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
         }
         return checkpointStorageConfig;
     }
-
+    
     /**
      * Parse checkpoint plugin config.
      *

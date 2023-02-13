@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.common.source.reader;
 
 import org.apache.seatunnel.api.source.Boundedness;
@@ -52,25 +51,27 @@ import static com.google.common.base.Preconditions.checkState;
  */
 @Slf4j
 public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitStateT>
-        implements SourceReader<T, SplitT> {
+        implements
+            SourceReader<T, SplitT> {
+    
     private final BlockingQueue<RecordsWithSplitIds<E>> elementsQueue;
     private final ConcurrentMap<String, SplitContext<T, SplitStateT>> splitStates;
     protected final RecordEmitter<E, T, SplitStateT> recordEmitter;
     protected final SplitFetcherManager<E, SplitT> splitFetcherManager;
     protected final SourceReaderOptions options;
     protected final SourceReader.Context context;
-
+    
     private RecordsWithSplitIds<E> currentFetch;
     private SplitContext<T, SplitStateT> currentSplitContext;
     private Collector<T> currentSplitOutput;
     private boolean noMoreSplitsAssignment;
-
+    
     public SourceReaderBase(
-            BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
-            SplitFetcherManager<E, SplitT> splitFetcherManager,
-            RecordEmitter<E, T, SplitStateT> recordEmitter,
-            SourceReaderOptions options,
-            SourceReader.Context context) {
+                            BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
+                            SplitFetcherManager<E, SplitT> splitFetcherManager,
+                            RecordEmitter<E, T, SplitStateT> recordEmitter,
+                            SourceReaderOptions options,
+                            SourceReader.Context context) {
         this.elementsQueue = elementsQueue;
         this.splitFetcherManager = splitFetcherManager;
         this.recordEmitter = recordEmitter;
@@ -78,12 +79,12 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
         this.options = options;
         this.context = context;
     }
-
+    
     @Override
     public void open() {
         log.info("Open Source Reader.");
     }
-
+    
     @Override
     public void pollNext(Collector<T> output) throws Exception {
         RecordsWithSplitIds<E> recordsWithSplitId = this.currentFetch;
@@ -100,7 +101,7 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
                 return;
             }
         }
-
+        
         E record = recordsWithSplitId.nextRecordFromSplit();
         if (record != null) {
             synchronized (output.getCheckpointLock()) {
@@ -111,7 +112,7 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
             pollNext(output);
         }
     }
-
+    
     @Override
     public List<SplitT> snapshotState(long checkpointId) {
         List<SplitT> splits = new ArrayList<>();
@@ -119,7 +120,7 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
         log.info("Snapshot state from splits: {}", splits);
         return splits;
     }
-
+    
     @Override
     public void addSplits(List<SplitT> splits) {
         log.info("Adding split(s) to reader: {}", splits);
@@ -132,18 +133,18 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
                 });
         splitFetcherManager.addSplits(splits);
     }
-
+    
     @Override
     public void handleNoMoreSplits() {
         log.info("Reader received NoMoreSplits event.");
         noMoreSplitsAssignment = true;
     }
-
+    
     @Override
     public void handleSourceEvent(SourceEvent sourceEvent) {
         log.info("Received unhandled source event: {}", sourceEvent);
     }
-
+    
     @Override
     public void close() {
         log.info("Closing Source Reader.");
@@ -153,7 +154,7 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
             throw new RuntimeException(e);
         }
     }
-
+    
     private RecordsWithSplitIds<E> getNextFetch(Collector<T> output) {
         splitFetcherManager.checkErrors();
         RecordsWithSplitIds<E> recordsWithSplitId = elementsQueue.poll();
@@ -161,32 +162,32 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
             log.trace("Current fetch is finished.");
             return null;
         }
-
+        
         currentFetch = recordsWithSplitId;
         return recordsWithSplitId;
     }
-
+    
     private boolean moveToNextSplit(
-            RecordsWithSplitIds<E> recordsWithSplitIds, Collector<T> output) {
+                                    RecordsWithSplitIds<E> recordsWithSplitIds, Collector<T> output) {
         final String nextSplitId = recordsWithSplitIds.nextSplit();
         if (nextSplitId == null) {
             log.trace("Current fetch is finished.");
             finishCurrentFetch(recordsWithSplitIds, output);
             return false;
         }
-
+        
         currentSplitContext = splitStates.get(nextSplitId);
         checkState(currentSplitContext != null, "Have records for a split that was not registered");
         currentSplitOutput = currentSplitContext.getOrCreateSplitOutput(output);
         log.trace("Emitting records from fetch for split {}", nextSplitId);
         return true;
     }
-
+    
     private void finishCurrentFetch(final RecordsWithSplitIds<E> fetch, final Collector<T> output) {
         currentFetch = null;
         currentSplitContext = null;
         currentSplitOutput = null;
-
+        
         Set<String> finishedSplits = fetch.finishedSplits();
         if (!finishedSplits.isEmpty()) {
             log.info("Finished reading split(s) {}", finishedSplits);
@@ -197,28 +198,28 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
             }
             onSplitFinished(stateOfFinishedSplits);
         }
-
+        
         fetch.recycle();
     }
-
+    
     public int getNumberOfCurrentlyAssignedSplits() {
         return this.splitStates.size();
     }
-
+    
     /**
      * Handles the finished splits to clean the state if needed.
      *
      * @param finishedSplitIds
      */
     protected abstract void onSplitFinished(Map<String, SplitStateT> finishedSplitIds);
-
+    
     /**
      * When new splits are added to the reader. The initialize the state of the new splits.
      *
      * @param split a newly added split.
      */
     protected abstract SplitStateT initializedState(SplitT split);
-
+    
     /**
      * Convert a mutable SplitStateT to immutable SplitT.
      *
@@ -226,13 +227,14 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
      * @return an immutable Split state.
      */
     protected abstract SplitT toSplitType(String splitId, SplitStateT splitState);
-
+    
     @RequiredArgsConstructor
     private static final class SplitContext<T, SplitStateT> {
+        
         final String splitId;
         final SplitStateT state;
         Collector<T> splitOutput;
-
+        
         Collector<T> getOrCreateSplitOutput(Collector<T> output) {
             if (splitOutput == null) {
                 splitOutput = output;

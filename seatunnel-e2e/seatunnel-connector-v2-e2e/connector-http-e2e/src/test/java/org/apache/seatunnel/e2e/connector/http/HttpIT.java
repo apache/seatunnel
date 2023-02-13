@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.e2e.connector.http;
 
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -41,13 +40,13 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 public class HttpIT extends TestSuiteBase implements TestResource {
-
+    
     private static final String TMP_DIR = "/tmp";
-
+    
     private static final String IMAGE = "mockserver/mockserver:5.14.0";
-
+    
     private GenericContainer<?> mockserverContainer;
-
+    
     @BeforeAll
     @Override
     public void startUp() {
@@ -61,12 +60,11 @@ public class HttpIT extends TestSuiteBase implements TestResource {
                         .withCopyFileToContainer(
                                 MountableFile.forHostPath(
                                         new File(
-                                                        resource.orElseThrow(
-                                                                        () ->
-                                                                                new IllegalArgumentException(
-                                                                                        "Can not get config file of mockServer"))
-                                                                .getPath())
-                                                .getAbsolutePath()),
+                                                resource.orElseThrow(
+                                                        () -> new IllegalArgumentException(
+                                                                "Can not get config file of mockServer"))
+                                                        .getPath())
+                                                                .getAbsolutePath()),
                                 TMP_DIR + getMockServerConfig())
                         .withEnv(
                                 "MOCKSERVER_INITIALIZATION_JSON_PATH",
@@ -75,7 +73,7 @@ public class HttpIT extends TestSuiteBase implements TestResource {
                         .waitingFor(new HttpWaitStrategy().forPath("/").forStatusCode(404));
         Startables.deepStart(Stream.of(mockserverContainer)).join();
     }
-
+    
     @AfterAll
     @Override
     public void tearDown() {
@@ -83,18 +81,17 @@ public class HttpIT extends TestSuiteBase implements TestResource {
             mockserverContainer.stop();
         }
     }
-
+    
     @TestTemplate
-    public void testSourceToAssertSink(TestContainer container)
-            throws IOException, InterruptedException {
+    public void testSourceToAssertSink(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob(getITTestConf());
         Assertions.assertEquals(0, execResult.getExitCode());
     }
-
+    
     public String getITTestConf() {
         return "/http_json_to_assert.conf";
     }
-
+    
     public String getMockServerConfig() {
         return "/mockserver-config.json";
     }

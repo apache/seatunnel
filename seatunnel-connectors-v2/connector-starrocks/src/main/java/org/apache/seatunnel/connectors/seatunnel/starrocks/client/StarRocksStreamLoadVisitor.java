@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
 
 import org.apache.seatunnel.common.exception.CommonErrorCode;
@@ -39,12 +38,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class StarRocksStreamLoadVisitor {
-
+    
     private static final Logger LOG = LoggerFactory.getLogger(StarRocksStreamLoadVisitor.class);
-
+    
     private final HttpHelper httpHelper = new HttpHelper();
     private static final int MAX_SLEEP_TIME = 5;
-
+    
     private final SinkConfig sinkConfig;
     private long pos;
     private static final String RESULT_FAILED = "Fail";
@@ -55,14 +54,14 @@ public class StarRocksStreamLoadVisitor {
     private static final String RESULT_LABEL_PREPARE = "PREPARE";
     private static final String RESULT_LABEL_ABORTED = "ABORTED";
     private static final String RESULT_LABEL_UNKNOWN = "UNKNOWN";
-
+    
     private List<String> fieldNames;
-
+    
     public StarRocksStreamLoadVisitor(SinkConfig sinkConfig, List<String> fieldNames) {
         this.sinkConfig = sinkConfig;
         this.fieldNames = fieldNames;
     }
-
+    
     public Boolean doStreamLoad(StarRocksFlushTuple flushData) throws IOException {
         String host = getAvailableHost();
         if (null == host) {
@@ -135,7 +134,7 @@ public class StarRocksStreamLoadVisitor {
         }
         return RESULT_SUCCESS.equals(loadResult.get(keyStatus));
     }
-
+    
     private String getAvailableHost() {
         List<String> hostList = sinkConfig.getNodeUrls();
         long tmp = pos + hostList.size();
@@ -150,7 +149,7 @@ public class StarRocksStreamLoadVisitor {
         }
         return null;
     }
-
+    
     private byte[] joinRows(List<byte[]> rows, int totalBytes) {
         if (SinkConfig.StreamLoadFormat.CSV.equals(sinkConfig.getLoadFormat())) {
             Map<String, Object> props = sinkConfig.getStreamLoadProps();
@@ -164,7 +163,7 @@ public class StarRocksStreamLoadVisitor {
             }
             return bos.array();
         }
-
+        
         if (SinkConfig.StreamLoadFormat.JSON.equals(sinkConfig.getLoadFormat())) {
             ByteBuffer bos =
                     ByteBuffer.allocate(totalBytes + (rows.isEmpty() ? 2 : rows.size() + 1));
@@ -185,7 +184,7 @@ public class StarRocksStreamLoadVisitor {
                 StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,
                 "Failed to join rows data, unsupported `format` from stream load properties:");
     }
-
+    
     @SuppressWarnings("unchecked")
     private void checkLabelState(String host, String label) throws IOException {
         int idx = 0;
@@ -254,13 +253,13 @@ public class StarRocksStreamLoadVisitor {
             }
         }
     }
-
+    
     private String getBasicAuthHeader(String username, String password) {
         String auth = username + ":" + password;
         byte[] encodedAuth = Base64.encodeBase64(auth.getBytes(StandardCharsets.UTF_8));
         return new StringBuilder("Basic ").append(new String(encodedAuth)).toString();
     }
-
+    
     private Map<String, String> getStreamLoadHttpHeader(String label) {
         Map<String, String> headerMap = new HashMap<>();
         if (null != fieldNames
@@ -288,7 +287,7 @@ public class StarRocksStreamLoadVisitor {
                 getBasicAuthHeader(sinkConfig.getUsername(), sinkConfig.getPassword()));
         return headerMap;
     }
-
+    
     private Map<String, String> getLoadStateHttpHeader(String label) {
         Map<String, String> headerMap = new HashMap<>();
         headerMap.put(

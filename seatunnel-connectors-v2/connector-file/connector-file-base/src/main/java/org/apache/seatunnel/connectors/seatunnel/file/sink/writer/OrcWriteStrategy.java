@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
@@ -60,13 +59,14 @@ import java.util.List;
 import java.util.Map;
 
 public class OrcWriteStrategy extends AbstractWriteStrategy {
+    
     private final Map<String, Writer> beingWrittenWriter;
-
+    
     public OrcWriteStrategy(FileSinkConfig fileSinkConfig) {
         super(fileSinkConfig);
         this.beingWrittenWriter = new HashMap<>();
     }
-
+    
     @Override
     public void write(@NonNull SeaTunnelRow seaTunnelRow) {
         super.write(seaTunnelRow);
@@ -90,7 +90,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
             throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED, errorMsg, e);
         }
     }
-
+    
     @Override
     public void finishAndCloseFile() {
         this.beingWrittenWriter.forEach(
@@ -109,7 +109,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
                 });
         this.beingWrittenWriter.clear();
     }
-
+    
     private Writer getOrCreateWriter(@NonNull String filePath) {
         Writer writer = this.beingWrittenWriter.get(filePath);
         if (writer == null) {
@@ -134,7 +134,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
         }
         return writer;
     }
-
+    
     private TypeDescription buildFieldWithRowType(SeaTunnelDataType<?> type) {
         switch (type.getSqlType()) {
             case ARRAY:
@@ -188,7 +188,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
                 throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
         }
     }
-
+    
     private TypeDescription buildSchemaWithRowType() {
         TypeDescription schema = TypeDescription.createStruct();
         for (Integer i : sinkColumnsIndexInRow) {
@@ -197,7 +197,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
         }
         return schema;
     }
-
+    
     private void setColumn(Object value, ColumnVector vector, int row) {
         if (value == null) {
             vector.isNull[row] = true;
@@ -243,9 +243,9 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
             }
         }
     }
-
+    
     private void setStructColumnVector(
-            Object value, StructColumnVector structColumnVector, int row) {
+                                       Object value, StructColumnVector structColumnVector, int row) {
         if (value instanceof SeaTunnelRow) {
             SeaTunnelRow seaTunnelRow = (SeaTunnelRow) value;
             Object[] fields = seaTunnelRow.getFields();
@@ -261,15 +261,15 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
             throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
         }
     }
-
+    
     private void setMapColumnVector(Object value, MapColumnVector mapColumnVector, int row) {
         if (value instanceof Map) {
             Map<?, ?> map = (Map<?, ?>) value;
-
+            
             mapColumnVector.offsets[row] = mapColumnVector.childCount;
             mapColumnVector.lengths[row] = map.size();
             mapColumnVector.childCount += map.size();
-
+            
             int i = 0;
             for (Map.Entry<?, ?> entry : map.entrySet()) {
                 int mapElem = (int) mapColumnVector.offsets[row] + i;
@@ -284,7 +284,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
             throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, errorMsg);
         }
     }
-
+    
     private void setListColumnVector(Object value, ListColumnVector listColumnVector, int row) {
         Object[] valueArray;
         if (value instanceof Object[]) {
@@ -301,15 +301,15 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
         listColumnVector.offsets[row] = listColumnVector.childCount;
         listColumnVector.lengths[row] = valueArray.length;
         listColumnVector.childCount += valueArray.length;
-
+        
         for (int i = 0; i < valueArray.length; i++) {
             int listElem = (int) listColumnVector.offsets[row] + i;
             setColumn(valueArray[i], listColumnVector.child, listElem);
         }
     }
-
+    
     private void setDecimalColumnVector(
-            Object value, DecimalColumnVector decimalColumnVector, int row) {
+                                        Object value, DecimalColumnVector decimalColumnVector, int row) {
         if (value instanceof BigDecimal) {
             decimalColumnVector.set(row, HiveDecimal.create((BigDecimal) value));
         } else {
@@ -320,9 +320,9 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
             throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, errorMsg);
         }
     }
-
+    
     private void setTimestampColumnVector(
-            Object value, TimestampColumnVector timestampColumnVector, int row) {
+                                          Object value, TimestampColumnVector timestampColumnVector, int row) {
         if (value instanceof Timestamp) {
             timestampColumnVector.set(row, (Timestamp) value);
         } else if (value instanceof LocalDateTime) {
@@ -338,7 +338,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
             throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, errorMsg);
         }
     }
-
+    
     private void setLongColumnVector(Object value, LongColumnVector longVector, int row) {
         if (value instanceof Boolean) {
             Boolean bool = (Boolean) value;
@@ -365,7 +365,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
             throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, errorMsg);
         }
     }
-
+    
     private void setByteColumnVector(Object value, BytesColumnVector bytesColVector, int rowNum) {
         byte[] byteVec;
         if (value instanceof byte[]) {
@@ -376,7 +376,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
         }
         bytesColVector.setRef(rowNum, byteVec, 0, byteVec.length);
     }
-
+    
     private void setDoubleVector(Object value, DoubleColumnVector doubleVector, int rowNum) {
         if (value instanceof Double) {
             doubleVector.vector[rowNum] = (Double) value;

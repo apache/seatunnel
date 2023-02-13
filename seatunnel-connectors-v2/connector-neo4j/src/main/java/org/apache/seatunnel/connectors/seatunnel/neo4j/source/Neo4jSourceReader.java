@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.neo4j.source;
 
 import org.apache.seatunnel.api.source.Collector;
@@ -44,23 +43,23 @@ import java.util.List;
 import java.util.Objects;
 
 public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
-
+    
     private final SingleSplitReaderContext context;
     private final Neo4jSourceQueryInfo neo4jSourceQueryInfo;
     private final SeaTunnelRowType rowType;
     private final Driver driver;
     private Session session;
-
+    
     public Neo4jSourceReader(
-            SingleSplitReaderContext context,
-            Neo4jSourceQueryInfo neo4jSourceQueryInfo,
-            SeaTunnelRowType rowType) {
+                             SingleSplitReaderContext context,
+                             Neo4jSourceQueryInfo neo4jSourceQueryInfo,
+                             SeaTunnelRowType rowType) {
         this.context = context;
         this.neo4jSourceQueryInfo = neo4jSourceQueryInfo;
         this.driver = neo4jSourceQueryInfo.getDriverBuilder().build();
         this.rowType = rowType;
     }
-
+    
     @Override
     public void open() throws Exception {
         this.session =
@@ -68,13 +67,13 @@ public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                         SessionConfig.forDatabase(
                                 neo4jSourceQueryInfo.getDriverBuilder().getDatabase()));
     }
-
+    
     @Override
     public void close() throws IOException {
         session.close();
         driver.close();
     }
-
+    
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         final Query query = new Query(neo4jSourceQueryInfo.getQuery());
@@ -99,18 +98,17 @@ public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 });
         this.context.signalNoMoreElement();
     }
-
+    
     /**
      * convert {@link SeaTunnelDataType} to java data type
      *
      * @throws Neo4jConnectorException when not supported data type
      * @throws LossyCoercion when conversion cannot be achieved without losing precision.
      */
-    public static Object convertType(SeaTunnelDataType<?> dataType, Value value)
-            throws Neo4jConnectorException, LossyCoercion {
+    public static Object convertType(SeaTunnelDataType<?> dataType, Value value) throws Neo4jConnectorException, LossyCoercion {
         Objects.requireNonNull(dataType);
         Objects.requireNonNull(value);
-
+        
         switch (dataType.getSqlType()) {
             case STRING:
                 return value.asString();

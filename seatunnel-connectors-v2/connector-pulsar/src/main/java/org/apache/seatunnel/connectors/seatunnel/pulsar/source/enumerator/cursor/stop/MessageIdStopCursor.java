@@ -1,11 +1,10 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -15,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.stop;
 
 import org.apache.pulsar.client.api.Message;
@@ -26,21 +24,22 @@ import org.apache.pulsar.client.api.MessageId;
  * compare the consuming message with the given message id.
  */
 public class MessageIdStopCursor implements StopCursor {
+    
     private static final long serialVersionUID = 1L;
-
+    
     private final MessageId messageId;
-
+    
     private final boolean exclusive;
-
+    
     public MessageIdStopCursor(MessageId messageId) {
         this(messageId, true);
     }
-
+    
     public MessageIdStopCursor(MessageId messageId, boolean exclusive) {
         this.messageId = messageId;
         this.exclusive = exclusive;
     }
-
+    
     @Override
     public boolean shouldStop(Message<?> message) {
         MessageId id = message.getMessageId();
@@ -50,7 +49,7 @@ public class MessageIdStopCursor implements StopCursor {
             return id.compareTo(messageId) >= 0;
         }
     }
-
+    
     @Override
     public StopCursor copy() {
         return new MessageIdStopCursor(messageId, exclusive);

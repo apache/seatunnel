@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.task.flow;
 
 import org.apache.seatunnel.api.serialization.Serializer;
@@ -54,43 +53,44 @@ import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
 import static org.apache.seatunnel.engine.server.task.AbstractTask.serializeStates;
 
 public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFlowLifeCycle
-        implements InternalCheckpointListener {
-
+        implements
+            InternalCheckpointListener {
+    
     private static final ILogger LOGGER = Logger.getLogger(SourceFlowLifeCycle.class);
-
+    
     private final SourceAction<T, SplitT, ?> sourceAction;
     private final TaskLocation enumeratorTaskLocation;
-
+    
     private Address enumeratorTaskAddress;
-
+    
     private SourceReader<T, SplitT> reader;
-
+    
     private transient Serializer<SplitT> splitSerializer;
-
+    
     private final int indexID;
-
+    
     private final TaskLocation currentTaskLocation;
-
+    
     private SeaTunnelSourceCollector<T> collector;
-
+    
     public SourceFlowLifeCycle(
-            SourceAction<T, SplitT, ?> sourceAction,
-            int indexID,
-            TaskLocation enumeratorTaskLocation,
-            SeaTunnelTask runningTask,
-            TaskLocation currentTaskLocation,
-            CompletableFuture<Void> completableFuture) {
+                               SourceAction<T, SplitT, ?> sourceAction,
+                               int indexID,
+                               TaskLocation enumeratorTaskLocation,
+                               SeaTunnelTask runningTask,
+                               TaskLocation currentTaskLocation,
+                               CompletableFuture<Void> completableFuture) {
         super(sourceAction, runningTask, completableFuture);
         this.sourceAction = sourceAction;
         this.indexID = indexID;
         this.enumeratorTaskLocation = enumeratorTaskLocation;
         this.currentTaskLocation = currentTaskLocation;
     }
-
+    
     public void setCollector(SeaTunnelSourceCollector<T> collector) {
         this.collector = collector;
     }
-
+    
     @Override
     public void init() throws Exception {
         this.splitSerializer = sourceAction.getSource().getSplitSerializer();
@@ -102,33 +102,32 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                                         indexID, sourceAction.getSource().getBoundedness(), this));
         this.enumeratorTaskAddress = getEnumeratorTaskAddress();
     }
-
+    
     @Override
     public void open() throws Exception {
         reader.open();
         register();
     }
-
+    
     private Address getEnumeratorTaskAddress() throws ExecutionException, InterruptedException {
-        return (Address)
-                runningTask
-                        .getExecutionContext()
-                        .sendToMaster(new GetTaskGroupAddressOperation(enumeratorTaskLocation))
-                        .get();
+        return (Address) runningTask
+                .getExecutionContext()
+                .sendToMaster(new GetTaskGroupAddressOperation(enumeratorTaskLocation))
+                .get();
     }
-
+    
     @Override
     public void close() throws IOException {
         reader.close();
         super.close();
     }
-
+    
     public void collect() throws Exception {
         if (!prepareClose) {
             reader.pollNext(collector);
         }
     }
-
+    
     public void signalNoMoreElement() {
         // ready close this reader
         try {
@@ -145,7 +144,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             throw new RuntimeException(e);
         }
     }
-
+    
     private void register() {
         try {
             runningTask
@@ -160,7 +159,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             throw new RuntimeException(e);
         }
     }
-
+    
     public void requestSplit() {
         try {
             runningTask
@@ -174,7 +173,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             throw new RuntimeException(e);
         }
     }
-
+    
     public void sendSourceEventToEnumerator(SourceEvent sourceEvent) {
         try {
             runningTask
@@ -189,7 +188,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             throw new RuntimeException(e);
         }
     }
-
+    
     public void receivedSplits(List<SplitT> splits) {
         if (splits.isEmpty()) {
             reader.handleNoMoreSplits();
@@ -197,7 +196,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             reader.addSplits(splits);
         }
     }
-
+    
     public void triggerBarrier(Barrier barrier) throws Exception {
         // Block the reader from adding barrier to the collector.
         synchronized (collector.getCheckpointLock()) {
@@ -214,17 +213,17 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             collector.sendRecordToNext(new Record<>(barrier));
         }
     }
-
+    
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         reader.notifyCheckpointComplete(checkpointId);
     }
-
+    
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         reader.notifyCheckpointAborted(checkpointId);
     }
-
+    
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
         if (actionStateList.isEmpty()) {

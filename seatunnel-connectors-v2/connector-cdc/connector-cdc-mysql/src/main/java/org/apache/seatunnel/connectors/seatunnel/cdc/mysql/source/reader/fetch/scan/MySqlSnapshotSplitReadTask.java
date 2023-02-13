@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.scan;
 
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
@@ -60,12 +59,12 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlUti
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlUtils.readTableSplitDataStatement;
 
 public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSource {
-
+    
     private static final Logger LOG = LoggerFactory.getLogger(MySqlSnapshotSplitReadTask.class);
-
+    
     /** Interval for showing a log statement with the progress while scanning a single table. */
     private static final Duration LOG_INTERVAL = Duration.ofMillis(10_000);
-
+    
     private final MySqlConnectorConfig connectorConfig;
     private final MySqlDatabaseSchema databaseSchema;
     private final MySqlConnection jdbcConnection;
@@ -74,15 +73,15 @@ public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSourc
     private final SnapshotSplit snapshotSplit;
     private final MySqlOffsetContext offsetContext;
     private final SnapshotProgressListener snapshotProgressListener;
-
+    
     public MySqlSnapshotSplitReadTask(
-            MySqlConnectorConfig connectorConfig,
-            MySqlOffsetContext previousOffset,
-            SnapshotProgressListener snapshotProgressListener,
-            MySqlDatabaseSchema databaseSchema,
-            MySqlConnection jdbcConnection,
-            JdbcSourceEventDispatcher dispatcher,
-            SnapshotSplit snapshotSplit) {
+                                      MySqlConnectorConfig connectorConfig,
+                                      MySqlOffsetContext previousOffset,
+                                      SnapshotProgressListener snapshotProgressListener,
+                                      MySqlDatabaseSchema databaseSchema,
+                                      MySqlConnection jdbcConnection,
+                                      JdbcSourceEventDispatcher dispatcher,
+                                      SnapshotSplit snapshotSplit) {
         super(connectorConfig, snapshotProgressListener);
         this.offsetContext = previousOffset;
         this.connectorConfig = connectorConfig;
@@ -93,11 +92,10 @@ public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSourc
         this.snapshotSplit = snapshotSplit;
         this.snapshotProgressListener = snapshotProgressListener;
     }
-
+    
     @Override
     public SnapshotResult execute(
-            ChangeEventSource.ChangeEventSourceContext context, OffsetContext previousOffset)
-            throws InterruptedException {
+                                  ChangeEventSource.ChangeEventSourceContext context, OffsetContext previousOffset) throws InterruptedException {
         SnapshottingTask snapshottingTask = getSnapshottingTask(previousOffset);
         final SnapshotContext ctx;
         try {
@@ -115,18 +113,17 @@ public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSourc
             throw new DebeziumException(t);
         }
     }
-
+    
     @Override
     protected SnapshotResult doExecute(
-            ChangeEventSource.ChangeEventSourceContext context,
-            OffsetContext previousOffset,
-            AbstractSnapshotChangeEventSource.SnapshotContext snapshotContext,
-            AbstractSnapshotChangeEventSource.SnapshottingTask snapshottingTask)
-            throws Exception {
+                                       ChangeEventSource.ChangeEventSourceContext context,
+                                       OffsetContext previousOffset,
+                                       AbstractSnapshotChangeEventSource.SnapshotContext snapshotContext,
+                                       AbstractSnapshotChangeEventSource.SnapshottingTask snapshottingTask) throws Exception {
         final RelationalSnapshotChangeEventSource.RelationalSnapshotContext ctx =
                 (RelationalSnapshotChangeEventSource.RelationalSnapshotContext) snapshotContext;
         ctx.offset = offsetContext;
-
+        
         final BinlogOffset lowWatermark = currentBinlogOffset(jdbcConnection);
         LOG.info(
                 "Snapshot step 1 - Determining low watermark {} for split {}",
@@ -135,10 +132,10 @@ public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSourc
         ((SnapshotSplitChangeEventSourceContext) context).setLowWatermark(lowWatermark);
         dispatcher.dispatchWatermarkEvent(
                 offsetContext.getPartition(), snapshotSplit, lowWatermark, WatermarkKind.LOW);
-
+        
         LOG.info("Snapshot step 2 - Snapshotting data");
         createDataEvents(ctx, snapshotSplit.getTableId());
-
+        
         final BinlogOffset highWatermark = currentBinlogOffset(jdbcConnection);
         LOG.info(
                 "Snapshot step 3 - Determining high watermark {} for split {}",
@@ -149,23 +146,22 @@ public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSourc
                 offsetContext.getPartition(), snapshotSplit, highWatermark, WatermarkKind.HIGH);
         return SnapshotResult.completed(ctx.offset);
     }
-
+    
     @Override
     protected AbstractSnapshotChangeEventSource.SnapshottingTask getSnapshottingTask(
-            OffsetContext previousOffset) {
+                                                                                     OffsetContext previousOffset) {
         return new SnapshottingTask(false, true);
     }
-
+    
     @Override
     protected AbstractSnapshotChangeEventSource.SnapshotContext prepare(
-            ChangeEventSource.ChangeEventSourceContext changeEventSourceContext) throws Exception {
+                                                                        ChangeEventSource.ChangeEventSourceContext changeEventSourceContext) throws Exception {
         return new MySqlSnapshotContext();
     }
-
+    
     private void createDataEvents(
-            RelationalSnapshotChangeEventSource.RelationalSnapshotContext snapshotContext,
-            TableId tableId)
-            throws Exception {
+                                  RelationalSnapshotChangeEventSource.RelationalSnapshotContext snapshotContext,
+                                  TableId tableId) throws Exception {
         EventDispatcher.SnapshotReceiver snapshotReceiver =
                 dispatcher.getSnapshotChangeEventReceiver();
         LOG.debug("Snapshotting table {}", tableId);
@@ -173,17 +169,16 @@ public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSourc
                 snapshotContext, snapshotReceiver, databaseSchema.tableFor(tableId));
         snapshotReceiver.completeSnapshot();
     }
-
+    
     /** Dispatches the data change events for the records of a single table. */
     private void createDataEventsForTable(
-            RelationalSnapshotChangeEventSource.RelationalSnapshotContext snapshotContext,
-            EventDispatcher.SnapshotReceiver snapshotReceiver,
-            Table table)
-            throws InterruptedException {
-
+                                          RelationalSnapshotChangeEventSource.RelationalSnapshotContext snapshotContext,
+                                          EventDispatcher.SnapshotReceiver snapshotReceiver,
+                                          Table table) throws InterruptedException {
+        
         long exportStart = clock.currentTimeInMillis();
         LOG.info("Exporting data from split '{}' of table {}", snapshotSplit.splitId(), table.id());
-
+        
         final String selectSql =
                 buildSplitScanQuery(
                         snapshotSplit.getTableId(),
@@ -195,23 +190,24 @@ public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSourc
                 snapshotSplit.splitId(),
                 table.id(),
                 selectSql);
-
-        try (PreparedStatement selectStatement =
+        
+        try (
+                PreparedStatement selectStatement =
                         readTableSplitDataStatement(
                                 jdbcConnection,
                                 selectSql,
                                 snapshotSplit.getSplitStart() == null,
                                 snapshotSplit.getSplitEnd() == null,
-                                new Object[] {snapshotSplit.getSplitStart()},
-                                new Object[] {snapshotSplit.getSplitEnd()},
+                                new Object[]{snapshotSplit.getSplitStart()},
+                                new Object[]{snapshotSplit.getSplitEnd()},
                                 snapshotSplit.getSplitKeyType().getTotalFields(),
                                 connectorConfig.getQueryFetchSize());
                 ResultSet rs = selectStatement.executeQuery()) {
-
+            
             ColumnUtils.ColumnArray columnArray = ColumnUtils.toArray(rs, table);
             long rows = 0;
             Threads.Timer logTimer = getTableScanLogTimer();
-
+            
             while (rs.next()) {
                 rows++;
                 final Object[] row = new Object[columnArray.getGreatestColumnPosition()];
@@ -242,19 +238,19 @@ public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSourc
             throw new ConnectException("Snapshotting of table " + table.id() + " failed", e);
         }
     }
-
+    
     protected ChangeRecordEmitter getChangeRecordEmitter(
-            AbstractSnapshotChangeEventSource.SnapshotContext snapshotContext,
-            TableId tableId,
-            Object[] row) {
+                                                         AbstractSnapshotChangeEventSource.SnapshotContext snapshotContext,
+                                                         TableId tableId,
+                                                         Object[] row) {
         snapshotContext.offset.event(tableId, clock.currentTime());
         return new SnapshotChangeRecordEmitter(snapshotContext.offset, row, clock);
     }
-
+    
     private Threads.Timer getTableScanLogTimer() {
         return Threads.timer(clock, LOG_INTERVAL);
     }
-
+    
     private Object readField(ResultSet rs, int columnIndex) throws SQLException {
         final ResultSetMetaData metaData = rs.getMetaData();
         final int columnType = metaData.getColumnType(columnIndex);
@@ -264,9 +260,11 @@ public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSourc
             return rs.getObject(columnIndex);
         }
     }
-
+    
     private static class MySqlSnapshotContext
-            extends RelationalSnapshotChangeEventSource.RelationalSnapshotContext {
+            extends
+                RelationalSnapshotChangeEventSource.RelationalSnapshotContext {
+        
         public MySqlSnapshotContext() throws SQLException {
             super("");
         }

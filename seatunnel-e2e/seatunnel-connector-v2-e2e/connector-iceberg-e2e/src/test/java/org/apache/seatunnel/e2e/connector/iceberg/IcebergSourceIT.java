@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.e2e.connector.iceberg;
 
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergCatalogFactory;
@@ -69,7 +68,7 @@ import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCa
 
 @Slf4j
 public class IcebergSourceIT extends TestSuiteBase implements TestResource {
-
+    
     private static final TableIdentifier TABLE =
             TableIdentifier.of(Namespace.of("database1"), "source");
     private static final Schema SCHEMA =
@@ -101,44 +100,44 @@ public class IcebergSourceIT extends TestSuiteBase implements TestResource {
                             Types.StructType.of(
                                     Types.NestedField.required(
                                             400, "f17_a", Types.StringType.get()))));
-
+    
     private static final String CATALOG_NAME = "seatunnel";
     private static final IcebergCatalogType CATALOG_TYPE = HADOOP;
     private static final String CATALOG_DIR = "/tmp/seatunnel/iceberg/hadoop/";
     private static final String WAREHOUSE = "file://" + CATALOG_DIR;
     private static Catalog CATALOG;
-
+    
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
                 container.copyFileToContainer(MountableFile.forHostPath(CATALOG_DIR), CATALOG_DIR);
             };
-
+    
     @BeforeEach
     @Override
     public void startUp() throws Exception {
         initializeIcebergTable();
         batchInsertData();
     }
-
+    
     @AfterAll
     @Override
-    public void tearDown() throws Exception {}
-
+    public void tearDown() throws Exception {
+    }
+    
     @TestTemplate
-    public void testIcebergSource(TestContainer container)
-            throws IOException, InterruptedException {
+    public void testIcebergSource(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/iceberg/iceberg_source.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
-
+    
     private void initializeIcebergTable() {
         CATALOG = new IcebergCatalogFactory(CATALOG_NAME, CATALOG_TYPE, WAREHOUSE, null).create();
         if (!CATALOG.tableExists(TABLE)) {
             CATALOG.createTable(TABLE, SCHEMA);
         }
     }
-
+    
     private void batchInsertData() {
         GenericRecord record = GenericRecord.create(SCHEMA);
         record.setField("f1", Long.valueOf(0));
@@ -160,7 +159,7 @@ public class IcebergSourceIT extends TestSuiteBase implements TestResource {
         Record structRecord = GenericRecord.create(SCHEMA.findField("f17").type().asStructType());
         structRecord.setField("f17_a", "test");
         record.setField("f17", structRecord);
-
+        
         Table table = CATALOG.loadTable(TABLE);
         FileAppenderFactory appenderFactory = new GenericAppenderFactory(SCHEMA);
         List<Record> records = new ArrayList<>();

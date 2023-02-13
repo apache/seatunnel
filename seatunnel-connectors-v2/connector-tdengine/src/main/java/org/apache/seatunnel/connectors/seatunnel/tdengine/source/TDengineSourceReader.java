@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.tdengine.source;
 
 import org.apache.seatunnel.api.source.Boundedness;
@@ -46,23 +45,23 @@ import java.util.Set;
 
 @Slf4j
 public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengineSourceSplit> {
-
+    
     private static final long THREAD_WAIT_TIME = 500L;
-
+    
     private final TDengineSourceConfig config;
-
+    
     private final Set<TDengineSourceSplit> sourceSplits;
-
+    
     private final Context context;
-
+    
     private Connection conn;
-
+    
     public TDengineSourceReader(TDengineSourceConfig config, SourceReader.Context readerContext) {
         this.config = config;
         this.sourceSplits = Sets.newHashSet();
         this.context = readerContext;
     }
-
+    
     @Override
     public void pollNext(Collector<SeaTunnelRow> collector) throws InterruptedException {
         if (sourceSplits.isEmpty()) {
@@ -82,14 +81,14 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
                         }
                     });
         }
-
+        
         if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
             // signal to the source that we have reached the end of the data.
             log.info("Closed the bounded TDengine source");
             context.signalNoMoreElement();
         }
     }
-
+    
     @Override
     public void open() {
         String jdbcUrl =
@@ -115,7 +114,7 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
                     "get TDengine connection failed:" + jdbcUrl);
         }
     }
-
+    
     @Override
     public void close() {
         try {
@@ -129,12 +128,12 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
                     e);
         }
     }
-
+    
     private void read(TDengineSourceSplit split, Collector<SeaTunnelRow> output) throws Exception {
         try (Statement statement = conn.createStatement()) {
             final ResultSet resultSet = statement.executeQuery(split.getQuery());
             ResultSetMetaData meta = resultSet.getMetaData();
-
+            
             while (resultSet.next()) {
                 Object[] datas = new Object[meta.getColumnCount() + 1];
                 datas[0] = split.splitId();
@@ -145,7 +144,7 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
             }
         }
     }
-
+    
     private Object convertDataType(Object object) {
         if (Timestamp.class.equals(object.getClass())) {
             return ((Timestamp) object).toLocalDateTime();
@@ -154,22 +153,22 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
         }
         return object;
     }
-
+    
     @Override
     public List<TDengineSourceSplit> snapshotState(long checkpointId) {
         return new ArrayList<>(sourceSplits);
     }
-
+    
     @Override
     public void addSplits(List<TDengineSourceSplit> splits) {
         sourceSplits.addAll(splits);
     }
-
+    
     @Override
     public void handleNoMoreSplits() {
         // do nothing
     }
-
+    
     @Override
     public void notifyCheckpointComplete(long checkpointId) {
         // do nothing

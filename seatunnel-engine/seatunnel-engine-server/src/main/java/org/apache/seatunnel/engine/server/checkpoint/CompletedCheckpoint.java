@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.engine.core.checkpoint.Checkpoint;
@@ -24,32 +23,33 @@ import java.io.Serializable;
 import java.util.Map;
 
 public class CompletedCheckpoint implements Checkpoint, Serializable {
+    
     private static final long serialVersionUID = 1L;
     private final long jobId;
-
+    
     private final int pipelineId;
-
+    
     private final long checkpointId;
-
+    
     private final long triggerTimestamp;
-
+    
     private final CheckpointType checkpointType;
-
+    
     private final long completedTimestamp;
-
+    
     private final Map<Long, ActionState> taskStates;
-
+    
     private final Map<Long, TaskStatistics> taskStatistics;
-
+    
     public CompletedCheckpoint(
-            long jobId,
-            int pipelineId,
-            long checkpointId,
-            long triggerTimestamp,
-            CheckpointType checkpointType,
-            long completedTimestamp,
-            Map<Long, ActionState> taskStates,
-            Map<Long, TaskStatistics> taskStatistics) {
+                               long jobId,
+                               int pipelineId,
+                               long checkpointId,
+                               long triggerTimestamp,
+                               CheckpointType checkpointType,
+                               long completedTimestamp,
+                               Map<Long, ActionState> taskStates,
+                               Map<Long, TaskStatistics> taskStatistics) {
         this.jobId = jobId;
         this.pipelineId = pipelineId;
         this.checkpointId = checkpointId;
@@ -59,40 +59,40 @@ public class CompletedCheckpoint implements Checkpoint, Serializable {
         this.taskStates = taskStates;
         this.taskStatistics = taskStatistics;
     }
-
+    
     @Override
     public long getCheckpointId() {
         return this.checkpointId;
     }
-
+    
     @Override
     public int getPipelineId() {
         return this.pipelineId;
     }
-
+    
     @Override
     public long getJobId() {
         return this.jobId;
     }
-
+    
     @Override
     public long getCheckpointTimestamp() {
         return this.triggerTimestamp;
     }
-
+    
     @Override
     public CheckpointType getCheckpointType() {
         return this.checkpointType;
     }
-
+    
     public long getCompletedTimestamp() {
         return completedTimestamp;
     }
-
+    
     public Map<Long, ActionState> getTaskStates() {
         return taskStates;
     }
-
+    
     public Map<Long, TaskStatistics> getTaskStatistics() {
         return taskStatistics;
     }

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.api.common.metrics.MetricTags;
@@ -85,38 +84,39 @@ import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTask
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.WAITING_RESTORE;
 
 public abstract class SeaTunnelTask extends AbstractTask {
+    
     private static final Logger LOG = LoggerFactory.getLogger(SeaTunnelTask.class);
     private static final long serialVersionUID = 2604309561613784425L;
-
+    
     protected volatile SeaTunnelTaskState currState;
     private final Flow executionFlow;
-
+    
     protected FlowLifeCycle startFlowLifeCycle;
-
+    
     protected List<FlowLifeCycle> allCycles;
-
+    
     protected List<OneInputFlowLifeCycle<Record<?>>> outputs;
-
+    
     protected List<CompletableFuture<Void>> flowFutures;
-
+    
     protected final Map<Long, List<ActionSubtaskState>> checkpointStates =
             new ConcurrentHashMap<>();
-
+    
     private final Map<Long, Integer> cycleAcks = new ConcurrentHashMap<>();
-
+    
     protected int indexID;
-
+    
     private TaskGroup taskBelongGroup;
-
+    
     private MetricsContext metricsContext;
-
+    
     public SeaTunnelTask(long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
         super(jobID, taskID);
         this.indexID = indexID;
         this.executionFlow = executionFlow;
         this.currState = SeaTunnelTaskState.CREATED;
     }
-
+    
     @Override
     public void init() throws Exception {
         super.init();
@@ -131,7 +131,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
         CompletableFuture.allOf(flowFutures.toArray(new CompletableFuture[0]))
                 .whenComplete((s, e) -> closeCalled = true);
     }
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     protected void stateProcess() throws Exception {
         switch (currState) {
@@ -173,7 +173,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
                 this.close();
                 progress.done();
                 return;
-                // TODO support cancel by outside
+            // TODO support cancel by outside
             case CANCELLING:
                 this.close();
                 currState = CANCELED;
@@ -183,14 +183,14 @@ public abstract class SeaTunnelTask extends AbstractTask {
                 throw new IllegalArgumentException("Unknown Enumerator State: " + currState);
         }
     }
-
+    
     public void setTaskGroup(TaskGroup group) {
         this.taskBelongGroup = group;
     }
-
+    
     @SuppressWarnings({"unchecked", "rawtypes"})
     private FlowLifeCycle convertFlowToActionLifeCycle(@NonNull Flow flow) throws Exception {
-
+        
         FlowLifeCycle lifeCycle;
         List<OneInputFlowLifeCycle<Record<?>>> flowLifeCycles = new ArrayList<>();
         if (!flow.getNext().isEmpty()) {
@@ -254,23 +254,23 @@ public abstract class SeaTunnelTask extends AbstractTask {
         allCycles.add(lifeCycle);
         return lifeCycle;
     }
-
+    
     protected abstract SourceFlowLifeCycle<?, ?> createSourceFlowLifeCycle(
-            SourceAction<?, ?, ?> sourceAction,
-            SourceConfig config,
-            CompletableFuture<Void> completableFuture);
-
+                                                                           SourceAction<?, ?, ?> sourceAction,
+                                                                           SourceConfig config,
+                                                                           CompletableFuture<Void> completableFuture);
+    
     protected abstract void collect() throws Exception;
-
+    
     @Override
     public Set<URL> getJarsUrl() {
         return getFlowInfo((action, set) -> set.addAll(action.getJarUrls()));
     }
-
+    
     public Set<Long> getActionIds() {
         return getFlowInfo((action, set) -> set.add(action.getId()));
     }
-
+    
     private <T> Set<T> getFlowInfo(BiConsumer<Action, Set<T>> function) {
         List<Flow> now = new ArrayList<>();
         now.add(executionFlow);
@@ -289,12 +289,12 @@ public abstract class SeaTunnelTask extends AbstractTask {
         }
         return result;
     }
-
+    
     @Override
     public void close() throws IOException {
         allCycles.parallelStream().forEach(cycle -> sneaky(cycle::close));
     }
-
+    
     public void ack(Barrier barrier) {
         Integer ackSize =
                 cycleAcks.compute(barrier.getId(), (id, count) -> count == null ? 1 : ++count);
@@ -313,32 +313,32 @@ public abstract class SeaTunnelTask extends AbstractTask {
             }
         }
     }
-
+    
     public void addState(Barrier barrier, long actionId, List<byte[]> state) {
         List<ActionSubtaskState> states =
                 checkpointStates.computeIfAbsent(barrier.getId(), id -> new ArrayList<>());
         states.add(new ActionSubtaskState(actionId, indexID, state));
     }
-
+    
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         notifyAllAction(listener -> listener.notifyCheckpointComplete(checkpointId));
         tryClose(checkpointId);
     }
-
+    
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         notifyAllAction(listener -> listener.notifyCheckpointAborted(checkpointId));
         tryClose(checkpointId);
     }
-
+    
     public void notifyAllAction(ConsumerWithException<InternalCheckpointListener> consumer) {
         allCycles.stream()
                 .filter(cycle -> cycle instanceof InternalCheckpointListener)
                 .map(cycle -> (InternalCheckpointListener) cycle)
                 .forEach(listener -> sneaky(consumer, listener));
     }
-
+    
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
         Map<Long, List<ActionSubtaskState>> stateMap =
@@ -362,15 +362,15 @@ public abstract class SeaTunnelTask extends AbstractTask {
                         });
         restoreComplete.complete(null);
     }
-
+    
     @Override
     public MetricsContext getMetricsContext() {
         return metricsContext;
     }
-
+    
     @Override
     public void provideDynamicMetrics(
-            MetricDescriptor descriptor, MetricsCollectionContext context) {
+                                      MetricDescriptor descriptor, MetricsCollectionContext context) {
         if (null != metricsContext) {
             metricsContext.provideDynamicMetrics(
                     descriptor

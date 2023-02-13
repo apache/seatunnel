@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.common.utils;
 
 import org.apache.seatunnel.common.Constants;
@@ -28,9 +27,10 @@ import java.util.Map;
 import java.util.UUID;
 
 public final class VariablesSubstitute {
-
-    private VariablesSubstitute() {}
-
+    
+    private VariablesSubstitute() {
+    }
+    
     /**
      * @param text raw string
      * @param timeFormat example : "yyyy-MM-dd HH:mm:ss"
@@ -39,14 +39,14 @@ public final class VariablesSubstitute {
     public static String substitute(String text, String timeFormat) {
         DateTimeFormatter df = DateTimeFormatter.ofPattern(timeFormat);
         final String formattedDate = df.format(ZonedDateTime.now());
-
+        
         final Map<String, String> valuesMap = new HashMap<>(3);
         valuesMap.put(Constants.UUID, UUID.randomUUID().toString());
         valuesMap.put(Constants.NOW, formattedDate);
         valuesMap.put(timeFormat, formattedDate);
         return substitute(text, valuesMap);
     }
-
+    
     /**
      * @param text raw string
      * @param valuesMap key is variable name, value is substituted string.

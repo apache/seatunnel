@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.source;
 
 import org.apache.seatunnel.api.source.Collector;
@@ -39,21 +38,21 @@ import java.net.URI;
 
 @Slf4j
 public class AmazonDynamoDBSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
-
+    
     protected DynamoDbClient dynamoDbClient;
     protected SingleSplitReaderContext context;
     protected AmazonDynamoDBSourceOptions amazondynamodbSourceOptions;
     protected SeaTunnelRowDeserializer seaTunnelRowDeserializer;
-
+    
     public AmazonDynamoDBSourceReader(
-            SingleSplitReaderContext context,
-            AmazonDynamoDBSourceOptions amazondynamodbSourceOptions,
-            SeaTunnelRowType typeInfo) {
+                                      SingleSplitReaderContext context,
+                                      AmazonDynamoDBSourceOptions amazondynamodbSourceOptions,
+                                      SeaTunnelRowType typeInfo) {
         this.context = context;
         this.amazondynamodbSourceOptions = amazondynamodbSourceOptions;
         this.seaTunnelRowDeserializer = new DefaultSeaTunnelRowDeserializer(typeInfo);
     }
-
+    
     @Override
     public void open() throws Exception {
         dynamoDbClient =
@@ -69,12 +68,12 @@ public class AmazonDynamoDBSourceReader extends AbstractSingleSplitReader<SeaTun
                                                 amazondynamodbSourceOptions.getSecretAccessKey())))
                         .build();
     }
-
+    
     @Override
     public void close() throws IOException {
         dynamoDbClient.close();
     }
-
+    
     @Override
     @SuppressWarnings("magicnumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {

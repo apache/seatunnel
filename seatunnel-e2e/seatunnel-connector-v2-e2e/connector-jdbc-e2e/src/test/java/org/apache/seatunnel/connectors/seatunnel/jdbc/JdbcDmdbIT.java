@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.util.JdbcCompareUtil;
@@ -55,7 +54,7 @@ import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class JdbcDmdbIT extends TestSuiteBase implements TestResource {
-
+    
     private static final String DOCKER_IMAGE = "laglangyue/dmdb8";
     private static final String DRIVER_CLASS = "dm.jdbc.driver.DmDriver";
     private static final String HOST = "e2e_dmdb";
@@ -67,7 +66,7 @@ public class JdbcDmdbIT extends TestSuiteBase implements TestResource {
     private static final String SINK_TABLE = "e2e_table_sink";
     private static final String DM_DRIVER_JAR =
             "https://repo1.maven.org/maven2/com/dameng/DmJdbcDriver18/8.1.1.193/DmJdbcDriver18-8.1.1.193.jar";
-
+    
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
@@ -79,10 +78,10 @@ public class JdbcDmdbIT extends TestSuiteBase implements TestResource {
                                         + DM_DRIVER_JAR);
                 Assertions.assertEquals(0, extraCommands.getExitCode());
             };
-
+    
     private Connection jdbcConnection;
     private GenericContainer<?> dbServer;
-
+    
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -103,13 +102,13 @@ public class JdbcDmdbIT extends TestSuiteBase implements TestResource {
                 .untilAsserted(this::initializeJdbcConnection);
         initializeJdbcTable();
     }
-
+    
     private void initializeJdbcConnection() throws SQLException {
         jdbcConnection =
                 DriverManager.getConnection(
                         String.format(URL, dbServer.getHost()), USERNAME, PASSWORD);
     }
-
+    
     /** init the table for DM_SERVER, DDL and DML for source and sink */
     private void initializeJdbcTable() {
         File file = ContainerUtil.getResourcesFile("/init/dm_init.conf");
@@ -130,7 +129,7 @@ public class JdbcDmdbIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("Initializing table failed!", e);
         }
     }
-
+    
     @AfterAll
     @Override
     public void tearDown() throws Exception {
@@ -141,11 +140,10 @@ public class JdbcDmdbIT extends TestSuiteBase implements TestResource {
             dbServer.close();
         }
     }
-
+    
     @TestTemplate
     @DisplayName("JDBC-DM end to end test")
-    public void testJdbcDmdb(TestContainer container)
-            throws IOException, InterruptedException, SQLException {
+    public void testJdbcDmdb(TestContainer container) throws IOException, InterruptedException, SQLException {
         assertHasData(SOURCE_TABLE);
         Container.ExecResult execResult = container.executeJob("/jdbc_dm_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
@@ -159,7 +157,7 @@ public class JdbcDmdbIT extends TestSuiteBase implements TestResource {
                         + " DM_TEXT, DM_LONG, DM_LONGVARCHAR, DM_CLOB, DM_TIMESTAMP, DM_DATETIME, DM_DATE, DM_BLOB, DM_BINARY, DM_VARBINARY, DM_LONGVARBINARY");
         clearSinkTable();
     }
-
+    
     private void assertHasData(String table) {
         try (Statement statement = jdbcConnection.createStatement()) {
             String sql = String.format("select * from %s.%s limit 1", DATABASE, table);
@@ -169,7 +167,7 @@ public class JdbcDmdbIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("test dm server image error", e);
         }
     }
-
+    
     private void clearSinkTable() {
         try (Statement statement = jdbcConnection.createStatement()) {
             statement.execute(String.format("TRUNCATE TABLE %s.%s", DATABASE, SINK_TABLE));

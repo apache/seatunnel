@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -45,33 +44,33 @@ import java.util.Optional;
 
 @AutoService(SeaTunnelSink.class)
 public class JdbcSink
-        implements SeaTunnelSink<SeaTunnelRow, JdbcSinkState, XidInfo, JdbcAggregatedCommitInfo> {
-
+        implements
+            SeaTunnelSink<SeaTunnelRow, JdbcSinkState, XidInfo, JdbcAggregatedCommitInfo> {
+    
     private Config pluginConfig;
-
+    
     private SeaTunnelRowType seaTunnelRowType;
-
+    
     private JobContext jobContext;
-
+    
     private JdbcSinkOptions jdbcSinkOptions;
-
+    
     private JdbcDialect dialect;
-
+    
     @Override
     public String getPluginName() {
         return "Jdbc";
     }
-
+    
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         this.pluginConfig = pluginConfig;
         this.jdbcSinkOptions = new JdbcSinkOptions(this.pluginConfig);
         this.dialect = JdbcDialectLoader.load(jdbcSinkOptions.getJdbcConnectionOptions().getUrl());
     }
-
+    
     @Override
-    public SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> createWriter(SinkWriter.Context context)
-            throws IOException {
+    public SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> createWriter(SinkWriter.Context context) throws IOException {
         SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> sinkWriter;
         if (jdbcSinkOptions.isExactlyOnce()) {
             sinkWriter =
@@ -85,39 +84,38 @@ public class JdbcSink
         } else {
             sinkWriter = new JdbcSinkWriter(context, dialect, jdbcSinkOptions, seaTunnelRowType);
         }
-
+        
         return sinkWriter;
     }
-
+    
     @Override
     public SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> restoreWriter(
-            SinkWriter.Context context, List<JdbcSinkState> states) throws IOException {
+                                                                          SinkWriter.Context context, List<JdbcSinkState> states) throws IOException {
         if (jdbcSinkOptions.isExactlyOnce()) {
             return new JdbcExactlyOnceSinkWriter(
                     context, jobContext, dialect, jdbcSinkOptions, seaTunnelRowType, states);
         }
         return SeaTunnelSink.super.restoreWriter(context, states);
     }
-
+    
     @Override
-    public Optional<SinkAggregatedCommitter<XidInfo, JdbcAggregatedCommitInfo>>
-            createAggregatedCommitter() {
+    public Optional<SinkAggregatedCommitter<XidInfo, JdbcAggregatedCommitInfo>> createAggregatedCommitter() {
         if (jdbcSinkOptions.isExactlyOnce()) {
             return Optional.of(new JdbcSinkAggregatedCommitter(jdbcSinkOptions));
         }
         return Optional.empty();
     }
-
+    
     @Override
     public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         this.seaTunnelRowType = seaTunnelRowType;
     }
-
+    
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
         return this.seaTunnelRowType;
     }
-
+    
     @Override
     public Optional<Serializer<JdbcAggregatedCommitInfo>> getAggregatedCommitInfoSerializer() {
         if (jdbcSinkOptions.isExactlyOnce()) {
@@ -125,12 +123,12 @@ public class JdbcSink
         }
         return Optional.empty();
     }
-
+    
     @Override
     public void setJobContext(JobContext jobContext) {
         this.jobContext = jobContext;
     }
-
+    
     @Override
     public Optional<Serializer<XidInfo>> getCommitInfoSerializer() {
         if (jdbcSinkOptions.isExactlyOnce()) {

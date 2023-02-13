@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.core.starter.seatunnel.jvm;
 
 import java.io.IOException;
@@ -29,7 +28,7 @@ import java.util.Arrays;
  * directory to be a private temporary directory.
  */
 final class TempDirectory {
-
+    
     /**
      * The main entry point. The exit code is 0 if we successfully created a temporary directory as
      * a sub-directory of the default temporary directory and printed the resulting path to the
@@ -45,8 +44,8 @@ final class TempDirectory {
                     "expected zero arguments but was " + Arrays.toString(args));
         }
         /*
-         * On Windows, we avoid creating a unique temporary directory per invocation lest we pollute the temporary directory. On other
-         * operating systems, temporary directories will be cleaned automatically via various mechanisms (e.g., systemd, or restarts).
+         * On Windows, we avoid creating a unique temporary directory per invocation lest we pollute the temporary directory. On other operating systems, temporary directories will be cleaned
+         * automatically via various mechanisms (e.g., systemd, or restarts).
          */
         final Path path;
         if (System.getProperty("os.name").startsWith("Windows")) {

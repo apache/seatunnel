@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,17 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.api.table.type;
 
 /** Lists all kinds of changes that a row can describe in a changelog. */
 public enum RowKind {
     // Note: Enums have no stable hash code across different JVMs, use toByteValue() for
     // this purpose.
-
+    
     /** Insertion operation. */
     INSERT("+I", (byte) 0),
-
+    
     /**
      * Update operation with the previous content of the updated row.
      *
@@ -33,7 +32,7 @@ public enum RowKind {
      * i.e., an update of a row that is not uniquely identifiable by a key.
      */
     UPDATE_BEFORE("-U", (byte) 1),
-
+    
     /**
      * Update operation with new content of the updated row.
      *
@@ -42,14 +41,14 @@ public enum RowKind {
      * update of a row that is uniquely identifiable by a key.
      */
     UPDATE_AFTER("+U", (byte) 2),
-
+    
     /** Deletion operation. */
     DELETE("-D", (byte) 3);
-
+    
     private final String shortString;
-
+    
     private final byte value;
-
+    
     /**
      * Creates a {@link RowKind} enum with the given short string and byte value representation of
      * the {@link RowKind}.
@@ -58,7 +57,7 @@ public enum RowKind {
         this.shortString = shortString;
         this.value = value;
     }
-
+    
     /**
      * Returns a short string representation of this {@link RowKind}.
      *
@@ -74,7 +73,7 @@ public enum RowKind {
     public String shortString() {
         return shortString;
     }
-
+    
     /**
      * Returns the byte value representation of this {@link RowKind}. The byte value is used for
      * serialization and deserialization.
@@ -91,7 +90,7 @@ public enum RowKind {
     public byte toByteValue() {
         return value;
     }
-
+    
     /**
      * Creates a {@link RowKind} from the given byte value. Each {@link RowKind} has a byte value
      * representation.

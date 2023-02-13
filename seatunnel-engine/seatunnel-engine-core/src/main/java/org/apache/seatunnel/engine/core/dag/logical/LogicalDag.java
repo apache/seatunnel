@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.core.dag.logical;
 
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -57,40 +56,43 @@ import java.util.Set;
  * processors.
  */
 public class LogicalDag implements IdentifiedDataSerializable {
-
+    
     private static final Logger LOG = LoggerFactory.getLogger(LogicalDag.class);
-    @Getter private JobConfig jobConfig;
+    @Getter
+    private JobConfig jobConfig;
     private final Set<LogicalEdge> edges = new LinkedHashSet<>();
     private final Map<Long, LogicalVertex> logicalVertexMap = new LinkedHashMap<>();
     private IdGenerator idGenerator;
-
-    public LogicalDag() {}
-
+    
+    public LogicalDag() {
+    }
+    
     public LogicalDag(@NonNull JobConfig jobConfig, @NonNull IdGenerator idGenerator) {
         this.jobConfig = jobConfig;
         this.idGenerator = idGenerator;
     }
-
+    
     public void addLogicalVertex(LogicalVertex logicalVertex) {
         logicalVertexMap.put(logicalVertex.getVertexId(), logicalVertex);
     }
-
+    
     public void addEdge(LogicalEdge logicalEdge) {
         edges.add(logicalEdge);
     }
-
+    
     public Set<LogicalEdge> getEdges() {
         return this.edges;
     }
-
+    
     public Map<Long, LogicalVertex> getLogicalVertexMap() {
         return logicalVertexMap;
     }
-
-    @NonNull public JsonObject getLogicalDagAsJson() {
+    
+    @NonNull
+    public JsonObject getLogicalDagAsJson() {
         JsonObject logicalDag = new JsonObject();
         JsonArray vertices = new JsonArray();
-
+        
         logicalVertexMap.values().stream()
                 .forEach(
                         v -> {
@@ -103,7 +105,7 @@ public class LogicalDag implements IdentifiedDataSerializable {
                             vertices.add(vertex);
                         });
         logicalDag.add("vertices", vertices);
-
+        
         JsonArray edges = new JsonArray();
         this.edges.stream()
                 .forEach(
@@ -113,58 +115,58 @@ public class LogicalDag implements IdentifiedDataSerializable {
                             edge.add("targetVertex", e.getTargetVertex().getAction().getName());
                             edges.add(edge);
                         });
-
+        
         logicalDag.add("edges", edges);
         return logicalDag;
     }
-
+    
     @Override
     public int getFactoryId() {
         return JobDataSerializerHook.FACTORY_ID;
     }
-
+    
     @Override
     public int getClassId() {
         return JobDataSerializerHook.LOGICAL_DAG;
     }
-
+    
     @Override
     public void writeData(ObjectDataOutput out) throws IOException {
         out.writeInt(logicalVertexMap.size());
-
+        
         for (Map.Entry<Long, LogicalVertex> entry : logicalVertexMap.entrySet()) {
             out.writeLong(entry.getKey());
             out.writeObject(entry.getValue());
         }
-
+        
         out.writeInt(edges.size());
-
+        
         for (LogicalEdge edge : edges) {
             out.writeObject(edge);
         }
-
+        
         out.writeObject(jobConfig);
         out.writeObject(idGenerator);
     }
-
+    
     @Override
     public void readData(ObjectDataInput in) throws IOException {
         int vertexCount = in.readInt();
-
+        
         for (int i = 0; i < vertexCount; i++) {
             Long key = in.readLong();
             LogicalVertex value = in.readObject();
             logicalVertexMap.put(key, value);
         }
-
+        
         int edgeCount = in.readInt();
-
+        
         for (int i = 0; i < edgeCount; i++) {
             LogicalEdge edge = in.readObject();
             edge.recoveryFromVertexMap(logicalVertexMap);
             edges.add(edge);
         }
-
+        
         jobConfig = in.readObject();
         idGenerator = in.readObject();
     }

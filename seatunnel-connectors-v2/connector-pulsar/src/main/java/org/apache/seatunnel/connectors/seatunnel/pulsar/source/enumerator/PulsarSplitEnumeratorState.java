@@ -1,11 +1,10 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -15,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator;
 
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.topic.TopicPartition;
@@ -24,12 +22,13 @@ import java.io.Serializable;
 import java.util.Set;
 
 public class PulsarSplitEnumeratorState implements Serializable {
+    
     private final Set<TopicPartition> assignedPartitions;
-
+    
     PulsarSplitEnumeratorState(Set<TopicPartition> assignedPartitions) {
         this.assignedPartitions = assignedPartitions;
     }
-
+    
     public Set<TopicPartition> assignedPartitions() {
         return assignedPartitions;
     }

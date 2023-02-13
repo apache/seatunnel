@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.clickhouse;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
@@ -75,6 +74,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class ClickhouseIT extends TestSuiteBase implements TestResource {
+    
     private static final Logger LOG = LoggerFactory.getLogger(ClickhouseIT.class);
     private static final String CLICKHOUSE_DOCKER_IMAGE = "yandex/clickhouse-server:latest";
     private static final String HOST = "clickhouse";
@@ -91,7 +91,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     private static final Config CONFIG = getInitClickhouseConfig();
     private ClickHouseContainer container;
     private Connection connection;
-
+    
     @TestTemplate
     public void testClickhouse(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob(CLICKHOUSE_JOB_CONFIG);
@@ -100,7 +100,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         compareResult();
         clearSinkTable();
     }
-
+    
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -121,7 +121,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         this.initializeClickhouseTable();
         this.batchInsertData();
     }
-
+    
     private void initializeClickhouseTable() {
         try {
             Statement statement = this.connection.createStatement();
@@ -131,10 +131,8 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("Initializing Clickhouse table failed!", e);
         }
     }
-
-    private void initConnection()
-            throws SQLException, ClassNotFoundException, InstantiationException,
-                    IllegalAccessException {
+    
+    private void initConnection() throws SQLException, ClassNotFoundException, InstantiationException, IllegalAccessException {
         final Properties info = new Properties();
         info.put("user", this.container.getUsername());
         info.put("password", this.container.getPassword());
@@ -142,7 +140,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
                 ((Driver) Class.forName(DRIVER_CLASS).newInstance())
                         .connect(this.container.getJdbcUrl(), info);
     }
-
+    
     private static Config getInitClickhouseConfig() {
         File file = ContainerUtil.getResourcesFile(INIT_CLICKHOUSE_PATH);
         Config config = ConfigFactory.parseFile(file);
@@ -152,7 +150,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
                 && config.hasPath(COMPARE_SQL);
         return config;
     }
-
+    
     private Array toSqlArray(Object value) throws SQLException {
         Object[] elements = null;
         String sqlType = null;
@@ -187,7 +185,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         }
         return connection.createArrayOf(sqlType, elements);
     }
-
+    
     private void batchInsertData() {
         String sql = CONFIG.getString(INSERT_SQL);
         PreparedStatement preparedStatement = null;
@@ -242,115 +240,115 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
             }
         }
     }
-
+    
     private static Pair<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
-                        new String[] {
-                            "id",
-                            "c_map",
-                            "c_array_string",
-                            "c_array_short",
-                            "c_array_int",
-                            "c_array_long",
-                            "c_array_float",
-                            "c_array_double",
-                            "c_string",
-                            "c_boolean",
-                            "c_int8",
-                            "c_int16",
-                            "c_int32",
-                            "c_int64",
-                            "c_float32",
-                            "c_float64",
-                            "c_decimal",
-                            "c_date",
-                            "c_datetime",
-                            "c_nullable",
-                            "c_lowcardinality",
-                            "c_nested.int",
-                            "c_nested.double",
-                            "c_nested.string",
-                            "c_int128",
-                            "c_uint128",
-                            "c_int256",
-                            "c_uint256",
-                            "c_point",
-                            "c_ring"
+                        new String[]{
+                                "id",
+                                "c_map",
+                                "c_array_string",
+                                "c_array_short",
+                                "c_array_int",
+                                "c_array_long",
+                                "c_array_float",
+                                "c_array_double",
+                                "c_string",
+                                "c_boolean",
+                                "c_int8",
+                                "c_int16",
+                                "c_int32",
+                                "c_int64",
+                                "c_float32",
+                                "c_float64",
+                                "c_decimal",
+                                "c_date",
+                                "c_datetime",
+                                "c_nullable",
+                                "c_lowcardinality",
+                                "c_nested.int",
+                                "c_nested.double",
+                                "c_nested.string",
+                                "c_int128",
+                                "c_uint128",
+                                "c_int256",
+                                "c_uint256",
+                                "c_point",
+                                "c_ring"
                         },
-                        new SeaTunnelDataType[] {
-                            BasicType.LONG_TYPE,
-                            new MapType<>(BasicType.STRING_TYPE, BasicType.INT_TYPE),
-                            ArrayType.STRING_ARRAY_TYPE,
-                            ArrayType.SHORT_ARRAY_TYPE,
-                            ArrayType.INT_ARRAY_TYPE,
-                            ArrayType.LONG_ARRAY_TYPE,
-                            ArrayType.FLOAT_ARRAY_TYPE,
-                            ArrayType.DOUBLE_ARRAY_TYPE,
-                            BasicType.STRING_TYPE,
-                            BasicType.BOOLEAN_TYPE,
-                            BasicType.BYTE_TYPE,
-                            BasicType.SHORT_TYPE,
-                            BasicType.INT_TYPE,
-                            BasicType.LONG_TYPE,
-                            BasicType.FLOAT_TYPE,
-                            BasicType.DOUBLE_TYPE,
-                            new DecimalType(9, 4),
-                            LocalTimeType.LOCAL_DATE_TYPE,
-                            LocalTimeType.LOCAL_DATE_TIME_TYPE,
-                            BasicType.INT_TYPE,
-                            BasicType.STRING_TYPE,
-                            ArrayType.INT_ARRAY_TYPE,
-                            ArrayType.DOUBLE_ARRAY_TYPE,
-                            ArrayType.STRING_ARRAY_TYPE,
-                            BasicType.STRING_TYPE,
-                            BasicType.STRING_TYPE,
-                            BasicType.STRING_TYPE,
-                            BasicType.STRING_TYPE,
-                            BasicType.STRING_TYPE,
-                            BasicType.STRING_TYPE
+                        new SeaTunnelDataType[]{
+                                BasicType.LONG_TYPE,
+                                new MapType<>(BasicType.STRING_TYPE, BasicType.INT_TYPE),
+                                ArrayType.STRING_ARRAY_TYPE,
+                                ArrayType.SHORT_ARRAY_TYPE,
+                                ArrayType.INT_ARRAY_TYPE,
+                                ArrayType.LONG_ARRAY_TYPE,
+                                ArrayType.FLOAT_ARRAY_TYPE,
+                                ArrayType.DOUBLE_ARRAY_TYPE,
+                                BasicType.STRING_TYPE,
+                                BasicType.BOOLEAN_TYPE,
+                                BasicType.BYTE_TYPE,
+                                BasicType.SHORT_TYPE,
+                                BasicType.INT_TYPE,
+                                BasicType.LONG_TYPE,
+                                BasicType.FLOAT_TYPE,
+                                BasicType.DOUBLE_TYPE,
+                                new DecimalType(9, 4),
+                                LocalTimeType.LOCAL_DATE_TYPE,
+                                LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                BasicType.INT_TYPE,
+                                BasicType.STRING_TYPE,
+                                ArrayType.INT_ARRAY_TYPE,
+                                ArrayType.DOUBLE_ARRAY_TYPE,
+                                ArrayType.STRING_ARRAY_TYPE,
+                                BasicType.STRING_TYPE,
+                                BasicType.STRING_TYPE,
+                                BasicType.STRING_TYPE,
+                                BasicType.STRING_TYPE,
+                                BasicType.STRING_TYPE,
+                                BasicType.STRING_TYPE
                         });
         List<SeaTunnelRow> rows = new ArrayList<>();
         for (int i = 0; i < 100; ++i) {
             SeaTunnelRow row =
                     new SeaTunnelRow(
-                            new Object[] {
-                                (long) i,
-                                Collections.singletonMap("key", Integer.parseInt("1")),
-                                new String[] {"string"},
-                                new Short[] {Short.parseShort("1")},
-                                new Integer[] {Integer.parseInt("1")},
-                                new Long[] {Long.parseLong("1")},
-                                new Float[] {Float.parseFloat("1.1")},
-                                new Double[] {Double.parseDouble("1.1")},
-                                "string",
-                                Boolean.FALSE,
-                                Byte.parseByte("1"),
-                                Short.parseShort("1"),
-                                Integer.parseInt("1"),
-                                Long.parseLong("1"),
-                                Float.parseFloat("1.1"),
-                                Double.parseDouble("1.1"),
-                                BigDecimal.valueOf(11L, 1),
-                                LocalDate.now(),
-                                LocalDateTime.now(),
-                                i,
-                                "string",
-                                new Integer[] {Integer.parseInt("1")},
-                                new Double[] {Double.parseDouble("1.1")},
-                                new String[] {"1"},
-                                "170141183460469231731687303715884105727",
-                                "340282366920938463463374607431768211455",
-                                "57896044618658097711785492504343953926634992332820282019728792003956564819967",
-                                "115792089237316195423570985008687907853269984665640564039457584007913129639935",
-                                new double[] {1, 2},
-                                new double[][] {{2, 3}, {4, 5}}
+                            new Object[]{
+                                    (long) i,
+                                    Collections.singletonMap("key", Integer.parseInt("1")),
+                                    new String[]{"string"},
+                                    new Short[]{Short.parseShort("1")},
+                                    new Integer[]{Integer.parseInt("1")},
+                                    new Long[]{Long.parseLong("1")},
+                                    new Float[]{Float.parseFloat("1.1")},
+                                    new Double[]{Double.parseDouble("1.1")},
+                                    "string",
+                                    Boolean.FALSE,
+                                    Byte.parseByte("1"),
+                                    Short.parseShort("1"),
+                                    Integer.parseInt("1"),
+                                    Long.parseLong("1"),
+                                    Float.parseFloat("1.1"),
+                                    Double.parseDouble("1.1"),
+                                    BigDecimal.valueOf(11L, 1),
+                                    LocalDate.now(),
+                                    LocalDateTime.now(),
+                                    i,
+                                    "string",
+                                    new Integer[]{Integer.parseInt("1")},
+                                    new Double[]{Double.parseDouble("1.1")},
+                                    new String[]{"1"},
+                                    "170141183460469231731687303715884105727",
+                                    "340282366920938463463374607431768211455",
+                                    "57896044618658097711785492504343953926634992332820282019728792003956564819967",
+                                    "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                                    new double[]{1, 2},
+                                    new double[][]{{2, 3}, {4, 5}}
                             });
             rows.add(row);
         }
         return Pair.of(rowType, rows);
     }
-
+    
     private void compareResult() throws SQLException, IOException {
         String sourceSql = "select * from " + SOURCE_TABLE;
         String sinkSql = "select * from " + SINK_TABLE;
@@ -386,7 +384,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         Assertions.assertTrue(
                 compare(String.format(CONFIG.getString(COMPARE_SQL), columns, columns)));
     }
-
+    
     private Boolean compare(String sql) {
         try (Statement statement = connection.createStatement()) {
             ResultSet resultSet = statement.executeQuery(sql);
@@ -395,7 +393,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("result compare error", e);
         }
     }
-
+    
     private void assertHasData(String table) {
         try (Statement statement = connection.createStatement()) {
             String sql = String.format("select * from %s.%s limit 1", DATABASE, table);
@@ -405,7 +403,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("test clickhouse server image error", e);
         }
     }
-
+    
     private void clearSinkTable() {
         try (Statement statement = connection.createStatement()) {
             statement.execute(String.format("truncate table %s.%s", DATABASE, SINK_TABLE));
@@ -413,7 +411,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("Test clickhouse server image error", e);
         }
     }
-
+    
     @AfterAll
     @Override
     public void tearDown() throws Exception {

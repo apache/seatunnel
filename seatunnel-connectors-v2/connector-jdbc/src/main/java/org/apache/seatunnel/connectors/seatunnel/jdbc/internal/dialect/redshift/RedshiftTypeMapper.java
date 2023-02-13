@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.redshift;
 
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -31,7 +30,7 @@ import java.sql.SQLException;
 
 @Slf4j
 public class RedshiftTypeMapper implements JdbcDialectTypeMapper {
-
+    
     /* ============================ data types ===================== */
     private static final String REDSHIFT_SMALLINT = "SMALLINT";
     private static final String REDSHIFT_INT2 = "INT2";
@@ -40,7 +39,7 @@ public class RedshiftTypeMapper implements JdbcDialectTypeMapper {
     private static final String REDSHIFT_INT4 = "INT4";
     private static final String REDSHIFT_BIGINT = "BIGINT";
     private static final String REDSHIFT_INT8 = "INT8";
-
+    
     private static final String REDSHIFT_DECIMAL = "DECIMAL";
     private static final String REDSHIFT_NUMERIC = "NUMERIC";
     private static final String REDSHIFT_REAL = "REAL";
@@ -48,40 +47,39 @@ public class RedshiftTypeMapper implements JdbcDialectTypeMapper {
     private static final String REDSHIFT_DOUBLE_PRECISION = "DOUBLE PRECISION";
     private static final String REDSHIFT_FLOAT8 = "FLOAT8";
     private static final String REDSHIFT_FLOAT = "FLOAT";
-
+    
     private static final String REDSHIFT_BOOLEAN = "BOOLEAN";
     private static final String REDSHIFT_BOOL = "BOOL";
-
+    
     private static final String REDSHIFT_CHAR = "CHAR";
     private static final String REDSHIFT_CHARACTER = "CHARACTER";
     private static final String REDSHIFT_NCHAR = "NCHAR";
     private static final String REDSHIFT_BPCHAR = "BPCHAR";
-
+    
     private static final String REDSHIFT_VARCHAR = "VARCHAR";
     private static final String REDSHIFT_CHARACTER_VARYING = "CHARACTER VARYING";
     private static final String REDSHIFT_NVARCHAR = "NVARCHAR";
     private static final String REDSHIFT_TEXT = "TEXT";
-
+    
     private static final String REDSHIFT_DATE = "DATE";
-    /*FIXME*/
-
+    /* FIXME */
+    
     private static final String REDSHIFT_GEOMETRY = "GEOMETRY";
     private static final String REDSHIFT_OID = "OID";
     private static final String REDSHIFT_SUPER = "SUPER";
-
+    
     private static final String REDSHIFT_TIME = "TIME";
     private static final String REDSHIFT_TIME_WITH_TIME_ZONE = "TIME WITH TIME ZONE";
-
+    
     private static final String REDSHIFT_TIMETZ = "TIMETZ";
     private static final String REDSHIFT_TIMESTAMP = "TIMESTAMP";
     private static final String REDSHIFT_TIMESTAMP_WITH_OUT_TIME_ZONE =
             "TIMESTAMP WITHOUT TIME ZONE";
-
+    
     private static final String REDSHIFT_TIMESTAMPTZ = "TIMESTAMPTZ";
-
+    
     @Override
-    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
-            throws SQLException {
+    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException {
         String redshiftType = metadata.getColumnTypeName(colIndex).toUpperCase();
         int precision = metadata.getPrecision(colIndex);
         int scale = metadata.getScale(colIndex);

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.cdc.base.source.reader.external;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -44,30 +43,30 @@ import java.util.stream.Collectors;
 
 /** The context for fetch task that fetching data of snapshot split from JDBC data source. */
 public abstract class JdbcSourceFetchTaskContext implements FetchTask.Context {
-
+    
     protected final JdbcSourceConfig sourceConfig;
     protected final JdbcDataSourceDialect dataSourceDialect;
     protected final CommonConnectorConfig dbzConnectorConfig;
     protected final SchemaNameAdjuster schemaNameAdjuster;
-
+    
     public JdbcSourceFetchTaskContext(
-            JdbcSourceConfig sourceConfig, JdbcDataSourceDialect dataSourceDialect) {
+                                      JdbcSourceConfig sourceConfig, JdbcDataSourceDialect dataSourceDialect) {
         this.sourceConfig = sourceConfig;
         this.dataSourceDialect = dataSourceDialect;
         this.dbzConnectorConfig = sourceConfig.getDbzConnectorConfig();
         this.schemaNameAdjuster = SchemaNameAdjuster.create();
     }
-
+    
     @Override
     public TableId getTableId(SourceRecord record) {
         return null;
     }
-
+    
     @Override
     public boolean isDataChangeRecord(SourceRecord record) {
         return SourceRecordUtils.isDataChangeRecord(record);
     }
-
+    
     @Override
     public boolean isRecordBetween(SourceRecord record, Object[] splitStart, Object[] splitEnd) {
         SeaTunnelRowType splitKeyType =
@@ -75,11 +74,11 @@ public abstract class JdbcSourceFetchTaskContext implements FetchTask.Context {
         Object[] key = SourceRecordUtils.getSplitKey(splitKeyType, record, getSchemaNameAdjuster());
         return SourceRecordUtils.splitKeyRangeContains(key, splitStart, splitEnd);
     }
-
+    
     @SuppressWarnings("checkstyle:MissingSwitchDefault")
     @Override
     public void rewriteOutputBuffer(
-            Map<Struct, SourceRecord> outputBuffer, SourceRecord changeRecord) {
+                                    Map<Struct, SourceRecord> outputBuffer, SourceRecord changeRecord) {
         Struct key = (Struct) changeRecord.key();
         Struct value = (Struct) changeRecord.value();
         if (value != null) {
@@ -116,7 +115,7 @@ public abstract class JdbcSourceFetchTaskContext implements FetchTask.Context {
             }
         }
     }
-
+    
     @Override
     public List<SourceRecord> formatMessageTimestamp(Collection<SourceRecord> snapshotRecords) {
         return snapshotRecords.stream()
@@ -146,30 +145,30 @@ public abstract class JdbcSourceFetchTaskContext implements FetchTask.Context {
                         })
                 .collect(Collectors.toList());
     }
-
+    
     public SourceConfig getSourceConfig() {
         return sourceConfig;
     }
-
+    
     public JdbcDataSourceDialect getDataSourceDialect() {
         return dataSourceDialect;
     }
-
+    
     public CommonConnectorConfig getDbzConnectorConfig() {
         return dbzConnectorConfig;
     }
-
+    
     public SchemaNameAdjuster getSchemaNameAdjuster() {
         return schemaNameAdjuster;
     }
-
+    
     public abstract RelationalDatabaseSchema getDatabaseSchema();
-
+    
     public abstract SeaTunnelRowType getSplitType(Table table);
-
+    
     public abstract ErrorHandler getErrorHandler();
-
+    
     public abstract JdbcSourceEventDispatcher getDispatcher();
-
+    
     public abstract OffsetContext getOffsetContext();
 }

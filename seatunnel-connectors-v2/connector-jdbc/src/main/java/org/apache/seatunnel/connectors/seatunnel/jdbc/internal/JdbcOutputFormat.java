@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal;
 
 import org.apache.seatunnel.common.exception.CommonErrorCode;
@@ -44,33 +43,33 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 /** A JDBC outputFormat */
 public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implements Serializable {
-
+    
     protected final JdbcConnectionProvider connectionProvider;
-
+    
     private static final long serialVersionUID = 1L;
-
+    
     private static final Logger LOG = LoggerFactory.getLogger(JdbcOutputFormat.class);
-
+    
     private final JdbcConnectionOptions jdbcConnectionOptions;
     private final StatementExecutorFactory<E> statementExecutorFactory;
-
+    
     private transient E jdbcStatementExecutor;
     private transient int batchCount = 0;
     private transient volatile boolean closed = false;
-
+    
     private transient ScheduledExecutorService scheduler;
     private transient ScheduledFuture<?> scheduledFuture;
     private transient volatile Exception flushException;
-
+    
     public JdbcOutputFormat(
-            JdbcConnectionProvider connectionProvider,
-            JdbcConnectionOptions jdbcConnectionOptions,
-            StatementExecutorFactory<E> statementExecutorFactory) {
+                            JdbcConnectionProvider connectionProvider,
+                            JdbcConnectionOptions jdbcConnectionOptions,
+                            StatementExecutorFactory<E> statementExecutorFactory) {
         this.connectionProvider = checkNotNull(connectionProvider);
         this.jdbcConnectionOptions = checkNotNull(jdbcConnectionOptions);
         this.statementExecutorFactory = checkNotNull(statementExecutorFactory);
     }
-
+    
     /** Connects to the target database and initializes the prepared statement. */
     public void open() throws IOException {
         try {
@@ -82,7 +81,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                     e);
         }
         jdbcStatementExecutor = createAndOpenStatementExecutor(statementExecutorFactory);
-
+        
         if (jdbcConnectionOptions.getBatchIntervalMs() != 0
                 && jdbcConnectionOptions.getBatchSize() != 1) {
             this.scheduler =
@@ -114,7 +113,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                             TimeUnit.MILLISECONDS);
         }
     }
-
+    
     private E createAndOpenStatementExecutor(StatementExecutorFactory<E> statementExecutorFactory) {
         E exec = statementExecutorFactory.get();
         try {
@@ -125,7 +124,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         }
         return exec;
     }
-
+    
     private void checkFlushException() {
         if (flushException != null) {
             throw new JdbcConnectorException(
@@ -134,7 +133,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                     flushException);
         }
     }
-
+    
     public final synchronized void writeRecord(I record) {
         checkFlushException();
         try {
@@ -149,11 +148,11 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                     CommonErrorCode.SQL_OPERATION_FAILED, "Writing records to JDBC failed.", e);
         }
     }
-
+    
     protected void addToBatch(I record) throws SQLException {
         jdbcStatementExecutor.addToBatch(record);
     }
-
+    
     public synchronized void flush() throws IOException {
         checkFlushException();
         final int sleepMs = 1000;
@@ -192,21 +191,21 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
             }
         }
     }
-
+    
     protected void attemptFlush() throws SQLException {
         jdbcStatementExecutor.executeBatch();
     }
-
+    
     /** Executes prepared statement and closes all resources of this instance. */
     public synchronized void close() {
         if (!closed) {
             closed = true;
-
+            
             if (this.scheduledFuture != null) {
                 scheduledFuture.cancel(false);
                 this.scheduler.shutdown();
             }
-
+            
             if (batchCount > 0) {
                 try {
                     flush();
@@ -218,7 +217,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                             e);
                 }
             }
-
+            
             try {
                 if (jdbcStatementExecutor != null) {
                     jdbcStatementExecutor.closeStatements();
@@ -230,7 +229,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         connectionProvider.closeConnection();
         checkFlushException();
     }
-
+    
     public void updateExecutor(boolean reconnect) throws SQLException, ClassNotFoundException {
         jdbcStatementExecutor.closeStatements();
         jdbcStatementExecutor.prepareStatements(
@@ -238,17 +237,20 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                         ? connectionProvider.reestablishConnection()
                         : connectionProvider.getConnection());
     }
-
+    
     @VisibleForTesting
     public Connection getConnection() {
         return connectionProvider.getConnection();
     }
-
+    
     /**
      * A factory for creating {@link JdbcBatchStatementExecutor} instance.
      *
      * @param <T> The type of instance.
      */
     public interface StatementExecutorFactory<T extends JdbcBatchStatementExecutor<?>>
-            extends Supplier<T>, Serializable {}
+            extends
+                Supplier<T>,
+                Serializable {
+    }
 }

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.client;
 
 import org.apache.seatunnel.common.Handover;
@@ -47,11 +46,12 @@ import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.Rabbi
 @Slf4j
 @AllArgsConstructor
 public class RabbitmqClient {
+    
     private final RabbitmqConfig config;
     private final ConnectionFactory connectionFactory;
     private final Connection connection;
     private final Channel channel;
-
+    
     public RabbitmqClient(RabbitmqConfig config) {
         this.config = config;
         try {
@@ -72,16 +72,16 @@ public class RabbitmqClient {
                     e);
         }
     }
-
+    
     public Channel getChannel() {
         return channel;
     }
-
+    
     public DefaultConsumer getQueueingConsumer(Handover<Delivery> handover) {
         DefaultConsumer consumer = new QueueingConsumer(channel, handover);
         return consumer;
     }
-
+    
     public ConnectionFactory getConnectionFactory() {
         ConnectionFactory factory = new ConnectionFactory();
         if (!StringUtils.isEmpty(config.getUri())) {
@@ -103,7 +103,7 @@ public class RabbitmqClient {
             factory.setUsername(config.getUsername());
             factory.setPassword(config.getPassword());
         }
-
+        
         if (config.getAutomaticRecovery() != null) {
             factory.setAutomaticRecoveryEnabled(config.getAutomaticRecovery());
         }
@@ -127,7 +127,7 @@ public class RabbitmqClient {
         }
         return factory;
     }
-
+    
     public void write(byte[] msg) {
         try {
             if (StringUtils.isEmpty(config.getRoutingKey())) {
@@ -154,7 +154,7 @@ public class RabbitmqClient {
             }
         }
     }
-
+    
     public void close() {
         Exception t = null;
         try {
@@ -164,7 +164,7 @@ public class RabbitmqClient {
         } catch (IOException | TimeoutException e) {
             t = e;
         }
-
+        
         try {
             if (connection != null) {
                 connection.close();
@@ -186,13 +186,13 @@ public class RabbitmqClient {
                     t);
         }
     }
-
+    
     protected void setupQueue() throws IOException {
         if (config.getQueueName() != null) {
             declareQueueDefaults(channel, config.getQueueName());
         }
     }
-
+    
     private void declareQueueDefaults(Channel channel, String queueName) throws IOException {
         channel.queueDeclare(queueName, true, false, false, null);
     }

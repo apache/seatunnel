@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 
 import org.apache.seatunnel.api.source.SourceEvent;
@@ -39,65 +38,67 @@ import java.util.stream.Collectors;
  * source readers.
  */
 public class IncrementalSourceEnumerator
-        implements SourceSplitEnumerator<SourceSplitBase, PendingSplitsState> {
+        implements
+            SourceSplitEnumerator<SourceSplitBase, PendingSplitsState> {
+    
     private static final Logger LOG = LoggerFactory.getLogger(IncrementalSourceEnumerator.class);
-
+    
     private final SourceSplitEnumerator.Context<SourceSplitBase> context;
     private final SplitAssigner splitAssigner;
-
+    
     /** using TreeSet to prefer assigning incremental split to task-0 for easier debug */
     private final TreeSet<Integer> readersAwaitingSplit;
-
+    
     private volatile boolean running;
-
+    
     public IncrementalSourceEnumerator(
-            SourceSplitEnumerator.Context<SourceSplitBase> context, SplitAssigner splitAssigner) {
+                                       SourceSplitEnumerator.Context<SourceSplitBase> context, SplitAssigner splitAssigner) {
         this.context = context;
         this.splitAssigner = splitAssigner;
         this.readersAwaitingSplit = new TreeSet<>();
         this.running = false;
     }
-
+    
     @Override
     public void open() {
         splitAssigner.open();
     }
-
+    
     @Override
     public synchronized void run() throws Exception {
         this.running = true;
         assignSplits();
     }
-
+    
     @Override
     public synchronized void handleSplitRequest(int subtaskId) {
         if (!context.registeredReaders().contains(subtaskId)) {
             // reader failed between sending the request and now. skip this request.
             return;
         }
-
+        
         readersAwaitingSplit.add(subtaskId);
         if (running) {
             assignSplits();
         }
     }
-
+    
     @Override
     public void addSplitsBack(List<SourceSplitBase> splits, int subtaskId) {
         LOG.debug("Incremental Source Enumerator adds splits back: {}", splits);
         splitAssigner.addSplits(splits);
     }
-
+    
     @Override
     public int currentUnassignedSplitSize() {
         return 0;
     }
-
+    
     @Override
     public void registerReader(int subtaskId) {
         // do nothing
     }
-
+    
     @Override
     public void handleSourceEvent(int subtaskId, SourceEvent sourceEvent) {
         if (sourceEvent instanceof CompletedSnapshotSplitsReportEvent) {
@@ -110,7 +111,7 @@ public class IncrementalSourceEnumerator
             List<SnapshotSplitWatermark> completedSplitWatermarks =
                     reportEvent.getCompletedSnapshotSplitWatermarks();
             splitAssigner.onCompletedSplits(completedSplitWatermarks);
-
+            
             // send acknowledge event
             CompletedSnapshotSplitsAckEvent ackEvent =
                     new CompletedSnapshotSplitsAckEvent(
@@ -120,30 +121,30 @@ public class IncrementalSourceEnumerator
             context.sendEventToSourceReader(subtaskId, ackEvent);
         }
     }
-
+    
     @Override
     public PendingSplitsState snapshotState(long checkpointId) {
         return splitAssigner.snapshotState(checkpointId);
     }
-
+    
     @Override
     public synchronized void notifyCheckpointComplete(long checkpointId) {
         splitAssigner.notifyCheckpointComplete(checkpointId);
         // incremental split may be available after checkpoint complete
         assignSplits();
     }
-
+    
     @Override
     public void close() {
         LOG.info("Closing enumerator...");
         splitAssigner.close();
     }
-
+    
     // ------------------------------------------------------------------------------------------
-
+    
     private void assignSplits() {
         final Iterator<Integer> awaitingReader = readersAwaitingSplit.iterator();
-
+        
         while (awaitingReader.hasNext()) {
             int nextAwaiting = awaitingReader.next();
             // if the reader that requested another split has failed in the meantime, remove
@@ -152,7 +153,7 @@ public class IncrementalSourceEnumerator
                 awaitingReader.remove();
                 continue;
             }
-
+            
             Optional<SourceSplitBase> split = splitAssigner.getNext();
             if (split.isPresent()) {
                 final SourceSplitBase sourceSplit = split.get();

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.common.schema;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
@@ -43,7 +42,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class SeaTunnelSchema implements Serializable {
-
+    
     public static final Option<Schema> SCHEMA =
             Options.key("schema")
                     .objectType(Schema.class)
@@ -52,11 +51,11 @@ public class SeaTunnelSchema implements Serializable {
     private static final String FIELD_KEY = "fields";
     private static final String SIMPLE_SCHEMA_FILED = "content";
     private final SeaTunnelRowType seaTunnelRowType;
-
+    
     private SeaTunnelSchema(SeaTunnelRowType seaTunnelRowType) {
         this.seaTunnelRowType = seaTunnelRowType;
     }
-
+    
     private static String[] parseMapGeneric(String type) {
         int start = type.indexOf("<");
         int end = type.lastIndexOf(">");
@@ -77,9 +76,9 @@ public class SeaTunnelSchema implements Serializable {
         }
         String keyGenericType = genericType.substring(0, index);
         String valueGenericType = genericType.substring(index + 1);
-        return new String[] {keyGenericType, valueGenericType};
+        return new String[]{keyGenericType, valueGenericType};
     }
-
+    
     private static String parseArrayGeneric(String type) {
         int start = type.indexOf("<");
         int end = type.lastIndexOf(">");
@@ -89,7 +88,7 @@ public class SeaTunnelSchema implements Serializable {
                 // replace the space between key and value
                 .replace(" ", "");
     }
-
+    
     private static int[] parseDecimalPS(String type) {
         int start = type.indexOf("(");
         int end = type.lastIndexOf(")");
@@ -106,9 +105,9 @@ public class SeaTunnelSchema implements Serializable {
         }
         int precision = Integer.parseInt(split[0]);
         int scale = Integer.parseInt(split[1]);
-        return new int[] {precision, scale};
+        return new int[]{precision, scale};
     }
-
+    
     private static SeaTunnelDataType<?> parseTypeByString(String type) {
         // init precision (used by decimal type)
         int precision = 0;
@@ -218,7 +217,7 @@ public class SeaTunnelSchema implements Serializable {
                 return mapToSeaTunnelRowType(convertJsonToMap(originContent));
         }
     }
-
+    
     private static Map<String, String> convertConfigToMap(Config config) {
         // Because the entrySet in typesafe config couldn't keep key-value order
         // So use jackson parsing schema information into a map to keep key-value order
@@ -226,7 +225,7 @@ public class SeaTunnelSchema implements Serializable {
         String schema = config.root().render(options);
         return convertJsonToMap(schema);
     }
-
+    
     private static Map<String, String> convertJsonToMap(String json) {
         ObjectNode jsonNodes = JsonUtils.parseObject(json);
         LinkedHashMap<String, String> fieldsMap = new LinkedHashMap<>();
@@ -244,7 +243,7 @@ public class SeaTunnelSchema implements Serializable {
                         });
         return fieldsMap;
     }
-
+    
     private static SeaTunnelRowType mapToSeaTunnelRowType(Map<String, String> fieldsMap) {
         int fieldsNum = fieldsMap.size();
         int i = 0;
@@ -260,7 +259,7 @@ public class SeaTunnelSchema implements Serializable {
         }
         return new SeaTunnelRowType(fieldsName, seaTunnelDataTypes);
     }
-
+    
     public static SeaTunnelSchema buildWithConfig(Config schemaConfig) {
         CheckResult checkResult = CheckConfigUtil.checkAllExists(schemaConfig, FIELD_KEY);
         if (!checkResult.isSuccess()) {
@@ -274,13 +273,13 @@ public class SeaTunnelSchema implements Serializable {
         Map<String, String> fieldsMap = convertConfigToMap(fields);
         return new SeaTunnelSchema(mapToSeaTunnelRowType(fieldsMap));
     }
-
+    
     public static SeaTunnelRowType buildSimpleTextSchema() {
         return new SeaTunnelRowType(
-                new String[] {SIMPLE_SCHEMA_FILED},
-                new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+                new String[]{SIMPLE_SCHEMA_FILED},
+                new SeaTunnelDataType<?>[]{BasicType.STRING_TYPE});
     }
-
+    
     public SeaTunnelRowType getSeaTunnelRowType() {
         return seaTunnelRowType;
     }

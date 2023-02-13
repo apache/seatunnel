@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection;
 
 import org.apache.seatunnel.common.exception.CommonErrorCode;
@@ -36,21 +35,21 @@ import java.util.Map;
 import java.util.Optional;
 
 public class DataSourceUtils implements Serializable {
+    
     private static final String GETTER_PREFIX = "get";
-
+    
     private static final String SETTER_PREFIX = "set";
-
+    
     public static CommonDataSource buildCommonDataSource(
-            @NonNull JdbcConnectionOptions jdbcConnectionOptions)
-            throws InvocationTargetException, IllegalAccessException {
+                                                         @NonNull JdbcConnectionOptions jdbcConnectionOptions) throws InvocationTargetException, IllegalAccessException {
         CommonDataSource dataSource =
                 (CommonDataSource) loadDataSource(jdbcConnectionOptions.getXaDataSourceClassName());
         setProperties(dataSource, buildDatabaseAccessConfig(jdbcConnectionOptions));
         return dataSource;
     }
-
+    
     private static Map<String, Object> buildDatabaseAccessConfig(
-            JdbcConnectionOptions jdbcConnectionOptions) {
+                                                                 JdbcConnectionOptions jdbcConnectionOptions) {
         HashMap<String, Object> accessConfig = new HashMap<>();
         accessConfig.put("url", jdbcConnectionOptions.getUrl());
         if (jdbcConnectionOptions.getUsername().isPresent()) {
@@ -59,13 +58,12 @@ public class DataSourceUtils implements Serializable {
         if (jdbcConnectionOptions.getPassword().isPresent()) {
             accessConfig.put("password", jdbcConnectionOptions.getPassword().get());
         }
-
+        
         return accessConfig;
     }
-
+    
     private static void setProperties(
-            final CommonDataSource commonDataSource, final Map<String, Object> databaseAccessConfig)
-            throws InvocationTargetException, IllegalAccessException {
+                                      final CommonDataSource commonDataSource, final Map<String, Object> databaseAccessConfig) throws InvocationTargetException, IllegalAccessException {
         for (Map.Entry<String, Object> entry : databaseAccessConfig.entrySet()) {
             Optional<Method> method =
                     findSetterMethod(commonDataSource.getClass().getMethods(), entry.getKey());
@@ -74,28 +72,26 @@ public class DataSourceUtils implements Serializable {
             }
         }
     }
-
-    private static Method findGetterMethod(final DataSource dataSource, final String propertyName)
-            throws NoSuchMethodException {
+    
+    private static Method findGetterMethod(final DataSource dataSource, final String propertyName) throws NoSuchMethodException {
         String getterMethodName =
                 GETTER_PREFIX + CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, propertyName);
         Method result = dataSource.getClass().getMethod(getterMethodName);
         result.setAccessible(true);
         return result;
     }
-
+    
     private static Optional<Method> findSetterMethod(
-            final Method[] methods, final String property) {
+                                                     final Method[] methods, final String property) {
         String setterMethodName =
                 SETTER_PREFIX + CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, property);
         return Arrays.stream(methods)
                 .filter(
-                        each ->
-                                each.getName().equals(setterMethodName)
-                                        && 1 == each.getParameterTypes().length)
+                        each -> each.getName().equals(setterMethodName)
+                                && 1 == each.getParameterTypes().length)
                 .findFirst();
     }
-
+    
     private static Object loadDataSource(final String xaDataSourceClassName) {
         Class<?> xaDataSourceClass;
         try {

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.core.starter.flink.execution;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -51,13 +50,14 @@ import java.util.Set;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<SeaTunnelSource> {
+    
     private static final String PLUGIN_TYPE = PluginType.SOURCE.getType();
-
+    
     public SourceExecuteProcessor(
-            List<URL> jarPaths, List<? extends Config> sourceConfigs, JobContext jobContext) {
+                                  List<URL> jarPaths, List<? extends Config> sourceConfigs, JobContext jobContext) {
         super(jarPaths, sourceConfigs, jobContext);
     }
-
+    
     @Override
     public List<DataStream<Row>> execute(List<DataStream<Row>> upstreamDataStreams) {
         StreamExecutionEnvironment executionEnvironment =
@@ -76,8 +76,7 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
                             executionEnvironment,
                             sourceFunction,
                             "SeaTunnel " + internalSource.getClass().getSimpleName(),
-                            internalSource.getBoundedness()
-                                    == org.apache.seatunnel.api.source.Boundedness.BOUNDED);
+                            internalSource.getBoundedness() == org.apache.seatunnel.api.source.Boundedness.BOUNDED);
             Config pluginConfig = pluginConfigs.get(i);
             if (pluginConfig.hasPath(SourceCommonOptions.PARALLELISM.key())) {
                 int parallelism = pluginConfig.getInt(SourceCommonOptions.PARALLELISM.key());
@@ -88,22 +87,22 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
         }
         return sources;
     }
-
+    
     private DataStreamSource<Row> addSource(
-            StreamExecutionEnvironment streamEnv,
-            BaseSeaTunnelSourceFunction function,
-            String sourceName,
-            boolean bounded) {
+                                            StreamExecutionEnvironment streamEnv,
+                                            BaseSeaTunnelSourceFunction function,
+                                            String sourceName,
+                                            boolean bounded) {
         checkNotNull(function);
         checkNotNull(sourceName);
         checkNotNull(bounded);
-
+        
         TypeInformation<Row> resolvedTypeInfo = function.getProducedType();
-
+        
         boolean isParallel = function instanceof ParallelSourceFunction;
-
+        
         streamEnv.clean(function);
-
+        
         final StreamSource<Row, ?> sourceOperator = new StreamSource<>(function);
         return new DataStreamSource<>(
                 streamEnv,
@@ -113,10 +112,10 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
                 sourceName,
                 bounded ? Boundedness.BOUNDED : Boundedness.CONTINUOUS_UNBOUNDED);
     }
-
+    
     @Override
     protected List<SeaTunnelSource> initializePlugins(
-            List<URL> jarPaths, List<? extends Config> pluginConfigs) {
+                                                      List<URL> jarPaths, List<? extends Config> pluginConfigs) {
         SeaTunnelSourcePluginDiscovery sourcePluginDiscovery =
                 new SeaTunnelSourcePluginDiscovery(ADD_URL_TO_CLASSLOADER);
         List<SeaTunnelSource> sources = new ArrayList<>();
@@ -132,8 +131,7 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
             seaTunnelSource.prepare(sourceConfig);
             seaTunnelSource.setJobContext(jobContext);
             if (jobContext.getJobMode() == JobMode.BATCH
-                    && seaTunnelSource.getBoundedness()
-                            == org.apache.seatunnel.api.source.Boundedness.UNBOUNDED) {
+                    && seaTunnelSource.getBoundedness() == org.apache.seatunnel.api.source.Boundedness.UNBOUNDED) {
                 throw new UnsupportedOperationException(
                         String.format(
                                 "'%s' source don't support off-line job.",

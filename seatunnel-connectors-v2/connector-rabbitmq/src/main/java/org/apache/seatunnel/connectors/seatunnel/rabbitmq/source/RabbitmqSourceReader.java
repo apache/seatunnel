@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
@@ -50,28 +49,29 @@ import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.Rabbi
 
 @Slf4j
 public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
+    
     protected final Handover<Delivery> handover;
-
+    
     protected final SourceReader.Context context;
     protected transient Channel channel;
     private final boolean usesCorrelationId = true;
     protected transient boolean autoAck;
-
+    
     protected transient Set<String> correlationIdsProcessedButNotAcknowledged;
     protected transient List<Long> deliveryTagsProcessedForCurrentSnapshot;
-
+    
     protected final SortedMap<Long, List<Long>> pendingDeliveryTagsToCommit;
     protected final SortedMap<Long, Set<String>> pendingCorrelationIdsToCommit;
-
+    
     private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private RabbitmqClient rabbitMQClient;
     private DefaultConsumer consumer;
     private final RabbitmqConfig config;
-
+    
     public RabbitmqSourceReader(
-            DeserializationSchema<SeaTunnelRow> deserializationSchema,
-            SourceReader.Context context,
-            RabbitmqConfig config) {
+                                DeserializationSchema<SeaTunnelRow> deserializationSchema,
+                                SourceReader.Context context,
+                                RabbitmqConfig config) {
         this.handover = new Handover<>();
         this.pendingDeliveryTagsToCommit = Collections.synchronizedSortedMap(new TreeMap<>());
         this.pendingCorrelationIdsToCommit = Collections.synchronizedSortedMap(new TreeMap<>());
@@ -81,13 +81,13 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
         this.rabbitMQClient = new RabbitmqClient(config);
         this.channel = rabbitMQClient.getChannel();
     }
-
+    
     @Override
     public void open() throws Exception {
         this.correlationIdsProcessedButNotAcknowledged = new HashSet<>();
         this.deliveryTagsProcessedForCurrentSnapshot = new ArrayList<>();
         consumer = rabbitMQClient.getQueueingConsumer(handover);
-
+        
         if (Boundedness.UNBOUNDED.equals(context.getBoundedness())) {
             autoAck = false;
             // enables transaction mode
@@ -95,18 +95,18 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
         } else {
             autoAck = true;
         }
-
+        
         log.debug("Starting RabbitMQ source with autoAck status: " + autoAck);
         channel.basicConsume(config.getQueueName(), autoAck, consumer);
     }
-
+    
     @Override
     public void close() throws IOException {
         if (rabbitMQClient != null) {
             rabbitMQClient.close();
         }
     }
-
+    
     @Override
     public void pollNext(Collector output) throws Exception {
         Optional<Delivery> deliveryOptional = handover.pollNext();
@@ -125,7 +125,7 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
                 deliveryTagsProcessedForCurrentSnapshot.add(envelope.getDeliveryTag());
                 deserializationSchema.deserialize(body, output);
             }
-
+            
             if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
                 // signal to the source that we have reached the end of the data.
                 // rabbitmq source connector on support streaming mode, this is for test
@@ -133,10 +133,10 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
             }
         }
     }
-
+    
     @Override
     public List snapshotState(long checkpointId) throws Exception {
-
+        
         List<RabbitmqSplit> pendingSplit =
                 Collections.singletonList(
                         new RabbitmqSplit(
@@ -151,7 +151,7 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
         for (RabbitmqSplit split : pendingSplit) {
             List<Long> currentCheckPointDeliveryTags = split.getDeliveryTags();
             Set<String> currentCheckPointCorrelationIds = split.getCorrelationIds();
-
+            
             if (currentCheckPointDeliveryTags != null) {
                 deliveryTags.addAll(currentCheckPointDeliveryTags);
             }
@@ -161,23 +161,23 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
         }
         return pendingSplit;
     }
-
+    
     @Override
     public void addSplits(List splits) {
         // do nothing
     }
-
+    
     @Override
     public void handleNoMoreSplits() {
         // do nothing
     }
-
+    
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         log.debug("Committing cursors for checkpoint {}", checkpointId);
         List<Long> pendingDeliveryTags = pendingDeliveryTagsToCommit.remove(checkpointId);
         Set<String> pendingCorrelationIds = pendingCorrelationIdsToCommit.remove(checkpointId);
-
+        
         if (pendingDeliveryTags == null || pendingCorrelationIds == null) {
             log.debug(
                     "pending delivery tags or correlationIds checkpoint {} either do not exist or have already been committed.",
@@ -187,7 +187,7 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
         acknowledgeDeliveryTags(pendingDeliveryTags);
         correlationIdsProcessedButNotAcknowledged.removeAll(pendingCorrelationIds);
     }
-
+    
     protected void acknowledgeDeliveryTags(List<Long> deliveryTags) {
         try {
             for (long id : deliveryTags) {
@@ -198,7 +198,7 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
             throw new RabbitmqConnectorException(MESSAGE_ACK_FAILED, e);
         }
     }
-
+    
     public boolean verifyMessageIdentifier(String correlationId, long deliveryTag) {
         if (!autoAck) {
             if (usesCorrelationId) {

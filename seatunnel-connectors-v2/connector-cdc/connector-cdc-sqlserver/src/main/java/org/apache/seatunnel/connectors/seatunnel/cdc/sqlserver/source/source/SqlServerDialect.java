@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source;
 
 import org.apache.seatunnel.common.utils.SeaTunnelException;
@@ -49,42 +48,42 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.uti
 
 /** The {@link JdbcDataSourceDialect} implementation for MySQL datasource. */
 public class SqlServerDialect implements JdbcDataSourceDialect {
-
+    
     private static final long serialVersionUID = 1L;
     private final SourceConfig sourceConfig;
-
+    
     private transient SqlServerSchema sqlServerSchema;
-
+    
     public SqlServerDialect(SqlServerSourceConfigFactory configFactory) {
         this.sourceConfig = configFactory.create(0);
     }
-
+    
     @Override
     public String getName() {
         return "SqlServer";
     }
-
+    
     @Override
     public boolean isDataCollectionIdCaseSensitive(JdbcSourceConfig sourceConfig) {
         // todo: need to check the case sensitive of the database
         return true;
     }
-
+    
     @Override
     public JdbcConnection openJdbcConnection(JdbcSourceConfig sourceConfig) {
         return createSqlServerConnection(sourceConfig.getDbzConfiguration());
     }
-
+    
     @Override
     public ChunkSplitter createChunkSplitter(JdbcSourceConfig sourceConfig) {
         return new SqlServerChunkSplitter(sourceConfig, this);
     }
-
+    
     @Override
     public JdbcConnectionPoolFactory getPooledDataSourceFactory() {
         return new SqlServerPooledDataSourceFactory();
     }
-
+    
     @Override
     public List<TableId> discoverDataCollections(JdbcSourceConfig sourceConfig) {
         SqlServerSourceConfig sqlServerSourceConfig = (SqlServerSourceConfig) sourceConfig;
@@ -95,7 +94,7 @@ public class SqlServerDialect implements JdbcDataSourceDialect {
             throw new SeaTunnelException("Error to discover tables: " + e.getMessage(), e);
         }
     }
-
+    
     @Override
     public TableChanges.TableChange queryTableSchema(JdbcConnection jdbc, TableId tableId) {
         if (sqlServerSchema == null) {
@@ -103,15 +102,15 @@ public class SqlServerDialect implements JdbcDataSourceDialect {
         }
         return sqlServerSchema.getTableSchema(jdbc, tableId);
     }
-
+    
     @Override
     public SqlServerSourceFetchTaskContext createFetchTaskContext(
-            SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig) {
+                                                                  SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig) {
         final SqlServerConnection jdbcConnection =
                 createSqlServerConnection(taskSourceConfig.getDbzConfiguration());
         final SqlServerConnection metaDataConnection =
                 createSqlServerConnection(taskSourceConfig.getDbzConfiguration());
-
+        
         List<TableChanges.TableChange> tableChangeList = new ArrayList<>();
         // TODO: support save table schema
         if (sourceSplitBase instanceof SnapshotSplit) {
@@ -123,11 +122,11 @@ public class SqlServerDialect implements JdbcDataSourceDialect {
                 tableChangeList.add(queryTableSchema(jdbcConnection, tableId));
             }
         }
-
+        
         return new SqlServerSourceFetchTaskContext(
                 taskSourceConfig, this, jdbcConnection, metaDataConnection, tableChangeList);
     }
-
+    
     @Override
     public FetchTask<SourceSplitBase> createFetchTask(SourceSplitBase sourceSplitBase) {
         if (sourceSplitBase.isSnapshotSplit()) {

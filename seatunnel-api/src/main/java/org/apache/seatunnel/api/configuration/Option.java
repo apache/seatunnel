@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.api.configuration;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
@@ -22,45 +21,46 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import java.util.Objects;
 
 public class Option<T> {
+    
     /** The current key for that config option. */
     private final String key;
-
+    
     /** Type of the value that this Option describes. */
     private final TypeReference<T> typeReference;
-
+    
     /** The default value for this option. */
     private final T defaultValue;
-
+    
     /** The description for this option. */
     String description = "";
-
+    
     public Option(String key, TypeReference<T> typeReference, T defaultValue) {
         this.key = key;
         this.typeReference = typeReference;
         this.defaultValue = defaultValue;
     }
-
+    
     public String key() {
         return key;
     }
-
+    
     public TypeReference<T> typeReference() {
         return typeReference;
     }
-
+    
     public T defaultValue() {
         return defaultValue;
     }
-
+    
     public String getDescription() {
         return description;
     }
-
+    
     public Option<T> withDescription(String description) {
         this.description = description;
         return this;
     }
-
+    
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -73,12 +73,12 @@ public class Option<T> {
         return Objects.equals(this.key, that.key)
                 && Objects.equals(this.defaultValue, that.defaultValue);
     }
-
+    
     @Override
     public int hashCode() {
         return Objects.hash(this.key, this.defaultValue);
     }
-
+    
     @Override
     public String toString() {
         return String.format("Key: '%s', default: %s", key, defaultValue);

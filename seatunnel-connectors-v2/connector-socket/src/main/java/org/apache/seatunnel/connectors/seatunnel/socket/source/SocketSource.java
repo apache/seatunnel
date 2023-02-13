@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.socket.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -44,21 +43,22 @@ import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSink
 
 @AutoService(SeaTunnelSource.class)
 public class SocketSource extends AbstractSingleSplitSource<SeaTunnelRow> {
+    
     private SocketSourceParameter parameter;
     private JobContext jobContext;
-
+    
     @Override
     public Boundedness getBoundedness() {
         return JobMode.BATCH.equals(jobContext.getJobMode())
                 ? Boundedness.BOUNDED
                 : Boundedness.UNBOUNDED;
     }
-
+    
     @Override
     public String getPluginName() {
         return "Socket";
     }
-
+    
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, PORT.key(), HOST.key());
@@ -71,21 +71,21 @@ public class SocketSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         }
         this.parameter = new SocketSourceParameter(pluginConfig);
     }
-
+    
     @Override
     public void setJobContext(JobContext jobContext) {
         this.jobContext = jobContext;
     }
-
+    
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
         return new SeaTunnelRowType(
-                new String[] {"value"}, new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+                new String[]{"value"}, new SeaTunnelDataType<?>[]{BasicType.STRING_TYPE});
     }
-
+    
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(
-            SingleSplitReaderContext readerContext) throws Exception {
+                                                                SingleSplitReaderContext readerContext) throws Exception {
         return new SocketSourceReader(this.parameter, readerContext);
     }
 }

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 
 import org.apache.seatunnel.api.state.CheckpointListener;
@@ -39,12 +38,12 @@ import java.util.Set;
  * determines split processing order.
  */
 public interface SplitAssigner {
-
+    
     /**
      * Called to open the assigner to acquire any resources, like threads or network connections.
      */
     void open();
-
+    
     /**
      * Gets the next split.
      *
@@ -52,25 +51,25 @@ public interface SplitAssigner {
      * be done and the source will finish once the readers completed their current splits.
      */
     Optional<SourceSplitBase> getNext();
-
+    
     /**
      * Whether the split assigner is still waiting for callback of completed splits, i.e. {@link
      * #onCompletedSplits}.
      */
     boolean waitingForCompletedSplits();
-
+    
     /**
      * Callback to handle the completed splits with completed change log offset. This is useful for
      * determine when to generate incremental split and what incremental split to generate.
      */
     void onCompletedSplits(List<SnapshotSplitWatermark> completedSplitWatermarks);
-
+    
     /**
      * Adds a set of splits to this assigner. This happens for example when some split processing
      * failed and the splits need to be re-added.
      */
     void addSplits(Collection<SourceSplitBase> splits);
-
+    
     /**
      * Creates a snapshot of the state of this split assigner, to be stored in a checkpoint.
      *
@@ -90,7 +89,7 @@ public interface SplitAssigner {
      * @return an object containing the state of the split enumerator.
      */
     PendingSplitsState snapshotState(long checkpointId);
-
+    
     /**
      * Notifies the listener that the checkpoint with the given {@code checkpointId} completed and
      * was committed.
@@ -98,21 +97,23 @@ public interface SplitAssigner {
      * @see CheckpointListener#notifyCheckpointComplete(long)
      */
     void notifyCheckpointComplete(long checkpointId);
-
+    
     /**
      * Called to close the assigner, in case it holds on to any resources, like threads or network
      * connections.
      */
-    default void close() {}
-
+    default void close() {
+    }
+    
     @Data
     final class Context<C extends SourceConfig> {
+        
         private final C sourceConfig;
-
+        
         private final Set<TableId> capturedTables;
-
+        
         private final Map<String, SnapshotSplit> assignedSnapshotSplit;
-
+        
         /** key: SnapshotSplit id */
         private final Map<String, Offset> splitCompletedOffsets;
     }

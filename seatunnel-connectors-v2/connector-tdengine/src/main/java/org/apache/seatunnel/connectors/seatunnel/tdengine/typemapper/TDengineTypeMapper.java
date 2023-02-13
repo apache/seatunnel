@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.tdengine.typemapper;
 
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -29,12 +28,12 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class TDengineTypeMapper {
-
+    
     // ============================data types=====================
-
+    
     private static final String TDENGINE_UNKNOWN = "UNKNOWN";
     private static final String TDENGINE_BIT = "BIT";
-
+    
     // -------------------------number----------------------------
     private static final String TDENGINE_TINYINT = "TINYINT";
     private static final String TDENGINE_TINYINT_UNSIGNED = "TINYINT UNSIGNED";
@@ -54,7 +53,7 @@ public class TDengineTypeMapper {
     private static final String TDENGINE_FLOAT_UNSIGNED = "FLOAT UNSIGNED";
     private static final String TDENGINE_DOUBLE = "DOUBLE";
     private static final String TDENGINE_DOUBLE_UNSIGNED = "DOUBLE UNSIGNED";
-
+    
     // -------------------------string----------------------------
     private static final String TDENGINE_CHAR = "CHAR";
     private static final String TDENGINE_VARCHAR = "VARCHAR";
@@ -63,14 +62,14 @@ public class TDengineTypeMapper {
     private static final String TDENGINE_TEXT = "TEXT";
     private static final String TDENGINE_LONGTEXT = "LONGTEXT";
     private static final String TDENGINE_JSON = "JSON";
-
+    
     // ------------------------------time-------------------------
     private static final String TDENGINE_DATE = "DATE";
     private static final String TDENGINE_DATETIME = "DATETIME";
     private static final String TDENGINE_TIME = "TIME";
     private static final String TDENGINE_TIMESTAMP = "TIMESTAMP";
     private static final String TDENGINE_YEAR = "YEAR";
-
+    
     // ------------------------------blob-------------------------
     private static final String TDENGINE_TINYBLOB = "TINYBLOB";
     private static final String TDENGINE_MEDIUMBLOB = "MEDIUMBLOB";
@@ -79,7 +78,7 @@ public class TDengineTypeMapper {
     private static final String TDENGINE_BINARY = "BINARY";
     private static final String TDENGINE_VARBINARY = "VARBINARY";
     private static final String TDENGINE_GEOMETRY = "GEOMETRY";
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     public static SeaTunnelDataType<?> mapping(String tdengineType) {
         switch (tdengineType) {
@@ -131,7 +130,7 @@ public class TDengineTypeMapper {
             case TDENGINE_DATETIME:
             case TDENGINE_TIMESTAMP:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
-
+            
             case TDENGINE_TINYBLOB:
             case TDENGINE_MEDIUMBLOB:
             case TDENGINE_BLOB:
@@ -139,8 +138,8 @@ public class TDengineTypeMapper {
             case TDENGINE_VARBINARY:
             case TDENGINE_BINARY:
                 return PrimitiveByteArrayType.INSTANCE;
-
-                // Doesn't support yet
+            
+            // Doesn't support yet
             case TDENGINE_GEOMETRY:
             case TDENGINE_UNKNOWN:
             default:

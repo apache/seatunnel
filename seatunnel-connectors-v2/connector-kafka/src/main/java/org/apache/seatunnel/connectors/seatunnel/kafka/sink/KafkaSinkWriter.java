@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -58,25 +57,25 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TRAN
 
 /** KafkaSinkWriter is a sink writer that will write {@link SeaTunnelRow} to Kafka. */
 public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState> {
-
+    
     private final SinkWriter.Context context;
-
+    
     private String transactionPrefix;
     private String topic;
     private long lastCheckpointId = 0;
     private boolean isExtractTopic;
     private SeaTunnelRowType seaTunnelRowType;
-
+    
     private final KafkaProduceSender<byte[], byte[]> kafkaProducerSender;
     private final SeaTunnelRowSerializer<byte[], byte[]> seaTunnelRowSerializer;
-
+    
     private static final int PREFIX_RANGE = 10000;
-
+    
     public KafkaSinkWriter(
-            SinkWriter.Context context,
-            SeaTunnelRowType seaTunnelRowType,
-            Config pluginConfig,
-            List<KafkaSinkState> kafkaStates) {
+                           SinkWriter.Context context,
+                           SeaTunnelRowType seaTunnelRowType,
+                           Config pluginConfig,
+                           List<KafkaSinkState> kafkaStates) {
         this.context = context;
         this.seaTunnelRowType = seaTunnelRowType;
         Pair<Boolean, String> topicResult = isExtractTopic(pluginConfig.getString(TOPIC.key()));
@@ -100,7 +99,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
                             this.transactionPrefix, getKafkaProperties(pluginConfig));
             // abort all transaction number bigger than current transaction, because they maybe
             // already start
-            //  transaction.
+            // transaction.
             if (!kafkaStates.isEmpty()) {
                 this.kafkaProducerSender.abortTransaction(kafkaStates.get(0).getCheckpointId() + 1);
             }
@@ -111,14 +110,14 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
                     new KafkaNoTransactionSender<>(getKafkaProperties(pluginConfig));
         }
     }
-
+    
     @Override
     public void write(SeaTunnelRow element) {
         ProducerRecord<byte[], byte[]> producerRecord =
                 seaTunnelRowSerializer.serializeRow(extractTopic(element), element);
         kafkaProducerSender.send(producerRecord);
     }
-
+    
     @Override
     public List<KafkaSinkState> snapshotState(long checkpointId) {
         List<KafkaSinkState> states = kafkaProducerSender.snapshotState(checkpointId);
@@ -127,17 +126,17 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
                 generateTransactionId(this.transactionPrefix, this.lastCheckpointId + 1));
         return states;
     }
-
+    
     @Override
     public Optional<KafkaCommitInfo> prepareCommit() {
         return kafkaProducerSender.prepareCommit();
     }
-
+    
     @Override
     public void abortPrepare() {
         kafkaProducerSender.abortTransaction();
     }
-
+    
     @Override
     public void close() {
         try {
@@ -147,7 +146,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
                     CommonErrorCode.WRITER_OPERATION_FAILED, "Close kafka sink writer error", e);
         }
     }
-
+    
     private Properties getKafkaProperties(Config pluginConfig) {
         Properties kafkaProperties = new Properties();
         if (CheckConfigUtil.isValidParam(pluginConfig, KAFKA_CONFIG.key())) {
@@ -169,9 +168,9 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
                 ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
         return kafkaProperties;
     }
-
+    
     private SeaTunnelRowSerializer<byte[], byte[]> getSerializer(
-            Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
+                                                                 Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
         String format = DEFAULT_FORMAT;
         if (pluginConfig.hasPath(FORMAT.key())) {
             format = pluginConfig.getString(FORMAT.key());
@@ -191,27 +190,27 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
                     delimiter);
         }
     }
-
+    
     private KafkaSemantics getKafkaSemantics(Config pluginConfig) {
         if (pluginConfig.hasPath("semantics")) {
             return pluginConfig.getEnum(KafkaSemantics.class, "semantics");
         }
         return KafkaSemantics.NON;
     }
-
+    
     protected static String generateTransactionId(String transactionPrefix, long checkpointId) {
         return transactionPrefix + "-" + checkpointId;
     }
-
+    
     private void restoreState(List<KafkaSinkState> states) {
         if (!states.isEmpty()) {
             this.transactionPrefix = states.get(0).getTransactionIdPrefix();
             this.lastCheckpointId = states.get(0).getCheckpointId();
         }
     }
-
+    
     private List<String> getPartitionKeyFields(
-            Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
+                                               Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
         if (pluginConfig.hasPath(PARTITION_KEY_FIELDS.key())) {
             List<String> partitionKeyFields =
                     pluginConfig.getStringList(PARTITION_KEY_FIELDS.key());
@@ -229,7 +228,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         }
         return Collections.emptyList();
     }
-
+    
     private Pair<Boolean, String> isExtractTopic(String topicConfig) {
         String regex = "\\$\\{(.*?)\\}";
         Pattern pattern = Pattern.compile(regex, Pattern.DOTALL);
@@ -239,7 +238,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         }
         return Pair.of(false, topicConfig);
     }
-
+    
     private String extractTopic(SeaTunnelRow row) {
         if (!isExtractTopic) {
             return topic;

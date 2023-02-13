@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.task.operation.checkpoint;
 
 import org.apache.seatunnel.common.utils.RetryUtils;
@@ -36,36 +35,37 @@ import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow
 
 @NoArgsConstructor
 public class BarrierFlowOperation extends TaskOperation {
+    
     protected Barrier barrier;
-
+    
     public BarrierFlowOperation(Barrier barrier, TaskLocation taskLocation) {
         super(taskLocation);
         this.barrier = barrier;
     }
-
+    
     @Override
     public int getFactoryId() {
         return TaskDataSerializerHook.FACTORY_ID;
     }
-
+    
     @Override
     public int getClassId() {
         return TaskDataSerializerHook.BARRIER_FLOW_OPERATOR;
     }
-
+    
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
         out.writeObject(barrier);
     }
-
+    
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
         // TODO: support another barrier
         barrier = in.readObject();
     }
-
+    
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
@@ -86,9 +86,8 @@ public class BarrierFlowOperation extends TaskOperation {
                 new RetryUtils.RetryMaterial(
                         Constant.OPERATION_RETRY_TIME,
                         true,
-                        exception ->
-                                exception instanceof NullPointerException
-                                        && !server.taskIsEnded(taskLocation.getTaskGroupLocation()),
+                        exception -> exception instanceof NullPointerException
+                                && !server.taskIsEnded(taskLocation.getTaskGroupLocation()),
                         Constant.OPERATION_RETRY_SLEEP));
     }
 }

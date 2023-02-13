@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2008-2021, Hazelcast, Inc. All Rights Reserved.
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.common.config;
 
 import com.hazelcast.client.config.ClientConfig;
@@ -36,25 +36,27 @@ import static com.hazelcast.internal.config.DeclarativeConfigUtil.validateSuffix
  * @see YamlSeaTunnelConfigLocator
  */
 public final class ConfigProvider {
-
-    private ConfigProvider() {}
-
+    
+    private ConfigProvider() {
+    }
+    
     public static SeaTunnelConfig locateAndGetSeaTunnelConfig() {
         return locateAndGetSeaTunnelConfig(null);
     }
-
-    @NonNull public static SeaTunnelConfig locateAndGetSeaTunnelConfig(Properties properties) {
-
+    
+    @NonNull
+    public static SeaTunnelConfig locateAndGetSeaTunnelConfig(Properties properties) {
+        
         YamlSeaTunnelConfigLocator yamlConfigLocator = new YamlSeaTunnelConfigLocator();
         SeaTunnelConfig config;
-
+        
         if (yamlConfigLocator.locateFromSystemProperty()) {
             // 1. Try loading YAML config if provided in system property
             config =
                     new YamlSeaTunnelConfigBuilder(yamlConfigLocator)
                             .setProperties(properties)
                             .build();
-
+            
         } else if (yamlConfigLocator.locateInWorkDirOrOnClasspath()) {
             // 2. Try loading YAML config from the working directory or from the classpath
             config =
@@ -71,13 +73,14 @@ public final class ConfigProvider {
         }
         return config;
     }
-
-    @NonNull public static ClientConfig locateAndGetClientConfig() {
+    
+    @NonNull
+    public static ClientConfig locateAndGetClientConfig() {
         validateSuffixInSystemProperty(SYSPROP_CLIENT_CONFIG);
-
+        
         ClientConfig config;
         YamlClientConfigLocator yamlConfigLocator = new YamlClientConfigLocator();
-
+        
         if (yamlConfigLocator.locateFromSystemProperty()) {
             // 1. Try loading config if provided in system property, and it is an YAML file
             config = new YamlClientConfigBuilder(yamlConfigLocator.getIn()).build();
@@ -91,13 +94,14 @@ public final class ConfigProvider {
         }
         return config;
     }
-
-    @NonNull public static Config locateAndGetMemberConfig(Properties properties) {
+    
+    @NonNull
+    public static Config locateAndGetMemberConfig(Properties properties) {
         validateSuffixInSystemProperty(SYSPROP_MEMBER_CONFIG);
-
+        
         Config config;
         YamlConfigLocator yamlConfigLocator = new YamlConfigLocator();
-
+        
         if (yamlConfigLocator.locateFromSystemProperty()) {
             // 1. Try loading config if provided in system property, and it is an YAML file
             config =

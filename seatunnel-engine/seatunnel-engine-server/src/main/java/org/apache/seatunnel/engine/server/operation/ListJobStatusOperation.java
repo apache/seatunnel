@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.operation;
 
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
@@ -27,11 +26,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 public class ListJobStatusOperation extends Operation implements AllowedDuringPassiveState {
-
+    
     private String response;
-
-    public ListJobStatusOperation() {}
-
+    
+    public ListJobStatusOperation() {
+    }
+    
     @Override
     public void run() {
         SeaTunnelServer service = getService();
@@ -42,14 +42,14 @@ public class ListJobStatusOperation extends Operation implements AllowedDuringPa
                                     .getJobHistoryService()
                                     .listAllJob();
                         });
-
+        
         try {
             response = future.get();
         } catch (InterruptedException | ExecutionException e) {
             throw new SeaTunnelEngineException(e);
         }
     }
-
+    
     @Override
     public Object getResponse() {
         return response;

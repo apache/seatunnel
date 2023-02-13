@@ -1,30 +1,26 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.serializer.protobuf;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class ProtoStuffSerializerTest {
-
+    
     @Test
     public void testProtoStuffSerializerForArrayType() {
         Long[] longs = new Long[10];
@@ -35,7 +31,7 @@ public class ProtoStuffSerializerTest {
         Float[] floats = new Float[10];
         Double[] doubles = new Double[10];
         String[] strings = new String[10];
-
+        
         longs[6] = 111111111L;
         booleans[6] = true;
         characters[6] = 'a';
@@ -44,7 +40,7 @@ public class ProtoStuffSerializerTest {
         floats[6] = 1.0f;
         doubles[6] = 1.0;
         strings[6] = "string";
-
+        
         ProtoStuffSerializer protoStuffSerializer = new ProtoStuffSerializer();
         byte[] serialize1 = protoStuffSerializer.serialize(booleans);
         byte[] serialize3 = protoStuffSerializer.serialize(characters);
@@ -54,7 +50,7 @@ public class ProtoStuffSerializerTest {
         byte[] serialize7 = protoStuffSerializer.serialize(doubles);
         byte[] serialize8 = protoStuffSerializer.serialize(strings);
         byte[] serialize9 = protoStuffSerializer.serialize(longs);
-
+        
         Boolean[] deserialize1 = protoStuffSerializer.deserialize(serialize1, Boolean[].class);
         Assertions.assertEquals(deserialize1[6], true);
         Character[] deserialize3 = protoStuffSerializer.deserialize(serialize3, Character[].class);
@@ -72,14 +68,14 @@ public class ProtoStuffSerializerTest {
         Long[] deserialize9 = protoStuffSerializer.deserialize(serialize9, Long[].class);
         Assertions.assertEquals(deserialize9[6], 111111111L);
     }
-
+    
     @Test
     public void testArrayInit() {
-
-        Long[] arr = new Long[] {1L, null, 2L};
+        
+        Long[] arr = new Long[]{1L, null, 2L};
         ProtoStuffSerializer p = new ProtoStuffSerializer();
         byte[] serialize = p.serialize(arr);
-
+        
         Long[] deserialize = p.deserialize(serialize, Long[].class);
         Assertions.assertEquals(deserialize.length, 3);
         Assertions.assertEquals(deserialize[0], 1L);

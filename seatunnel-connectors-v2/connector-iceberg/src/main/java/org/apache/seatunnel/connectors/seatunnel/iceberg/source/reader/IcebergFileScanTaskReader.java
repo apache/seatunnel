@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.iceberg.source.reader;
 
 import org.apache.seatunnel.common.exception.CommonErrorCode;
@@ -54,52 +53,51 @@ import java.util.Map;
 
 @Builder
 public class IcebergFileScanTaskReader implements Closeable {
-
+    
     private final FileIO fileIO;
     private final Schema tableSchema;
     private final Schema projectedSchema;
     private final boolean caseSensitive;
     private final boolean reuseContainers;
-
+    
     public CloseableIterator<Record> open(@NonNull FileScanTask task) {
         CloseableIterable<Record> iterable = icebergGenericRead(task);
         return iterable.iterator();
     }
-
+    
     private CloseableIterable<Record> icebergGenericRead(FileScanTask task) {
         DeleteFilter<Record> deletes =
                 new GenericDeleteFilter(fileIO, task, tableSchema, projectedSchema);
         Schema readSchema = deletes.requiredSchema();
-
+        
         CloseableIterable<Record> records = openFile(task, readSchema);
         records = deletes.filter(records);
         records = applyResidual(records, readSchema, task.residual());
-
+        
         if (!projectedSchema.sameSchema(readSchema)) {
             // filter metadata columns
             records =
                     CloseableIterable.transform(
                             records,
-                            record ->
-                                    new IcebergRecordProjection(
-                                            record,
-                                            readSchema.asStruct(),
-                                            projectedSchema.asStruct()));
+                            record -> new IcebergRecordProjection(
+                                    record,
+                                    readSchema.asStruct(),
+                                    projectedSchema.asStruct()));
         }
         return records;
     }
-
+    
     private CloseableIterable<Record> applyResidual(
-            CloseableIterable<Record> records, Schema recordSchema, Expression residual) {
+                                                    CloseableIterable<Record> records, Schema recordSchema, Expression residual) {
         if (residual != null && residual != Expressions.alwaysTrue()) {
             InternalRecordWrapper wrapper = new InternalRecordWrapper(recordSchema.asStruct());
             Evaluator filter = new Evaluator(recordSchema.asStruct(), residual, caseSensitive);
             return CloseableIterable.filter(records, record -> filter.eval(wrapper.wrap(record)));
         }
-
+        
         return records;
     }
-
+    
     private CloseableIterable<Record> openFile(FileScanTask task, Schema fileProjection) {
         if (task.isDataTask()) {
             throw new IcebergConnectorException(
@@ -108,16 +106,15 @@ public class IcebergFileScanTaskReader implements Closeable {
         InputFile input = fileIO.newInputFile(task.file().path().toString());
         Map<Integer, ?> partition =
                 PartitionUtil.constantsMap(task, IdentityPartitionConverters::convertConstant);
-
+        
         switch (task.file().format()) {
             case AVRO:
                 Avro.ReadBuilder avro =
                         Avro.read(input)
                                 .project(fileProjection)
                                 .createReaderFunc(
-                                        avroSchema ->
-                                                DataReader.create(
-                                                        fileProjection, avroSchema, partition))
+                                        avroSchema -> DataReader.create(
+                                                fileProjection, avroSchema, partition))
                                 .split(task.start(), task.length());
                 if (reuseContainers) {
                     avro.reuseContainers();
@@ -129,9 +126,8 @@ public class IcebergFileScanTaskReader implements Closeable {
                                 .caseSensitive(caseSensitive)
                                 .project(fileProjection)
                                 .createReaderFunc(
-                                        fileSchema ->
-                                                GenericParquetReaders.buildReader(
-                                                        fileProjection, fileSchema, partition))
+                                        fileSchema -> GenericParquetReaders.buildReader(
+                                                fileProjection, fileSchema, partition))
                                 .split(task.start(), task.length())
                                 .filter(task.residual());
                 if (reuseContainers) {
@@ -148,9 +144,8 @@ public class IcebergFileScanTaskReader implements Closeable {
                                 .caseSensitive(caseSensitive)
                                 .project(projectionWithoutConstantAndMetadataFields)
                                 .createReaderFunc(
-                                        fileSchema ->
-                                                GenericOrcReader.buildReader(
-                                                        fileProjection, fileSchema, partition))
+                                        fileSchema -> GenericOrcReader.buildReader(
+                                                fileProjection, fileSchema, partition))
                                 .split(task.start(), task.length())
                                 .filter(task.residual());
                 return orc.build();
@@ -162,7 +157,7 @@ public class IcebergFileScanTaskReader implements Closeable {
                                 task.file().format().name(), task.file().path()));
         }
     }
-
+    
     @Override
     public void close() {
         fileIO.close();

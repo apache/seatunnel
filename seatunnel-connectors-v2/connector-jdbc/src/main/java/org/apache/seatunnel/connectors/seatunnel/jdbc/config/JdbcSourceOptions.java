@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -32,6 +31,7 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.b
 @Data
 @AllArgsConstructor
 public class JdbcSourceOptions implements Serializable {
+    
     private JdbcConnectionOptions jdbcConnectionOptions;
     public String query;
     private String partitionColumn;
@@ -39,7 +39,7 @@ public class JdbcSourceOptions implements Serializable {
     private Long partitionLowerBound;
     private int fetchSize = JdbcConfig.FETCH_SIZE.defaultValue();
     private Integer partitionNumber;
-
+    
     public JdbcSourceOptions(Config config) {
         this.jdbcConnectionOptions = buildJdbcConnectionOptions(config);
         this.query = config.getString(JdbcConfig.QUERY.key());
@@ -59,27 +59,27 @@ public class JdbcSourceOptions implements Serializable {
             this.fetchSize = config.getInt(JdbcConfig.FETCH_SIZE.key());
         }
     }
-
+    
     public JdbcConnectionOptions getJdbcConnectionOptions() {
         return jdbcConnectionOptions;
     }
-
+    
     public Optional<String> getPartitionColumn() {
         return Optional.ofNullable(partitionColumn);
     }
-
+    
     public Optional<Long> getPartitionUpperBound() {
         return Optional.ofNullable(partitionUpperBound);
     }
-
+    
     public Optional<Long> getPartitionLowerBound() {
         return Optional.ofNullable(partitionLowerBound);
     }
-
+    
     public Optional<Integer> getPartitionNumber() {
         return Optional.ofNullable(partitionNumber);
     }
-
+    
     public int getFetchSize() {
         return fetchSize;
     }

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.api.configuration;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
@@ -31,7 +30,7 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class Options {
-
+    
     /**
      * Starts building a new {@link Option}.
      *
@@ -42,14 +41,15 @@ public class Options {
         checkArgument(StringUtils.isNotBlank(key), "Option's key not be null.");
         return new OptionBuilder(key);
     }
-
+    
     /**
      * The option builder is used to create a {@link Option}. It is instantiated via {@link
      * Options#key(String)}.
      */
     public static final class OptionBuilder {
+        
         private final String key;
-
+        
         /**
          * Creates a new OptionBuilder.
          *
@@ -58,42 +58,49 @@ public class Options {
         OptionBuilder(String key) {
             this.key = key;
         }
-
+        
         /** Defines that the value of the option should be of {@link Boolean} type. */
         public TypedOptionBuilder<Boolean> booleanType() {
-            return new TypedOptionBuilder<>(key, new TypeReference<Boolean>() {});
+            return new TypedOptionBuilder<>(key, new TypeReference<Boolean>() {
+            });
         }
-
+        
         /** Defines that the value of the option should be of {@link Integer} type. */
         public TypedOptionBuilder<Integer> intType() {
-            return new TypedOptionBuilder<>(key, new TypeReference<Integer>() {});
+            return new TypedOptionBuilder<>(key, new TypeReference<Integer>() {
+            });
         }
-
+        
         /** Defines that the value of the option should be of {@link Long} type. */
         public TypedOptionBuilder<Long> longType() {
-            return new TypedOptionBuilder<>(key, new TypeReference<Long>() {});
+            return new TypedOptionBuilder<>(key, new TypeReference<Long>() {
+            });
         }
-
+        
         /** Defines that the value of the option should be of {@link Float} type. */
         public TypedOptionBuilder<Float> floatType() {
-            return new TypedOptionBuilder<>(key, new TypeReference<Float>() {});
+            return new TypedOptionBuilder<>(key, new TypeReference<Float>() {
+            });
         }
-
+        
         /** Defines that the value of the option should be of {@link Double} type. */
         public TypedOptionBuilder<Double> doubleType() {
-            return new TypedOptionBuilder<>(key, new TypeReference<Double>() {});
+            return new TypedOptionBuilder<>(key, new TypeReference<Double>() {
+            });
         }
-
+        
         /** Defines that the value of the option should be of {@link String} type. */
         public TypedOptionBuilder<String> stringType() {
-            return new TypedOptionBuilder<>(key, new TypeReference<String>() {});
+            return new TypedOptionBuilder<>(key, new TypeReference<String>() {
+            });
         }
-
+        
         /** Defines that the value of the option should be of {@link Duration} type. */
         public TypedOptionBuilder<Duration> durationType() {
-            return new TypedOptionBuilder<>(key, new TypeReference<Duration>() {});
+            return new TypedOptionBuilder<>(key, new TypeReference<Duration>() {
+            });
         }
-
+        
         /**
          * Defines that the value of the option should be of {@link Enum} type.
          *
@@ -103,54 +110,60 @@ public class Options {
             return new TypedOptionBuilder<>(
                     key,
                     new TypeReference<T>() {
+                        
                         @Override
                         public Type getType() {
                             return enumClass;
                         }
                     });
         }
-
+        
         /**
          * Defines that the value of the option should be a set of properties, which can be
          * represented as {@code Map<String, String>}.
          */
         public TypedOptionBuilder<Map<String, String>> mapType() {
-            return new TypedOptionBuilder<>(key, new TypeReference<Map<String, String>>() {});
+            return new TypedOptionBuilder<>(key, new TypeReference<Map<String, String>>() {
+            });
         }
-
+        
         /**
          * Defines that the value of the option should be a list of properties, which can be
          * represented as {@code List<String>}.
          */
         public TypedOptionBuilder<List<String>> listType() {
-            return new TypedOptionBuilder<>(key, new TypeReference<List<String>>() {});
+            return new TypedOptionBuilder<>(key, new TypeReference<List<String>>() {
+            });
         }
-
+        
         /**
          * Defines that the value of the option should be a list of properties, which can be
          * represented as {@code List<T>}.
          */
         public <T> TypedOptionBuilder<List<T>> listType(Class<T> option) {
-            return new TypedOptionBuilder<>(key, new TypeReference<List<T>>() {});
+            return new TypedOptionBuilder<>(key, new TypeReference<List<T>>() {
+            });
         }
-
+        
         public <T> TypedOptionBuilder<T> objectType(Class<T> option) {
             return new TypedOptionBuilder<>(
                     key,
                     new TypeReference<T>() {
+                        
                         @Override
                         public Type getType() {
                             return option;
                         }
                     });
         }
-
+        
         /** Construct an option with multiple options and only one of them can be selected */
         public <T> SingleChoiceOptionBuilder<T> singleChoice(
-                @NonNull Class<T> optionType, @NonNull List<T> optionValues) {
+                                                             @NonNull Class<T> optionType, @NonNull List<T> optionValues) {
             return new SingleChoiceOptionBuilder<T>(
                     key,
                     new TypeReference<T>() {
+                        
                         @Override
                         public Type getType() {
                             return optionType;
@@ -158,7 +171,7 @@ public class Options {
                     },
                     optionValues);
         }
-
+        
         /**
          * The value of the definition option should be represented as T.
          *
@@ -168,21 +181,22 @@ public class Options {
             return new TypedOptionBuilder<>(key, typeReference);
         }
     }
-
+    
     /**
      * Builder for {@link Option} with a defined atomic type.
      *
      * @param <T> atomic type of the option
      */
     public static class TypedOptionBuilder<T> {
+        
         private final String key;
         private final TypeReference<T> typeReference;
-
+        
         TypedOptionBuilder(String key, TypeReference<T> typeReference) {
             this.key = key;
             this.typeReference = typeReference;
         }
-
+        
         /**
          * Creates a Option with the given default value.
          *
@@ -192,7 +206,7 @@ public class Options {
         public Option<T> defaultValue(T value) {
             return new Option<>(key, typeReference, value);
         }
-
+        
         /**
          * Creates a Option without a default value.
          *
@@ -202,18 +216,19 @@ public class Options {
             return new Option<>(key, typeReference, null);
         }
     }
-
+    
     public static class SingleChoiceOptionBuilder<T> {
+        
         private final List<T> optionValues;
         private final String key;
         private final TypeReference<T> typeReference;
-
+        
         SingleChoiceOptionBuilder(String key, TypeReference typeReference, List<T> optionValues) {
             this.optionValues = optionValues;
             this.key = key;
             this.typeReference = typeReference;
         }
-
+        
         /**
          * Creates a Option with the given default value.
          *
@@ -223,7 +238,7 @@ public class Options {
         public Option<T> defaultValue(T value) {
             return new SingleChoiceOption<T>(key, typeReference, optionValues, value);
         }
-
+        
         /**
          * Creates a Option without a default value.
          *

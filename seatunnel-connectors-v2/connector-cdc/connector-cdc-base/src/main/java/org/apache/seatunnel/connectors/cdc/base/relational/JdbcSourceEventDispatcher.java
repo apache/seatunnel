@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.cdc.base.relational;
 
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
@@ -49,20 +48,20 @@ import java.util.Map;
  * </pre>
  */
 public class JdbcSourceEventDispatcher extends EventDispatcher<TableId> {
-
+    
     private final ChangeEventQueue<DataChangeEvent> queue;
-
+    
     private final String topic;
-
+    
     public JdbcSourceEventDispatcher(
-            CommonConnectorConfig connectorConfig,
-            TopicSelector<TableId> topicSelector,
-            DatabaseSchema<TableId> schema,
-            ChangeEventQueue<DataChangeEvent> queue,
-            DataCollectionFilters.DataCollectionFilter<TableId> filter,
-            ChangeEventCreator changeEventCreator,
-            EventMetadataProvider metadataProvider,
-            SchemaNameAdjuster schemaNameAdjuster) {
+                                     CommonConnectorConfig connectorConfig,
+                                     TopicSelector<TableId> topicSelector,
+                                     DatabaseSchema<TableId> schema,
+                                     ChangeEventQueue<DataChangeEvent> queue,
+                                     DataCollectionFilters.DataCollectionFilter<TableId> filter,
+                                     ChangeEventCreator changeEventCreator,
+                                     EventMetadataProvider metadataProvider,
+                                     SchemaNameAdjuster schemaNameAdjuster) {
         super(
                 connectorConfig,
                 topicSelector,
@@ -75,18 +74,17 @@ public class JdbcSourceEventDispatcher extends EventDispatcher<TableId> {
         this.queue = queue;
         this.topic = topicSelector.getPrimaryTopic();
     }
-
+    
     public ChangeEventQueue<DataChangeEvent> getQueue() {
         return queue;
     }
-
+    
     public void dispatchWatermarkEvent(
-            Map<String, ?> sourcePartition,
-            SourceSplitBase sourceSplit,
-            Offset watermark,
-            WatermarkKind watermarkKind)
-            throws InterruptedException {
-
+                                       Map<String, ?> sourcePartition,
+                                       SourceSplitBase sourceSplit,
+                                       Offset watermark,
+                                       WatermarkKind watermarkKind) throws InterruptedException {
+        
         SourceRecord sourceRecord =
                 WatermarkEvent.create(
                         sourcePartition, topic, sourceSplit.splitId(), watermarkKind, watermark);

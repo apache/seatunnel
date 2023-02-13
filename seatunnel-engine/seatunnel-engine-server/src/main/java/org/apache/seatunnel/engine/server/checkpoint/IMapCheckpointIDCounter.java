@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.common.utils.RetryUtils;
@@ -30,14 +29,15 @@ import java.util.concurrent.CompletableFuture;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class IMapCheckpointIDCounter implements CheckpointIDCounter {
+    
     private final Integer pipelineId;
     private final IMap<Integer, Long> checkpointIdMap;
-
+    
     public IMapCheckpointIDCounter(Integer pipelineId, IMap<Integer, Long> checkpointIdMap) {
         this.pipelineId = pipelineId;
         this.checkpointIdMap = checkpointIdMap;
     }
-
+    
     @Override
     public void start() throws Exception {
         RetryUtils.retryWithException(
@@ -50,7 +50,7 @@ public class IMapCheckpointIDCounter implements CheckpointIDCounter {
                         exception -> exception instanceof HazelcastInstanceNotActiveException,
                         Constant.OPERATION_RETRY_SLEEP));
     }
-
+    
     @Override
     public CompletableFuture<Void> shutdown(PipelineStatus pipelineStatus) {
         if (pipelineStatus.isEndState()) {
@@ -58,19 +58,19 @@ public class IMapCheckpointIDCounter implements CheckpointIDCounter {
         }
         return CompletableFuture.completedFuture(null);
     }
-
+    
     @Override
     public long getAndIncrement() throws Exception {
         Long nextId = checkpointIdMap.compute(pipelineId, (k, v) -> v == null ? null : v + 1);
         checkNotNull(nextId);
         return nextId - 1;
     }
-
+    
     @Override
     public long get() {
         return checkpointIdMap.get(pipelineId);
     }
-
+    
     @Override
     public void setCount(long newId) throws Exception {
         checkpointIdMap.put(pipelineId, newId);

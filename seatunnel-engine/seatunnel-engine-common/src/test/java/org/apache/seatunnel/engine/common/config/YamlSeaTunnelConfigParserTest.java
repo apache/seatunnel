@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.common.config;
 
 import org.junit.jupiter.api.Assertions;
@@ -26,7 +25,7 @@ import com.hazelcast.client.config.YamlClientConfigBuilder;
 import java.io.IOException;
 
 public class YamlSeaTunnelConfigParserTest {
-
+    
     @Test
     public void testSeaTunnelConfig() {
         YamlSeaTunnelConfigLocator yamlConfigLocator = new YamlSeaTunnelConfigLocator();
@@ -38,30 +37,30 @@ public class YamlSeaTunnelConfigParserTest {
             throw new RuntimeException("can't find yaml in resources");
         }
         Assertions.assertNotNull(config);
-
+        
         Assertions.assertEquals(1, config.getEngineConfig().getBackupCount());
-
+        
         Assertions.assertEquals(2, config.getEngineConfig().getPrintExecutionInfoInterval());
-
+        
         Assertions.assertFalse(config.getEngineConfig().getSlotServiceConfig().isDynamicSlot());
-
+        
         Assertions.assertEquals(5, config.getEngineConfig().getSlotServiceConfig().getSlotNum());
-
+        
         Assertions.assertEquals(
                 6000, config.getEngineConfig().getCheckpointConfig().getCheckpointInterval());
-
+        
         Assertions.assertEquals(
                 7000, config.getEngineConfig().getCheckpointConfig().getCheckpointTimeout());
-
+        
         Assertions.assertEquals(
                 5, config.getEngineConfig().getCheckpointConfig().getMaxConcurrentCheckpoints());
-
+        
         Assertions.assertEquals(
                 2, config.getEngineConfig().getCheckpointConfig().getTolerableFailureCheckpoints());
-
+        
         Assertions.assertEquals(
                 "hdfs", config.getEngineConfig().getCheckpointConfig().getStorage().getStorage());
-
+        
         Assertions.assertEquals(
                 3,
                 config.getEngineConfig()
@@ -76,13 +75,13 @@ public class YamlSeaTunnelConfigParserTest {
                         .getStoragePluginConfig()
                         .get("s3.secret-key"));
     }
-
+    
     @Test
     public void testCustomizeClientConfig() throws IOException {
         YamlClientConfigBuilder yamlClientConfigBuilder =
                 new YamlClientConfigBuilder("custmoize-client.yaml");
         ClientConfig clientConfig = yamlClientConfigBuilder.build();
-
+        
         Assertions.assertEquals("custmoize", clientConfig.getClusterName());
     }
 }

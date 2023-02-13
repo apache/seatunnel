@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.file.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -41,16 +40,17 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> {
+    
     private final WriteStrategy writeStrategy;
     private final FileSystemUtils fileSystemUtils;
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     public BaseFileSinkWriter(
-            WriteStrategy writeStrategy,
-            HadoopConf hadoopConf,
-            SinkWriter.Context context,
-            String jobId,
-            List<FileSinkState> fileSinkStates) {
+                              WriteStrategy writeStrategy,
+                              HadoopConf hadoopConf,
+                              SinkWriter.Context context,
+                              String jobId,
+                              List<FileSinkState> fileSinkStates) {
         this.writeStrategy = writeStrategy;
         this.fileSystemUtils = writeStrategy.getFileSystemUtils();
         int subTaskIndex = context.getIndexOfSubtask();
@@ -60,7 +60,7 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
         } else {
             uuidPrefix = UUID.randomUUID().toString().replaceAll("-", "").substring(0, 10);
         }
-
+        
         writeStrategy.init(hadoopConf, jobId, uuidPrefix, subTaskIndex);
         if (!fileSinkStates.isEmpty()) {
             try {
@@ -69,8 +69,7 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
                         new FileSinkAggregatedCommitter(fileSystemUtils);
                 HashMap<String, FileSinkState> fileStatesMap = new HashMap<>();
                 fileSinkStates.forEach(
-                        fileSinkState ->
-                                fileStatesMap.put(fileSinkState.getTransactionId(), fileSinkState));
+                        fileSinkState -> fileStatesMap.put(fileSinkState.getTransactionId(), fileSinkState));
                 for (String transaction : transactions) {
                     if (fileStatesMap.containsKey(transaction)) {
                         // need commit
@@ -100,7 +99,7 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
             writeStrategy.beginTransaction(1L);
         }
     }
-
+    
     private List<String> findTransactionList(String jobId, String uuidPrefix) throws IOException {
         return fileSystemUtils
                 .dirList(
@@ -110,16 +109,16 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
                 .map(Path::getName)
                 .collect(Collectors.toList());
     }
-
+    
     public BaseFileSinkWriter(
-            WriteStrategy writeStrategy,
-            HadoopConf hadoopConf,
-            SinkWriter.Context context,
-            String jobId) {
+                              WriteStrategy writeStrategy,
+                              HadoopConf hadoopConf,
+                              SinkWriter.Context context,
+                              String jobId) {
         this(writeStrategy, hadoopConf, context, jobId, Collections.emptyList());
         writeStrategy.beginTransaction(1L);
     }
-
+    
     @Override
     public void write(SeaTunnelRow element) throws IOException {
         try {
@@ -129,22 +128,23 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
             throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED, errorMsg, e);
         }
     }
-
+    
     @Override
     public Optional<FileCommitInfo> prepareCommit() throws IOException {
         return writeStrategy.prepareCommit();
     }
-
+    
     @Override
     public void abortPrepare() {
         writeStrategy.abortPrepare();
     }
-
+    
     @Override
     public List<FileSinkState> snapshotState(long checkpointId) throws IOException {
         return writeStrategy.snapshotState(checkpointId);
     }
-
+    
     @Override
-    public void close() throws IOException {}
+    public void close() throws IOException {
+    }
 }

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.core.protocol.codec;
 
 import com.hazelcast.client.impl.protocol.ClientMessage;
@@ -39,6 +38,7 @@ import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCod
 
 @Generated("ebea440b36898863958c102f47603fee")
 public final class SeaTunnelSubmitJobCodec {
+    
     // hex: 0xDE0200
     public static final int REQUEST_MESSAGE_TYPE = 14549504;
     // hex: 0xDE0201
@@ -49,18 +49,19 @@ public final class SeaTunnelSubmitJobCodec {
             REQUEST_JOB_ID_FIELD_OFFSET + LONG_SIZE_IN_BYTES;
     private static final int RESPONSE_INITIAL_FRAME_SIZE =
             RESPONSE_BACKUP_ACKS_FIELD_OFFSET + BYTE_SIZE_IN_BYTES;
-
-    private SeaTunnelSubmitJobCodec() {}
-
+    
+    private SeaTunnelSubmitJobCodec() {
+    }
+    
     public static class RequestParameters {
-
+        
         public long jobId;
-
+        
         public com.hazelcast.internal.serialization.Data jobImmutableInformation;
     }
-
+    
     public static ClientMessage encodeRequest(
-            long jobId, com.hazelcast.internal.serialization.Data jobImmutableInformation) {
+                                              long jobId, com.hazelcast.internal.serialization.Data jobImmutableInformation) {
         ClientMessage clientMessage = ClientMessage.createForEncode();
         clientMessage.setRetryable(false);
         clientMessage.setOperationName("SeaTunnel.SubmitJob");
@@ -73,9 +74,9 @@ public final class SeaTunnelSubmitJobCodec {
         DataCodec.encode(clientMessage, jobImmutableInformation);
         return clientMessage;
     }
-
+    
     public static SeaTunnelSubmitJobCodec.RequestParameters decodeRequest(
-            ClientMessage clientMessage) {
+                                                                          ClientMessage clientMessage) {
         ClientMessage.ForwardFrameIterator iterator = clientMessage.frameIterator();
         RequestParameters request = new RequestParameters();
         ClientMessage.Frame initialFrame = iterator.next();
@@ -83,7 +84,7 @@ public final class SeaTunnelSubmitJobCodec {
         request.jobImmutableInformation = DataCodec.decode(iterator);
         return request;
     }
-
+    
     public static ClientMessage encodeResponse() {
         ClientMessage clientMessage = ClientMessage.createForEncode();
         ClientMessage.Frame initialFrame =
@@ -91,7 +92,7 @@ public final class SeaTunnelSubmitJobCodec {
                         new byte[RESPONSE_INITIAL_FRAME_SIZE], UNFRAGMENTED_MESSAGE);
         encodeInt(initialFrame.content, TYPE_FIELD_OFFSET, RESPONSE_MESSAGE_TYPE);
         clientMessage.add(initialFrame);
-
+        
         return clientMessage;
     }
 }

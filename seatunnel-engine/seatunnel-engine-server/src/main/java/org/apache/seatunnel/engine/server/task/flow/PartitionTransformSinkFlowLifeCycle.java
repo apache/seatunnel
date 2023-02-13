@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.task.flow;
 
 import org.apache.seatunnel.api.table.type.Record;
@@ -28,17 +27,18 @@ import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 
 public class PartitionTransformSinkFlowLifeCycle extends AbstractFlowLifeCycle
-        implements OneInputFlowLifeCycle<Record<?>> {
-
+        implements
+            OneInputFlowLifeCycle<Record<?>> {
+    
     // TODO: init ring buffer
     private Ringbuffer<Record<?>>[] ringbuffers;
     private final Random random = new Random();
-
+    
     public PartitionTransformSinkFlowLifeCycle(
-            SeaTunnelTask runningTask, CompletableFuture<Void> completableFuture) {
+                                               SeaTunnelTask runningTask, CompletableFuture<Void> completableFuture) {
         super(runningTask, completableFuture);
     }
-
+    
     @Override
     public void received(Record<?> row) throws IOException {
         // TODO: No space in the buffer
@@ -59,7 +59,7 @@ public class PartitionTransformSinkFlowLifeCycle extends AbstractFlowLifeCycle
             getRingBuffer(row).add(row);
         }
     }
-
+    
     private Ringbuffer<Record<?>> getRingBuffer(Record<?> row) {
         // TODO: choose partition
         return ringbuffers[random.nextInt(ringbuffers.length)];

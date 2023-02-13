@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.api.source.Collector;
@@ -72,15 +71,15 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class ParquetReadStrategy extends AbstractReadStrategy {
+    
     private static final byte[] PARQUET_MAGIC =
-            new byte[] {(byte) 'P', (byte) 'A', (byte) 'R', (byte) '1'};
+            new byte[]{(byte) 'P', (byte) 'A', (byte) 'R', (byte) '1'};
     private static final long NANOS_PER_MILLISECOND = 1000000;
     private static final long MILLIS_PER_DAY = TimeUnit.DAYS.toMillis(1L);
     private static final long JULIAN_DAY_NUMBER_FOR_UNIX_EPOCH = 2440588;
-
+    
     @Override
-    public void read(String path, Collector<SeaTunnelRow> output)
-            throws FileConnectorException, IOException {
+    public void read(String path, Collector<SeaTunnelRow> output) throws FileConnectorException, IOException {
         if (Boolean.FALSE.equals(checkFileType(path))) {
             String errorMsg =
                     String.format(
@@ -97,10 +96,11 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         dataModel.addLogicalTypeConversion(new TimeConversions.DateConversion());
         dataModel.addLogicalTypeConversion(new TimeConversions.LocalTimestampMillisConversion());
         GenericRecord record;
-        try (ParquetReader<GenericData.Record> reader =
-                AvroParquetReader.<GenericData.Record>builder(hadoopInputFile)
-                        .withDataModel(dataModel)
-                        .build()) {
+        try (
+                ParquetReader<GenericData.Record> reader =
+                        AvroParquetReader.<GenericData.Record>builder(hadoopInputFile)
+                                .withDataModel(dataModel)
+                                .build()) {
             while ((record = reader.read()) != null) {
                 Object[] fields;
                 if (isMergePartition) {
@@ -121,7 +121,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
             }
         }
     }
-
+    
     private Object resolveObject(Object field, SeaTunnelDataType<?> fieldType) {
         if (field == null) {
             return null;
@@ -162,10 +162,9 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                 SeaTunnelDataType<?> valueType = ((MapType<?, ?>) fieldType).getValueType();
                 HashMap<Object, Object> origDataMap = (HashMap<Object, Object>) field;
                 origDataMap.forEach(
-                        (key, value) ->
-                                dataMap.put(
-                                        resolveObject(key, keyType),
-                                        resolveObject(value, valueType)));
+                        (key, value) -> dataMap.put(
+                                resolveObject(key, keyType),
+                                resolveObject(value, valueType)));
                 return dataMap;
             case BOOLEAN:
             case INT:
@@ -218,10 +217,9 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                         "SeaTunnel not support this data type now");
         }
     }
-
+    
     @Override
-    public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path)
-            throws FileConnectorException {
+    public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path) throws FileConnectorException {
         Path filePath = new Path(path);
         ParquetMetadata metadata;
         try {
@@ -250,7 +248,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         seaTunnelRowTypeWithPartition = mergePartitionTypes(path, seaTunnelRowType);
         return getActualSeaTunnelRowTypeInfo();
     }
-
+    
     private SeaTunnelDataType<?> parquetType2SeaTunnelType(Type type) {
         if (type.isPrimitive()) {
             switch (type.asPrimitiveType().getPrimitiveTypeName()) {
@@ -374,7 +372,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
             }
         }
     }
-
+    
     @Override
     boolean checkFileType(String path) {
         boolean checkResult;

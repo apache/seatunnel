@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.cdc.base.source.reader.external;
 
 import org.apache.seatunnel.common.utils.SeaTunnelException;
@@ -44,26 +43,27 @@ import java.util.concurrent.TimeUnit;
  */
 @Slf4j
 public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, SourceSplitBase> {
+    
     private final FetchTask.Context taskContext;
     private final ExecutorService executorService;
     private volatile ChangeEventQueue<DataChangeEvent> queue;
     private volatile Throwable readException;
-
+    
     private FetchTask<SourceSplitBase> streamFetchTask;
-
+    
     private IncrementalSplit currentIncrementalSplit;
-
+    
     private Offset splitStartWatermark;
-
+    
     private static final long READER_CLOSE_TIMEOUT_SECONDS = 30L;
-
+    
     public IncrementalSourceStreamFetcher(FetchTask.Context taskContext, int subTaskId) {
         this.taskContext = taskContext;
         ThreadFactory threadFactory =
                 new ThreadFactoryBuilder().setNameFormat("debezium-reader-" + subTaskId).build();
         this.executorService = Executors.newSingleThreadExecutor(threadFactory);
     }
-
+    
     @Override
     public void submitTask(FetchTask<SourceSplitBase> fetchTask) {
         this.streamFetchTask = fetchTask;
@@ -85,12 +85,12 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
                     }
                 });
     }
-
+    
     @Override
     public boolean isFinished() {
         return currentIncrementalSplit == null || !streamFetchTask.isRunning();
     }
-
+    
     @Override
     public Iterator<SourceRecords> pollSplitRecords() throws InterruptedException {
         checkReadException();
@@ -107,7 +107,7 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
         sourceRecordsSet.add(new SourceRecords(sourceRecords));
         return sourceRecordsSet.iterator();
     }
-
+    
     private void checkReadException() {
         if (readException != null) {
             throw new SeaTunnelException(
@@ -117,7 +117,7 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
                     readException);
         }
     }
-
+    
     @Override
     public void close() {
         try {
@@ -134,7 +134,7 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
             log.error("Close stream fetcher error", e);
         }
     }
-
+    
     /** Returns the record should emit or not. */
     private boolean shouldEmit(SourceRecord sourceRecord) {
         if (taskContext.isDataChangeRecord(sourceRecord)) {
@@ -145,7 +145,7 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
         }
         return true;
     }
-
+    
     private void configureFilter() {
         splitStartWatermark = currentIncrementalSplit.getStartupOffset();
     }

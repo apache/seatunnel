@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.transform;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
@@ -47,22 +46,23 @@ import java.util.Map;
 @Slf4j
 @AutoService(SeaTunnelTransform.class)
 public class FieldMapperTransform extends AbstractSeaTunnelTransform {
+    
     public static final Option<Map<String, String>> FIELD_MAPPER =
             Options.key("field_mapper")
                     .mapType()
                     .noDefaultValue()
                     .withDescription(
                             "Specify the field mapping relationship between input and output");
-
+    
     private LinkedHashMap<String, String> fieldMapper = new LinkedHashMap<>();
-
+    
     private List<Integer> needReaderColIndex;
-
+    
     @Override
     public String getPluginName() {
         return "FieldMapper";
     }
-
+    
     @Override
     protected void setConfig(Config pluginConfig) {
         if (!pluginConfig.hasPath(FIELD_MAPPER.key())) {
@@ -72,7 +72,7 @@ public class FieldMapperTransform extends AbstractSeaTunnelTransform {
         }
         this.fieldMapper = convertConfigToSortedMap(pluginConfig.getConfig(FIELD_MAPPER.key()));
     }
-
+    
     private static LinkedHashMap<String, String> convertConfigToSortedMap(Config config) {
         // Because the entrySet in typesafe config couldn't keep key-value order
         // So use jackson parsing schema information into a map to keep key-value order
@@ -86,7 +86,7 @@ public class FieldMapperTransform extends AbstractSeaTunnelTransform {
                         field -> {
                             String key = field.getKey();
                             JsonNode value = field.getValue();
-
+                            
                             if (value.isTextual()) {
                                 fieldsMap.put(key, value.textValue());
                             } else {
@@ -100,7 +100,7 @@ public class FieldMapperTransform extends AbstractSeaTunnelTransform {
                         });
         return fieldsMap;
     }
-
+    
     @Override
     protected SeaTunnelRowType transformRowType(SeaTunnelRowType inputRowType) {
         needReaderColIndex = new ArrayList<>(fieldMapper.size());
@@ -119,12 +119,12 @@ public class FieldMapperTransform extends AbstractSeaTunnelTransform {
                     outputFiledNameList.add(value);
                     outputDataTypeList.add(inputRowType.getFieldTypes()[fieldIndex]);
                 });
-
+        
         return new SeaTunnelRowType(
                 outputFiledNameList.toArray(new String[0]),
                 outputDataTypeList.toArray(new SeaTunnelDataType[0]));
     }
-
+    
     @Override
     protected SeaTunnelRow transformRow(SeaTunnelRow inputRow) {
         Object[] outputDataArray = new Object[fieldMapper.size()];

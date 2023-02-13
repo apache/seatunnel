@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.cdc.base.source.offset;
 
 import org.apache.kafka.connect.errors.ConnectException;
@@ -34,11 +33,12 @@ import java.util.Objects;
  * rows.
  */
 public abstract class Offset implements Comparable<Offset>, Serializable {
-
+    
     private static final long serialVersionUID = 1L;
-
-    @Getter protected Map<String, String> offset;
-
+    
+    @Getter
+    protected Map<String, String> offset;
+    
     protected long longOffsetValue(Map<String, ?> values, String key) {
         Object obj = values.get(key);
         if (obj == null) {
@@ -58,28 +58,28 @@ public abstract class Offset implements Comparable<Offset>, Serializable {
                             + " could not be converted to a long");
         }
     }
-
+    
     public boolean isAtOrBefore(Offset that) {
         return this.compareTo(that) <= 0;
     }
-
+    
     public boolean isBefore(Offset that) {
         return this.compareTo(that) < 0;
     }
-
+    
     public boolean isAtOrAfter(Offset that) {
         return this.compareTo(that) >= 0;
     }
-
+    
     public boolean isAfter(Offset that) {
         return this.compareTo(that) > 0;
     }
-
+    
     @Override
     public String toString() {
         return offset.toString();
     }
-
+    
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -91,7 +91,7 @@ public abstract class Offset implements Comparable<Offset>, Serializable {
         Offset that = (Offset) o;
         return offset.equals(that.offset);
     }
-
+    
     @Override
     public int hashCode() {
         return Objects.hashCode(offset);

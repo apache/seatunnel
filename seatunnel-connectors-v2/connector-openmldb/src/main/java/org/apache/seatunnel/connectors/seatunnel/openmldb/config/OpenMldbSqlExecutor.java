@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.openmldb.config;
 
 import com._4paradigm.openmldb.sdk.SdkOption;
@@ -22,11 +21,13 @@ import com._4paradigm.openmldb.sdk.SqlException;
 import com._4paradigm.openmldb.sdk.impl.SqlClusterExecutor;
 
 public class OpenMldbSqlExecutor {
+    
     private static final SdkOption SDK_OPTION = new SdkOption();
     private static volatile SqlClusterExecutor SQL_EXECUTOR;
-
-    private OpenMldbSqlExecutor() {}
-
+    
+    private OpenMldbSqlExecutor() {
+    }
+    
     public static void initSdkOption(OpenMldbParameters openMldbParameters) {
         if (openMldbParameters.getClusterMode()) {
             SDK_OPTION.setZkCluster(openMldbParameters.getZkHost());
@@ -39,7 +40,7 @@ public class OpenMldbSqlExecutor {
         SDK_OPTION.setSessionTimeout(openMldbParameters.getSessionTimeout());
         SDK_OPTION.setRequestTimeout(openMldbParameters.getRequestTimeout());
     }
-
+    
     public static SqlClusterExecutor getSqlExecutor() throws SqlException {
         if (SQL_EXECUTOR == null) {
             synchronized (OpenMldbSqlExecutor.class) {
@@ -50,7 +51,7 @@ public class OpenMldbSqlExecutor {
         }
         return SQL_EXECUTOR;
     }
-
+    
     public static void close() {
         if (SQL_EXECUTOR != null) {
             synchronized (OpenMldbParameters.class) {

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.neo4j.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -35,11 +34,11 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class Neo4jSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
-
+    
     private final Neo4jSinkQueryInfo neo4jSinkQueryInfo;
     private final transient Driver driver;
     private final transient Session session;
-
+    
     public Neo4jSinkWriter(Neo4jSinkQueryInfo neo4jSinkQueryInfo) {
         this.neo4jSinkQueryInfo = neo4jSinkQueryInfo;
         this.driver = this.neo4jSinkQueryInfo.getDriverBuilder().build();
@@ -48,7 +47,7 @@ public class Neo4jSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
                         SessionConfig.forDatabase(
                                 neo4jSinkQueryInfo.getDriverBuilder().getDatabase()));
     }
-
+    
     @Override
     public void write(SeaTunnelRow element) throws IOException {
         final Map<String, Object> queryParamPosition =
@@ -64,15 +63,16 @@ public class Neo4jSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
                     return null;
                 });
     }
-
+    
     @Override
     public Optional<Void> prepareCommit() throws IOException {
         return Optional.empty();
     }
-
+    
     @Override
-    public void abortPrepare() {}
-
+    public void abortPrepare() {
+    }
+    
     @Override
     public void close() throws IOException {
         session.close();

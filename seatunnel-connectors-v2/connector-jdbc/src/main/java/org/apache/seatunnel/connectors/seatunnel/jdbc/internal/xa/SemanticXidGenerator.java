@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa;
 
 import org.apache.seatunnel.api.common.JobContext;
@@ -43,16 +42,17 @@ import static com.google.common.base.Preconditions.checkArgument;
  * collide).
  */
 class SemanticXidGenerator implements XidGenerator {
+    
     private static final long serialVersionUID = 1L;
-
+    
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
-
+    
     private static final int JOB_ID_BYTES = 32;
     private static final int FORMAT_ID = 201;
-
+    
     private transient byte[] gtridBuffer;
     private transient byte[] bqualBuffer;
-
+    
     @Override
     public void open() {
         // globalTransactionId = job id + task index + checkpoint id
@@ -60,20 +60,20 @@ class SemanticXidGenerator implements XidGenerator {
         // branchQualifier = random bytes
         bqualBuffer = getRandomBytes(Integer.BYTES);
     }
-
+    
     @Override
     public Xid generateXid(JobContext context, SinkWriter.Context sinkContext, long checkpointId) {
         byte[] jobIdBytes = context.getJobId().getBytes();
         Arrays.fill(gtridBuffer, (byte) 0);
         checkArgument(jobIdBytes.length <= JOB_ID_BYTES);
         System.arraycopy(jobIdBytes, 0, gtridBuffer, 0, jobIdBytes.length);
-
+        
         writeNumber(sinkContext.getIndexOfSubtask(), Integer.BYTES, gtridBuffer, JOB_ID_BYTES);
         writeNumber(checkpointId, Long.BYTES, gtridBuffer, JOB_ID_BYTES + Integer.BYTES);
         // relying on arrays copying inside XidImpl constructor
         return new XidImpl(FORMAT_ID, gtridBuffer, bqualBuffer);
     }
-
+    
     @Override
     public boolean belongsToSubtask(Xid xid, JobContext context, SinkWriter.Context sinkContext) {
         if (xid.getFormatId() != FORMAT_ID) {
@@ -85,14 +85,14 @@ class SemanticXidGenerator implements XidGenerator {
         }
         byte[] xidJobIdBytes = new byte[JOB_ID_BYTES];
         System.arraycopy(xid.getGlobalTransactionId(), 0, xidJobIdBytes, 0, JOB_ID_BYTES);
-
+        
         byte[] jobIdBytes = new byte[JOB_ID_BYTES];
         byte[] bytes = context.getJobId().getBytes();
         System.arraycopy(bytes, 0, jobIdBytes, 0, bytes.length);
-
+        
         return Arrays.equals(jobIdBytes, xidJobIdBytes);
     }
-
+    
     private static int readNumber(byte[] bytes, int offset, int numBytes) {
         final int number = 0xff;
         int result = 0;
@@ -101,14 +101,14 @@ class SemanticXidGenerator implements XidGenerator {
         }
         return result;
     }
-
+    
     private static void writeNumber(long number, int numBytes, byte[] dst, int dstOffset) {
         for (int i = dstOffset; i < dstOffset + numBytes; i++) {
             dst[i] = (byte) number;
             number >>>= Byte.SIZE;
         }
     }
-
+    
     private byte[] getRandomBytes(int size) {
         byte[] bytes = new byte[size];
         SECURE_RANDOM.nextBytes(bytes);

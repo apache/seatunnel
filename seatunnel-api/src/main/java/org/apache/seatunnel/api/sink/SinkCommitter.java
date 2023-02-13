@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.api.sink;
 
 import java.io.IOException;
@@ -31,7 +30,7 @@ import java.util.List;
  * @param <CommitInfoT> The type of commit message.
  */
 public interface SinkCommitter<CommitInfoT> extends Serializable {
-
+    
     /**
      * Commit message to third party data receiver, The method need to achieve idempotency.
      *
@@ -40,7 +39,7 @@ public interface SinkCommitter<CommitInfoT> extends Serializable {
      * @throws IOException throw IOException when commit failed.
      */
     List<CommitInfoT> commit(List<CommitInfoT> commitInfos) throws IOException;
-
+    
     /**
      * Abort the transaction, this method will be called (**Only** on Spark engine) when the commit
      * is failed.

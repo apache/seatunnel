@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,37 +14,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.common;
 
 public final class Constants {
+    
     public static final String ROW_ROOT = "__root__";
     public static final String ROW_TMP = "__tmp__";
-
+    
     public static final String LOGO = "SeaTunnel";
-
+    
     public static final String SOURCE = "source";
-
+    
     public static final String TRANSFORM = "transform";
-
+    
     public static final String SINK = "sink";
-
+    
     public static final String SOURCE_SERIALIZATION = "source.serialization";
-
+    
     public static final String SINK_SERIALIZATION = "sink.serialization";
-
+    
     public static final String HDFS_ROOT = "hdfs.root";
-
+    
     public static final String HDFS_USER = "hdfs.user";
-
+    
     public static final String CHECKPOINT_INTERVAL = "checkpoint.interval";
-
+    
     public static final String CHECKPOINT_ID = "checkpoint.id";
-
+    
     public static final String UUID = "uuid";
-
+    
     public static final String NOW = "now";
-
+    
     public static final String ST_LOGO =
             "                                                         \n"
                     + " _____               _____                             _ \n"
@@ -56,6 +56,7 @@ public final class Constants {
                     + "                                                         \n";
     public static final String COPYRIGHT_LINE =
             "Copyright © 2021-2022 The Apache Software Foundation. Apache SeaTunnel, SeaTunnel, and its feather logo are trademarks of The Apache Software Foundation.";
-
-    private Constants() {}
+    
+    private Constants() {
+    }
 }

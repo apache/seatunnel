@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
@@ -30,27 +29,27 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class PostgresDialect implements JdbcDialect {
-
+    
     public static final int DEFAULT_POSTGRES_FETCH_SIZE = 128;
-
+    
     @Override
     public String dialectName() {
         return "PostgreSQL";
     }
-
+    
     @Override
     public JdbcRowConverter getRowConverter() {
         return new PostgresJdbcRowConverter();
     }
-
+    
     @Override
     public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
         return new PostgresTypeMapper();
     }
-
+    
     @Override
     public Optional<String> getUpsertStatement(
-            String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+                                               String tableName, String[] fieldNames, String[] uniqueKeyFields) {
         String uniqueColumns =
                 Arrays.stream(uniqueKeyFields)
                         .map(this::quoteIdentifier)
@@ -58,10 +57,9 @@ public class PostgresDialect implements JdbcDialect {
         String updateClause =
                 Arrays.stream(fieldNames)
                         .map(
-                                fieldName ->
-                                        quoteIdentifier(fieldName)
-                                                + "=EXCLUDED."
-                                                + quoteIdentifier(fieldName))
+                                fieldName -> quoteIdentifier(fieldName)
+                                        + "=EXCLUDED."
+                                        + quoteIdentifier(fieldName))
                         .collect(Collectors.joining(", "));
         String upsertSQL =
                 String.format(
@@ -69,10 +67,10 @@ public class PostgresDialect implements JdbcDialect {
                         getInsertIntoStatement(tableName, fieldNames), uniqueColumns, updateClause);
         return Optional.of(upsertSQL);
     }
-
+    
     @Override
     public PreparedStatement creatPreparedStatement(
-            Connection connection, String queryTemplate, int fetchSize) throws SQLException {
+                                                    Connection connection, String queryTemplate, int fetchSize) throws SQLException {
         // use cursor mode, reference:
         // https://jdbc.postgresql.org/documentation/query/#getting-results-based-on-a-cursor
         connection.setAutoCommit(false);

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.serialize;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
@@ -40,19 +39,19 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
-
+    
     private final SeaTunnelRowType seaTunnelRowType;
     private final AmazonDynamoDBSourceOptions amazondynamodbSourceOptions;
     private final List<AttributeValue.Type> measurementsType;
-
+    
     public DefaultSeaTunnelRowSerializer(
-            SeaTunnelRowType seaTunnelRowType,
-            AmazonDynamoDBSourceOptions amazondynamodbSourceOptions) {
+                                         SeaTunnelRowType seaTunnelRowType,
+                                         AmazonDynamoDBSourceOptions amazondynamodbSourceOptions) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.amazondynamodbSourceOptions = amazondynamodbSourceOptions;
         this.measurementsType = convertTypes(seaTunnelRowType);
     }
-
+    
     @Override
     public PutItemRequest serialize(SeaTunnelRow seaTunnelRow) {
         HashMap<String, AttributeValue> itemValues = new HashMap<>();
@@ -69,13 +68,13 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                 .item(itemValues)
                 .build();
     }
-
+    
     private List<AttributeValue.Type> convertTypes(SeaTunnelRowType seaTunnelRowType) {
         return Arrays.stream(seaTunnelRowType.getFieldTypes())
                 .map(this::convertType)
                 .collect(Collectors.toList());
     }
-
+    
     private AttributeValue.Type convertType(SeaTunnelDataType<?> seaTunnelDataType) {
         switch (seaTunnelDataType.getSqlType()) {
             case INT:
@@ -107,11 +106,11 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                         "Unsupported data type: " + seaTunnelDataType);
         }
     }
-
+    
     private AttributeValue convertItem(
-            Object value,
-            SeaTunnelDataType seaTunnelDataType,
-            AttributeValue.Type measurementsType) {
+                                       Object value,
+                                       SeaTunnelDataType seaTunnelDataType,
+                                       AttributeValue.Type measurementsType) {
         if (value == null) {
             return AttributeValue.builder().nul(true).build();
         }
@@ -135,19 +134,18 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                         .ns(
                                 ((Collection<Number>) value)
                                         .stream()
-                                                .map(Object::toString)
-                                                .collect(Collectors.toList()))
+                                        .map(Object::toString)
+                                        .collect(Collectors.toList()))
                         .build();
             case BS:
                 return AttributeValue.builder()
                         .bs(
                                 ((Collection<Number>) value)
                                         .stream()
-                                                .map(
-                                                        number ->
-                                                                SdkBytes.fromByteArray(
-                                                                        (byte[]) value))
-                                                .collect(Collectors.toList()))
+                                        .map(
+                                                number -> SdkBytes.fromByteArray(
+                                                        (byte[]) value))
+                                        .collect(Collectors.toList()))
                         .build();
             case M:
                 MapType<?, ?> mapType = (MapType<?, ?>) seaTunnelDataType;
@@ -171,11 +169,10 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                         .l(
                                 Stream.of(l)
                                         .map(
-                                                o ->
-                                                        convertItem(
-                                                                o,
-                                                                elementType,
-                                                                convertType(elementType)))
+                                                o -> convertItem(
+                                                        o,
+                                                        elementType,
+                                                        convertType(elementType)))
                                         .collect(Collectors.toList()))
                         .build();
             case NUL:

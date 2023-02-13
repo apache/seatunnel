@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.util;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -72,7 +71,7 @@ import static com.aliyun.odps.OdpsType.VOID;
 
 @Slf4j
 public class MaxcomputeTypeMapper implements Serializable {
-
+    
     private static SeaTunnelDataType<?> maxcomputeType2SeaTunnelType(TypeInfo typeInfo) {
         switch (typeInfo.getOdpsType()) {
             case BIGINT:
@@ -118,17 +117,17 @@ public class MaxcomputeTypeMapper implements Serializable {
                                 "Doesn't support Maxcompute type '%s' .", typeInfo.getTypeName()));
         }
     }
-
+    
     private static DecimalType mappingDecimalType(DecimalTypeInfo decimalTypeInfo) {
         return new DecimalType(decimalTypeInfo.getPrecision(), decimalTypeInfo.getScale());
     }
-
+    
     private static MapType mappingMapType(MapTypeInfo mapTypeInfo) {
         return new MapType(
                 maxcomputeType2SeaTunnelType(mapTypeInfo.getKeyTypeInfo()),
                 maxcomputeType2SeaTunnelType(mapTypeInfo.getValueTypeInfo()));
     }
-
+    
     private static ArrayType mappingListType(ArrayTypeInfo arrayTypeInfo) {
         switch (arrayTypeInfo.getOdpsType()) {
             case BOOLEAN:
@@ -151,7 +150,7 @@ public class MaxcomputeTypeMapper implements Serializable {
                                 arrayTypeInfo.getTypeName()));
         }
     }
-
+    
     private static SeaTunnelRowType mappingStructType(StructTypeInfo structType) {
         List<TypeInfo> fields = structType.getFieldTypeInfos();
         List<String> fieldNames = new ArrayList<>(fields.size());
@@ -163,7 +162,7 @@ public class MaxcomputeTypeMapper implements Serializable {
         return new SeaTunnelRowType(
                 fieldNames.toArray(new String[0]), fieldTypes.toArray(new SeaTunnelDataType[0]));
     }
-
+    
     private static OdpsType seaTunnelType2MaxcomputeType(SeaTunnelDataType<?> seaTunnelDataType) {
         switch (seaTunnelDataType.getSqlType()) {
             case ARRAY:
@@ -205,7 +204,7 @@ public class MaxcomputeTypeMapper implements Serializable {
                                 seaTunnelDataType.getSqlType()));
         }
     }
-
+    
     public static SeaTunnelRowType getSeaTunnelRowType(Config pluginConfig) {
         Table table = MaxcomputeUtil.getTable(pluginConfig);
         TableSchema tableSchema = table.getSchema();
@@ -226,7 +225,7 @@ public class MaxcomputeTypeMapper implements Serializable {
                 fieldNames.toArray(new String[fieldNames.size()]),
                 seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[seaTunnelDataTypes.size()]));
     }
-
+    
     public static TableSchema seaTunnelRowType2TableSchema(SeaTunnelRowType seaTunnelRowType) {
         TableSchema tableSchema = new TableSchema();
         for (int i = 0; i < seaTunnelRowType.getFieldNames().length; i++) {
@@ -236,7 +235,7 @@ public class MaxcomputeTypeMapper implements Serializable {
         }
         return tableSchema;
     }
-
+    
     private static Object resolveObject(Object field, SeaTunnelDataType<?> fieldType) {
         if (field == null) {
             return null;
@@ -276,10 +275,9 @@ public class MaxcomputeTypeMapper implements Serializable {
                 SeaTunnelDataType<?> valueType = ((MapType<?, ?>) fieldType).getValueType();
                 HashMap<Object, Object> origDataMap = (HashMap<Object, Object>) field;
                 origDataMap.forEach(
-                        (key, value) ->
-                                dataMap.put(
-                                        resolveObject(key, keyType),
-                                        resolveObject(value, valueType)));
+                        (key, value) -> dataMap.put(
+                                resolveObject(key, keyType),
+                                resolveObject(value, valueType)));
                 return dataMap;
             case BOOLEAN:
             case INT:
@@ -313,9 +311,8 @@ public class MaxcomputeTypeMapper implements Serializable {
                         "SeaTunnel not support this data type now");
         }
     }
-
-    public static SeaTunnelRow getSeaTunnelRowData(Record rs, SeaTunnelRowType typeInfo)
-            throws SQLException {
+    
+    public static SeaTunnelRow getSeaTunnelRowData(Record rs, SeaTunnelRowType typeInfo) throws SQLException {
         List<Object> fields = new ArrayList<>();
         SeaTunnelDataType<?>[] seaTunnelDataTypes = typeInfo.getFieldTypes();
         for (int i = 0; i < rs.getColumns().length; i++) {
@@ -323,9 +320,9 @@ public class MaxcomputeTypeMapper implements Serializable {
         }
         return new SeaTunnelRow(fields.toArray());
     }
-
+    
     public static Record getMaxcomputeRowData(
-            SeaTunnelRow seaTunnelRow, SeaTunnelRowType seaTunnelRowType) {
+                                              SeaTunnelRow seaTunnelRow, SeaTunnelRowType seaTunnelRowType) {
         TableSchema tableSchema = seaTunnelRowType2TableSchema(seaTunnelRowType);
         ArrayRecord arrayRecord = new ArrayRecord(tableSchema);
         for (int i = 0; i < seaTunnelRow.getFields().length; i++) {

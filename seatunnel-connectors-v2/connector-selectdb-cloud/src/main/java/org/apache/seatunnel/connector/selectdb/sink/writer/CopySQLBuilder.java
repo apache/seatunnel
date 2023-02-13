@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connector.selectdb.sink.writer;
 
 import org.apache.seatunnel.connector.selectdb.config.SelectDBConfig;
@@ -25,18 +24,19 @@ import java.util.Properties;
 import java.util.StringJoiner;
 
 public class CopySQLBuilder {
+    
     private static final String COPY_SYNC = "copy.async";
     private static final String COPY_DELETE = "copy.use_delete_sign";
     private final SelectDBConfig selectdbConfig;
     private final List<String> fileList;
     private Properties properties;
-
+    
     public CopySQLBuilder(SelectDBConfig selectdbConfig, List<String> fileList) {
         this.selectdbConfig = selectdbConfig;
         this.fileList = fileList;
         this.properties = selectdbConfig.getStreamLoadProps();
     }
-
+    
     public String buildCopySQL() {
         StringBuilder sb = new StringBuilder();
         sb.append("COPY INTO ")
@@ -45,7 +45,7 @@ public class CopySQLBuilder {
                 .append(String.join(",", fileList))
                 .append("}') ")
                 .append("PROPERTIES (");
-
+        
         // copy into must be sync
         properties.put(COPY_SYNC, false);
         if (selectdbConfig.getEnableDelete()) {

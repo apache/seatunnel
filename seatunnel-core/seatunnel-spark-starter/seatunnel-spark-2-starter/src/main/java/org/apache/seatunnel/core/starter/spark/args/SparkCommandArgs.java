@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.core.starter.spark.args;
 
 import org.apache.seatunnel.common.config.Common;
@@ -35,20 +34,14 @@ import java.util.List;
 @EqualsAndHashCode(callSuper = true)
 @Data
 public class SparkCommandArgs extends AbstractCommandArgs {
-
-    @Parameter(
-            names = {"-e", "--deploy-mode"},
-            description = "Spark deploy mode, support [cluster, client]",
-            converter = SparkDeployModeConverter.class)
+    
+    @Parameter(names = {"-e", "--deploy-mode"}, description = "Spark deploy mode, support [cluster, client]", converter = SparkDeployModeConverter.class)
     private DeployMode deployMode = DeployMode.CLIENT;
-
-    @Parameter(
-            names = {"-m", "--master"},
-            description =
-                    "Spark master, support [spark://host:port, mesos://host:port, yarn, "
-                            + "k8s://https://host:port, local], default local[*]")
+    
+    @Parameter(names = {"-m", "--master"}, description = "Spark master, support [spark://host:port, mesos://host:port, yarn, "
+            + "k8s://https://host:port, local], default local[*]")
     private String master = "local[*]";
-
+    
     @Override
     public Command<?> buildCommand() {
         Common.setDeployMode(getDeployMode());
@@ -58,15 +51,16 @@ public class SparkCommandArgs extends AbstractCommandArgs {
             return new SparkTaskExecuteCommand(this);
         }
     }
-
+    
     public static class SparkDeployModeConverter implements IStringConverter<DeployMode> {
+        
         private static final List<DeployMode> DEPLOY_MODE_TYPE_LIST = new ArrayList<>();
-
+        
         static {
             DEPLOY_MODE_TYPE_LIST.add(DeployMode.CLIENT);
             DEPLOY_MODE_TYPE_LIST.add(DeployMode.CLUSTER);
         }
-
+        
         @Override
         public DeployMode convert(String value) {
             DeployMode deployMode = DeployMode.valueOf(value.toUpperCase());

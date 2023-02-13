@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -30,15 +29,14 @@ import java.sql.SQLException;
  * SeaTunnelRow}.
  */
 public interface JdbcRowConverter extends Serializable {
-
+    
     /**
      * Convert data retrieved from {@link ResultSet} to internal {@link SeaTunnelRow}.
      *
      * @param rs ResultSet from JDBC
      */
     SeaTunnelRow toInternal(ResultSet rs, SeaTunnelRowType typeInfo) throws SQLException;
-
+    
     PreparedStatement toExternal(
-            SeaTunnelRowType rowType, SeaTunnelRow row, PreparedStatement statement)
-            throws SQLException;
+                                 SeaTunnelRowType rowType, SeaTunnelRow row, PreparedStatement statement) throws SQLException;
 }

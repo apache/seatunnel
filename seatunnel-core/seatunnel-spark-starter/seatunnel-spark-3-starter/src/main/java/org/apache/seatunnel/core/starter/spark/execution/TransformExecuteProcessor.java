@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.core.starter.spark.execution;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -50,17 +49,18 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class TransformExecuteProcessor
-        extends SparkAbstractPluginExecuteProcessor<SeaTunnelTransform> {
-
+        extends
+            SparkAbstractPluginExecuteProcessor<SeaTunnelTransform> {
+    
     private static final String PLUGIN_TYPE = "transform";
-
+    
     protected TransformExecuteProcessor(
-            SparkRuntimeEnvironment sparkRuntimeEnvironment,
-            JobContext jobContext,
-            List<? extends Config> pluginConfigs) {
+                                        SparkRuntimeEnvironment sparkRuntimeEnvironment,
+                                        JobContext jobContext,
+                                        List<? extends Config> pluginConfigs) {
         super(sparkRuntimeEnvironment, jobContext, pluginConfigs);
     }
-
+    
     @Override
     protected List<SeaTunnelTransform> initializePlugins(List<? extends Config> pluginConfigs) {
         SeaTunnelTransformPluginDiscovery transformPluginDiscovery =
@@ -90,10 +90,9 @@ public class TransformExecuteProcessor
         sparkRuntimeEnvironment.registerPlugin(pluginJars);
         return transforms;
     }
-
+    
     @Override
-    public List<Dataset<Row>> execute(List<Dataset<Row>> upstreamDataStreams)
-            throws TaskExecuteException {
+    public List<Dataset<Row>> execute(List<Dataset<Row>> upstreamDataStreams) throws TaskExecuteException {
         if (plugins.isEmpty()) {
             return upstreamDataStreams;
         }
@@ -118,9 +117,8 @@ public class TransformExecuteProcessor
         }
         return result;
     }
-
-    private Dataset<Row> sparkTransform(SeaTunnelTransform transform, Dataset<Row> stream)
-            throws IOException {
+    
+    private Dataset<Row> sparkTransform(SeaTunnelTransform transform, Dataset<Row> stream) throws IOException {
         SeaTunnelDataType<?> seaTunnelDataType = TypeConverterUtils.convert(stream.schema());
         transform.setTypeInfo(seaTunnelDataType);
         StructType structType =

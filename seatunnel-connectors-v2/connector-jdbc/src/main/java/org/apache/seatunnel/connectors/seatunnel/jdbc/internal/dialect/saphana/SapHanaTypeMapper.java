@@ -1,11 +1,10 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -15,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.saphana;
 
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -30,7 +28,7 @@ import java.sql.SQLException;
 import java.util.Locale;
 
 public class SapHanaTypeMapper implements JdbcDialectTypeMapper {
-
+    
     // refer to
     // https://help.sap.com/docs/SAP_BUSINESSOBJECTS_BUSINESS_INTELLIGENCE_PLATFORM/aa4cb9ab429349e49678e146f05d7341/ec3313286fdb101497906a7cb0e91070.html?locale=zh-CN
     private static final String SAP_HANA_BLOB = "blob";
@@ -56,15 +54,14 @@ public class SapHanaTypeMapper implements JdbcDialectTypeMapper {
     private static final String SAP_HANA_SHORTTEXT = "shorttext";
     private static final String SAP_HANA_VARCHAR = "varchar";
     private static final String SAP_HANA_BINARY = "binary";
-
+    
     @Override
-    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
-            throws SQLException {
+    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException {
         String typeName = metadata.getColumnTypeName(colIndex).toLowerCase(Locale.ROOT);
-
+        
         int precision = metadata.getPrecision(colIndex);
         int scale = metadata.getScale(colIndex);
-
+        
         switch (typeName) {
             case SAP_HANA_BLOB:
             case SAP_HANA_VARBINARY:

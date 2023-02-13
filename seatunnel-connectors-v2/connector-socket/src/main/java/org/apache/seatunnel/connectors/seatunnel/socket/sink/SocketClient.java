@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.socket.sink;
 
 import org.apache.seatunnel.api.serialization.SerializationSchema;
@@ -31,7 +30,7 @@ import java.net.Socket;
 
 @Slf4j
 public class SocketClient {
-
+    
     private final String hostName;
     private final int port;
     private int retries;
@@ -41,7 +40,7 @@ public class SocketClient {
     private final SerializationSchema serializationSchema;
     private volatile boolean isRunning = Boolean.TRUE;
     private static final int CONNECTION_RETRY_DELAY = 500;
-
+    
     public SocketClient(SinkConfig config, SerializationSchema serializationSchema) {
         this.hostName = config.getHost();
         this.port = config.getPort();
@@ -49,15 +48,15 @@ public class SocketClient {
         retries = config.getMaxNumRetries();
         maxNumRetries = config.getMaxNumRetries();
     }
-
+    
     private void createConnection() throws IOException {
         client = new Socket(hostName, port);
         client.setKeepAlive(true);
         client.setTcpNoDelay(true);
-
+        
         outputStream = client.getOutputStream();
     }
-
+    
     public void open() throws IOException {
         try {
             synchronized (SocketClient.class) {
@@ -70,7 +69,7 @@ public class SocketClient {
                     e);
         }
     }
-
+    
     public void write(SeaTunnelRow row) throws IOException {
         byte[] msg = serializationSchema.serialize(row);
         try {
@@ -86,14 +85,14 @@ public class SocketClient {
                                 row, hostName, port),
                         e);
             }
-
+            
             log.error(
                     "Failed to send message '{}' to socket server at {}:{}. Trying to reconnect...",
                     row,
                     hostName,
                     port,
                     e);
-
+            
             synchronized (SocketClient.class) {
                 IOException lastException = null;
                 retries = 0;
@@ -113,10 +112,10 @@ public class SocketClient {
                     } catch (IOException ee) {
                         log.error("Could not close socket from failed write attempt", ee);
                     }
-
+                    
                     // try again
                     retries++;
-
+                    
                     try {
                         // initialize a new connection
                         createConnection();
@@ -139,7 +138,7 @@ public class SocketClient {
                                 e);
                     }
                 }
-
+                
                 if (isRunning) {
                     throw new SocketConnectorException(
                             SocketConnectorErrorCode.SEND_MESSAGE_TO_SOCKET_SERVER_FAILED,
@@ -151,7 +150,7 @@ public class SocketClient {
             }
         }
     }
-
+    
     public void close() throws IOException {
         isRunning = false;
         synchronized (this) {

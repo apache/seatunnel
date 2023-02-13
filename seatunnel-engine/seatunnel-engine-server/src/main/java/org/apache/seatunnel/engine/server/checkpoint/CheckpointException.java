@@ -1,11 +1,10 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -15,39 +14,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /** Base class for checkpoint related exceptions. */
 public class CheckpointException extends Exception {
-
+    
     private static final long serialVersionUID = 3257526119022486948L;
-
+    
     private final CheckpointCloseReason checkpointCloseReason;
-
+    
     public CheckpointException(CheckpointCloseReason failureReason) {
         super(failureReason.message());
         this.checkpointCloseReason = checkNotNull(failureReason);
     }
-
+    
     public CheckpointException(String message, CheckpointCloseReason failureReason) {
         super(message + " Failure reason: " + failureReason.message());
         this.checkpointCloseReason = checkNotNull(failureReason);
     }
-
+    
     public CheckpointException(CheckpointCloseReason failureReason, Throwable cause) {
         super(failureReason.message(), cause);
         this.checkpointCloseReason = checkNotNull(failureReason);
     }
-
+    
     public CheckpointException(
-            String message, CheckpointCloseReason failureReason, Throwable cause) {
+                               String message, CheckpointCloseReason failureReason, Throwable cause) {
         super(message + " Failure reason: " + failureReason.message(), cause);
         this.checkpointCloseReason = checkNotNull(failureReason);
     }
-
+    
     public CheckpointCloseReason getCheckpointFailureReason() {
         return checkpointCloseReason;
     }

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
@@ -46,41 +45,42 @@ import java.util.stream.Collectors;
 
 /** Assigner for incremental split. */
 public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAssigner {
-
+    
     private static final Logger LOG = LoggerFactory.getLogger(IncrementalSplitAssigner.class);
     protected static final String INCREMENTAL_SPLIT_ID = "incremental-split-%d";
-
+    
     private final SplitAssigner.Context<C> context;
-
+    
     private final int incrementalParallelism;
-
+    
     private final OffsetFactory offsetFactory;
-
+    
     /**
      * Maximum watermark in SnapshotSplits per table. <br>
      * Used to delete information in completedSnapshotSplitInfos, reducing state size. <br>
      * Used to support Exactly-Once.
      */
     private final Map<TableId, Offset> tableWatermarks = new HashMap<>();
-
+    
     private boolean splitAssigned = false;
-
+    
     private final List<IncrementalSplit> remainingSplits = new ArrayList<>();
-
+    
     private final Map<String, IncrementalSplit> assignedSplits = new HashMap<>();
-
+    
     public IncrementalSplitAssigner(
-            SplitAssigner.Context<C> context,
-            int incrementalParallelism,
-            OffsetFactory offsetFactory) {
+                                    SplitAssigner.Context<C> context,
+                                    int incrementalParallelism,
+                                    OffsetFactory offsetFactory) {
         this.context = context;
         this.incrementalParallelism = incrementalParallelism;
         this.offsetFactory = offsetFactory;
     }
-
+    
     @Override
-    public void open() {}
-
+    public void open() {
+    }
+    
     @Override
     public Optional<SourceSplitBase> getNext() {
         if (!remainingSplits.isEmpty()) {
@@ -99,32 +99,31 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
         splitAssigned = true;
         return getNext();
     }
-
+    
     /** Indicates there is no more splits available in this assigner. */
     public boolean noMoreSplits() {
         return getRemainingTables().isEmpty() && remainingSplits.isEmpty();
     }
-
+    
     private Set<TableId> getRemainingTables() {
         Set<TableId> allTables = new HashSet<>(context.getCapturedTables());
         assignedSplits.values().forEach(split -> split.getTableIds().forEach(allTables::remove));
         return allTables;
     }
-
+    
     @Override
     public boolean waitingForCompletedSplits() {
         return false;
     }
-
+    
     @Override
     public void onCompletedSplits(List<SnapshotSplitWatermark> completedSplitWatermarks) {
         // do nothing
         completedSplitWatermarks.forEach(
-                watermark ->
-                        context.getSplitCompletedOffsets()
-                                .put(watermark.getSplitId(), watermark.getHighWatermark()));
+                watermark -> context.getSplitCompletedOffsets()
+                        .put(watermark.getSplitId(), watermark.getHighWatermark()));
     }
-
+    
     @Override
     public void addSplits(Collection<SourceSplitBase> splits) {
         // we don't store the split, but will re-create incremental split later
@@ -146,19 +145,19 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
                             }
                         });
     }
-
+    
     @Override
     public IncrementalPhaseState snapshotState(long checkpointId) {
         return new IncrementalPhaseState();
     }
-
+    
     @Override
     public void notifyCheckpointComplete(long checkpointId) {
         // nothing to do
     }
-
+    
     // ------------------------------------------------------------------------------------------
-
+    
     public List<IncrementalSplit> createIncrementalSplits() {
         Set<TableId> allTables = new HashSet<>(context.getCapturedTables());
         assignedSplits.values().forEach(split -> split.getTableIds().forEach(allTables::remove));
@@ -179,14 +178,14 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
         }
         return incrementalSplits;
     }
-
+    
     private IncrementalSplit createIncrementalSplit(List<TableId> capturedTables, int index) {
         final List<SnapshotSplit> assignedSnapshotSplit =
                 context.getAssignedSnapshotSplit().values().stream()
                         .filter(split -> capturedTables.contains(split.getTableId()))
                         .sorted(Comparator.comparing(SourceSplitBase::splitId))
                         .collect(Collectors.toList());
-
+        
         Map<String, Offset> splitCompletedOffsets = context.getSplitCompletedOffsets();
         final List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos = new ArrayList<>();
         Offset minOffset = null;

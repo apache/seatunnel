@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.hudi.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -48,24 +47,25 @@ import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceCo
 
 @AutoService(SeaTunnelSource.class)
 public class HudiSource
-        implements SeaTunnelSource<SeaTunnelRow, HudiSourceSplit, HudiSourceState>,
-                SupportParallelism {
-
+        implements
+            SeaTunnelSource<SeaTunnelRow, HudiSourceSplit, HudiSourceState>,
+            SupportParallelism {
+    
     private SeaTunnelRowType typeInfo;
-
+    
     private String filePath;
-
+    
     private String tablePath;
-
+    
     private String confFiles;
-
+    
     private boolean useKerberos = false;
-
+    
     @Override
     public String getPluginName() {
         return "Hudi";
     }
-
+    
     @Override
     public void prepare(Config pluginConfig) {
         CheckResult result =
@@ -129,37 +129,36 @@ public class HudiSource
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
     }
-
+    
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
         return this.typeInfo;
     }
-
+    
     @Override
     public SourceReader<SeaTunnelRow, HudiSourceSplit> createReader(
-            SourceReader.Context readerContext) throws Exception {
+                                                                    SourceReader.Context readerContext) throws Exception {
         return new HudiSourceReader(this.confFiles, readerContext, typeInfo);
     }
-
+    
     @Override
     public Boundedness getBoundedness() {
-        //  Only support Snapshot Query now.
-        //  After support Incremental Query and Read Optimized Query, we should supoort UNBOUNDED.
-        //  TODO: support UNBOUNDED
+        // Only support Snapshot Query now.
+        // After support Incremental Query and Read Optimized Query, we should supoort UNBOUNDED.
+        // TODO: support UNBOUNDED
         return Boundedness.BOUNDED;
     }
-
+    
     @Override
     public SourceSplitEnumerator<HudiSourceSplit, HudiSourceState> createEnumerator(
-            SourceSplitEnumerator.Context<HudiSourceSplit> enumeratorContext) throws Exception {
+                                                                                    SourceSplitEnumerator.Context<HudiSourceSplit> enumeratorContext) throws Exception {
         return new HudiSourceSplitEnumerator(enumeratorContext, tablePath, this.confFiles);
     }
-
+    
     @Override
     public SourceSplitEnumerator<HudiSourceSplit, HudiSourceState> restoreEnumerator(
-            SourceSplitEnumerator.Context<HudiSourceSplit> enumeratorContext,
-            HudiSourceState checkpointState)
-            throws Exception {
+                                                                                     SourceSplitEnumerator.Context<HudiSourceSplit> enumeratorContext,
+                                                                                     HudiSourceState checkpointState) throws Exception {
         return new HudiSourceSplitEnumerator(
                 enumeratorContext, tablePath, this.confFiles, checkpointState);
     }

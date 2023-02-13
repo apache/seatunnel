@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.translation.spark.sink;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -38,13 +37,13 @@ import java.util.Map;
 import java.util.Set;
 
 public class SeaTunnelSinkTable implements Table, SupportsWrite {
-
+    
     private static final String SINK_TABLE_NAME = "SeaTunnelSinkTable";
-
+    
     private final Map<String, String> properties;
-
+    
     private final SeaTunnelSink<SeaTunnelRow, ?, ?, ?> sink;
-
+    
     public SeaTunnelSinkTable(Map<String, String> properties) {
         this.properties = properties;
         String sinkSerialization = properties.getOrDefault(Constants.SINK_SERIALIZATION, "");
@@ -53,22 +52,22 @@ public class SeaTunnelSinkTable implements Table, SupportsWrite {
         }
         this.sink = SerializationUtils.stringToObject(sinkSerialization);
     }
-
+    
     @Override
     public WriteBuilder newWriteBuilder(LogicalWriteInfo info) {
         return new SeaTunnelWriteBuilder<>(sink);
     }
-
+    
     @Override
     public String name() {
         return SINK_TABLE_NAME;
     }
-
+    
     @Override
     public StructType schema() {
         return (StructType) TypeConverterUtils.convert(sink.getConsumedType());
     }
-
+    
     @Override
     public Set<TableCapability> capabilities() {
         return Sets.newHashSet(TableCapability.BATCH_WRITE, TableCapability.STREAMING_WRITE);

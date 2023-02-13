@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -54,11 +53,12 @@ import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class JdbcSinkCDCChangelogIT extends TestSuiteBase implements TestResource {
+    
     private static final String PG_IMAGE = "postgres:alpine3.16";
     private static final String PG_DRIVER_JAR =
             "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
     private PostgreSQLContainer<?> postgreSQLContainer;
-
+    
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
@@ -70,7 +70,7 @@ public class JdbcSinkCDCChangelogIT extends TestSuiteBase implements TestResourc
                                         + PG_DRIVER_JAR);
                 Assertions.assertEquals(0, extraCommands.getExitCode());
             };
-
+    
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -91,19 +91,19 @@ public class JdbcSinkCDCChangelogIT extends TestSuiteBase implements TestResourc
                 .atMost(2, TimeUnit.MINUTES)
                 .untilAsserted(() -> initializeJdbcTable());
     }
-
+    
     @TestTemplate
-    public void testSinkCDCChangelog(TestContainer container)
-            throws IOException, InterruptedException, SQLException {
+    public void testSinkCDCChangelog(TestContainer container) throws IOException, InterruptedException, SQLException {
         Container.ExecResult execResult = container.executeJob("/jdbc_sink_cdc_changelog.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-
+        
         Set<List<Object>> actual = new HashSet<>();
-        try (Connection connection =
-                DriverManager.getConnection(
-                        postgreSQLContainer.getJdbcUrl(),
-                        postgreSQLContainer.getUsername(),
-                        postgreSQLContainer.getPassword())) {
+        try (
+                Connection connection =
+                        DriverManager.getConnection(
+                                postgreSQLContainer.getJdbcUrl(),
+                                postgreSQLContainer.getUsername(),
+                                postgreSQLContainer.getPassword())) {
             try (Statement statement = connection.createStatement()) {
                 ResultSet resultSet = statement.executeQuery("select * from sink");
                 while (resultSet.next()) {
@@ -121,13 +121,14 @@ public class JdbcSinkCDCChangelogIT extends TestSuiteBase implements TestResourc
                         .collect(Collectors.toSet());
         Assertions.assertIterableEquals(expected, actual);
     }
-
+    
     private void initializeJdbcTable() {
-        try (Connection connection =
-                DriverManager.getConnection(
-                        postgreSQLContainer.getJdbcUrl(),
-                        postgreSQLContainer.getUsername(),
-                        postgreSQLContainer.getPassword())) {
+        try (
+                Connection connection =
+                        DriverManager.getConnection(
+                                postgreSQLContainer.getJdbcUrl(),
+                                postgreSQLContainer.getUsername(),
+                                postgreSQLContainer.getPassword())) {
             Statement statement = connection.createStatement();
             String sink =
                     "create table sink(\n"
@@ -140,7 +141,7 @@ public class JdbcSinkCDCChangelogIT extends TestSuiteBase implements TestResourc
             throw new RuntimeException("Initializing PostgreSql table failed!", e);
         }
     }
-
+    
     @AfterAll
     @Override
     public void tearDown() throws Exception {

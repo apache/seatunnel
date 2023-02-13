@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.api.transform;
 
 import org.apache.seatunnel.api.common.PluginIdentifierInterface;
@@ -25,25 +24,26 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import java.io.Serializable;
 
 public interface SeaTunnelTransform<T>
-        extends Serializable,
-                PluginIdentifierInterface,
-                SeaTunnelPluginLifeCycle,
-                SeaTunnelJobAware {
-
+        extends
+            Serializable,
+            PluginIdentifierInterface,
+            SeaTunnelPluginLifeCycle,
+            SeaTunnelJobAware {
+    
     /**
      * Set the data type info of input data.
      *
      * @param inputDataType The data type info of upstream input.
      */
     void setTypeInfo(SeaTunnelDataType<T> inputDataType);
-
+    
     /**
      * Get the data type of the records produced by this transform.
      *
      * @return Produced data type.
      */
     SeaTunnelDataType<T> getProducedType();
-
+    
     /**
      * Transform input data to {@link this#getProducedType()} types data.
      *

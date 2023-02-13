@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connector.selectdb.sink.writer;
 
 import org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorException;
@@ -32,13 +31,14 @@ import static org.apache.seatunnel.connector.selectdb.exception.SelectDBConnecto
 
 @Slf4j
 public class RecordBuffer {
+    
     BlockingQueue<ByteBuffer> writeQueue;
     BlockingQueue<ByteBuffer> readQueue;
     int bufferCapacity;
     int queueSize;
     ByteBuffer currentWriteBuffer;
     ByteBuffer currentReadBuffer;
-
+    
     public RecordBuffer(int capacity, int queueSize) {
         log.info("init RecordBuffer capacity {}, count {}", capacity, queueSize);
         checkState(capacity > 0);
@@ -51,7 +51,7 @@ public class RecordBuffer {
         this.bufferCapacity = capacity;
         this.queueSize = queueSize;
     }
-
+    
     public void startBufferData() {
         log.info(
                 "start buffer data, read queue size {}, write queue size {}",
@@ -64,7 +64,7 @@ public class RecordBuffer {
             checkState(byteBuffer.remaining() == bufferCapacity);
         }
     }
-
+    
     public void stopBufferData() throws IOException {
         try {
             // add Empty buffer as finish flag.
@@ -86,7 +86,7 @@ public class RecordBuffer {
             throw new SelectDBConnectorException(BUFFER_STOP_FAILED, e);
         }
     }
-
+    
     public void write(byte[] buf) throws InterruptedException {
         int wPos = 0;
         do {
@@ -104,7 +104,7 @@ public class RecordBuffer {
             }
         } while (wPos != buf.length);
     }
-
+    
     public int read(byte[] buf) throws InterruptedException {
         if (currentReadBuffer == null) {
             currentReadBuffer = readQueue.take();
@@ -125,16 +125,16 @@ public class RecordBuffer {
         }
         return nRead;
     }
-
+    
     private void recycleBuffer(ByteBuffer buffer) throws InterruptedException {
         buffer.clear();
         writeQueue.put(buffer);
     }
-
+    
     public int getWriteQueueSize() {
         return writeQueue.size();
     }
-
+    
     public int getReadQueueSize() {
         return readQueue.size();
     }

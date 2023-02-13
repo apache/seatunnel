@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.file.sink.commit;
 
 import org.apache.seatunnel.api.sink.SinkCommitter;
@@ -28,12 +27,13 @@ import java.util.Map;
 /** Deprecated interface since 2.3.0-beta, now used {@link FileSinkAggregatedCommitter} */
 @Deprecated
 public class FileSinkCommitter implements SinkCommitter<FileCommitInfo> {
+    
     private final FileSystemUtils fileSystemUtils;
-
+    
     public FileSinkCommitter(FileSystemUtils fileSystemUtils) {
         this.fileSystemUtils = fileSystemUtils;
     }
-
+    
     @Override
     public List<FileCommitInfo> commit(List<FileCommitInfo> commitInfos) throws IOException {
         ArrayList<FileCommitInfo> failedCommitInfos = new ArrayList<>();
@@ -51,7 +51,7 @@ public class FileSinkCommitter implements SinkCommitter<FileCommitInfo> {
         }
         return failedCommitInfos;
     }
-
+    
     /**
      * Abort the transaction, this method will be called (**Only** on Spark engine) when the commit
      * is failed.

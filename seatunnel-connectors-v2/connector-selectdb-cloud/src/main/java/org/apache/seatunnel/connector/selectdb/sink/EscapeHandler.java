@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connector.selectdb.sink;
 
 import java.util.Properties;
@@ -28,10 +27,11 @@ import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadConstants.
 
 /** Handler for escape in properties. */
 public class EscapeHandler {
+    
     public static final String ESCAPE_DELIMITERS_FLAGS = "\\x";
     public static final Pattern ESCAPE_PATTERN = Pattern.compile("\\\\x([0-9|a-f|A-F]{2})");
     public static final int RADIX = 16;
-
+    
     public String escapeString(String source) {
         if (source.contains(ESCAPE_DELIMITERS_FLAGS)) {
             Matcher m = ESCAPE_PATTERN.matcher(source);
@@ -45,7 +45,7 @@ public class EscapeHandler {
         }
         return source;
     }
-
+    
     public void handle(Properties properties) {
         String fieldDelimiter =
                 properties.getProperty(FIELD_DELIMITER_KEY, FIELD_DELIMITER_DEFAULT);
@@ -57,7 +57,7 @@ public class EscapeHandler {
             properties.setProperty(LINE_DELIMITER_KEY, escapeString(lineDelimiter));
         }
     }
-
+    
     public static void handleEscape(Properties properties) {
         EscapeHandler handler = new EscapeHandler();
         handler.handle(properties);

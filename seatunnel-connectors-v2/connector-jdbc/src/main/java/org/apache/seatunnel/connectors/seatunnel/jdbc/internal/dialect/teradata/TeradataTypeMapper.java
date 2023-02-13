@@ -1,20 +1,19 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *     contributor license agreements.  See the NOTICE file distributed with
- *     this work for additional information regarding copyright ownership.
- *     The ASF licenses this file to You under the Apache License, Version 2.0
- *     (the "License"); you may not use this file except in compliance with
- *     the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *        http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- *     Unless required by applicable law or agreed to in writing, software
- *     distributed under the License is distributed on an "AS IS" BASIS,
- *     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *     See the License for the specific language governing permissions and
- *     limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.teradata;
 
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -30,9 +29,9 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 
 public class TeradataTypeMapper implements JdbcDialectTypeMapper {
-
+    
     // ============================data types=====================
-
+    
     // -------------------------number----------------------------
     private static final String TERADATA_BYTEINT = "BYTEINT";
     private static final String TERADATA_SMALLINT = "SMALLINT";
@@ -40,27 +39,26 @@ public class TeradataTypeMapper implements JdbcDialectTypeMapper {
     private static final String TERADATA_BIGINT = "BIGINT";
     private static final String TERADATA_FLOAT = "FLOAT";
     private static final String TERADATA_DECIMAL = "DECIMAL";
-
+    
     // -------------------------string----------------------------
     private static final String TERADATA_CHAR = "CHAR";
     private static final String TERADATA_VARCHAR = "VARCHAR";
     private static final String TERADATA_CLOB = "CLOB";
-
+    
     // ---------------------------binary---------------------------
     private static final String TERADATA_BYTE = "BYTE";
     private static final String TERADATA_VARBYTE = "VARBYTE";
-
+    
     // ------------------------------time-------------------------
     private static final String TERADATA_DATE = "DATE";
     private static final String TERADATA_TIME = "TIME";
     private static final String TERADATA_TIMESTAMP = "TIMESTAMP";
-
+    
     // ------------------------------blob-------------------------
     private static final String TERADATA_BLOB = "BLOB";
-
+    
     @Override
-    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
-            throws SQLException {
+    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException {
         String teradataType = metadata.getColumnTypeName(colIndex).toUpperCase();
         switch (teradataType) {
             case TERADATA_BYTEINT:

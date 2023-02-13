@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.client;
 
 import org.apache.seatunnel.api.common.JobContext;
@@ -35,7 +34,7 @@ import java.util.List;
 import java.util.Set;
 
 public class JobConfigParserTest {
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     @Test
     public void testSimpleJobParse() {
@@ -51,11 +50,11 @@ public class JobConfigParserTest {
         Assertions.assertEquals("LocalFile", actions.get(0).getName());
         Assertions.assertEquals(1, actions.get(0).getUpstream().size());
         Assertions.assertEquals("FakeSource", actions.get(0).getUpstream().get(0).getName());
-
+        
         Assertions.assertEquals(3, actions.get(0).getUpstream().get(0).getParallelism());
         Assertions.assertEquals(3, actions.get(0).getParallelism());
     }
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     @Test
     public void testComplexJobParse() {
@@ -68,12 +67,12 @@ public class JobConfigParserTest {
         ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse();
         List<Action> actions = parse.getLeft();
         Assertions.assertEquals(1, actions.size());
-
+        
         Assertions.assertEquals("LocalFile", actions.get(0).getName());
         Assertions.assertEquals(2, actions.get(0).getUpstream().size());
         Assertions.assertEquals("FakeSource", actions.get(0).getUpstream().get(0).getName());
         Assertions.assertEquals("FakeSource", actions.get(0).getUpstream().get(1).getName());
-
+        
         Assertions.assertEquals(3, actions.get(0).getUpstream().get(0).getParallelism());
         Assertions.assertEquals(3, actions.get(0).getUpstream().get(1).getParallelism());
         Assertions.assertEquals(6, actions.get(0).getParallelism());

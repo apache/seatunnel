@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.file.source.split;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -31,48 +30,50 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class FileSourceSplitEnumerator
-        implements SourceSplitEnumerator<FileSourceSplit, FileSourceState> {
+        implements
+            SourceSplitEnumerator<FileSourceSplit, FileSourceState> {
+    
     private final Context<FileSourceSplit> context;
     private Set<FileSourceSplit> pendingSplit;
     private Set<FileSourceSplit> assignedSplit;
     private final List<String> filePaths;
-
+    
     public FileSourceSplitEnumerator(
-            SourceSplitEnumerator.Context<FileSourceSplit> context, List<String> filePaths) {
+                                     SourceSplitEnumerator.Context<FileSourceSplit> context, List<String> filePaths) {
         this.context = context;
         this.filePaths = filePaths;
         this.assignedSplit = new HashSet<>();
     }
-
+    
     public FileSourceSplitEnumerator(
-            SourceSplitEnumerator.Context<FileSourceSplit> context,
-            List<String> filePaths,
-            FileSourceState sourceState) {
+                                     SourceSplitEnumerator.Context<FileSourceSplit> context,
+                                     List<String> filePaths,
+                                     FileSourceState sourceState) {
         this(context, filePaths);
         this.assignedSplit = sourceState.getAssignedSplit();
     }
-
+    
     @Override
     public void open() {
         this.pendingSplit = new HashSet<>();
     }
-
+    
     @Override
     public void run() {
         // do nothing
     }
-
+    
     private Set<FileSourceSplit> getFileSplit() {
         Set<FileSourceSplit> fileSourceSplits = new HashSet<>();
         filePaths.forEach(k -> fileSourceSplits.add(new FileSourceSplit(k)));
         return fileSourceSplits;
     }
-
+    
     @Override
     public void close() throws IOException {
         // do nothing
     }
-
+    
     @Override
     public void addSplitsBack(List<FileSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
@@ -80,7 +81,7 @@ public class FileSourceSplitEnumerator
             assignSplit(subtaskId);
         }
     }
-
+    
     private void assignSplit(int taskId) {
         ArrayList<FileSourceSplit> currentTaskSplits = new ArrayList<>();
         if (context.currentParallelism() == 1) {
@@ -111,30 +112,32 @@ public class FileSourceSplitEnumerator
                         .collect(Collectors.joining(",")));
         context.signalNoMoreSplits(taskId);
     }
-
+    
     private static int getSplitOwner(String tp, int numReaders) {
         return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
     }
-
+    
     @Override
     public int currentUnassignedSplitSize() {
         return pendingSplit.size();
     }
-
+    
     @Override
     public void registerReader(int subtaskId) {
         pendingSplit = getFileSplit();
         assignSplit(subtaskId);
     }
-
+    
     @Override
     public FileSourceState snapshotState(long checkpointId) {
         return new FileSourceState(assignedSplit);
     }
-
+    
     @Override
-    public void notifyCheckpointComplete(long checkpointId) {}
-
+    public void notifyCheckpointComplete(long checkpointId) {
+    }
+    
     @Override
-    public void handleSplitRequest(int subtaskId) {}
+    public void handleSplitRequest(int subtaskId) {
+    }
 }

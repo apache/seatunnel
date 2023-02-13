@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.config;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -28,7 +27,7 @@ import java.util.Map;
 
 @Data
 public class FileReaderOption implements Serializable {
-
+    
     private ShardMetadata shardMetadata;
     private Map<String, String> tableSchema;
     private List<String> fields;
@@ -41,19 +40,19 @@ public class FileReaderOption implements Serializable {
     private boolean compatibleMode;
     private String fileTempPath;
     private String fileFieldsDelimiter;
-
+    
     public FileReaderOption(
-            ShardMetadata shardMetadata,
-            Map<String, String> tableSchema,
-            List<String> fields,
-            String clickhouseLocalPath,
-            ClickhouseFileCopyMethod copyMethod,
-            Map<String, String> nodeUser,
-            boolean nodeFreePass,
-            Map<String, String> nodePassword,
-            boolean compatibleMode,
-            String fileTempPath,
-            String fileFieldsDelimiter) {
+                            ShardMetadata shardMetadata,
+                            Map<String, String> tableSchema,
+                            List<String> fields,
+                            String clickhouseLocalPath,
+                            ClickhouseFileCopyMethod copyMethod,
+                            Map<String, String> nodeUser,
+                            boolean nodeFreePass,
+                            Map<String, String> nodePassword,
+                            boolean compatibleMode,
+                            String fileTempPath,
+                            String fileFieldsDelimiter) {
         this.shardMetadata = shardMetadata;
         this.tableSchema = tableSchema;
         this.fields = fields;

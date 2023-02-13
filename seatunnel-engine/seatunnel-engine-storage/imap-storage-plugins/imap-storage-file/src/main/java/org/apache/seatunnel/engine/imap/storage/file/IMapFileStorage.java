@@ -1,23 +1,19 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.imap.storage.file;
 
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
@@ -67,44 +63,44 @@ import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants
  */
 @Slf4j
 public class IMapFileStorage implements IMapStorage {
-
+    
     public FileSystem fs;
-
+    
     public String namespace;
-
+    
     /** virtual region, Randomly generate a region name */
     public String region;
-
+    
     /**
      * like OSS bucket name It is used to distinguish data storage locations of different business.
      */
     public String businessName;
-
+    
     /**
      * This parameter is primarily used for cluster isolation we can use this to distinguish
      * different cluster, like cluster1, cluster2 and this is also used to distinguish different
      * business
      */
     public String clusterName;
-
+    
     public long writDataTimeoutMilliseconds;
-
+    
     /** We used disruptor to implement the asynchronous write. */
     WALDisruptor walDisruptor;
-
+    
     /** serializer, default is ProtoStuffSerializer */
     Serializer serializer;
-
+    
     private String businessRootPath = null;
-
+    
     public static final int DEFAULT_ARCHIVE_WAIT_TIME_MILLISECONDS = 1000 * 60;
-
+    
     public static final int DEFAULT_QUERY_LIST_SIZE = 256;
-
+    
     public static final long DEFAULT_WRITE_DATA_TIMEOUT_MILLISECONDS = 1000 * 60;
-
+    
     private Configuration conf;
-
+    
     /**
      * @param configuration configuration
      * @see FileConstants.FileInitProperties
@@ -116,14 +112,13 @@ public class IMapFileStorage implements IMapStorage {
         this.conf = hadoopConf;
         this.namespace = (String) configuration.getOrDefault(NAMESPACE_KEY, DEFAULT_IMAP_NAMESPACE);
         this.businessName = (String) configuration.get(BUSINESS_KEY);
-
+        
         this.clusterName = (String) configuration.get(CLUSTER_NAME);
         this.writDataTimeoutMilliseconds =
-                (long)
-                        configuration.getOrDefault(
-                                WRITE_DATA_TIMEOUT_MILLISECONDS_KEY,
-                                DEFAULT_WRITE_DATA_TIMEOUT_MILLISECONDS);
-
+                (long) configuration.getOrDefault(
+                        WRITE_DATA_TIMEOUT_MILLISECONDS_KEY,
+                        DEFAULT_WRITE_DATA_TIMEOUT_MILLISECONDS);
+        
         this.region = String.valueOf(System.nanoTime());
         this.businessRootPath =
                 namespace
@@ -143,7 +138,7 @@ public class IMapFileStorage implements IMapStorage {
                 new WALDisruptor(
                         fs, businessRootPath + region + DEFAULT_IMAP_FILE_PATH_SPLIT, serializer);
     }
-
+    
     @Override
     public boolean store(Object key, Object value) {
         IMapFileData data;
@@ -153,11 +148,11 @@ public class IMapFileStorage implements IMapStorage {
             log.error("parse to IMapFileData error, key is {}, value is {}", key, value, e);
             return false;
         }
-
+        
         long requestId = sendToDisruptorQueue(data, WALEventType.APPEND);
         return queryExecuteStatus(requestId);
     }
-
+    
     @Override
     public Set<Object> storeAll(Map<Object, Object> map) {
         Map<Long, Object> requestMap = new HashMap<>(map.size());
@@ -175,7 +170,7 @@ public class IMapFileStorage implements IMapStorage {
                 });
         return batchQueryExecuteFailsStatus(requestMap, failures);
     }
-
+    
     @Override
     public boolean delete(Object key) {
         IMapFileData data;
@@ -188,7 +183,7 @@ public class IMapFileStorage implements IMapStorage {
         long requestId = sendToDisruptorQueue(data, WALEventType.APPEND);
         return queryExecuteStatus(requestId);
     }
-
+    
     @Override
     public Set<Object> deleteAll(Collection<Object> keys) {
         Map<Long, Object> requestMap = new HashMap<>(keys.size());
@@ -207,7 +202,7 @@ public class IMapFileStorage implements IMapStorage {
                 });
         return batchQueryExecuteFailsStatus(requestMap, failures);
     }
-
+    
     @Override
     public Map<Object, Object> loadAll() {
         try {
@@ -217,7 +212,7 @@ public class IMapFileStorage implements IMapStorage {
             throw new IMapStorageException("load all data error", e);
         }
     }
-
+    
     @Override
     public Set<Object> loadAllKeys() {
         try {
@@ -228,7 +223,7 @@ public class IMapFileStorage implements IMapStorage {
                     e, "load all keys error parent path is {}", e, businessRootPath);
         }
     }
-
+    
     @Override
     public void destroy(boolean deleteAllFileFlag) {
         log.info(
@@ -247,7 +242,7 @@ public class IMapFileStorage implements IMapStorage {
         if (deleteAllFileFlag) {
             // delete all files
             String parentPath = businessRootPath;
-
+            
             try {
                 fs.delete(new Path(parentPath), true);
             } catch (IOException e) {
@@ -259,7 +254,7 @@ public class IMapFileStorage implements IMapStorage {
             }
         }
     }
-
+    
     private IMapFileData parseToIMapFileData(Object key, Object value) throws IOException {
         return IMapFileData.builder()
                 .key(serializer.serialize(key))
@@ -270,7 +265,7 @@ public class IMapFileStorage implements IMapStorage {
                 .deleted(false)
                 .build();
     }
-
+    
     private IMapFileData buildDeleteIMapFileData(Object key) throws IOException {
         return IMapFileData.builder()
                 .key(serializer.serialize(key))
@@ -279,7 +274,7 @@ public class IMapFileStorage implements IMapStorage {
                 .deleted(true)
                 .build();
     }
-
+    
     private long sendToDisruptorQueue(IMapFileData data, WALEventType type) {
         long requestId = RequestFutureCache.getRequestId();
         RequestFuture requestFuture = new RequestFuture();
@@ -287,11 +282,11 @@ public class IMapFileStorage implements IMapStorage {
         walDisruptor.tryPublish(data, type, requestId);
         return requestId;
     }
-
+    
     private boolean queryExecuteStatus(long requestId) {
         return queryExecuteStatus(requestId, this.writDataTimeoutMilliseconds);
     }
-
+    
     private boolean queryExecuteStatus(long requestId, long timeout) {
         RequestFuture requestFuture = RequestFutureCache.get(requestId);
         try {
@@ -306,9 +301,9 @@ public class IMapFileStorage implements IMapStorage {
         }
         return false;
     }
-
+    
     private Set<Object> batchQueryExecuteFailsStatus(
-            Map<Long, Object> requestMap, Set<Object> failures) {
+                                                     Map<Long, Object> requestMap, Set<Object> failures) {
         for (Map.Entry<Long, Object> entry : requestMap.entrySet()) {
             boolean success = false;
             RequestFuture requestFuture = RequestFutureCache.get(entry.getKey());
@@ -327,7 +322,7 @@ public class IMapFileStorage implements IMapStorage {
         }
         return failures;
     }
-
+    
     private void checkInitStorageProperties(Map<String, Object> properties) {
         if (properties == null || properties.isEmpty()) {
             throw new IllegalArgumentException("init file storage properties is empty");

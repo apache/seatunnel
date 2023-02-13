@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.translation.flink.sink;
 
 import org.apache.seatunnel.api.sink.SinkCommitter;
@@ -37,16 +36,15 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 public class FlinkCommitter<CommT> implements Committer<CommitWrapper<CommT>> {
-
+    
     private final SinkCommitter<CommT> sinkCommitter;
-
+    
     FlinkCommitter(SinkCommitter<CommT> sinkCommitter) {
         this.sinkCommitter = sinkCommitter;
     }
-
+    
     @Override
-    public List<CommitWrapper<CommT>> commit(List<CommitWrapper<CommT>> committables)
-            throws IOException {
+    public List<CommitWrapper<CommT>> commit(List<CommitWrapper<CommT>> committables) throws IOException {
         List<CommT> reCommittable =
                 sinkCommitter.commit(
                         committables.stream()
@@ -58,7 +56,8 @@ public class FlinkCommitter<CommT> implements Committer<CommitWrapper<CommT>> {
         // TODO re-commit the data
         return new ArrayList<>();
     }
-
+    
     @Override
-    public void close() throws Exception {}
+    public void close() throws Exception {
+    }
 }

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.hudi.util;
 
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -39,14 +38,14 @@ import java.util.Arrays;
 import static org.apache.parquet.format.converter.ParquetMetadataConverter.NO_FILTER;
 
 public class HudiUtil {
-
+    
     public static Configuration getConfiguration(String confPaths) {
         Configuration configuration = new Configuration();
         Arrays.stream(confPaths.split(";"))
                 .forEach(file -> configuration.addResource(new Path(file)));
         return configuration;
     }
-
+    
     public static String getParquetFileByPath(String confPaths, String path) throws IOException {
         Configuration configuration = getConfiguration(confPaths);
         FileSystem hdfs = FileSystem.get(configuration);
@@ -69,9 +68,8 @@ public class HudiUtil {
         }
         return null;
     }
-
-    public static SeaTunnelRowType getSeaTunnelRowTypeInfo(String confPaths, String path)
-            throws HudiConnectorException {
+    
+    public static SeaTunnelRowType getSeaTunnelRowTypeInfo(String confPaths, String path) throws HudiConnectorException {
         Configuration configuration = getConfiguration(confPaths);
         Path dstDir = new Path(path);
         ParquetMetadata footer;
@@ -84,24 +82,23 @@ public class HudiUtil {
         MessageType schema = footer.getFileMetaData().getSchema();
         String[] fields = new String[schema.getFields().size()];
         SeaTunnelDataType[] types = new SeaTunnelDataType[schema.getFields().size()];
-
+        
         for (int i = 0; i < schema.getFields().size(); i++) {
             fields[i] = schema.getFields().get(i).getName();
             types[i] = BasicType.STRING_TYPE;
         }
         return new SeaTunnelRowType(fields, types);
     }
-
+    
     public static JobConf toJobConf(Configuration conf) {
         if (conf instanceof JobConf) {
             return (JobConf) conf;
         }
         return new JobConf(conf);
     }
-
+    
     public static void initKerberosAuthentication(
-            Configuration conf, String principal, String principalFile)
-            throws HudiConnectorException {
+                                                  Configuration conf, String principal, String principalFile) throws HudiConnectorException {
         try {
             UserGroupInformation.setConfiguration(conf);
             UserGroupInformation.loginUserFromKeytab(principal, principalFile);

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.redis.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -43,15 +42,16 @@ import com.google.auto.service.AutoService;
 
 @AutoService(SeaTunnelSource.class)
 public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
+    
     private final RedisParameters redisParameters = new RedisParameters();
     private SeaTunnelRowType seaTunnelRowType;
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
-
+    
     @Override
     public String getPluginName() {
         return "Redis";
     }
-
+    
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result =
@@ -82,7 +82,7 @@ public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                                 "Must config schema when format parameter been config"));
             }
             Config schema = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
-
+            
             RedisConfig.Format format =
                     RedisConfig.Format.valueOf(
                             pluginConfig.getString(RedisConfig.FORMAT.key()).toUpperCase());
@@ -97,20 +97,20 @@ public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
             this.deserializationSchema = null;
         }
     }
-
+    
     @Override
     public Boundedness getBoundedness() {
         return Boundedness.BOUNDED;
     }
-
+    
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
         return seaTunnelRowType;
     }
-
+    
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(
-            SingleSplitReaderContext readerContext) throws Exception {
+                                                                SingleSplitReaderContext readerContext) throws Exception {
         return new RedisSourceReader(redisParameters, readerContext, deserializationSchema);
     }
 }

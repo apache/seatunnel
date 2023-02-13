@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.cdc.base.relational.connection;
 
 import java.io.Serializable;
@@ -22,18 +21,18 @@ import java.util.Objects;
 
 /** The connection pool identifier. */
 public class ConnectionPoolId implements Serializable {
-
+    
     private static final long serialVersionUID = 1L;
     private final String host;
     private final int port;
     private final String username;
-
+    
     public ConnectionPoolId(String host, int port, String username) {
         this.host = host;
         this.port = port;
         this.username = username;
     }
-
+    
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -47,12 +46,12 @@ public class ConnectionPoolId implements Serializable {
                 && Objects.equals(port, that.port)
                 && Objects.equals(username, that.username);
     }
-
+    
     @Override
     public int hashCode() {
         return Objects.hash(host, port, username);
     }
-
+    
     @Override
     public String toString() {
         return username + '@' + host + ':' + port;

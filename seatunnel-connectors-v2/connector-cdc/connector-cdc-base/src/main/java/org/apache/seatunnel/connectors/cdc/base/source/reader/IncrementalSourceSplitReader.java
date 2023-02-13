@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.cdc.base.source.reader;
 
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
@@ -40,27 +39,29 @@ import java.util.Queue;
 
 @Slf4j
 public class IncrementalSourceSplitReader<C extends SourceConfig>
-        implements SplitReader<SourceRecords, SourceSplitBase> {
+        implements
+            SplitReader<SourceRecords, SourceSplitBase> {
+    
     private final Queue<SourceSplitBase> splits;
     private final int subtaskId;
-
+    
     private Fetcher<SourceRecords, SourceSplitBase> currentFetcher;
-
+    
     private String currentSplitId;
     private final DataSourceDialect<C> dataSourceDialect;
     private final C sourceConfig;
-
+    
     public IncrementalSourceSplitReader(
-            int subtaskId, DataSourceDialect<C> dataSourceDialect, C sourceConfig) {
+                                        int subtaskId, DataSourceDialect<C> dataSourceDialect, C sourceConfig) {
         this.subtaskId = subtaskId;
         this.splits = new ArrayDeque<>();
         this.dataSourceDialect = dataSourceDialect;
         this.sourceConfig = sourceConfig;
     }
-
+    
     @Override
     public RecordsWithSplitIds<SourceRecords> fetch() throws IOException {
-
+        
         checkSplitOrStartNext();
         checkNeedStopBinlogReader();
         Iterator<SourceRecords> dataIt = null;
@@ -74,7 +75,7 @@ public class IncrementalSourceSplitReader<C extends SourceConfig>
                 ? finishedSnapshotSplit()
                 : ChangeEventRecords.forRecords(currentSplitId, dataIt);
     }
-
+    
     @Override
     public void handleSplitsChanges(SplitsChange<SourceSplitBase> splitsChanges) {
         if (!(splitsChanges instanceof SplitsAddition)) {
@@ -83,14 +84,15 @@ public class IncrementalSourceSplitReader<C extends SourceConfig>
                             "The SplitChange type of %s is not supported.",
                             splitsChanges.getClass()));
         }
-
+        
         log.debug("Handling split change {}", splitsChanges);
         splits.addAll(splitsChanges.splits());
     }
-
+    
     @Override
-    public void wakeUp() {}
-
+    public void wakeUp() {
+    }
+    
     @Override
     public void close() throws Exception {
         if (currentFetcher != null) {
@@ -99,24 +101,24 @@ public class IncrementalSourceSplitReader<C extends SourceConfig>
             currentSplitId = null;
         }
     }
-
+    
     private void checkNeedStopBinlogReader() {
         // TODO Currently not supported
     }
-
+    
     protected void checkSplitOrStartNext() throws IOException {
         // the stream fetcher should keep alive
         if (currentFetcher instanceof IncrementalSourceStreamFetcher) {
             return;
         }
-
+        
         if (canAssignNextSplit()) {
             final SourceSplitBase nextSplit = splits.poll();
             if (nextSplit == null) {
                 throw new IOException("Cannot fetch from another split - no split remaining.");
             }
             currentSplitId = nextSplit.splitId();
-
+            
             if (nextSplit.isSnapshotSplit()) {
                 if (currentFetcher == null) {
                     final FetchTask.Context taskContext =
@@ -138,11 +140,11 @@ public class IncrementalSourceSplitReader<C extends SourceConfig>
             currentFetcher.submitTask(dataSourceDialect.createFetchTask(nextSplit));
         }
     }
-
+    
     public boolean canAssignNextSplit() {
         return currentFetcher == null || currentFetcher.isFinished();
     }
-
+    
     private ChangeEventRecords finishedSnapshotSplit() {
         final ChangeEventRecords finishedRecords =
                 ChangeEventRecords.forFinishedSplit(currentSplitId);

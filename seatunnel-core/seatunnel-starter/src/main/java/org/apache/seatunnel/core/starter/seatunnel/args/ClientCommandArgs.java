@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.core.starter.seatunnel.args;
 
 import org.apache.seatunnel.common.config.Common;
@@ -36,52 +35,34 @@ import java.util.List;
 @EqualsAndHashCode(callSuper = true)
 @Data
 public class ClientCommandArgs extends AbstractCommandArgs {
-    @Parameter(
-            names = {"-m", "--master"},
-            description = "SeaTunnel job submit master, support [local, cluster]",
-            converter = SeaTunnelMasterTargetConverter.class)
+    
+    @Parameter(names = {"-m", "--master"}, description = "SeaTunnel job submit master, support [local, cluster]", converter = SeaTunnelMasterTargetConverter.class)
     private MasterType masterType = MasterType.CLUSTER;
-
-    @Parameter(
-            names = {"-r", "--restore"},
-            description = "restore with savepoint by jobId")
+    
+    @Parameter(names = {"-r", "--restore"}, description = "restore with savepoint by jobId")
     private String restoreJobId;
-
-    @Parameter(
-            names = {"-s", "--savepoint"},
-            description = "savepoint job by jobId")
+    
+    @Parameter(names = {"-s", "--savepoint"}, description = "savepoint job by jobId")
     private String savePointJobId;
-
-    @Parameter(
-            names = {"-cn", "--cluster"},
-            description = "The name of cluster")
+    
+    @Parameter(names = {"-cn", "--cluster"}, description = "The name of cluster")
     private String clusterName = "seatunnel_default_cluster";
-
-    @Parameter(
-            names = {"-j", "--job-id"},
-            description = "Get job status by JobId")
+    
+    @Parameter(names = {"-j", "--job-id"}, description = "Get job status by JobId")
     private String jobId;
-
-    @Parameter(
-            names = {"-can", "--cancel-job"},
-            description = "Cancel job by JobId")
+    
+    @Parameter(names = {"-can", "--cancel-job"}, description = "Cancel job by JobId")
     private String cancelJobId;
-
-    @Parameter(
-            names = {"--metrics"},
-            description = "Get job metrics by JobId")
+    
+    @Parameter(names = {"--metrics"}, description = "Get job metrics by JobId")
     private String metricsJobId;
-
-    @Parameter(
-            names = {"-l", "--list"},
-            description = "list job status")
+    
+    @Parameter(names = {"-l", "--list"}, description = "list job status")
     private boolean listJob = false;
-
-    @Parameter(
-            names = {"-cj", "--close-job"},
-            description = "Close client the task will also be closed")
+    
+    @Parameter(names = {"-cj", "--close-job"}, description = "Close client the task will also be closed")
     private boolean closeJob = true;
-
+    
     @Override
     public Command<?> buildCommand() {
         Common.setDeployMode(getDeployMode());
@@ -91,19 +72,20 @@ public class ClientCommandArgs extends AbstractCommandArgs {
             return new ClientExecuteCommand(this);
         }
     }
-
+    
     public DeployMode getDeployMode() {
         return DeployMode.CLIENT;
     }
-
+    
     public static class SeaTunnelMasterTargetConverter implements IStringConverter<MasterType> {
+        
         private static final List<MasterType> MASTER_TYPE_LIST = new ArrayList<>();
-
+        
         static {
             MASTER_TYPE_LIST.add(MasterType.LOCAL);
             MASTER_TYPE_LIST.add(MasterType.CLUSTER);
         }
-
+        
         @Override
         public MasterType convert(String value) {
             MasterType masterType = MasterType.valueOf(value.toUpperCase());

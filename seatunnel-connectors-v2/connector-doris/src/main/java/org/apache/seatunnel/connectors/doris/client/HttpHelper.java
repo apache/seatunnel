@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.doris.client;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
@@ -42,8 +41,9 @@ import java.util.Map;
 
 @Slf4j
 public class HttpHelper {
+    
     private static final int DEFAULT_CONNECT_TIMEOUT = 1000000;
-
+    
     public HttpEntity getHttpEntity(CloseableHttpResponse resp) {
         int code = resp.getStatusLine().getStatusCode();
         if (HttpStatus.SC_OK != code) {
@@ -57,7 +57,7 @@ public class HttpHelper {
         }
         return respEntity;
     }
-
+    
     public String doHttpGet(String getUrl) throws IOException {
         log.info("Executing GET from {}.", getUrl);
         try (CloseableHttpClient httpclient = buildHttpClient()) {
@@ -72,9 +72,8 @@ public class HttpHelper {
             }
         }
     }
-
-    public Map<String, Object> doHttpGet(String getUrl, Map<String, String> header)
-            throws IOException {
+    
+    public Map<String, Object> doHttpGet(String getUrl, Map<String, String> header) throws IOException {
         log.info("Executing GET from {}.", getUrl);
         try (CloseableHttpClient httpclient = HttpClients.createDefault()) {
             HttpGet httpGet = new HttpGet(getUrl);
@@ -93,14 +92,14 @@ public class HttpHelper {
             }
         }
     }
-
+    
     @SuppressWarnings("unchecked")
-    public Map<String, Object> doHttpPut(String url, byte[] data, Map<String, String> header)
-            throws IOException {
+    public Map<String, Object> doHttpPut(String url, byte[] data, Map<String, String> header) throws IOException {
         final HttpClientBuilder httpClientBuilder =
                 HttpClients.custom()
                         .setRedirectStrategy(
                                 new DefaultRedirectStrategy() {
+                                    
                                     @Override
                                     protected boolean isRedirectable(String method) {
                                         return true;
@@ -140,12 +139,13 @@ public class HttpHelper {
             }
         }
     }
-
+    
     private CloseableHttpClient buildHttpClient() {
         final HttpClientBuilder httpClientBuilder =
                 HttpClients.custom()
                         .setRedirectStrategy(
                                 new DefaultRedirectStrategy() {
+                                    
                                     @Override
                                     protected boolean isRedirectable(String method) {
                                         return true;
@@ -153,7 +153,7 @@ public class HttpHelper {
                                 });
         return httpClientBuilder.build();
     }
-
+    
     public boolean tryHttpConnection(String host) {
         try {
             URL url = new URL(host);

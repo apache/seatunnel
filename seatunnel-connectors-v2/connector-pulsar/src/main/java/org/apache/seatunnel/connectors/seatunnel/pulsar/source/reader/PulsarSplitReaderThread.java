@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.pulsar.source.reader;
 
 import org.apache.seatunnel.common.Handover;
@@ -41,6 +40,7 @@ import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 public class PulsarSplitReaderThread extends Thread implements Closeable {
+    
     private static final Logger LOG = LoggerFactory.getLogger(PulsarSplitReaderThread.class);
     protected final PulsarSourceReader sourceReader;
     protected final PulsarPartitionSplit split;
@@ -48,24 +48,24 @@ public class PulsarSplitReaderThread extends Thread implements Closeable {
     protected final PulsarConsumerConfig consumerConfig;
     /** The maximum number of milliseconds to wait for a fetch batch. */
     protected final int pollTimeout;
-
+    
     protected final long pollInterval;
     protected final StartCursor startCursor;
     protected final Handover<RecordWithSplitId> handover;
     protected Consumer<byte[]> consumer;
-
+    
     /** Flag to mark the main work loop as alive. */
     private volatile boolean running;
-
+    
     public PulsarSplitReaderThread(
-            PulsarSourceReader sourceReader,
-            PulsarPartitionSplit split,
-            PulsarClient pulsarClient,
-            PulsarConsumerConfig consumerConfig,
-            int pollTimeout,
-            long pollInterval,
-            StartCursor startCursor,
-            Handover<RecordWithSplitId> handover) {
+                                   PulsarSourceReader sourceReader,
+                                   PulsarPartitionSplit split,
+                                   PulsarClient pulsarClient,
+                                   PulsarConsumerConfig consumerConfig,
+                                   int pollTimeout,
+                                   long pollInterval,
+                                   StartCursor startCursor,
+                                   Handover<RecordWithSplitId> handover) {
         this.sourceReader = sourceReader;
         this.split = split;
         this.pulsarClient = pulsarClient;
@@ -75,14 +75,14 @@ public class PulsarSplitReaderThread extends Thread implements Closeable {
         this.startCursor = startCursor;
         this.handover = handover;
     }
-
+    
     public void open() throws PulsarClientException {
         this.consumer = createPulsarConsumer(split);
         if (split.getLatestConsumedId() == null) {
             startCursor.seekPosition(consumer);
         }
     }
-
+    
     @Override
     public void run() {
         try {
@@ -109,7 +109,7 @@ public class PulsarSplitReaderThread extends Thread implements Closeable {
             }
         }
     }
-
+    
     @Override
     public void close() throws IOException {
         running = false;
@@ -117,21 +117,21 @@ public class PulsarSplitReaderThread extends Thread implements Closeable {
             consumer.close();
         }
     }
-
+    
     public void committingCursor(MessageId offsetsToCommit) {
         if (consumer == null) {
             consumer = createPulsarConsumer(split);
         }
         consumer.acknowledgeAsync(offsetsToCommit);
     }
-
+    
     /** Create a specified {@link Consumer} by the given split information. */
     protected Consumer<byte[]> createPulsarConsumer(PulsarPartitionSplit split) {
         ConsumerBuilder<byte[]> consumerBuilder =
                 PulsarConfigUtil.createConsumerBuilder(pulsarClient, consumerConfig);
-
+        
         consumerBuilder.topic(split.getPartition().getFullTopicName());
-
+        
         // Create the consumer configuration by using common utils.
         try {
             return consumerBuilder.subscribe();

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.reader.fetch.transactionlog;
 
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
@@ -43,19 +42,20 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.sou
 import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerUtils.getLsnPosition;
 
 public class SqlServerTransactionLogFetchTask implements FetchTask<SourceSplitBase> {
+    
     private final IncrementalSplit split;
     private volatile boolean taskRunning = false;
-
+    
     public SqlServerTransactionLogFetchTask(IncrementalSplit split) {
         this.split = split;
     }
-
+    
     @Override
     public void execute(FetchTask.Context context) throws Exception {
         SqlServerSourceFetchTaskContext sourceFetchContext =
                 (SqlServerSourceFetchTaskContext) context;
         taskRunning = true;
-
+        
         TransactionLogSplitReadTask transactionLogSplitReadTask =
                 new TransactionLogSplitReadTask(
                         sourceFetchContext.getDbzConnectorConfig(),
@@ -65,45 +65,45 @@ public class SqlServerTransactionLogFetchTask implements FetchTask<SourceSplitBa
                         sourceFetchContext.getErrorHandler(),
                         sourceFetchContext.getDatabaseSchema(),
                         split);
-
+        
         TransactionLogSplitChangeEventSourceContext changeEventSourceContext =
                 new TransactionLogSplitChangeEventSourceContext();
-
+        
         transactionLogSplitReadTask.execute(
                 changeEventSourceContext, sourceFetchContext.getOffsetContext());
     }
-
+    
     @Override
     public boolean isRunning() {
         return taskRunning;
     }
-
+    
     @Override
     public SourceSplitBase getSplit() {
         return split;
     }
-
+    
     /**
      * A wrapped task to read all binlog for table and also supports read bounded (from lowWatermark
      * to highWatermark) binlog.
      */
     public static class TransactionLogSplitReadTask extends SqlServerStreamingChangeEventSource {
-
+        
         private static final Logger LOG =
                 LoggerFactory.getLogger(TransactionLogSplitReadTask.class);
         private final IncrementalSplit lsnSplit;
         private final JdbcSourceEventDispatcher dispatcher;
         private final ErrorHandler errorHandler;
         private ChangeEventSourceContext context;
-
+        
         public TransactionLogSplitReadTask(
-                SqlServerConnectorConfig connectorConfig,
-                SqlServerConnection connection,
-                SqlServerConnection metadataConnection,
-                JdbcSourceEventDispatcher dispatcher,
-                ErrorHandler errorHandler,
-                SqlServerDatabaseSchema schema,
-                IncrementalSplit lsnSplit) {
+                                           SqlServerConnectorConfig connectorConfig,
+                                           SqlServerConnection connection,
+                                           SqlServerConnection metadataConnection,
+                                           JdbcSourceEventDispatcher dispatcher,
+                                           ErrorHandler errorHandler,
+                                           SqlServerDatabaseSchema schema,
+                                           IncrementalSplit lsnSplit) {
             super(
                     connectorConfig,
                     connection,
@@ -116,7 +116,7 @@ public class SqlServerTransactionLogFetchTask implements FetchTask<SourceSplitBa
             this.dispatcher = dispatcher;
             this.errorHandler = errorHandler;
         }
-
+        
         @Override
         public void afterHandleLsn(SqlServerOffsetContext offsetContext) {
             // check do we need to stop for fetch binlog for snapshot split.
@@ -137,27 +137,27 @@ public class SqlServerTransactionLogFetchTask implements FetchTask<SourceSplitBa
                                 new DebeziumException("Error processing binlog signal event", e));
                     }
                     // tell fetcher the binlog task finished
-                    ((SqlServerSnapshotFetchTask.SnapshotBinlogSplitChangeEventSourceContext)
-                                    context)
+                    ((SqlServerSnapshotFetchTask.SnapshotBinlogSplitChangeEventSourceContext) context)
                             .finished();
                 }
             }
         }
-
+        
         private boolean isBoundedRead() {
             return !NO_STOPPING_OFFSET.equals(lsnSplit.getStopOffset());
         }
-
+        
         @Override
-        public void execute(ChangeEventSourceContext context, SqlServerOffsetContext offsetContext)
-                throws InterruptedException {
+        public void execute(ChangeEventSourceContext context, SqlServerOffsetContext offsetContext) throws InterruptedException {
             this.context = context;
             super.execute(context, offsetContext);
         }
     }
-
+    
     private class TransactionLogSplitChangeEventSourceContext
-            implements ChangeEventSource.ChangeEventSourceContext {
+            implements
+                ChangeEventSource.ChangeEventSourceContext {
+        
         @Override
         public boolean isRunning() {
             return taskRunning;

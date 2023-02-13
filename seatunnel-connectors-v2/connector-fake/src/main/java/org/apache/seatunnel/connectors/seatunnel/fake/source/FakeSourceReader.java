@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
 import org.apache.seatunnel.api.source.Boundedness;
@@ -34,32 +33,32 @@ import java.util.List;
 
 @Slf4j
 public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSplit> {
-
+    
     private final SourceReader.Context context;
     private final Deque<FakeSourceSplit> splits = new LinkedList<>();
-
+    
     private final FakeConfig config;
     private final FakeDataGenerator fakeDataGenerator;
     private volatile boolean noMoreSplit;
     private volatile long latestTimestamp = 0;
-
+    
     public FakeSourceReader(
-            SourceReader.Context context, SeaTunnelSchema schema, FakeConfig fakeConfig) {
+                            SourceReader.Context context, SeaTunnelSchema schema, FakeConfig fakeConfig) {
         this.context = context;
         this.config = fakeConfig;
         this.fakeDataGenerator = new FakeDataGenerator(schema, fakeConfig);
     }
-
+    
     @Override
     public void open() {
         // nothing
     }
-
+    
     @Override
     public void close() {
         // nothing
     }
-
+    
     @Override
     @SuppressWarnings("MagicNumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws InterruptedException {
@@ -93,22 +92,23 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
         }
         Thread.sleep(1000L);
     }
-
+    
     @Override
     public List<FakeSourceSplit> snapshotState(long checkpointId) throws Exception {
         return new ArrayList<>(splits);
     }
-
+    
     @Override
     public void addSplits(List<FakeSourceSplit> splits) {
         this.splits.addAll(splits);
     }
-
+    
     @Override
     public void handleNoMoreSplits() {
         noMoreSplit = true;
     }
-
+    
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {
+    }
 }

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.split;
 
 import java.io.Serializable;
@@ -38,13 +37,13 @@ import static com.google.common.base.Preconditions.checkState;
  * clause, based on the passed constructor parameters.
  */
 public class JdbcNumericBetweenParametersProvider implements JdbcParameterValuesProvider {
-
+    
     private final long minVal;
     private final long maxVal;
-
+    
     private long batchSize;
     private int batchNum;
-
+    
     /**
      * NumericBetweenParametersProviderJdbc constructor.
      *
@@ -56,7 +55,7 @@ public class JdbcNumericBetweenParametersProvider implements JdbcParameterValues
         this.minVal = minVal;
         this.maxVal = maxVal;
     }
-
+    
     /**
      * NumericBetweenParametersProviderJdbc constructor.
      *
@@ -70,10 +69,10 @@ public class JdbcNumericBetweenParametersProvider implements JdbcParameterValues
         this.maxVal = maxVal;
         ofBatchSize(fetchSize);
     }
-
+    
     public JdbcNumericBetweenParametersProvider ofBatchSize(long batchSize) {
         checkArgument(batchSize > 0, "Batch size must be positive");
-
+        
         long maxElemCount = (maxVal - minVal) + 1;
         if (batchSize > maxElemCount) {
             batchSize = maxElemCount;
@@ -82,10 +81,10 @@ public class JdbcNumericBetweenParametersProvider implements JdbcParameterValues
         this.batchNum = new Double(Math.ceil((double) maxElemCount / batchSize)).intValue();
         return this;
     }
-
+    
     public JdbcNumericBetweenParametersProvider ofBatchNum(int batchNum) {
         checkArgument(batchNum > 0, "Batch number must be positive");
-
+        
         long maxElemCount = (maxVal - minVal) + 1;
         if (batchNum > maxElemCount) {
             batchNum = (int) maxElemCount;
@@ -94,21 +93,21 @@ public class JdbcNumericBetweenParametersProvider implements JdbcParameterValues
         this.batchSize = new Double(Math.ceil((double) maxElemCount / batchNum)).longValue();
         return this;
     }
-
+    
     @Override
     public Serializable[][] getParameterValues() {
         checkState(
                 batchSize > 0,
                 "Batch size and batch number must be positive. Have you called `ofBatchSize` or `ofBatchNum`?");
-
+        
         long maxElemCount = (maxVal - minVal) + 1;
         long bigBatchNum = maxElemCount - (batchSize - 1) * batchNum;
-
+        
         Serializable[][] parameters = new Serializable[batchNum][2];
         long start = minVal;
         for (int i = 0; i < batchNum; i++) {
             long end = start + batchSize - 1 - (i >= bigBatchNum ? 1 : 0);
-            parameters[i] = new Long[] {start, end};
+            parameters[i] = new Long[]{start, end};
             start = end + 1;
         }
         return parameters;

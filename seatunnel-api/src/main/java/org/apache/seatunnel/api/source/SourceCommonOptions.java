@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,14 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.api.source;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
 public class SourceCommonOptions {
-
+    
     public static final Option<String> RESULT_TABLE_NAME =
             Options.key("result_table_name")
                     .stringType()
@@ -35,7 +34,7 @@ public class SourceCommonOptions {
                                     + "that can be directly accessed by other plugins, or called a temporary table (table) . "
                                     + "The data set (dataStream/dataset) registered here can be directly accessed by other plugins "
                                     + "by specifying source_table_name .");
-
+    
     public static final Option<Integer> PARALLELISM =
             Options.key("parallelism")
                     .intType()

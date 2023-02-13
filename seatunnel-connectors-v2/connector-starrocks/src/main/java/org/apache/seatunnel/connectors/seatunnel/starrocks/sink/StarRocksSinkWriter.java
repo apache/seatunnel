@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.starrocks.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -42,10 +41,10 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
-
+    
     private final StarRocksISerializer serializer;
     private final StarRocksSinkManager manager;
-
+    
     public StarRocksSinkWriter(Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
         SinkConfig sinkConfig = SinkConfig.loadConfig(pluginConfig);
         List<String> fieldNames =
@@ -56,13 +55,13 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
         this.serializer = createSerializer(sinkConfig, seaTunnelRowType);
         this.manager = new StarRocksSinkManager(sinkConfig, fieldNames);
     }
-
+    
     @Override
     public void write(SeaTunnelRow element) throws IOException {
         String record = serializer.serialize(element);
         manager.write(record);
     }
-
+    
     @SneakyThrows
     @Override
     public Optional<Void> prepareCommit() {
@@ -70,7 +69,7 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
         manager.flush();
         return super.prepareCommit();
     }
-
+    
     @Override
     public void close() throws IOException {
         try {
@@ -82,9 +81,9 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
             throw new StarRocksConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, e);
         }
     }
-
+    
     public static StarRocksISerializer createSerializer(
-            SinkConfig sinkConfig, SeaTunnelRowType seaTunnelRowType) {
+                                                        SinkConfig sinkConfig, SeaTunnelRowType seaTunnelRowType) {
         if (SinkConfig.StreamLoadFormat.CSV.equals(sinkConfig.getLoadFormat())) {
             return new StarRocksCsvSerializer(
                     sinkConfig.getColumnSeparator(),

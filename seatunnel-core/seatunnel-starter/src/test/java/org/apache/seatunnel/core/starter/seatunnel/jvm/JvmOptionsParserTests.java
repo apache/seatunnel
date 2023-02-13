@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.core.starter.seatunnel.jvm;
 
 import org.junit.jupiter.api.Assertions;
@@ -33,23 +32,25 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 @SuppressWarnings("checkstyle:MagicNumber")
 public class JvmOptionsParserTests {
-
+    
     @Test
     public void testUnversionedOptions() throws IOException {
-        try (StringReader sr = new StringReader("-Xms1g\n-Xmx1g");
+        try (
+                StringReader sr = new StringReader("-Xms1g\n-Xmx1g");
                 BufferedReader br = new BufferedReader(sr)) {
             assertExpectedJvmOptions(
                     randomIntBetween(8, Integer.MAX_VALUE), br, Arrays.asList("-Xms1g", "-Xmx1g"));
         }
     }
-
+    
     @Test
     public void testSingleVersionOption() throws IOException {
         final int javaMajorVersion = randomIntBetween(8, Integer.MAX_VALUE - 1);
         final int smallerJavaMajorVersion = randomIntBetween(7, javaMajorVersion);
         final int largerJavaMajorVersion =
                 randomIntBetween(javaMajorVersion + 1, Integer.MAX_VALUE);
-        try (StringReader sr =
+        try (
+                StringReader sr =
                         new StringReader(
                                 String.format(
                                         Locale.ROOT,
@@ -61,14 +62,15 @@ public class JvmOptionsParserTests {
             assertExpectedJvmOptions(javaMajorVersion, br, Arrays.asList("-Xms1g", "-Xmx1g"));
         }
     }
-
+    
     @Test
     public void testUnboundedVersionOption() throws IOException {
         final int javaMajorVersion = randomIntBetween(8, Integer.MAX_VALUE - 1);
         final int smallerJavaMajorVersion = randomIntBetween(7, javaMajorVersion);
         final int largerJavaMajorVersion =
                 randomIntBetween(javaMajorVersion + 1, Integer.MAX_VALUE);
-        try (StringReader sr =
+        try (
+                StringReader sr =
                         new StringReader(
                                 String.format(
                                         Locale.ROOT,
@@ -81,7 +83,7 @@ public class JvmOptionsParserTests {
                     javaMajorVersion, br, Arrays.asList("-Xms1g", "-Xmx1g", "-XX:+UseG1GC"));
         }
     }
-
+    
     @Test
     public void testBoundedVersionOption() throws IOException {
         final int javaMajorVersion = randomIntBetween(8, Integer.MAX_VALUE - 1);
@@ -94,7 +96,8 @@ public class JvmOptionsParserTests {
                 randomIntBetween(javaMajorVersion + 1, Integer.MAX_VALUE);
         final int largerJavaMajorVersionUpperBound =
                 randomIntBetween(largerJavaMajorVersionLowerBound, Integer.MAX_VALUE);
-        try (StringReader sr =
+        try (
+                StringReader sr =
                         new StringReader(
                                 String.format(
                                         Locale.ROOT,
@@ -109,7 +112,7 @@ public class JvmOptionsParserTests {
             assertExpectedJvmOptions(javaMajorVersion, br, Arrays.asList("-Xms1g", "-Xmx1g"));
         }
     }
-
+    
     @Test
     public void testComplexOptions() throws IOException {
         final int javaMajorVersion = randomIntBetween(8, Integer.MAX_VALUE - 1);
@@ -122,7 +125,8 @@ public class JvmOptionsParserTests {
                 randomIntBetween(javaMajorVersion + 1, Integer.MAX_VALUE);
         final int largerJavaMajorVersionUpperBound =
                 randomIntBetween(largerJavaMajorVersionLowerBound, Integer.MAX_VALUE);
-        try (StringReader sr =
+        try (
+                StringReader sr =
                         new StringReader(
                                 String.format(
                                         Locale.ROOT,
@@ -142,12 +146,12 @@ public class JvmOptionsParserTests {
                     Arrays.asList("-Xms1g", "-Xmx1g", "-XX:+UseG1GC", "-Xlog:gc"));
         }
     }
-
+    
     @Test
     private void assertExpectedJvmOptions(
-            final int javaMajorVersion,
-            final BufferedReader br,
-            final List<String> expectedJvmOptions) {
+                                          final int javaMajorVersion,
+                                          final BufferedReader br,
+                                          final List<String> expectedJvmOptions) {
         final Map<String, AtomicBoolean> seenJvmOptions = new HashMap<>();
         for (final String expectedJvmOption : expectedJvmOptions) {
             Assertions.assertNull(seenJvmOptions.put(expectedJvmOption, new AtomicBoolean()));
@@ -164,23 +168,23 @@ public class JvmOptionsParserTests {
                             seen.get(), "saw JVM option [" + jvmOption + "] more than once");
                     seen.set(true);
                 },
-                (lineNumber, line) ->
-                        Assertions.fail(
-                                "unexpected invalid line ["
-                                        + line
-                                        + "] on line number ["
-                                        + lineNumber
-                                        + "]"));
+                (lineNumber, line) -> Assertions.fail(
+                        "unexpected invalid line ["
+                                + line
+                                + "] on line number ["
+                                + lineNumber
+                                + "]"));
         for (final Map.Entry<String, AtomicBoolean> seenJvmOption : seenJvmOptions.entrySet()) {
             Assertions.assertTrue(
                     seenJvmOption.getValue().get(),
                     "expected JVM option [" + seenJvmOption.getKey() + "]");
         }
     }
-
+    
     @Test
     public void testInvalidLines() throws IOException {
-        try (StringReader sr = new StringReader("XX:+UseG1GC");
+        try (
+                StringReader sr = new StringReader("XX:+UseG1GC");
                 BufferedReader br = new BufferedReader(sr)) {
             JvmOptionsParser.parse(
                     randomIntBetween(8, Integer.MAX_VALUE),
@@ -199,11 +203,12 @@ public class JvmOptionsParserTests {
                         "%d:%d-XX:+UseG1GC",
                         javaMajorVersion,
                         smallerJavaMajorVersion);
-        try (StringReader sr = new StringReader(invalidRangeLine);
+        try (
+                StringReader sr = new StringReader(invalidRangeLine);
                 BufferedReader br = new BufferedReader(sr)) {
             assertInvalidLines(br, Collections.singletonMap(1, invalidRangeLine));
         }
-
+        
         final long invalidLowerJavaMajorVersion =
                 (long) randomIntBetween(1, 16) + Integer.MAX_VALUE;
         final long invalidUpperJavaMajorVersion =
@@ -214,7 +219,8 @@ public class JvmOptionsParserTests {
                         "%d:-XX:+UseG1GC\n8-%d:-XX:+AggressiveOpts",
                         invalidLowerJavaMajorVersion,
                         invalidUpperJavaMajorVersion);
-        try (StringReader sr = new StringReader(numberFormatExceptionsLine);
+        try (
+                StringReader sr = new StringReader(numberFormatExceptionsLine);
                 BufferedReader br = new BufferedReader(sr)) {
             final Map<Integer, String> invalidLines = new HashMap<>(2);
             invalidLines.put(
@@ -225,28 +231,30 @@ public class JvmOptionsParserTests {
                             Locale.ROOT, "8-%d:-XX:+AggressiveOpts", invalidUpperJavaMajorVersion));
             assertInvalidLines(br, invalidLines);
         }
-
+        
         final String multipleInvalidLines = "XX:+UseG1GC\nXX:+AggressiveOpts";
-        try (StringReader sr = new StringReader(multipleInvalidLines);
+        try (
+                StringReader sr = new StringReader(multipleInvalidLines);
                 BufferedReader br = new BufferedReader(sr)) {
             final Map<Integer, String> invalidLines = new HashMap<>(2);
             invalidLines.put(1, "XX:+UseG1GC");
             invalidLines.put(2, "XX:+AggressiveOpts");
             assertInvalidLines(br, invalidLines);
         }
-
+        
         final int lowerBound = randomIntBetween(9, 16);
         final int upperBound = randomIntBetween(8, lowerBound - 1);
         final String upperBoundGreaterThanLowerBound =
                 String.format(Locale.ROOT, "%d-%d-XX:+UseG1GC", lowerBound, upperBound);
-        try (StringReader sr = new StringReader(upperBoundGreaterThanLowerBound);
+        try (
+                StringReader sr = new StringReader(upperBoundGreaterThanLowerBound);
                 BufferedReader br = new BufferedReader(sr)) {
             assertInvalidLines(br, Collections.singletonMap(1, upperBoundGreaterThanLowerBound));
         }
     }
-
+    
     private void assertInvalidLines(
-            final BufferedReader br, final Map<Integer, String> invalidLines) throws IOException {
+                                    final BufferedReader br, final Map<Integer, String> invalidLines) throws IOException {
         final Map<Integer, String> seenInvalidLines = new HashMap<>(invalidLines.size());
         JvmOptionsParser.parse(
                 randomIntBetween(8, Integer.MAX_VALUE),
@@ -255,7 +263,7 @@ public class JvmOptionsParserTests {
                 (lineNumber, line) -> seenInvalidLines.put(lineNumber, line));
         Assertions.assertEquals(seenInvalidLines, invalidLines);
     }
-
+    
     /** Get a random integer between start and end */
     public static int randomIntBetween(int start, int end) {
         return (int) (Math.random() * (end - start + 1) + start);

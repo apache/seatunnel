@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.e2e.connector.hbase;
 
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -59,30 +58,29 @@ import java.util.Objects;
 import java.util.stream.Stream;
 
 @Slf4j
-@Disabled(
-        "Hbase docker e2e case need user add mapping information of between container id and ip address in hosts file")
+@Disabled("Hbase docker e2e case need user add mapping information of between container id and ip address in hosts file")
 public class HbaseIT extends TestSuiteBase implements TestResource {
-
+    
     private static final String IMAGE = "harisekhon/hbase:latest";
-
+    
     private static final int PORT = 2181;
-
+    
     private static final String HOST = "hbase-e2e";
-
+    
     private static final String TABLE_NAME = "seatunnel_test";
-
+    
     private static final String FAMILY_NAME = "info";
-
+    
     private final Configuration hbaseConfiguration = HBaseConfiguration.create();
-
+    
     private Connection hbaseConnection;
-
+    
     private Admin admin;
-
+    
     private TableName table;
-
+    
     private GenericContainer<?> hbaseContainer;
-
+    
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -99,7 +97,7 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         log.info("Hbase container started");
         this.initialize();
     }
-
+    
     @AfterAll
     @Override
     public void tearDown() throws Exception {
@@ -113,7 +111,7 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
             hbaseContainer.close();
         }
     }
-
+    
     private void initialize() throws IOException {
         hbaseConfiguration.set("hbase.zookeeper.quorum", HOST + ":" + PORT);
         hbaseConnection = ConnectionFactory.createConnection(hbaseConfiguration);
@@ -129,7 +127,7 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         admin.createTable(tableDescriptor);
         log.info("Hbase table has been initialized");
     }
-
+    
     @TestTemplate
     public void testHbaseSink(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/fake-to-hbase.conf");

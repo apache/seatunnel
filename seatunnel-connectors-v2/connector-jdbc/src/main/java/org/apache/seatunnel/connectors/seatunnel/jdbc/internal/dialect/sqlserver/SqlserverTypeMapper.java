@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver;
 
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -33,11 +32,11 @@ import java.sql.SQLException;
 
 @Slf4j
 public class SqlserverTypeMapper implements JdbcDialectTypeMapper {
-
+    
     // ============================data types=====================
-
+    
     private static final String SQLSERVER_UNKNOWN = "UNKNOWN";
-
+    
     // -------------------------number----------------------------
     private static final String SQLSERVER_BIT = "BIT";
     private static final String SQLSERVER_TINYINT = "TINYINT";
@@ -58,7 +57,7 @@ public class SqlserverTypeMapper implements JdbcDialectTypeMapper {
     private static final String SQLSERVER_NCHAR = "NCHAR";
     private static final String SQLSERVER_NVARCHAR = "NVARCHAR";
     private static final String SQLSERVER_TEXT = "TEXT";
-
+    
     // ------------------------------time-------------------------
     private static final String SQLSERVER_DATE = "DATE";
     private static final String SQLSERVER_TIME = "TIME";
@@ -67,16 +66,15 @@ public class SqlserverTypeMapper implements JdbcDialectTypeMapper {
     private static final String SQLSERVER_SMALLDATETIME = "SMALLDATETIME";
     private static final String SQLSERVER_DATETIMEOFFSET = "DATETIMEOFFSET";
     private static final String SQLSERVER_TIMESTAMP = "TIMESTAMP";
-
+    
     // ------------------------------blob-------------------------
     private static final String SQLSERVER_BINARY = "BINARY";
     private static final String SQLSERVER_VARBINARY = "VARBINARY";
     private static final String SQLSERVER_IMAGE = "IMAGE";
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
-    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
-            throws SQLException {
+    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException {
         String sqlServerType = metadata.getColumnTypeName(colIndex).toUpperCase();
         int precision = metadata.getPrecision(colIndex);
         int scale = metadata.getScale(colIndex);
@@ -121,7 +119,7 @@ public class SqlserverTypeMapper implements JdbcDialectTypeMapper {
             case SQLSERVER_VARBINARY:
             case SQLSERVER_IMAGE:
                 return PrimitiveByteArrayType.INSTANCE;
-                // Doesn't support yet
+            // Doesn't support yet
             case SQLSERVER_UNKNOWN:
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);

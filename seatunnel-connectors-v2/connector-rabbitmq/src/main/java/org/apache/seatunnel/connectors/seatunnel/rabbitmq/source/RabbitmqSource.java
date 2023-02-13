@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -54,13 +53,14 @@ import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.Rabbitmq
 
 @AutoService(SeaTunnelSource.class)
 public class RabbitmqSource
-        implements SeaTunnelSource<SeaTunnelRow, RabbitmqSplit, RabbitmqSplitEnumeratorState>,
-                SupportParallelism {
-
+        implements
+            SeaTunnelSource<SeaTunnelRow, RabbitmqSplit, RabbitmqSplitEnumeratorState>,
+            SupportParallelism {
+    
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private JobContext jobContext;
     private RabbitmqConfig rabbitMQConfig;
-
+    
     @Override
     public Boundedness getBoundedness() {
         if (!JobMode.STREAMING.equals(jobContext.getJobMode())) {
@@ -72,12 +72,12 @@ public class RabbitmqSource
         }
         return rabbitMQConfig.isForE2ETesting() ? Boundedness.BOUNDED : Boundedness.UNBOUNDED;
     }
-
+    
     @Override
     public String getPluginName() {
         return "RabbitMQ";
     }
-
+    
     @Override
     public void prepare(Config config) throws PrepareFailException {
         CheckResult result =
@@ -100,37 +100,36 @@ public class RabbitmqSource
         this.rabbitMQConfig = new RabbitmqConfig(config);
         setDeserialization(config);
     }
-
+    
     @Override
     public SeaTunnelDataType getProducedType() {
         return deserializationSchema.getProducedType();
     }
-
+    
     @Override
     public SourceReader<SeaTunnelRow, RabbitmqSplit> createReader(
-            SourceReader.Context readerContext) throws Exception {
+                                                                  SourceReader.Context readerContext) throws Exception {
         return new RabbitmqSourceReader(deserializationSchema, readerContext, rabbitMQConfig);
     }
-
+    
     @Override
     public SourceSplitEnumerator<RabbitmqSplit, RabbitmqSplitEnumeratorState> createEnumerator(
-            SourceSplitEnumerator.Context<RabbitmqSplit> enumeratorContext) throws Exception {
+                                                                                               SourceSplitEnumerator.Context<RabbitmqSplit> enumeratorContext) throws Exception {
         return new RabbitmqSplitEnumerator();
     }
-
+    
     @Override
     public SourceSplitEnumerator<RabbitmqSplit, RabbitmqSplitEnumeratorState> restoreEnumerator(
-            SourceSplitEnumerator.Context<RabbitmqSplit> enumeratorContext,
-            RabbitmqSplitEnumeratorState checkpointState)
-            throws Exception {
+                                                                                                SourceSplitEnumerator.Context<RabbitmqSplit> enumeratorContext,
+                                                                                                RabbitmqSplitEnumeratorState checkpointState) throws Exception {
         return new RabbitmqSplitEnumerator();
     }
-
+    
     @Override
     public void setJobContext(JobContext jobContext) {
         this.jobContext = jobContext;
     }
-
+    
     private void setDeserialization(Config config) {
         // TODO: format SPI
         // only support json deserializationSchema

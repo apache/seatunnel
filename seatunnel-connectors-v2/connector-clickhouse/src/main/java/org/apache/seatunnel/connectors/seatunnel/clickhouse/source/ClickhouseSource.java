@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -56,19 +55,20 @@ import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Clickh
 
 @AutoService(SeaTunnelSource.class)
 public class ClickhouseSource
-        implements SeaTunnelSource<SeaTunnelRow, ClickhouseSourceSplit, ClickhouseSourceState>,
-                SupportParallelism,
-                SupportColumnProjection {
-
+        implements
+            SeaTunnelSource<SeaTunnelRow, ClickhouseSourceSplit, ClickhouseSourceState>,
+            SupportParallelism,
+            SupportColumnProjection {
+    
     private List<ClickHouseNode> servers;
     private SeaTunnelRowType rowTypeInfo;
     private String sql;
-
+    
     @Override
     public String getPluginName() {
         return "Clickhouse";
     }
-
+    
     @Override
     public void prepare(Config config) throws PrepareFailException {
         CheckResult result =
@@ -92,28 +92,29 @@ public class ClickhouseSource
                         config.getString(DATABASE.key()),
                         config.getString(USERNAME.key()),
                         config.getString(PASSWORD.key()));
-
+        
         sql = config.getString(SQL.key());
         ClickHouseNode currentServer =
                 servers.get(ThreadLocalRandom.current().nextInt(servers.size()));
-        try (ClickHouseClient client = ClickHouseClient.newInstance(currentServer.getProtocol());
+        try (
+                ClickHouseClient client = ClickHouseClient.newInstance(currentServer.getProtocol());
                 ClickHouseResponse response =
                         client.connect(currentServer)
                                 .format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
                                 .query(modifySQLToLimit1(config.getString(SQL.key())))
                                 .executeAndWait()) {
-
+            
             int columnSize = response.getColumns().size();
             String[] fieldNames = new String[columnSize];
             SeaTunnelDataType<?>[] seaTunnelDataTypes = new SeaTunnelDataType[columnSize];
-
+            
             for (int i = 0; i < columnSize; i++) {
                 fieldNames[i] = response.getColumns().get(i).getColumnName();
                 seaTunnelDataTypes[i] = TypeConvertUtil.convert(response.getColumns().get(i));
             }
-
+            
             this.rowTypeInfo = new SeaTunnelRowType(fieldNames, seaTunnelDataTypes);
-
+            
         } catch (ClickHouseException e) {
             throw new ClickhouseConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -122,39 +123,37 @@ public class ClickhouseSource
                             getPluginName(), PluginType.SOURCE, e.getMessage()));
         }
     }
-
+    
     private String modifySQLToLimit1(String sql) {
         return String.format("SELECT * FROM (%s) s LIMIT 1", sql);
     }
-
+    
     @Override
     public Boundedness getBoundedness() {
         return Boundedness.BOUNDED;
     }
-
+    
     @Override
     public SeaTunnelRowType getProducedType() {
         return this.rowTypeInfo;
     }
-
+    
     @Override
     public SourceReader<SeaTunnelRow, ClickhouseSourceSplit> createReader(
-            SourceReader.Context readerContext) throws Exception {
+                                                                          SourceReader.Context readerContext) throws Exception {
         return new ClickhouseSourceReader(servers, readerContext, this.rowTypeInfo, sql);
     }
-
+    
     @Override
     public SourceSplitEnumerator<ClickhouseSourceSplit, ClickhouseSourceState> createEnumerator(
-            SourceSplitEnumerator.Context<ClickhouseSourceSplit> enumeratorContext)
-            throws Exception {
+                                                                                                SourceSplitEnumerator.Context<ClickhouseSourceSplit> enumeratorContext) throws Exception {
         return new ClickhouseSourceSplitEnumerator(enumeratorContext);
     }
-
+    
     @Override
     public SourceSplitEnumerator<ClickhouseSourceSplit, ClickhouseSourceState> restoreEnumerator(
-            SourceSplitEnumerator.Context<ClickhouseSourceSplit> enumeratorContext,
-            ClickhouseSourceState checkpointState)
-            throws Exception {
+                                                                                                 SourceSplitEnumerator.Context<ClickhouseSourceSplit> enumeratorContext,
+                                                                                                 ClickhouseSourceState checkpointState) throws Exception {
         return new ClickhouseSourceSplitEnumerator(enumeratorContext);
     }
 }

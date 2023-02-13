@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -41,38 +40,39 @@ import java.util.Map;
 
 @Slf4j
 public class ElasticsearchSourceReader
-        implements SourceReader<SeaTunnelRow, ElasticsearchSourceSplit> {
-
+        implements
+            SourceReader<SeaTunnelRow, ElasticsearchSourceSplit> {
+    
     SourceReader.Context context;
-
+    
     private Config pluginConfig;
-
+    
     private EsRestClient esRestClient;
-
+    
     private final SeaTunnelRowDeserializer deserializer;
-
+    
     Deque<ElasticsearchSourceSplit> splits = new LinkedList<>();
     boolean noMoreSplit;
-
+    
     private final long pollNextWaitTime = 1000L;
-
+    
     public ElasticsearchSourceReader(
-            SourceReader.Context context, Config pluginConfig, SeaTunnelRowType rowTypeInfo) {
+                                     SourceReader.Context context, Config pluginConfig, SeaTunnelRowType rowTypeInfo) {
         this.context = context;
         this.pluginConfig = pluginConfig;
         this.deserializer = new DefaultSeaTunnelRowDeserializer(rowTypeInfo);
     }
-
+    
     @Override
     public void open() {
         esRestClient = EsRestClient.createInstance(this.pluginConfig);
     }
-
+    
     @Override
     public void close() throws IOException {
         esRestClient.close();
     }
-
+    
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         synchronized (output.getCheckpointLock()) {
@@ -101,31 +101,32 @@ public class ElasticsearchSourceReader
             }
         }
     }
-
+    
     private void outputFromScrollResult(
-            ScrollResult scrollResult, List<String> source, Collector<SeaTunnelRow> output) {
+                                        ScrollResult scrollResult, List<String> source, Collector<SeaTunnelRow> output) {
         for (Map<String, Object> doc : scrollResult.getDocs()) {
             SeaTunnelRow seaTunnelRow =
                     deserializer.deserialize(new ElasticsearchRecord(doc, source));
             output.collect(seaTunnelRow);
         }
     }
-
+    
     @Override
     public List<ElasticsearchSourceSplit> snapshotState(long checkpointId) throws Exception {
         return new ArrayList<>(splits);
     }
-
+    
     @Override
     public void addSplits(List<ElasticsearchSourceSplit> splits) {
         this.splits.addAll(splits);
     }
-
+    
     @Override
     public void handleNoMoreSplits() {
         noMoreSplit = true;
     }
-
+    
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {
+    }
 }

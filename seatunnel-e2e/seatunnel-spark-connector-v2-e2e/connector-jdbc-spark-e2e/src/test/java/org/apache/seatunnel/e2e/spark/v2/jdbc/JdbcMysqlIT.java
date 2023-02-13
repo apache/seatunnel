@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.e2e.spark.v2.jdbc;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -60,25 +59,26 @@ import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class JdbcMysqlIT extends SparkContainer {
+    
     private static final String DOCKER_IMAGE = "bitnami/mysql:8.0.29";
     private MySQLContainer<?> mc;
     private Config config;
     private static final String THIRD_PARTY_PLUGINS_URL =
             "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     @BeforeEach
     public void startMySqlContainer() throws Exception {
         // Non-root users need to grant XA_RECOVER_ADMIN permission on is_exactly_once = "true"
         mc =
                 new MySQLContainer<>(
-                                DockerImageName.parse(DOCKER_IMAGE)
-                                        .asCompatibleSubstituteFor("mysql"))
-                        .withNetwork(NETWORK)
-                        .withNetworkAliases("mysql")
-                        .withUsername("root")
-                        .withLogConsumer(
-                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
+                        DockerImageName.parse(DOCKER_IMAGE)
+                                .asCompatibleSubstituteFor("mysql"))
+                                        .withNetwork(NETWORK)
+                                        .withNetworkAliases("mysql")
+                                        .withUsername("root")
+                                        .withLogConsumer(
+                                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
         Startables.deepStart(Stream.of(mc)).join();
         log.info("Mysql container started");
         Class.forName(mc.getDriverClassName());
@@ -90,12 +90,12 @@ public class JdbcMysqlIT extends SparkContainer {
                 .untilAsserted(this::initializeJdbcTable);
         batchInsertData();
     }
-
+    
     private void initializeJdbcTable() throws URISyntaxException {
-
+        
         URI resource =
                 Objects.requireNonNull(
-                                JdbcMysqlIT.class.getResource("/jdbc/init_sql/mysql_init.conf"))
+                        JdbcMysqlIT.class.getResource("/jdbc/init_sql/mysql_init.conf"))
                         .toURI();
         config = ConfigBuilder.of(Paths.get(resource));
         CheckConfigUtil.checkAllExists(
@@ -106,9 +106,10 @@ public class JdbcMysqlIT extends SparkContainer {
                 "type_sink_table",
                 "insert_type_source_table_sql",
                 "check_type_sink_table_sql");
-
-        try (Connection connection =
-                DriverManager.getConnection(mc.getJdbcUrl(), mc.getUsername(), mc.getPassword())) {
+        
+        try (
+                Connection connection =
+                        DriverManager.getConnection(mc.getJdbcUrl(), mc.getUsername(), mc.getPassword())) {
             Statement statement = connection.createStatement();
             statement.execute(config.getString("source_table"));
             statement.execute(config.getString("sink_table"));
@@ -119,12 +120,13 @@ public class JdbcMysqlIT extends SparkContainer {
             throw new RuntimeException("Initializing Mysql table failed!", e);
         }
     }
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     private void batchInsertData() {
         String sql = "insert into source(name, age) values(?,?)";
-        try (Connection connection =
-                DriverManager.getConnection(mc.getJdbcUrl(), mc.getUsername(), mc.getPassword())) {
+        try (
+                Connection connection =
+                        DriverManager.getConnection(mc.getJdbcUrl(), mc.getUsername(), mc.getPassword())) {
             connection.setAutoCommit(false);
             PreparedStatement preparedStatement = connection.prepareStatement(sql);
             for (List row : generateTestDataset()) {
@@ -138,22 +140,22 @@ public class JdbcMysqlIT extends SparkContainer {
             throw new RuntimeException("Batch insert data failed!", e);
         }
     }
-
+    
     @Test
     public void testJdbcMysqlSourceAndSink() throws Exception {
         Container.ExecResult execResult =
                 executeSeaTunnelSparkJob("/jdbc/jdbc_mysql_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-
+        
         Assertions.assertIterableEquals(generateTestDataset(), queryResult());
     }
-
+    
     @Test
     public void testJdbcMysqlSourceAndSinkParallel() throws Exception {
         Container.ExecResult execResult =
                 executeSeaTunnelSparkJob("/jdbc/jdbc_mysql_source_and_sink_parallel.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-
+        
         // Sorting is required, because it is read in parallel, so there will be out of order
         List<List> sortedResult =
                 queryResult().stream()
@@ -161,34 +163,34 @@ public class JdbcMysqlIT extends SparkContainer {
                         .collect(Collectors.toList());
         Assertions.assertIterableEquals(generateTestDataset(), sortedResult);
     }
-
+    
     @Test
     public void testJdbcMysqlSourceAndSinkParallelUpperLower() throws Exception {
         Container.ExecResult execResult =
                 executeSeaTunnelSparkJob(
                         "/jdbc/jdbc_mysql_source_and_sink_parallel_upper_lower.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-
+        
         // Sorting is required, because it is read in parallel, so there will be out of order
         List<List> sortedResult =
                 queryResult().stream()
                         .sorted(Comparator.comparing(list -> (Integer) list.get(1)))
                         .collect(Collectors.toList());
-
+        
         // lower=1 upper=50
         List<List> limit50 = generateTestDataset().stream().limit(50).collect(Collectors.toList());
         Assertions.assertIterableEquals(limit50, sortedResult);
     }
-
+    
     @Test
     public void testJdbcMysqlSourceAndSinkXA() throws Exception {
         Container.ExecResult execResult =
                 executeSeaTunnelSparkJob("/jdbc/jdbc_mysql_source_and_sink_xa.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-
+        
         Assertions.assertIterableEquals(generateTestDataset(), queryResult());
     }
-
+    
     @Test
     public void testJdbcMysqlSourceAndSinkDataType() throws Exception {
         Container.ExecResult execResult =
@@ -196,10 +198,11 @@ public class JdbcMysqlIT extends SparkContainer {
         Assertions.assertEquals(0, execResult.getExitCode());
         checkSinkDataTypeTable();
     }
-
+    
     private void checkSinkDataTypeTable() throws Exception {
-        try (Connection connection =
-                DriverManager.getConnection(mc.getJdbcUrl(), mc.getUsername(), mc.getPassword())) {
+        try (
+                Connection connection =
+                        DriverManager.getConnection(mc.getJdbcUrl(), mc.getUsername(), mc.getPassword())) {
             Statement statement = connection.createStatement();
             ResultSet resultSet =
                     statement.executeQuery(config.getString("check_type_sink_table_sql"));
@@ -207,11 +210,12 @@ public class JdbcMysqlIT extends SparkContainer {
             Assertions.assertEquals(resultSet.getInt(1), 2);
         }
     }
-
+    
     private List<List> queryResult() {
         List<List> result = new ArrayList<>();
-        try (Connection connection =
-                DriverManager.getConnection(mc.getJdbcUrl(), mc.getUsername(), mc.getPassword())) {
+        try (
+                Connection connection =
+                        DriverManager.getConnection(mc.getJdbcUrl(), mc.getUsername(), mc.getPassword())) {
             Statement statement = connection.createStatement();
             String sql = "select name , age from sink ";
             ResultSet resultSet = statement.executeQuery(sql);
@@ -223,7 +227,7 @@ public class JdbcMysqlIT extends SparkContainer {
         }
         return result;
     }
-
+    
     private static List<List> generateTestDataset() {
         List<List> rows = new ArrayList<>();
         for (int i = 1; i <= 1000; i++) {
@@ -231,17 +235,16 @@ public class JdbcMysqlIT extends SparkContainer {
         }
         return rows;
     }
-
+    
     @AfterEach
     public void closeMySqlContainer() {
         if (mc != null) {
             mc.stop();
         }
     }
-
+    
     @Override
-    protected void executeExtraCommands(GenericContainer<?> container)
-            throws IOException, InterruptedException {
+    protected void executeExtraCommands(GenericContainer<?> container) throws IOException, InterruptedException {
         Container.ExecResult extraCommands =
                 container.execInContainer(
                         "bash",

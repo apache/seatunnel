@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.http.sink;
 
 import org.apache.seatunnel.api.serialization.SerializationSchema;
@@ -33,25 +32,26 @@ import java.util.Objects;
 
 @Slf4j
 public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
+    
     protected final HttpClientProvider httpClient;
     protected final SeaTunnelRowType seaTunnelRowType;
     protected final HttpParameter httpParameter;
     protected final SerializationSchema serializationSchema;
-
+    
     public HttpSinkWriter(SeaTunnelRowType seaTunnelRowType, HttpParameter httpParameter) {
         this(seaTunnelRowType, httpParameter, new JsonSerializationSchema(seaTunnelRowType));
     }
-
+    
     public HttpSinkWriter(
-            SeaTunnelRowType seaTunnelRowType,
-            HttpParameter httpParameter,
-            SerializationSchema serializationSchema) {
+                          SeaTunnelRowType seaTunnelRowType,
+                          HttpParameter httpParameter,
+                          SerializationSchema serializationSchema) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.httpParameter = httpParameter;
         this.httpClient = new HttpClientProvider(httpParameter);
         this.serializationSchema = serializationSchema;
     }
-
+    
     @Override
     public void write(SeaTunnelRow element) throws IOException {
         byte[] serialize = serializationSchema.serialize(element);
@@ -71,7 +71,7 @@ public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             log.error(e.getMessage(), e);
         }
     }
-
+    
     @Override
     public void close() throws IOException {
         if (Objects.nonNull(httpClient)) {

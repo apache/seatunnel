@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.translation.spark.source.reader.micro;
 
 import org.apache.seatunnel.api.source.Collector;
@@ -35,17 +34,18 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPartitionReader {
+    
     protected final Map<Integer, InternalRowCollector> collectorMap;
-
+    
     public CoordinatedMicroBatchPartitionReader(
-            SeaTunnelSource<SeaTunnelRow, ?, ?> source,
-            Integer parallelism,
-            Integer subtaskId,
-            Integer checkpointId,
-            Integer checkpointInterval,
-            String checkpointPath,
-            String hdfsRoot,
-            String hdfsUser) {
+                                                SeaTunnelSource<SeaTunnelRow, ?, ?> source,
+                                                Integer parallelism,
+                                                Integer subtaskId,
+                                                Integer checkpointId,
+                                                Integer checkpointInterval,
+                                                String checkpointPath,
+                                                String hdfsRoot,
+                                                String hdfsUser) {
         super(
                 source,
                 parallelism,
@@ -61,7 +61,7 @@ public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPart
                     i, new InternalRowCollector(handover, new Object(), source.getProducedType()));
         }
     }
-
+    
     @Override
     public void virtualCheckpoint() {
         try {
@@ -75,7 +75,7 @@ public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPart
                 if (collectedReader == 0) {
                     Thread.sleep(CHECKPOINT_SLEEP_INTERVAL);
                 }
-
+                
                 collectedReader =
                         collectorMap.values().stream()
                                 .mapToLong(e -> e.collectTotalCount() > 0 ? 1 : 0)
@@ -89,9 +89,8 @@ public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPart
             throw new RuntimeException("An error occurred in virtual checkpoint execution.", e);
         }
     }
-
-    private void internalCheckpoint(Iterator<InternalRowCollector> iterator, int loop)
-            throws Exception {
+    
+    private void internalCheckpoint(Iterator<InternalRowCollector> iterator, int loop) throws Exception {
         if (!iterator.hasNext()) {
             return;
         }
@@ -114,27 +113,28 @@ public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPart
             }
         }
     }
-
+    
     @Override
     protected String getEnumeratorThreadName() {
         return "coordinated-split-enumerator-executor";
     }
-
+    
     @Override
     protected BaseSourceFunction<SeaTunnelRow> createInternalSource() {
         return new InternalCoordinatedSource<>(source, null, parallelism);
     }
-
+    
     public class InternalCoordinatedSource<SplitT extends SourceSplit, StateT extends Serializable>
-            extends CoordinatedSource<SeaTunnelRow, SplitT, StateT> {
-
+            extends
+                CoordinatedSource<SeaTunnelRow, SplitT, StateT> {
+        
         public InternalCoordinatedSource(
-                SeaTunnelSource<SeaTunnelRow, SplitT, StateT> source,
-                Map<Integer, List<byte[]>> restoredState,
-                int parallelism) {
+                                         SeaTunnelSource<SeaTunnelRow, SplitT, StateT> source,
+                                         Map<Integer, List<byte[]>> restoredState,
+                                         int parallelism) {
             super(source, restoredState, parallelism);
         }
-
+        
         @Override
         public void run(Collector<SeaTunnelRow> collector) throws Exception {
             readerMap
@@ -165,7 +165,7 @@ public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPart
                 Thread.sleep(SLEEP_TIME_INTERVAL);
             }
         }
-
+        
         @Override
         protected void handleNoMoreElement(int subtaskId) {
             super.handleNoMoreElement(subtaskId);

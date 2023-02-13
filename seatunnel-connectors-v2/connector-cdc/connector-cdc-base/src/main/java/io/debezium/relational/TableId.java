@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.debezium.relational;
 
 import io.debezium.annotation.Immutable;
@@ -26,8 +25,9 @@ import java.io.Serializable;
 /** Unique identifier for a database table. */
 @Immutable
 public final class TableId implements DataCollectionId, Comparable<TableId>, Serializable {
+    
     private static final long serialVersionUID = 1L;
-
+    
     /**
      * Parse the supplied string, extracting up to the first 3 parts into a TableID.
      *
@@ -37,7 +37,7 @@ public final class TableId implements DataCollectionId, Comparable<TableId>, Ser
     public static TableId parse(String str) {
         return parse(str, true);
     }
-
+    
     /**
      * Parse the supplied string, extracting up to the first 3 parts into a TableID.
      *
@@ -49,10 +49,10 @@ public final class TableId implements DataCollectionId, Comparable<TableId>, Ser
      */
     public static TableId parse(String str, boolean useCatalogBeforeSchema) {
         String[] parts = TableIdParser.parse(str).toArray(new String[0]);
-
+        
         return TableId.parse(parts, parts.length, useCatalogBeforeSchema);
     }
-
+    
     /**
      * Parse the supplied string, extracting up to the first 3 parts into a TableID.
      *
@@ -78,12 +78,12 @@ public final class TableId implements DataCollectionId, Comparable<TableId>, Ser
         }
         return new TableId(parts[0], parts[1], parts[2]); // catalog, schema & table
     }
-
+    
     private final String catalogName;
     private final String schemaName;
     private final String tableName;
     private final String id;
-
+    
     /**
      * Create a new table identifier.
      *
@@ -95,10 +95,10 @@ public final class TableId implements DataCollectionId, Comparable<TableId>, Ser
      * @param tableIdMapper the customization of fully quailified table name
      */
     public TableId(
-            String catalogName,
-            String schemaName,
-            String tableName,
-            TableIdToStringMapper tableIdMapper) {
+                   String catalogName,
+                   String schemaName,
+                   String tableName,
+                   TableIdToStringMapper tableIdMapper) {
         this.catalogName = catalogName;
         this.schemaName = schemaName;
         this.tableName = tableName;
@@ -108,7 +108,7 @@ public final class TableId implements DataCollectionId, Comparable<TableId>, Ser
                         ? tableId(this.catalogName, this.schemaName, this.tableName)
                         : tableIdMapper.toString(this);
     }
-
+    
     /**
      * Create a new table identifier.
      *
@@ -121,7 +121,7 @@ public final class TableId implements DataCollectionId, Comparable<TableId>, Ser
     public TableId(String catalogName, String schemaName, String tableName) {
         this(catalogName, schemaName, tableName, null);
     }
-
+    
     /**
      * Get the name of the JDBC catalog.
      *
@@ -130,7 +130,7 @@ public final class TableId implements DataCollectionId, Comparable<TableId>, Ser
     public String catalog() {
         return catalogName;
     }
-
+    
     /**
      * Get the name of the JDBC schema.
      *
@@ -139,7 +139,7 @@ public final class TableId implements DataCollectionId, Comparable<TableId>, Ser
     public String schema() {
         return schemaName;
     }
-
+    
     /**
      * Get the name of the table.
      *
@@ -148,12 +148,12 @@ public final class TableId implements DataCollectionId, Comparable<TableId>, Ser
     public String table() {
         return tableName;
     }
-
+    
     @Override
     public String identifier() {
         return id;
     }
-
+    
     @Override
     public int compareTo(TableId that) {
         if (this == that) {
@@ -161,19 +161,19 @@ public final class TableId implements DataCollectionId, Comparable<TableId>, Ser
         }
         return this.id.compareTo(that.id);
     }
-
+    
     public int compareToIgnoreCase(TableId that) {
         if (this == that) {
             return 0;
         }
         return this.id.compareToIgnoreCase(that.id);
     }
-
+    
     @Override
     public int hashCode() {
         return id.hashCode();
     }
-
+    
     @Override
     public boolean equals(Object obj) {
         if (obj instanceof TableId) {
@@ -181,12 +181,12 @@ public final class TableId implements DataCollectionId, Comparable<TableId>, Ser
         }
         return false;
     }
-
+    
     @Override
     public String toString() {
         return identifier();
     }
-
+    
     /**
      * Returns a dot-separated String representation of this identifier, quoting all name parts with
      * the {@code "} char.
@@ -194,12 +194,12 @@ public final class TableId implements DataCollectionId, Comparable<TableId>, Ser
     public String toDoubleQuotedString() {
         return toQuotedString('"');
     }
-
+    
     /** Returns a new {@link TableId} with all parts of the identifier using {@code "} character. */
     public TableId toDoubleQuoted() {
         return toQuoted('"');
     }
-
+    
     /**
      * Returns a new {@link TableId} that has all parts of the identifier quoted.
      *
@@ -210,35 +210,35 @@ public final class TableId implements DataCollectionId, Comparable<TableId>, Ser
         if (this.catalogName != null && !this.catalogName.isEmpty()) {
             catalogName = quote(this.catalogName, quotingChar);
         }
-
+        
         String schemaName = null;
         if (this.schemaName != null && !this.schemaName.isEmpty()) {
             schemaName = quote(this.schemaName, quotingChar);
         }
-
+        
         return new TableId(catalogName, schemaName, quote(this.tableName, quotingChar));
     }
-
+    
     /**
      * Returns a dot-separated String representation of this identifier, quoting all name parts with
      * the given quoting char.
      */
     public String toQuotedString(char quotingChar) {
         StringBuilder quoted = new StringBuilder();
-
+        
         if (catalogName != null && !catalogName.isEmpty()) {
             quoted.append(quote(catalogName, quotingChar)).append(".");
         }
-
+        
         if (schemaName != null && !schemaName.isEmpty()) {
             quoted.append(quote(schemaName, quotingChar)).append(".");
         }
-
+        
         quoted.append(quote(tableName, quotingChar));
-
+        
         return quoted.toString();
     }
-
+    
     private static String tableId(String catalog, String schema, String table) {
         if (catalog == null || catalog.length() == 0) {
             if (schema == null || schema.length() == 0) {
@@ -251,30 +251,30 @@ public final class TableId implements DataCollectionId, Comparable<TableId>, Ser
         }
         return catalog + "." + schema + "." + table;
     }
-
+    
     /** Quotes the given identifier part, e.g. schema or table name. */
     private static String quote(String identifierPart, char quotingChar) {
         if (identifierPart == null) {
             return null;
         }
-
+        
         if (identifierPart.isEmpty()) {
             return new StringBuilder().append(quotingChar).append(quotingChar).toString();
         }
-
+        
         if (identifierPart.charAt(0) != quotingChar
                 && identifierPart.charAt(identifierPart.length() - 1) != quotingChar) {
             identifierPart = identifierPart.replace(quotingChar + "", repeat(quotingChar));
             identifierPart = quotingChar + identifierPart + quotingChar;
         }
-
+        
         return identifierPart;
     }
-
+    
     private static String repeat(char quotingChar) {
         return new StringBuilder().append(quotingChar).append(quotingChar).toString();
     }
-
+    
     public TableId toLowercase() {
         return new TableId(catalogName, schemaName, tableName.toLowerCase());
     }

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.api.source;
 
 import org.apache.seatunnel.api.state.CheckpointListener;
@@ -29,18 +28,20 @@ import java.util.List;
  * @param <SplitT> source split type.
  */
 public interface SourceReader<T, SplitT extends SourceSplit>
-        extends AutoCloseable, CheckpointListener {
-
+        extends
+            AutoCloseable,
+            CheckpointListener {
+    
     /** Open the source reader. */
     void open() throws Exception;
-
+    
     /**
      * Called to close the reader, in case it holds on to any resources, like threads or network
      * connections.
      */
     @Override
     void close() throws IOException;
-
+    
     /**
      * Generate the next batch of records.
      *
@@ -48,7 +49,7 @@ public interface SourceReader<T, SplitT extends SourceSplit>
      * @throws Exception if error occurs.
      */
     void pollNext(Collector<T> output) throws Exception;
-
+    
     /**
      * Get the current split checkpoint state by checkpointId.
      *
@@ -59,14 +60,14 @@ public interface SourceReader<T, SplitT extends SourceSplit>
      * @throws Exception if error occurs.
      */
     List<SplitT> snapshotState(long checkpointId) throws Exception;
-
+    
     /**
      * Add the split checkpoint state to reader.
      *
      * @param splits split checkpoint state.
      */
     void addSplits(List<SplitT> splits);
-
+    
     /**
      * This method is called when the reader is notified that it will not receive any further
      * splits.
@@ -75,32 +76,33 @@ public interface SourceReader<T, SplitT extends SourceSplit>
      * SourceSplitEnumerator.Context#signalNoMoreSplits(int)} with the reader's parallel subtask.
      */
     void handleNoMoreSplits();
-
+    
     /**
      * Handle the source event form {@link SourceSplitEnumerator}.
      *
      * @param sourceEvent source event.
      */
-    default void handleSourceEvent(SourceEvent sourceEvent) {}
-
+    default void handleSourceEvent(SourceEvent sourceEvent) {
+    }
+    
     interface Context {
-
+        
         /** @return The index of this subtask. */
         int getIndexOfSubtask();
-
+        
         /** @return boundedness of this reader. */
         Boundedness getBoundedness();
-
+        
         /** Indicator that the input has reached the end of data. Then will cancel this reader. */
         void signalNoMoreElement();
-
+        
         /**
          * Sends a split request to the source's {@link SourceSplitEnumerator}. This will result in
          * a call to the {@link SourceSplitEnumerator#handleSplitRequest(int)} method, with this
          * reader's parallel subtask id and the hostname where this reader runs.
          */
         void sendSplitRequest();
-
+        
         /**
          * Send a source event to the source coordinator.
          *

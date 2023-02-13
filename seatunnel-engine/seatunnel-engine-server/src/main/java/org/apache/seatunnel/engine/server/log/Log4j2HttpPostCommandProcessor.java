@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.log;
 
 import org.apache.logging.log4j.Level;
@@ -30,27 +29,27 @@ import com.hazelcast.internal.json.JsonObject;
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
 
 public class Log4j2HttpPostCommandProcessor extends HttpCommandProcessor<HttpPostCommand> {
-
+    
     private final HttpPostCommandProcessor original;
-
+    
     public Log4j2HttpPostCommandProcessor(TextCommandService textCommandService) {
         this(textCommandService, new HttpPostCommandProcessor(textCommandService));
     }
-
+    
     public Log4j2HttpPostCommandProcessor(
-            TextCommandService textCommandService,
-            HttpPostCommandProcessor httpPostCommandProcessor) {
+                                          TextCommandService textCommandService,
+                                          HttpPostCommandProcessor httpPostCommandProcessor) {
         super(
                 textCommandService,
                 textCommandService.getNode().getLogger(Log4j2HttpPostCommandProcessor.class));
         this.original = httpPostCommandProcessor;
     }
-
+    
     @Override
     public void handleRejection(HttpPostCommand request) {
         handle(request);
     }
-
+    
     @Override
     public void handle(HttpPostCommand request) {
         String uri = request.getURI();
@@ -63,7 +62,7 @@ public class Log4j2HttpPostCommandProcessor extends HttpCommandProcessor<HttpPos
             original.handle(request);
         }
     }
-
+    
     /**
      * Request example:
      *

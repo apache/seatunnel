@@ -1,11 +1,10 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -15,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.format.json.canal;
 
 import org.apache.seatunnel.api.serialization.SerializationSchema;
@@ -30,21 +28,21 @@ import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 
 public class CanalJsonSerializationSchema implements SerializationSchema {
-
+    
     private static final long serialVersionUID = 1L;
-
+    
     private static final String OP_INSERT = "INSERT";
     private static final String OP_DELETE = "DELETE";
-
+    
     private transient SeaTunnelRow reuse;
-
+    
     private final JsonSerializationSchema jsonSerializer;
-
+    
     public CanalJsonSerializationSchema(SeaTunnelRowType rowType) {
         this.jsonSerializer = new JsonSerializationSchema(createJsonRowType(rowType));
         this.reuse = new SeaTunnelRow(2);
     }
-
+    
     @Override
     public byte[] serialize(SeaTunnelRow row) {
         try {
@@ -59,7 +57,7 @@ public class CanalJsonSerializationSchema implements SerializationSchema {
                     t);
         }
     }
-
+    
     private String rowKind2String(RowKind rowKind) {
         switch (rowKind) {
             case INSERT:
@@ -74,13 +72,13 @@ public class CanalJsonSerializationSchema implements SerializationSchema {
                         String.format("Unsupported operation %s for row kind.", rowKind));
         }
     }
-
+    
     private static SeaTunnelRowType createJsonRowType(SeaTunnelRowType databaseSchema) {
         // Canal JSON contains other information, e.g. "database", "ts"
         // but we don't need them
         // and we don't need "old" , because can not support UPDATE_BEFORE,UPDATE_AFTER
         return new SeaTunnelRowType(
-                new String[] {"data", "type"},
-                new SeaTunnelDataType[] {databaseSchema, STRING_TYPE});
+                new String[]{"data", "type"},
+                new SeaTunnelDataType[]{databaseSchema, STRING_TYPE});
     }
 }

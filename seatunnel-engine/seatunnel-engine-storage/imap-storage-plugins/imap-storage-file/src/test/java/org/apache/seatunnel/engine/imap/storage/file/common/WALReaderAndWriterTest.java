@@ -1,23 +1,19 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.imap.storage.file.common;
 
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
@@ -44,11 +40,11 @@ import static org.junit.jupiter.api.condition.OS.MAC;
 
 @EnabledOnOs({LINUX, MAC})
 public class WALReaderAndWriterTest {
-
+    
     private static FileSystem FS;
     private static final Path PARENT_PATH = new Path("/tmp/9/");
     private static final Serializer SERIALIZER = new ProtoStuffSerializer();
-
+    
     @BeforeAll
     public static void init() throws IOException {
         Configuration conf = new Configuration();
@@ -56,7 +52,7 @@ public class WALReaderAndWriterTest {
         conf.set("fs.hdfs.impl", "org.apache.hadoop.fs.LocalFileSystem");
         FS = FileSystem.getLocal(conf);
     }
-
+    
     @Test
     public void testWriterAndReader() throws Exception {
         WALWriter writer = new WALWriter(FS, PARENT_PATH, SERIALIZER);
@@ -79,7 +75,7 @@ public class WALReaderAndWriterTest {
                 isDelete = false;
             }
             data.setDeleted(isDelete);
-
+            
             writer.write(data);
         }
         // update key 511
@@ -101,18 +97,18 @@ public class WALReaderAndWriterTest {
                         .deleted(true)
                         .timestamp(System.nanoTime())
                         .build();
-
+        
         writer.write(data);
         writer.close();
         await().atMost(10, java.util.concurrent.TimeUnit.SECONDS).await();
-
+        
         WALReader reader = new WALReader(FS, new ProtoStuffSerializer());
         Map<Object, Object> result = reader.loadAllData(PARENT_PATH, new HashSet<>());
         Assertions.assertEquals("Kristen", result.get("key511"));
         Assertions.assertEquals(511, result.size());
         Assertions.assertNull(result.get("key519"));
     }
-
+    
     @AfterAll
     public static void close() throws IOException {
         FS.delete(PARENT_PATH, true);

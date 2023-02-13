@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -42,11 +41,10 @@ import java.util.List;
 import java.util.Map;
 
 public class FakeDataGeneratorTest {
-
+    
     @ParameterizedTest
     @ValueSource(strings = {"complex.schema.conf", "simple.schema.conf"})
-    public void testComplexSchemaParse(String conf)
-            throws FileNotFoundException, URISyntaxException {
+    public void testComplexSchemaParse(String conf) throws FileNotFoundException, URISyntaxException {
         Config testConfig = getTestConfigFile(conf);
         SeaTunnelSchema seaTunnelSchema =
                 SeaTunnelSchema.buildWithConfig(testConfig.getConfig(SeaTunnelSchema.SCHEMA.key()));
@@ -57,11 +55,12 @@ public class FakeDataGeneratorTest {
         fakeDataGenerator.collectFakedRows(
                 fakeConfig.getRowNum(),
                 new Collector<SeaTunnelRow>() {
+                    
                     @Override
                     public void collect(SeaTunnelRow record) {
                         seaTunnelRows.add(record);
                     }
-
+                    
                     @Override
                     public Object getCheckpointLock() {
                         throw new UnsupportedOperationException();
@@ -91,25 +90,25 @@ public class FakeDataGeneratorTest {
             }
         }
     }
-
+    
     @ParameterizedTest
     @ValueSource(strings = {"fake-data.schema.conf"})
     public void testRowDataParse(String conf) throws FileNotFoundException, URISyntaxException {
-        SeaTunnelRow row1 = new SeaTunnelRow(new Object[] {1L, "A", 100});
+        SeaTunnelRow row1 = new SeaTunnelRow(new Object[]{1L, "A", 100});
         row1.setRowKind(RowKind.INSERT);
-        SeaTunnelRow row2 = new SeaTunnelRow(new Object[] {2L, "B", 100});
+        SeaTunnelRow row2 = new SeaTunnelRow(new Object[]{2L, "B", 100});
         row2.setRowKind(RowKind.INSERT);
-        SeaTunnelRow row3 = new SeaTunnelRow(new Object[] {3L, "C", 100});
+        SeaTunnelRow row3 = new SeaTunnelRow(new Object[]{3L, "C", 100});
         row3.setRowKind(RowKind.INSERT);
-        SeaTunnelRow row1UpdateBefore = new SeaTunnelRow(new Object[] {1L, "A", 100});
+        SeaTunnelRow row1UpdateBefore = new SeaTunnelRow(new Object[]{1L, "A", 100});
         row1UpdateBefore.setRowKind(RowKind.UPDATE_BEFORE);
-        SeaTunnelRow row1UpdateAfter = new SeaTunnelRow(new Object[] {1L, "A_1", 100});
+        SeaTunnelRow row1UpdateAfter = new SeaTunnelRow(new Object[]{1L, "A_1", 100});
         row1UpdateAfter.setRowKind(RowKind.UPDATE_AFTER);
-        SeaTunnelRow row2Delete = new SeaTunnelRow(new Object[] {2L, "B", 100});
+        SeaTunnelRow row2Delete = new SeaTunnelRow(new Object[]{2L, "B", 100});
         row2Delete.setRowKind(RowKind.DELETE);
         List<SeaTunnelRow> expected =
                 Arrays.asList(row1, row2, row3, row1UpdateBefore, row1UpdateAfter, row2Delete);
-
+        
         Config testConfig = getTestConfigFile(conf);
         SeaTunnelSchema seaTunnelSchema =
                 SeaTunnelSchema.buildWithConfig(testConfig.getConfig(SeaTunnelSchema.SCHEMA.key()));
@@ -119,11 +118,12 @@ public class FakeDataGeneratorTest {
         fakeDataGenerator.collectFakedRows(
                 fakeConfig.getRowNum(),
                 new Collector<SeaTunnelRow>() {
+                    
                     @Override
                     public void collect(SeaTunnelRow record) {
                         seaTunnelRows.add(record);
                     }
-
+                    
                     @Override
                     public Object getCheckpointLock() {
                         throw new UnsupportedOperationException();
@@ -131,9 +131,8 @@ public class FakeDataGeneratorTest {
                 });
         Assertions.assertIterableEquals(expected, seaTunnelRows);
     }
-
-    private Config getTestConfigFile(String configFile)
-            throws FileNotFoundException, URISyntaxException {
+    
+    private Config getTestConfigFile(String configFile) throws FileNotFoundException, URISyntaxException {
         if (!configFile.startsWith("/")) {
             configFile = "/" + configFile;
         }

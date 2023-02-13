@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config;
 
 import org.apache.seatunnel.api.configuration.Option;
@@ -23,6 +22,7 @@ import org.apache.seatunnel.api.configuration.Options;
 import java.io.Serializable;
 
 public class AmazonDynamoDBConfig implements Serializable {
+    
     public static final Option<String> URL =
             Options.key("url")
                     .stringType()
@@ -48,14 +48,14 @@ public class AmazonDynamoDBConfig implements Serializable {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("The table of Amazon DynamoDB");
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     public static final Option<Integer> BATCH_SIZE =
             Options.key("batch_size")
                     .intType()
                     .defaultValue(25)
                     .withDescription("The batch size of Amazon DynamoDB");
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     public static final Option<Integer> BATCH_INTERVAL_MS =
             Options.key("batch_interval_ms")

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -36,36 +35,38 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 public class PendingCheckpoint implements Checkpoint {
+    
     private static final Logger LOG = LoggerFactory.getLogger(PendingCheckpoint.class);
     private final long jobId;
-
+    
     private final int pipelineId;
-
+    
     private final long checkpointId;
-
+    
     private final long triggerTimestamp;
-
+    
     private final CheckpointType checkpointType;
-
+    
     private final Set<Long> notYetAcknowledgedTasks;
-
+    
     private final Map<Long, TaskStatistics> taskStatistics;
-
+    
     private final Map<Long, ActionState> actionStates;
-
+    
     private final CompletableFuture<CompletedCheckpoint> completableFuture;
-
-    @Getter private CheckpointException failureCause;
-
+    
+    @Getter
+    private CheckpointException failureCause;
+    
     public PendingCheckpoint(
-            long jobId,
-            int pipelineId,
-            long checkpointId,
-            long triggerTimestamp,
-            CheckpointType checkpointType,
-            Set<Long> notYetAcknowledgedTasks,
-            Map<Long, TaskStatistics> taskStatistics,
-            Map<Long, ActionState> actionStates) {
+                             long jobId,
+                             int pipelineId,
+                             long checkpointId,
+                             long triggerTimestamp,
+                             CheckpointType checkpointType,
+                             Set<Long> notYetAcknowledgedTasks,
+                             Map<Long, TaskStatistics> taskStatistics,
+                             Map<Long, ActionState> actionStates) {
         this.jobId = jobId;
         this.pipelineId = pipelineId;
         this.checkpointId = checkpointId;
@@ -76,54 +77,54 @@ public class PendingCheckpoint implements Checkpoint {
         this.actionStates = actionStates;
         this.completableFuture = new CompletableFuture<>();
     }
-
+    
     @Override
     public long getCheckpointId() {
         return this.checkpointId;
     }
-
+    
     @Override
     public int getPipelineId() {
         return this.pipelineId;
     }
-
+    
     @Override
     public long getJobId() {
         return this.jobId;
     }
-
+    
     @Override
     public long getCheckpointTimestamp() {
         return this.triggerTimestamp;
     }
-
+    
     @Override
     public CheckpointType getCheckpointType() {
         return this.checkpointType;
     }
-
+    
     protected Map<Long, TaskStatistics> getTaskStatistics() {
         return taskStatistics;
     }
-
+    
     protected Map<Long, ActionState> getActionStates() {
         return actionStates;
     }
-
+    
     public PassiveCompletableFuture<CompletedCheckpoint> getCompletableFuture() {
         return new PassiveCompletableFuture<>(completableFuture);
     }
-
+    
     public void acknowledgeTask(
-            TaskLocation taskLocation,
-            List<ActionSubtaskState> states,
-            SubtaskStatus subtaskStatus) {
+                                TaskLocation taskLocation,
+                                List<ActionSubtaskState> states,
+                                SubtaskStatus subtaskStatus) {
         boolean exist = notYetAcknowledgedTasks.remove(taskLocation.getTaskID());
         if (!exist) {
             return;
         }
         TaskStatistics statistics = taskStatistics.get(taskLocation.getTaskVertexId());
-
+        
         long stateSize = 0;
         for (ActionSubtaskState state : states) {
             ActionState actionState = actionStates.get(state.getActionId());
@@ -140,17 +141,17 @@ public class PendingCheckpoint implements Checkpoint {
                         Instant.now().toEpochMilli(),
                         stateSize,
                         subtaskStatus));
-
+        
         if (isFullyAcknowledged()) {
             LOG.debug("checkpoint is full ack!");
             completableFuture.complete(toCompletedCheckpoint());
         }
     }
-
+    
     protected boolean isFullyAcknowledged() {
         return notYetAcknowledgedTasks.size() == 0;
     }
-
+    
     private CompletedCheckpoint toCompletedCheckpoint() {
         return new CompletedCheckpoint(
                 jobId,
@@ -162,7 +163,7 @@ public class PendingCheckpoint implements Checkpoint {
                 actionStates,
                 taskStatistics);
     }
-
+    
     public void abortCheckpoint(CheckpointCloseReason closedReason, @Nullable Throwable cause) {
         if (closedReason.equals(CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET)) {
             completableFuture.complete(null);

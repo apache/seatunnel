@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connector.selectdb.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -35,6 +34,7 @@ import java.util.UUID;
 @Getter
 @ToString
 public class SelectDBConfig {
+    
     private static final int DEFAULT_SINK_CHECK_INTERVAL = 10000;
     private static final int DEFAULT_SINK_MAX_RETRIES = 3;
     private static final int DEFAULT_SINK_BUFFER_SIZE = 1024 * 1024;
@@ -55,7 +55,7 @@ public class SelectDBConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("SelectDB cluster name.");
-
+    
     public static final Option<String> TABLE_IDENTIFIER =
             Options.key("table.identifier")
                     .stringType()
@@ -71,14 +71,14 @@ public class SelectDBConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("the jdbc password.");
-
+    
     // sink config options
     public static final Option<Boolean> SINK_ENABLE_2PC =
             Options.key("sink.enable-2pc")
                     .booleanType()
                     .defaultValue(true)
                     .withDescription("enable 2PC while loading");
-
+    
     public static final Option<Integer> SINK_CHECK_INTERVAL =
             Options.key("sink.check-interval")
                     .intType()
@@ -109,7 +109,7 @@ public class SelectDBConfig {
                     .booleanType()
                     .defaultValue(false)
                     .withDescription("whether to enable the delete function");
-
+    
     public static final Option<Map<String, String>> SELECTDB_SINK_CONFIG_PREFIX =
             Options.key("selectdb.config")
                     .mapType()
@@ -117,7 +117,7 @@ public class SelectDBConfig {
                     .withDescription(
                             "The parameter of the Copy Into data_desc. "
                                     + "The way to specify the parameter is to add the prefix `selectdb.config` to the original load parameter name ");
-
+    
     private String loadUrl;
     private String jdbcUrl;
     private String clusterName;
@@ -132,7 +132,7 @@ public class SelectDBConfig {
     private Integer bufferSize;
     private Integer bufferCount;
     private Properties streamLoadProps;
-
+    
     public static SelectDBConfig loadConfig(Config pluginConfig) {
         SelectDBConfig selectdbConfig = new SelectDBConfig();
         selectdbConfig.setLoadUrl(pluginConfig.getString(LOAD_URL.key()));
@@ -142,7 +142,7 @@ public class SelectDBConfig {
         selectdbConfig.setPassword(pluginConfig.getString(PASSWORD.key()));
         selectdbConfig.setTableIdentifier(pluginConfig.getString(TABLE_IDENTIFIER.key()));
         selectdbConfig.setStreamLoadProps(parseCopyIntoProperties(pluginConfig));
-
+        
         if (pluginConfig.hasPath(SINK_ENABLE_2PC.key())) {
             selectdbConfig.setEnable2PC(pluginConfig.getBoolean(SINK_ENABLE_2PC.key()));
         } else {
@@ -180,7 +180,7 @@ public class SelectDBConfig {
         }
         return selectdbConfig;
     }
-
+    
     private static Properties parseCopyIntoProperties(Config pluginConfig) {
         Properties streamLoadProps = new Properties();
         if (CheckConfigUtil.isValidParam(pluginConfig, SELECTDB_SINK_CONFIG_PREFIX.key())) {

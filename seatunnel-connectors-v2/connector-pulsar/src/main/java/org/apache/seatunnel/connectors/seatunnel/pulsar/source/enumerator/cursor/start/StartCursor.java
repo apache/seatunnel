@@ -1,11 +1,10 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -15,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.start;
 
 import org.apache.pulsar.client.api.Consumer;
@@ -35,33 +33,33 @@ import java.io.Serializable;
  */
 @FunctionalInterface
 public interface StartCursor extends Serializable {
-
+    
     /** Helper method for seek the right position for given pulsar consumer. */
     void seekPosition(Consumer<?> consumer) throws PulsarClientException;
-
+    
     // --------------------------- Static Factory Methods -----------------------------
-
+    
     static StartCursor earliest() {
         return fromMessageId(MessageId.earliest);
     }
-
+    
     static StartCursor latest() {
         return fromMessageId(MessageId.latest);
     }
-
+    
     static StartCursor subscription() {
         return new SubscriptionStartCursor();
     }
-
+    
     static StartCursor subscription(
-            SubscriptionStartCursor.CursorResetStrategy cursorResetStrategy) {
+                                    SubscriptionStartCursor.CursorResetStrategy cursorResetStrategy) {
         return new SubscriptionStartCursor(cursorResetStrategy);
     }
-
+    
     static StartCursor fromMessageId(MessageId messageId) {
         return fromMessageId(messageId, true);
     }
-
+    
     /**
      * @param messageId Find the available message id and start consuming from it.
      * @param inclusive {@code true} would include the given message id.
@@ -69,7 +67,7 @@ public interface StartCursor extends Serializable {
     static StartCursor fromMessageId(MessageId messageId, boolean inclusive) {
         return new MessageIdStartCursor(messageId, inclusive);
     }
-
+    
     static StartCursor timestamp(long timestamp) {
         return new TimestampStartCursor(timestamp);
     }

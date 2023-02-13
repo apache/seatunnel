@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.e2e.connector.kafka;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
@@ -76,20 +75,21 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class KafkaIT extends TestSuiteBase implements TestResource {
+    
     private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:6.2.1";
-
+    
     private static final int KAFKA_PORT = 9093;
-
+    
     private static final String KAFKA_HOST = "kafkaCluster";
-
+    
     private static final String DEFAULT_FORMAT = "json";
-
+    
     private static final String DEFAULT_FIELD_DELIMITER = ",";
-
+    
     private KafkaProducer<byte[], byte[]> producer;
-
+    
     private KafkaContainer kafkaContainer;
-
+    
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -110,14 +110,14 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .atMost(180, TimeUnit.SECONDS)
                 .untilAsserted(() -> initKafkaProducer());
-
+        
         log.info("Write 100 records to topic test_topic_source");
         DefaultSeaTunnelRowSerializer serializer =
                 new DefaultSeaTunnelRowSerializer(
                         SEATUNNEL_ROW_TYPE, DEFAULT_FORMAT, DEFAULT_FIELD_DELIMITER);
         generateTestData(row -> serializer.serializeRow("test_topic_source", row), 0, 100);
     }
-
+    
     @AfterAll
     @Override
     public void tearDown() throws Exception {
@@ -128,12 +128,12 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             kafkaContainer.close();
         }
     }
-
+    
     @TestTemplate
     public void testSinkKafka(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/kafkasink_fake_to_kafka.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-
+        
         String topicName = "test_topic";
         Map<String, String> data = getKafkaConsumerData(topicName);
         ObjectMapper objectMapper = new ObjectMapper();
@@ -143,24 +143,22 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Assertions.assertTrue(objectNode.has("c_string"));
         Assertions.assertEquals(10, data.size());
     }
-
+    
     @TestTemplate
-    public void testTextFormatSinkKafka(TestContainer container)
-            throws IOException, InterruptedException {
+    public void testTextFormatSinkKafka(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/kafkaTextsink_fake_to_kafka.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-
+        
         String topicName = "test_text_topic";
         Map<String, String> data = getKafkaConsumerData(topicName);
         Assertions.assertEquals(10, data.size());
     }
-
+    
     @TestTemplate
-    public void testExtractTopicFunction(TestContainer container)
-            throws IOException, InterruptedException {
+    public void testExtractTopicFunction(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/extractTopic_fake_to_kafka.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-
+        
         String topicName = "test_extract_topic";
         Map<String, String> data = getKafkaConsumerData(topicName);
         ObjectMapper objectMapper = new ObjectMapper();
@@ -170,10 +168,9 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Assertions.assertTrue(objectNode.has("c_string"));
         Assertions.assertEquals(10, data.size());
     }
-
+    
     @TestTemplate
-    public void testSourceKafkaTextToConsole(TestContainer container)
-            throws IOException, InterruptedException {
+    public void testSourceKafkaTextToConsole(TestContainer container) throws IOException, InterruptedException {
         TextSerializationSchema serializer =
                 TextSerializationSchema.builder()
                         .seaTunnelRowType(SEATUNNEL_ROW_TYPE)
@@ -186,10 +183,9 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult = container.executeJob("/kafkasource_text_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
-
+    
     @TestTemplate
-    public void testSourceKafkaJsonToConsole(TestContainer container)
-            throws IOException, InterruptedException {
+    public void testSourceKafkaJsonToConsole(TestContainer container) throws IOException, InterruptedException {
         DefaultSeaTunnelRowSerializer serializer =
                 new DefaultSeaTunnelRowSerializer(
                         SEATUNNEL_ROW_TYPE, DEFAULT_FORMAT, DEFAULT_FIELD_DELIMITER);
@@ -197,7 +193,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult = container.executeJob("/kafkasource_json_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
-
+    
     @TestTemplate
     public void testSourceKafka(TestContainer container) throws IOException, InterruptedException {
         testKafkaLatestToConsole(container);
@@ -205,52 +201,46 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         testKafkaSpecificOffsetsToConsole(container);
         testKafkaTimestampToConsole(container);
     }
-
+    
     @TestTemplate
-    public void testSourceKafkaStartConfig(TestContainer container)
-            throws IOException, InterruptedException {
+    public void testSourceKafkaStartConfig(TestContainer container) throws IOException, InterruptedException {
         DefaultSeaTunnelRowSerializer serializer =
                 new DefaultSeaTunnelRowSerializer(
                         SEATUNNEL_ROW_TYPE, DEFAULT_FORMAT, DEFAULT_FIELD_DELIMITER);
         generateTestData(row -> serializer.serializeRow("test_topic_group", row), 100, 150);
         testKafkaGroupOffsetsToConsole(container);
     }
-
-    public void testKafkaLatestToConsole(TestContainer container)
-            throws IOException, InterruptedException {
+    
+    public void testKafkaLatestToConsole(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 container.executeJob("/kafka/kafkasource_latest_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
-
-    public void testKafkaEarliestToConsole(TestContainer container)
-            throws IOException, InterruptedException {
+    
+    public void testKafkaEarliestToConsole(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 container.executeJob("/kafka/kafkasource_earliest_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
-
-    public void testKafkaSpecificOffsetsToConsole(TestContainer container)
-            throws IOException, InterruptedException {
+    
+    public void testKafkaSpecificOffsetsToConsole(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 container.executeJob("/kafka/kafkasource_specific_offsets_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
-
-    public void testKafkaGroupOffsetsToConsole(TestContainer container)
-            throws IOException, InterruptedException {
+    
+    public void testKafkaGroupOffsetsToConsole(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 container.executeJob("/kafka/kafkasource_group_offset_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
-
-    public void testKafkaTimestampToConsole(TestContainer container)
-            throws IOException, InterruptedException {
+    
+    public void testKafkaTimestampToConsole(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 container.executeJob("/kafka/kafkasource_timestamp_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
-
+    
     private void initKafkaProducer() {
         Properties props = new Properties();
         String bootstrapServers = kafkaContainer.getBootstrapServers();
@@ -259,7 +249,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
         producer = new KafkaProducer<>(props);
     }
-
+    
     private Properties kafkaConsumerConfig() {
         Properties props = new Properties();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaContainer.getBootstrapServers());
@@ -271,71 +261,71 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         return props;
     }
-
+    
     @SuppressWarnings("checkstyle:Indentation")
     private void generateTestData(ProducerRecordConverter converter, int start, int end) {
         for (int i = start; i < end; i++) {
             SeaTunnelRow row =
                     new SeaTunnelRow(
-                            new Object[] {
-                                Long.valueOf(i),
-                                Collections.singletonMap("key", Short.parseShort("1")),
-                                new Byte[] {Byte.parseByte("1")},
-                                "string",
-                                Boolean.FALSE,
-                                Byte.parseByte("1"),
-                                Short.parseShort("1"),
-                                Integer.parseInt("1"),
-                                Long.parseLong("1"),
-                                Float.parseFloat("1.1"),
-                                Double.parseDouble("1.1"),
-                                BigDecimal.valueOf(11, 1),
-                                "test".getBytes(),
-                                LocalDate.now(),
-                                LocalDateTime.now()
+                            new Object[]{
+                                    Long.valueOf(i),
+                                    Collections.singletonMap("key", Short.parseShort("1")),
+                                    new Byte[]{Byte.parseByte("1")},
+                                    "string",
+                                    Boolean.FALSE,
+                                    Byte.parseByte("1"),
+                                    Short.parseShort("1"),
+                                    Integer.parseInt("1"),
+                                    Long.parseLong("1"),
+                                    Float.parseFloat("1.1"),
+                                    Double.parseDouble("1.1"),
+                                    BigDecimal.valueOf(11, 1),
+                                    "test".getBytes(),
+                                    LocalDate.now(),
+                                    LocalDateTime.now()
                             });
             ProducerRecord<byte[], byte[]> producerRecord = converter.convert(row);
             producer.send(producerRecord);
         }
     }
-
+    
     private static final SeaTunnelRowType SEATUNNEL_ROW_TYPE =
             new SeaTunnelRowType(
-                    new String[] {
-                        "id",
-                        "c_map",
-                        "c_array",
-                        "c_string",
-                        "c_boolean",
-                        "c_tinyint",
-                        "c_smallint",
-                        "c_int",
-                        "c_bigint",
-                        "c_float",
-                        "c_double",
-                        "c_decimal",
-                        "c_bytes",
-                        "c_date",
-                        "c_timestamp"
+                    new String[]{
+                            "id",
+                            "c_map",
+                            "c_array",
+                            "c_string",
+                            "c_boolean",
+                            "c_tinyint",
+                            "c_smallint",
+                            "c_int",
+                            "c_bigint",
+                            "c_float",
+                            "c_double",
+                            "c_decimal",
+                            "c_bytes",
+                            "c_date",
+                            "c_timestamp"
                     },
-                    new SeaTunnelDataType[] {
-                        BasicType.LONG_TYPE,
-                        new MapType(BasicType.STRING_TYPE, BasicType.SHORT_TYPE),
-                        ArrayType.BYTE_ARRAY_TYPE,
-                        BasicType.STRING_TYPE,
-                        BasicType.BOOLEAN_TYPE,
-                        BasicType.BYTE_TYPE,
-                        BasicType.SHORT_TYPE,
-                        BasicType.INT_TYPE,
-                        BasicType.LONG_TYPE,
-                        BasicType.FLOAT_TYPE,
-                        BasicType.DOUBLE_TYPE,
-                        new DecimalType(2, 1),
-                        PrimitiveByteArrayType.INSTANCE,
-                        LocalTimeType.LOCAL_DATE_TYPE,
-                        LocalTimeType.LOCAL_DATE_TIME_TYPE
+                    new SeaTunnelDataType[]{
+                            BasicType.LONG_TYPE,
+                            new MapType(BasicType.STRING_TYPE, BasicType.SHORT_TYPE),
+                            ArrayType.BYTE_ARRAY_TYPE,
+                            BasicType.STRING_TYPE,
+                            BasicType.BOOLEAN_TYPE,
+                            BasicType.BYTE_TYPE,
+                            BasicType.SHORT_TYPE,
+                            BasicType.INT_TYPE,
+                            BasicType.LONG_TYPE,
+                            BasicType.FLOAT_TYPE,
+                            BasicType.DOUBLE_TYPE,
+                            new DecimalType(2, 1),
+                            PrimitiveByteArrayType.INSTANCE,
+                            LocalTimeType.LOCAL_DATE_TYPE,
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE
                     });
-
+    
     private Map<String, String> getKafkaConsumerData(String topicName) {
         Map<String, String> data = new HashMap<>();
         try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
@@ -344,7 +334,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     consumer.endOffsets(Arrays.asList(new TopicPartition(topicName, 0)));
             Long endOffset = offsets.entrySet().iterator().next().getValue();
             Long lastProcessedOffset = -1L;
-
+            
             do {
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
                 for (ConsumerRecord<String, String> record : records) {
@@ -357,8 +347,9 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         }
         return data;
     }
-
+    
     interface ProducerRecordConverter {
+        
         ProducerRecord<byte[], byte[]> convert(SeaTunnelRow row);
     }
 }

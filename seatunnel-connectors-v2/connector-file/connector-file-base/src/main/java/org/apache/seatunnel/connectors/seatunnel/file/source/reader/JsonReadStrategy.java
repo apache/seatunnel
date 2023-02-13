@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
@@ -37,8 +36,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 public class JsonReadStrategy extends AbstractReadStrategy {
+    
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
-
+    
     @Override
     public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         super.setSeaTunnelRowTypeInfo(seaTunnelRowType);
@@ -50,17 +50,17 @@ public class JsonReadStrategy extends AbstractReadStrategy {
                     new JsonDeserializationSchema(false, false, this.seaTunnelRowType);
         }
     }
-
+    
     @Override
-    public void read(String path, Collector<SeaTunnelRow> output)
-            throws FileConnectorException, IOException {
+    public void read(String path, Collector<SeaTunnelRow> output) throws FileConnectorException, IOException {
         Configuration conf = getConfiguration();
         FileSystem fs = FileSystem.get(conf);
         Path filePath = new Path(path);
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
-        try (BufferedReader reader =
-                new BufferedReader(
-                        new InputStreamReader(fs.open(filePath), StandardCharsets.UTF_8))) {
+        try (
+                BufferedReader reader =
+                        new BufferedReader(
+                                new InputStreamReader(fs.open(filePath), StandardCharsets.UTF_8))) {
             reader.lines()
                     .forEach(
                             line -> {
@@ -85,10 +85,9 @@ public class JsonReadStrategy extends AbstractReadStrategy {
                             });
         }
     }
-
+    
     @Override
-    public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path)
-            throws FileConnectorException {
+    public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path) throws FileConnectorException {
         throw new FileConnectorException(
                 CommonErrorCode.UNSUPPORTED_OPERATION,
                 "User must defined schema for json file type");

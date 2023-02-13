@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -44,52 +43,52 @@ import java.util.Collections;
 
 @AutoService(SeaTunnelSource.class)
 public class FakeSource
-        implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit, FakeSourceState>,
-                SupportParallelism,
-                SupportColumnProjection {
-
+        implements
+            SeaTunnelSource<SeaTunnelRow, FakeSourceSplit, FakeSourceState>,
+            SupportParallelism,
+            SupportColumnProjection {
+    
     private JobContext jobContext;
     private SeaTunnelSchema schema;
     private FakeConfig fakeConfig;
-
+    
     @Override
     public Boundedness getBoundedness() {
         return JobMode.BATCH.equals(jobContext.getJobMode())
                 ? Boundedness.BOUNDED
                 : Boundedness.UNBOUNDED;
     }
-
+    
     @Override
     public SeaTunnelRowType getProducedType() {
         return schema.getSeaTunnelRowType();
     }
-
+    
     @Override
     public SourceSplitEnumerator<FakeSourceSplit, FakeSourceState> createEnumerator(
-            SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext) throws Exception {
+                                                                                    SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext) throws Exception {
         return new FakeSourceSplitEnumerator(enumeratorContext, fakeConfig, Collections.emptySet());
     }
-
+    
     @Override
     public SourceSplitEnumerator<FakeSourceSplit, FakeSourceState> restoreEnumerator(
-            SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext,
-            FakeSourceState checkpointState)
-            throws Exception {
+                                                                                     SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext,
+                                                                                     FakeSourceState checkpointState) throws Exception {
         return new FakeSourceSplitEnumerator(
                 enumeratorContext, fakeConfig, checkpointState.getAssignedSplits());
     }
-
+    
     @Override
     public SourceReader<SeaTunnelRow, FakeSourceSplit> createReader(
-            SourceReader.Context readerContext) throws Exception {
+                                                                    SourceReader.Context readerContext) throws Exception {
         return new FakeSourceReader(readerContext, schema, fakeConfig);
     }
-
+    
     @Override
     public String getPluginName() {
         return "FakeSource";
     }
-
+    
     @Override
     public void prepare(Config pluginConfig) {
         CheckResult result =
@@ -106,7 +105,7 @@ public class FakeSource
                         pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key()));
         this.fakeConfig = FakeConfig.buildWithConfig(pluginConfig);
     }
-
+    
     @Override
     public void setJobContext(JobContext jobContext) {
         this.jobContext = jobContext;

@@ -767,30 +767,12 @@
                 <version>${spotless.version}</version>
                 <configuration>
                     <java>
-                        <googleJavaFormat>
-                            <version>1.7</version>
-                            <style>AOSP</style>
-                        </googleJavaFormat>
-                        <removeUnusedImports />
-                        <formatAnnotations />
-                        <importOrder>
-                            <order>org.apache.seatunnel.shade,org.apache.seatunnel,org.apache,org,,javax,java,\#</order>
-                        </importOrder>
-                        <replaceRegex>
-                            <name>Remove wildcard imports</name>
-                            <searchRegex>import\s+(static)*\s*[^\*\s]+\*;(\r\n|\r|\n)</searchRegex>
-                            <replacement>$1</replacement>
-                        </replaceRegex>
-                        <replaceRegex>
-                            <name>Block powermock</name>
-                            <searchRegex>import\s+org\.powermock\.[^\*\s]*(|\*);(\r\n|\r|\n)</searchRegex>
-                            <replacement>$1</replacement>
-                        </replaceRegex>
-                        <replaceRegex>
-                            <name>Block jUnit4 imports</name>
-                            <searchRegex>import\s+org\.junit\.[^jupiter][^\*\s]*(|\*);(\r\n|\r|\n)</searchRegex>
-                            <replacement>$1</replacement>
-                        </replaceRegex>
+                        <eclipse>
+                            <file>${maven.multiModuleProjectDirectory}/tools/spotless_check/spotless_seatunnel_formatter.xml</file>
+                        </eclipse>
+                        <licenseHeader>
+                            <file>${maven.multiModuleProjectDirectory}/tools/spotless_check/license-header</file>
+                        </licenseHeader>
                     </java>
                     <pom>
                         <sortPom>
@@ -808,8 +790,11 @@
                         </sortPom>
                         <replace>
                             <name>Leading blank line</name>
-                            <search>project</search>
-                            <replacement>project</replacement>
+                            <search>--&gt;
+                                &lt;project</search>
+                            <replacement>--&gt;
+
+                                &lt;project</replacement>
                         </replace>
                     </pom>
                     <markdown>
@@ -828,7 +813,7 @@
                 <executions>
                     <execution>
                         <goals>
-                            <goal>check</goal>
+                            <goal>apply</goal>
                         </goals>
                         <phase>compile</phase>
                     </execution>

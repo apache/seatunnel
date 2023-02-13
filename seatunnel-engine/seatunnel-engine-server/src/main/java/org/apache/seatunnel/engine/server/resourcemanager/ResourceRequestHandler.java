@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.resourcemanager;
 
 import org.apache.seatunnel.engine.common.runtime.DeployType;
@@ -43,28 +42,27 @@ import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
 
 /** Handle each slot request from resource manager */
 public class ResourceRequestHandler {
-
+    
     private static final ILogger LOGGER = Logger.getLogger(ResourceRequestHandler.class);
     private final CompletableFuture<List<SlotProfile>> completableFuture;
     /*
-     * Cache the slot already request successes, and not request success or not request finished will be null.
-     * The key match with {@link resourceProfile} index. Meaning which value in resultSlotProfiles index is null, the
-     * resourceProfile with same index in resourceProfile haven't requested successes yet.
+     * Cache the slot already request successes, and not request success or not request finished will be null. The key match with {@link resourceProfile} index. Meaning which value in
+     * resultSlotProfiles index is null, the resourceProfile with same index in resourceProfile haven't requested successes yet.
      */
     private final ConcurrentMap<Integer, SlotProfile> resultSlotProfiles;
     private final ConcurrentMap<Address, WorkerProfile> registerWorker;
-
+    
     private final long jobId;
-
+    
     private final List<ResourceProfile> resourceProfile;
-
+    
     private final AbstractResourceManager resourceManager;
-
+    
     public ResourceRequestHandler(
-            long jobId,
-            List<ResourceProfile> resourceProfile,
-            ConcurrentMap<Address, WorkerProfile> registerWorker,
-            AbstractResourceManager resourceManager) {
+                                  long jobId,
+                                  List<ResourceProfile> resourceProfile,
+                                  ConcurrentMap<Address, WorkerProfile> registerWorker,
+                                  AbstractResourceManager resourceManager) {
         this.completableFuture = new CompletableFuture<>();
         this.resultSlotProfiles = new ConcurrentHashMap<>();
         this.jobId = jobId;
@@ -72,7 +70,7 @@ public class ResourceRequestHandler {
         this.registerWorker = registerWorker;
         this.resourceManager = resourceManager;
     }
-
+    
     public CompletableFuture<List<SlotProfile>> request() {
         List<CompletableFuture<SlotAndWorkerProfile>> allRequestFuture = new ArrayList<>();
         for (int i = 0; i < resourceProfile.size(); i++) {
@@ -109,7 +107,7 @@ public class ResourceRequestHandler {
                                 }));
         return completableFuture;
     }
-
+    
     private int findNullIndexInResultSlotProfiles() {
         for (int i = 0; i < resourceProfile.size(); i++) {
             if (!resultSlotProfiles.containsKey(i)) {
@@ -118,12 +116,12 @@ public class ResourceRequestHandler {
         }
         return -1;
     }
-
+    
     private void completeRequestWithException(Throwable e) {
         releaseAllResourceInternal();
         completableFuture.completeExceptionally(e);
     }
-
+    
     private void addSlotToCacheMap(int index, SlotProfile slotProfile) {
         if (null != slotProfile) {
             resultSlotProfiles.put(index, slotProfile);
@@ -136,9 +134,9 @@ public class ResourceRequestHandler {
             }
         }
     }
-
+    
     private CompletableFuture<SlotAndWorkerProfile> singleResourceRequestToMember(
-            int i, ResourceProfile r, WorkerProfile workerProfile) {
+                                                                                  int i, ResourceProfile r, WorkerProfile workerProfile) {
         InvocationFuture<SlotAndWorkerProfile> future =
                 resourceManager.sendToMember(
                         new RequestSlotOperation(jobId, r), workerProfile.getAddress());
@@ -154,7 +152,7 @@ public class ResourceRequestHandler {
                             }
                         }));
     }
-
+    
     private Optional<WorkerProfile> preCheckWorkerResource(ResourceProfile r) {
         // Shuffle the order to ensure random selection of workers
         List<WorkerProfile> workerProfiles =
@@ -164,14 +162,12 @@ public class ResourceRequestHandler {
         Optional<WorkerProfile> workerProfile =
                 workerProfiles.stream()
                         .filter(
-                                worker ->
-                                        Arrays.stream(worker.getUnassignedSlots())
-                                                .anyMatch(
-                                                        slot ->
-                                                                slot.getResourceProfile()
-                                                                        .enoughThan(r)))
+                                worker -> Arrays.stream(worker.getUnassignedSlots())
+                                        .anyMatch(
+                                                slot -> slot.getResourceProfile()
+                                                        .enoughThan(r)))
                         .findAny();
-
+        
         if (!workerProfile.isPresent()) {
             // Check if there are still unassigned resources
             workerProfile =
@@ -179,10 +175,10 @@ public class ResourceRequestHandler {
                             .filter(worker -> worker.getUnassignedResource().enoughThan(r))
                             .findAny();
         }
-
+        
         return workerProfile;
     }
-
+    
     /**
      * When the {@link DeployType} supports dynamic workers and the resources of the current worker
      * cannot meet the requirements of resource application, we can dynamically request the
@@ -214,7 +210,7 @@ public class ResourceRequestHandler {
                                     }
                                 }));
     }
-
+    
     private void releaseAllResourceInternal() {
         LOGGER.warning("apply resource not success, release all already applied resource");
         resultSlotProfiles.values().stream()
@@ -224,9 +220,8 @@ public class ResourceRequestHandler {
                             resourceManager.releaseResource(jobId, profile);
                         });
     }
-
+    
     private <T> CompletableFuture<T> getAllOfFuture(List<CompletableFuture<T>> allRequestFuture) {
-        return (CompletableFuture<T>)
-                CompletableFuture.allOf(allRequestFuture.toArray(new CompletableFuture[0]));
+        return (CompletableFuture<T>) CompletableFuture.allOf(allRequestFuture.toArray(new CompletableFuture[0]));
     }
 }

@@ -1,20 +1,19 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *     contributor license agreements.  See the NOTICE file distributed with
- *     this work for additional information regarding copyright ownership.
- *     The ASF licenses this file to You under the Apache License, Version 2.0
- *     (the "License"); you may not use this file except in compliance with
- *     the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *        http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- *     Unless required by applicable law or agreed to in writing, software
- *     distributed under the License is distributed on an "AS IS" BASIS,
- *     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *     See the License for the specific language governing permissions and
- *     limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -36,6 +35,7 @@ import java.sql.Statement;
 
 @Disabled("Disabled because it needs user's personal teradata account to run this test!")
 public class JdbcTeradataIT extends TestSuiteBase implements TestResource {
+    
     private static final String HOST = "1.2.3.4";
     private static final String PORT = "1025";
     private static final String USERNAME = "dbc";
@@ -52,9 +52,9 @@ public class JdbcTeradataIT extends TestSuiteBase implements TestResource {
                         "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
                                 + TERADATA_DRIVER_JAR);
             };
-
+    
     private Connection connection;
-
+    
     @TestTemplate
     public void testTeradata(TestContainer container) throws Exception {
         container.executeExtraCommands(extendedFactory);
@@ -63,7 +63,7 @@ public class JdbcTeradataIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode());
         clearSinkTable();
     }
-
+    
     private void clearSinkTable() {
         try (Statement statement = connection.createStatement()) {
             statement.execute(String.format("delete from %s", SINK_TABLE));
@@ -71,7 +71,7 @@ public class JdbcTeradataIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("Test teradata server failed!", e);
         }
     }
-
+    
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -83,7 +83,7 @@ public class JdbcTeradataIT extends TestSuiteBase implements TestResource {
         teraDataSource.setDATABASE(DATABASE);
         this.connection = teraDataSource.getConnection();
     }
-
+    
     @AfterAll
     @Override
     public void tearDown() throws Exception {

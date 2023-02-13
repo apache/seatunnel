@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.resourcemanager.resource;
 
 import org.apache.seatunnel.engine.server.serializable.ResourceDataSerializerHook;
@@ -29,47 +28,47 @@ import java.util.Objects;
 
 /** Used to describe the status of the current slot, including resource size and assign status */
 public class SlotProfile implements IdentifiedDataSerializable {
-
+    
     private Address worker;
-
+    
     private int slotID;
-
+    
     private long ownerJobID;
-
+    
     private volatile boolean assigned;
-
+    
     private ResourceProfile resourceProfile;
-
+    
     private String sequence;
-
+    
     public SlotProfile() {
         worker = new Address();
     }
-
+    
     public SlotProfile(
-            Address worker, int slotID, ResourceProfile resourceProfile, String sequence) {
+                       Address worker, int slotID, ResourceProfile resourceProfile, String sequence) {
         this.worker = worker;
         this.slotID = slotID;
         this.resourceProfile = resourceProfile;
         this.sequence = sequence;
     }
-
+    
     public Address getWorker() {
         return worker;
     }
-
+    
     public int getSlotID() {
         return slotID;
     }
-
+    
     public ResourceProfile getResourceProfile() {
         return resourceProfile;
     }
-
+    
     public long getOwnerJobID() {
         return ownerJobID;
     }
-
+    
     public void assign(long jobID) {
         if (assigned) {
             throw new UnsupportedOperationException();
@@ -78,7 +77,7 @@ public class SlotProfile implements IdentifiedDataSerializable {
             assigned = true;
         }
     }
-
+    
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -92,20 +91,20 @@ public class SlotProfile implements IdentifiedDataSerializable {
                 && worker.equals(that.worker)
                 && sequence.equals(that.sequence);
     }
-
+    
     @Override
     public int hashCode() {
         return Objects.hash(worker, slotID, sequence);
     }
-
+    
     public String getSequence() {
         return sequence;
     }
-
+    
     public void unassigned() {
         assigned = false;
     }
-
+    
     @Override
     public String toString() {
         return "SlotProfile{"
@@ -124,17 +123,17 @@ public class SlotProfile implements IdentifiedDataSerializable {
                 + '\''
                 + '}';
     }
-
+    
     @Override
     public int getFactoryId() {
         return ResourceDataSerializerHook.FACTORY_ID;
     }
-
+    
     @Override
     public int getClassId() {
         return ResourceDataSerializerHook.SLOT_PROFILE_TYPE;
     }
-
+    
     @Override
     public void writeData(ObjectDataOutput out) throws IOException {
         out.writeObject(worker);
@@ -144,7 +143,7 @@ public class SlotProfile implements IdentifiedDataSerializable {
         out.writeObject(resourceProfile);
         out.writeString(sequence);
     }
-
+    
     @Override
     public void readData(ObjectDataInput in) throws IOException {
         worker = in.readObject();

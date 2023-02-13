@@ -1,13 +1,12 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -53,105 +51,103 @@ import java.util.Optional;
 import java.util.Set;
 
 public class MySqlCatalog extends AbstractJdbcCatalog {
-
+    
     private static final Set<String> SYS_DATABASES = new HashSet<>(4);
-
+    
     static {
         SYS_DATABASES.add("information_schema");
         SYS_DATABASES.add("mysql");
         SYS_DATABASES.add("performance_schema");
         SYS_DATABASES.add("sys");
     }
-
+    
     public MySqlCatalog(
-            String catalogName,
-            String defaultDatabase,
-            String username,
-            String pwd,
-            String baseUrl) {
+                        String catalogName,
+                        String defaultDatabase,
+                        String username,
+                        String pwd,
+                        String baseUrl) {
         super(catalogName, defaultDatabase, username, pwd, baseUrl);
     }
-
+    
     public MySqlCatalog(String catalogName, String username, String pwd, String defaultUrl) {
         super(catalogName, username, pwd, defaultUrl);
     }
-
+    
     @Override
     public List<String> listDatabases() throws CatalogException {
         try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd)) {
-
+            
             PreparedStatement ps = conn.prepareStatement("SHOW DATABASES;");
-
+            
             List<String> databases = new ArrayList<>();
             ResultSet rs = ps.executeQuery();
-
+            
             while (rs.next()) {
                 String databaseName = rs.getString(1);
                 if (!SYS_DATABASES.contains(databaseName)) {
                     databases.add(rs.getString(1));
                 }
             }
-
+            
             return databases;
         } catch (Exception e) {
             throw new CatalogException(
                     String.format("Failed listing database in catalog %s", this.catalogName), e);
         }
     }
-
+    
     @Override
-    public List<String> listTables(String databaseName)
-            throws CatalogException, DatabaseNotExistException {
+    public List<String> listTables(String databaseName) throws CatalogException, DatabaseNotExistException {
         if (!databaseExists(databaseName)) {
             throw new DatabaseNotExistException(this.catalogName, databaseName);
         }
-
+        
         try (Connection conn = DriverManager.getConnection(baseUrl + databaseName, username, pwd)) {
             PreparedStatement ps = conn.prepareStatement("SHOW TABLES;");
-
+            
             ResultSet rs = ps.executeQuery();
-
+            
             List<String> tables = new ArrayList<>();
-
+            
             while (rs.next()) {
                 tables.add(rs.getString(1));
             }
-
+            
             return tables;
         } catch (Exception e) {
             throw new CatalogException(
                     String.format("Failed listing database in catalog %s", catalogName), e);
         }
     }
-
+    
     @Override
-    public CatalogTable getTable(TablePath tablePath)
-            throws CatalogException, TableNotExistException {
+    public CatalogTable getTable(TablePath tablePath) throws CatalogException, TableNotExistException {
         if (!tableExists(tablePath)) {
             throw new TableNotExistException(catalogName, tablePath);
         }
-
+        
         String dbUrl = baseUrl + tablePath.getDatabaseName();
         try (Connection conn = DriverManager.getConnection(dbUrl, username, pwd)) {
             DatabaseMetaData metaData = conn.getMetaData();
             Optional<TableSchema.PrimaryKey> primaryKey =
                     getPrimaryKey(metaData, tablePath.getDatabaseName(), tablePath.getTableName());
-
+            
             PreparedStatement ps =
                     conn.prepareStatement(
                             String.format(
                                     "SELECT * FROM %s WHERE 1 = 0;", tablePath.getFullName()));
-
+            
             ResultSetMetaData tableMetaData = ps.getMetaData();
-
+            
             TableSchema.Builder builder = TableSchema.builder();
             for (int i = 1; i <= tableMetaData.getColumnCount(); i++) {
                 SeaTunnelDataType<?> type = fromJdbcType(tableMetaData, i);
                 builder.physicalColumn(tableMetaData.getColumnName(i), type);
             }
-
+            
             primaryKey.ifPresent(builder::primaryKey);
-
+            
             TableIdentifier tableIdentifier =
                     TableIdentifier.of(
                             catalogName, tablePath.getDatabaseName(), tablePath.getTableName());
@@ -166,13 +162,12 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
                     String.format("Failed getting table %s", tablePath.getFullName()), e);
         }
     }
-
+    
     /**
      * @see com.mysql.cj.MysqlType
      * @see ResultSetImpl#getObjectStoredProc(int, int)
      */
-    private SeaTunnelDataType<?> fromJdbcType(ResultSetMetaData metadata, int colIndex)
-            throws SQLException {
+    private SeaTunnelDataType<?> fromJdbcType(ResultSetMetaData metadata, int colIndex) throws SQLException {
         MysqlType mysqlType = MysqlType.getByName(metadata.getColumnTypeName(colIndex));
         switch (mysqlType) {
             case NULL:
@@ -206,7 +201,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
             case TIMESTAMP:
             case DATETIME:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
-                // TODO: to confirm
+            // TODO: to confirm
             case CHAR:
             case VARCHAR:
             case TINYTEXT:
@@ -230,14 +225,14 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
                 int precision = metadata.getPrecision(colIndex);
                 int scale = metadata.getScale(colIndex);
                 return new DecimalType(precision, scale);
-                // TODO: support 'SET' & 'YEAR' type
+            // TODO: support 'SET' & 'YEAR' type
             default:
                 throw new JdbcConnectorException(
                         CommonErrorCode.UNSUPPORTED_DATA_TYPE,
                         String.format("Doesn't support MySQL type '%s' yet", mysqlType.getName()));
         }
     }
-
+    
     @SuppressWarnings("MagicNumber")
     private Map<String, String> buildConnectorOptions(TablePath tablePath) {
         Map<String, String> options = new HashMap<>(8);

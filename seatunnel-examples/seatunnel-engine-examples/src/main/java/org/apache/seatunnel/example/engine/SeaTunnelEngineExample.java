@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.example.engine;
 
 import org.apache.seatunnel.core.starter.SeaTunnel;
@@ -28,9 +27,8 @@ import java.net.URL;
 import java.nio.file.Paths;
 
 public class SeaTunnelEngineExample {
-
-    public static void main(String[] args)
-            throws FileNotFoundException, URISyntaxException, CommandException {
+    
+    public static void main(String[] args) throws FileNotFoundException, URISyntaxException, CommandException {
         String configFile = getTestConfigFile("/examples/fake_to_console.conf");
         ClientCommandArgs clientCommandArgs = new ClientCommandArgs();
         clientCommandArgs.setConfigFile(configFile);
@@ -41,9 +39,8 @@ public class SeaTunnelEngineExample {
         clientCommandArgs.setMasterType(MasterType.LOCAL);
         SeaTunnel.run(clientCommandArgs.buildCommand());
     }
-
-    public static String getTestConfigFile(String configFile)
-            throws FileNotFoundException, URISyntaxException {
+    
+    public static String getTestConfigFile(String configFile) throws FileNotFoundException, URISyntaxException {
         URL resource = SeaTunnelEngineExample.class.getResource(configFile);
         if (resource == null) {
             throw new FileNotFoundException("Can't find config file: " + configFile);

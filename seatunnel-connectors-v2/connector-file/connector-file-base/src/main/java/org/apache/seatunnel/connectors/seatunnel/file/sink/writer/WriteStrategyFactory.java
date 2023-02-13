@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
 import org.apache.seatunnel.common.exception.CommonErrorCode;
@@ -26,9 +25,10 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class WriteStrategyFactory {
-
-    private WriteStrategyFactory() {}
-
+    
+    private WriteStrategyFactory() {
+    }
+    
     public static WriteStrategy of(String fileType, FileSinkConfig fileSinkConfig) {
         try {
             FileFormat fileFormat = FileFormat.valueOf(fileType.toUpperCase());
@@ -41,7 +41,7 @@ public class WriteStrategyFactory {
             throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, errorMsg);
         }
     }
-
+    
     public static WriteStrategy of(FileFormat fileFormat, FileSinkConfig fileSinkConfig) {
         return fileFormat.getWriteStrategy(fileSinkConfig);
     }

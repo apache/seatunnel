@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -54,6 +53,7 @@ import static org.apache.parquet.avro.AvroWriteSupport.WRITE_OLD_LIST_STRUCTURE;
 
 @Slf4j
 public abstract class AbstractReadStrategy implements ReadStrategy {
+    
     protected static final String[] TYPE_ARRAY_STRING = new String[0];
     protected static final Boolean[] TYPE_ARRAY_BOOLEAN = new Boolean[0];
     protected static final Byte[] TYPE_ARRAY_BYTE = new Byte[0];
@@ -65,7 +65,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected static final BigDecimal[] TYPE_ARRAY_BIG_DECIMAL = new BigDecimal[0];
     protected static final LocalDate[] TYPE_ARRAY_LOCAL_DATE = new LocalDate[0];
     protected static final LocalDateTime[] TYPE_ARRAY_LOCAL_DATETIME = new LocalDateTime[0];
-
+    
     protected HadoopConf hadoopConf;
     protected SeaTunnelRowType seaTunnelRowType;
     protected SeaTunnelRowType seaTunnelRowTypeWithPartition;
@@ -75,19 +75,19 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected boolean isMergePartition = true;
     protected long skipHeaderNumber = BaseSourceConfig.SKIP_HEADER_ROW_NUMBER.defaultValue();
     protected boolean isKerberosAuthorization = false;
-
+    
     @Override
     public void init(HadoopConf conf) {
         this.hadoopConf = conf;
     }
-
+    
     @Override
     public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.seaTunnelRowTypeWithPartition =
                 mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
     }
-
+    
     @Override
     public Configuration getConfiguration(HadoopConf hadoopConf) {
         Configuration configuration = new Configuration();
@@ -130,15 +130,15 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         }
         return configuration;
     }
-
+    
     Configuration getConfiguration() {
         return getConfiguration(hadoopConf);
     }
-
+    
     boolean checkFileType(String path) {
         return true;
     }
-
+    
     @Override
     public List<String> getFileNamesByPath(HadoopConf hadoopConf, String path) throws IOException {
         Configuration configuration = getConfiguration(hadoopConf);
@@ -172,7 +172,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         }
         return fileNames;
     }
-
+    
     @Override
     public void setPluginConfig(Config pluginConfig) {
         this.pluginConfig = pluginConfig;
@@ -188,12 +188,12 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                     pluginConfig.getStringList(BaseSourceConfig.READ_PARTITIONS.key()));
         }
     }
-
+    
     @Override
     public SeaTunnelRowType getActualSeaTunnelRowTypeInfo() {
         return isMergePartition ? seaTunnelRowTypeWithPartition : seaTunnelRowType;
     }
-
+    
     protected Map<String, String> parsePartitionsByPath(String path) {
         LinkedHashMap<String, String> partitions = new LinkedHashMap<>();
         Arrays.stream(path.split("/", -1))
@@ -202,7 +202,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 .forEach(kv -> partitions.put(kv[0], kv[1]));
         return partitions;
     }
-
+    
     protected SeaTunnelRowType mergePartitionTypes(String path, SeaTunnelRowType seaTunnelRowType) {
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
         if (partitionsMap.isEmpty()) {

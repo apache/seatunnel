@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset;
 
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
@@ -30,17 +29,17 @@ import java.util.Map;
 
 /** An offset factory class create {@link BinlogOffset} instance. */
 public class BinlogOffsetFactory extends OffsetFactory {
-
+    
     private final MySqlSourceConfig sourceConfig;
-
+    
     private final JdbcDataSourceDialect dialect;
-
+    
     public BinlogOffsetFactory(
-            MySqlSourceConfigFactory configFactory, JdbcDataSourceDialect dialect) {
+                               MySqlSourceConfigFactory configFactory, JdbcDataSourceDialect dialect) {
         this.sourceConfig = configFactory.create(0);
         this.dialect = dialect;
     }
-
+    
     @Override
     public Offset earliest() {
         try (JdbcConnection jdbcConnection = dialect.openJdbcConnection(sourceConfig)) {
@@ -49,12 +48,12 @@ public class BinlogOffsetFactory extends OffsetFactory {
             throw new RuntimeException("Read the binlog offset error", e);
         }
     }
-
+    
     @Override
     public Offset neverStop() {
         return BinlogOffset.NO_STOPPING_OFFSET;
     }
-
+    
     @Override
     public Offset latest() {
         try (JdbcConnection jdbcConnection = dialect.openJdbcConnection(sourceConfig)) {
@@ -63,17 +62,17 @@ public class BinlogOffsetFactory extends OffsetFactory {
             throw new RuntimeException("Read the binlog offset error", e);
         }
     }
-
+    
     @Override
     public Offset specific(Map<String, String> offset) {
         return new BinlogOffset(offset);
     }
-
+    
     @Override
     public Offset specific(String filename, Long position) {
         return new BinlogOffset(filename, position);
     }
-
+    
     @Override
     public Offset timestamp(long timestamp) {
         throw new UnsupportedOperationException("not supported create new Offset by timestamp.");

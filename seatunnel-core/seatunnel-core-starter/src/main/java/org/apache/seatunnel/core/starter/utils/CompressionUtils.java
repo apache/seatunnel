@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.core.starter.utils;
 
 import org.apache.commons.compress.archivers.ArchiveException;
@@ -46,9 +45,10 @@ import java.util.zip.GZIPInputStream;
 
 @Slf4j
 public final class CompressionUtils {
-
-    private CompressionUtils() {}
-
+    
+    private CompressionUtils() {
+    }
+    
     /**
      * Compress directory to a 'tar.gz' format file.
      *
@@ -57,16 +57,17 @@ public final class CompressionUtils {
      */
     public static void tarGzip(final Path inputDir, final Path outputFile) throws IOException {
         log.info("Tar directory '{}' to file '{}'.", inputDir, outputFile);
-        try (OutputStream out = Files.newOutputStream(outputFile);
+        try (
+                OutputStream out = Files.newOutputStream(outputFile);
                 BufferedOutputStream bufferedOut = new BufferedOutputStream(out);
                 GzipCompressorOutputStream gzOut = new GzipCompressorOutputStream(bufferedOut);
                 TarArchiveOutputStream tarOut = new TarArchiveOutputStream(gzOut)) {
             Files.walkFileTree(
                     inputDir,
                     new SimpleFileVisitor<Path>() {
+                        
                         @Override
-                        public FileVisitResult visitFile(Path path, BasicFileAttributes attrs)
-                                throws IOException {
+                        public FileVisitResult visitFile(Path path, BasicFileAttributes attrs) throws IOException {
                             if (attrs.isSymbolicLink()) {
                                 return FileVisitResult.CONTINUE;
                             }
@@ -86,7 +87,7 @@ public final class CompressionUtils {
             throw e;
         }
     }
-
+    
     /**
      * Untar an input file into an output file.
      *
@@ -99,17 +100,16 @@ public final class CompressionUtils {
      * @throws FileNotFoundException file not found exception
      * @throws ArchiveException archive exception
      */
-    public static void unTar(final File inputFile, final File outputDir)
-            throws IOException, ArchiveException {
-
+    public static void unTar(final File inputFile, final File outputDir) throws IOException, ArchiveException {
+        
         log.info(
                 "Untaring {} to dir {}.", inputFile.getAbsolutePath(), outputDir.getAbsolutePath());
-
+        
         final List<File> untaredFiles = new LinkedList<>();
-        try (final InputStream is = new FileInputStream(inputFile);
+        try (
+                final InputStream is = new FileInputStream(inputFile);
                 final TarArchiveInputStream debInputStream =
-                        (TarArchiveInputStream)
-                                new ArchiveStreamFactory().createArchiveInputStream("tar", is)) {
+                        (TarArchiveInputStream) new ArchiveStreamFactory().createArchiveInputStream("tar", is)) {
             TarArchiveEntry entry = null;
             while ((entry = (TarArchiveEntry) debInputStream.getNextEntry()) != null) {
                 final File outputFile = new File(outputDir, entry.getName());
@@ -141,7 +141,7 @@ public final class CompressionUtils {
             }
         }
     }
-
+    
     /**
      * Ungzip an input file into an output file.
      *
@@ -155,18 +155,19 @@ public final class CompressionUtils {
      * @throws FileNotFoundException file not found exception
      */
     public static File unGzip(final File inputFile, final File outputDir) throws IOException {
-
+        
         log.info(
                 "Unzipping {} to dir {}.",
                 inputFile.getAbsolutePath(),
                 outputDir.getAbsolutePath());
-
+        
         final File outputFile =
                 new File(
                         outputDir,
                         inputFile.getName().substring(0, inputFile.getName().length() - 3));
-
-        try (final FileInputStream fis = new FileInputStream(inputFile);
+        
+        try (
+                final FileInputStream fis = new FileInputStream(inputFile);
                 final GZIPInputStream in = new GZIPInputStream(fis);
                 final FileOutputStream out = new FileOutputStream(outputFile)) {
             IOUtils.copy(in, out);

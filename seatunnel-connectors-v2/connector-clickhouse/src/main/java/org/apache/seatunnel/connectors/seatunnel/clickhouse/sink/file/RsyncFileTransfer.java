@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
 
 import org.apache.seatunnel.common.exception.CommonErrorCode;
@@ -36,22 +35,22 @@ import java.util.List;
 
 @Slf4j
 public class RsyncFileTransfer implements FileTransfer {
-
+    
     private static final int SSH_PORT = 22;
-
+    
     private final String host;
     private final String user;
     private final String password;
-
+    
     private ClientSession clientSession;
     private SshClient sshClient;
-
+    
     public RsyncFileTransfer(String host, String user, String password) {
         this.host = host;
         this.user = user;
         this.password = password;
     }
-
+    
     @Override
     public void init() {
         try {
@@ -74,7 +73,7 @@ public class RsyncFileTransfer implements FileTransfer {
                     e);
         }
     }
-
+    
     @Override
     public void transferAndChown(String sourcePath, String targetPath) {
         try {
@@ -102,7 +101,8 @@ public class RsyncFileTransfer implements FileTransfer {
                     new ProcessBuilder("bash", "-c", String.join(" ", rsyncCommand));
             Process start = processBuilder.start();
             // we just wait for the process to finish
-            try (InputStream inputStream = start.getInputStream();
+            try (
+                    InputStream inputStream = start.getInputStream();
                     InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
                     BufferedReader bufferedReader = new BufferedReader(inputStreamReader)) {
                 String line;
@@ -135,7 +135,7 @@ public class RsyncFileTransfer implements FileTransfer {
             // always return error cause xargs return shell command result
         }
     }
-
+    
     @Override
     public void transferAndChown(List<String> sourcePaths, String targetPath) {
         if (sourcePaths == null) {
@@ -144,7 +144,7 @@ public class RsyncFileTransfer implements FileTransfer {
         }
         sourcePaths.forEach(sourcePath -> transferAndChown(sourcePath, targetPath));
     }
-
+    
     @Override
     public void close() {
         if (clientSession != null && clientSession.isOpen()) {

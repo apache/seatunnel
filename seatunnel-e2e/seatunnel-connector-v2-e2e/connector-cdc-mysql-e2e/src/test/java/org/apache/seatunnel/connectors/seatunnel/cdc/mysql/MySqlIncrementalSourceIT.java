@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql;
 
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlContainer;
@@ -36,17 +35,15 @@ import org.testcontainers.lifecycle.Startables;
 
 import java.util.stream.Stream;
 
-@DisabledOnContainer(
-        value = {},
-        type = {EngineType.SPARK, EngineType.FLINK},
-        disabledReason = "")
+@DisabledOnContainer(value = {}, type = {EngineType.SPARK, EngineType.FLINK}, disabledReason = "")
 public class MySqlIncrementalSourceIT extends TestSuiteBase implements TestResource {
+    
     private static final Logger LOG = LoggerFactory.getLogger(MySqlIncrementalSourceIT.class);
-
+    
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
     private final UniqueDatabase inventoryDatabase =
             new UniqueDatabase(MYSQL_CONTAINER, "inventory", "mysqluser", "mysqlpw");
-
+    
     private static MySqlContainer createMySqlContainer(MySqlVersion version) {
         return new MySqlContainer(version)
                 .withConfigurationOverride("docker/server-gtids/my.cnf")
@@ -56,7 +53,7 @@ public class MySqlIncrementalSourceIT extends TestSuiteBase implements TestResou
                 .withPassword("seatunnel")
                 .withLogConsumer(new Slf4jLogConsumer(LOG));
     }
-
+    
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -64,14 +61,14 @@ public class MySqlIncrementalSourceIT extends TestSuiteBase implements TestResou
         Startables.deepStart(Stream.of(MYSQL_CONTAINER)).join();
         LOG.info("Containers are started.");
     }
-
+    
     @Test
     @Disabled("Offline jobs are not currently supported")
     public void testMysql() {
         inventoryDatabase.createAndInitialize();
         LOG.info("-------mysql port:{}", MYSQL_CONTAINER.getDatabasePort());
     }
-
+    
     @AfterAll
     @Override
     public void tearDown() throws Exception {

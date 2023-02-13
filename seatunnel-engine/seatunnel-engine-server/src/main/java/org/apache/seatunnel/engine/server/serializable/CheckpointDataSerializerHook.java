@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.serializable;
 
 import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
@@ -31,32 +30,33 @@ import com.hazelcast.nio.serialization.DataSerializableFactory;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 
 public final class CheckpointDataSerializerHook implements DataSerializerHook {
-
+    
     public static final int CHECKPOINT_BARRIER_TRIGGER_OPERATOR = 1;
     public static final int CHECKPOINT_FINISHED_OPERATOR = 2;
     public static final int TASK_ACK_OPERATOR = 3;
-
+    
     public static final int TASK_REPORT_STATUS_OPERATOR = 4;
-
+    
     public static final int NOTIFY_TASK_RESTORE_OPERATOR = 5;
     public static final int NOTIFY_TASK_START_OPERATOR = 6;
-
+    
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
                     SeaTunnelFactoryIdConstant.SEATUNNEL_CHECKPOINT_DATA_SERIALIZER_FACTORY,
                     SeaTunnelFactoryIdConstant.SEATUNNEL_CHECKPOINT_DATA_SERIALIZER_FACTORY_ID);
-
+    
     @Override
     public int getFactoryId() {
         return FACTORY_ID;
     }
-
+    
     @Override
     public DataSerializableFactory createFactory() {
         return new CheckpointDataSerializerHook.Factory();
     }
-
+    
     private static class Factory implements DataSerializableFactory {
+        
         @SuppressWarnings("checkstyle:returncount")
         @Override
         public IdentifiedDataSerializable create(int typeId) {

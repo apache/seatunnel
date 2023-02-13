@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.common.utils;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonGenerator;
@@ -49,7 +48,7 @@ import static org.apache.seatunnel.shade.com.fasterxml.jackson.databind.Deserial
 import static org.apache.seatunnel.shade.com.fasterxml.jackson.databind.MapperFeature.REQUIRE_SETTERS_FOR_GETTERS;
 
 public class JsonUtils {
-
+    
     /** can use static singleton, inject: just make sure to reuse! */
     private static final ObjectMapper OBJECT_MAPPER =
             new ObjectMapper()
@@ -58,27 +57,27 @@ public class JsonUtils {
                     .configure(READ_UNKNOWN_ENUM_VALUES_AS_NULL, true)
                     .configure(REQUIRE_SETTERS_FOR_GETTERS, true)
                     .setTimeZone(TimeZone.getDefault());
-
+    
     private JsonUtils() {
         throw new UnsupportedOperationException("Construct JSONUtils");
     }
-
+    
     public static ArrayNode createArrayNode() {
         return OBJECT_MAPPER.createArrayNode();
     }
-
+    
     public static ObjectNode createObjectNode() {
         return OBJECT_MAPPER.createObjectNode();
     }
-
+    
     public static JsonNode toJsonNode(Object obj) {
         return OBJECT_MAPPER.valueToTree(obj);
     }
-
+    
     public static JsonNode stringToJsonNode(String obj) throws JsonProcessingException {
         return OBJECT_MAPPER.readTree(obj);
     }
-
+    
     /**
      * json representation of object
      *
@@ -94,7 +93,7 @@ public class JsonUtils {
             throw new RuntimeException("Object to json exception!", e);
         }
     }
-
+    
     /**
      * This method deserializes the specified Json into an object of the specified class. It is not
      * suitable to use if the specified class is a generic type since it will not have the generic
@@ -112,14 +111,14 @@ public class JsonUtils {
         if (StringUtils.isEmpty(json)) {
             return null;
         }
-
+        
         try {
             return OBJECT_MAPPER.readValue(json, clazz);
         } catch (Exception e) {
             throw new RuntimeException("Json parse object exception!", e);
         }
     }
-
+    
     /**
      * json to list
      *
@@ -132,7 +131,7 @@ public class JsonUtils {
         if (StringUtils.isEmpty(json)) {
             return Collections.emptyList();
         }
-
+        
         try {
             CollectionType listType =
                     OBJECT_MAPPER.getTypeFactory().constructCollectionType(ArrayList.class, clazz);
@@ -141,7 +140,7 @@ public class JsonUtils {
             throw new RuntimeException("Json parse list exception!", e);
         }
     }
-
+    
     /**
      * Method for finding a JSON Object field with specified name in this node or its child nodes,
      * and returning value it has. If no matching field is found in this node or its descendants,
@@ -153,14 +152,14 @@ public class JsonUtils {
      */
     public static String findValue(JsonNode jsonNode, String fieldName) {
         JsonNode node = jsonNode.findValue(fieldName);
-
+        
         if (node == null) {
             return null;
         }
-
+        
         return node.asText();
     }
-
+    
     /**
      * json to map {@link #toMap(String, Class, Class)}
      *
@@ -168,14 +167,16 @@ public class JsonUtils {
      * @return json to map
      */
     public static Map<String, String> toMap(String json) {
-        return parseObject(json, new TypeReference<Map<String, String>>() {});
+        return parseObject(json, new TypeReference<Map<String, String>>() {
+        });
     }
-
+    
     public static Map<String, Object> toMap(JsonNode jsonNode) {
         ObjectMapper mapper = new ObjectMapper();
-        return mapper.convertValue(jsonNode, new TypeReference<Map<String, Object>>() {});
+        return mapper.convertValue(jsonNode, new TypeReference<Map<String, Object>>() {
+        });
     }
-
+    
     /**
      * json to map
      *
@@ -190,14 +191,15 @@ public class JsonUtils {
         if (StringUtils.isEmpty(json)) {
             return Collections.emptyMap();
         }
-
+        
         try {
-            return OBJECT_MAPPER.readValue(json, new TypeReference<Map<K, V>>() {});
+            return OBJECT_MAPPER.readValue(json, new TypeReference<Map<K, V>>() {
+            });
         } catch (Exception e) {
             throw new RuntimeException("json to map exception!", e);
         }
     }
-
+    
     /**
      * json to object
      *
@@ -210,14 +212,14 @@ public class JsonUtils {
         if (StringUtils.isEmpty(json)) {
             return null;
         }
-
+        
         try {
             return OBJECT_MAPPER.readValue(json, type);
         } catch (Exception e) {
             throw new RuntimeException("Json parse object exception.", e);
         }
     }
-
+    
     /**
      * object to json string
      *
@@ -231,7 +233,7 @@ public class JsonUtils {
             throw new RuntimeException("Object json deserialization exception.", e);
         }
     }
-
+    
     public static ObjectNode parseObject(String text) {
         try {
             if (text.isEmpty()) {
@@ -243,7 +245,7 @@ public class JsonUtils {
             throw new RuntimeException("String json deserialization exception.", e);
         }
     }
-
+    
     public static ArrayNode parseArray(String text) {
         try {
             return (ArrayNode) OBJECT_MAPPER.readTree(text);
@@ -251,20 +253,19 @@ public class JsonUtils {
             throw new RuntimeException("Json deserialization exception.", e);
         }
     }
-
+    
     /** json serializer */
     public static class JsonDataSerializer extends JsonSerializer<String> {
-
+        
         @Override
-        public void serialize(String value, JsonGenerator gen, SerializerProvider provider)
-                throws IOException {
+        public void serialize(String value, JsonGenerator gen, SerializerProvider provider) throws IOException {
             gen.writeRawValue(value);
         }
     }
-
+    
     /** json data deserializer */
     public static class JsonDataDeserializer extends JsonDeserializer<String> {
-
+        
         @Override
         public String deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
             JsonNode node = p.getCodec().readTree(p);

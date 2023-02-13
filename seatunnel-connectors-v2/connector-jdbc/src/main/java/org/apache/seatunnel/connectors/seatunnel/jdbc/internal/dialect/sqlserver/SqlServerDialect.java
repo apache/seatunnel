@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
@@ -27,24 +26,25 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class SqlServerDialect implements JdbcDialect {
+    
     @Override
     public String dialectName() {
         return "Sqlserver";
     }
-
+    
     @Override
     public JdbcRowConverter getRowConverter() {
         return new SqlserverJdbcRowConverter();
     }
-
+    
     @Override
     public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
         return new SqlserverTypeMapper();
     }
-
+    
     @Override
     public Optional<String> getUpsertStatement(
-            String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+                                               String tableName, String[] fieldNames, String[] uniqueKeyFields) {
         List<String> nonUniqueKeyFields =
                 Arrays.stream(fieldNames)
                         .filter(fieldName -> !Arrays.asList(uniqueKeyFields).contains(fieldName))
@@ -53,25 +53,23 @@ public class SqlServerDialect implements JdbcDialect {
                 Arrays.stream(fieldNames)
                         .map(fieldName -> ":" + fieldName + " " + quoteIdentifier(fieldName))
                         .collect(Collectors.joining(", "));
-
+        
         String usingClause = String.format("SELECT %s", valuesBinding);
         String onConditions =
                 Arrays.stream(uniqueKeyFields)
                         .map(
-                                fieldName ->
-                                        String.format(
-                                                "[TARGET].%s=[SOURCE].%s",
-                                                quoteIdentifier(fieldName),
-                                                quoteIdentifier(fieldName)))
+                                fieldName -> String.format(
+                                        "[TARGET].%s=[SOURCE].%s",
+                                        quoteIdentifier(fieldName),
+                                        quoteIdentifier(fieldName)))
                         .collect(Collectors.joining(" AND "));
         String updateSetClause =
                 nonUniqueKeyFields.stream()
                         .map(
-                                fieldName ->
-                                        String.format(
-                                                "[TARGET].%s=[SOURCE].%s",
-                                                quoteIdentifier(fieldName),
-                                                quoteIdentifier(fieldName)))
+                                fieldName -> String.format(
+                                        "[TARGET].%s=[SOURCE].%s",
+                                        quoteIdentifier(fieldName),
+                                        quoteIdentifier(fieldName)))
                         .collect(Collectors.joining(", "));
         String insertFields =
                 Arrays.stream(fieldNames)
@@ -96,7 +94,7 @@ public class SqlServerDialect implements JdbcDialect {
                         updateSetClause,
                         insertFields,
                         insertValues);
-
+        
         return Optional.of(upsertSQL);
     }
 }

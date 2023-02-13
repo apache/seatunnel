@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.cdc.base.utils;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -40,13 +39,14 @@ import static io.debezium.connector.AbstractSourceInfo.TABLE_NAME_KEY;
 
 /** Utility class to deal record. */
 public class SourceRecordUtils {
-
-    private SourceRecordUtils() {}
-
+    
+    private SourceRecordUtils() {
+    }
+    
     public static final String SCHEMA_CHANGE_EVENT_KEY_NAME =
             "io.debezium.connector.mysql.SchemaChangeKey";
     private static final DocumentReader DOCUMENT_READER = DocumentReader.defaultReader();
-
+    
     /** Converts a {@link ResultSet} row to an array of Objects. */
     public static Object[] rowToArray(ResultSet rs, int size) throws SQLException {
         final Object[] row = new Object[size];
@@ -55,7 +55,7 @@ public class SourceRecordUtils {
         }
         return row;
     }
-
+    
     /**
      * Return the timestamp when the change event is produced in MySQL.
      *
@@ -68,15 +68,15 @@ public class SourceRecordUtils {
         if (schema.field(Envelope.FieldName.SOURCE) == null) {
             return null;
         }
-
+        
         Struct source = value.getStruct(Envelope.FieldName.SOURCE);
         if (source.schema().field(Envelope.FieldName.TIMESTAMP) == null) {
             return null;
         }
-
+        
         return source.getInt64(Envelope.FieldName.TIMESTAMP);
     }
-
+    
     /**
      * The field `ts_ms` in {@link SourceRecord} data struct is the time when the record fetched by
      * debezium reader, use it as the process time in Source.
@@ -89,12 +89,12 @@ public class SourceRecordUtils {
         }
         return value.getInt64(Envelope.FieldName.TIMESTAMP);
     }
-
+    
     public static boolean isSchemaChangeEvent(SourceRecord sourceRecord) {
         Schema keySchema = sourceRecord.keySchema();
         return keySchema != null && SCHEMA_CHANGE_EVENT_KEY_NAME.equalsIgnoreCase(keySchema.name());
     }
-
+    
     public static boolean isDataChangeRecord(SourceRecord record) {
         Schema valueSchema = record.valueSchema();
         Struct value = (Struct) record.value();
@@ -102,7 +102,7 @@ public class SourceRecordUtils {
                 && valueSchema.field(Envelope.FieldName.OPERATION) != null
                 && value.getString(Envelope.FieldName.OPERATION) != null;
     }
-
+    
     public static TableId getTableId(SourceRecord dataRecord) {
         Struct value = (Struct) dataRecord.value();
         Struct source = value.getStruct(Envelope.FieldName.SOURCE);
@@ -112,27 +112,27 @@ public class SourceRecordUtils {
         String tableName = source.getString(TABLE_NAME_KEY);
         return new TableId(dbName, schemaName, tableName);
     }
-
+    
     public static String getSchemaName(Struct source) {
         if (source.schema().fields().stream().anyMatch(r -> SCHEMA_NAME_KEY.equals(r.name()))) {
             return source.getString(SCHEMA_NAME_KEY);
         }
         return null;
     }
-
+    
     public static Object[] getSplitKey(
-            SeaTunnelRowType splitBoundaryType,
-            SourceRecord dataRecord,
-            SchemaNameAdjuster nameAdjuster) {
+                                       SeaTunnelRowType splitBoundaryType,
+                                       SourceRecord dataRecord,
+                                       SchemaNameAdjuster nameAdjuster) {
         // the split key field contains single field now
         String splitFieldName = nameAdjuster.adjust(splitBoundaryType.getFieldNames()[0]);
         Struct key = (Struct) dataRecord.key();
-        return new Object[] {key.get(splitFieldName)};
+        return new Object[]{key.get(splitFieldName)};
     }
-
+    
     /** Returns the specific key contains in the split key range or not. */
     public static boolean splitKeyRangeContains(
-            Object[] key, Object[] splitKeyStart, Object[] splitKeyEnd) {
+                                                Object[] key, Object[] splitKeyStart, Object[] splitKeyEnd) {
         // for all range
         if (splitKeyStart == null && splitKeyEnd == null) {
             return true;
@@ -167,7 +167,7 @@ public class SourceRecordUtils {
                     && Arrays.stream(upperBoundRes).allMatch(value -> value <= 0);
         }
     }
-
+    
     @SuppressWarnings("unchecked")
     private static int compareObjects(Object o1, Object o2) {
         if (o1 instanceof Comparable && o1.getClass().equals(o2.getClass())) {
@@ -178,7 +178,7 @@ public class SourceRecordUtils {
             return o1.toString().compareTo(o2.toString());
         }
     }
-
+    
     private static boolean isNumericObject(Object obj) {
         return obj instanceof Byte
                 || obj instanceof Short
@@ -189,7 +189,7 @@ public class SourceRecordUtils {
                 || obj instanceof BigInteger
                 || obj instanceof BigDecimal;
     }
-
+    
     private static BigDecimal toBigDecimal(Object numericObj) {
         return new BigDecimal(numericObj.toString());
     }

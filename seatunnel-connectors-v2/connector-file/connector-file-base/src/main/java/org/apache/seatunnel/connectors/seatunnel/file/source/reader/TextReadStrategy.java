@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
@@ -43,22 +42,23 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 public class TextReadStrategy extends AbstractReadStrategy {
+    
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private String fieldDelimiter = String.valueOf('\001');
     private DateUtils.Formatter dateFormat = DateUtils.Formatter.YYYY_MM_DD;
     private DateTimeUtils.Formatter datetimeFormat = DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
     private TimeUtils.Formatter timeFormat = TimeUtils.Formatter.HH_MM_SS;
-
+    
     @Override
-    public void read(String path, Collector<SeaTunnelRow> output)
-            throws FileConnectorException, IOException {
+    public void read(String path, Collector<SeaTunnelRow> output) throws FileConnectorException, IOException {
         Configuration conf = getConfiguration();
         FileSystem fs = FileSystem.get(conf);
         Path filePath = new Path(path);
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
-        try (BufferedReader reader =
-                new BufferedReader(
-                        new InputStreamReader(fs.open(filePath), StandardCharsets.UTF_8))) {
+        try (
+                BufferedReader reader =
+                        new BufferedReader(
+                                new InputStreamReader(fs.open(filePath), StandardCharsets.UTF_8))) {
             reader.lines()
                     .skip(skipHeaderNumber)
                     .forEach(
@@ -86,7 +86,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
                             });
         }
     }
-
+    
     @Override
     public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path) {
         SeaTunnelRowType simpleSeaTunnelType = SeaTunnelSchema.buildSimpleTextSchema();
@@ -108,7 +108,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
         }
         return getActualSeaTunnelRowTypeInfo();
     }
-
+    
     @Override
     public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         super.setSeaTunnelRowTypeInfo(seaTunnelRowType);

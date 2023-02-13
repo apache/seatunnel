@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.transform;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -40,29 +39,29 @@ import java.util.Map;
 
 @AutoService(SeaTunnelTransform.class)
 public class CopyFieldTransform extends SingleFieldOutputTransform {
-
+    
     public static final Option<String> SRC_FIELD =
             Options.key("src_field")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Src field you want to copy");
-
+    
     public static final Option<String> DEST_FIELD =
             Options.key("dest_field")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Copy Src field to Dest field");
-
+    
     private String srcField;
     private int srcFieldIndex;
     private SeaTunnelDataType srcFieldDataType;
     private String destField;
-
+    
     @Override
     public String getPluginName() {
         return "Copy";
     }
-
+    
     @Override
     protected void setConfig(Config pluginConfig) {
         CheckResult checkResult =
@@ -70,11 +69,11 @@ public class CopyFieldTransform extends SingleFieldOutputTransform {
         if (!checkResult.isSuccess()) {
             throw new IllegalArgumentException("Failed to check config! " + checkResult.getMsg());
         }
-
+        
         this.srcField = pluginConfig.getString(SRC_FIELD.key());
         this.destField = pluginConfig.getString(DEST_FIELD.key());
     }
-
+    
     @Override
     protected void setInputRowType(SeaTunnelRowType inputRowType) {
         srcFieldIndex = inputRowType.indexOf(srcField);
@@ -84,22 +83,22 @@ public class CopyFieldTransform extends SingleFieldOutputTransform {
         }
         srcFieldDataType = inputRowType.getFieldType(srcFieldIndex);
     }
-
+    
     @Override
     protected String getOutputFieldName() {
         return destField;
     }
-
+    
     @Override
     protected SeaTunnelDataType getOutputFieldDataType() {
         return srcFieldDataType;
     }
-
+    
     @Override
     protected Object getOutputFieldValue(SeaTunnelRowAccessor inputRow) {
         return clone(srcFieldDataType, inputRow.getField(srcFieldIndex));
     }
-
+    
     private Object clone(SeaTunnelDataType dataType, Object value) {
         if (value == null) {
             return null;
@@ -154,7 +153,7 @@ public class CopyFieldTransform extends SingleFieldOutputTransform {
                 if (row == null) {
                     return null;
                 }
-
+                
                 Object[] newFields = new Object[rowType.getTotalFields()];
                 for (int i = 0; i < rowType.getTotalFields(); i++) {
                     newFields[i] = clone(rowType.getFieldType(i), row.getField(i));

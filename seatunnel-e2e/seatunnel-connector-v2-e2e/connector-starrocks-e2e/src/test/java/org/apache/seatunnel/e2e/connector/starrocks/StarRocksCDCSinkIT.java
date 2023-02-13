@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.e2e.connector.starrocks;
 
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -53,6 +52,7 @@ import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class StarRocksCDCSinkIT extends TestSuiteBase implements TestResource {
+    
     private static final String DOCKER_IMAGE = "d87904488/starrocks-starter:2.2.1";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final String HOST = "starrocks_cdc_e2e";
@@ -63,7 +63,7 @@ public class StarRocksCDCSinkIT extends TestSuiteBase implements TestResource {
     private static final String SINK_TABLE = "e2e_table_sink";
     private static final String SR_DRIVER_JAR =
             "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
-
+    
     private static final String DDL_SINK =
             "create table "
                     + DATABASE
@@ -81,10 +81,10 @@ public class StarRocksCDCSinkIT extends TestSuiteBase implements TestResource {
                     + "\"in_memory\" = \"false\","
                     + "\"storage_format\" = \"DEFAULT\""
                     + ")";
-
+    
     private Connection jdbcConnection;
     private GenericContainer<?> starRocksServer;
-
+    
     @BeforeAll
     @Override
     public void startUp() {
@@ -104,7 +104,7 @@ public class StarRocksCDCSinkIT extends TestSuiteBase implements TestResource {
                 .untilAsserted(this::initializeJdbcConnection);
         initializeJdbcTable();
     }
-
+    
     @AfterAll
     @Override
     public void tearDown() throws Exception {
@@ -115,13 +115,13 @@ public class StarRocksCDCSinkIT extends TestSuiteBase implements TestResource {
             starRocksServer.close();
         }
     }
-
+    
     @TestTemplate
     public void testStarRocksSink(TestContainer container) throws Exception {
         Container.ExecResult execResult =
                 container.executeJob("/write-cdc-changelog-to-starrocks.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-
+        
         String sinkSql = String.format("select * from %s.%s", DATABASE, SINK_TABLE);
         Set<List<Object>> actual = new HashSet<>();
         try (Statement sinkStatement = jdbcConnection.createStatement()) {
@@ -140,11 +140,11 @@ public class StarRocksCDCSinkIT extends TestSuiteBase implements TestResource {
                         .collect(Collectors.toSet());
         Assertions.assertIterableEquals(expected, actual);
     }
-
+    
     private void initializeJdbcConnection() throws Exception {
         URLClassLoader urlClassLoader =
                 new URLClassLoader(
-                        new URL[] {new URL(SR_DRIVER_JAR)},
+                        new URL[]{new URL(SR_DRIVER_JAR)},
                         StarRocksCDCSinkIT.class.getClassLoader());
         Thread.currentThread().setContextClassLoader(urlClassLoader);
         Driver driver = (Driver) urlClassLoader.loadClass(DRIVER_CLASS).newInstance();
@@ -158,7 +158,7 @@ public class StarRocksCDCSinkIT extends TestSuiteBase implements TestResource {
                                 starRocksServer.getHost(), starRocksServer.getFirstMappedPort()),
                         props);
     }
-
+    
     private void initializeJdbcTable() {
         try (Statement statement = jdbcConnection.createStatement()) {
             // create databases

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.core.starter.flink.execution;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -36,11 +35,13 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 
 public abstract class FlinkAbstractPluginExecuteProcessor<T>
-        implements PluginExecuteProcessor<DataStream<Row>, FlinkRuntimeEnvironment> {
+        implements
+            PluginExecuteProcessor<DataStream<Row>, FlinkRuntimeEnvironment> {
+    
     protected static final String ENGINE_TYPE = "seatunnel";
     protected static final String PLUGIN_NAME = "plugin_name";
     protected static final String SOURCE_TABLE_NAME = "source_table_name";
-
+    
     protected static final BiConsumer<ClassLoader, URL> ADD_URL_TO_CLASSLOADER =
             (classLoader, url) -> {
                 if (classLoader.getClass().getName().endsWith("SafetyNetWrapperClassLoader")) {
@@ -54,24 +55,24 @@ public abstract class FlinkAbstractPluginExecuteProcessor<T>
                             "Unsupported classloader: " + classLoader.getClass().getName());
                 }
             };
-
+    
     protected FlinkRuntimeEnvironment flinkRuntimeEnvironment;
     protected final List<? extends Config> pluginConfigs;
     protected JobContext jobContext;
     protected final List<T> plugins;
-
+    
     protected FlinkAbstractPluginExecuteProcessor(
-            List<URL> jarPaths, List<? extends Config> pluginConfigs, JobContext jobContext) {
+                                                  List<URL> jarPaths, List<? extends Config> pluginConfigs, JobContext jobContext) {
         this.pluginConfigs = pluginConfigs;
         this.jobContext = jobContext;
         this.plugins = initializePlugins(jarPaths, pluginConfigs);
     }
-
+    
     @Override
     public void setRuntimeEnvironment(FlinkRuntimeEnvironment flinkRuntimeEnvironment) {
         this.flinkRuntimeEnvironment = flinkRuntimeEnvironment;
     }
-
+    
     protected Optional<DataStream<Row>> fromSourceTable(Config pluginConfig) {
         if (pluginConfig.hasPath(SOURCE_TABLE_NAME)) {
             StreamTableEnvironment tableEnvironment =
@@ -81,11 +82,11 @@ public abstract class FlinkAbstractPluginExecuteProcessor<T>
         }
         return Optional.empty();
     }
-
+    
     protected void registerResultTable(Config pluginConfig, DataStream<Row> dataStream) {
         flinkRuntimeEnvironment.registerResultTable(pluginConfig, dataStream);
     }
-
+    
     protected abstract List<T> initializePlugins(
-            List<URL> jarPaths, List<? extends Config> pluginConfigs);
+                                                 List<URL> jarPaths, List<? extends Config> pluginConfigs);
 }

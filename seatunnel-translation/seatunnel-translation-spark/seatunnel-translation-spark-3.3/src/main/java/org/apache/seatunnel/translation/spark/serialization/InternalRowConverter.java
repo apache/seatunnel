@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.translation.spark.serialization;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
@@ -55,17 +54,17 @@ import java.util.HashMap;
 import java.util.Map;
 
 public final class InternalRowConverter extends RowConverter<InternalRow> {
-
+    
     public InternalRowConverter(SeaTunnelDataType<?> dataType) {
         super(dataType);
     }
-
+    
     @Override
     public InternalRow convert(SeaTunnelRow seaTunnelRow) throws IOException {
         validate(seaTunnelRow);
         return (InternalRow) convert(seaTunnelRow, dataType);
     }
-
+    
     private static Object convert(Object field, SeaTunnelDataType<?> dataType) {
         if (field == null) {
             return null;
@@ -104,7 +103,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 return field;
         }
     }
-
+    
     private static InternalRow convert(SeaTunnelRow seaTunnelRow, SeaTunnelRowType rowType) {
         int arity = rowType.getTotalFields();
         MutableValue[] values = new MutableValue[arity];
@@ -121,10 +120,10 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         }
         return new SpecificInternalRow(values);
     }
-
+    
     private static ArrayBasedMapData convertMap(Map<?, ?> mapData, MapType<?, ?> mapType) {
         if (mapData == null || mapData.size() == 0) {
-            return ArrayBasedMapData.apply(new Object[] {}, new Object[] {});
+            return ArrayBasedMapData.apply(new Object[]{}, new Object[]{});
         }
         SeaTunnelDataType<?> keyType = mapType.getKeyType();
         SeaTunnelDataType<?> valueType = mapType.getValueType();
@@ -135,7 +134,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         Object[] values = newMap.values().toArray();
         return ArrayBasedMapData.apply(keys, values);
     }
-
+    
     private static Map<Object, Object> reconvertMap(MapData mapData, MapType<?, ?> mapType) {
         if (mapData == null || mapData.numElements() == 0) {
             return Collections.emptyMap();
@@ -153,7 +152,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         }
         return newMap;
     }
-
+    
     private static MutableValue createMutableValue(SeaTunnelDataType<?> dataType) {
         switch (dataType.getSqlType()) {
             case BOOLEAN:
@@ -176,12 +175,12 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 return new MutableAny();
         }
     }
-
+    
     @Override
     public SeaTunnelRow reconvert(InternalRow engineRow) throws IOException {
         return (SeaTunnelRow) reconvert(engineRow, dataType);
     }
-
+    
     private static Object reconvert(Object field, SeaTunnelDataType<?> dataType) {
         if (field == null) {
             return null;
@@ -210,7 +209,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 return field;
         }
     }
-
+    
     private static SeaTunnelRow reconvert(InternalRow engineRow, SeaTunnelRowType rowType) {
         Object[] fields = new Object[engineRow.numFields()];
         for (int i = 0; i < engineRow.numFields(); i++) {
@@ -221,7 +220,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         }
         return new SeaTunnelRow(fields);
     }
-
+    
     private static Object reconvertArray(ArrayData arrayData, ArrayType<?, ?> arrayType) {
         if (arrayData == null || arrayData.numElements() == 0) {
             return Collections.emptyList().toArray();

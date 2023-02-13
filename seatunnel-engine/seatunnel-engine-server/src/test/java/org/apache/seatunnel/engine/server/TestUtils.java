@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.api.common.JobContext;
@@ -43,16 +42,17 @@ import java.util.List;
 import java.util.Set;
 
 public class TestUtils {
+    
     public static String getResource(String confFile) {
         return System.getProperty("user.dir") + "/src/test/resources/" + confFile;
     }
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     public static LogicalDag getTestLogicalDag(JobContext jobContext) throws MalformedURLException {
         IdGenerator idGenerator = new IdGenerator();
         FakeSource fakeSource = new FakeSource();
         fakeSource.setJobContext(jobContext);
-
+        
         Action fake =
                 new SourceAction<>(
                         idGenerator.getNextId(),
@@ -61,7 +61,7 @@ public class TestUtils {
                         Sets.newHashSet(new URL("file:///fake.jar")));
         fake.setParallelism(3);
         LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, 3);
-
+        
         ConsoleSink consoleSink = new ConsoleSink();
         consoleSink.setJobContext(jobContext);
         Action console =
@@ -72,33 +72,33 @@ public class TestUtils {
                         Sets.newHashSet(new URL("file:///console.jar")));
         console.setParallelism(3);
         LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, 3);
-
+        
         LogicalEdge edge = new LogicalEdge(fakeVertex, consoleVertex);
-
+        
         LogicalDag logicalDag = new LogicalDag();
         logicalDag.addLogicalVertex(fakeVertex);
         logicalDag.addLogicalVertex(consoleVertex);
         logicalDag.addEdge(edge);
         return logicalDag;
     }
-
+    
     public static String getClusterName(String testClassName) {
         return System.getProperty("user.name") + "_" + testClassName;
     }
-
+    
     public static LogicalDag createTestLogicalPlan(
-            String jobConfigFile, String jobName, Long jobId) {
+                                                   String jobConfigFile, String jobName, Long jobId) {
         Common.setDeployMode(DeployMode.CLIENT);
         JobContext jobContext = new JobContext(jobId);
         String filePath = TestUtils.getResource(jobConfigFile);
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName(jobName);
         jobConfig.setJobContext(jobContext);
-
+        
         IdGenerator idGenerator = new IdGenerator();
         ImmutablePair<List<Action>, Set<URL>> immutablePair =
                 new JobConfigParser(filePath, idGenerator, jobConfig).parse();
-
+        
         LogicalDagGenerator logicalDagGenerator =
                 new LogicalDagGenerator(immutablePair.getLeft(), jobConfig, idGenerator);
         return logicalDagGenerator.generate();

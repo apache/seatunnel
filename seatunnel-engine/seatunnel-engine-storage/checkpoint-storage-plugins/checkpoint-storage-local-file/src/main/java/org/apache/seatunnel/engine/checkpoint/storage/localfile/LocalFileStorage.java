@@ -1,23 +1,19 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.checkpoint.storage.localfile;
 
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
@@ -45,18 +41,18 @@ import static org.apache.seatunnel.engine.checkpoint.storage.constants.StorageCo
 
 @Slf4j
 public class LocalFileStorage extends AbstractCheckpointStorage {
-
-    private static final String[] FILE_EXTENSIONS = new String[] {FILE_FORMAT};
-
+    
+    private static final String[] FILE_EXTENSIONS = new String[]{FILE_FORMAT};
+    
     private static final String DEFAULT_WINDOWS_OS_NAME_SPACE =
             "C:\\ProgramData\\seatunnel\\checkpoint\\";
-
+    
     private static final String DEFAULT_LINUX_OS_NAME_SPACE = "/tmp/seatunnel/checkpoint/";
-
+    
     public LocalFileStorage(Map<String, String> configuration) {
         initStorage(configuration);
     }
-
+    
     @Override
     public void initStorage(Map<String, String> configuration) {
         if (MapUtils.isEmpty(configuration)) {
@@ -67,7 +63,7 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
             setStorageNameSpace(configuration.get(STORAGE_NAME_SPACE));
         }
     }
-
+    
     /** set default storage root directory */
     private void setDefaultStorageSpaceByOSName() {
         if (System.getProperty("os.name").toLowerCase().contains("windows")) {
@@ -76,7 +72,7 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
             setStorageNameSpace(DEFAULT_LINUX_OS_NAME_SPACE);
         }
     }
-
+    
     @Override
     public String storeCheckPoint(PipelineState state) throws CheckpointStorageException {
         byte[] datas;
@@ -91,31 +87,31 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
                         + state.getJobId()
                         + File.separator
                         + getCheckPointName(state);
-
+        
         File file = new File(fileName);
         try {
             FileUtils.touch(file);
         } catch (IOException e) {
             throw new CheckpointStorageException("Failed to create checkpoint file " + fileName, e);
         }
-
+        
         try {
             FileUtils.writeByteArrayToFile(file, datas);
         } catch (IOException e) {
             throw new CheckpointStorageException(
                     "Failed to write checkpoint data to file " + fileName, e);
         }
-
+        
         return fileName;
     }
-
+    
     @Override
     public List<PipelineState> getAllCheckpoints(String jobId) throws CheckpointStorageException {
         File filePath = new File(getStorageParentDirectory() + jobId);
         if (!filePath.exists()) {
             return new ArrayList<>();
         }
-
+        
         Collection<File> fileList;
         try {
             fileList = FileUtils.listFiles(filePath, FILE_EXTENSIONS, true);
@@ -141,7 +137,7 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
                 });
         return states;
     }
-
+    
     @Override
     public List<PipelineState> getLatestCheckpoint(String jobId) throws CheckpointStorageException {
         Collection<File> fileList =
@@ -175,11 +171,10 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
         }
         return latestPipelineFiles;
     }
-
+    
     @Override
-    public PipelineState getLatestCheckpointByJobIdAndPipelineId(String jobId, String pipelineId)
-            throws CheckpointStorageException {
-
+    public PipelineState getLatestCheckpointByJobIdAndPipelineId(String jobId, String pipelineId) throws CheckpointStorageException {
+        
         String parentPath = getStorageParentDirectory() + jobId;
         Collection<File> fileList =
                 FileUtils.listFiles(new File(parentPath), FILE_EXTENSIONS, false);
@@ -187,10 +182,10 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
             throw new CheckpointStorageException("No checkpoint found for job " + jobId);
         }
         List<String> fileNames = fileList.stream().map(File::getName).collect(Collectors.toList());
-
+        
         String latestFileName =
                 getLatestCheckpointFileNameByJobIdAndPipelineId(fileNames, pipelineId);
-
+        
         AtomicReference<PipelineState> latestFile = new AtomicReference<>(null);
         fileList.forEach(
                 file -> {
@@ -205,24 +200,23 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
                         }
                     }
                 });
-
+        
         if (latestFile.get() == null) {
             throw new CheckpointStorageException(
                     "Failed to read checkpoint data from file, file name " + latestFileName);
         }
         return latestFile.get();
     }
-
+    
     @Override
-    public List<PipelineState> getCheckpointsByJobIdAndPipelineId(String jobId, String pipelineId)
-            throws CheckpointStorageException {
+    public List<PipelineState> getCheckpointsByJobIdAndPipelineId(String jobId, String pipelineId) throws CheckpointStorageException {
         Collection<File> fileList =
                 FileUtils.listFiles(
                         new File(getStorageParentDirectory() + jobId), FILE_EXTENSIONS, false);
         if (fileList.isEmpty()) {
             throw new CheckpointStorageException("No checkpoint found for job " + jobId);
         }
-
+        
         List<PipelineState> pipelineStates = new ArrayList<>();
         fileList.forEach(
                 file -> {
@@ -241,7 +235,7 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
                 });
         return pipelineStates;
     }
-
+    
     @Override
     public void deleteCheckpoint(String jobId) {
         String jobPath = getStorageParentDirectory() + jobId;
@@ -252,10 +246,9 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
             log.warn("Failed to delete checkpoint directory " + jobPath, e);
         }
     }
-
+    
     @Override
-    public PipelineState getCheckpoint(String jobId, String pipelineId, String checkpointId)
-            throws CheckpointStorageException {
+    public PipelineState getCheckpoint(String jobId, String pipelineId, String checkpointId) throws CheckpointStorageException {
         Collection<File> fileList =
                 FileUtils.listFiles(
                         new File(getStorageParentDirectory() + jobId), FILE_EXTENSIONS, false);
@@ -284,10 +277,9 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
                         "No checkpoint found, job(%s), pipeline(%s), checkpoint(%s)",
                         jobId, pipelineId, checkpointId));
     }
-
+    
     @Override
-    public void deleteCheckpoint(String jobId, String pipelineId, String checkpointId)
-            throws CheckpointStorageException {
+    public void deleteCheckpoint(String jobId, String pipelineId, String checkpointId) throws CheckpointStorageException {
         Collection<File> fileList =
                 FileUtils.listFiles(
                         new File(getStorageParentDirectory() + jobId), FILE_EXTENSIONS, false);

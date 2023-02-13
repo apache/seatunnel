@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.api.configuration.util;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
@@ -30,9 +29,10 @@ import java.util.Collections;
 import java.util.List;
 
 public class OptionUtil {
-
-    private OptionUtil() {}
-
+    
+    private OptionUtil() {
+    }
+    
     public static String getOptionKeys(List<Option<?>> options) {
         StringBuilder builder = new StringBuilder();
         boolean flag = false;
@@ -45,9 +45,9 @@ public class OptionUtil {
         }
         return builder.toString();
     }
-
+    
     public static String getOptionKeys(
-            List<Option<?>> options, List<RequiredOption.BundledRequiredOptions> bundledOptions) {
+                                       List<Option<?>> options, List<RequiredOption.BundledRequiredOptions> bundledOptions) {
         List<List<Option<?>>> optionList = new ArrayList<>();
         for (Option<?> option : options) {
             optionList.add(Collections.singletonList(option));
@@ -66,9 +66,8 @@ public class OptionUtil {
         }
         return builder.toString();
     }
-
-    public static List<Option<?>> getOptions(Class<?> clazz)
-            throws InstantiationException, IllegalAccessException {
+    
+    public static List<Option<?>> getOptions(Class<?> clazz) throws InstantiationException, IllegalAccessException {
         Field[] fields = clazz.getDeclaredFields();
         List<Option<?>> options = new ArrayList<>();
         Object object = clazz.newInstance();
@@ -78,22 +77,23 @@ public class OptionUtil {
             if (option != null) {
                 options.add(
                         new Option<>(
-                                        !StringUtils.isNotBlank(option.name())
-                                                ? formatUnderScoreCase(field.getName())
-                                                : option.name(),
-                                        new TypeReference<Object>() {
-                                            @Override
-                                            public Type getType() {
-                                                return field.getType();
-                                            }
-                                        },
-                                        field.get(object))
-                                .withDescription(option.description()));
+                                !StringUtils.isNotBlank(option.name())
+                                        ? formatUnderScoreCase(field.getName())
+                                        : option.name(),
+                                new TypeReference<Object>() {
+                                    
+                                    @Override
+                                    public Type getType() {
+                                        return field.getType();
+                                    }
+                                },
+                                field.get(object))
+                                        .withDescription(option.description()));
             }
         }
         return options;
     }
-
+    
     private static String formatUnderScoreCase(String camel) {
         StringBuilder underScore =
                 new StringBuilder(String.valueOf(Character.toLowerCase(camel.charAt(0))));

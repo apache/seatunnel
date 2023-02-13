@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.common.source.reader.fetcher;
 
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -47,6 +46,7 @@ import java.util.function.Supplier;
  */
 @Slf4j
 public abstract class SplitFetcherManager<E, SplitT extends SourceSplit> {
+    
     protected final Map<Integer, SplitFetcher<E, SplitT>> fetchers;
     private final BlockingQueue<RecordsWithSplitIds<E>> elementsQueue;
     private final Supplier<SplitReader<E, SplitT>> splitReaderFactory;
@@ -56,17 +56,18 @@ public abstract class SplitFetcherManager<E, SplitT extends SourceSplit> {
     private final Consumer<Throwable> errorHandler;
     private final ExecutorService executors;
     private volatile boolean closed;
-
+    
     public SplitFetcherManager(
-            BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
-            Supplier<SplitReader<E, SplitT>> splitReaderFactory) {
-        this(elementsQueue, splitReaderFactory, ignore -> {});
+                               BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
+                               Supplier<SplitReader<E, SplitT>> splitReaderFactory) {
+        this(elementsQueue, splitReaderFactory, ignore -> {
+        });
     }
-
+    
     public SplitFetcherManager(
-            BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
-            Supplier<SplitReader<E, SplitT>> splitReaderFactory,
-            Consumer<Collection<String>> splitFinishedHook) {
+                               BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
+                               Supplier<SplitReader<E, SplitT>> splitReaderFactory,
+                               Consumer<Collection<String>> splitFinishedHook) {
         this.fetchers = new ConcurrentHashMap<>();
         this.elementsQueue = elementsQueue;
         this.splitReaderFactory = splitReaderFactory;
@@ -86,13 +87,13 @@ public abstract class SplitFetcherManager<E, SplitT extends SourceSplit> {
                 Executors.newCachedThreadPool(
                         r -> new Thread(r, "Source Data Fetcher for " + taskThreadName));
     }
-
+    
     public abstract void addSplits(Collection<SplitT> splitsToAdd);
-
+    
     protected void startFetcher(SplitFetcher<E, SplitT> fetcher) {
         executors.submit(fetcher);
     }
-
+    
     protected synchronized SplitFetcher<E, SplitT> createSplitFetcher() {
         if (closed) {
             throw new IllegalStateException("The split fetcher manager has closed.");
@@ -113,7 +114,7 @@ public abstract class SplitFetcherManager<E, SplitT extends SourceSplit> {
         fetchers.put(fetcherId, splitFetcher);
         return splitFetcher;
     }
-
+    
     public synchronized boolean maybeShutdownFinishedFetchers() {
         Iterator<Map.Entry<Integer, SplitFetcher<E, SplitT>>> iter = fetchers.entrySet().iterator();
         while (iter.hasNext()) {
@@ -127,7 +128,7 @@ public abstract class SplitFetcherManager<E, SplitT extends SourceSplit> {
         }
         return fetchers.isEmpty();
     }
-
+    
     public synchronized void close(long timeoutMs) throws Exception {
         closed = true;
         fetchers.values().forEach(SplitFetcher::shutdown);
@@ -139,7 +140,7 @@ public abstract class SplitFetcherManager<E, SplitT extends SourceSplit> {
                     fetchers.size());
         }
     }
-
+    
     public void checkErrors() {
         if (uncaughtFetcherException.get() != null) {
             throw new RuntimeException(

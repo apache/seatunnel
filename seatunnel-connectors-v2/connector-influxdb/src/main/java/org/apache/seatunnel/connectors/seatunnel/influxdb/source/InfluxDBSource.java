@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.influxdb.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -57,21 +56,23 @@ import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceCo
 @Slf4j
 @AutoService(SeaTunnelSource.class)
 public class InfluxDBSource
-        implements SeaTunnelSource<SeaTunnelRow, InfluxDBSourceSplit, InfluxDBSourceState>,
-                SupportParallelism,
-                SupportColumnProjection {
+        implements
+            SeaTunnelSource<SeaTunnelRow, InfluxDBSourceSplit, InfluxDBSourceState>,
+            SupportParallelism,
+            SupportColumnProjection {
+    
     private SeaTunnelRowType typeInfo;
     private SourceConfig sourceConfig;
-
+    
     private List<Integer> columnsIndexList;
-
+    
     private static final String QUERY_LIMIT = " limit 1";
-
+    
     @Override
     public String getPluginName() {
         return "InfluxDB";
     }
-
+    
     @Override
     public void prepare(Config config) throws PrepareFailException {
         CheckResult result =
@@ -96,45 +97,43 @@ public class InfluxDBSource
                             getPluginName(), PluginType.SOURCE, e));
         }
     }
-
+    
     @Override
     public Boundedness getBoundedness() {
         return Boundedness.BOUNDED;
     }
-
+    
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
         return typeInfo;
     }
-
+    
     @Override
     public SourceReader createReader(SourceReader.Context readerContext) throws Exception {
         return new InfluxdbSourceReader(sourceConfig, readerContext, typeInfo, columnsIndexList);
     }
-
+    
     @Override
-    public SourceSplitEnumerator createEnumerator(SourceSplitEnumerator.Context enumeratorContext)
-            throws Exception {
+    public SourceSplitEnumerator createEnumerator(SourceSplitEnumerator.Context enumeratorContext) throws Exception {
         return new InfluxDBSourceSplitEnumerator(enumeratorContext, sourceConfig);
     }
-
+    
     @Override
     public SourceSplitEnumerator<InfluxDBSourceSplit, InfluxDBSourceState> restoreEnumerator(
-            SourceSplitEnumerator.Context<InfluxDBSourceSplit> enumeratorContext,
-            InfluxDBSourceState checkpointState)
-            throws Exception {
+                                                                                             SourceSplitEnumerator.Context<InfluxDBSourceSplit> enumeratorContext,
+                                                                                             InfluxDBSourceState checkpointState) throws Exception {
         return new InfluxDBSourceSplitEnumerator(enumeratorContext, checkpointState, sourceConfig);
     }
-
+    
     private List<Integer> initColumnsIndex(InfluxDB influxdb) {
         // query one row to get column info
         String query = sourceConfig.getSql() + QUERY_LIMIT;
         try {
             QueryResult queryResult = influxdb.query(new Query(query, sourceConfig.getDatabase()));
-
+            
             List<QueryResult.Series> serieList = queryResult.getResults().get(0).getSeries();
             List<String> fieldNames = new ArrayList<>(serieList.get(0).getColumns());
-
+            
             return Arrays.stream(typeInfo.getFieldNames())
                     .map(fieldNames::indexOf)
                     .collect(Collectors.toList());

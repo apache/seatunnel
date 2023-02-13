@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
 
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.DistributedEngine;
@@ -29,7 +28,7 @@ import java.util.Map;
 @Getter
 @Setter
 public class ClickhouseTable implements Serializable {
-
+    
     private String database;
     private String tableName;
     private String engine;
@@ -39,17 +38,17 @@ public class ClickhouseTable implements Serializable {
     private String sortingKey;
     private final DistributedEngine distributedEngine;
     private Map<String, String> tableSchema;
-
+    
     public ClickhouseTable(
-            String database,
-            String tableName,
-            DistributedEngine distributedEngine,
-            String engine,
-            String createTableDDL,
-            String engineFull,
-            List<String> dataPaths,
-            String sortingKey,
-            Map<String, String> tableSchema) {
+                           String database,
+                           String tableName,
+                           DistributedEngine distributedEngine,
+                           String engine,
+                           String createTableDDL,
+                           String engineFull,
+                           List<String> dataPaths,
+                           String sortingKey,
+                           Map<String, String> tableSchema) {
         this.database = database;
         this.tableName = tableName;
         this.distributedEngine = distributedEngine;
@@ -60,7 +59,7 @@ public class ClickhouseTable implements Serializable {
         this.sortingKey = sortingKey;
         this.tableSchema = tableSchema;
     }
-
+    
     public String getLocalTableName() {
         if (distributedEngine != null) {
             return distributedEngine.getTable();

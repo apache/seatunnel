@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.common.utils;
 
 import java.lang.reflect.Field;
@@ -23,10 +22,10 @@ import java.lang.reflect.Method;
 import java.util.Optional;
 
 public class ReflectionUtils {
-
+    
     public static Optional<Method> getDeclaredMethod(
-            Class<?> clazz, String methodName, Class<?>... parameterTypes) {
-
+                                                     Class<?> clazz, String methodName, Class<?>... parameterTypes) {
+        
         Optional<Method> method = Optional.empty();
         Method m;
         for (; clazz != null; clazz = clazz.getSuperclass()) {
@@ -38,10 +37,10 @@ public class ReflectionUtils {
                 // do nothing
             }
         }
-
+        
         return method;
     }
-
+    
     public static Optional<Object> getField(Object object, Class<?> clazz, String fieldName) {
         try {
             Field field = clazz.getDeclaredField(fieldName);
@@ -51,11 +50,11 @@ public class ReflectionUtils {
             return Optional.empty();
         }
     }
-
+    
     public static Optional<Object> getField(Object object, String fieldName) {
         return getField(object, object.getClass(), fieldName);
     }
-
+    
     public static void setField(Object object, Class<?> clazz, String fieldName, Object value) {
         try {
             Field field = clazz.getDeclaredField(fieldName);
@@ -65,11 +64,11 @@ public class ReflectionUtils {
             throw new RuntimeException("field set failed", e);
         }
     }
-
+    
     public static void setField(Object object, String fieldName, Object value) {
         setField(object, object.getClass(), fieldName, value);
     }
-
+    
     public static Object invoke(Object object, String methodName, Object... args) {
         Class<?>[] argTypes = new Class[args.length];
         for (int i = 0; i < args.length; i++) {
@@ -77,9 +76,9 @@ public class ReflectionUtils {
         }
         return invoke(object, methodName, argTypes, args);
     }
-
+    
     public static Object invoke(
-            Object object, String methodName, Class<?>[] argTypes, Object[] args) {
+                                Object object, String methodName, Class<?>[] argTypes, Object[] args) {
         try {
             Optional<Method> method = getDeclaredMethod(object.getClass(), methodName, argTypes);
             if (method.isPresent()) {

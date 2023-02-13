@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
@@ -75,29 +74,30 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TOPI
 
 @AutoService(SeaTunnelSource.class)
 public class KafkaSource
-        implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSplit, KafkaSourceState>,
-                SupportParallelism {
-
+        implements
+            SeaTunnelSource<SeaTunnelRow, KafkaSourceSplit, KafkaSourceState>,
+            SupportParallelism {
+    
     private static final String DEFAULT_CONSUMER_GROUP = "SeaTunnel-Consumer-Group";
-
+    
     private final ConsumerMetadata metadata = new ConsumerMetadata();
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private SeaTunnelRowType typeInfo;
     private JobContext jobContext;
     private long discoveryIntervalMillis = KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS.defaultValue();
-
+    
     @Override
     public Boundedness getBoundedness() {
         return JobMode.BATCH.equals(jobContext.getJobMode())
                 ? Boundedness.BOUNDED
                 : Boundedness.UNBOUNDED;
     }
-
+    
     @Override
     public String getPluginName() {
         return "Kafka";
     }
-
+    
     @Override
     public void prepare(Config config) throws PrepareFailException {
         CheckResult result =
@@ -115,19 +115,19 @@ public class KafkaSource
         }
         this.metadata.setBootstrapServers(config.getString(BOOTSTRAP_SERVERS.key()));
         this.metadata.setProperties(new Properties());
-
+        
         if (config.hasPath(CONSUMER_GROUP.key())) {
             this.metadata.setConsumerGroup(config.getString(CONSUMER_GROUP.key()));
         } else {
             this.metadata.setConsumerGroup(DEFAULT_CONSUMER_GROUP);
         }
-
+        
         if (config.hasPath(COMMIT_ON_CHECKPOINT.key())) {
             this.metadata.setCommitOnCheckpoint(config.getBoolean(COMMIT_ON_CHECKPOINT.key()));
         } else {
             this.metadata.setCommitOnCheckpoint(COMMIT_ON_CHECKPOINT.defaultValue());
         }
-
+        
         if (config.hasPath(START_MODE.key())) {
             StartMode startMode =
                     StartMode.valueOf(config.getString(START_MODE.key()).toUpperCase());
@@ -173,54 +173,52 @@ public class KafkaSource
                     break;
             }
         }
-
+        
         if (config.hasPath(KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS.key())) {
             this.discoveryIntervalMillis =
                     config.getLong(KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS.key());
         }
-
+        
         if (CheckConfigUtil.isValidParam(config, KAFKA_CONFIG.key())) {
             config.getObject(KAFKA_CONFIG.key())
                     .forEach(
-                            (key, value) ->
-                                    this.metadata.getProperties().put(key, value.unwrapped()));
+                            (key, value) -> this.metadata.getProperties().put(key, value.unwrapped()));
         }
-
+        
         setDeserialization(config);
     }
-
+    
     @Override
     public SeaTunnelRowType getProducedType() {
         return this.typeInfo;
     }
-
+    
     @Override
     public SourceReader<SeaTunnelRow, KafkaSourceSplit> createReader(
-            SourceReader.Context readerContext) throws Exception {
+                                                                     SourceReader.Context readerContext) throws Exception {
         return new KafkaSourceReader(this.metadata, deserializationSchema, readerContext);
     }
-
+    
     @Override
     public SourceSplitEnumerator<KafkaSourceSplit, KafkaSourceState> createEnumerator(
-            SourceSplitEnumerator.Context<KafkaSourceSplit> enumeratorContext) throws Exception {
+                                                                                      SourceSplitEnumerator.Context<KafkaSourceSplit> enumeratorContext) throws Exception {
         return new KafkaSourceSplitEnumerator(
                 this.metadata, enumeratorContext, discoveryIntervalMillis);
     }
-
+    
     @Override
     public SourceSplitEnumerator<KafkaSourceSplit, KafkaSourceState> restoreEnumerator(
-            SourceSplitEnumerator.Context<KafkaSourceSplit> enumeratorContext,
-            KafkaSourceState checkpointState)
-            throws Exception {
+                                                                                       SourceSplitEnumerator.Context<KafkaSourceSplit> enumeratorContext,
+                                                                                       KafkaSourceState checkpointState) throws Exception {
         return new KafkaSourceSplitEnumerator(
                 this.metadata, enumeratorContext, checkpointState, discoveryIntervalMillis);
     }
-
+    
     @Override
     public void setJobContext(JobContext jobContext) {
         this.jobContext = jobContext;
     }
-
+    
     private void setDeserialization(Config config) {
         if (config.hasPath(SCHEMA.key())) {
             Config schema = config.getConfig(SCHEMA.key());

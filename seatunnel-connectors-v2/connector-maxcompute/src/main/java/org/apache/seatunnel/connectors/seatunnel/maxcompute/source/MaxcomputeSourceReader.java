@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -41,26 +40,29 @@ import java.util.Set;
 
 @Slf4j
 public class MaxcomputeSourceReader implements SourceReader<SeaTunnelRow, MaxcomputeSourceSplit> {
+    
     private final SourceReader.Context context;
     private final Set<MaxcomputeSourceSplit> sourceSplits;
     private Config pluginConfig;
     boolean noMoreSplit;
     private SeaTunnelRowType seaTunnelRowType;
-
+    
     public MaxcomputeSourceReader(
-            Config pluginConfig, SourceReader.Context context, SeaTunnelRowType seaTunnelRowType) {
+                                  Config pluginConfig, SourceReader.Context context, SeaTunnelRowType seaTunnelRowType) {
         this.pluginConfig = pluginConfig;
         this.context = context;
         this.sourceSplits = new HashSet<>();
         this.seaTunnelRowType = seaTunnelRowType;
     }
-
+    
     @Override
-    public void open() {}
-
+    public void open() {
+    }
+    
     @Override
-    public void close() {}
-
+    public void close() {
+    }
+    
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         sourceSplits.forEach(
@@ -90,22 +92,23 @@ public class MaxcomputeSourceReader implements SourceReader<SeaTunnelRow, Maxcom
             context.signalNoMoreElement();
         }
     }
-
+    
     @Override
     public List<MaxcomputeSourceSplit> snapshotState(long checkpointId) throws Exception {
         return new ArrayList<>(sourceSplits);
     }
-
+    
     @Override
     public void addSplits(List<MaxcomputeSourceSplit> splits) {
         sourceSplits.addAll(splits);
     }
-
+    
     @Override
     public void handleNoMoreSplits() {
         this.noMoreSplit = true;
     }
-
+    
     @Override
-    public void notifyCheckpointComplete(long checkpointId) {}
+    public void notifyCheckpointComplete(long checkpointId) {
+    }
 }

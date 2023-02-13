@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.core.starter.spark.execution;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -38,14 +37,12 @@ import java.util.List;
 
 @Slf4j
 public class SparkExecution implements TaskExecution {
+    
     private final SparkRuntimeEnvironment sparkRuntimeEnvironment;
-    private final PluginExecuteProcessor<Dataset<Row>, SparkRuntimeEnvironment>
-            sourcePluginExecuteProcessor;
-    private final PluginExecuteProcessor<Dataset<Row>, SparkRuntimeEnvironment>
-            transformPluginExecuteProcessor;
-    private final PluginExecuteProcessor<Dataset<Row>, SparkRuntimeEnvironment>
-            sinkPluginExecuteProcessor;
-
+    private final PluginExecuteProcessor<Dataset<Row>, SparkRuntimeEnvironment> sourcePluginExecuteProcessor;
+    private final PluginExecuteProcessor<Dataset<Row>, SparkRuntimeEnvironment> transformPluginExecuteProcessor;
+    private final PluginExecuteProcessor<Dataset<Row>, SparkRuntimeEnvironment> sinkPluginExecuteProcessor;
+    
     public SparkExecution(Config config) {
         this.sparkRuntimeEnvironment = SparkRuntimeEnvironment.getInstance(config);
         JobContext jobContext = new JobContext();
@@ -65,7 +62,7 @@ public class SparkExecution implements TaskExecution {
                 new SinkExecuteProcessor(
                         sparkRuntimeEnvironment, jobContext, config.getConfigList(Constants.SINK));
     }
-
+    
     @Override
     public void execute() throws TaskExecuteException {
         List<Dataset<Row>> datasets = new ArrayList<>();
@@ -74,7 +71,7 @@ public class SparkExecution implements TaskExecution {
         sinkPluginExecuteProcessor.execute(datasets);
         log.info("Spark Execution started");
     }
-
+    
     public SparkRuntimeEnvironment getSparkRuntimeEnvironment() {
         return sparkRuntimeEnvironment;
     }

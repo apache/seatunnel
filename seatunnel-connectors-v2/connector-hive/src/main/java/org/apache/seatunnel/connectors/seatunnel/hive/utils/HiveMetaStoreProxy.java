@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.hive.utils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -44,9 +43,10 @@ import java.util.Objects;
 
 @Slf4j
 public class HiveMetaStoreProxy {
+    
     private final HiveMetaStoreClient hiveMetaStoreClient;
     private static volatile HiveMetaStoreProxy INSTANCE = null;
-
+    
     private HiveMetaStoreProxy(Config config) {
         String metastoreUri = config.getString(HiveConfig.METASTORE_URI.key());
         HiveConf hiveConf = new HiveConf();
@@ -96,7 +96,7 @@ public class HiveMetaStoreProxy {
                     HiveConnectorErrorCode.INITIALIZE_HIVE_METASTORE_CLIENT_FAILED, errorMsg, e);
         }
     }
-
+    
     public static HiveMetaStoreProxy getInstance(Config config) {
         if (INSTANCE == null) {
             synchronized (HiveMetaStoreProxy.class) {
@@ -107,7 +107,7 @@ public class HiveMetaStoreProxy {
         }
         return INSTANCE;
     }
-
+    
     public Table getTable(@NonNull String dbName, @NonNull String tableName) {
         try {
             return hiveMetaStoreClient.getTable(dbName, tableName);
@@ -118,23 +118,21 @@ public class HiveMetaStoreProxy {
                     HiveConnectorErrorCode.GET_HIVE_TABLE_INFORMATION_FAILED, errorMsg, e);
         }
     }
-
+    
     public void addPartitions(
-            @NonNull String dbName, @NonNull String tableName, List<String> partitions)
-            throws TException {
+                              @NonNull String dbName, @NonNull String tableName, List<String> partitions) throws TException {
         for (String partition : partitions) {
             hiveMetaStoreClient.appendPartition(dbName, tableName, partition);
         }
     }
-
+    
     public void dropPartitions(
-            @NonNull String dbName, @NonNull String tableName, List<String> partitions)
-            throws TException {
+                               @NonNull String dbName, @NonNull String tableName, List<String> partitions) throws TException {
         for (String partition : partitions) {
             hiveMetaStoreClient.dropPartition(dbName, tableName, partition, false);
         }
     }
-
+    
     public synchronized void close() {
         if (Objects.nonNull(hiveMetaStoreClient)) {
             hiveMetaStoreClient.close();

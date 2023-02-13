@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.api.configuration.util;
 
 import org.apache.seatunnel.api.configuration.Option;
@@ -29,14 +28,14 @@ import java.util.Arrays;
 import java.util.List;
 
 public class SingleChoiceOptionTest {
-
+    
     @Test
     public void test() {
         Option<String> stringOption =
                 Options.key("test_single_choice")
                         .singleChoice(String.class, Arrays.asList("A", "B", "C"))
                         .defaultValue("A");
-
+        
         Option<DataSaveMode> saveModeOption =
                 Options.key("save_mode")
                         .singleChoice(
@@ -46,7 +45,7 @@ public class SingleChoiceOptionTest {
                                         DataSaveMode.KEEP_SCHEMA_DROP_DATA))
                         .defaultValue(DataSaveMode.DROP_SCHEMA)
                         .withDescription("save mode test");
-
+        
         OptionRule build = OptionRule.builder().optional(stringOption, saveModeOption).build();
         List<Option<?>> optionalOptions = build.getOptionalOptions();
         Option<?> option = optionalOptions.get(0);
@@ -54,7 +53,7 @@ public class SingleChoiceOptionTest {
         SingleChoiceOption singleChoiceOption = (SingleChoiceOption) option;
         Assertions.assertEquals(3, singleChoiceOption.getOptionValues().size());
         Assertions.assertEquals("A", singleChoiceOption.defaultValue());
-
+        
         option = optionalOptions.get(1);
         singleChoiceOption = (SingleChoiceOption) option;
         Assertions.assertEquals(2, singleChoiceOption.getOptionValues().size());

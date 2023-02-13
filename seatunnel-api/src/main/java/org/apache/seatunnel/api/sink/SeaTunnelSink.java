@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.api.sink;
 
 import org.apache.seatunnel.api.common.PluginIdentifierInterface;
@@ -44,11 +43,12 @@ import java.util.Optional;
  *     interface {@link Serializable}.
  */
 public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
-        extends Serializable,
-                PluginIdentifierInterface,
-                SeaTunnelPluginLifeCycle,
-                SeaTunnelJobAware {
-
+        extends
+            Serializable,
+            PluginIdentifierInterface,
+            SeaTunnelPluginLifeCycle,
+            SeaTunnelJobAware {
+    
     /**
      * Set the row type info of sink row data. This method will be automatically called by
      * translation.
@@ -56,14 +56,14 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
      * @param seaTunnelRowType The row type info of sink.
      */
     void setTypeInfo(SeaTunnelRowType seaTunnelRowType);
-
+    
     /**
      * Get the data type of the records consumed by this sink.
      *
      * @return SeaTunnel data type.
      */
     SeaTunnelDataType<IN> getConsumedType();
-
+    
     /**
      * This method will be called to creat {@link SinkWriter}
      *
@@ -72,12 +72,12 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
      * @throws IOException throws IOException when createWriter failed.
      */
     SinkWriter<IN, CommitInfoT, StateT> createWriter(SinkWriter.Context context) throws IOException;
-
+    
     default SinkWriter<IN, CommitInfoT, StateT> restoreWriter(
-            SinkWriter.Context context, List<StateT> states) throws IOException {
+                                                              SinkWriter.Context context, List<StateT> states) throws IOException {
         return createWriter(context);
     }
-
+    
     /**
      * Get {@link StateT} serializer. So that {@link StateT} can be transferred across processes
      *
@@ -86,7 +86,7 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
     default Optional<Serializer<StateT>> getWriterStateSerializer() {
         return Optional.empty();
     }
-
+    
     /**
      * This method will be called to create {@link SinkCommitter}
      *
@@ -96,7 +96,7 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
     default Optional<SinkCommitter<CommitInfoT>> createCommitter() throws IOException {
         return Optional.empty();
     }
-
+    
     /**
      * Get {@link CommitInfoT} serializer. So that {@link CommitInfoT} can be transferred across
      * processes
@@ -106,18 +106,17 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
     default Optional<Serializer<CommitInfoT>> getCommitInfoSerializer() {
         return Optional.empty();
     }
-
+    
     /**
      * This method will be called to create {@link SinkAggregatedCommitter}
      *
      * @return Return sink aggregated committer instance
      * @throws IOException throws IOException when createAggregatedCommitter failed.
      */
-    default Optional<SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT>>
-            createAggregatedCommitter() throws IOException {
+    default Optional<SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT>> createAggregatedCommitter() throws IOException {
         return Optional.empty();
     }
-
+    
     /**
      * Get {@link AggregatedCommitInfoT} serializer. So that {@link AggregatedCommitInfoT} can be
      * transferred across processes

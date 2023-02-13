@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
 /**
@@ -23,7 +22,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
  * @see JdbcDialect
  */
 public interface JdbcDialectFactory {
-
+    
     /**
      * Retrieves whether the dialect thinks that it can open a connection to the given URL.
      * Typically, dialects will return <code>true</code> if they understand the sub-protocol
@@ -34,7 +33,7 @@ public interface JdbcDialectFactory {
      *     otherwise.
      */
     boolean acceptsURL(String url);
-
+    
     /** @return Creates a new instance of the {@link JdbcDialect}. */
     JdbcDialect create();
 }

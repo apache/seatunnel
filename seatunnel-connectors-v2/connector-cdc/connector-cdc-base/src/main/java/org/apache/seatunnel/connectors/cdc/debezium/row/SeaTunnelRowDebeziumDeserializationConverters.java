@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.cdc.debezium.row;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -52,30 +51,29 @@ import java.util.Optional;
 
 /** Deserialization schema from Debezium object to {@link SeaTunnelRow} */
 public class SeaTunnelRowDebeziumDeserializationConverters implements Serializable {
+    
     private static final long serialVersionUID = -897499476343410567L;
     protected final DebeziumDeserializationConverter[] physicalConverters;
     protected final MetadataConverter[] metadataConverters;
     protected final String[] fieldNames;
-
+    
     public SeaTunnelRowDebeziumDeserializationConverters(
-            SeaTunnelRowType physicalDataType,
-            MetadataConverter[] metadataConverters,
-            ZoneId serverTimeZone,
-            DebeziumDeserializationConverterFactory userDefinedConverterFactory) {
+                                                         SeaTunnelRowType physicalDataType,
+                                                         MetadataConverter[] metadataConverters,
+                                                         ZoneId serverTimeZone,
+                                                         DebeziumDeserializationConverterFactory userDefinedConverterFactory) {
         this.metadataConverters = metadataConverters;
-
+        
         this.physicalConverters =
                 Arrays.stream(physicalDataType.getFieldTypes())
                         .map(
-                                type ->
-                                        createConverter(
-                                                type, serverTimeZone, userDefinedConverterFactory))
+                                type -> createConverter(
+                                        type, serverTimeZone, userDefinedConverterFactory))
                         .toArray(DebeziumDeserializationConverter[]::new);
         this.fieldNames = physicalDataType.getFieldNames();
     }
-
-    public SeaTunnelRow convert(SourceRecord record, Struct struct, Schema schema)
-            throws Exception {
+    
+    public SeaTunnelRow convert(SourceRecord record, Struct struct, Schema schema) throws Exception {
         int arity = physicalConverters.length + metadataConverters.length;
         SeaTunnelRow row = new SeaTunnelRow(arity);
         // physical column
@@ -99,45 +97,46 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
         }
         return row;
     }
-
+    
     // -------------------------------------------------------------------------------------
     // Runtime Converters
     // -------------------------------------------------------------------------------------
-
+    
     /** Creates a runtime converter which is null safe. */
     private static DebeziumDeserializationConverter createConverter(
-            SeaTunnelDataType<?> type,
-            ZoneId serverTimeZone,
-            DebeziumDeserializationConverterFactory userDefinedConverterFactory) {
+                                                                    SeaTunnelDataType<?> type,
+                                                                    ZoneId serverTimeZone,
+                                                                    DebeziumDeserializationConverterFactory userDefinedConverterFactory) {
         return wrapIntoNullableConverter(
                 createNotNullConverter(type, serverTimeZone, userDefinedConverterFactory));
     }
-
+    
     // --------------------------------------------------------------------------------
     // IMPORTANT! We use anonymous classes instead of lambdas for a reason here. It is
     // necessary because the maven shade plugin cannot relocate classes in
     // SerializedLambdas (MSHADE-260).
     // --------------------------------------------------------------------------------
-
+    
     /** Creates a runtime converter which assuming input object is not null. */
     private static DebeziumDeserializationConverter createNotNullConverter(
-            SeaTunnelDataType<?> type,
-            ZoneId serverTimeZone,
-            DebeziumDeserializationConverterFactory userDefinedConverterFactory) {
-
+                                                                           SeaTunnelDataType<?> type,
+                                                                           ZoneId serverTimeZone,
+                                                                           DebeziumDeserializationConverterFactory userDefinedConverterFactory) {
+        
         // user defined converter has a higher resolve order
         Optional<DebeziumDeserializationConverter> converter =
                 userDefinedConverterFactory.createUserDefinedConverter(type, serverTimeZone);
         if (converter.isPresent()) {
             return converter.get();
         }
-
+        
         // if no matched user defined converter, fallback to the default converter
         switch (type.getSqlType()) {
             case NULL:
                 return new DebeziumDeserializationConverter() {
+                    
                     private static final long serialVersionUID = 1L;
-
+                    
                     @Override
                     public Object convert(Object dbzObj, Schema schema) throws Exception {
                         return null;
@@ -178,11 +177,12 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
                 throw new UnsupportedOperationException("Unsupported type: " + type);
         }
     }
-
+    
     private static DebeziumDeserializationConverter convertToBoolean() {
         return new DebeziumDeserializationConverter() {
+            
             private static final long serialVersionUID = 1L;
-
+            
             @Override
             public Object convert(Object dbzObj, Schema schema) {
                 if (dbzObj instanceof Boolean) {
@@ -199,11 +199,12 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
             }
         };
     }
-
+    
     private static DebeziumDeserializationConverter convertToByte() {
         return new DebeziumDeserializationConverter() {
+            
             private static final long serialVersionUID = 1L;
-
+            
             @Override
             public Object convert(Object dbzObj, Schema schema) {
                 if (dbzObj instanceof Byte) {
@@ -216,11 +217,12 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
             }
         };
     }
-
+    
     private static DebeziumDeserializationConverter convertToShort() {
         return new DebeziumDeserializationConverter() {
+            
             private static final long serialVersionUID = 1L;
-
+            
             @Override
             public Object convert(Object dbzObj, Schema schema) {
                 if (dbzObj instanceof Byte) {
@@ -235,11 +237,12 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
             }
         };
     }
-
+    
     private static DebeziumDeserializationConverter convertToInt() {
         return new DebeziumDeserializationConverter() {
+            
             private static final long serialVersionUID = 1L;
-
+            
             @Override
             public Object convert(Object dbzObj, Schema schema) {
                 if (dbzObj instanceof Integer) {
@@ -254,11 +257,12 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
             }
         };
     }
-
+    
     private static DebeziumDeserializationConverter convertToLong() {
         return new DebeziumDeserializationConverter() {
+            
             private static final long serialVersionUID = 1L;
-
+            
             @Override
             public Object convert(Object dbzObj, Schema schema) {
                 if (dbzObj instanceof Integer) {
@@ -273,11 +277,12 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
             }
         };
     }
-
+    
     private static DebeziumDeserializationConverter convertToDouble() {
         return new DebeziumDeserializationConverter() {
+            
             private static final long serialVersionUID = 1L;
-
+            
             @Override
             public Object convert(Object dbzObj, Schema schema) {
                 if (dbzObj instanceof Float) {
@@ -292,11 +297,12 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
             }
         };
     }
-
+    
     private static DebeziumDeserializationConverter convertToFloat() {
         return new DebeziumDeserializationConverter() {
+            
             private static final long serialVersionUID = 1L;
-
+            
             @Override
             public Object convert(Object dbzObj, Schema schema) {
                 if (dbzObj instanceof Float) {
@@ -311,22 +317,24 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
             }
         };
     }
-
+    
     private static DebeziumDeserializationConverter convertToDate() {
         return new DebeziumDeserializationConverter() {
+            
             private static final long serialVersionUID = 1L;
-
+            
             @Override
             public Object convert(Object dbzObj, Schema schema) {
                 return TemporalConversions.toLocalDate(dbzObj);
             }
         };
     }
-
+    
     private static DebeziumDeserializationConverter convertToTime() {
         return new DebeziumDeserializationConverter() {
+            
             private static final long serialVersionUID = 1L;
-
+            
             @SuppressWarnings("MagicNumber")
             @Override
             public Object convert(Object dbzObj, Schema schema) {
@@ -346,11 +354,12 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
             }
         };
     }
-
+    
     private static DebeziumDeserializationConverter convertToTimestamp(ZoneId serverTimeZone) {
         return new DebeziumDeserializationConverter() {
+            
             private static final long serialVersionUID = 1L;
-
+            
             @SuppressWarnings("MagicNumber")
             @Override
             public Object convert(Object dbzObj, Schema schema) {
@@ -371,7 +380,7 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
             }
         };
     }
-
+    
     @SuppressWarnings("MagicNumber")
     public static LocalDateTime toLocalDateTime(long millisecond, int nanoOfMillisecond) {
         // 86400000 = 24 * 60 * 60 * 1000
@@ -386,12 +395,13 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
         LocalTime localTime = LocalTime.ofNanoOfDay(nanoOfDay);
         return LocalDateTime.of(localDate, localTime);
     }
-
+    
     private static DebeziumDeserializationConverter convertToLocalTimeZoneTimestamp(
-            ZoneId serverTimeZone) {
+                                                                                    ZoneId serverTimeZone) {
         return new DebeziumDeserializationConverter() {
+            
             private static final long serialVersionUID = 1L;
-
+            
             @Override
             public Object convert(Object dbzObj, Schema schema) {
                 if (dbzObj instanceof String) {
@@ -408,22 +418,24 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
             }
         };
     }
-
+    
     private static DebeziumDeserializationConverter convertToString() {
         return new DebeziumDeserializationConverter() {
+            
             private static final long serialVersionUID = 1L;
-
+            
             @Override
             public Object convert(Object dbzObj, Schema schema) {
                 return dbzObj.toString();
             }
         };
     }
-
+    
     private static DebeziumDeserializationConverter convertToBinary() {
         return new DebeziumDeserializationConverter() {
+            
             private static final long serialVersionUID = 1L;
-
+            
             @Override
             public Object convert(Object dbzObj, Schema schema) throws Exception {
                 if (dbzObj instanceof byte[]) {
@@ -440,11 +452,12 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
             }
         };
     }
-
+    
     private static DebeziumDeserializationConverter createDecimalConverter() {
         return new DebeziumDeserializationConverter() {
+            
             private static final long serialVersionUID = 1L;
-
+            
             @Override
             public Object convert(Object dbzObj, Schema schema) throws Exception {
                 BigDecimal bigDecimal;
@@ -463,28 +476,28 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
                     // fallback to string
                     bigDecimal = new BigDecimal(dbzObj.toString());
                 }
-
+                
                 return bigDecimal;
             }
         };
     }
-
+    
     private static DebeziumDeserializationConverter createRowConverter(
-            SeaTunnelRowType rowType,
-            ZoneId serverTimeZone,
-            DebeziumDeserializationConverterFactory userDefinedConverterFactory) {
+                                                                       SeaTunnelRowType rowType,
+                                                                       ZoneId serverTimeZone,
+                                                                       DebeziumDeserializationConverterFactory userDefinedConverterFactory) {
         final DebeziumDeserializationConverter[] fieldConverters =
                 Arrays.stream(rowType.getFieldTypes())
                         .map(
-                                type ->
-                                        createConverter(
-                                                type, serverTimeZone, userDefinedConverterFactory))
+                                type -> createConverter(
+                                        type, serverTimeZone, userDefinedConverterFactory))
                         .toArray(DebeziumDeserializationConverter[]::new);
         final String[] fieldNames = rowType.getFieldNames();
-
+        
         return new DebeziumDeserializationConverter() {
+            
             private static final long serialVersionUID = 1L;
-
+            
             @Override
             public Object convert(Object dbzObj, Schema schema) throws Exception {
                 Struct struct = (Struct) dbzObj;
@@ -508,22 +521,22 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
             }
         };
     }
-
+    
     private static Object convertField(
-            DebeziumDeserializationConverter fieldConverter, Object fieldValue, Schema fieldSchema)
-            throws Exception {
+                                       DebeziumDeserializationConverter fieldConverter, Object fieldValue, Schema fieldSchema) throws Exception {
         if (fieldValue == null) {
             return null;
         } else {
             return fieldConverter.convert(fieldValue, fieldSchema);
         }
     }
-
+    
     private static DebeziumDeserializationConverter wrapIntoNullableConverter(
-            DebeziumDeserializationConverter converter) {
+                                                                              DebeziumDeserializationConverter converter) {
         return new DebeziumDeserializationConverter() {
+            
             private static final long serialVersionUID = 1L;
-
+            
             @Override
             public Object convert(Object dbzObj, Schema schema) throws Exception {
                 if (dbzObj == null) {
@@ -533,12 +546,13 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
             }
         };
     }
-
+    
     private static DebeziumDeserializationConverter wrapNumericConverter(
-            DebeziumDeserializationConverter converter) {
+                                                                         DebeziumDeserializationConverter converter) {
         return new DebeziumDeserializationConverter() {
+            
             private static final long serialVersionUID = 1L;
-
+            
             @Override
             public Object convert(Object dbzObj, Schema schema) throws Exception {
                 if (VariableScaleDecimal.LOGICAL_NAME.equals(schema.name())) {

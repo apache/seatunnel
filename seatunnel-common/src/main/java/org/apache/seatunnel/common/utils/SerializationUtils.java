@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.common.utils;
 
 import org.apache.commons.codec.binary.Base64;
@@ -29,24 +28,25 @@ import java.io.ObjectStreamClass;
 import java.io.Serializable;
 
 public class SerializationUtils {
-
+    
     public static String objectToString(Serializable obj) {
         if (obj != null) {
             return Base64.encodeBase64String(serialize(obj));
         }
         return null;
     }
-
+    
     public static <T extends Serializable> T stringToObject(String str) {
         if (StringUtils.isNotEmpty(str)) {
             return deserialize(Base64.decodeBase64(str));
         }
         return null;
     }
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     public static <T extends Serializable> byte[] serialize(T obj) {
-        try (ByteArrayOutputStream b = new ByteArrayOutputStream(512);
+        try (
+                ByteArrayOutputStream b = new ByteArrayOutputStream(512);
                 ObjectOutputStream out = new ObjectOutputStream(b)) {
             out.writeObject(obj);
             return b.toByteArray();
@@ -54,14 +54,15 @@ public class SerializationUtils {
             throw new SerializationException(ex);
         }
     }
-
+    
     public static <T extends Serializable> T deserialize(byte[] bytes) {
-        try (ByteArrayInputStream s = new ByteArrayInputStream(bytes);
+        try (
+                ByteArrayInputStream s = new ByteArrayInputStream(bytes);
                 ObjectInputStream in =
                         new ObjectInputStream(s) {
+                            
                             @Override
-                            protected Class<?> resolveClass(ObjectStreamClass desc)
-                                    throws IOException, ClassNotFoundException {
+                            protected Class<?> resolveClass(ObjectStreamClass desc) throws IOException, ClassNotFoundException {
                                 // make sure use current thread classloader
                                 ClassLoader cl = Thread.currentThread().getContextClassLoader();
                                 if (cl == null) {
@@ -77,14 +78,15 @@ public class SerializationUtils {
             throw new SerializationException(ex);
         }
     }
-
+    
     public static <T extends Serializable> T deserialize(byte[] bytes, ClassLoader classLoader) {
-        try (ByteArrayInputStream s = new ByteArrayInputStream(bytes);
+        try (
+                ByteArrayInputStream s = new ByteArrayInputStream(bytes);
                 ObjectInputStream in =
                         new ObjectInputStream(s) {
+                            
                             @Override
-                            protected Class<?> resolveClass(ObjectStreamClass desc)
-                                    throws IOException, ClassNotFoundException {
+                            protected Class<?> resolveClass(ObjectStreamClass desc) throws IOException, ClassNotFoundException {
                                 // make sure use current thread classloader
                                 if (classLoader == null) {
                                     return super.resolveClass(desc);

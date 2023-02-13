@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.console.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -35,17 +34,17 @@ import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
 public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
-
+    
     private final SeaTunnelRowType seaTunnelRowType;
     public static final AtomicLong CNT = new AtomicLong(0);
     public SinkWriter.Context context;
-
+    
     public ConsoleSinkWriter(SeaTunnelRowType seaTunnelRowType, SinkWriter.Context context) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.context = context;
         log.info("output rowType: {}", fieldsInfo(seaTunnelRowType));
     }
-
+    
     @Override
     @SuppressWarnings("checkstyle:RegexpSingleline")
     public void write(SeaTunnelRow element) {
@@ -63,12 +62,12 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                 element.getRowKind(),
                 StringUtils.join(arr, ", "));
     }
-
+    
     @Override
     public void close() {
         // nothing
     }
-
+    
     private String fieldsInfo(SeaTunnelRowType seaTunnelRowType) {
         String[] fieldsInfo = new String[seaTunnelRowType.getTotalFields()];
         for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
@@ -79,7 +78,7 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         }
         return StringUtils.join(fieldsInfo, ", ");
     }
-
+    
     private String fieldToString(SeaTunnelDataType<?> type, Object value) {
         if (value == null) {
             return null;

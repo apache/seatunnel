@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -37,11 +36,12 @@ import java.util.Optional;
 
 /** Base class for all converters that convert between JDBC object and Seatunnel internal object. */
 public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
-
+    
     public abstract String converterName();
-
-    public AbstractJdbcRowConverter() {}
-
+    
+    public AbstractJdbcRowConverter() {
+    }
+    
     @Override
     @SuppressWarnings("checkstyle:Indentation")
     public SeaTunnelRow toInternal(ResultSet rs, SeaTunnelRowType typeInfo) throws SQLException {
@@ -111,11 +111,10 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
         }
         return new SeaTunnelRow(fields);
     }
-
+    
     @Override
     public PreparedStatement toExternal(
-            SeaTunnelRowType rowType, SeaTunnelRow row, PreparedStatement statement)
-            throws SQLException {
+                                        SeaTunnelRowType rowType, SeaTunnelRow row, PreparedStatement statement) throws SQLException {
         for (int fieldIndex = 0; fieldIndex < rowType.getTotalFields(); fieldIndex++) {
             SeaTunnelDataType<?> seaTunnelDataType = rowType.getFieldType(fieldIndex);
             int statementIndex = fieldIndex + 1;
@@ -124,7 +123,7 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                 statement.setObject(statementIndex, null);
                 continue;
             }
-
+            
             switch (seaTunnelDataType.getSqlType()) {
                 case STRING:
                     statement.setString(statementIndex, (String) row.getField(fieldIndex));

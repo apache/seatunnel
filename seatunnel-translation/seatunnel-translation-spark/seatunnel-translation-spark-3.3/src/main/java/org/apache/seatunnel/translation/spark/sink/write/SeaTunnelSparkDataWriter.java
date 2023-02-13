@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.translation.spark.sink.write;
 
 import org.apache.seatunnel.api.sink.SinkCommitter;
@@ -35,30 +34,31 @@ import java.util.Collections;
 import java.util.Optional;
 
 public class SeaTunnelSparkDataWriter<CommitInfoT, StateT> implements DataWriter<InternalRow> {
-
+    
     private final SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter;
-
-    @Nullable private final SinkCommitter<CommitInfoT> sinkCommitter;
+    
+    @Nullable
+    private final SinkCommitter<CommitInfoT> sinkCommitter;
     private final RowConverter<InternalRow> rowConverter;
     private CommitInfoT latestCommitInfoT;
     private long epochId;
-
+    
     public SeaTunnelSparkDataWriter(
-            SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter,
-            @Nullable SinkCommitter<CommitInfoT> sinkCommitter,
-            SeaTunnelDataType<?> dataType,
-            long epochId) {
+                                    SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter,
+                                    @Nullable SinkCommitter<CommitInfoT> sinkCommitter,
+                                    SeaTunnelDataType<?> dataType,
+                                    long epochId) {
         this.sinkWriter = sinkWriter;
         this.sinkCommitter = sinkCommitter;
         this.rowConverter = new InternalRowConverter(dataType);
         this.epochId = epochId == 0 ? 1 : epochId;
     }
-
+    
     @Override
     public void write(InternalRow record) throws IOException {
         sinkWriter.write(rowConverter.reconvert(record));
     }
-
+    
     @Override
     public WriterCommitMessage commit() throws IOException {
         Optional<CommitInfoT> commitInfoTOptional = sinkWriter.prepareCommit();
@@ -77,7 +77,7 @@ public class SeaTunnelSparkDataWriter<CommitInfoT, StateT> implements DataWriter
         sinkWriter.close();
         return seaTunnelSparkWriterCommitMessage;
     }
-
+    
     @Override
     public void abort() throws IOException {
         sinkWriter.abortPrepare();
@@ -90,11 +90,12 @@ public class SeaTunnelSparkDataWriter<CommitInfoT, StateT> implements DataWriter
         }
         cleanCommitInfo();
     }
-
+    
     private void cleanCommitInfo() {
         latestCommitInfoT = null;
     }
-
+    
     @Override
-    public void close() throws IOException {}
+    public void close() throws IOException {
+    }
 }

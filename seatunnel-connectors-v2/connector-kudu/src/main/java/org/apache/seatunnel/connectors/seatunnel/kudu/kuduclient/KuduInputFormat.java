@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient;
 
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -48,27 +47,27 @@ import java.util.List;
 
 @Slf4j
 public class KuduInputFormat implements Serializable {
-
+    
     public KuduInputFormat(String kuduMaster, String tableName, String columnsList) {
         this.kuduMaster = kuduMaster;
         this.columnsList = Arrays.asList(columnsList.split(","));
         this.tableName = tableName;
     }
-
+    
     /** Declare the global variable KuduClient and use it to manipulate the Kudu table */
     public KuduClient kuduClient;
-
+    
     /** Specify kuduMaster address */
     public String kuduMaster;
-
+    
     public List<String> columnsList;
     public Schema schema;
     public String keyColumn;
     public static final int TIMEOUTMS = 18000;
-
+    
     /** Specifies the name of the table */
     public String tableName;
-
+    
     public List<ColumnSchema> getColumnsSchemas() {
         List<ColumnSchema> columns = null;
         try {
@@ -81,10 +80,9 @@ public class KuduInputFormat implements Serializable {
         }
         return columns;
     }
-
-    public static SeaTunnelRow getSeaTunnelRowData(RowResult rs, SeaTunnelRowType typeInfo)
-            throws SQLException {
-
+    
+    public static SeaTunnelRow getSeaTunnelRowData(RowResult rs, SeaTunnelRowType typeInfo) throws SQLException {
+        
         List<Object> fields = new ArrayList<>();
         SeaTunnelDataType<?>[] seaTunnelDataTypes = typeInfo.getFieldTypes();
         for (int i = 0; i < seaTunnelDataTypes.length; i++) {
@@ -119,16 +117,16 @@ public class KuduInputFormat implements Serializable {
             }
             fields.add(seatunnelField);
         }
-
+        
         return new SeaTunnelRow(fields.toArray());
     }
-
+    
     public SeaTunnelRowType getSeaTunnelRowType(List<ColumnSchema> columnSchemaList) {
-
+        
         ArrayList<SeaTunnelDataType<?>> seaTunnelDataTypes = new ArrayList<>();
         ArrayList<String> fieldNames = new ArrayList<>();
         try {
-
+            
             for (int i = 0; i < columnSchemaList.size(); i++) {
                 fieldNames.add(columnSchemaList.get(i).getName());
                 seaTunnelDataTypes.add(KuduTypeMapper.mapping(columnSchemaList, i));
@@ -144,17 +142,17 @@ public class KuduInputFormat implements Serializable {
                 fieldNames.toArray(new String[fieldNames.size()]),
                 seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[seaTunnelDataTypes.size()]));
     }
-
+    
     public void openInputFormat() {
         KuduClient.KuduClientBuilder kuduClientBuilder =
                 new KuduClient.KuduClientBuilder(kuduMaster);
         kuduClientBuilder.defaultOperationTimeoutMs(TIMEOUTMS);
-
+        
         kuduClient = kuduClientBuilder.build();
-
+        
         log.info("The Kudu client is successfully initialized", kuduMaster, kuduClient);
     }
-
+    
     /**
      * @param lowerBound The beginning of each slice
      * @param upperBound End of each slice
@@ -165,21 +163,21 @@ public class KuduInputFormat implements Serializable {
         try {
             KuduScanner.KuduScannerBuilder kuduScannerBuilder =
                     kuduClient.newScannerBuilder(kuduClient.openTable(tableName));
-
+            
             kuduScannerBuilder.setProjectedColumnNames(columnsList);
-
+            
             KuduPredicate lowerPred =
                     KuduPredicate.newComparisonPredicate(
                             schema.getColumn("" + keyColumn),
                             KuduPredicate.ComparisonOp.GREATER_EQUAL,
                             lowerBound);
-
+            
             KuduPredicate upperPred =
                     KuduPredicate.newComparisonPredicate(
                             schema.getColumn("" + keyColumn),
                             KuduPredicate.ComparisonOp.LESS,
                             upperBound);
-
+            
             kuduScanner =
                     kuduScannerBuilder.addPredicate(lowerPred).addPredicate(upperPred).build();
         } catch (KuduException e) {
@@ -187,7 +185,7 @@ public class KuduInputFormat implements Serializable {
         }
         return kuduScanner;
     }
-
+    
     public void closeInputFormat() {
         if (kuduClient != null) {
             try {

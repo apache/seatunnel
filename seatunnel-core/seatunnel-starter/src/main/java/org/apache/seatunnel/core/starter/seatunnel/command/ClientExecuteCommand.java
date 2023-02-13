@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.core.starter.seatunnel.command;
 
 import org.apache.seatunnel.common.utils.DateTimeUtils;
@@ -53,18 +52,18 @@ import static org.apache.seatunnel.core.starter.utils.FileUtils.checkConfigExist
 /** This command is used to execute the SeaTunnel engine job by SeaTunnel API. */
 @Slf4j
 public class ClientExecuteCommand implements Command<ClientCommandArgs> {
-
+    
     private final ClientCommandArgs clientCommandArgs;
-
+    
     private JobStatus jobStatus;
     private SeaTunnelClient engineClient;
     private HazelcastInstance instance;
     private ScheduledExecutorService executorService;
-
+    
     public ClientExecuteCommand(ClientCommandArgs clientCommandArgs) {
         this.clientCommandArgs = clientCommandArgs;
     }
-
+    
     @SuppressWarnings({"checkstyle:RegexpSingleline", "checkstyle:MagicNumber"})
     @Override
     public void execute() throws CommandExecuteException {
@@ -115,7 +114,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                     jobExecutionEnv =
                             engineClient.createExecutionContext(configFile.toString(), jobConfig);
                 }
-
+                
                 // get job start time
                 startTime = LocalDateTime.now();
                 // create job proxy
@@ -181,7 +180,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             closeClient();
         }
     }
-
+    
     private void closeClient() {
         if (engineClient != null) {
             engineClient.close();
@@ -193,7 +192,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             executorService.shutdownNow();
         }
     }
-
+    
     private HazelcastInstance createServerInLocal(String clusterName) {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
@@ -202,13 +201,13 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 Thread.currentThread().getName(),
                 new SeaTunnelNodeContext(seaTunnelConfig));
     }
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     private String creatRandomClusterName(String namePrefix) {
         Random random = new Random();
         return namePrefix + "-" + random.nextInt(1000000);
     }
-
+    
     private void shutdownHook(ClientJobProxy clientJobProxy) {
         if (clientCommandArgs.isCloseJob()) {
             if (clientJobProxy.getJobResultCache() == null

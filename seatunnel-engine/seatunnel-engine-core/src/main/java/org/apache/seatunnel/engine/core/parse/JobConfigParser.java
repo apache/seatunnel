@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.core.parse;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -70,40 +69,41 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 @Data
 public class JobConfigParser {
+    
     private static final ILogger LOGGER = Logger.getLogger(JobConfigParser.class);
     private String jobDefineFilePath;
     private IdGenerator idGenerator;
-
+    
     private Map<Action, String> alreadyTransformActionMap = new HashMap<>();
-
+    
     private Map<String, List<Config>> transformResultTableNameMap = new HashMap<>();
     private Map<String, List<Config>> transformSourceTableNameMap = new HashMap<>();
-
+    
     private Map<String, List<Config>> sourceResultTableNameMap = new HashMap<>();
-
+    
     private List<Action> actions = new ArrayList<>();
     private Set<URL> jarUrlsSet = new HashSet<>();
-
+    
     private JobConfig jobConfig;
-
+    
     private Config seaTunnelJobConfig;
-
+    
     private Config envConfigs;
-
+    
     private List<URL> commonPluginJars;
-
+    
     public JobConfigParser(
-            @NonNull String jobDefineFilePath,
-            @NonNull IdGenerator idGenerator,
-            @NonNull JobConfig jobConfig) {
+                           @NonNull String jobDefineFilePath,
+                           @NonNull IdGenerator idGenerator,
+                           @NonNull JobConfig jobConfig) {
         this(jobDefineFilePath, idGenerator, jobConfig, Collections.emptyList());
     }
-
+    
     public JobConfigParser(
-            @NonNull String jobDefineFilePath,
-            @NonNull IdGenerator idGenerator,
-            @NonNull JobConfig jobConfig,
-            @NonNull List<URL> commonPluginJars) {
+                           @NonNull String jobDefineFilePath,
+                           @NonNull IdGenerator idGenerator,
+                           @NonNull JobConfig jobConfig,
+                           @NonNull List<URL> commonPluginJars) {
         this.jobDefineFilePath = jobDefineFilePath;
         this.idGenerator = idGenerator;
         this.jobConfig = jobConfig;
@@ -111,7 +111,7 @@ public class JobConfigParser {
         this.envConfigs = seaTunnelJobConfig.getConfig("env");
         this.commonPluginJars = commonPluginJars;
     }
-
+    
     public ImmutablePair<List<Action>, Set<URL>> parse() {
         Thread.currentThread()
                 .setContextClassLoader(new SeaTunnelChildFirstClassLoader(new ArrayList<>()));
@@ -120,13 +120,13 @@ public class JobConfigParser {
                 TypesafeConfigUtils.getConfigList(
                         seaTunnelJobConfig, "transform", Collections.emptyList());
         List<? extends Config> sourceConfigs = seaTunnelJobConfig.getConfigList("source");
-
+        
         if (CollectionUtils.isEmpty(sinkConfigs) || CollectionUtils.isEmpty(sourceConfigs)) {
             throw new JobDefineCheckException("Source And Sink can not be null");
         }
-
+        
         jobConfigAnalyze(envConfigs);
-
+        
         if (sinkConfigs.size() == 1
                 && sourceConfigs.size() == 1
                 && (CollectionUtils.isEmpty(transformConfigs) || transformConfigs.size() == 1)) {
@@ -138,14 +138,14 @@ public class JobConfigParser {
         jarUrlsSet.addAll(commonPluginJars);
         return new ImmutablePair<>(actions, jarUrlsSet);
     }
-
+    
     private void addCommonPluginJarsToAction(Action action) {
         action.getJarUrls().addAll(commonPluginJars);
         if (!action.getUpstream().isEmpty()) {
             action.getUpstream().forEach(this::addCommonPluginJarsToAction);
         }
     }
-
+    
     private void jobConfigAnalyze(@NonNull Config envConfigs) {
         if (envConfigs.hasPath(EnvCommonOptions.JOB_MODE.key())) {
             String jobMode = envConfigs.getString(EnvCommonOptions.JOB_MODE.key());
@@ -153,7 +153,7 @@ public class JobConfigParser {
         } else {
             jobConfig.getJobContext().setJobMode(EnvCommonOptions.JOB_MODE.defaultValue());
         }
-
+        
         if (StringUtils.isEmpty(jobConfig.getName())) {
             if (envConfigs.hasPath(EnvCommonOptions.JOB_NAME.key())) {
                 jobConfig.setName(envConfigs.getString(EnvCommonOptions.JOB_NAME.key()));
@@ -161,7 +161,7 @@ public class JobConfigParser {
                 jobConfig.setName(EnvCommonOptions.JOB_NAME.defaultValue());
             }
         }
-
+        
         if (envConfigs.hasPath(EnvCommonOptions.CHECKPOINT_INTERVAL.key())) {
             jobConfig
                     .getEnvOptions()
@@ -170,7 +170,7 @@ public class JobConfigParser {
                             envConfigs.getInt(EnvCommonOptions.CHECKPOINT_INTERVAL.key()));
         }
     }
-
+    
     /**
      * If there are multiple sources or multiple transforms or multiple sink, We will rely on
      * source_table_name and result_table_name to build actions pipeline. So in this case
@@ -179,26 +179,23 @@ public class JobConfigParser {
      * necessary for Sink Connector.
      */
     private void complexAnalyze(
-            List<? extends Config> sourceConfigs,
-            List<? extends Config> transformConfigs,
-            List<? extends Config> sinkConfigs) {
+                                List<? extends Config> sourceConfigs,
+                                List<? extends Config> transformConfigs,
+                                List<? extends Config> sinkConfigs) {
         initRelationMap(sourceConfigs, transformConfigs);
-
+        
         for (Config config : sinkConfigs) {
-            ImmutablePair<
-                            SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>,
-                            Set<URL>>
-                    sinkListImmutablePair =
-                            ConnectorInstanceLoader.loadSinkInstance(
-                                    config, jobConfig.getJobContext(), commonPluginJars);
-
+            ImmutablePair<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>, Set<URL>> sinkListImmutablePair =
+                    ConnectorInstanceLoader.loadSinkInstance(
+                            config, jobConfig.getJobContext(), commonPluginJars);
+            
             SinkAction sinkAction =
                     createSinkAction(
                             idGenerator.getNextId(),
                             sinkListImmutablePair.getLeft().getPluginName(),
                             sinkListImmutablePair.getLeft(),
                             sinkListImmutablePair.getRight());
-
+            
             actions.add(sinkAction);
             if (!config.hasPath(SinkCommonOptions.SOURCE_TABLE_NAME.key())) {
                 throw new JobDefineCheckException(
@@ -228,7 +225,7 @@ public class JobConfigParser {
             }
         }
     }
-
+    
     private SeaTunnelDataType sourceAnalyze(String sourceTableName, Action action) {
         List<Config> sourceConfigList = sourceResultTableNameMap.get(sourceTableName);
         if (CollectionUtils.isEmpty(sourceConfigList)) {
@@ -238,7 +235,7 @@ public class JobConfigParser {
                             + sourceTableName
                             + "] can not be found");
         }
-
+        
         // If a transform have more than one upstream action, the parallelism of this transform is
         // the sum of the parallelism
         // of its upstream action.
@@ -255,7 +252,7 @@ public class JobConfigParser {
                             sourceConfig.getString(CollectionConstants.PLUGIN_NAME),
                             seaTunnelSourceListImmutablePair.getLeft(),
                             seaTunnelSourceListImmutablePair.getRight());
-
+            
             int sourceParallelism = getSourceParallelism(sourceConfig);
             sourceAction.setParallelism(sourceParallelism);
             totalParallelism.set(totalParallelism.get() + sourceParallelism);
@@ -264,7 +261,7 @@ public class JobConfigParser {
         }
         return dataType;
     }
-
+    
     private SeaTunnelDataType<?> transformAnalyze(String sourceTableName, Action action) {
         // find upstream transform node
         List<Config> transformConfigList = transformResultTableNameMap.get(sourceTableName);
@@ -283,7 +280,7 @@ public class JobConfigParser {
                                 transformListImmutablePair.getLeft().getPluginName(),
                                 transformListImmutablePair.getLeft(),
                                 transformListImmutablePair.getRight());
-
+                
                 action.addUpstream(transformAction);
                 SeaTunnelDataType dataType =
                         transformAnalyze(
@@ -297,9 +294,9 @@ public class JobConfigParser {
             return dataTypeResult;
         }
     }
-
+    
     private void initRelationMap(
-            List<? extends Config> sourceConfigs, List<? extends Config> transformConfigs) {
+                                 List<? extends Config> sourceConfigs, List<? extends Config> transformConfigs) {
         for (Config config : sourceConfigs) {
             if (!config.hasPath(SourceCommonOptions.RESULT_TABLE_NAME.key())) {
                 throw new JobDefineCheckException(
@@ -310,14 +307,14 @@ public class JobConfigParser {
             sourceResultTableNameMap.computeIfAbsent(resultTableName, k -> new ArrayList<>());
             sourceResultTableNameMap.get(resultTableName).add(config);
         }
-
+        
         for (Config config : transformConfigs) {
             if (!config.hasPath(SourceCommonOptions.RESULT_TABLE_NAME.key())) {
                 throw new JobDefineCheckException(
                         SourceCommonOptions.RESULT_TABLE_NAME.key()
                                 + " must be set in the transform plugin config when the job have complex dependencies");
             }
-
+            
             if (!config.hasPath(SinkCommonOptions.SOURCE_TABLE_NAME.key())) {
                 throw new JobDefineCheckException(
                         SinkCommonOptions.SOURCE_TABLE_NAME.key()
@@ -331,23 +328,23 @@ public class JobConfigParser {
                                 "Source{%s} and result{%s} table name cannot be equals",
                                 sourceTableName, resultTableName));
             }
-
+            
             transformResultTableNameMap.computeIfAbsent(resultTableName, k -> new ArrayList<>());
             transformResultTableNameMap.get(resultTableName).add(config);
-
+            
             transformSourceTableNameMap.computeIfAbsent(sourceTableName, k -> new ArrayList<>());
             transformSourceTableNameMap.get(sourceTableName).add(config);
         }
     }
-
+    
     /**
      * If there is only one Source and one Sink and at most one Transform, We simply build actions
      * pipeline in the following order Source | Transform(If have) | Sink
      */
     private void sampleAnalyze(
-            List<? extends Config> sourceConfigs,
-            List<? extends Config> transformConfigs,
-            List<? extends Config> sinkConfigs) {
+                               List<? extends Config> sourceConfigs,
+                               List<? extends Config> transformConfigs,
+                               List<? extends Config> sinkConfigs) {
         ImmutablePair<SeaTunnelSource, Set<URL>> pair =
                 ConnectorInstanceLoader.loadSourceInstance(
                         sourceConfigs.get(0), jobConfig.getJobContext(), commonPluginJars);
@@ -359,15 +356,15 @@ public class JobConfigParser {
                         pair.getRight());
         sourceAction.setParallelism(getSourceParallelism(sourceConfigs.get(0)));
         SeaTunnelDataType dataType = sourceAction.getSource().getProducedType();
-
+        
         Action sinkUpstreamAction = sourceAction;
-
+        
         if (!CollectionUtils.isEmpty(transformConfigs)) {
             ImmutablePair<SeaTunnelTransform<?>, Set<URL>> transformListImmutablePair =
                     ConnectorInstanceLoader.loadTransformInstance(
                             transformConfigs.get(0), jobConfig.getJobContext(), commonPluginJars);
             transformListImmutablePair.getLeft().setTypeInfo(dataType);
-
+            
             dataType = transformListImmutablePair.getLeft().getProducedType();
             TransformAction transformAction =
                     createTransformAction(
@@ -376,22 +373,19 @@ public class JobConfigParser {
                             Lists.newArrayList(sourceAction),
                             transformListImmutablePair.getLeft(),
                             transformListImmutablePair.getRight());
-
+            
             initTransformParallelism(
                     transformConfigs,
                     sourceAction,
                     transformListImmutablePair.getLeft(),
                     transformAction);
-
+            
             sinkUpstreamAction = transformAction;
         }
-
-        ImmutablePair<
-                        SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>,
-                        Set<URL>>
-                sinkListImmutablePair =
-                        ConnectorInstanceLoader.loadSinkInstance(
-                                sinkConfigs.get(0), jobConfig.getJobContext(), commonPluginJars);
+        
+        ImmutablePair<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>, Set<URL>> sinkListImmutablePair =
+                ConnectorInstanceLoader.loadSinkInstance(
+                        sinkConfigs.get(0), jobConfig.getJobContext(), commonPluginJars);
         SinkAction sinkAction =
                 createSinkAction(
                         idGenerator.getNextId(),
@@ -409,12 +403,12 @@ public class JobConfigParser {
         }
         actions.add(sinkAction);
     }
-
+    
     private void initTransformParallelism(
-            List<? extends Config> transformConfigs,
-            Action upstreamAction,
-            SeaTunnelTransform seaTunnelTransform,
-            TransformAction transformAction) {
+                                          List<? extends Config> transformConfigs,
+                                          Action upstreamAction,
+                                          SeaTunnelTransform seaTunnelTransform,
+                                          TransformAction transformAction) {
         if (seaTunnelTransform instanceof PartitionSeaTunnelTransform
                 && transformConfigs.get(0).hasPath(TransformCommonOptions.PARALLELISM.key())) {
             transformAction.setParallelism(
@@ -425,7 +419,7 @@ public class JobConfigParser {
             transformAction.setParallelism(upstreamAction.getParallelism());
         }
     }
-
+    
     private int getSourceParallelism(Config sourceConfig) {
         if (sourceConfig.hasPath(SourceCommonOptions.PARALLELISM.key())) {
             int sourceParallelism = sourceConfig.getInt(SourceCommonOptions.PARALLELISM.key());
@@ -437,52 +431,52 @@ public class JobConfigParser {
         }
         return Math.max(executionParallelism, 1);
     }
-
+    
     private SourceAction createSourceAction(
-            long id, @NonNull String name, @NonNull SeaTunnelSource source, Set<URL> jarUrls) {
+                                            long id, @NonNull String name, @NonNull SeaTunnelSource source, Set<URL> jarUrls) {
         if (!CollectionUtils.isEmpty(jarUrls)) {
             jarUrlsSet.addAll(jarUrls);
         }
         return new SourceAction(id, name, source, jarUrls);
     }
-
+    
     private TransformAction createTransformAction(
-            long id,
-            @NonNull String name,
-            @NonNull List<Action> upstreams,
-            @NonNull SeaTunnelTransform transformation,
-            Set<URL> jarUrls) {
+                                                  long id,
+                                                  @NonNull String name,
+                                                  @NonNull List<Action> upstreams,
+                                                  @NonNull SeaTunnelTransform transformation,
+                                                  Set<URL> jarUrls) {
         if (!CollectionUtils.isEmpty(jarUrls)) {
             jarUrlsSet.addAll(jarUrls);
         }
         return new TransformAction(id, name, upstreams, transformation, jarUrls);
     }
-
+    
     private SinkAction createSinkAction(
-            long id,
-            @NonNull String name,
-            @NonNull List<Action> upstreams,
-            @NonNull SeaTunnelSink sink,
-            Set<URL> jarUrls) {
+                                        long id,
+                                        @NonNull String name,
+                                        @NonNull List<Action> upstreams,
+                                        @NonNull SeaTunnelSink sink,
+                                        Set<URL> jarUrls) {
         if (!CollectionUtils.isEmpty(jarUrls)) {
             jarUrlsSet.addAll(jarUrls);
         }
         return new SinkAction(id, name, upstreams, sink, jarUrls);
     }
-
+    
     private TransformAction createTransformAction(
-            long id,
-            @NonNull String name,
-            @NonNull SeaTunnelTransform transformation,
-            Set<URL> jarUrls) {
+                                                  long id,
+                                                  @NonNull String name,
+                                                  @NonNull SeaTunnelTransform transformation,
+                                                  Set<URL> jarUrls) {
         if (!CollectionUtils.isEmpty(jarUrls)) {
             jarUrlsSet.addAll(jarUrls);
         }
         return new TransformAction(id, name, transformation, jarUrls);
     }
-
+    
     private SinkAction createSinkAction(
-            long id, @NonNull String name, @NonNull SeaTunnelSink sink, Set<URL> jarUrls) {
+                                        long id, @NonNull String name, @NonNull SeaTunnelSink sink, Set<URL> jarUrls) {
         if (!CollectionUtils.isEmpty(jarUrls)) {
             jarUrlsSet.addAll(jarUrls);
         }

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.dag;
 
 import org.apache.seatunnel.engine.core.dag.actions.ActionUtils;
@@ -34,11 +33,11 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class DAGUtils {
-
+    
     public static JobDAGInfo getJobDAGInfo(
-            LogicalDag logicalDag,
-            JobImmutableInformation jobImmutableInformation,
-            boolean isPhysicalDAGIInfo) {
+                                           LogicalDag logicalDag,
+                                           JobImmutableInformation jobImmutableInformation,
+                                           boolean isPhysicalDAGIInfo) {
         List<Pipeline> pipelines =
                 new ExecutionPlanGenerator(logicalDag, jobImmutableInformation)
                         .generate()
@@ -53,10 +52,9 @@ public class DAGUtils {
                                 pipeline.getId(),
                                 pipeline.getEdges().stream()
                                         .map(
-                                                e ->
-                                                        new Edge(
-                                                                e.getLeftVertexId(),
-                                                                e.getRightVertexId()))
+                                                e -> new Edge(
+                                                        e.getLeftVertexId(),
+                                                        e.getRightVertexId()))
                                         .collect(Collectors.toList()));
                         pipeline.getVertexes()
                                 .forEach(
@@ -78,19 +76,18 @@ public class DAGUtils {
                     logicalDag.getEdges().stream()
                             .map(e -> new Edge(e.getInputVertexId(), e.getTargetVertexId()))
                             .collect(Collectors.toList());
-
+            
             Map<Long, LogicalVertex> logicalVertexMap = logicalDag.getLogicalVertexMap();
             Map<Long, VertexInfo> vertexInfoMap =
                     logicalVertexMap.values().stream()
                             .map(
-                                    v ->
-                                            new VertexInfo(
-                                                    v.getVertexId(),
-                                                    ActionUtils.getActionType(v.getAction()),
-                                                    v.getAction().getName()))
+                                    v -> new VertexInfo(
+                                            v.getVertexId(),
+                                            ActionUtils.getActionType(v.getAction()),
+                                            v.getAction().getName()))
                             .collect(
                                     Collectors.toMap(VertexInfo::getVertexId, Function.identity()));
-
+            
             Map<Integer, List<Edge>> pipelineWithEdges =
                     edges.stream()
                             .collect(
@@ -103,11 +100,10 @@ public class DAGUtils {
                                                                         : e.getTargetVertexId());
                                                 return pipelines.stream()
                                                         .filter(
-                                                                p ->
-                                                                        p.getActions()
-                                                                                .containsKey(
-                                                                                        info.getAction()
-                                                                                                .getId()))
+                                                                p -> p.getActions()
+                                                                        .containsKey(
+                                                                                info.getAction()
+                                                                                        .getId()))
                                                         .findFirst()
                                                         .get()
                                                         .getId();

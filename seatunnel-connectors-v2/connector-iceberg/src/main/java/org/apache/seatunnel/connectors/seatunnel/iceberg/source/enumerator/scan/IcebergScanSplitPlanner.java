@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan;
 
 import org.apache.seatunnel.common.exception.CommonErrorCode;
@@ -47,24 +46,24 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 @Slf4j
 public class IcebergScanSplitPlanner {
-
+    
     public static IcebergEnumerationResult planStreamSplits(
-            Table table,
-            IcebergScanContext icebergScanContext,
-            IcebergEnumeratorPosition lastPosition) {
+                                                            Table table,
+                                                            IcebergScanContext icebergScanContext,
+                                                            IcebergEnumeratorPosition lastPosition) {
         // Load increment files
         table.refresh();
-
+        
         if (lastPosition == null) {
             return initialStreamSplits(table, icebergScanContext);
         }
         return incrementalStreamSplits(table, icebergScanContext, lastPosition);
     }
-
+    
     private static IcebergEnumerationResult incrementalStreamSplits(
-            Table table,
-            IcebergScanContext icebergScanContext,
-            IcebergEnumeratorPosition lastPosition) {
+                                                                    Table table,
+                                                                    IcebergScanContext icebergScanContext,
+                                                                    IcebergEnumeratorPosition lastPosition) {
         Snapshot currentSnapshot = table.currentSnapshot();
         if (currentSnapshot == null) {
             checkArgument(
@@ -81,7 +80,7 @@ public class IcebergScanSplitPlanner {
             return new IcebergEnumerationResult(
                     Collections.emptyList(), lastPosition, lastPosition);
         }
-
+        
         IcebergEnumeratorPosition newPosition =
                 new IcebergEnumeratorPosition(
                         currentSnapshot.snapshotId(), currentSnapshot.timestampMillis());
@@ -97,16 +96,16 @@ public class IcebergScanSplitPlanner {
                 newPosition);
         return new IcebergEnumerationResult(splits, lastPosition, newPosition);
     }
-
+    
     private static IcebergEnumerationResult initialStreamSplits(
-            Table table, IcebergScanContext icebergScanContext) {
+                                                                Table table, IcebergScanContext icebergScanContext) {
         Optional<Snapshot> startSnapshotOptional =
                 getStreamStartSnapshot(table, icebergScanContext);
         if (!startSnapshotOptional.isPresent()) {
             return new IcebergEnumerationResult(
                     Collections.emptyList(), null, IcebergEnumeratorPosition.EMPTY);
         }
-
+        
         Snapshot startSnapshot = startSnapshotOptional.get();
         List<IcebergFileScanTaskSplit> splits = Collections.emptyList();
         IcebergEnumeratorPosition toPosition = IcebergEnumeratorPosition.EMPTY;
@@ -117,7 +116,7 @@ public class IcebergScanSplitPlanner {
                     "Discovered {} splits from initial batch table scan with snapshot Id {}",
                     splits.size(),
                     startSnapshot.snapshotId());
-
+            
             toPosition =
                     new IcebergEnumeratorPosition(
                             startSnapshot.snapshotId(), startSnapshot.timestampMillis());
@@ -135,12 +134,12 @@ public class IcebergScanSplitPlanner {
                     startSnapshot.snapshotId(),
                     startSnapshot.timestampMillis());
         }
-
+        
         return new IcebergEnumerationResult(splits, null, toPosition);
     }
-
+    
     private static Optional<Snapshot> getStreamStartSnapshot(
-            Table table, IcebergScanContext icebergScanContext) {
+                                                             Table table, IcebergScanContext icebergScanContext) {
         switch (icebergScanContext.getStreamScanStrategy()) {
             case TABLE_SCAN_THEN_INCREMENTAL:
             case FROM_LATEST_SNAPSHOT:
@@ -154,8 +153,7 @@ public class IcebergScanSplitPlanner {
                         SnapshotUtil.snapshotIdAsOfTime(
                                 table, icebergScanContext.getStartSnapshotTimestamp());
                 Snapshot matchedSnapshot = table.snapshot(snapshotIdAsOfTime);
-                if (matchedSnapshot.timestampMillis()
-                        == icebergScanContext.getStartSnapshotTimestamp()) {
+                if (matchedSnapshot.timestampMillis() == icebergScanContext.getStartSnapshotTimestamp()) {
                     return Optional.of(matchedSnapshot);
                 } else {
                     return Optional.of(SnapshotUtil.snapshotAfter(table, snapshotIdAsOfTime));
@@ -167,9 +165,9 @@ public class IcebergScanSplitPlanner {
                                 + icebergScanContext.getStreamScanStrategy());
         }
     }
-
+    
     public static List<IcebergFileScanTaskSplit> planSplits(
-            Table table, IcebergScanContext context) {
+                                                            Table table, IcebergScanContext context) {
         try (CloseableIterable<CombinedScanTask> tasksIterable = planTasks(table, context)) {
             List<IcebergFileScanTaskSplit> splits = new ArrayList<>();
             for (CombinedScanTask combinedScanTask : tasksIterable) {
@@ -185,9 +183,9 @@ public class IcebergScanSplitPlanner {
                     e);
         }
     }
-
+    
     private static CloseableIterable<CombinedScanTask> planTasks(
-            Table table, IcebergScanContext context) {
+                                                                 Table table, IcebergScanContext context) {
         if (context.isStreaming()
                 || context.getStartSnapshotId() != null
                 || context.getEndSnapshotId() != null) {
@@ -212,9 +210,9 @@ public class IcebergScanSplitPlanner {
             return scan.planTasks();
         }
     }
-
+    
     private static <T extends Scan<T, FileScanTask, CombinedScanTask>> T rebuildScanWithBaseConfig(
-            T scan, IcebergScanContext context) {
+                                                                                                   T scan, IcebergScanContext context) {
         T newScan = scan.caseSensitive(context.isCaseSensitive()).project(context.getSchema());
         if (context.getFilter() != null) {
             newScan = newScan.filter(context.getFilter());

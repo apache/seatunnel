@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.tdengine.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -65,16 +64,17 @@ import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengine
  */
 @AutoService(SeaTunnelSource.class)
 public class TDengineSource
-        implements SeaTunnelSource<SeaTunnelRow, TDengineSourceSplit, TDengineSourceState> {
-
+        implements
+            SeaTunnelSource<SeaTunnelRow, TDengineSourceSplit, TDengineSourceState> {
+    
     private SeaTunnelRowType seaTunnelRowType;
     private TDengineSourceConfig tdengineSourceConfig;
-
+    
     @Override
     public String getPluginName() {
         return "TDengine";
     }
-
+    
     @SneakyThrows
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
@@ -87,12 +87,12 @@ public class TDengineSource
                     "TDengine connection require url/database/stable/username/password. All of these must not be empty.");
         }
         tdengineSourceConfig = buildSourceConfig(pluginConfig);
-
+        
         // add subtable_name and tags to `seaTunnelRowType`
         SeaTunnelRowType originRowType = getSTableMetaInfo(tdengineSourceConfig);
         seaTunnelRowType = addHiddenAttribute(originRowType);
     }
-
+    
     @SneakyThrows
     private SeaTunnelRowType getSTableMetaInfo(TDengineSourceConfig config) {
         String jdbcUrl =
@@ -118,7 +118,7 @@ public class TDengineSource
         return new SeaTunnelRowType(
                 fieldNames.toArray(new String[0]), fieldTypes.toArray(new SeaTunnelDataType<?>[0]));
     }
-
+    
     private SeaTunnelRowType addHiddenAttribute(SeaTunnelRowType originRowType) {
         // 0-subtable_name / 1-n field_names /
         String[] fieldNames = ArrayUtils.add(originRowType.getFieldNames(), 0, "subtable_name");
@@ -127,33 +127,33 @@ public class TDengineSource
                 ArrayUtils.add(originRowType.getFieldTypes(), 0, BasicType.STRING_TYPE);
         return new SeaTunnelRowType(fieldNames, fieldTypes);
     }
-
+    
     @Override
     public Boundedness getBoundedness() {
         return Boundedness.BOUNDED;
     }
-
+    
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
         return seaTunnelRowType;
     }
-
+    
     @Override
     public SourceReader<SeaTunnelRow, TDengineSourceSplit> createReader(Context readerContext) {
         return new TDengineSourceReader(tdengineSourceConfig, readerContext);
     }
-
+    
     @Override
     public SourceSplitEnumerator<TDengineSourceSplit, TDengineSourceState> createEnumerator(
-            SourceSplitEnumerator.Context<TDengineSourceSplit> enumeratorContext) {
+                                                                                            SourceSplitEnumerator.Context<TDengineSourceSplit> enumeratorContext) {
         return new TDengineSourceSplitEnumerator(
                 seaTunnelRowType, tdengineSourceConfig, enumeratorContext);
     }
-
+    
     @Override
     public SourceSplitEnumerator<TDengineSourceSplit, TDengineSourceState> restoreEnumerator(
-            SourceSplitEnumerator.Context<TDengineSourceSplit> enumeratorContext,
-            TDengineSourceState checkpointState) {
+                                                                                             SourceSplitEnumerator.Context<TDengineSourceSplit> enumeratorContext,
+                                                                                             TDengineSourceState checkpointState) {
         return new TDengineSourceSplitEnumerator(
                 seaTunnelRowType, tdengineSourceConfig, checkpointState, enumeratorContext);
     }

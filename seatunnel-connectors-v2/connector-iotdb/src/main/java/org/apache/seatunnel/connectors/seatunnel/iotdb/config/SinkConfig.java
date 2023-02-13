@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.iotdb.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -37,9 +36,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 @Getter
 @ToString
 public class SinkConfig extends CommonConfig {
-
+    
     private static final int DEFAULT_BATCH_SIZE = 1024;
-
+    
     public static final Option<String> KEY_TIMESTAMP =
             Options.key("key_timestamp")
                     .stringType()
@@ -101,7 +100,7 @@ public class SinkConfig extends CommonConfig {
                     .intType()
                     .noDefaultValue()
                     .withDescription("connection timeout ms");
-
+    
     private String keyTimestamp;
     private String keyDevice;
     private List<String> keyMeasurementFields;
@@ -116,19 +115,19 @@ public class SinkConfig extends CommonConfig {
     private ZoneId zoneId;
     private Boolean enableRPCCompression;
     private Integer connectionTimeoutInMs;
-
+    
     public SinkConfig(
-            @NonNull List<String> nodeUrls, @NonNull String username, @NonNull String password) {
+                      @NonNull List<String> nodeUrls, @NonNull String username, @NonNull String password) {
         super(nodeUrls, username, password);
     }
-
+    
     public static SinkConfig loadConfig(Config pluginConfig) {
         SinkConfig sinkConfig =
                 new SinkConfig(
                         pluginConfig.getStringList(NODE_URLS.key()),
                         pluginConfig.getString(USERNAME.key()),
                         pluginConfig.getString(PASSWORD.key()));
-
+        
         sinkConfig.setKeyDevice(pluginConfig.getString(KEY_DEVICE.key()));
         if (pluginConfig.hasPath(KEY_TIMESTAMP.key())) {
             sinkConfig.setKeyTimestamp(pluginConfig.getString(KEY_TIMESTAMP.key()));
@@ -187,7 +186,7 @@ public class SinkConfig extends CommonConfig {
         }
         return sinkConfig;
     }
-
+    
     private static int checkIntArgument(int args) {
         checkArgument(args > 0);
         return args;

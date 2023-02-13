@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.core.starter.spark.execution;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -44,19 +43,21 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class SinkExecuteProcessor
-        extends SparkAbstractPluginExecuteProcessor<SeaTunnelSink<?, ?, ?, ?>> {
+        extends
+            SparkAbstractPluginExecuteProcessor<SeaTunnelSink<?, ?, ?, ?>> {
+    
     private static final String PLUGIN_TYPE = PluginType.SINK.getType();
-
+    
     protected SinkExecuteProcessor(
-            SparkRuntimeEnvironment sparkRuntimeEnvironment,
-            JobContext jobContext,
-            List<? extends Config> pluginConfigs) {
+                                   SparkRuntimeEnvironment sparkRuntimeEnvironment,
+                                   JobContext jobContext,
+                                   List<? extends Config> pluginConfigs) {
         super(sparkRuntimeEnvironment, jobContext, pluginConfigs);
     }
-
+    
     @Override
     protected List<SeaTunnelSink<?, ?, ?, ?>> initializePlugins(
-            List<? extends Config> pluginConfigs) {
+                                                                List<? extends Config> pluginConfigs) {
         SeaTunnelSinkPluginDiscovery sinkPluginDiscovery = new SeaTunnelSinkPluginDiscovery();
         List<URL> pluginJars = new ArrayList<>();
         List<SeaTunnelSink<?, ?, ?, ?>> sinks =
@@ -89,10 +90,9 @@ public class SinkExecuteProcessor
         sparkRuntimeEnvironment.registerPlugin(pluginJars);
         return sinks;
     }
-
+    
     @Override
-    public List<Dataset<Row>> execute(List<Dataset<Row>> upstreamDataStreams)
-            throws TaskExecuteException {
+    public List<Dataset<Row>> execute(List<Dataset<Row>> upstreamDataStreams) throws TaskExecuteException {
         Dataset<Row> input = upstreamDataStreams.get(0);
         for (int i = 0; i < plugins.size(); i++) {
             Config sinkConfig = pluginConfigs.get(i);

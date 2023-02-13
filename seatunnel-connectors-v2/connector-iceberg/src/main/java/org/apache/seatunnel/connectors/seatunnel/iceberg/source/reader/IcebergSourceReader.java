@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.iceberg.source.reader;
 
 import org.apache.seatunnel.api.source.Boundedness;
@@ -42,28 +41,28 @@ import java.util.Queue;
 
 @Slf4j
 public class IcebergSourceReader implements SourceReader<SeaTunnelRow, IcebergFileScanTaskSplit> {
-
+    
     private static final long POLL_WAIT_MS = 1000;
-
+    
     private final SourceReader.Context context;
     private final Queue<IcebergFileScanTaskSplit> pendingSplits;
     private final Deserializer deserializer;
     private final Schema tableSchema;
     private final Schema projectedSchema;
     private final SourceConfig sourceConfig;
-
+    
     private IcebergTableLoader icebergTableLoader;
     private IcebergFileScanTaskSplitReader icebergFileScanTaskSplitReader;
-
+    
     private IcebergFileScanTaskSplit currentReadSplit;
     private boolean noMoreSplitsAssignment;
-
+    
     public IcebergSourceReader(
-            @NonNull SourceReader.Context context,
-            @NonNull SeaTunnelRowType seaTunnelRowType,
-            @NonNull Schema tableSchema,
-            @NonNull Schema projectedSchema,
-            @NonNull SourceConfig sourceConfig) {
+                               @NonNull SourceReader.Context context,
+                               @NonNull SeaTunnelRowType seaTunnelRowType,
+                               @NonNull Schema tableSchema,
+                               @NonNull Schema projectedSchema,
+                               @NonNull SourceConfig sourceConfig) {
         this.context = context;
         this.pendingSplits = new LinkedList<>();
         this.deserializer = new DefaultDeserializer(seaTunnelRowType, projectedSchema);
@@ -71,12 +70,12 @@ public class IcebergSourceReader implements SourceReader<SeaTunnelRow, IcebergFi
         this.projectedSchema = projectedSchema;
         this.sourceConfig = sourceConfig;
     }
-
+    
     @Override
     public void open() {
         icebergTableLoader = IcebergTableLoader.create(sourceConfig);
         icebergTableLoader.open();
-
+        
         icebergFileScanTaskSplitReader =
                 new IcebergFileScanTaskSplitReader(
                         deserializer,
@@ -88,7 +87,7 @@ public class IcebergSourceReader implements SourceReader<SeaTunnelRow, IcebergFi
                                 .reuseContainers(true)
                                 .build());
     }
-
+    
     @Override
     public void close() throws IOException {
         if (icebergFileScanTaskSplitReader != null) {
@@ -96,21 +95,20 @@ public class IcebergSourceReader implements SourceReader<SeaTunnelRow, IcebergFi
         }
         icebergTableLoader.close();
     }
-
+    
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        for (IcebergFileScanTaskSplit pendingSplit = pendingSplits.poll();
-                pendingSplit != null;
-                pendingSplit = pendingSplits.poll()) {
+        for (IcebergFileScanTaskSplit pendingSplit = pendingSplits.poll(); pendingSplit != null; pendingSplit = pendingSplits.poll()) {
             currentReadSplit = pendingSplit;
-            try (CloseableIterator<SeaTunnelRow> rowIterator =
-                    icebergFileScanTaskSplitReader.open(currentReadSplit)) {
+            try (
+                    CloseableIterator<SeaTunnelRow> rowIterator =
+                            icebergFileScanTaskSplitReader.open(currentReadSplit)) {
                 while (rowIterator.hasNext()) {
                     output.collect(rowIterator.next());
                 }
             }
         }
-
+        
         if (noMoreSplitsAssignment && Boundedness.BOUNDED.equals(context.getBoundedness())) {
             context.signalNoMoreElement();
         } else {
@@ -120,7 +118,7 @@ public class IcebergSourceReader implements SourceReader<SeaTunnelRow, IcebergFi
             }
         }
     }
-
+    
     @Override
     public List<IcebergFileScanTaskSplit> snapshotState(long checkpointId) {
         List<IcebergFileScanTaskSplit> readerState = new ArrayList<>();
@@ -132,19 +130,20 @@ public class IcebergSourceReader implements SourceReader<SeaTunnelRow, IcebergFi
         }
         return readerState;
     }
-
+    
     @Override
     public void addSplits(List<IcebergFileScanTaskSplit> splits) {
         log.info("Add {} splits to reader", splits.size());
         pendingSplits.addAll(splits);
     }
-
+    
     @Override
     public void handleNoMoreSplits() {
         log.info("Reader received NoMoreSplits event.");
         noMoreSplitsAssignment = true;
     }
-
+    
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {
+    }
 }

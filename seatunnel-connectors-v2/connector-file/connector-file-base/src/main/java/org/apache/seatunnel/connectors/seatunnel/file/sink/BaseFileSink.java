@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.file.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -44,8 +43,9 @@ import java.util.List;
 import java.util.Optional;
 
 public abstract class BaseFileSink
-        implements SeaTunnelSink<
-                SeaTunnelRow, FileSinkState, FileCommitInfo, FileAggregatedCommitInfo> {
+        implements
+            SeaTunnelSink<SeaTunnelRow, FileSinkState, FileCommitInfo, FileAggregatedCommitInfo> {
+    
     protected SeaTunnelRowType seaTunnelRowType;
     protected Config pluginConfig;
     protected HadoopConf hadoopConf;
@@ -54,13 +54,13 @@ public abstract class BaseFileSink
     protected WriteStrategy writeStrategy;
     protected JobContext jobContext;
     protected String jobId;
-
+    
     @Override
     public void setJobContext(JobContext jobContext) {
         this.jobContext = jobContext;
         this.jobId = jobContext.getJobId();
     }
-
+    
     @Override
     public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         this.seaTunnelRowType = seaTunnelRowType;
@@ -71,45 +71,44 @@ public abstract class BaseFileSink
         this.writeStrategy.setSeaTunnelRowTypeInfo(seaTunnelRowType);
         this.writeStrategy.setFileSystemUtils(fileSystemUtils);
     }
-
+    
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
         return seaTunnelRowType;
     }
-
+    
     @Override
     public SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> restoreWriter(
-            SinkWriter.Context context, List<FileSinkState> states) throws IOException {
+                                                                                 SinkWriter.Context context, List<FileSinkState> states) throws IOException {
         return new BaseFileSinkWriter(writeStrategy, hadoopConf, context, jobId, states);
     }
-
+    
     @Override
-    public Optional<SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo>>
-            createAggregatedCommitter() throws IOException {
+    public Optional<SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo>> createAggregatedCommitter() throws IOException {
         return Optional.of(new FileSinkAggregatedCommitter(fileSystemUtils));
     }
-
+    
     @Override
     public SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> createWriter(
-            SinkWriter.Context context) throws IOException {
+                                                                                SinkWriter.Context context) throws IOException {
         return new BaseFileSinkWriter(writeStrategy, hadoopConf, context, jobId);
     }
-
+    
     @Override
     public Optional<Serializer<FileCommitInfo>> getCommitInfoSerializer() {
         return Optional.of(new DefaultSerializer<>());
     }
-
+    
     @Override
     public Optional<Serializer<FileAggregatedCommitInfo>> getAggregatedCommitInfoSerializer() {
         return Optional.of(new DefaultSerializer<>());
     }
-
+    
     @Override
     public Optional<Serializer<FileSinkState>> getWriterStateSerializer() {
         return Optional.of(new DefaultSerializer<>());
     }
-
+    
     /**
      * Use the pluginConfig to do some initialize operation.
      *

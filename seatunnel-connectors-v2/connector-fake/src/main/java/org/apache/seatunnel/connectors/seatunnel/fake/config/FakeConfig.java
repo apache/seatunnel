@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.fake.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -75,59 +74,85 @@ import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.T
 @Builder
 @Getter
 public class FakeConfig implements Serializable {
-    @Builder.Default private int rowNum = ROW_NUM.defaultValue();
-
-    @Builder.Default private int splitNum = SPLIT_NUM.defaultValue();
-
-    @Builder.Default private int splitReadInterval = SPLIT_READ_INTERVAL.defaultValue();
-
-    @Builder.Default private int mapSize = MAP_SIZE.defaultValue();
-
-    @Builder.Default private int arraySize = ARRAY_SIZE.defaultValue();
-
-    @Builder.Default private int bytesLength = BYTES_LENGTH.defaultValue();
-
-    @Builder.Default private int stringLength = STRING_LENGTH.defaultValue();
-
-    @Builder.Default private int tinyintMin = TINYINT_MIN.defaultValue();
-
-    @Builder.Default private int tinyintMax = TINYINT_MAX.defaultValue();
-
-    @Builder.Default private int smallintMin = SMALLINT_MIN.defaultValue();
-
-    @Builder.Default private int smallintMax = SMALLINT_MAX.defaultValue();
-
-    @Builder.Default private int intMin = INT_MIN.defaultValue();
-
-    @Builder.Default private int intMax = INT_MAX.defaultValue();
-
-    @Builder.Default private long bigintMin = BIGINT_MIN.defaultValue();
-
-    @Builder.Default private long bigintMax = BIGINT_MAX.defaultValue();
-
-    @Builder.Default private double floatMin = FLOAT_MIN.defaultValue();
-
-    @Builder.Default private double floatMax = FLOAT_MAX.defaultValue();
-
-    @Builder.Default private double doubleMin = DOUBLE_MIN.defaultValue();
-
-    @Builder.Default private double doubleMax = DOUBLE_MAX.defaultValue();
-
-    @Builder.Default private FakeOption.FakeMode stringFakeMode = STRING_FAKE_MODE.defaultValue();
-
-    @Builder.Default private FakeOption.FakeMode tinyintFakeMode = TINYINT_FAKE_MODE.defaultValue();
-
+    
+    @Builder.Default
+    private int rowNum = ROW_NUM.defaultValue();
+    
+    @Builder.Default
+    private int splitNum = SPLIT_NUM.defaultValue();
+    
+    @Builder.Default
+    private int splitReadInterval = SPLIT_READ_INTERVAL.defaultValue();
+    
+    @Builder.Default
+    private int mapSize = MAP_SIZE.defaultValue();
+    
+    @Builder.Default
+    private int arraySize = ARRAY_SIZE.defaultValue();
+    
+    @Builder.Default
+    private int bytesLength = BYTES_LENGTH.defaultValue();
+    
+    @Builder.Default
+    private int stringLength = STRING_LENGTH.defaultValue();
+    
+    @Builder.Default
+    private int tinyintMin = TINYINT_MIN.defaultValue();
+    
+    @Builder.Default
+    private int tinyintMax = TINYINT_MAX.defaultValue();
+    
+    @Builder.Default
+    private int smallintMin = SMALLINT_MIN.defaultValue();
+    
+    @Builder.Default
+    private int smallintMax = SMALLINT_MAX.defaultValue();
+    
+    @Builder.Default
+    private int intMin = INT_MIN.defaultValue();
+    
+    @Builder.Default
+    private int intMax = INT_MAX.defaultValue();
+    
+    @Builder.Default
+    private long bigintMin = BIGINT_MIN.defaultValue();
+    
+    @Builder.Default
+    private long bigintMax = BIGINT_MAX.defaultValue();
+    
+    @Builder.Default
+    private double floatMin = FLOAT_MIN.defaultValue();
+    
+    @Builder.Default
+    private double floatMax = FLOAT_MAX.defaultValue();
+    
+    @Builder.Default
+    private double doubleMin = DOUBLE_MIN.defaultValue();
+    
+    @Builder.Default
+    private double doubleMax = DOUBLE_MAX.defaultValue();
+    
+    @Builder.Default
+    private FakeOption.FakeMode stringFakeMode = STRING_FAKE_MODE.defaultValue();
+    
+    @Builder.Default
+    private FakeOption.FakeMode tinyintFakeMode = TINYINT_FAKE_MODE.defaultValue();
+    
     @Builder.Default
     private FakeOption.FakeMode smallintFakeMode = SMALLINT_FAKE_MODE.defaultValue();
-
-    @Builder.Default private FakeOption.FakeMode intFakeMode = INT_FAKE_MODE.defaultValue();
-
-    @Builder.Default private FakeOption.FakeMode bigintFakeMode = BIGINT_FAKE_MODE.defaultValue();
-
-    @Builder.Default private FakeOption.FakeMode floatFakeMode = FLOAT_FAKE_MODE.defaultValue();
-
-    @Builder.Default private FakeOption.FakeMode doubleFakeMode = DOUBLE_FAKE_MODE.defaultValue();
-
+    
+    @Builder.Default
+    private FakeOption.FakeMode intFakeMode = INT_FAKE_MODE.defaultValue();
+    
+    @Builder.Default
+    private FakeOption.FakeMode bigintFakeMode = BIGINT_FAKE_MODE.defaultValue();
+    
+    @Builder.Default
+    private FakeOption.FakeMode floatFakeMode = FLOAT_FAKE_MODE.defaultValue();
+    
+    @Builder.Default
+    private FakeOption.FakeMode doubleFakeMode = DOUBLE_FAKE_MODE.defaultValue();
+    
     private List<String> stringTemplate;
     private List<Integer> tinyintTemplate;
     private List<Integer> smallintTemplate;
@@ -135,17 +160,17 @@ public class FakeConfig implements Serializable {
     private List<Long> bigTemplate;
     private List<Double> floatTemplate;
     private List<Double> doubleTemplate;
-
+    
     private List<Integer> dateYearTemplate;
     private List<Integer> dateMonthTemplate;
     private List<Integer> dateDayTemplate;
-
+    
     private List<Integer> timeHourTemplate;
     private List<Integer> timeMinuteTemplate;
     private List<Integer> timeSecondTemplate;
-
+    
     private List<RowData> fakeRows;
-
+    
     public static FakeConfig buildWithConfig(Config config) {
         FakeConfigBuilder builder = FakeConfig.builder();
         if (config.hasPath(ROW_NUM.key())) {
@@ -408,13 +433,14 @@ public class FakeConfig implements Serializable {
         }
         return builder.build();
     }
-
+    
     @Getter
     @AllArgsConstructor
     public static class RowData implements Serializable {
+        
         static final String KEY_KIND = "kind";
         static final String KEY_FIELDS = "fields";
-
+        
         private String kind;
         private String fieldsJson;
     }

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.neo4j.config;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
@@ -35,24 +34,25 @@ import java.util.concurrent.TimeUnit;
 @Getter
 @Setter
 public class DriverBuilder implements Serializable {
+    
     private final URI uri;
     private String username;
     private String password;
     private String bearerToken;
     private String kerberosTicket;
     private String database;
-
+    
     private Long maxTransactionRetryTimeSeconds;
     private Long maxConnectionTimeoutSeconds;
-
+    
     public static DriverBuilder create(URI uri) {
         return new DriverBuilder(uri);
     }
-
+    
     private DriverBuilder(URI uri) {
         this.uri = uri;
     }
-
+    
     public Driver build() {
         final Config.ConfigBuilder configBuilder = Config.builder().withMaxConnectionPoolSize(1);
         if (maxConnectionTimeoutSeconds != null) {
@@ -66,7 +66,7 @@ public class DriverBuilder implements Serializable {
                     maxTransactionRetryTimeSeconds, TimeUnit.SECONDS);
         }
         Config config = configBuilder.build();
-
+        
         if (username != null) {
             return GraphDatabase.driver(uri, AuthTokens.basic(username, password), config);
         } else if (bearerToken != null) {

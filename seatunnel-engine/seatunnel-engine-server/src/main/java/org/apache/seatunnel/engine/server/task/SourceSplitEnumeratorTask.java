@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.api.serialization.Serializer;
@@ -68,25 +67,25 @@ import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTask
 
 @Slf4j
 public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends CoordinatorTask {
-
+    
     private static final long serialVersionUID = -3713701594297977775L;
-
+    
     private final SourceAction<?, SplitT, Serializable> source;
     private SourceSplitEnumerator<SplitT, Serializable> enumerator;
     private SeaTunnelSplitEnumeratorContext<SplitT> enumeratorContext;
-
+    
     private Serializer<Serializable> enumeratorStateSerializer;
-
+    
     private int maxReaderSize;
     private Set<Long> unfinishedReaders;
     private Map<TaskLocation, Address> taskMemberMapping;
     private Map<Long, TaskLocation> taskIDToTaskLocationMapping;
     private Map<Integer, TaskLocation> taskIndexToTaskLocationMapping;
-
+    
     private volatile SeaTunnelTaskState currState;
-
+    
     private volatile boolean readerRegisterComplete;
-
+    
     @Override
     public void init() throws Exception {
         currState = SeaTunnelTaskState.INIT;
@@ -104,7 +103,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         maxReaderSize = source.getParallelism();
         unfinishedReaders = new CopyOnWriteArraySet<>();
     }
-
+    
     @Override
     public void close() throws IOException {
         if (enumerator != null) {
@@ -112,21 +111,22 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         }
         progress.done();
     }
-
+    
     @SuppressWarnings("unchecked")
     public SourceSplitEnumeratorTask(
-            long jobID, TaskLocation taskID, SourceAction<?, SplitT, ?> source) {
+                                     long jobID, TaskLocation taskID, SourceAction<?, SplitT, ?> source) {
         super(jobID, taskID);
         this.source = (SourceAction<?, SplitT, Serializable>) source;
         this.currState = SeaTunnelTaskState.CREATED;
     }
-
-    @NonNull @Override
+    
+    @NonNull
+    @Override
     public ProgressState call() throws Exception {
         stateProcess();
         return progress.toState();
     }
-
+    
     @Override
     public void triggerBarrier(Barrier barrier) throws Exception {
         if (barrier.prepareClose()) {
@@ -155,7 +155,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                                                     Collections.singletonList(serialize)))));
         }
     }
-
+    
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
         Optional<Serializable> state =
@@ -173,17 +173,15 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         }
         restoreComplete.complete(null);
     }
-
-    public void addSplitsBack(List<SplitT> splits, int subtaskId)
-            throws ExecutionException, InterruptedException {
+    
+    public void addSplitsBack(List<SplitT> splits, int subtaskId) throws ExecutionException, InterruptedException {
         getEnumerator().addSplitsBack(splits, subtaskId);
     }
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
-    public void receivedReader(TaskLocation readerId, Address memberAddr)
-            throws InterruptedException, ExecutionException {
+    public void receivedReader(TaskLocation readerId, Address memberAddr) throws InterruptedException, ExecutionException {
         log.info("received reader register, readerID: " + readerId);
-
+        
         SourceSplitEnumerator<SplitT, Serializable> enumerator = getEnumerator();
         this.addTaskMemberMapping(readerId, memberAddr);
         enumerator.registerReader(readerId.getTaskIndex());
@@ -191,42 +189,40 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             readerRegisterComplete = true;
         }
     }
-
+    
     public void requestSplit(long taskIndex) throws ExecutionException, InterruptedException {
         getEnumerator().handleSplitRequest((int) taskIndex);
     }
-
-    public void handleSourceEvent(int subtaskId, SourceEvent sourceEvent)
-            throws ExecutionException, InterruptedException {
+    
+    public void handleSourceEvent(int subtaskId, SourceEvent sourceEvent) throws ExecutionException, InterruptedException {
         getEnumerator().handleSourceEvent(subtaskId, sourceEvent);
     }
-
+    
     public void addTaskMemberMapping(TaskLocation taskID, Address memberAdder) {
         taskMemberMapping.put(taskID, memberAdder);
         taskIDToTaskLocationMapping.put(taskID.getTaskID(), taskID);
         taskIndexToTaskLocationMapping.put(taskID.getTaskIndex(), taskID);
         unfinishedReaders.add(taskID.getTaskID());
     }
-
+    
     public Address getTaskMemberAddress(long taskID) {
         return taskMemberMapping.get(taskIDToTaskLocationMapping.get(taskID));
     }
-
+    
     public TaskLocation getTaskMemberLocation(long taskID) {
         return taskIDToTaskLocationMapping.get(taskID);
     }
-
+    
     public Address getTaskMemberAddressByIndex(int taskIndex) {
         return taskMemberMapping.get(taskIndexToTaskLocationMapping.get(taskIndex));
     }
-
+    
     public TaskLocation getTaskMemberLocationByIndex(int taskIndex) {
         return taskIndexToTaskLocationMapping.get(taskIndex);
     }
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
-    private SourceSplitEnumerator<SplitT, Serializable> getEnumerator()
-            throws InterruptedException, ExecutionException {
+    private SourceSplitEnumerator<SplitT, Serializable> getEnumerator() throws InterruptedException, ExecutionException {
         // (restoreComplete == null) means that the Task has not yet executed Init, so we need to
         // wait.
         while (null == restoreComplete) {
@@ -236,14 +232,14 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         restoreComplete.get();
         return enumerator;
     }
-
+    
     public void readerFinished(long taskID) {
         unfinishedReaders.remove(taskID);
         if (unfinishedReaders.isEmpty()) {
             prepareCloseStatus = true;
         }
     }
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     private void stateProcess() throws Exception {
         switch (currState) {
@@ -288,7 +284,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             case CLOSED:
                 this.close();
                 return;
-                // TODO support cancel by outside
+            // TODO support cancel by outside
             case CANCELLING:
                 this.close();
                 currState = CANCELED;
@@ -297,28 +293,27 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                 throw new IllegalArgumentException("Unknown Enumerator State: " + currState);
         }
     }
-
+    
     public Set<Integer> getRegisteredReaders() {
         return taskMemberMapping.keySet().stream()
                 .map(TaskLocation::getTaskIndex)
                 .collect(Collectors.toSet());
     }
-
+    
     private void sendToAllReader(Function<TaskLocation, Operation> function) {
         List<InvocationFuture<?>> futures = new ArrayList<>();
         taskMemberMapping.forEach(
-                (location, address) ->
-                        futures.add(
-                                this.getExecutionContext()
-                                        .sendToMember(function.apply(location), address)));
+                (location, address) -> futures.add(
+                        this.getExecutionContext()
+                                .sendToMember(function.apply(location), address)));
         futures.forEach(InvocationFuture::join);
     }
-
+    
     @Override
     public Set<URL> getJarsUrl() {
         return new HashSet<>(source.getJarUrls());
     }
-
+    
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         getEnumerator().notifyCheckpointComplete(checkpointId);
@@ -326,7 +321,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             closeCall();
         }
     }
-
+    
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         getEnumerator().notifyCheckpointAborted(checkpointId);

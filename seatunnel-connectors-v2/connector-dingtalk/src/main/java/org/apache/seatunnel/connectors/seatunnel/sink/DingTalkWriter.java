@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -38,34 +37,35 @@ import java.util.Base64;
 
 /** DingTalk write class */
 public class DingTalkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
-
+    
     private RobotClient robotClient;
-
+    
     public DingTalkWriter(String url, String secret) {
         this.robotClient = new RobotClient(url, secret);
     }
-
+    
     @Override
     public void write(SeaTunnelRow element) throws IOException {
         robotClient.send(element.toString());
     }
-
+    
     @Override
-    public void close() throws IOException {}
-
+    public void close() throws IOException {
+    }
+    
     private static class RobotClient implements Serializable {
-
+        
         private String url;
-
+        
         private String secret;
-
+        
         private DefaultDingTalkClient client;
-
+        
         public RobotClient(String url, String secret) {
             this.url = url;
             this.secret = secret;
         }
-
+        
         public OapiRobotSendResponse send(String message) throws IOException {
             if (null == client) {
                 client = new DefaultDingTalkClient(getUrl());
@@ -84,13 +84,13 @@ public class DingTalkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                         e);
             }
         }
-
+        
         public String getUrl() throws IOException {
             Long timestamp = System.currentTimeMillis();
             String sign = getSign(timestamp);
             return url + "&timestamp=" + timestamp + "&sign=" + sign;
         }
-
+        
         public String getSign(Long timestamp) throws IOException {
             try {
                 String stringToSign = timestamp + "\n" + secret;

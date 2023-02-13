@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -32,20 +31,21 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.b
 @Data
 @AllArgsConstructor
 public class JdbcSinkOptions implements Serializable {
+    
     private JdbcConnectionOptions jdbcConnectionOptions;
     private boolean isExactlyOnce;
     public String simpleSQL;
     private String table;
     private List<String> primaryKeys;
     private boolean supportUpsertByQueryPrimaryKeyExist;
-
+    
     public JdbcSinkOptions(Config config) {
         this.jdbcConnectionOptions = buildJdbcConnectionOptions(config);
         if (config.hasPath(JdbcConfig.IS_EXACTLY_ONCE.key())
                 && config.getBoolean(JdbcConfig.IS_EXACTLY_ONCE.key())) {
             this.isExactlyOnce = true;
         }
-
+        
         if (config.hasPath(JdbcConfig.TABLE.key())) {
             this.table = config.getString(JdbcConfig.TABLE.key());
             if (config.hasPath(JdbcConfig.PRIMARY_KEYS.key())) {

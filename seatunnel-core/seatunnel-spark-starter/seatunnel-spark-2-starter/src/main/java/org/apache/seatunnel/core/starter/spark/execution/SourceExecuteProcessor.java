@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.core.starter.spark.execution;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -42,16 +41,18 @@ import java.util.List;
 import java.util.Set;
 
 public class SourceExecuteProcessor
-        extends SparkAbstractPluginExecuteProcessor<SeaTunnelSource<?, ?, ?>> {
+        extends
+            SparkAbstractPluginExecuteProcessor<SeaTunnelSource<?, ?, ?>> {
+    
     private static final String PLUGIN_TYPE = "source";
-
+    
     public SourceExecuteProcessor(
-            SparkRuntimeEnvironment sparkEnvironment,
-            JobContext jobContext,
-            List<? extends Config> sourceConfigs) {
+                                  SparkRuntimeEnvironment sparkEnvironment,
+                                  JobContext jobContext,
+                                  List<? extends Config> sourceConfigs) {
         super(sparkEnvironment, jobContext, sourceConfigs);
     }
-
+    
     @Override
     public List<Dataset<Row>> execute(List<Dataset<Row>> upstreamDataStreams) {
         List<Dataset<Row>> sources = new ArrayList<>();
@@ -79,18 +80,17 @@ public class SourceExecuteProcessor
                                     Constants.SOURCE_SERIALIZATION,
                                     SerializationUtils.objectToString(source))
                             .schema(
-                                    (StructType)
-                                            TypeConverterUtils.convert(source.getProducedType()))
+                                    (StructType) TypeConverterUtils.convert(source.getProducedType()))
                             .load();
             sources.add(dataset);
             registerInputTempView(pluginConfigs.get(i), dataset);
         }
         return sources;
     }
-
+    
     @Override
     protected List<SeaTunnelSource<?, ?, ?>> initializePlugins(
-            List<? extends Config> pluginConfigs) {
+                                                               List<? extends Config> pluginConfigs) {
         SeaTunnelSourcePluginDiscovery sourcePluginDiscovery = new SeaTunnelSourcePluginDiscovery();
         List<SeaTunnelSource<?, ?, ?>> sources = new ArrayList<>();
         Set<URL> jars = new HashSet<>();

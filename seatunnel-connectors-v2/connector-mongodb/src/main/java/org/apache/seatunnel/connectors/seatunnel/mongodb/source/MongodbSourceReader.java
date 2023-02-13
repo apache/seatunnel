@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.mongodb.source;
 
 import org.apache.seatunnel.api.source.Boundedness;
@@ -43,25 +42,26 @@ import java.util.Optional;
 
 @Slf4j
 public class MongodbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
-        implements SupportColumnProjection {
-
+        implements
+            SupportColumnProjection {
+    
     private final SingleSplitReaderContext context;
-
+    
     private MongoClient client;
-
+    
     private final MongodbConfig params;
-
+    
     private final Deserializer deserializer;
-
+    
     private final Bson projectionFields;
-
+    
     private final boolean useSimpleTextSchema;
-
+    
     MongodbSourceReader(
-            SingleSplitReaderContext context,
-            MongodbConfig params,
-            SeaTunnelRowType rowType,
-            boolean useSimpleTextSchema) {
+                        SingleSplitReaderContext context,
+                        MongodbConfig params,
+                        SeaTunnelRowType rowType,
+                        boolean useSimpleTextSchema) {
         this.context = context;
         this.params = params;
         this.useSimpleTextSchema = useSimpleTextSchema;
@@ -75,34 +75,35 @@ public class MongodbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
                             Projections.include(rowType.getFieldNames()), Projections.excludeId());
         }
     }
-
+    
     @Override
     public void open() throws Exception {
         client = MongoClients.create(params.getUri());
     }
-
+    
     @Override
     public void close() throws IOException {
         if (client != null) {
             client.close();
         }
     }
-
+    
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        try (MongoCursor<Document> mongoCursor =
-                client.getDatabase(params.getDatabase())
-                        .getCollection(params.getCollection())
-                        .find(
-                                Optional.ofNullable(params.getMatchQuery()).isPresent()
-                                        ? BsonDocument.parse(params.getMatchQuery())
-                                        : new BsonDocument())
-                        .projection(projectionFields)
-                        .iterator()) {
+        try (
+                MongoCursor<Document> mongoCursor =
+                        client.getDatabase(params.getDatabase())
+                                .getCollection(params.getCollection())
+                                .find(
+                                        Optional.ofNullable(params.getMatchQuery()).isPresent()
+                                                ? BsonDocument.parse(params.getMatchQuery())
+                                                : new BsonDocument())
+                                .projection(projectionFields)
+                                .iterator()) {
             while (mongoCursor.hasNext()) {
                 Document document = mongoCursor.next();
                 if (useSimpleTextSchema) {
-                    output.collect(new SeaTunnelRow(new Object[] {document.toJson()}));
+                    output.collect(new SeaTunnelRow(new Object[]{document.toJson()}));
                 } else {
                     output.collect(deserializer.deserialize(document));
                 }

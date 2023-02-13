@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -38,7 +37,7 @@ import java.util.Map;
 import java.util.Objects;
 
 public class JdbcOracledbIT extends AbstractJdbcIT {
-
+    
     private static final String DOCKER_IMAGE = "gvenzl/oracle-xe:18.4.0-slim";
     private static final String NETWORK_ALIASES = "e2e_oracleDb";
     private static final String DRIVER_CLASS = "oracle.jdbc.OracleDriver";
@@ -111,7 +110,7 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
                     + ")values(\n"
                     + "\t?,?,?,?,?,?,?,?,?,?,?,?,rawtohex(?),rawtohex(?)\n"
                     + ")";
-
+    
     @Override
     JdbcCase getJdbcCase() {
         Map<String, String> containerEnv = new HashMap<>();
@@ -142,7 +141,7 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
                 .seaTunnelRow(initTestData())
                 .build();
     }
-
+    
     @Override
     void compareResult() throws SQLException, IOException {
         String sourceSql = "select * from " + SOURCE_TABLE;
@@ -174,7 +173,7 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
                         Object source = sourceResultSet.getObject(column);
                         Object sink = sinkResultSet.getObject(column);
                         if (!Objects.deepEquals(source, sink)) {
-
+                            
                             InputStream sourceAsciiStream = sourceResultSet.getBinaryStream(column);
                             InputStream sinkAsciiStream = sinkResultSet.getBinaryStream(column);
                             String sourceValue =
@@ -192,35 +191,36 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
         }
         clearSinkTable();
     }
-
+    
     @Override
     void clearSinkTable() {
-        try (Statement statement =
-                initializeJdbcConnection(jdbcCase.getJdbcUrl()).createStatement()) {
+        try (
+                Statement statement =
+                        initializeJdbcConnection(jdbcCase.getJdbcUrl()).createStatement()) {
             statement.execute(String.format("TRUNCATE TABLE %s", SINK_TABLE));
         } catch (Exception e) {
             throw new RuntimeException("test oracle server image error", e);
         }
     }
-
+    
     @Override
     SeaTunnelRow initTestData() {
         return new SeaTunnelRow(
-                new Object[] {
-                    "varchar",
-                    "char10col1",
-                    "clobS",
-                    1.12,
-                    2022,
-                    1.2222,
-                    1.22222,
-                    1.22222,
-                    1.22222,
-                    LocalDate.now(),
-                    LocalDateTime.now(),
-                    LocalDateTime.now(),
-                    "raw",
-                    "blob"
+                new Object[]{
+                        "varchar",
+                        "char10col1",
+                        "clobS",
+                        1.12,
+                        2022,
+                        1.2222,
+                        1.22222,
+                        1.22222,
+                        1.22222,
+                        LocalDate.now(),
+                        LocalDateTime.now(),
+                        LocalDateTime.now(),
+                        "raw",
+                        "blob"
                 });
     }
 }

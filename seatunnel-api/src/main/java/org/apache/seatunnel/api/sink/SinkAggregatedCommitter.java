@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.api.sink;
 
 import java.io.IOException;
@@ -31,7 +30,7 @@ import java.util.List;
  * @param <AggregatedCommitInfoT> The type of commit message after combine.
  */
 public interface SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> extends Serializable {
-
+    
     /**
      * Commit message to third party data receiver, The method need to achieve idempotency.
      *
@@ -39,9 +38,8 @@ public interface SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> ext
      * @return The commit message which need retry.
      * @throws IOException throw IOException when commit failed.
      */
-    List<AggregatedCommitInfoT> commit(List<AggregatedCommitInfoT> aggregatedCommitInfo)
-            throws IOException;
-
+    List<AggregatedCommitInfoT> commit(List<AggregatedCommitInfoT> aggregatedCommitInfo) throws IOException;
+    
     /**
      * The logic about how to combine commit message.
      *
@@ -49,7 +47,7 @@ public interface SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> ext
      * @return The commit message after combine.
      */
     AggregatedCommitInfoT combine(List<CommitInfoT> commitInfos);
-
+    
     /**
      * If {@link #commit(List)} failed, this method will be called (**Only** on Spark engine at
      * now).
@@ -58,7 +56,7 @@ public interface SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> ext
      * @throws Exception throw Exception when abort failed.
      */
     void abort(List<AggregatedCommitInfoT> aggregatedCommitInfo) throws Exception;
-
+    
     /**
      * Close this resource.
      *

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.clickhouse;
 
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -50,6 +49,7 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestResource {
+    
     private static final String CLICKHOUSE_DOCKER_IMAGE = "clickhouse/clickhouse-server:latest";
     private static final String HOST = "clickhouse";
     private static final String DRIVER_CLASS = "com.clickhouse.jdbc.ClickHouseDriver";
@@ -57,7 +57,7 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
     private static final String SINK_TABLE = "sink_table";
     private ClickHouseContainer container;
     private Connection connection;
-
+    
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -77,7 +77,7 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
                 .atMost(360L, TimeUnit.SECONDS)
                 .untilAsserted(this::initConnection);
     }
-
+    
     @AfterAll
     @Override
     public void tearDown() throws Exception {
@@ -88,28 +88,27 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
             this.container.stop();
         }
     }
-
+    
     @TestTemplate
     public void testClickhouseMergeTreeTable(TestContainer container) throws Exception {
         initializeClickhouseMergeTreeTable();
-
+        
         Container.ExecResult execResult =
                 container.executeJob("/clickhouse_sink_cdc_changelog_case1.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-
+        
         checkSinkTableRows();
         dropSinkTable();
     }
-
+    
     @TestTemplate
-    public void testClickhouseMergeTreeTableWithEnableDelete(TestContainer container)
-            throws Exception {
+    public void testClickhouseMergeTreeTableWithEnableDelete(TestContainer container) throws Exception {
         initializeClickhouseMergeTreeTable();
-
+        
         Container.ExecResult execResult =
                 container.executeJob("/clickhouse_sink_cdc_changelog_case2.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-
+        
         Awaitility.given()
                 .ignoreExceptions()
                 .await()
@@ -118,32 +117,31 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
                 .untilAsserted(this::checkSinkTableRows);
         dropSinkTable();
     }
-
+    
     @TestTemplate
     public void testClickhouseReplacingMergeTreeTable(TestContainer container) throws Exception {
         initializeClickhouseReplacingMergeTreeTable();
-
+        
         Container.ExecResult execResult =
                 container.executeJob("/clickhouse_sink_cdc_changelog_case1.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-
+        
         checkSinkTableRows();
         dropSinkTable();
     }
-
+    
     @TestTemplate
-    public void testClickhouseReplacingMergeTreeTableWithEnableDelete(TestContainer container)
-            throws Exception {
+    public void testClickhouseReplacingMergeTreeTableWithEnableDelete(TestContainer container) throws Exception {
         initializeClickhouseReplacingMergeTreeTable();
-
+        
         Container.ExecResult execResult =
                 container.executeJob("/clickhouse_sink_cdc_changelog_case2.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-
+        
         checkSinkTableRows();
         dropSinkTable();
     }
-
+    
     private void initConnection() throws Exception {
         final Properties info = new Properties();
         info.put("user", this.container.getUsername());
@@ -152,7 +150,7 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
                 ((Driver) Class.forName(DRIVER_CLASS).newInstance())
                         .connect(this.container.getJdbcUrl(), info);
     }
-
+    
     private void initializeClickhouseMergeTreeTable() {
         try {
             Statement statement = this.connection.createStatement();
@@ -169,7 +167,7 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
             throw new RuntimeException("Initializing Clickhouse table failed!", e);
         }
     }
-
+    
     private void initializeClickhouseReplacingMergeTreeTable() {
         try {
             Statement statement = this.connection.createStatement();
@@ -186,7 +184,7 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
             throw new RuntimeException("Initializing Clickhouse table failed!", e);
         }
     }
-
+    
     private void checkSinkTableRows() throws SQLException {
         Set<List<Object>> actual = new HashSet<>();
         try (Statement statement = connection.createStatement()) {
@@ -213,7 +211,7 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
                             Arrays.toString(expected.toArray())));
         }
     }
-
+    
     private void dropSinkTable() {
         try (Statement statement = connection.createStatement()) {
             statement.execute(

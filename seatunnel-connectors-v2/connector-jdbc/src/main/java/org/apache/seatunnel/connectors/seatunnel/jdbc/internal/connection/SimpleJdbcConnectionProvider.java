@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
@@ -38,16 +37,16 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 /** Simple JDBC connection provider. */
 public class SimpleJdbcConnectionProvider implements JdbcConnectionProvider, Serializable {
-
+    
     private static final Logger LOG = LoggerFactory.getLogger(SimpleJdbcConnectionProvider.class);
-
+    
     private static final long serialVersionUID = 1L;
-
+    
     private final JdbcConnectionOptions jdbcOptions;
-
+    
     private transient Driver loadedDriver;
     private transient Connection connection;
-
+    
     static {
         // Load DriverManager first to avoid deadlock between DriverManager's
         // static initialization block and specific driver class's static
@@ -59,22 +58,22 @@ public class SimpleJdbcConnectionProvider implements JdbcConnectionProvider, Ser
         // moved out of DriverManager's static initialization block since JDK 9.
         DriverManager.getDrivers();
     }
-
+    
     public SimpleJdbcConnectionProvider(@NonNull JdbcConnectionOptions jdbcOptions) {
         this.jdbcOptions = jdbcOptions;
     }
-
+    
     @Override
     public Connection getConnection() {
         return connection;
     }
-
+    
     @Override
     public boolean isConnectionValid() throws SQLException {
         return connection != null
                 && connection.isValid(jdbcOptions.getConnectionCheckTimeoutSeconds());
     }
-
+    
     private static Driver loadDriver(String driverName) throws ClassNotFoundException {
         checkNotNull(driverName);
         Enumeration<Driver> drivers = DriverManager.getDrivers();
@@ -84,7 +83,7 @@ public class SimpleJdbcConnectionProvider implements JdbcConnectionProvider, Ser
                 return driver;
             }
         }
-
+        
         // We could reach here for reasons:
         // * Class loader hell of DriverManager(see JDK-8146872).
         // * driver is not installed as a service provider.
@@ -99,14 +98,14 @@ public class SimpleJdbcConnectionProvider implements JdbcConnectionProvider, Ser
                     ex);
         }
     }
-
+    
     private Driver getLoadedDriver() throws SQLException, ClassNotFoundException {
         if (loadedDriver == null) {
             loadedDriver = loadDriver(jdbcOptions.getDriverName());
         }
         return loadedDriver;
     }
-
+    
     @Override
     public Connection getOrEstablishConnection() throws SQLException, ClassNotFoundException {
         if (connection != null) {
@@ -128,12 +127,12 @@ public class SimpleJdbcConnectionProvider implements JdbcConnectionProvider, Ser
                     JdbcConnectorErrorCode.NO_SUITABLE_DRIVER,
                     "No suitable driver found for " + jdbcOptions.getUrl());
         }
-
+        
         connection.setAutoCommit(jdbcOptions.isAutoCommit());
-
+        
         return connection;
     }
-
+    
     @Override
     public void closeConnection() {
         if (connection != null) {
@@ -146,7 +145,7 @@ public class SimpleJdbcConnectionProvider implements JdbcConnectionProvider, Ser
             }
         }
     }
-
+    
     @Override
     public Connection reestablishConnection() throws SQLException, ClassNotFoundException {
         closeConnection();

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.translation.source;
 
 import org.apache.seatunnel.api.serialization.Serializer;
@@ -41,42 +40,44 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import static org.apache.seatunnel.translation.source.CoordinatedSource.SLEEP_TIME_INTERVAL;
 
 public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serializable>
-        implements BaseSourceFunction<T> {
+        implements
+            BaseSourceFunction<T> {
+    
     private static final Logger LOG = LoggerFactory.getLogger(ParallelSource.class);
-
+    
     protected final SeaTunnelSource<T, SplitT, StateT> source;
     protected final ParallelEnumeratorContext<SplitT> parallelEnumeratorContext;
     protected final ParallelReaderContext readerContext;
     protected final Integer subtaskId;
     protected final Integer parallelism;
-
+    
     protected final Serializer<SplitT> splitSerializer;
     protected final Serializer<StateT> enumeratorStateSerializer;
-
+    
     protected final List<SplitT> restoredSplitState;
-
+    
     protected final SourceSplitEnumerator<SplitT, StateT> splitEnumerator;
     protected final SourceReader<T, SplitT> reader;
     protected transient volatile ScheduledThreadPoolExecutor executorService;
-
+    
     /** Flag indicating whether the consumer is still running. */
     private volatile boolean running = true;
-
+    
     public ParallelSource(
-            SeaTunnelSource<T, SplitT, StateT> source,
-            Map<Integer, List<byte[]>> restoredState,
-            int parallelism,
-            int subtaskId) {
+                          SeaTunnelSource<T, SplitT, StateT> source,
+                          Map<Integer, List<byte[]>> restoredState,
+                          int parallelism,
+                          int subtaskId) {
         this.source = source;
         this.subtaskId = subtaskId;
         this.parallelism = parallelism;
-
+        
         this.splitSerializer = source.getSplitSerializer();
         this.enumeratorStateSerializer = source.getEnumeratorStateSerializer();
         this.parallelEnumeratorContext =
                 new ParallelEnumeratorContext<>(this, parallelism, subtaskId);
         this.readerContext = new ParallelReaderContext(this, source.getBoundedness(), subtaskId);
-
+        
         // Create or restore split enumerator & reader
         try {
             if (restoredState != null && restoredState.size() > 0) {
@@ -89,7 +90,7 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
                 for (byte[] splitBytes : restoredState.get(subtaskId)) {
                     restoredSplitState.add(splitSerializer.deserialize(splitBytes));
                 }
-
+                
                 splitEnumerator =
                         source.restoreEnumerator(
                                 parallelEnumeratorContext, restoredEnumeratorState);
@@ -102,7 +103,7 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
             throw new RuntimeException(e);
         }
     }
-
+    
     @Override
     public void open() throws Exception {
         executorService =
@@ -116,7 +117,7 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
         parallelEnumeratorContext.register();
         splitEnumerator.registerReader(subtaskId);
     }
-
+    
     @Override
     public void run(Collector<T> collector) throws Exception {
         Future<?> future =
@@ -128,7 +129,7 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
                                 throw new RuntimeException("SourceSplitEnumerator run failed.", e);
                             }
                         });
-
+        
         while (running) {
             if (future.isDone()) {
                 future.get();
@@ -138,61 +139,61 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
         }
         LOG.debug("Parallel source runs complete.");
     }
-
+    
     @Override
     public void close() throws IOException {
         // set ourselves as not running;
         // this would let the main discovery loop escape as soon as possible
         running = false;
-
+        
         if (executorService != null) {
             LOG.debug("Close the thread pool resource.");
             executorService.shutdown();
         }
-
+        
         if (splitEnumerator != null) {
             LOG.debug("Close the split enumerator for the Apache SeaTunnel source.");
             splitEnumerator.close();
         }
-
+        
         if (reader != null) {
             LOG.debug("Close the data reader for the Apache SeaTunnel source.");
             reader.close();
         }
     }
-
+    
     // --------------------------------------------------------------------------------------------
     // Reader context methods
     // --------------------------------------------------------------------------------------------
-
+    
     protected void handleNoMoreElement() {
         running = false;
     }
-
+    
     protected void handleSplitRequest(int subtaskId) {
         splitEnumerator.handleSplitRequest(subtaskId);
     }
-
+    
     // --------------------------------------------------------------------------------------------
     // Enumerator context methods
     // --------------------------------------------------------------------------------------------
-
+    
     protected void addSplits(List<SplitT> splits) {
         reader.addSplits(splits);
     }
-
+    
     protected void handleNoMoreSplits() {
         reader.handleNoMoreSplits();
     }
-
+    
     // --------------------------------------------------------------------------------------------
     // Checkpoint & state
     // --------------------------------------------------------------------------------------------
-
+    
     @Override
     public Map<Integer, List<byte[]>> snapshotState(long checkpointId) throws Exception {
         Map<Integer, List<byte[]>> allStates = new HashMap<>(2);
-
+        
         StateT enumeratorState = splitEnumerator.snapshotState(checkpointId);
         if (enumeratorState != null) {
             byte[] enumeratorStateBytes = enumeratorStateSerializer.serialize(enumeratorState);
@@ -208,13 +209,13 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
         }
         return allStates;
     }
-
+    
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         splitEnumerator.notifyCheckpointComplete(checkpointId);
         reader.notifyCheckpointComplete(checkpointId);
     }
-
+    
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         splitEnumerator.notifyCheckpointAborted(checkpointId);

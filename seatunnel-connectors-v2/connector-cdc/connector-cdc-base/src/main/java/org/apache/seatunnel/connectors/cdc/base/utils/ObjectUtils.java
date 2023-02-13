@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.cdc.base.utils;
 
 import java.math.BigDecimal;
@@ -22,7 +21,7 @@ import java.math.BigInteger;
 
 /** Utilities for operation on {@link Object}. */
 public class ObjectUtils {
-
+    
     /**
      * Returns a number {@code Object} whose value is {@code (number + augend)}, Note: This method
      * will throw {@link ArithmeticException} if number overflows.
@@ -43,7 +42,7 @@ public class ObjectUtils {
                             number.getClass().getSimpleName()));
         }
     }
-
+    
     /** Returns the difference {@code BigDecimal} whose value is {@code (minuend - subtrahend)}. */
     public static BigDecimal minus(Object minuend, Object subtrahend) {
         if (!minuend.getClass().equals(subtrahend.getClass())) {
@@ -70,7 +69,7 @@ public class ObjectUtils {
                             minuend.getClass().getSimpleName()));
         }
     }
-
+    
     /**
      * Compares two comparable objects.
      *
@@ -86,7 +85,7 @@ public class ObjectUtils {
         Comparable<Object> c2 = (Comparable<Object>) obj2;
         return c1.compareTo(c2);
     }
-
+    
     /**
      * Compares two Double numeric object.
      *

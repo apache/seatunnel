@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.api.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -27,7 +26,7 @@ import java.util.Locale;
 
 /** The Sink Connectors which support data SaveMode should implement this interface */
 public interface SupportDataSaveMode {
-
+    
     /**
      * We hope every sink connector use the same option name to config SaveMode, So I add
      * checkOptions method to this interface. checkOptions method have a default implement to check
@@ -47,21 +46,21 @@ public interface SupportDataSaveMode {
             }
         }
     }
-
+    
     /**
      * Get the {@link DataSaveMode} that the user configured
      *
      * @return DataSaveMode
      */
     DataSaveMode getDataSaveMode();
-
+    
     /**
      * Return the {@link DataSaveMode} list supported by this connector
      *
      * @return the list of supported data save modes
      */
     List<DataSaveMode> supportedDataSaveModeValues();
-
+    
     /**
      * The implementation of specific logic according to different {@link DataSaveMode}
      *

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.cassandra.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -34,7 +33,7 @@ import java.util.List;
 @ToString
 @NoArgsConstructor
 public class CassandraConfig implements Serializable {
-
+    
     public static final String HOST = "host";
     public static final String USERNAME = "username";
     public static final String PASSWORD = "password";
@@ -47,7 +46,7 @@ public class CassandraConfig implements Serializable {
     public static final String BATCH_SIZE = "batch_size";
     public static final String BATCH_TYPE = "batch_type";
     public static final String ASYNC_WRITE = "async_write";
-
+    
     private String host;
     private String username;
     private String password;
@@ -60,12 +59,12 @@ public class CassandraConfig implements Serializable {
     private Integer batchSize;
     private DefaultBatchType batchType;
     private Boolean asyncWrite;
-
+    
     public CassandraConfig(@NonNull String host, @NonNull String keyspace) {
         this.host = host;
         this.keyspace = keyspace;
     }
-
+    
     public static CassandraConfig getCassandraConfig(Config config) {
         CassandraConfig cassandraConfig =
                 new CassandraConfig(config.getString(HOST), config.getString(KEYSPACE));

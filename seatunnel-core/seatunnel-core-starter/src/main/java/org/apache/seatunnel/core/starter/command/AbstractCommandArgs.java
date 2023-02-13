@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.core.starter.command;
 
 import org.apache.seatunnel.common.Constants;
@@ -31,30 +30,22 @@ import java.util.List;
 @EqualsAndHashCode(callSuper = true)
 @Data
 public abstract class AbstractCommandArgs extends CommandArgs {
-
+    
     /** config file path */
-    @Parameter(
-            names = {"-c", "--config"},
-            description = "Config file")
+    @Parameter(names = {"-c", "--config"}, description = "Config file")
     protected String configFile;
-
+    
     /** user-defined parameters */
-    @Parameter(
-            names = {"-i", "--variable"},
-            description = "Variable substitution, such as -i city=beijing, or -i date=20190318")
+    @Parameter(names = {"-i", "--variable"}, description = "Variable substitution, such as -i city=beijing, or -i date=20190318")
     protected List<String> variables = Collections.emptyList();
-
+    
     /** check config flag */
-    @Parameter(
-            names = {"--check"},
-            description = "Whether check config")
+    @Parameter(names = {"--check"}, description = "Whether check config")
     protected boolean checkConfig = false;
-
+    
     /** SeaTunnel job name */
-    @Parameter(
-            names = {"-n", "--name"},
-            description = "SeaTunnel job name")
+    @Parameter(names = {"-n", "--name"}, description = "SeaTunnel job name")
     protected String jobName = Constants.LOGO;
-
+    
     public abstract DeployMode getDeployMode();
 }

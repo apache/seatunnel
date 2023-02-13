@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.influxdb.serialize;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -39,21 +38,22 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class DefaultSerializer implements Serializer {
+    
     private final SeaTunnelRowType seaTunnelRowType;
-
+    
     private final BiConsumer<SeaTunnelRow, Point.Builder> timestampExtractor;
     private final BiConsumer<SeaTunnelRow, Point.Builder> fieldExtractor;
     private final BiConsumer<SeaTunnelRow, Point.Builder> tagExtractor;
     private final String measurement;
-
+    
     private final TimeUnit precision;
-
+    
     public DefaultSerializer(
-            SeaTunnelRowType seaTunnelRowType,
-            TimeUnit precision,
-            List<String> tagKeys,
-            String timestampKey,
-            String measurement) {
+                             SeaTunnelRowType seaTunnelRowType,
+                             TimeUnit precision,
+                             List<String> tagKeys,
+                             String timestampKey,
+                             String measurement) {
         this.measurement = measurement;
         this.seaTunnelRowType = seaTunnelRowType;
         this.timestampExtractor = createTimestampExtractor(seaTunnelRowType, timestampKey);
@@ -62,7 +62,7 @@ public class DefaultSerializer implements Serializer {
         this.fieldExtractor = createFieldExtractor(seaTunnelRowType, fieldKeys);
         this.precision = precision;
     }
-
+    
     @Override
     public Point serialize(SeaTunnelRow seaTunnelRow) {
         Point.Builder builder = Point.measurement(measurement);
@@ -71,9 +71,9 @@ public class DefaultSerializer implements Serializer {
         fieldExtractor.accept(seaTunnelRow, builder);
         return builder.build();
     }
-
+    
     private BiConsumer<SeaTunnelRow, Point.Builder> createFieldExtractor(
-            SeaTunnelRowType seaTunnelRowType, List<String> fieldKeys) {
+                                                                         SeaTunnelRowType seaTunnelRowType, List<String> fieldKeys) {
         return (row, builder) -> {
             for (String field : fieldKeys) {
                 int indexOfSeaTunnelRow = seaTunnelRowType.indexOf(field);
@@ -110,14 +110,14 @@ public class DefaultSerializer implements Serializer {
             }
         };
     }
-
+    
     private BiConsumer<SeaTunnelRow, Point.Builder> createTimestampExtractor(
-            SeaTunnelRowType seaTunnelRowType, String timeKey) {
+                                                                             SeaTunnelRowType seaTunnelRowType, String timeKey) {
         // not config timeKey, use processing time
         if (Strings.isNullOrEmpty(timeKey)) {
             return (row, builder) -> builder.time(System.currentTimeMillis(), precision);
         }
-
+        
         int timeFieldIndex = seaTunnelRowType.indexOf(timeKey);
         return (row, builder) -> {
             Object time = row.getField(timeFieldIndex);
@@ -146,14 +146,15 @@ public class DefaultSerializer implements Serializer {
             }
         };
     }
-
+    
     private BiConsumer<SeaTunnelRow, Point.Builder> createTagExtractor(
-            SeaTunnelRowType seaTunnelRowType, List<String> tagKeys) {
+                                                                       SeaTunnelRowType seaTunnelRowType, List<String> tagKeys) {
         // not config tagKeys
         if (CollectionUtils.isEmpty(tagKeys)) {
-            return (row, builder) -> {};
+            return (row, builder) -> {
+            };
         }
-
+        
         return (row, builder) -> {
             for (String tagKey : tagKeys) {
                 int indexOfSeaTunnelRow = seaTunnelRowType.indexOf(tagKey);
@@ -161,9 +162,9 @@ public class DefaultSerializer implements Serializer {
             }
         };
     }
-
+    
     private List<String> getFieldKeys(
-            SeaTunnelRowType seaTunnelRowType, String timestampKey, List<String> tagKeys) {
+                                      SeaTunnelRowType seaTunnelRowType, String timestampKey, List<String> tagKeys) {
         return Stream.of(seaTunnelRowType.getFieldNames())
                 .filter(name -> CollectionUtils.isEmpty(tagKeys) || !tagKeys.contains(name))
                 .filter(name -> StringUtils.isEmpty(timestampKey) || !name.equals(timestampKey))

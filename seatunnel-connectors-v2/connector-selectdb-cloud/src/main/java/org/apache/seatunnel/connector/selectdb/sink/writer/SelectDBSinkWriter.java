@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connector.selectdb.sink.writer;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -55,7 +54,9 @@ import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadConstants.
 
 @Slf4j
 public class SelectDBSinkWriter
-        implements SinkWriter<SeaTunnelRow, SelectDBCommitInfo, SelectDBSinkState> {
+        implements
+            SinkWriter<SeaTunnelRow, SelectDBCommitInfo, SelectDBSinkState> {
+    
     private final SelectDBConfig selectdbConfig;
     private final long lastCheckpointId;
     private volatile long currentCheckpointId;
@@ -70,19 +71,19 @@ public class SelectDBSinkWriter
     private final transient ScheduledExecutorService scheduledExecutorService;
     private transient volatile Exception loadException = null;
     private final AtomicInteger fileNum;
-
+    
     private final ArrayList<byte[]> cache = new ArrayList<>();
     private int cacheSize = 0;
     private int cacheCnt = 0;
-
+    
     private static final long MAX_CACHE_SIZE = 1024 * 1024L;
     private static final int INITIAL_DELAY = 1000;
-
+    
     public SelectDBSinkWriter(
-            SinkWriter.Context context,
-            List<SelectDBSinkState> state,
-            SeaTunnelRowType seaTunnelRowType,
-            Config pluginConfig) {
+                              SinkWriter.Context context,
+                              List<SelectDBSinkState> state,
+                              SeaTunnelRowType seaTunnelRowType,
+                              Config pluginConfig) {
         this.selectdbConfig = SelectDBConfig.loadConfig(pluginConfig);
         this.lastCheckpointId = context.getIndexOfSubtask();
         log.info("restore checkpointId {}", lastCheckpointId);
@@ -107,7 +108,7 @@ public class SelectDBSinkWriter
         this.loading = false;
         this.fileNum = new AtomicInteger();
     }
-
+    
     public void initializeLoad(List<SelectDBSinkState> state) throws IOException {
         this.selectdbCopyInto =
                 new SelectDBCopyInto(
@@ -117,7 +118,7 @@ public class SelectDBSinkWriter
                 this::checkDone, INITIAL_DELAY, intervalTime, TimeUnit.MILLISECONDS);
         serializer.open();
     }
-
+    
     @Override
     public synchronized void write(SeaTunnelRow element) throws IOException {
         checkLoadException();
@@ -134,7 +135,7 @@ public class SelectDBSinkWriter
             cache.add(serialize);
         }
     }
-
+    
     public synchronized void flush(byte[] serialize) throws IOException {
         if (!loading) {
             log.info("start load by cache full, cnt {}, size {}", cacheCnt, cacheSize);
@@ -142,7 +143,7 @@ public class SelectDBSinkWriter
         }
         this.selectdbCopyInto.writeRecord(serialize);
     }
-
+    
     @Override
     public synchronized Optional<SelectDBCommitInfo> prepareCommit() throws IOException {
         checkState(selectdbCopyInto != null);
@@ -160,22 +161,22 @@ public class SelectDBSinkWriter
                 new SelectDBCommitInfo(
                         selectdbCopyInto.getHostPort(), selectdbConfig.getClusterName(), copySql));
     }
-
+    
     @Override
-    public synchronized List<SelectDBSinkState> snapshotState(long checkpointId)
-            throws IOException {
+    public synchronized List<SelectDBSinkState> snapshotState(long checkpointId) throws IOException {
         checkState(selectdbCopyInto != null);
         this.currentCheckpointId = checkpointId + 1;
-
+        
         log.info("clear the file list {}", selectdbCopyInto.getFileList());
         this.fileNum.set(0);
         this.selectdbCopyInto.clearFileList();
         return Collections.singletonList(selectdbSinkState);
     }
-
+    
     @Override
-    public void abortPrepare() {}
-
+    public void abortPrepare() {
+    }
+    
     private synchronized void startLoad() throws IOException {
         // If not started writing, make a streaming request
         this.selectdbCopyInto.startLoad(
@@ -194,7 +195,7 @@ public class SelectDBSinkWriter
         }
         this.loading = true;
     }
-
+    
     private synchronized void stopLoad() throws IOException {
         this.loading = false;
         this.selectdbCopyInto.stopLoad();
@@ -202,7 +203,7 @@ public class SelectDBSinkWriter
         this.cacheCnt = 0;
         this.cache.clear();
     }
-
+    
     private synchronized void checkDone() {
         // s3 can't keep http long links, generate data files regularly
         log.info("start timer checker, interval {} ms", intervalTime);
@@ -221,13 +222,13 @@ public class SelectDBSinkWriter
             loadException = ex;
         }
     }
-
+    
     private void checkLoadException() {
         if (loadException != null) {
             throw new SelectDBConnectorException(WHILE_LOADING_FAILED, loadException);
         }
     }
-
+    
     @Override
     public void close() throws IOException {
         if (scheduledExecutorService != null) {
@@ -238,9 +239,9 @@ public class SelectDBSinkWriter
         }
         serializer.close();
     }
-
+    
     public static SelectDBSerializer createSerializer(
-            SelectDBConfig selectdbConfig, SeaTunnelRowType seaTunnelRowType) {
+                                                      SelectDBConfig selectdbConfig, SeaTunnelRowType seaTunnelRowType) {
         if (LoadConstants.CSV.equals(selectdbConfig.getStreamLoadProps().getProperty(FORMAT_KEY))) {
             return new SelectDBCsvSerializer(
                     selectdbConfig.getStreamLoadProps().getProperty(FIELD_DELIMITER_KEY),

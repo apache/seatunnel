@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.e2e.common.container.spark;
 
 import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
@@ -34,16 +33,16 @@ import java.util.List;
 import java.util.stream.Stream;
 
 public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
-
+    
     private static final String DEFAULT_DOCKER_IMAGE = "bitnami/spark:2.4.6";
-
+    
     protected GenericContainer<?> master;
-
+    
     @Override
     protected String getDockerImage() {
         return DEFAULT_DOCKER_IMAGE;
     }
-
+    
     @Override
     public void startUp() throws Exception {
         master =
@@ -62,7 +61,7 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
                                         .withStartupTimeout(Duration.ofMinutes(2)));
         copySeaTunnelStarterToContainer(master);
         copySeaTunnelStarterLoggingToContainer(master);
-
+        
         // In most case we can just use standalone mode to execute a spark job, if we want to use
         // cluster mode, we need to
         // start a worker.
@@ -70,26 +69,24 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
         // execute extra commands
         executeExtraCommands(master);
     }
-
+    
     @Override
     public void tearDown() throws Exception {
         if (master != null) {
             master.stop();
         }
     }
-
+    
     @Override
     protected List<String> getExtraStartShellCommands() {
         return Arrays.asList("--master local", "--deploy-mode client");
     }
-
-    public void executeExtraCommands(ContainerExtendedFactory extendedFactory)
-            throws IOException, InterruptedException {
+    
+    public void executeExtraCommands(ContainerExtendedFactory extendedFactory) throws IOException, InterruptedException {
         extendedFactory.extend(master);
     }
-
-    public Container.ExecResult executeJob(String confFile)
-            throws IOException, InterruptedException {
+    
+    public Container.ExecResult executeJob(String confFile) throws IOException, InterruptedException {
         return executeJob(master, confFile);
     }
 }

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
@@ -33,10 +32,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class StorageTest {
-
+    
     @Test
     public void localFileTest() throws IOException {
-
+        
         Map<Long, TaskStatistics> taskStatisticsMap = new HashMap<>();
         taskStatisticsMap.put(1L, new TaskStatistics(1L, 32));
         Map<Long, ActionState> actionStateMap = new HashMap<>();
@@ -51,7 +50,7 @@ public class StorageTest {
                         Instant.now().toEpochMilli(),
                         actionStateMap,
                         taskStatisticsMap);
-
+        
         ProtoStuffSerializer protoStuffSerializer = new ProtoStuffSerializer();
         byte[] data = protoStuffSerializer.serialize(completedCheckpoint);
         PipelineState pipelineState =
@@ -61,17 +60,17 @@ public class StorageTest {
                         .pipelineId(1)
                         .states(data)
                         .build();
-
+        
         byte[] pipeData = protoStuffSerializer.serialize(pipelineState);
-
+        
         File file = new File("/tmp/seatunnel/test.data");
-
+        
         FileUtils.writeByteArrayToFile(file, pipeData);
-
+        
         byte[] fileData = FileUtils.readFileToByteArray(file);
-
+        
         PipelineState state = protoStuffSerializer.deserialize(fileData, PipelineState.class);
-
+        
         CompletedCheckpoint checkpoint =
                 new ProtoStuffSerializer()
                         .deserialize(state.getStates(), CompletedCheckpoint.class);

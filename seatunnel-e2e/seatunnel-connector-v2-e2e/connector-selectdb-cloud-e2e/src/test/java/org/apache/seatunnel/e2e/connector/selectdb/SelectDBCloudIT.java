@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.e2e.connector.selectdb;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -67,12 +66,13 @@ import static org.awaitility.Awaitility.given;
 @Slf4j
 @Disabled
 public class SelectDBCloudIT extends TestSuiteBase implements TestResource {
+    
     private static final String DOCKER_IMAGE = "null";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final String HOST = "selectdb_e2e";
     private static final int DOCKER_PORT = 9030;
     private static final int JDBC_PORT = 9630;
-
+    
     private static final String URL = "jdbc:mysql://%s:" + JDBC_PORT;
     private static final String USERNAME = "admin";
     private static final String PASSWORD = "";
@@ -83,7 +83,7 @@ public class SelectDBCloudIT extends TestSuiteBase implements TestResource {
             "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
     private static final String COLUMN_STRING =
             "BIGINT_COL, LARGEINT_COL, SMALLINT_COL, TINYINT_COL, BOOLEAN_COL, DECIMAL_COL, DOUBLE_COL, FLOAT_COL, INT_COL, CHAR_COL, VARCHAR_11_COL, STRING_COL, DATETIME_COL, DATE_COL";
-
+    
     private static final String CREATE_DATABASE = "CREATE DATABASE IF NOT EXISTS " + DATABASE;
     private static final String DDL_SOURCE =
             "CREATE TABLE IF NOT EXISTS "
@@ -111,7 +111,7 @@ public class SelectDBCloudIT extends TestSuiteBase implements TestResource {
                     + "PROPERTIES (\n"
                     + "\"replication_allocation\" = \"tag.location.default: 1\""
                     + ")";
-
+    
     private static final String DDL_SINK =
             "CREATE TABLE IF NOT EXISTS "
                     + DATABASE
@@ -138,7 +138,7 @@ public class SelectDBCloudIT extends TestSuiteBase implements TestResource {
                     + "PROPERTIES (\n"
                     + "\"replication_allocation\" = \"tag.location.default: 1\""
                     + ")";
-
+    
     private static final String INIT_DATA_SQL =
             "INSERT INTO "
                     + DATABASE
@@ -162,11 +162,11 @@ public class SelectDBCloudIT extends TestSuiteBase implements TestResource {
                     + ")values(\n"
                     + "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?\n"
                     + ")";
-
+    
     private Connection jdbcConnection;
     private GenericContainer<?> selectdbServer;
     private static final List<SeaTunnelRow> TEST_DATASET = generateTestDataSet();
-
+    
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
@@ -178,7 +178,7 @@ public class SelectDBCloudIT extends TestSuiteBase implements TestResource {
                                         + DRIVER_JAR);
                 Assertions.assertEquals(0, extraCommands.getExitCode());
             };
-
+    
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -192,7 +192,7 @@ public class SelectDBCloudIT extends TestSuiteBase implements TestResource {
                 Lists.newArrayList(String.format("%s:%s", JDBC_PORT, DOCKER_PORT)));
         Startables.deepStart(Stream.of(selectdbServer)).join();
         log.info("SelectDB container started");
-
+        
         given().ignoreExceptions()
                 .await()
                 .atMost(10000, TimeUnit.SECONDS)
@@ -200,34 +200,34 @@ public class SelectDBCloudIT extends TestSuiteBase implements TestResource {
         initializeJdbcTable();
         batchInsertData();
     }
-
+    
     private static List<SeaTunnelRow> generateTestDataSet() {
-
+        
         List<SeaTunnelRow> rows = new ArrayList<>();
         for (int i = 0; i < 100; i++) {
             SeaTunnelRow row =
                     new SeaTunnelRow(
-                            new Object[] {
-                                Long.valueOf(i),
-                                Long.valueOf(1123456),
-                                Short.parseShort("1"),
-                                Byte.parseByte("1"),
-                                Boolean.FALSE,
-                                BigDecimal.valueOf(2222243, 1),
-                                Double.parseDouble("3.14"),
-                                Float.parseFloat("222224"),
-                                Integer.parseInt("1"),
-                                "a",
-                                "VARCHAR_COL",
-                                "STRING_COL",
-                                "2022-03-02 13:24:45",
-                                "2022-03-02"
+                            new Object[]{
+                                    Long.valueOf(i),
+                                    Long.valueOf(1123456),
+                                    Short.parseShort("1"),
+                                    Byte.parseByte("1"),
+                                    Boolean.FALSE,
+                                    BigDecimal.valueOf(2222243, 1),
+                                    Double.parseDouble("3.14"),
+                                    Float.parseFloat("222224"),
+                                    Integer.parseInt("1"),
+                                    "a",
+                                    "VARCHAR_COL",
+                                    "STRING_COL",
+                                    "2022-03-02 13:24:45",
+                                    "2022-03-02"
                             });
             rows.add(row);
         }
         return rows;
     }
-
+    
     @AfterAll
     @Override
     public void tearDown() throws Exception {
@@ -238,14 +238,14 @@ public class SelectDBCloudIT extends TestSuiteBase implements TestResource {
             selectdbServer.close();
         }
     }
-
+    
     @TestTemplate
     public void testSelectDBSink(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/selectdb-jdbc-to-selectdb.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         try {
             assertHasData(SINK_TABLE);
-
+            
             String sourceSql = String.format("select * from %s.%s", DATABASE, SOURCE_TABLE);
             String sinkSql = String.format("select * from %s.%s", DATABASE, SINK_TABLE);
             List<String> columnList =
@@ -285,13 +285,11 @@ public class SelectDBCloudIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("Get selectdb connection error", e);
         }
     }
-
-    private void initializeJdbcConnection()
-            throws SQLException, ClassNotFoundException, MalformedURLException,
-                    InstantiationException, IllegalAccessException {
+    
+    private void initializeJdbcConnection() throws SQLException, ClassNotFoundException, MalformedURLException, InstantiationException, IllegalAccessException {
         URLClassLoader urlClassLoader =
                 new URLClassLoader(
-                        new URL[] {new URL(DRIVER_JAR)}, SelectDBCloudIT.class.getClassLoader());
+                        new URL[]{new URL(DRIVER_JAR)}, SelectDBCloudIT.class.getClassLoader());
         Thread.currentThread().setContextClassLoader(urlClassLoader);
         Driver driver = (Driver) urlClassLoader.loadClass(DRIVER_CLASS).newInstance();
         Properties props = new Properties();
@@ -303,7 +301,7 @@ public class SelectDBCloudIT extends TestSuiteBase implements TestResource {
             statement.execute(DDL_SOURCE);
         }
     }
-
+    
     private void initializeJdbcTable() {
         try (Statement statement = jdbcConnection.createStatement()) {
             // create databases
@@ -316,13 +314,14 @@ public class SelectDBCloudIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("Initializing table failed!", e);
         }
     }
-
+    
     private void batchInsertData() {
         List<SeaTunnelRow> rows = TEST_DATASET;
         try {
             jdbcConnection.setAutoCommit(false);
-            try (PreparedStatement preparedStatement =
-                    jdbcConnection.prepareStatement(INIT_DATA_SQL)) {
+            try (
+                    PreparedStatement preparedStatement =
+                            jdbcConnection.prepareStatement(INIT_DATA_SQL)) {
                 for (int i = 0; i < rows.size(); i++) {
                     for (int index = 0; index < rows.get(i).getFields().length; index++) {
                         preparedStatement.setObject(index + 1, rows.get(i).getFields()[index]);
@@ -337,7 +336,7 @@ public class SelectDBCloudIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("Get connection error", exception);
         }
     }
-
+    
     private void assertHasData(String table) {
         try (Statement statement = jdbcConnection.createStatement()) {
             String sql = String.format("select * from %s.%s limit 1", DATABASE, table);
@@ -347,7 +346,7 @@ public class SelectDBCloudIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("Test selectdb server image error", e);
         }
     }
-
+    
     private void clearSinkTable() {
         try (Statement statement = jdbcConnection.createStatement()) {
             statement.execute(String.format("TRUNCATE TABLE %s.%s", DATABASE, SINK_TABLE));

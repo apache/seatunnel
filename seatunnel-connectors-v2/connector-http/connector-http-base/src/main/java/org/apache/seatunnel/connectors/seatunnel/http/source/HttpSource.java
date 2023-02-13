@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.http.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -51,25 +50,26 @@ import java.util.Locale;
 
 @AutoService(SeaTunnelSource.class)
 public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
+    
     protected final HttpParameter httpParameter = new HttpParameter();
     protected SeaTunnelRowType rowType;
     protected JsonField jsonField;
     protected String contentField;
     protected JobContext jobContext;
     protected DeserializationSchema<SeaTunnelRow> deserializationSchema;
-
+    
     @Override
     public String getPluginName() {
         return "Http";
     }
-
+    
     @Override
     public Boundedness getBoundedness() {
         return JobMode.BATCH.equals(jobContext.getJobMode())
                 ? Boundedness.BOUNDED
                 : Boundedness.UNBOUNDED;
     }
-
+    
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HttpConfig.URL.key());
@@ -83,7 +83,7 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         this.httpParameter.buildWithConfig(pluginConfig);
         buildSchemaWithConfig(pluginConfig);
     }
-
+    
     protected void buildSchemaWithConfig(Config pluginConfig) {
         if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA.key())) {
             Config schema = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
@@ -122,20 +122,20 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
             this.deserializationSchema = new SimpleTextDeserializationSchema(this.rowType);
         }
     }
-
+    
     @Override
     public void setJobContext(JobContext jobContext) {
         this.jobContext = jobContext;
     }
-
+    
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
         return this.rowType;
     }
-
+    
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(
-            SingleSplitReaderContext readerContext) throws Exception {
+                                                                SingleSplitReaderContext readerContext) throws Exception {
         return new HttpSourceReader(
                 this.httpParameter,
                 readerContext,
@@ -143,7 +143,7 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                 jsonField,
                 contentField);
     }
-
+    
     private JsonField getJsonField(Config jsonFieldConf) {
         ConfigRenderOptions options = ConfigRenderOptions.concise();
         return JsonField.builder()

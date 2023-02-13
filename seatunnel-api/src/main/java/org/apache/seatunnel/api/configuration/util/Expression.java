@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.api.configuration.util;
 
 import org.apache.seatunnel.api.configuration.Option;
@@ -22,58 +21,59 @@ import org.apache.seatunnel.api.configuration.Option;
 import java.util.Objects;
 
 public class Expression {
+    
     private final Condition<?> condition;
     private Boolean and = null;
     private Expression next = null;
-
+    
     Expression(Condition<?> condition) {
         this.condition = condition;
     }
-
+    
     public static <T> Expression of(Option<T> option, T expectValue) {
         return new Expression(Condition.of(option, expectValue));
     }
-
+    
     public static Expression of(Condition<?> condition) {
         return new Expression(condition);
     }
-
+    
     public Expression and(Expression next) {
         addExpression(true, next);
         return this;
     }
-
+    
     public Expression or(Expression next) {
         addExpression(false, next);
         return this;
     }
-
+    
     private void addExpression(boolean and, Expression next) {
         Expression tail = getTailExpression();
         tail.and = and;
         tail.next = next;
     }
-
+    
     private Expression getTailExpression() {
         return hasNext() ? this.next.getTailExpression() : this;
     }
-
+    
     public Condition<?> getCondition() {
         return condition;
     }
-
+    
     public boolean hasNext() {
         return this.next != null;
     }
-
+    
     public Expression getNext() {
         return this.next;
     }
-
+    
     public Boolean and() {
         return this.and;
     }
-
+    
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -87,12 +87,12 @@ public class Expression {
                 && Objects.equals(this.and, that.and)
                 && Objects.equals(this.next, that.next);
     }
-
+    
     @Override
     public int hashCode() {
         return Objects.hash(this.condition, this.and, this.next);
     }
-
+    
     @Override
     public String toString() {
         Expression cur = this;

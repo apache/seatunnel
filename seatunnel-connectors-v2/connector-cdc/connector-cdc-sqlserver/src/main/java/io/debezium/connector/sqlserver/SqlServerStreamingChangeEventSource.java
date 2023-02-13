@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.debezium.connector.sqlserver;
 
 import org.slf4j.Logger;
@@ -68,20 +67,21 @@ import java.util.stream.Collectors;
  * old one. Then the change table is switched and streaming is executed from the new one.
  */
 public class SqlServerStreamingChangeEventSource
-        implements StreamingChangeEventSource<SqlServerOffsetContext> {
-
+        implements
+            StreamingChangeEventSource<SqlServerOffsetContext> {
+    
     private static final Pattern MISSING_CDC_FUNCTION_CHANGES_ERROR =
             Pattern.compile("Invalid object name 'cdc.fn_cdc_get_all_changes_(.*)'\\.");
-
+    
     private static final Logger LOGGER =
             LoggerFactory.getLogger(SqlServerStreamingChangeEventSource.class);
-
+    
     private static final Duration DEFAULT_INTERVAL_BETWEEN_COMMITS = Duration.ofMinutes(1);
     private static final int INTERVAL_BETWEEN_COMMITS_BASED_ON_POLL_FACTOR = 3;
-
+    
     /** Connection used for reading CDC tables. */
     private final SqlServerConnection dataConnection;
-
+    
     /**
      * A separate connection for retrieving timestamps; without it, adaptive buffering will not
      * work.
@@ -90,24 +90,24 @@ public class SqlServerStreamingChangeEventSource
      *     https://docs.microsoft.com/en-us/sql/connect/jdbc/using-adaptive-buffering?view=sql-server-2017#guidelines-for-using-adaptive-buffering
      */
     private final SqlServerConnection metadataConnection;
-
+    
     private final EventDispatcher<TableId> dispatcher;
     private final ErrorHandler errorHandler;
     private final Clock clock;
     private final SqlServerDatabaseSchema schema;
     private final Duration pollInterval;
     private final SqlServerConnectorConfig connectorConfig;
-
+    
     private final ElapsedTimeStrategy pauseBetweenCommits;
-
+    
     public SqlServerStreamingChangeEventSource(
-            SqlServerConnectorConfig connectorConfig,
-            SqlServerConnection dataConnection,
-            SqlServerConnection metadataConnection,
-            EventDispatcher<TableId> dispatcher,
-            ErrorHandler errorHandler,
-            Clock clock,
-            SqlServerDatabaseSchema schema) {
+                                               SqlServerConnectorConfig connectorConfig,
+                                               SqlServerConnection dataConnection,
+                                               SqlServerConnection metadataConnection,
+                                               EventDispatcher<TableId> dispatcher,
+                                               ErrorHandler errorHandler,
+                                               Clock clock,
+                                               SqlServerDatabaseSchema schema) {
         this.connectorConfig = connectorConfig;
         this.dataConnection = dataConnection;
         this.metadataConnection = metadataConnection;
@@ -122,30 +122,28 @@ public class SqlServerStreamingChangeEventSource
                 ElapsedTimeStrategy.constant(
                         clock,
                         DEFAULT_INTERVAL_BETWEEN_COMMITS.compareTo(
-                                                intervalBetweenCommitsBasedOnPoll)
-                                        > 0
-                                ? DEFAULT_INTERVAL_BETWEEN_COMMITS.toMillis()
-                                : intervalBetweenCommitsBasedOnPoll.toMillis());
+                                intervalBetweenCommitsBasedOnPoll) > 0
+                                        ? DEFAULT_INTERVAL_BETWEEN_COMMITS.toMillis()
+                                        : intervalBetweenCommitsBasedOnPoll.toMillis());
         this.pauseBetweenCommits.hasElapsed();
     }
-
+    
     @Override
     public void execute(
-            ChangeEventSource.ChangeEventSourceContext context,
-            SqlServerOffsetContext offsetContext)
-            throws InterruptedException {
+                        ChangeEventSource.ChangeEventSourceContext context,
+                        SqlServerOffsetContext offsetContext) throws InterruptedException {
         if (connectorConfig.getSnapshotMode().equals(SnapshotMode.INITIAL_ONLY)) {
             LOGGER.info("Streaming is not enabled in current configuration");
             return;
         }
-
+        
         final Metronome metronome = Metronome.sleeper(pollInterval, clock);
         final Queue<SqlServerChangeTable> schemaChangeCheckpoints =
                 new PriorityQueue<>((x, y) -> x.getStopLsn().compareTo(y.getStopLsn()));
         try {
             final AtomicReference<SqlServerChangeTable[]> tablesSlot =
                     new AtomicReference<SqlServerChangeTable[]>(getCdcTablesToQuery(offsetContext));
-
+            
             final TxLogPosition lastProcessedPositionOnStart = offsetContext.getChangePosition();
             final long lastProcessedEventSerialNoOnStart = offsetContext.getEventSerialNo();
             LOGGER.info(
@@ -155,9 +153,9 @@ public class SqlServerStreamingChangeEventSource
             final AtomicBoolean changesStoppedBeingMonotonic = new AtomicBoolean(false);
             final int maxTransactionsPerIteration =
                     connectorConfig.getMaxTransactionsPerIteration();
-
+            
             TxLogPosition lastProcessedPosition = lastProcessedPositionOnStart;
-
+            
             // LSN should be increased for the first run only immediately after snapshot completion
             // otherwise we might skip an incomplete transaction after restart
             boolean shouldIncreaseFromLsn = offsetContext.isSnapshotCompleted();
@@ -167,7 +165,7 @@ public class SqlServerStreamingChangeEventSource
                 final Lsn toLsn =
                         getToLsn(
                                 dataConnection, lastProcessedPosition, maxTransactionsPerIteration);
-
+                
                 // Shouldn't happen if the agent is running, but it is better to guard against such
                 // situation
                 if (!toLsn.isAvailable()) {
@@ -183,7 +181,7 @@ public class SqlServerStreamingChangeEventSource
                     metronome.pause();
                     continue;
                 }
-
+                
                 // Reading interval is inclusive so we need to move LSN forward but not for first
                 // run as TX might not be streamed completely
                 final Lsn fromLsn =
@@ -191,7 +189,7 @@ public class SqlServerStreamingChangeEventSource
                                 ? dataConnection.incrementLsn(lastProcessedPosition.getCommitLsn())
                                 : lastProcessedPosition.getCommitLsn();
                 shouldIncreaseFromLsn = true;
-
+                
                 while (!schemaChangeCheckpoints.isEmpty()) {
                     migrateTable(schemaChangeCheckpoints, offsetContext);
                 }
@@ -216,7 +214,7 @@ public class SqlServerStreamingChangeEventSource
                                 final SqlServerChangeTablePointer[] changeTables =
                                         new SqlServerChangeTablePointer[tableCount];
                                 final SqlServerChangeTable[] tables = tablesSlot.get();
-
+                                
                                 for (int i = 0; i < tableCount; i++) {
                                     changeTables[i] =
                                             new SqlServerChangeTablePointer(
@@ -225,16 +223,15 @@ public class SqlServerStreamingChangeEventSource
                                                     connectorConfig.getSourceTimestampMode());
                                     changeTables[i].next();
                                 }
-
-                                for (; ; ) {
+                                
+                                for (;;) {
                                     SqlServerChangeTablePointer tableWithSmallestLsn = null;
                                     for (SqlServerChangeTablePointer changeTable : changeTables) {
                                         if (changeTable.isCompleted()) {
                                             continue;
                                         }
                                         if (tableWithSmallestLsn == null
-                                                || changeTable.compareTo(tableWithSmallestLsn)
-                                                        < 0) {
+                                                || changeTable.compareTo(tableWithSmallestLsn) < 0) {
                                             tableWithSmallestLsn = changeTable;
                                         }
                                     }
@@ -242,7 +239,7 @@ public class SqlServerStreamingChangeEventSource
                                         // No more LSNs available
                                         break;
                                     }
-
+                                    
                                     if (!(tableWithSmallestLsn.getChangePosition().isAvailable()
                                             && tableWithSmallestLsn
                                                     .getChangePosition()
@@ -254,14 +251,14 @@ public class SqlServerStreamingChangeEventSource
                                         tableWithSmallestLsn.next();
                                         continue;
                                     }
-
+                                    
                                     if (tableWithSmallestLsn.isNewTransaction()
                                             && changesStoppedBeingMonotonic.get()) {
                                         LOGGER.info(
                                                 "Resetting changesStoppedBeingMonotonic as transaction changes");
                                         changesStoppedBeingMonotonic.set(false);
                                     }
-
+                                    
                                     // After restart for changes that are not monotonic to avoid
                                     // data loss
                                     if (tableWithSmallestLsn
@@ -270,14 +267,13 @@ public class SqlServerStreamingChangeEventSource
                                                 "Disabling skipping changes due to not monotonic order of changes");
                                         changesStoppedBeingMonotonic.set(true);
                                     }
-
+                                    
                                     // After restart for changes that were executed before the last
                                     // committed offset
                                     if (!changesStoppedBeingMonotonic.get()
                                             && tableWithSmallestLsn
-                                                            .getChangePosition()
-                                                            .compareTo(lastProcessedPositionOnStart)
-                                                    < 0) {
+                                                    .getChangePosition()
+                                                    .compareTo(lastProcessedPositionOnStart) < 0) {
                                         LOGGER.info(
                                                 "Skipping change {} as its position is smaller than the last recorded position {}",
                                                 tableWithSmallestLsn,
@@ -289,11 +285,9 @@ public class SqlServerStreamingChangeEventSource
                                     // operations in it before the last committed offset
                                     if (!changesStoppedBeingMonotonic.get()
                                             && tableWithSmallestLsn
-                                                            .getChangePosition()
-                                                            .compareTo(lastProcessedPositionOnStart)
-                                                    == 0
-                                            && eventSerialNoInInitialTx
-                                                    <= lastProcessedEventSerialNoOnStart) {
+                                                    .getChangePosition()
+                                                    .compareTo(lastProcessedPositionOnStart) == 0
+                                            && eventSerialNoInInitialTx <= lastProcessedEventSerialNoOnStart) {
                                         LOGGER.info(
                                                 "Skipping change {} as its order in the transaction {} is smaller than or equal to the last recorded operation {}[{}]",
                                                 tableWithSmallestLsn,
@@ -305,17 +299,16 @@ public class SqlServerStreamingChangeEventSource
                                         continue;
                                     }
                                     if (tableWithSmallestLsn
+                                            .getChangeTable()
+                                            .getStopLsn()
+                                            .isAvailable()
+                                            && tableWithSmallestLsn
                                                     .getChangeTable()
                                                     .getStopLsn()
-                                                    .isAvailable()
-                                            && tableWithSmallestLsn
-                                                            .getChangeTable()
-                                                            .getStopLsn()
-                                                            .compareTo(
-                                                                    tableWithSmallestLsn
-                                                                            .getChangePosition()
-                                                                            .getCommitLsn())
-                                                    <= 0) {
+                                                    .compareTo(
+                                                            tableWithSmallestLsn
+                                                                    .getChangePosition()
+                                                                    .getCommitLsn()) <= 0) {
                                         LOGGER.debug(
                                                 "Skipping table change {} as its stop LSN is smaller than the last recorded LSN {}",
                                                 tableWithSmallestLsn,
@@ -329,13 +322,12 @@ public class SqlServerStreamingChangeEventSource
                                             schemaChangeCheckpoints);
                                     if (!schemaChangeCheckpoints.isEmpty()) {
                                         if (tableWithSmallestLsn
-                                                        .getChangePosition()
-                                                        .getCommitLsn()
-                                                        .compareTo(
-                                                                schemaChangeCheckpoints
-                                                                        .peek()
-                                                                        .getStartLsn())
-                                                >= 0) {
+                                                .getChangePosition()
+                                                .getCommitLsn()
+                                                .compareTo(
+                                                        schemaChangeCheckpoints
+                                                                .peek()
+                                                                .getStartLsn()) >= 0) {
                                             migrateTable(schemaChangeCheckpoints, offsetContext);
                                         }
                                     }
@@ -345,18 +337,15 @@ public class SqlServerStreamingChangeEventSource
                                                     .getSourceTableId();
                                     final int operation = tableWithSmallestLsn.getOperation();
                                     final Object[] data = tableWithSmallestLsn.getData();
-
+                                    
                                     // UPDATE consists of two consecutive events, first event
                                     // contains
                                     // the row before it was updated and the second the row after
                                     // it was updated
                                     int eventCount = 1;
-                                    if (operation
-                                            == SqlServerChangeRecordEmitter.OP_UPDATE_BEFORE) {
+                                    if (operation == SqlServerChangeRecordEmitter.OP_UPDATE_BEFORE) {
                                         if (!tableWithSmallestLsn.next()
-                                                || tableWithSmallestLsn.getOperation()
-                                                        != SqlServerChangeRecordEmitter
-                                                                .OP_UPDATE_AFTER) {
+                                                || tableWithSmallestLsn.getOperation() != SqlServerChangeRecordEmitter.OP_UPDATE_AFTER) {
                                             throw new IllegalStateException(
                                                     "The update before event at "
                                                             + tableWithSmallestLsn
@@ -368,12 +357,10 @@ public class SqlServerStreamingChangeEventSource
                                         eventCount = 2;
                                     }
                                     final Object[] dataNext =
-                                            (operation
-                                                            == SqlServerChangeRecordEmitter
-                                                                    .OP_UPDATE_BEFORE)
+                                            (operation == SqlServerChangeRecordEmitter.OP_UPDATE_BEFORE)
                                                     ? tableWithSmallestLsn.getData()
                                                     : null;
-
+                                    
                                     offsetContext.setChangePosition(
                                             tableWithSmallestLsn.getChangePosition(), eventCount);
                                     offsetContext.event(
@@ -386,7 +373,7 @@ public class SqlServerStreamingChangeEventSource
                                                             metadataConnection,
                                                             clock,
                                                             tableWithSmallestLsn.getResultSet()));
-
+                                    
                                     dispatcher.dispatchDataChangeEvent(
                                             tableId,
                                             new SqlServerChangeRecordEmitter(
@@ -409,7 +396,7 @@ public class SqlServerStreamingChangeEventSource
             errorHandler.setProducerThrowable(e);
         }
     }
-
+    
     private void commitTransaction() throws SQLException {
         // When reading from read-only Always On replica the default and only transaction isolation
         // is snapshot. This means that CDC metadata are not visible for long-running transactions.
@@ -420,11 +407,10 @@ public class SqlServerStreamingChangeEventSource
             dataConnection.commit();
         }
     }
-
+    
     private void migrateTable(
-            final Queue<SqlServerChangeTable> schemaChangeCheckpoints,
-            SqlServerOffsetContext offsetContext)
-            throws InterruptedException, SQLException {
+                              final Queue<SqlServerChangeTable> schemaChangeCheckpoints,
+                              SqlServerOffsetContext offsetContext) throws InterruptedException, SQLException {
         final SqlServerChangeTable newTable = schemaChangeCheckpoints.poll();
         LOGGER.info("Migrating schema to {}", newTable);
         Table tableSchema = metadataConnection.getTableSchemaFromTable(newTable);
@@ -434,9 +420,9 @@ public class SqlServerStreamingChangeEventSource
                         offsetContext, newTable, tableSchema, SchemaChangeEventType.ALTER));
         newTable.setSourceTable(tableSchema);
     }
-
+    
     private SqlServerChangeTable[] processErrorFromChangeTableQuery(
-            SQLException exception, SqlServerChangeTable[] currentChangeTables) throws Exception {
+                                                                    SQLException exception, SqlServerChangeTable[] currentChangeTables) throws Exception {
         final Matcher m = MISSING_CDC_FUNCTION_CHANGES_ERROR.matcher(exception.getMessage());
         if (m.matches()) {
             final String captureName = m.group(1);
@@ -448,15 +434,14 @@ public class SqlServerStreamingChangeEventSource
         }
         throw exception;
     }
-
-    private SqlServerChangeTable[] getCdcTablesToQuery(SqlServerOffsetContext offsetContext)
-            throws SQLException, InterruptedException {
+    
+    private SqlServerChangeTable[] getCdcTablesToQuery(SqlServerOffsetContext offsetContext) throws SQLException, InterruptedException {
         final Set<SqlServerChangeTable> cdcEnabledTables = dataConnection.listOfChangeTables();
         if (cdcEnabledTables.isEmpty()) {
             LOGGER.warn(
                     "No table has enabled CDC or security constraints prevents getting the list of change tables");
         }
-
+        
         final Map<TableId, List<SqlServerChangeTable>> includeListCdcEnabledTables =
                 cdcEnabledTables.stream()
                         .filter(
@@ -474,12 +459,12 @@ public class SqlServerStreamingChangeEventSource
                                     }
                                 })
                         .collect(Collectors.groupingBy(x -> x.getSourceTableId()));
-
+        
         if (includeListCdcEnabledTables.isEmpty()) {
             LOGGER.warn(
                     "No whitelisted table has enabled CDC, whitelisted table list does not contain any table with CDC enabled or no table match the white/blacklist filter(s)");
         }
-
+        
         final List<SqlServerChangeTable> tables = new ArrayList<>();
         for (List<SqlServerChangeTable> captures : includeListCdcEnabledTables.values()) {
             SqlServerChangeTable currentTable = captures.get(0);
@@ -517,40 +502,39 @@ public class SqlServerStreamingChangeEventSource
                                 dataConnection.getTableSchemaFromTable(currentTable),
                                 SchemaChangeEventType.CREATE));
             }
-
+            
             // If a column was renamed, then the old capture instance had been dropped and a new one
             // created. In consequence, a table with out-dated schema might be assigned here.
             // A proper value will be set when migration happens.
             currentTable.setSourceTable(schema.tableFor(currentTable.getSourceTableId()));
             tables.add(currentTable);
         }
-
+        
         return tables.toArray(new SqlServerChangeTable[tables.size()]);
     }
-
+    
     /**
      * @return the log sequence number up until which the connector should query changes from the
      *     database.
      */
     private Lsn getToLsn(
-            SqlServerConnection connection,
-            TxLogPosition lastProcessedPosition,
-            int maxTransactionsPerIteration)
-            throws SQLException {
-
+                         SqlServerConnection connection,
+                         TxLogPosition lastProcessedPosition,
+                         int maxTransactionsPerIteration) throws SQLException {
+        
         if (maxTransactionsPerIteration == 0) {
             return connection.getMaxTransactionLsn();
         }
-
+        
         final Lsn fromLsn = lastProcessedPosition.getCommitLsn();
-
+        
         if (!fromLsn.isAvailable()) {
             return connection.getNthTransactionLsnFromBeginning(maxTransactionsPerIteration);
         }
-
+        
         return connection.getNthTransactionLsnFromLast(fromLsn, maxTransactionsPerIteration);
     }
-
+    
     /** expose control to the user to stop the connector. */
     protected void afterHandleLsn(SqlServerOffsetContext offsetContext) {
         // do nothing

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.client.job;
 
 import org.apache.seatunnel.api.common.JobContext;
@@ -50,36 +49,36 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 public class JobExecutionEnvironment {
-
+    
     private static final ILogger LOGGER = Logger.getLogger(JobExecutionEnvironment.class);
-
+    
     private final boolean isStartWithSavePoint;
-
+    
     private final JobConfig jobConfig;
-
+    
     private final int maxParallelism = 1;
-
+    
     private final List<Action> actions = new ArrayList<>();
-
+    
     private final Set<URL> jarUrls = new HashSet<>();
-
+    
     private final List<URL> commonPluginJars = new ArrayList<>();
-
+    
     private final String jobFilePath;
-
+    
     private final IdGenerator idGenerator;
-
+    
     private final SeaTunnelHazelcastClient seaTunnelHazelcastClient;
-
+    
     private final JobClient jobClient;
-
+    
     /** If the JobId is not empty, it is used to restore job from savePoint */
     public JobExecutionEnvironment(
-            JobConfig jobConfig,
-            String jobFilePath,
-            SeaTunnelHazelcastClient seaTunnelHazelcastClient,
-            boolean isStartWithSavePoint,
-            Long jobId) {
+                                   JobConfig jobConfig,
+                                   String jobFilePath,
+                                   SeaTunnelHazelcastClient seaTunnelHazelcastClient,
+                                   boolean isStartWithSavePoint,
+                                   Long jobId) {
         this.jobConfig = jobConfig;
         this.jobFilePath = jobFilePath;
         this.idGenerator = new IdGenerator();
@@ -92,10 +91,10 @@ public class JobExecutionEnvironment {
         this.commonPluginJars.addAll(
                 new ArrayList<>(
                         Common.getThirdPartyJars(
-                                        jobConfig
-                                                .getEnvOptions()
-                                                .getOrDefault(EnvCommonOptions.JARS.key(), "")
-                                                .toString())
+                                jobConfig
+                                        .getEnvOptions()
+                                        .getOrDefault(EnvCommonOptions.JARS.key(), "")
+                                        .toString())
                                 .stream()
                                 .map(Path::toUri)
                                 .map(
@@ -110,14 +109,14 @@ public class JobExecutionEnvironment {
                                 .collect(Collectors.toList())));
         LOGGER.info("add common jar in plugins :" + commonPluginJars);
     }
-
+    
     public JobExecutionEnvironment(
-            JobConfig jobConfig,
-            String jobFilePath,
-            SeaTunnelHazelcastClient seaTunnelHazelcastClient) {
+                                   JobConfig jobConfig,
+                                   String jobFilePath,
+                                   SeaTunnelHazelcastClient seaTunnelHazelcastClient) {
         this(jobConfig, jobFilePath, seaTunnelHazelcastClient, false, null);
     }
-
+    
     /** Search all jars in SEATUNNEL_HOME/plugins */
     private Set<URL> searchPluginJars() {
         try {
@@ -130,15 +129,15 @@ public class JobExecutionEnvironment {
         }
         return Collections.emptySet();
     }
-
+    
     private JobConfigParser getJobConfigParser() {
         return new JobConfigParser(jobFilePath, idGenerator, jobConfig, commonPluginJars);
     }
-
+    
     private LogicalDagGenerator getLogicalDagGenerator() {
         return new LogicalDagGenerator(actions, jobConfig, idGenerator);
     }
-
+    
     public ClientJobProxy execute() throws ExecutionException, InterruptedException {
         JobImmutableInformation jobImmutableInformation =
                 new JobImmutableInformation(
@@ -147,10 +146,10 @@ public class JobExecutionEnvironment {
                         seaTunnelHazelcastClient.getSerializationService().toData(getLogicalDag()),
                         jobConfig,
                         new ArrayList<>(jarUrls));
-
+        
         return jobClient.createJobProxy(jobImmutableInformation);
     }
-
+    
     private LogicalDag getLogicalDag() {
         ImmutablePair<List<Action>, Set<URL>> immutablePair = getJobConfigParser().parse();
         actions.addAll(immutablePair.getLeft());

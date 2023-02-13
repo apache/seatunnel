@@ -1,23 +1,19 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.checkpoint.storage.api;
 
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
@@ -46,53 +42,52 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public abstract class AbstractCheckpointStorage implements CheckpointStorage {
-
+    
     /**
      * serializer,default is protostuff,if necessary, consider other serialization methods,
      * temporarily hard-coding
      */
     private final Serializer serializer = new ProtoStuffSerializer();
-
+    
     public static final String DEFAULT_CHECKPOINT_FILE_PATH_SPLIT = "/";
-
+    
     /** storage root directory if not set, use default value */
     private String storageNameSpace = "/seatunnel/checkpoint/";
-
+    
     public static final String FILE_NAME_SPLIT = "-";
-
+    
     public static final int FILE_NAME_PIPELINE_ID_INDEX = 2;
-
+    
     public static final int FILE_NAME_CHECKPOINT_ID_INDEX = 3;
-
+    
     public static final int FILE_SORT_ID_INDEX = 0;
-
+    
     public static final int FILE_NAME_RANDOM_RANGE = 1000;
-
+    
     public static final String FILE_FORMAT = "ser";
-
+    
     private volatile ExecutorService executorService;
-
+    
     private static final int DEFAULT_THREAD_POOL_MIN_SIZE =
             Runtime.getRuntime().availableProcessors() * 2 + 1;
-
+    
     private static final int DEFAULT_THREAD_POOL_MAX_SIZE =
             Runtime.getRuntime().availableProcessors() * 4 + 1;
-
+    
     private static final int DEFAULT_THREAD_POOL_QUENE_SIZE = 1024;
-
+    
     /**
      * init storage instance
      *
      * @param configuration configuration key: storage root directory value: storage root directory
      * @throws CheckpointStorageException if storage init failed
      */
-    public abstract void initStorage(Map<String, String> configuration)
-            throws CheckpointStorageException;
-
+    public abstract void initStorage(Map<String, String> configuration) throws CheckpointStorageException;
+    
     public String getStorageParentDirectory() {
         return storageNameSpace;
     }
-
+    
     public String getCheckPointName(PipelineState state) {
         return System.currentTimeMillis()
                 + FILE_NAME_SPLIT
@@ -104,21 +99,21 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
                 + "."
                 + FILE_FORMAT;
     }
-
+    
     public byte[] serializeCheckPointData(PipelineState state) throws IOException {
         return serializer.serialize(state);
     }
-
+    
     public PipelineState deserializeCheckPointData(byte[] data) throws IOException {
         return serializer.deserialize(data, PipelineState.class);
     }
-
+    
     public void setStorageNameSpace(String storageNameSpace) {
         if (storageNameSpace != null) {
             this.storageNameSpace = storageNameSpace;
         }
     }
-
+    
     public Set<String> getLatestPipelineNames(Collection<String> fileNames) {
         Map<String, String> latestPipelineMap = new HashMap<>();
         Map<String, Long> latestPipelineVersionMap = new HashMap<>();
@@ -137,7 +132,7 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
                 .map(Map.Entry::getValue)
                 .collect(Collectors.toSet());
     }
-
+    
     /**
      * get latest checkpoint file name
      *
@@ -145,7 +140,7 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
      * @return latest checkpoint file name
      */
     public String getLatestCheckpointFileNameByJobIdAndPipelineId(
-            List<String> fileNames, String pipelineId) {
+                                                                  List<String> fileNames, String pipelineId) {
         AtomicReference<String> latestFileName = new AtomicReference<>();
         AtomicLong latestVersion = new AtomicLong();
         fileNames.forEach(
@@ -160,11 +155,11 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
                 });
         return latestFileName.get();
     }
-
+    
     private String[] getFileNameSegments(String fileName) {
         return fileName.split(FILE_NAME_SPLIT);
     }
-
+    
     /**
      * get the pipeline id of the file name
      *
@@ -174,7 +169,7 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
     public String getPipelineIdByFileName(String fileName) {
         return getFileNameSegments(fileName)[FILE_NAME_PIPELINE_ID_INDEX];
     }
-
+    
     /**
      * get the checkpoint id of the file name
      *
@@ -184,7 +179,7 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
     public String getCheckpointIdByFileName(String fileName) {
         return getFileNameSegments(fileName)[FILE_NAME_CHECKPOINT_ID_INDEX].split("\\.")[0];
     }
-
+    
     @Override
     public void asyncStoreCheckPoint(PipelineState state) {
         initExecutor();
@@ -201,7 +196,7 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
                     }
                 });
     }
-
+    
     private void initExecutor() {
         if (null == this.executorService || this.executorService.isShutdown()) {
             synchronized (this) {

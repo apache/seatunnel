@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.checkpoint.operation;
 
 import org.apache.seatunnel.common.utils.RetryUtils;
@@ -30,21 +29,21 @@ import lombok.NoArgsConstructor;
 
 @NoArgsConstructor
 public class NotifyTaskStartOperation extends TaskOperation {
-
+    
     public NotifyTaskStartOperation(TaskLocation taskLocation) {
         super(taskLocation);
     }
-
+    
     @Override
     public int getFactoryId() {
         return CheckpointDataSerializerHook.FACTORY_ID;
     }
-
+    
     @Override
     public int getClassId() {
         return CheckpointDataSerializerHook.NOTIFY_TASK_START_OPERATOR;
     }
-
+    
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
@@ -57,9 +56,8 @@ public class NotifyTaskStartOperation extends TaskOperation {
                 new RetryUtils.RetryMaterial(
                         Constant.OPERATION_RETRY_TIME,
                         true,
-                        exception ->
-                                exception instanceof SeaTunnelException
-                                        && !server.taskIsEnded(taskLocation.getTaskGroupLocation()),
+                        exception -> exception instanceof SeaTunnelException
+                                && !server.taskIsEnded(taskLocation.getTaskGroupLocation()),
                         Constant.OPERATION_RETRY_SLEEP));
     }
 }

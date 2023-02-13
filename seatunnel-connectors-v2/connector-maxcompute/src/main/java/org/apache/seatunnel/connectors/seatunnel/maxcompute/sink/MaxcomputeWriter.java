@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -43,13 +42,14 @@ import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.Maxcom
 
 @Slf4j
 public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
+    
     private final SeaTunnelRowType seaTunnelRowType;
     private final RecordWriter recordWriter;
     private final TableTunnel.UploadSession session;
     private final TableSchema tableSchema;
-
+    
     private Config pluginConfig;
-
+    
     public MaxcomputeWriter(SeaTunnelRowType seaTunnelRowType, Config pluginConfig) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.pluginConfig = pluginConfig;
@@ -77,19 +77,19 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             throw new MaxcomputeConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, e);
         }
     }
-
+    
     @Override
     public void write(SeaTunnelRow seaTunnelRow) throws IOException {
         Record record =
                 MaxcomputeTypeMapper.getMaxcomputeRowData(seaTunnelRow, this.seaTunnelRowType);
         recordWriter.write(record);
     }
-
+    
     @Override
     public void close() throws IOException {
         this.recordWriter.close();
         try {
-            this.session.commit(new Long[] {Thread.currentThread().getId()});
+            this.session.commit(new Long[]{Thread.currentThread().getId()});
         } catch (Exception e) {
             throw new MaxcomputeConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, e);
         }

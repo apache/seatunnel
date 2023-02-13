@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig;
@@ -23,8 +22,9 @@ import java.io.Serializable;
 import java.util.Optional;
 
 public class JdbcConnectionOptions implements Serializable {
+    
     private static final long serialVersionUID = 1L;
-
+    
     public String url;
     public String driverName;
     public int connectionCheckTimeoutSeconds =
@@ -33,73 +33,75 @@ public class JdbcConnectionOptions implements Serializable {
     public String username;
     public String password;
     public String query;
-
+    
     public boolean autoCommit = JdbcConfig.AUTO_COMMIT.defaultValue();
-
+    
     public int batchSize = JdbcConfig.BATCH_SIZE.defaultValue();
     public int batchIntervalMs = JdbcConfig.BATCH_INTERVAL_MS.defaultValue();
-
+    
     public String xaDataSourceClassName;
-
+    
     public int maxCommitAttempts = JdbcConfig.MAX_COMMIT_ATTEMPTS.defaultValue();
-
+    
     public int transactionTimeoutSec = JdbcConfig.TRANSACTION_TIMEOUT_SEC.defaultValue();
-
-    public JdbcConnectionOptions() {}
-
+    
+    public JdbcConnectionOptions() {
+    }
+    
     public String getUrl() {
         return url;
     }
-
+    
     public String getDriverName() {
         return driverName;
     }
-
+    
     public boolean isAutoCommit() {
         return autoCommit;
     }
-
+    
     public int getConnectionCheckTimeoutSeconds() {
         return connectionCheckTimeoutSeconds;
     }
-
+    
     public int getMaxRetries() {
         return maxRetries;
     }
-
+    
     public Optional<String> getUsername() {
         return Optional.ofNullable(username);
     }
-
+    
     public Optional<String> getPassword() {
         return Optional.ofNullable(password);
     }
-
+    
     public int getBatchSize() {
         return batchSize;
     }
-
+    
     public int getBatchIntervalMs() {
         return batchIntervalMs;
     }
-
+    
     public String getXaDataSourceClassName() {
         return xaDataSourceClassName;
     }
-
+    
     public int getMaxCommitAttempts() {
         return maxCommitAttempts;
     }
-
+    
     public Optional<Integer> getTransactionTimeoutSec() {
         return transactionTimeoutSec < 0 ? Optional.empty() : Optional.of(transactionTimeoutSec);
     }
-
+    
     public static JdbcConnectionOptionsBuilder builder() {
         return new JdbcConnectionOptionsBuilder();
     }
-
+    
     public static final class JdbcConnectionOptionsBuilder {
+        
         private String url;
         private String driverName;
         private int connectionCheckTimeoutSeconds =
@@ -114,76 +116,77 @@ public class JdbcConnectionOptions implements Serializable {
         private String xaDataSourceClassName;
         private int maxCommitAttempts = JdbcConfig.MAX_COMMIT_ATTEMPTS.defaultValue();
         private int transactionTimeoutSec = JdbcConfig.TRANSACTION_TIMEOUT_SEC.defaultValue();
-
-        private JdbcConnectionOptionsBuilder() {}
-
+        
+        private JdbcConnectionOptionsBuilder() {
+        }
+        
         public JdbcConnectionOptionsBuilder withUrl(String url) {
             this.url = url;
             return this;
         }
-
+        
         public JdbcConnectionOptionsBuilder withDriverName(String driverName) {
             this.driverName = driverName;
             return this;
         }
-
+        
         public JdbcConnectionOptionsBuilder withConnectionCheckTimeoutSeconds(
-                int connectionCheckTimeoutSeconds) {
+                                                                              int connectionCheckTimeoutSeconds) {
             this.connectionCheckTimeoutSeconds = connectionCheckTimeoutSeconds;
             return this;
         }
-
+        
         public JdbcConnectionOptionsBuilder withMaxRetries(int maxRetries) {
             this.maxRetries = maxRetries;
             return this;
         }
-
+        
         public JdbcConnectionOptionsBuilder withUsername(String username) {
             this.username = username;
             return this;
         }
-
+        
         public JdbcConnectionOptionsBuilder withPassword(String password) {
             this.password = password;
             return this;
         }
-
+        
         public JdbcConnectionOptionsBuilder withQuery(String query) {
             this.query = query;
             return this;
         }
-
+        
         public JdbcConnectionOptionsBuilder withAutoCommit(boolean autoCommit) {
             this.autoCommit = autoCommit;
             return this;
         }
-
+        
         public JdbcConnectionOptionsBuilder withBatchSize(int batchSize) {
             this.batchSize = batchSize;
             return this;
         }
-
+        
         public JdbcConnectionOptionsBuilder withBatchIntervalMs(int batchIntervalMs) {
             this.batchIntervalMs = batchIntervalMs;
             return this;
         }
-
+        
         public JdbcConnectionOptionsBuilder withXaDataSourceClassName(
-                String xaDataSourceClassName) {
+                                                                      String xaDataSourceClassName) {
             this.xaDataSourceClassName = xaDataSourceClassName;
             return this;
         }
-
+        
         public JdbcConnectionOptionsBuilder withMaxCommitAttempts(int maxCommitAttempts) {
             this.maxCommitAttempts = maxCommitAttempts;
             return this;
         }
-
+        
         public JdbcConnectionOptionsBuilder withTransactionTimeoutSec(int transactionTimeoutSec) {
             this.transactionTimeoutSec = transactionTimeoutSec;
             return this;
         }
-
+        
         public JdbcConnectionOptions build() {
             JdbcConnectionOptions jdbcConnectionOptions = new JdbcConnectionOptions();
             jdbcConnectionOptions.batchSize = this.batchSize;

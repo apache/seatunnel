@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.e2e.connector.starrocks;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -64,12 +63,13 @@ import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class StarRocksIT extends TestSuiteBase implements TestResource {
+    
     private static final String DOCKER_IMAGE = "d87904488/starrocks-starter:2.2.1";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final String HOST = "starrocks_e2e";
     private static final int SR_DOCKER_PORT = 9030;
     private static final int SR_PORT = 9033;
-
+    
     private static final String URL = "jdbc:mysql://%s:" + SR_PORT;
     private static final String USERNAME = "root";
     private static final String PASSWORD = "";
@@ -80,7 +80,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
             "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
     private static final String COLUMN_STRING =
             "BIGINT_COL, LARGEINT_COL, SMALLINT_COL, TINYINT_COL, BOOLEAN_COL, DECIMAL_COL, DOUBLE_COL, FLOAT_COL, INT_COL, CHAR_COL, VARCHAR_11_COL, STRING_COL, DATETIME_COL, DATE_COL";
-
+    
     private static final String DDL_SOURCE =
             "create table "
                     + DATABASE
@@ -109,7 +109,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                     + "\"in_memory\" = \"false\","
                     + "\"storage_format\" = \"DEFAULT\""
                     + ")";
-
+    
     private static final String DDL_SINK =
             "create table "
                     + DATABASE
@@ -138,7 +138,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                     + "\"in_memory\" = \"false\","
                     + "\"storage_format\" = \"DEFAULT\""
                     + ")";
-
+    
     private static final String INIT_DATA_SQL =
             "insert into "
                     + DATABASE
@@ -162,11 +162,11 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                     + ")values(\n"
                     + "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?\n"
                     + ")";
-
+    
     private Connection jdbcConnection;
     private GenericContainer<?> starRocksServer;
     private static final List<SeaTunnelRow> TEST_DATASET = generateTestDataSet();
-
+    
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
@@ -178,7 +178,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                                         + SR_DRIVER_JAR);
                 Assertions.assertEquals(0, extraCommands.getExitCode());
             };
-
+    
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -199,34 +199,34 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         initializeJdbcTable();
         batchInsertData();
     }
-
+    
     private static List<SeaTunnelRow> generateTestDataSet() {
-
+        
         List<SeaTunnelRow> rows = new ArrayList<>();
         for (int i = 0; i < 100; i++) {
             SeaTunnelRow row =
                     new SeaTunnelRow(
-                            new Object[] {
-                                Long.valueOf(i),
-                                Long.valueOf(1123456),
-                                Short.parseShort("1"),
-                                Byte.parseByte("1"),
-                                Boolean.FALSE,
-                                BigDecimal.valueOf(2222243, 1),
-                                Double.parseDouble("2222243.2222243"),
-                                Float.parseFloat("222224"),
-                                Integer.parseInt("1"),
-                                "a",
-                                "VARCHAR_COL",
-                                "STRING_COL",
-                                "2022-08-13 17:35:59",
-                                "2022-08-13"
+                            new Object[]{
+                                    Long.valueOf(i),
+                                    Long.valueOf(1123456),
+                                    Short.parseShort("1"),
+                                    Byte.parseByte("1"),
+                                    Boolean.FALSE,
+                                    BigDecimal.valueOf(2222243, 1),
+                                    Double.parseDouble("2222243.2222243"),
+                                    Float.parseFloat("222224"),
+                                    Integer.parseInt("1"),
+                                    "a",
+                                    "VARCHAR_COL",
+                                    "STRING_COL",
+                                    "2022-08-13 17:35:59",
+                                    "2022-08-13"
                             });
             rows.add(row);
         }
         return rows;
     }
-
+    
     @AfterAll
     @Override
     public void tearDown() throws Exception {
@@ -237,15 +237,14 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
             starRocksServer.close();
         }
     }
-
+    
     @TestTemplate
-    public void testStarRocksSink(TestContainer container)
-            throws IOException, InterruptedException {
+    public void testStarRocksSink(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/starrocks-jdbc-to-starrocks.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         try {
             assertHasData(SINK_TABLE);
-
+            
             String sourceSql = String.format("select * from %s.%s", DATABASE, SOURCE_TABLE);
             String sinkSql = String.format("select * from %s.%s", DATABASE, SINK_TABLE);
             List<String> columnList =
@@ -285,13 +284,11 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("get starRocks connection error", e);
         }
     }
-
-    private void initializeJdbcConnection()
-            throws SQLException, ClassNotFoundException, MalformedURLException,
-                    InstantiationException, IllegalAccessException {
+    
+    private void initializeJdbcConnection() throws SQLException, ClassNotFoundException, MalformedURLException, InstantiationException, IllegalAccessException {
         URLClassLoader urlClassLoader =
                 new URLClassLoader(
-                        new URL[] {new URL(SR_DRIVER_JAR)}, StarRocksIT.class.getClassLoader());
+                        new URL[]{new URL(SR_DRIVER_JAR)}, StarRocksIT.class.getClassLoader());
         Thread.currentThread().setContextClassLoader(urlClassLoader);
         Driver driver = (Driver) urlClassLoader.loadClass(DRIVER_CLASS).newInstance();
         Properties props = new Properties();
@@ -299,7 +296,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         props.put("password", PASSWORD);
         jdbcConnection = driver.connect(String.format(URL, starRocksServer.getHost()), props);
     }
-
+    
     private void initializeJdbcTable() {
         try (Statement statement = jdbcConnection.createStatement()) {
             // create databases
@@ -312,13 +309,14 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("Initializing table failed!", e);
         }
     }
-
+    
     private void batchInsertData() {
         List<SeaTunnelRow> rows = TEST_DATASET;
         try {
             jdbcConnection.setAutoCommit(false);
-            try (PreparedStatement preparedStatement =
-                    jdbcConnection.prepareStatement(INIT_DATA_SQL)) {
+            try (
+                    PreparedStatement preparedStatement =
+                            jdbcConnection.prepareStatement(INIT_DATA_SQL)) {
                 for (int i = 0; i < rows.size(); i++) {
                     for (int index = 0; index < rows.get(i).getFields().length; index++) {
                         preparedStatement.setObject(index + 1, rows.get(i).getFields()[index]);
@@ -333,7 +331,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("get connection error", exception);
         }
     }
-
+    
     private void assertHasData(String table) {
         try (Statement statement = jdbcConnection.createStatement()) {
             String sql = String.format("select * from %s.%s limit 1", DATABASE, table);
@@ -343,7 +341,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("test starrocks server image error", e);
         }
     }
-
+    
     private void clearSinkTable() {
         try (Statement statement = jdbcConnection.createStatement()) {
             statement.execute(String.format("TRUNCATE TABLE %s.%s", DATABASE, SINK_TABLE));

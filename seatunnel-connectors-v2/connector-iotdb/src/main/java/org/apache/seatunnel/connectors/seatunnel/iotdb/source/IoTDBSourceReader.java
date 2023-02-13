@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.iotdb.source;
 
 import org.apache.seatunnel.api.source.Boundedness;
@@ -58,35 +57,35 @@ import static org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceCon
 
 @Slf4j
 public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSourceSplit> {
-
+    
     private final Map<String, Object> conf;
-
+    
     private final Queue<IoTDBSourceSplit> pendingSplits;
-
+    
     private final SourceReader.Context context;
-
+    
     private final SeaTunnelRowDeserializer deserializer;
-
+    
     private Session session;
-
+    
     private volatile boolean noMoreSplitsAssignment;
-
+    
     public IoTDBSourceReader(
-            Map<String, Object> conf,
-            SourceReader.Context readerContext,
-            SeaTunnelRowType rowType) {
+                             Map<String, Object> conf,
+                             SourceReader.Context readerContext,
+                             SeaTunnelRowType rowType) {
         this.conf = conf;
         this.pendingSplits = new LinkedList<>();
         this.context = readerContext;
         this.deserializer = new DefaultSeaTunnelRowDeserializer(rowType);
     }
-
+    
     @Override
     public void open() throws IoTDBConnectionException {
         session = buildSession(conf);
         session.open();
     }
-
+    
     @Override
     public void close() throws IOException {
         // nothing to do
@@ -99,7 +98,7 @@ public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSource
                     IotdbConnectorErrorCode.CLOSE_SESSION_FAILED, "Close IoTDB session failed", e);
         }
     }
-
+    
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         while (!pendingSplits.isEmpty()) {
@@ -108,7 +107,7 @@ public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSource
                 read(split, output);
             }
         }
-
+        
         if (Boundedness.BOUNDED.equals(context.getBoundedness())
                 && noMoreSplitsAssignment
                 && pendingSplits.isEmpty()) {
@@ -117,7 +116,7 @@ public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSource
             context.signalNoMoreElement();
         }
     }
-
+    
     private void read(IoTDBSourceSplit split, Collector<SeaTunnelRow> output) throws Exception {
         try (SessionDataSet dataSet = session.executeQueryStatement(split.getQuery())) {
             while (dataSet.hasNext()) {
@@ -127,7 +126,7 @@ public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSource
             }
         }
     }
-
+    
     private Session buildSession(Map<String, Object> conf) {
         Session.Builder sessionBuilder = new Session.Builder();
         if (conf.containsKey(HOST.key())) {
@@ -168,23 +167,23 @@ public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSource
         }
         return sessionBuilder.build();
     }
-
+    
     @Override
     public List<IoTDBSourceSplit> snapshotState(long checkpointId) {
         return new ArrayList<>(pendingSplits);
     }
-
+    
     @Override
     public void addSplits(List<IoTDBSourceSplit> splits) {
         pendingSplits.addAll(splits);
     }
-
+    
     @Override
     public void handleNoMoreSplits() {
         log.info("Reader received NoMoreSplits event.");
         noMoreSplitsAssignment = true;
     }
-
+    
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         // do nothing

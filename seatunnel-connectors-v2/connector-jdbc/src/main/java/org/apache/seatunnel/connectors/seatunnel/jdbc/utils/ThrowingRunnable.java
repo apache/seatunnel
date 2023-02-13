@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.utils;
 
 /**
@@ -23,14 +22,14 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.utils;
  */
 @FunctionalInterface
 public interface ThrowingRunnable<E extends Throwable> {
-
+    
     /**
      * The work method.
      *
      * @throws E Exceptions may be thrown.
      */
     void run() throws E;
-
+    
     /**
      * Converts a {@link ThrowingRunnable} into a {@link Runnable} which throws all checked
      * exceptions as unchecked.

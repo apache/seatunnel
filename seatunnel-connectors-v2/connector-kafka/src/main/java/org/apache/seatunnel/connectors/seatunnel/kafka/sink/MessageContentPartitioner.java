@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
 import org.apache.kafka.clients.producer.Partitioner;
@@ -25,23 +24,24 @@ import java.util.List;
 import java.util.Map;
 
 public class MessageContentPartitioner implements Partitioner {
+    
     private static List<String> ASSIGNPARTITIONS;
-
+    
     public static void setAssignPartitions(List<String> assignPartitionList) {
         ASSIGNPARTITIONS = assignPartitionList;
     }
-
+    
     @Override
     public int partition(
-            String topic,
-            Object key,
-            byte[] keyBytes,
-            Object value,
-            byte[] valueBytes,
-            Cluster cluster) {
+                         String topic,
+                         Object key,
+                         byte[] keyBytes,
+                         Object value,
+                         byte[] valueBytes,
+                         Cluster cluster) {
         List<PartitionInfo> partitions = cluster.partitionsForTopic(topic);
         int numPartitions = partitions.size();
-
+        
         int assignPartitionsSize = ASSIGNPARTITIONS.size();
         String message = new String(valueBytes);
         for (int i = 0; i < assignPartitionsSize; i++) {
@@ -53,10 +53,12 @@ public class MessageContentPartitioner implements Partitioner {
         return ((message.hashCode() & Integer.MAX_VALUE) % (numPartitions - assignPartitionsSize))
                 + assignPartitionsSize;
     }
-
+    
     @Override
-    public void close() {}
-
+    public void close() {
+    }
+    
     @Override
-    public void configure(Map<String, ?> map) {}
+    public void configure(Map<String, ?> map) {
+    }
 }

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.cdc.base.source.reader;
 
 import org.apache.seatunnel.api.source.Collector;
@@ -52,25 +51,25 @@ import static com.google.common.base.Preconditions.checkState;
  */
 @Slf4j
 public class IncrementalSourceReader<T, C extends SourceConfig>
-        extends SingleThreadMultiplexSourceReaderBase<
-                SourceRecords, T, SourceSplitBase, SourceSplitStateBase> {
-
+        extends
+            SingleThreadMultiplexSourceReaderBase<SourceRecords, T, SourceSplitBase, SourceSplitStateBase> {
+    
     private final Map<String, SnapshotSplit> finishedUnackedSplits;
-
+    
     private final Map<String, IncrementalSplit> uncompletedIncrementalSplits;
-
+    
     private volatile boolean running = false;
     private final int subtaskId;
-
+    
     private final C sourceConfig;
-
+    
     public IncrementalSourceReader(
-            BlockingQueue<RecordsWithSplitIds<SourceRecords>> elementsQueue,
-            Supplier<IncrementalSourceSplitReader<C>> splitReaderSupplier,
-            RecordEmitter<SourceRecords, T, SourceSplitStateBase> recordEmitter,
-            SourceReaderOptions options,
-            SourceReader.Context context,
-            C sourceConfig) {
+                                   BlockingQueue<RecordsWithSplitIds<SourceRecords>> elementsQueue,
+                                   Supplier<IncrementalSourceSplitReader<C>> splitReaderSupplier,
+                                   RecordEmitter<SourceRecords, T, SourceSplitStateBase> recordEmitter,
+                                   SourceReaderOptions options,
+                                   SourceReader.Context context,
+                                   C sourceConfig) {
         super(
                 elementsQueue,
                 new SingleThreadFetcherManager<>(elementsQueue, splitReaderSupplier::get),
@@ -82,7 +81,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
         this.uncompletedIncrementalSplits = new HashMap<>();
         this.subtaskId = context.getIndexOfSubtask();
     }
-
+    
     @Override
     public void pollNext(Collector<T> output) throws Exception {
         if (!running) {
@@ -93,10 +92,11 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
         }
         super.pollNext(output);
     }
-
+    
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
-
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {
+    }
+    
     @Override
     public void addSplits(List<SourceSplitBase> splits) {
         // restore for finishedUnackedSplits
@@ -120,7 +120,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
         // add all un-finished splits (including incremental split) to SourceReaderBase
         super.addSplits(unfinishedSplits);
     }
-
+    
     @Override
     protected void onSplitFinished(Map<String, SourceSplitStateBase> finishedSplitIds) {
         for (SourceSplitStateBase splitState : finishedSplitIds.values()) {
@@ -135,11 +135,11 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
         reportFinishedSnapshotSplitsIfNeed();
         context.sendSplitRequest();
     }
-
+    
     private void reportFinishedSnapshotSplitsIfNeed() {
         if (!finishedUnackedSplits.isEmpty()) {
             List<SnapshotSplitWatermark> completedSnapshotSplitWatermarks = new ArrayList<>();
-
+            
             for (SnapshotSplit split : finishedUnackedSplits.values()) {
                 completedSnapshotSplitWatermarks.add(
                         new SnapshotSplitWatermark(split.splitId(), split.getHighWatermark()));
@@ -156,7 +156,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                     completedSnapshotSplitWatermarks);
         }
     }
-
+    
     @Override
     protected SourceSplitStateBase initializedState(SourceSplitBase split) {
         if (split.isSnapshotSplit()) {
@@ -165,21 +165,21 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
             return new IncrementalSplitState(split.asIncrementalSplit());
         }
     }
-
+    
     @Override
     public List<SourceSplitBase> snapshotState(long checkpointId) {
         // unfinished splits
         List<SourceSplitBase> stateSplits = super.snapshotState(checkpointId);
-
+        
         // add finished snapshot splits that didn't receive ack yet
         stateSplits.addAll(finishedUnackedSplits.values());
-
+        
         // add incremental splits who are uncompleted
         stateSplits.addAll(uncompletedIncrementalSplits.values());
-
+        
         return stateSplits;
     }
-
+    
     @Override
     protected SourceSplitBase toSplitType(String splitId, SourceSplitStateBase splitState) {
         return splitState.toSourceSplit();

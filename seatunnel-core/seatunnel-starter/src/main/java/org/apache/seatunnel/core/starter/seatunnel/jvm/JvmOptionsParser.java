@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.core.starter.seatunnel.jvm;
 
 import org.apache.seatunnel.common.exception.CommonErrorCode;
@@ -44,7 +43,7 @@ import java.util.regex.Pattern;
  */
 @SuppressWarnings("checkstyle:InnerTypeLast")
 final class JvmOptionsParser {
-
+    
     /**
      * The main entry point. The exit code is 0 if the JVM options were successfully parsed,
      * otherwise the exit code is 1. If an improperly formatted line is discovered, the line is
@@ -57,22 +56,23 @@ final class JvmOptionsParser {
                     "Expected one arguments specifying path to PATH_CONF, but was "
                             + Arrays.toString(args));
         }
-
+        
         final JvmOptionsParser parser = new JvmOptionsParser();
         final List<String> jvmOptions = parser.readJvmOptionsFiles(Paths.get(args[0]));
         System.out.println(String.join(" ", jvmOptions));
     }
-
+    
     @SneakyThrows
     List<String> readJvmOptionsFiles(final Path config) {
         final ArrayList<Path> jvmOptionsFiles = new ArrayList<>();
         jvmOptionsFiles.add(config.resolve("jvm_options"));
-
+        
         final List<String> jvmOptions = new ArrayList<>();
-
+        
         for (final Path jvmOptionsFile : jvmOptionsFiles) {
             final SortedMap<Integer, String> invalidLines = new TreeMap<>();
-            try (InputStream is = Files.newInputStream(jvmOptionsFile);
+            try (
+                    InputStream is = Files.newInputStream(jvmOptionsFile);
                     Reader reader = new InputStreamReader(is, StandardCharsets.UTF_8);
                     BufferedReader br = new BufferedReader(reader)) {
                 parse(
@@ -94,9 +94,10 @@ final class JvmOptionsParser {
         }
         return jvmOptions;
     }
-
+    
     /** Callback for valid JVM options. */
     interface JvmOptionConsumer {
+        
         /**
          * Invoked when a line in the JVM options file matches the specified syntax and the
          * specified major version.
@@ -105,16 +106,17 @@ final class JvmOptionsParser {
          */
         void accept(String jvmOption);
     }
-
+    
     /** Callback for invalid lines in the JVM options. */
     interface InvalidLineConsumer {
+        
         /** Invoked when a line in the JVM options does not match the specified syntax. */
         void accept(int lineNumber, String line);
     }
-
+    
     private static final Pattern PATTERN =
             Pattern.compile("((?<start>\\d+)(?<range>-)?(?<end>\\d+)?:)?(?<option>-.*)$");
-
+    
     /**
      * Parse the line-delimited JVM options from the specified buffered reader for the specified
      * Java major version. Valid JVM options are:
@@ -165,10 +167,10 @@ final class JvmOptionsParser {
      */
     @SneakyThrows
     static void parse(
-            final int javaMajorVersion,
-            final BufferedReader br,
-            final JvmOptionConsumer jvmOptionConsumer,
-            final InvalidLineConsumer invalidLineConsumer) {
+                      final int javaMajorVersion,
+                      final BufferedReader br,
+                      final JvmOptionConsumer jvmOptionConsumer,
+                      final InvalidLineConsumer invalidLineConsumer) {
         int lineNumber = 0;
         while (true) {
             final String line = br.readLine();

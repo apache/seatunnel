@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.mongodb.data;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
@@ -40,19 +39,19 @@ import java.util.List;
 import java.util.Map;
 
 public class DefaultSerializer implements Serializer {
-
+    
     private final SeaTunnelRowType rowType;
-
+    
     public DefaultSerializer(@NonNull SeaTunnelRowType rowType) {
         DataTypeValidator.validateDataType(rowType);
         this.rowType = rowType;
     }
-
+    
     @Override
     public Document serialize(@NonNull SeaTunnelRow row) {
         return convert(rowType, row);
     }
-
+    
     private static Document convert(SeaTunnelRowType rowType, SeaTunnelRow row) {
         Document document = new Document();
         for (int i = 0; i < rowType.getTotalFields(); i++) {
@@ -63,7 +62,7 @@ public class DefaultSerializer implements Serializer {
         }
         return document;
     }
-
+    
     private static Object convert(SeaTunnelDataType<?> fieldType, Object fieldValue) {
         if (fieldValue == null) {
             return null;

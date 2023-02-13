@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.email.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -52,39 +51,39 @@ import java.util.Properties;
 
 @Slf4j
 public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
-
+    
     private final SeaTunnelRowType seaTunnelRowType;
     private EmailSinkConfig config;
     private StringBuffer stringBuffer;
-
+    
     public EmailSinkWriter(SeaTunnelRowType seaTunnelRowType, Config pluginConfig) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.config = new EmailSinkConfig(pluginConfig);
         this.stringBuffer = new StringBuffer();
     }
-
+    
     @Override
     public void write(SeaTunnelRow element) {
         Object[] fields = element.getFields();
-
+        
         for (Object field : fields) {
             stringBuffer.append(field.toString() + ",");
         }
         stringBuffer.deleteCharAt(fields.length - 1);
         stringBuffer.append("\n");
     }
-
+    
     @Override
     public void close() {
         createFile();
         Properties properties = new Properties();
-
+        
         properties.setProperty("mail.host", config.getEmailHost());
-
+        
         properties.setProperty("mail.transport.protocol", config.getEmailTransportProtocol());
-
+        
         properties.setProperty("mail.smtp.auth", config.getEmailSmtpAuth());
-
+        
         try {
             MailSSLSocketFactory sf = new MailSSLSocketFactory();
             sf.setTrustAllHosts(true);
@@ -94,6 +93,7 @@ public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                     Session.getDefaultInstance(
                             properties,
                             new Authenticator() {
+                                
                                 @Override
                                 protected PasswordAuthentication getPasswordAuthentication() {
                                     return new PasswordAuthentication(
@@ -103,23 +103,23 @@ public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                             });
             // Create the default MimeMessage object
             MimeMessage message = new MimeMessage(session);
-
+            
             // Set the email address
             message.setFrom(new InternetAddress(config.getEmailFromAddress()));
-
+            
             // Set the recipient email address
             message.addRecipient(
                     Message.RecipientType.TO, new InternetAddress(config.getEmailToAddress()));
-
+            
             // Setting the Email subject
             message.setSubject(config.getEmailMessageHeadline());
-
+            
             // Create Message
             BodyPart messageBodyPart = new MimeBodyPart();
-
+            
             // Set Message content
             messageBodyPart.setText(config.getEmailMessageContent());
-
+            
             // Create multiple messages
             Multipart multipart = new MimeMultipart();
             // Set up the text message section
@@ -132,8 +132,8 @@ public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             messageBodyPart.setFileName(filename);
             multipart.addBodyPart(messageBodyPart);
             message.setContent(multipart);
-
-            //   send a message
+            
+            // send a message
             Transport.send(message);
             log.info("Sent message successfully....");
         } catch (Exception e) {
@@ -141,7 +141,7 @@ public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                     EmailConnectorErrorCode.SEND_EMAIL_FAILED, "Send email failed", e);
         }
     }
-
+    
     public void createFile() {
         try {
             String data = stringBuffer.toString();

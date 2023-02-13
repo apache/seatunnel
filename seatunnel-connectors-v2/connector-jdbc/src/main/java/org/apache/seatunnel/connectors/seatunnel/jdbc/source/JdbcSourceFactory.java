@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
@@ -38,11 +37,12 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.U
 
 @AutoService(Factory.class)
 public class JdbcSourceFactory implements TableSourceFactory {
+    
     @Override
     public String factoryIdentifier() {
         return "Jdbc";
     }
-
+    
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
@@ -58,7 +58,7 @@ public class JdbcSourceFactory implements TableSourceFactory {
                         PARTITION_NUM)
                 .build();
     }
-
+    
     @Override
     public Class<? extends SeaTunnelSource> getSourceClass() {
         return JdbcSource.class;

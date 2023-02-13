@@ -1,11 +1,10 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -15,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.e2e.common.junit;
 
 import org.junit.jupiter.api.extension.BeforeEachCallback;
@@ -29,8 +27,9 @@ import java.io.StringWriter;
 
 /** A JUnit-5-style test logger. */
 public class TestLoggerExtension implements TestWatcher, BeforeEachCallback {
+    
     private static final Logger LOG = LoggerFactory.getLogger(TestLoggerExtension.class);
-
+    
     @Override
     public void beforeEach(ExtensionContext context) {
         LOG.info(
@@ -40,7 +39,7 @@ public class TestLoggerExtension implements TestWatcher, BeforeEachCallback {
                 context.getRequiredTestClass().getCanonicalName(),
                 context.getRequiredTestMethod().getName());
     }
-
+    
     @Override
     public void testSuccessful(ExtensionContext context) {
         LOG.info(
@@ -50,7 +49,7 @@ public class TestLoggerExtension implements TestWatcher, BeforeEachCallback {
                 context.getRequiredTestClass().getCanonicalName(),
                 context.getRequiredTestMethod().getName());
     }
-
+    
     @Override
     public void testFailed(ExtensionContext context, Throwable cause) {
         LOG.error(
@@ -61,12 +60,12 @@ public class TestLoggerExtension implements TestWatcher, BeforeEachCallback {
                 context.getRequiredTestMethod().getName(),
                 exceptionToString(cause));
     }
-
+    
     private static String exceptionToString(Throwable t) {
         if (t == null) {
             return "(null)";
         }
-
+        
         try {
             StringWriter stm = new StringWriter();
             PrintWriter wrt = new PrintWriter(stm);

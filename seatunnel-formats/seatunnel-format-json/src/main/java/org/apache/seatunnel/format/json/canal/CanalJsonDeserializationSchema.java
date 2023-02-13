@@ -1,11 +1,10 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -15,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.format.json.canal;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
@@ -38,54 +36,54 @@ import java.util.regex.Pattern;
 import static java.lang.String.format;
 
 public class CanalJsonDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
-
+    
     private static final long serialVersionUID = 1L;
-
+    
     private static final String FIELD_OLD = "old";
-
+    
     private static final String FIELD_DATA = "data";
-
+    
     private static final String FIELD_TYPE = "type";
-
+    
     private static final String FIELD_DATABASE = "database";
-
+    
     private static final String FIELD_TABLE = "table";
-
+    
     private static final String OP_INSERT = "INSERT";
-
+    
     private static final String OP_UPDATE = "UPDATE";
-
+    
     private static final String OP_DELETE = "DELETE";
-
+    
     private static final String OP_CREATE = "CREATE";
-
+    
     private String database;
-
+    
     private String table;
-
+    
     /** Names of fields. */
     private final String[] fieldNames;
-
+    
     /** Number of fields. */
     private final int fieldCount;
-
+    
     private boolean ignoreParseErrors;
-
+    
     /** Pattern of the specific database. */
     private final Pattern databasePattern;
-
+    
     /** Pattern of the specific table. */
     private final Pattern tablePattern;
-
+    
     private final JsonDeserializationSchema jsonDeserializer;
-
+    
     private final SeaTunnelRowType physicalRowType;
-
+    
     public CanalJsonDeserializationSchema(
-            SeaTunnelRowType physicalRowType,
-            String database,
-            String table,
-            boolean ignoreParseErrors) {
+                                          SeaTunnelRowType physicalRowType,
+                                          String database,
+                                          String table,
+                                          boolean ignoreParseErrors) {
         this.physicalRowType = physicalRowType;
         final SeaTunnelRowType jsonRowType = createJsonRowType(physicalRowType);
         this.jsonDeserializer =
@@ -98,17 +96,17 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
         this.databasePattern = database == null ? null : Pattern.compile(database);
         this.tablePattern = table == null ? null : Pattern.compile(table);
     }
-
+    
     @Override
     public SeaTunnelRow deserialize(byte[] message) throws IOException {
         throw new UnsupportedOperationException();
     }
-
+    
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
         return this.physicalRowType;
     }
-
+    
     public void deserialize(byte[] message, Collector<SeaTunnelRow> out) {
         if (message == null) {
             return;
@@ -174,7 +172,7 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
             }
         }
     }
-
+    
     private JsonNode convertBytes(byte[] message) {
         try {
             return jsonDeserializer.deserializeToJsonNode(message);
@@ -188,54 +186,54 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
                     t);
         }
     }
-
+    
     private SeaTunnelRow convertJsonNode(JsonNode root) {
         return jsonDeserializer.convertToRowData(root);
     }
-
+    
     private static SeaTunnelRowType createJsonRowType(SeaTunnelRowType physicalDataType) {
         // Canal JSON contains other information, e.g. "ts", "sql", but we don't need them
         return physicalDataType;
     }
-
+    
     // ------------------------------------------------------------------------------------------
     // Builder
     // ------------------------------------------------------------------------------------------
-
+    
     /** Creates A builder for building a {@link CanalJsonDeserializationSchema}. */
     public static Builder builder(SeaTunnelRowType physicalDataType) {
         return new Builder(physicalDataType);
     }
-
+    
     public static class Builder {
-
+        
         private boolean ignoreParseErrors = false;
-
+        
         private String database = null;
-
+        
         private String table = null;
-
+        
         private final SeaTunnelRowType physicalDataType;
-
+        
         public Builder(SeaTunnelRowType physicalDataType) {
             this.physicalDataType = physicalDataType;
         }
-
+        
         public Builder setDatabase(String database) {
             this.database = database;
             return this;
         }
-
+        
         public Builder setTable(String table) {
             this.table = table;
             return this;
         }
-
+        
         public Builder setIgnoreParseErrors(boolean ignoreParseErrors) {
             this.ignoreParseErrors = ignoreParseErrors;
             return this;
         }
-
+        
         public CanalJsonDeserializationSchema build() {
             return new CanalJsonDeserializationSchema(
                     physicalDataType, database, table, ignoreParseErrors);

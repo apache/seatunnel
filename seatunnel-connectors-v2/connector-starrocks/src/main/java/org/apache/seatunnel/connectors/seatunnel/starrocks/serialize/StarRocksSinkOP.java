@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.starrocks.serialize;
 
 import org.apache.seatunnel.api.table.type.RowKind;
@@ -24,11 +23,12 @@ import org.apache.seatunnel.api.table.type.RowKind;
  * https://github.com/StarRocks/starrocks/blob/main/docs/loading/Load_to_Primary_Key_tables.md#upsert-and-delete
  */
 public enum StarRocksSinkOP {
+    
     UPSERT,
     DELETE;
-
+    
     public static final String COLUMN_KEY = "__op";
-
+    
     static StarRocksSinkOP parse(RowKind kind) {
         switch (kind) {
             case INSERT:

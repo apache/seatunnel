@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.format.text;
 
 import org.apache.seatunnel.api.serialization.SerializationSchema;
@@ -37,15 +36,20 @@ import java.time.LocalTime;
 
 @Builder
 public class TextSerializationSchema implements SerializationSchema {
-    @NonNull private SeaTunnelRowType seaTunnelRowType;
-    @NonNull private String delimiter;
-    @Builder.Default private DateUtils.Formatter dateFormatter = DateUtils.Formatter.YYYY_MM_DD;
-
+    
+    @NonNull
+    private SeaTunnelRowType seaTunnelRowType;
+    @NonNull
+    private String delimiter;
+    @Builder.Default
+    private DateUtils.Formatter dateFormatter = DateUtils.Formatter.YYYY_MM_DD;
+    
     @Builder.Default
     private DateTimeUtils.Formatter dateTimeFormatter = DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
-
-    @Builder.Default private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
-
+    
+    @Builder.Default
+    private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
+    
     @Override
     public byte[] serialize(SeaTunnelRow element) {
         if (element.getFields().length != seaTunnelRowType.getTotalFields()) {
@@ -59,7 +63,7 @@ public class TextSerializationSchema implements SerializationSchema {
         }
         return String.join(delimiter, strings).getBytes();
     }
-
+    
     private String convert(Object field, SeaTunnelDataType<?> fieldType) {
         if (field == null) {
             return "";

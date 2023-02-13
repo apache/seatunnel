@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.api.configuration.util;
 
 import org.apache.seatunnel.api.configuration.Option;
@@ -63,7 +62,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * }</pre>
  */
 public class OptionRule {
-
+    
     /**
      * Optional options with default value.
      *
@@ -72,27 +71,27 @@ public class OptionRule {
      * <p>This is used by the web-UI to show what options are available.
      */
     private final List<Option<?>> optionalOptions;
-
+    
     /**
      * Required options with no default value.
      *
      * <p>Verify that the option is valid through the defined rules.
      */
     private final List<RequiredOption> requiredOptions;
-
+    
     OptionRule(List<Option<?>> optionalOptions, List<RequiredOption> requiredOptions) {
         this.optionalOptions = optionalOptions;
         this.requiredOptions = requiredOptions;
     }
-
+    
     public List<Option<?>> getOptionalOptions() {
         return optionalOptions;
     }
-
+    
     public List<RequiredOption> getRequiredOptions() {
         return requiredOptions;
     }
-
+    
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -105,23 +104,25 @@ public class OptionRule {
         return Objects.equals(optionalOptions, that.optionalOptions)
                 && Objects.equals(requiredOptions, that.requiredOptions);
     }
-
+    
     @Override
     public int hashCode() {
         return Objects.hash(optionalOptions, requiredOptions);
     }
-
+    
     public static OptionRule.Builder builder() {
         return new OptionRule.Builder();
     }
-
+    
     /** Builder for {@link OptionRule}. */
     public static class Builder {
+        
         private final List<Option<?>> optionalOptions = new ArrayList<>();
         private final List<RequiredOption> requiredOptions = new ArrayList<>();
-
-        private Builder() {}
-
+        
+        private Builder() {
+        }
+        
         /**
          * Optional options
          *
@@ -136,7 +137,7 @@ public class OptionRule {
             this.optionalOptions.addAll(Arrays.asList(options));
             return this;
         }
-
+        
         /** Absolutely required options without any constraints. */
         public Builder required(@NonNull Option<?>... options) {
             RequiredOption.AbsolutelyRequiredOptions requiredOption =
@@ -145,7 +146,7 @@ public class OptionRule {
             this.requiredOptions.add(requiredOption);
             return this;
         }
-
+        
         /** Exclusive options, only one of the options needs to be configured. */
         public Builder exclusive(@NonNull Option<?>... options) {
             if (options.length <= 1) {
@@ -158,20 +159,20 @@ public class OptionRule {
             this.requiredOptions.add(exclusiveRequiredOption);
             return this;
         }
-
+        
         public <T> Builder conditional(
-                @NonNull Option<T> conditionalOption,
-                @NonNull List<T> expectValues,
-                @NonNull Option<?>... requiredOptions) {
+                                       @NonNull Option<T> conditionalOption,
+                                       @NonNull List<T> expectValues,
+                                       @NonNull Option<?>... requiredOptions) {
             verifyConditionalExists(conditionalOption);
-
+            
             if (expectValues.size() == 0) {
                 throw new OptionValidationException(
                         String.format(
                                 "conditional option '%s' must have expect values .",
                                 conditionalOption.key()));
             }
-
+            
             /** Each parameter can only be controlled by one other parameter */
             Expression expression =
                     Expression.of(Condition.of(conditionalOption, expectValues.get(0)));
@@ -183,7 +184,7 @@ public class OptionRule {
                                             Condition.of(conditionalOption, expectValues.get(i))));
                 }
             }
-
+            
             RequiredOption.ConditionalRequiredOptions option =
                     RequiredOption.ConditionalRequiredOptions.of(
                             expression, new ArrayList<>(Arrays.asList(requiredOptions)));
@@ -191,24 +192,24 @@ public class OptionRule {
             this.requiredOptions.add(option);
             return this;
         }
-
+        
         public <T> Builder conditional(
-                @NonNull Option<T> conditionalOption,
-                @NonNull T expectValue,
-                @NonNull Option<?>... requiredOptions) {
+                                       @NonNull Option<T> conditionalOption,
+                                       @NonNull T expectValue,
+                                       @NonNull Option<?>... requiredOptions) {
             verifyConditionalExists(conditionalOption);
-
+            
             /** Each parameter can only be controlled by one other parameter */
             Expression expression = Expression.of(Condition.of(conditionalOption, expectValue));
             RequiredOption.ConditionalRequiredOptions conditionalRequiredOption =
                     RequiredOption.ConditionalRequiredOptions.of(
                             expression, new ArrayList<>(Arrays.asList(requiredOptions)));
-
+            
             verifyRequiredOptionDuplicate(conditionalRequiredOption);
             this.requiredOptions.add(conditionalRequiredOption);
             return this;
         }
-
+        
         /** Bundled options, must be present or absent together. */
         public Builder bundled(@NonNull Option<?>... requiredOptions) {
             RequiredOption.BundledRequiredOptions bundledRequiredOption =
@@ -217,11 +218,11 @@ public class OptionRule {
             this.requiredOptions.add(bundledRequiredOption);
             return this;
         }
-
+        
         public OptionRule build() {
             return new OptionRule(optionalOptions, requiredOptions);
         }
-
+        
         private void verifyRequiredOptionDefaultValue(@NonNull Option<?> option) {
             if (option.defaultValue() != null) {
                 throw new OptionValidationException(
@@ -230,9 +231,9 @@ public class OptionRule {
                                 option.key()));
             }
         }
-
+        
         private void verifyDuplicateWithOptionOptions(
-                @NonNull Option<?> option, @NonNull String currentOptionType) {
+                                                      @NonNull Option<?> option, @NonNull String currentOptionType) {
             if (optionalOptions.contains(option)) {
                 throw new OptionValidationException(
                         String.format(
@@ -240,7 +241,7 @@ public class OptionRule {
                                 currentOptionType, option.key()));
             }
         }
-
+        
         private void verifyRequiredOptionDuplicate(@NonNull RequiredOption requiredOption) {
             requiredOption
                     .getOptions()
@@ -250,28 +251,20 @@ public class OptionRule {
                                         option, requiredOption.getClass().getSimpleName());
                                 requiredOptions.forEach(
                                         ro -> {
-                                            if (ro
-                                                            instanceof
-                                                            RequiredOption
-                                                                    .ConditionalRequiredOptions
-                                                    && requiredOption
-                                                            instanceof
-                                                            RequiredOption
-                                                                    .ConditionalRequiredOptions) {
+                                            if (ro instanceof RequiredOption.ConditionalRequiredOptions
+                                                    && requiredOption instanceof RequiredOption.ConditionalRequiredOptions) {
                                                 Option<?> requiredOptionCondition =
-                                                        ((RequiredOption.ConditionalRequiredOptions)
-                                                                        requiredOption)
+                                                        ((RequiredOption.ConditionalRequiredOptions) requiredOption)
                                                                 .getExpression()
                                                                 .getCondition()
                                                                 .getOption();
-
+                                                
                                                 Option<?> roOptionCondition =
-                                                        ((RequiredOption.ConditionalRequiredOptions)
-                                                                        ro)
+                                                        ((RequiredOption.ConditionalRequiredOptions) ro)
                                                                 .getExpression()
                                                                 .getCondition()
                                                                 .getOption();
-
+                                                
                                                 if (ro.getOptions().contains(option)
                                                         && !requiredOptionCondition.equals(
                                                                 roOptionCondition)) {
@@ -299,11 +292,11 @@ public class OptionRule {
                                         });
                             });
         }
-
+        
         private void verifyOptionOptionsDuplicate(
-                @NonNull Option<?> option, @NonNull String currentOptionType) {
+                                                  @NonNull Option<?> option, @NonNull String currentOptionType) {
             verifyDuplicateWithOptionOptions(option, currentOptionType);
-
+            
             requiredOptions.forEach(
                     requiredOption -> {
                         if (requiredOption.getOptions().contains(option)) {
@@ -316,7 +309,7 @@ public class OptionRule {
                         }
                     });
         }
-
+        
         private void verifyConditionalExists(@NonNull Option<?> option) {
             boolean inOptions = optionalOptions.contains(option);
             AtomicBoolean inRequired = new AtomicBoolean(false);
@@ -326,7 +319,7 @@ public class OptionRule {
                             inRequired.set(true);
                         }
                     });
-
+            
             if (!inOptions && !inRequired.get()) {
                 throw new OptionValidationException(
                         String.format("Conditional '%s' not found in options.", option.key()));

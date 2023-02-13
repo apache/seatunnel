@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.e2e.flink.v2.jdbc;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -37,9 +36,8 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class JdbcE2eUtil {
-
-    public static void compare(Connection conn, String sourceSql, String sinkSQL, String columns)
-            throws SQLException, IOException {
+    
+    public static void compare(Connection conn, String sourceSql, String sinkSQL, String columns) throws SQLException, IOException {
         String[] split = StringUtils.split(columns, ",");
         List<String> columnList =
                 Arrays.stream(split)
@@ -48,22 +46,21 @@ public class JdbcE2eUtil {
                         .collect(Collectors.toList());
         compare(conn, sourceSql, sinkSQL, columnList);
     }
-
+    
     @SuppressWarnings("magicnumber")
     public static void compare(
-            Connection conn, String sourceSql, String sinkSQL, List<String> columns)
-            throws SQLException, IOException {
+                               Connection conn, String sourceSql, String sinkSQL, List<String> columns) throws SQLException, IOException {
         Assertions.assertTrue(conn.isValid(10));
-        try (Statement sourceState = conn.createStatement();
+        try (
+                Statement sourceState = conn.createStatement();
                 Statement sinkState = conn.createStatement()) {
             ResultSet source = sourceState.executeQuery(sourceSql);
             ResultSet sink = sinkState.executeQuery(sinkSQL);
             compareResultSet(source, sink, columns);
         }
     }
-
-    private static void compareResultSet(ResultSet source, ResultSet sink, List<String> columns)
-            throws SQLException, IOException {
+    
+    private static void compareResultSet(ResultSet source, ResultSet sink, List<String> columns) throws SQLException, IOException {
         Assertions.assertNotNull(source, "source can't be null");
         Assertions.assertNotNull(sink, "source can't be null");
         ResultSetMetaData sourceMetaData = source.getMetaData();
@@ -89,10 +86,9 @@ public class JdbcE2eUtil {
             Assertions.fail("the row of source != sink");
         }
     }
-
+    
     private static boolean compareColumn(
-            ResultSet source, ResultSet sink, int sourceCnt, int sinkCnt)
-            throws SQLException, IOException {
+                                         ResultSet source, ResultSet sink, int sourceCnt, int sinkCnt) throws SQLException, IOException {
         Object sourceObject = source.getObject(sourceCnt);
         Object sinkObject = sink.getObject(sinkCnt);
         if (Objects.deepEquals(sourceObject, sinkObject)) {

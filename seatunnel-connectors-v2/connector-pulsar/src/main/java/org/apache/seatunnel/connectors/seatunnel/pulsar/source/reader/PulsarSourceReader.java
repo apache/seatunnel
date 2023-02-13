@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.pulsar.source.reader;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
@@ -50,40 +49,41 @@ import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSplit> {
+    
     private static final Logger LOG = LoggerFactory.getLogger(PulsarSourceReader.class);
     protected final SourceReader.Context context;
     protected final PulsarClientConfig clientConfig;
     protected final PulsarConsumerConfig consumerConfig;
     protected final StartCursor startCursor;
     protected final Handover<RecordWithSplitId> handover;
-
+    
     protected final Map<String, PulsarPartitionSplit> splitStates;
     protected final Map<String, PulsarSplitReaderThread> splitReaders;
     protected final SortedMap<Long, Map<String, MessageId>> pendingCursorsToCommit;
     protected final Map<String, MessageId> pendingCursorsToFinish;
     protected final Set<String> finishedSplits;
-
+    
     protected final DeserializationSchema<T> deserialization;
-
+    
     /** The maximum number of milliseconds to wait for a fetch batch. */
     protected final int pollTimeout;
-
+    
     protected final long pollInterval;
     protected final int batchSize;
-
+    
     protected PulsarClient pulsarClient;
     /** Indicating whether the SourceReader will be assigned more splits or not. */
     private boolean noMoreSplitsAssignment = false;
-
+    
     public PulsarSourceReader(
-            SourceReader.Context context,
-            PulsarClientConfig clientConfig,
-            PulsarConsumerConfig consumerConfig,
-            StartCursor startCursor,
-            DeserializationSchema<T> deserialization,
-            int pollTimeout,
-            long pollInterval,
-            int batchSize) {
+                              SourceReader.Context context,
+                              PulsarClientConfig clientConfig,
+                              PulsarConsumerConfig consumerConfig,
+                              StartCursor startCursor,
+                              DeserializationSchema<T> deserialization,
+                              int pollTimeout,
+                              long pollInterval,
+                              int batchSize) {
         this.context = context;
         this.clientConfig = clientConfig;
         this.consumerConfig = consumerConfig;
@@ -99,12 +99,12 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
         this.finishedSplits = new TreeSet<>();
         this.handover = new Handover<>();
     }
-
+    
     @Override
     public void open() {
         this.pulsarClient = PulsarConfigUtil.createClient(clientConfig);
     }
-
+    
     @Override
     public void close() throws IOException {
         if (pulsarClient != null) {
@@ -124,7 +124,7 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
                             }
                         });
     }
-
+    
     @Override
     public void pollNext(Collector<T> output) throws Exception {
         for (int i = 0; i < batchSize; i++) {
@@ -143,7 +143,7 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
             }
         }
     }
-
+    
     @Override
     public List<PulsarPartitionSplit> snapshotState(long checkpointId) throws Exception {
         List<PulsarPartitionSplit> pendingSplit =
@@ -163,7 +163,7 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
         }
         return pendingSplit;
     }
-
+    
     @Override
     public void addSplits(List<PulsarPartitionSplit> splits) {
         splits.forEach(
@@ -183,7 +183,7 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
                     }
                 });
     }
-
+    
     protected PulsarSplitReaderThread createPulsarSplitReaderThread(PulsarPartitionSplit split) {
         return new PulsarSplitReaderThread(
                 this,
@@ -195,18 +195,18 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
                 startCursor,
                 handover);
     }
-
+    
     public void handleNoMoreElements(String splitId, MessageId messageId) {
         LOG.info("Reader received the split {} NoMoreElements event.", splitId);
         pendingCursorsToFinish.put(splitId, messageId);
     }
-
+    
     @Override
     public void handleNoMoreSplits() {
         LOG.info("Reader received NoMoreSplits event.");
         this.noMoreSplitsAssignment = true;
     }
-
+    
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         LOG.debug("Committing cursors for checkpoint {}", checkpointId);
@@ -222,9 +222,9 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
                     if (finishedSplits.contains(splitId)) {
                         return;
                     }
-
+                    
                     splitReaders.get(splitId).committingCursor(messageId);
-
+                    
                     if (pendingCursorsToFinish.containsKey(splitId)
                             && pendingCursorsToFinish.get(splitId).compareTo(messageId) == 0) {
                         finishedSplits.add(splitId);

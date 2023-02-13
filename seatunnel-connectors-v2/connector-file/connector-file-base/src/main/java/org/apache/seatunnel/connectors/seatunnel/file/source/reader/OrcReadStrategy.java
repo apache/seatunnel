@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.api.source.Collector;
@@ -69,11 +68,11 @@ import java.util.Map;
 
 @Slf4j
 public class OrcReadStrategy extends AbstractReadStrategy {
+    
     private static final long MIN_SIZE = 16 * 1024;
-
+    
     @Override
-    public void read(String path, Collector<SeaTunnelRow> output)
-            throws FileConnectorException, IOException {
+    public void read(String path, Collector<SeaTunnelRow> output) throws FileConnectorException, IOException {
         if (Boolean.FALSE.equals(checkFileType(path))) {
             String errorMsg =
                     String.format(
@@ -119,10 +118,9 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             }
         }
     }
-
+    
     @Override
-    public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path)
-            throws FileConnectorException {
+    public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path) throws FileConnectorException {
         Configuration configuration = getConfiguration(hadoopConf);
         OrcFile.ReaderOptions readerOptions = OrcFile.readerOptions(configuration);
         Path dstDir = new Path(path);
@@ -142,7 +140,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             throw new FileConnectorException(CommonErrorCode.READER_OPERATION_FAILED, errorMsg);
         }
     }
-
+    
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     boolean checkFileType(String path) {
@@ -185,7 +183,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             throw new FileConnectorException(FileConnectorErrorCode.FILE_TYPE_INVALID, errorMsg, e);
         }
     }
-
+    
     private SeaTunnelDataType<?> orcDataType2SeaTunnelDataType(TypeDescription typeDescription) {
         switch (typeDescription.getCategory()) {
             case BOOLEAN:
@@ -268,7 +266,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
         }
     }
-
+    
     private Object readColumn(ColumnVector colVec, TypeDescription colType, int rowNum) {
         Object columnObj = null;
         if (!colVec.isNull[rowNum]) {
@@ -311,7 +309,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         }
         return columnObj;
     }
-
+    
     private Object readLongVal(ColumnVector colVec, TypeDescription colType, int rowNum) {
         Object colObj = null;
         if (!colVec.isNull[rowNum]) {
@@ -332,7 +330,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         }
         return colObj;
     }
-
+    
     private Object readBytesVal(ColumnVector colVec, TypeDescription typeDescription, int rowNum) {
         Object bytesObj = null;
         if (!colVec.isNull[rowNum]) {
@@ -344,7 +342,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         }
         return bytesObj;
     }
-
+    
     private Object readDecimalVal(ColumnVector colVec, int rowNum) {
         Object decimalObj = null;
         if (!colVec.isNull[rowNum]) {
@@ -353,7 +351,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         }
         return decimalObj;
     }
-
+    
     private Object readTimestampVal(ColumnVector colVec, TypeDescription colType, int rowNum) {
         Object timestampVal = null;
         if (!colVec.isNull[rowNum]) {
@@ -369,7 +367,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         }
         return timestampVal;
     }
-
+    
     private Object readStructVal(ColumnVector colVec, TypeDescription colType, int rowNum) {
         Object structObj = null;
         if (!colVec.isNull[rowNum]) {
@@ -385,7 +383,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         }
         return structObj;
     }
-
+    
     private Object readMapVal(ColumnVector colVec, TypeDescription colType, int rowNum) {
         Map<Object, Object> objMap = new HashMap<>();
         MapColumnVector mapVector = (MapColumnVector) colVec;
@@ -408,7 +406,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         }
         return objMap;
     }
-
+    
     private boolean checkMapColumnVectorTypes(MapColumnVector mapVector) {
         ColumnVector.Type keyType = mapVector.keys.type;
         ColumnVector.Type valueType = mapVector.values.type;
@@ -420,9 +418,9 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 || valueType == ColumnVector.Type.DECIMAL
                 || valueType == ColumnVector.Type.TIMESTAMP;
     }
-
+    
     private Object[] readMapVector(
-            ColumnVector mapVector, TypeDescription childType, int offset, int numValues) {
+                                   ColumnVector mapVector, TypeDescription childType, int offset, int numValues) {
         Object[] mapList;
         switch (mapVector.type) {
             case BYTES:
@@ -455,7 +453,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         }
         return mapList;
     }
-
+    
     private Object readUnionVal(ColumnVector colVec, TypeDescription colType, int rowNum) {
         Pair<TypeDescription, Object> columnValuePair;
         UnionColumnVector unionVector = (UnionColumnVector) colVec;
@@ -479,7 +477,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         }
         return columnValuePair;
     }
-
+    
     private Object readListVal(ColumnVector colVec, TypeDescription colType, int rowNum) {
         Object listValues = null;
         if (!colVec.isNull[rowNum]) {
@@ -510,17 +508,17 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         }
         return listValues;
     }
-
+    
     private Object readLongListValues(
-            ListColumnVector listVector, TypeDescription childType, int rowNum) {
+                                      ListColumnVector listVector, TypeDescription childType, int rowNum) {
         int offset = (int) listVector.offsets[rowNum];
         int numValues = (int) listVector.lengths[rowNum];
         LongColumnVector longVector = (LongColumnVector) listVector.child;
         return readLongListVector(longVector, childType, offset, numValues);
     }
-
+    
     private Object[] readLongListVector(
-            LongColumnVector longVector, TypeDescription childType, int offset, int numValues) {
+                                        LongColumnVector longVector, TypeDescription childType, int offset, int numValues) {
         List<Object> longList = new ArrayList<>();
         for (int i = 0; i < numValues; i++) {
             if (!longVector.isNull[offset + i]) {
@@ -556,17 +554,17 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             return longList.toArray(TYPE_ARRAY_LONG);
         }
     }
-
+    
     private Object readDoubleListValues(
-            ListColumnVector listVector, TypeDescription colType, int rowNum) {
+                                        ListColumnVector listVector, TypeDescription colType, int rowNum) {
         int offset = (int) listVector.offsets[rowNum];
         int numValues = (int) listVector.lengths[rowNum];
         DoubleColumnVector doubleVec = (DoubleColumnVector) listVector.child;
         return readDoubleListVector(doubleVec, colType, offset, numValues);
     }
-
+    
     private Object[] readDoubleListVector(
-            DoubleColumnVector doubleVec, TypeDescription colType, int offset, int numValues) {
+                                          DoubleColumnVector doubleVec, TypeDescription colType, int offset, int numValues) {
         List<Object> doubleList = new ArrayList<>();
         for (int i = 0; i < numValues; i++) {
             if (!doubleVec.isNull[offset + i]) {
@@ -586,17 +584,17 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             return doubleList.toArray(TYPE_ARRAY_DOUBLE);
         }
     }
-
+    
     private Object readBytesListValues(
-            ListColumnVector listVector, TypeDescription childType, int rowNum) {
+                                       ListColumnVector listVector, TypeDescription childType, int rowNum) {
         int offset = (int) listVector.offsets[rowNum];
         int numValues = (int) listVector.lengths[rowNum];
         BytesColumnVector bytesVec = (BytesColumnVector) listVector.child;
         return readBytesListVector(bytesVec, childType, offset, numValues);
     }
-
+    
     private Object[] readBytesListVector(
-            BytesColumnVector bytesVec, TypeDescription childType, int offset, int numValues) {
+                                         BytesColumnVector bytesVec, TypeDescription childType, int offset, int numValues) {
         List<Object> bytesValList = new ArrayList<>();
         for (int i = 0; i < numValues; i++) {
             if (!bytesVec.isNull[offset + i]) {
@@ -620,16 +618,16 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             return bytesValList.toArray();
         }
     }
-
+    
     private Object readDecimalListValues(ListColumnVector listVector, int rowNum) {
         int offset = (int) listVector.offsets[rowNum];
         int numValues = (int) listVector.lengths[rowNum];
         DecimalColumnVector decimalVec = (DecimalColumnVector) listVector.child;
         return readDecimalListVector(decimalVec, offset, numValues);
     }
-
+    
     private Object[] readDecimalListVector(
-            DecimalColumnVector decimalVector, int offset, int numValues) {
+                                           DecimalColumnVector decimalVector, int offset, int numValues) {
         List<Object> decimalList = new ArrayList<>();
         for (int i = 0; i < numValues; i++) {
             if (!decimalVector.isNull[offset + i]) {
@@ -641,20 +639,20 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         }
         return decimalList.toArray(TYPE_ARRAY_BIG_DECIMAL);
     }
-
+    
     private Object readTimestampListValues(
-            ListColumnVector listVector, TypeDescription childType, int rowNum) {
+                                           ListColumnVector listVector, TypeDescription childType, int rowNum) {
         int offset = (int) listVector.offsets[rowNum];
         int numValues = (int) listVector.lengths[rowNum];
         TimestampColumnVector timestampVec = (TimestampColumnVector) listVector.child;
         return readTimestampListVector(timestampVec, childType, offset, numValues);
     }
-
+    
     private Object[] readTimestampListVector(
-            TimestampColumnVector timestampVector,
-            TypeDescription childType,
-            int offset,
-            int numValues) {
+                                             TimestampColumnVector timestampVector,
+                                             TypeDescription childType,
+                                             int offset,
+                                             int numValues) {
         List<Object> timestampList = new ArrayList<>();
         for (int i = 0; i < numValues; i++) {
             if (!timestampVector.isNull[offset + i]) {

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client;
 
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
@@ -38,9 +37,9 @@ import java.util.TreeMap;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class ShardRouter implements Serializable {
-
+    
     private static final long serialVersionUID = -1L;
-
+    
     private String shardTable;
     private String shardTableEngine;
     private final String table;
@@ -49,12 +48,13 @@ public class ShardRouter implements Serializable {
     private final TreeMap<Integer, Shard> shards;
     private final String shardKey;
     private final String shardKeyType;
-    @Getter private final String sortingKey;
+    @Getter
+    private final String sortingKey;
     private final boolean splitMode;
-
+    
     private static final XXHash64 HASH_INSTANCE = XXHashFactory.fastestInstance().hash64();
     private final ThreadLocalRandom threadLocalRandom = ThreadLocalRandom.current();
-
+    
     public ShardRouter(ClickhouseProxy proxy, ShardMetadata shardMetadata) {
         this.shards = new TreeMap<>();
         this.shardKey = shardMetadata.getShardKey();
@@ -93,15 +93,15 @@ public class ShardRouter implements Serializable {
             shards.put(0, shardMetadata.getDefaultShard());
         }
     }
-
+    
     public String getShardTable() {
         return splitMode ? shardTable : table;
     }
-
+    
     public String getShardTableEngine() {
         return splitMode ? shardTableEngine : tableEngine;
     }
-
+    
     public Shard getShard(Object shardValue) {
         if (!splitMode) {
             return shards.firstEntry().getValue();
@@ -110,17 +110,16 @@ public class ShardRouter implements Serializable {
             return shards.lowerEntry(threadLocalRandom.nextInt(shardWeightCount) + 1).getValue();
         }
         int offset =
-                (int)
-                        (HASH_INSTANCE.hash(
-                                        ByteBuffer.wrap(
-                                                shardValue
-                                                        .toString()
-                                                        .getBytes(StandardCharsets.UTF_8)),
-                                        0)
-                                & Long.MAX_VALUE % shardWeightCount);
+                (int) (HASH_INSTANCE.hash(
+                        ByteBuffer.wrap(
+                                shardValue
+                                        .toString()
+                                        .getBytes(StandardCharsets.UTF_8)),
+                        0)
+                        & Long.MAX_VALUE % shardWeightCount);
         return shards.lowerEntry(offset + 1).getValue();
     }
-
+    
     public TreeMap<Integer, Shard> getShards() {
         return shards;
     }

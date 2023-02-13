@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset;
 
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
@@ -36,9 +35,9 @@ import java.util.Map;
  * processed rows.
  */
 public class BinlogOffset extends Offset {
-
+    
     private static final long serialVersionUID = 1L;
-
+    
     public static final String BINLOG_FILENAME_OFFSET_KEY = "file";
     public static final String BINLOG_POSITION_OFFSET_KEY = "pos";
     public static final String EVENTS_TO_SKIP_OFFSET_KEY = "event";
@@ -46,26 +45,26 @@ public class BinlogOffset extends Offset {
     public static final String GTID_SET_KEY = "gtids";
     public static final String TIMESTAMP_KEY = "ts_sec";
     public static final String SERVER_ID_KEY = "server_id";
-
+    
     public static final BinlogOffset INITIAL_OFFSET = new BinlogOffset("", 0);
     public static final BinlogOffset NO_STOPPING_OFFSET = new BinlogOffset("", Long.MIN_VALUE);
-
+    
     public BinlogOffset(Map<String, String> offset) {
         this.offset = offset;
     }
-
+    
     public BinlogOffset(String filename, long position) {
         this(filename, position, 0L, 0L, 0L, null, null);
     }
-
+    
     public BinlogOffset(
-            String filename,
-            long position,
-            long restartSkipEvents,
-            long restartSkipRows,
-            long binlogEpochSecs,
-            String restartGtidSet,
-            Integer serverId) {
+                        String filename,
+                        long position,
+                        long restartSkipEvents,
+                        long restartSkipRows,
+                        long binlogEpochSecs,
+                        String restartGtidSet,
+                        Integer serverId) {
         Map<String, String> offsetMap = new HashMap<>();
         offsetMap.put(BINLOG_FILENAME_OFFSET_KEY, filename);
         offsetMap.put(BINLOG_POSITION_OFFSET_KEY, String.valueOf(position));
@@ -80,35 +79,35 @@ public class BinlogOffset extends Offset {
         }
         this.offset = offsetMap;
     }
-
+    
     public String getFilename() {
         return offset.get(BINLOG_FILENAME_OFFSET_KEY);
     }
-
+    
     public long getPosition() {
         return longOffsetValue(offset, BINLOG_POSITION_OFFSET_KEY);
     }
-
+    
     public long getRestartSkipEvents() {
         return longOffsetValue(offset, EVENTS_TO_SKIP_OFFSET_KEY);
     }
-
+    
     public long getRestartSkipRows() {
         return longOffsetValue(offset, ROWS_TO_SKIP_OFFSET_KEY);
     }
-
+    
     public String getGtidSet() {
         return offset.get(GTID_SET_KEY);
     }
-
+    
     public long getTimestamp() {
         return longOffsetValue(offset, TIMESTAMP_KEY);
     }
-
+    
     public Long getServerId() {
         return longOffsetValue(offset, SERVER_ID_KEY);
     }
-
+    
     /**
      * This method is inspired by {@link io.debezium.relational.history.HistoryRecordComparator}.
      */
@@ -125,7 +124,7 @@ public class BinlogOffset extends Offset {
         if (NO_STOPPING_OFFSET.equals(that)) {
             return -1;
         }
-
+        
         String gtidSetStr = this.getGtidSet();
         String targetGtidSetStr = that.getGtidSet();
         if (StringUtils.isNotEmpty(targetGtidSetStr)) {
@@ -164,11 +163,11 @@ public class BinlogOffset extends Offset {
             // is not at or before ...
             return 1;
         }
-
+        
         // Both offsets are missing GTIDs. Look at the servers ...
         long serverId = this.getServerId();
         long targetServerId = that.getServerId();
-
+        
         if (serverId != targetServerId) {
             // These are from different servers, and their binlog coordinates are not related. So
             // the only thing we can do
@@ -178,26 +177,26 @@ public class BinlogOffset extends Offset {
             long targetTimestamp = that.getTimestamp();
             return Long.compare(timestamp, targetTimestamp);
         }
-
+        
         // First compare the MySQL binlog filenames
         if (this.getFilename().compareToIgnoreCase(that.getFilename()) != 0) {
             return this.getFilename().compareToIgnoreCase(that.getFilename());
         }
-
+        
         // The filenames are the same, so compare the positions
         if (this.getPosition() != that.getPosition()) {
             return Long.compare(this.getPosition(), that.getPosition());
         }
-
+        
         // The positions are the same, so compare the completed events in the transaction ...
         if (this.getRestartSkipEvents() != that.getRestartSkipEvents()) {
             return Long.compare(this.getRestartSkipEvents(), that.getRestartSkipEvents());
         }
-
+        
         // The completed events are the same, so compare the row number ...
         return Long.compare(this.getRestartSkipRows(), that.getRestartSkipRows());
     }
-
+    
     @SuppressWarnings("checkstyle:EqualsHashCode")
     @Override
     public boolean equals(Object o) {

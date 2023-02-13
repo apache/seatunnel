@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -48,63 +47,65 @@ import java.util.Optional;
  */
 @Slf4j
 public class ElasticsearchSinkWriter
-        implements SinkWriter<SeaTunnelRow, ElasticsearchCommitInfo, ElasticsearchSinkState> {
-
+        implements
+            SinkWriter<SeaTunnelRow, ElasticsearchCommitInfo, ElasticsearchSinkState> {
+    
     private final SinkWriter.Context context;
-
+    
     private final int maxBatchSize;
-
+    
     private final SeaTunnelRowSerializer seaTunnelRowSerializer;
     private final List<String> requestEsList;
     private EsRestClient esRestClient;
     private RetryMaterial retryMaterial;
     private static final long DEFAULT_SLEEP_TIME_MS = 200L;
-
+    
     public ElasticsearchSinkWriter(
-            SinkWriter.Context context,
-            SeaTunnelRowType seaTunnelRowType,
-            Config pluginConfig,
-            int maxBatchSize,
-            int maxRetryCount,
-            List<ElasticsearchSinkState> elasticsearchStates) {
+                                   SinkWriter.Context context,
+                                   SeaTunnelRowType seaTunnelRowType,
+                                   Config pluginConfig,
+                                   int maxBatchSize,
+                                   int maxRetryCount,
+                                   List<ElasticsearchSinkState> elasticsearchStates) {
         this.context = context;
         this.maxBatchSize = maxBatchSize;
-
+        
         IndexInfo indexInfo = new IndexInfo(pluginConfig);
         esRestClient = EsRestClient.createInstance(pluginConfig);
         this.seaTunnelRowSerializer =
                 new ElasticsearchRowSerializer(
                         esRestClient.getClusterInfo(), indexInfo, seaTunnelRowType);
-
+        
         this.requestEsList = new ArrayList<>(maxBatchSize);
         this.retryMaterial =
                 new RetryMaterial(maxRetryCount, true, exception -> true, DEFAULT_SLEEP_TIME_MS);
     }
-
+    
     @Override
     public void write(SeaTunnelRow element) {
         if (RowKind.UPDATE_BEFORE.equals(element.getRowKind())) {
             return;
         }
-
+        
         String indexRequestRow = seaTunnelRowSerializer.serializeRow(element);
         requestEsList.add(indexRequestRow);
         if (requestEsList.size() >= maxBatchSize) {
             bulkEsWithRetry(this.esRestClient, this.requestEsList);
         }
     }
-
+    
     @Override
     public Optional<ElasticsearchCommitInfo> prepareCommit() {
         bulkEsWithRetry(this.esRestClient, this.requestEsList);
         return Optional.empty();
     }
-
+    
     @Override
-    public void abortPrepare() {}
-
+    public void abortPrepare() {
+    }
+    
     public synchronized void bulkEsWithRetry(
-            EsRestClient esRestClient, List<String> requestEsList) {
+                                             EsRestClient esRestClient, List<String> requestEsList) {
         try {
             RetryUtils.retryWithException(
                     () -> {
@@ -129,7 +130,7 @@ public class ElasticsearchSinkWriter
                     e);
         }
     }
-
+    
     @Override
     public void close() throws IOException {
         bulkEsWithRetry(this.esRestClient, this.requestEsList);

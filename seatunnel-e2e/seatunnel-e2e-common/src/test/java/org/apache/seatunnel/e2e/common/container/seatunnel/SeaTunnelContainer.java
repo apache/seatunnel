@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.e2e.common.container.seatunnel;
 
 import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
@@ -45,11 +44,12 @@ import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PA
 @Slf4j
 @AutoService(TestContainer.class)
 public class SeaTunnelContainer extends AbstractTestContainer {
+    
     private static final String JDK_DOCKER_IMAGE = "openjdk:8";
     private static final String CLIENT_SHELL = "seatunnel.sh";
     private static final String SERVER_SHELL = "seatunnel-cluster.sh";
     private GenericContainer<?> server;
-
+    
     @Override
     public void startUp() throws Exception {
         server =
@@ -75,63 +75,61 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         // execute extra commands
         executeExtraCommands(server);
     }
-
+    
     @Override
     public void tearDown() throws Exception {
         if (server != null) {
             server.close();
         }
     }
-
+    
     @Override
     protected String getDockerImage() {
         return JDK_DOCKER_IMAGE;
     }
-
+    
     @Override
     protected String getStartModuleName() {
         return "seatunnel-starter";
     }
-
+    
     @Override
     protected String getStartShellName() {
         return CLIENT_SHELL;
     }
-
+    
     @Override
     protected String getConnectorModulePath() {
         return "seatunnel-connectors-v2";
     }
-
+    
     @Override
     protected String getConnectorType() {
         return "seatunnel";
     }
-
+    
     @Override
     protected String getConnectorNamePrefix() {
         return "connector-";
     }
-
+    
     @Override
     protected List<String> getExtraStartShellCommands() {
         return Collections.emptyList();
     }
-
+    
     @Override
     public TestContainerId identifier() {
         return TestContainerId.SEATUNNEL;
     }
-
+    
     @Override
-    public void executeExtraCommands(ContainerExtendedFactory extendedFactory)
-            throws IOException, InterruptedException {
+    public void executeExtraCommands(ContainerExtendedFactory extendedFactory) throws IOException, InterruptedException {
         extendedFactory.extend(server);
     }
-
+    
     @Override
-    public Container.ExecResult executeJob(String confFile)
-            throws IOException, InterruptedException {
+    public Container.ExecResult executeJob(String confFile) throws IOException, InterruptedException {
         return executeJob(server, confFile);
     }
 }

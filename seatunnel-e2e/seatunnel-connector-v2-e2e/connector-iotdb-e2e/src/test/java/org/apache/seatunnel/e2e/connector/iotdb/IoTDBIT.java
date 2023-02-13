@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.e2e.connector.iotdb;
 
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -59,13 +58,10 @@ import java.util.stream.Stream;
 import static org.awaitility.Awaitility.given;
 
 @Slf4j
-@DisabledOnContainer(
-        value = {},
-        type = {EngineType.SEATUNNEL, EngineType.SPARK},
-        disabledReason =
-                "There is a conflict of thrift version between IoTDB and Spark.Therefore. Refactor starter module, so disabled in flink")
+@DisabledOnContainer(value = {}, type = {EngineType.SEATUNNEL,
+        EngineType.SPARK}, disabledReason = "There is a conflict of thrift version between IoTDB and Spark.Therefore. Refactor starter module, so disabled in flink")
 public class IoTDBIT extends TestSuiteBase implements TestResource {
-
+    
     private static final String IOTDB_DOCKER_IMAGE = "apache/iotdb:0.13.1-node";
     private static final String IOTDB_HOST = "flink_e2e_iotdb_sink";
     private static final int IOTDB_PORT = 6667;
@@ -73,11 +69,11 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
     private static final String IOTDB_PASSWORD = "root";
     private static final String SOURCE_GROUP = "root.source_group";
     private static final String SINK_GROUP = "root.sink_group";
-
+    
     private GenericContainer<?> iotdbServer;
     private Session session;
     private List<RowRecord> testDataset;
-
+    
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -101,16 +97,16 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
                 .untilAsserted(() -> session.open());
         testDataset = generateTestDataSet();
     }
-
+    
     @TestTemplate
     public void testIoTDB(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob("/iotdb/iotdb_source_to_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-
+        
         List<RowRecord> sinkDataset = readSinkDataset();
         assertDatasetEquals(testDataset, sinkDataset);
     }
-
+    
     private Session createSession() {
         return new Session.Builder()
                 .host("localhost")
@@ -119,13 +115,12 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
                 .password(IOTDB_PASSWORD)
                 .build();
     }
-
-    private List<RowRecord> generateTestDataSet()
-            throws IoTDBConnectionException, StatementExecutionException {
+    
+    private List<RowRecord> generateTestDataSet() throws IoTDBConnectionException, StatementExecutionException {
         session.setStorageGroup(SOURCE_GROUP);
         session.setStorageGroup(SINK_GROUP);
-
-        String[] deviceIds = new String[] {"device_a", "device_b"};
+        
+        String[] deviceIds = new String[]{"device_a", "device_b"};
         LinkedHashMap<String, TSDataType> measurements = new LinkedHashMap<>();
         measurements.put("c_string", TSDataType.TEXT);
         measurements.put("c_boolean", TSDataType.BOOLEAN);
@@ -135,7 +130,7 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
         measurements.put("c_bigint", TSDataType.INT64);
         measurements.put("c_float", TSDataType.FLOAT);
         measurements.put("c_double", TSDataType.DOUBLE);
-
+        
         List<RowRecord> rowRecords = new ArrayList<>();
         for (String deviceId : deviceIds) {
             String devicePath = String.format("%s.%s", SOURCE_GROUP, deviceId);
@@ -152,7 +147,7 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
                         TSEncoding.PLAIN,
                         CompressionType.SNAPPY);
             }
-
+            
             for (int rowCount = 0; rowCount < 100; rowCount++) {
                 long timestamp = System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(rowCount);
                 RowRecord record = new RowRecord(timestamp);
@@ -166,7 +161,7 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
                 record.addField(Double.MAX_VALUE, TSDataType.DOUBLE);
                 rowRecords.add(record);
                 log.info("TestDataSet row: {}", record);
-
+                
                 session.insertRecord(
                         devicePath,
                         record.getTimestamp(),
@@ -181,9 +176,8 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
         }
         return rowRecords;
     }
-
-    private List<RowRecord> readSinkDataset()
-            throws IoTDBConnectionException, StatementExecutionException {
+    
+    private List<RowRecord> readSinkDataset() throws IoTDBConnectionException, StatementExecutionException {
         SessionDataSet dataSet =
                 session.executeQueryStatement(
                         "SELECT c_string, c_boolean, c_tinyint, c_smallint, c_int, c_bigint, c_float, c_double FROM "
@@ -202,17 +196,17 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
         }
         return results;
     }
-
+    
     private void assertDatasetEquals(List<RowRecord> testDataset, List<RowRecord> sinkDataset) {
         Assertions.assertEquals(testDataset.size(), sinkDataset.size());
-
+        
         Collections.sort(testDataset, Comparator.comparingLong(RowRecord::getTimestamp));
         Collections.sort(sinkDataset, Comparator.comparingLong(RowRecord::getTimestamp));
         for (int rowIndex = 0; rowIndex < testDataset.size(); rowIndex++) {
             RowRecord testDatasetRow = testDataset.get(rowIndex);
             RowRecord sinkDatasetRow = sinkDataset.get(rowIndex);
             Assertions.assertEquals(testDatasetRow.getTimestamp(), sinkDatasetRow.getTimestamp());
-
+            
             List<Field> testDatasetRowFields = testDatasetRow.getFields();
             List<Field> sinkDatasetRowFields = sinkDatasetRow.getFields();
             Assertions.assertEquals(testDatasetRowFields.size(), sinkDatasetRowFields.size());
@@ -225,7 +219,7 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
             }
         }
     }
-
+    
     @AfterAll
     @Override
     public void tearDown() throws Exception {

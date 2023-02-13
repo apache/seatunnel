@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.metrics;
 
 import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
@@ -30,21 +29,21 @@ import java.util.Objects;
 import java.util.function.UnaryOperator;
 
 public class JobMetricsCollector implements MetricsCollector {
-
+    
     private final TaskGroupLocation taskGroupLocation;
     private final MetricsCompressor compressor;
     private final ILogger logger;
     private final UnaryOperator<MetricDescriptor> addPrefixFn;
-
+    
     public JobMetricsCollector(TaskGroupLocation taskGroupLocation, Member member, ILogger logger) {
         Objects.requireNonNull(member, "member");
         this.logger = Objects.requireNonNull(logger, "logger");
-
+        
         this.taskGroupLocation = taskGroupLocation;
         this.addPrefixFn = JobMetricsUtil.addMemberPrefixFn(member);
         this.compressor = new MetricsCompressor();
     }
-
+    
     @Override
     public void collectLong(MetricDescriptor descriptor, long value) {
         String taskGroupLocationStr =
@@ -53,7 +52,7 @@ public class JobMetricsCollector implements MetricsCollector {
             compressor.addLong(addPrefixFn.apply(descriptor), value);
         }
     }
-
+    
     @Override
     public void collectDouble(MetricDescriptor descriptor, double value) {
         String taskGroupLocationStr =
@@ -62,7 +61,7 @@ public class JobMetricsCollector implements MetricsCollector {
             compressor.addDouble(addPrefixFn.apply(descriptor), value);
         }
     }
-
+    
     @Override
     public void collectException(MetricDescriptor descriptor, Exception e) {
         String taskGroupLocationStr =
@@ -71,10 +70,11 @@ public class JobMetricsCollector implements MetricsCollector {
             logger.warning("Exception when rendering job metrics: " + e, e);
         }
     }
-
+    
     @Override
-    public void collectNoValue(MetricDescriptor descriptor) {}
-
+    public void collectNoValue(MetricDescriptor descriptor) {
+    }
+    
     public RawJobMetrics getMetrics() {
         return RawJobMetrics.of(compressor.getBlobAndReset());
     }

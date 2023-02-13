@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -72,16 +71,16 @@ import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Clickh
 
 @AutoService(SeaTunnelSink.class)
 public class ClickhouseFileSink
-        implements SeaTunnelSink<
-                SeaTunnelRow, ClickhouseSinkState, CKFileCommitInfo, CKFileAggCommitInfo> {
-
+        implements
+            SeaTunnelSink<SeaTunnelRow, ClickhouseSinkState, CKFileCommitInfo, CKFileAggCommitInfo> {
+    
     private FileReaderOption readerOption;
-
+    
     @Override
     public String getPluginName() {
         return "ClickhouseFile";
     }
-
+    
     @Override
     public void prepare(Config config) throws PrepareFailException {
         CheckResult checkResult =
@@ -108,7 +107,7 @@ public class ClickhouseFileSink
                         .put(FILE_TEMP_PATH.key(), FILE_TEMP_PATH.defaultValue())
                         .put(FILE_FIELDS_DELIMITER.key(), FILE_FIELDS_DELIMITER.defaultValue())
                         .build();
-
+        
         config = config.withFallback(ConfigFactory.parseMap(defaultConfigs));
         List<ClickHouseNode> nodes =
                 ClickhouseUtil.createNodes(
@@ -116,7 +115,7 @@ public class ClickhouseFileSink
                         config.getString(DATABASE.key()),
                         config.getString(USERNAME.key()),
                         config.getString(PASSWORD.key()));
-
+        
         ClickhouseProxy proxy = new ClickhouseProxy(nodes.get(0));
         Map<String, String> tableSchema =
                 proxy.getClickhouseTableSchema(config.getString(TABLE.key()));
@@ -145,25 +144,21 @@ public class ClickhouseFileSink
                 config.getObjectList(NODE_PASS.key()).stream()
                         .collect(
                                 Collectors.toMap(
-                                        configObject ->
-                                                configObject.toConfig().getString(NODE_ADDRESS),
-                                        configObject ->
-                                                configObject.toConfig().hasPath(USERNAME.key())
-                                                        ? configObject
-                                                                .toConfig()
-                                                                .getString(USERNAME.key())
-                                                        : "root"));
+                                        configObject -> configObject.toConfig().getString(NODE_ADDRESS),
+                                        configObject -> configObject.toConfig().hasPath(USERNAME.key())
+                                                ? configObject
+                                                        .toConfig()
+                                                        .getString(USERNAME.key())
+                                                : "root"));
         Map<String, String> nodePassword =
                 config.getObjectList(NODE_PASS.key()).stream()
                         .collect(
                                 Collectors.toMap(
-                                        configObject ->
-                                                configObject.toConfig().getString(NODE_ADDRESS),
-                                        configObject ->
-                                                configObject.toConfig().getString(PASSWORD.key())));
-
+                                        configObject -> configObject.toConfig().getString(NODE_ADDRESS),
+                                        configObject -> configObject.toConfig().getString(PASSWORD.key())));
+        
         proxy.close();
-
+        
         if (config.getString(FILE_FIELDS_DELIMITER.key()).length() != 1) {
             throw new ClickhouseConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -183,34 +178,33 @@ public class ClickhouseFileSink
                         config.getString(FILE_TEMP_PATH.key()),
                         config.getString(FILE_FIELDS_DELIMITER.key()));
     }
-
+    
     @Override
     public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         this.readerOption.setSeaTunnelRowType(seaTunnelRowType);
     }
-
+    
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
         return this.readerOption.getSeaTunnelRowType();
     }
-
+    
     @Override
     public SinkWriter<SeaTunnelRow, CKFileCommitInfo, ClickhouseSinkState> createWriter(
-            SinkWriter.Context context) throws IOException {
+                                                                                        SinkWriter.Context context) throws IOException {
         return new ClickhouseFileSinkWriter(readerOption, context);
     }
-
+    
     @Override
     public Optional<Serializer<CKFileCommitInfo>> getCommitInfoSerializer() {
         return Optional.of(new DefaultSerializer<>());
     }
-
+    
     @Override
-    public Optional<SinkAggregatedCommitter<CKFileCommitInfo, CKFileAggCommitInfo>>
-            createAggregatedCommitter() throws IOException {
+    public Optional<SinkAggregatedCommitter<CKFileCommitInfo, CKFileAggCommitInfo>> createAggregatedCommitter() throws IOException {
         return Optional.of(new ClickhouseFileSinkAggCommitter(this.readerOption));
     }
-
+    
     @Override
     public Optional<Serializer<CKFileAggCommitInfo>> getAggregatedCommitInfoSerializer() {
         return Optional.of(new DefaultSerializer<>());

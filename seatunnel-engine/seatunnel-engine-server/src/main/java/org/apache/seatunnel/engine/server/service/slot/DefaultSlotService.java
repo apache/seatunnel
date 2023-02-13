@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.service.slot;
 
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
@@ -45,17 +44,17 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /** The slot service of seatunnel server, used for manage slot in worker. */
 public class DefaultSlotService implements SlotService {
-
+    
     private static final ILogger LOGGER = Logger.getLogger(DefaultSlotService.class);
     private static final long DEFAULT_HEARTBEAT_TIMEOUT = 2000;
     private final NodeEngineImpl nodeEngine;
-
+    
     private AtomicReference<ResourceProfile> unassignedResource;
-
+    
     private AtomicReference<ResourceProfile> assignedResource;
-
+    
     private ConcurrentMap<Integer, SlotProfile> assignedSlots;
-
+    
     private ConcurrentMap<Integer, SlotProfile> unassignedSlots;
     private ScheduledExecutorService scheduledExecutorService;
     private final SlotServiceConfig config;
@@ -64,17 +63,17 @@ public class DefaultSlotService implements SlotService {
     private final TaskExecutionService taskExecutionService;
     private ConcurrentMap<Integer, SlotContext> contexts;
     private String slotServiceSequence;
-
+    
     public DefaultSlotService(
-            NodeEngineImpl nodeEngine,
-            TaskExecutionService taskExecutionService,
-            SlotServiceConfig config) {
+                              NodeEngineImpl nodeEngine,
+                              TaskExecutionService taskExecutionService,
+                              SlotServiceConfig config) {
         this.nodeEngine = nodeEngine;
         this.config = config;
         this.taskExecutionService = taskExecutionService;
         this.idGenerator = new IdGenerator();
     }
-
+    
     @Override
     public void init() {
         initStatus = true;
@@ -86,12 +85,11 @@ public class DefaultSlotService implements SlotService {
         assignedResource = new AtomicReference<>(new ResourceProfile());
         scheduledExecutorService =
                 Executors.newSingleThreadScheduledExecutor(
-                        r ->
-                                new Thread(
-                                        r,
-                                        String.format(
-                                                "hz.%s.seaTunnel.slotService.thread",
-                                                nodeEngine.getHazelcastInstance().getName())));
+                        r -> new Thread(
+                                r,
+                                String.format(
+                                        "hz.%s.seaTunnel.slotService.thread",
+                                        nodeEngine.getHazelcastInstance().getName())));
         if (!config.isDynamicSlot()) {
             initFixedSlots();
         }
@@ -113,7 +111,7 @@ public class DefaultSlotService implements SlotService {
                 DEFAULT_HEARTBEAT_TIMEOUT,
                 TimeUnit.MILLISECONDS);
     }
-
+    
     @Override
     public void reset() {
         if (!initStatus) {
@@ -125,10 +123,10 @@ public class DefaultSlotService implements SlotService {
             }
         }
     }
-
+    
     @Override
     public synchronized SlotAndWorkerProfile requestSlot(
-            long jobId, ResourceProfile resourceProfile) {
+                                                         long jobId, ResourceProfile resourceProfile) {
         initStatus = false;
         SlotProfile profile = selectBestMatchSlot(resourceProfile);
         if (profile != null) {
@@ -148,7 +146,7 @@ public class DefaultSlotService implements SlotService {
                         jobId, resourceProfile, profile));
         return new SlotAndWorkerProfile(getWorkerProfile(), profile);
     }
-
+    
     public SlotContext getSlotContext(SlotProfile slotProfile) {
         if (!contexts.containsKey(slotProfile.getSlotID())) {
             throw new WrongTargetSlotException(
@@ -156,7 +154,7 @@ public class DefaultSlotService implements SlotService {
         }
         return contexts.get(slotProfile.getSlotID());
     }
-
+    
     @Override
     public synchronized void releaseSlot(long jobId, SlotProfile profile) {
         LOGGER.info(
@@ -166,19 +164,19 @@ public class DefaultSlotService implements SlotService {
             throw new WrongTargetSlotException(
                     "Not exist this slot in slot service, slot profile: " + profile);
         }
-
+        
         if (!assignedSlots.get(profile.getSlotID()).getSequence().equals(profile.getSequence())) {
             throw new WrongTargetSlotException(
                     "Wrong slot sequence in profile, slot profile: " + profile);
         }
-
+        
         if (assignedSlots.get(profile.getSlotID()).getOwnerJobID() != jobId) {
             throw new WrongTargetSlotException(
                     String.format(
                             "The profile %s not belong with job %d",
                             assignedSlots.get(profile.getSlotID()), jobId));
         }
-
+        
         assignedResource.accumulateAndGet(profile.getResourceProfile(), ResourceProfile::subtract);
         unassignedResource.accumulateAndGet(profile.getResourceProfile(), ResourceProfile::merge);
         profile.unassigned();
@@ -188,14 +186,14 @@ public class DefaultSlotService implements SlotService {
         assignedSlots.remove(profile.getSlotID());
         contexts.remove(profile.getSlotID());
     }
-
+    
     @Override
     public void close() {
         if (scheduledExecutorService != null) {
             scheduledExecutorService.shutdownNow();
         }
     }
-
+    
     private SlotProfile selectBestMatchSlot(ResourceProfile profile) {
         if (unassignedSlots.isEmpty() && !config.isDynamicSlot()) {
             return null;
@@ -214,19 +212,17 @@ public class DefaultSlotService implements SlotService {
                             .filter(slot -> slot.getResourceProfile().enoughThan(profile))
                             .min(
                                     (slot1, slot2) -> {
-                                        if (slot1.getResourceProfile().getHeapMemory().getBytes()
-                                                != slot2.getResourceProfile()
-                                                        .getHeapMemory()
-                                                        .getBytes()) {
+                                        if (slot1.getResourceProfile().getHeapMemory().getBytes() != slot2.getResourceProfile()
+                                                .getHeapMemory()
+                                                .getBytes()) {
                                             return slot1.getResourceProfile()
-                                                                            .getHeapMemory()
-                                                                            .getBytes()
-                                                                    - slot2.getResourceProfile()
-                                                                            .getHeapMemory()
-                                                                            .getBytes()
-                                                            >= 0
-                                                    ? 1
-                                                    : -1;
+                                                    .getHeapMemory()
+                                                    .getBytes()
+                                                    - slot2.getResourceProfile()
+                                                            .getHeapMemory()
+                                                            .getBytes() >= 0
+                                                                    ? 1
+                                                                    : -1;
                                         } else {
                                             return slot1.getResourceProfile().getCpu().getCore()
                                                     - slot2.getResourceProfile().getCpu().getCore();
@@ -236,7 +232,7 @@ public class DefaultSlotService implements SlotService {
         }
         return null;
     }
-
+    
     private void initFixedSlots() {
         long maxMemory = Runtime.getRuntime().maxMemory();
         for (int i = 0; i < config.getSlotNum(); i++) {
@@ -250,7 +246,7 @@ public class DefaultSlotService implements SlotService {
                             slotServiceSequence));
         }
     }
-
+    
     @Override
     public synchronized WorkerProfile getWorkerProfile() {
         WorkerProfile workerProfile = new WorkerProfile(nodeEngine.getThisAddress());
@@ -260,11 +256,11 @@ public class DefaultSlotService implements SlotService {
         workerProfile.setUnassignedResource(unassignedResource.get());
         return workerProfile;
     }
-
+    
     private ResourceProfile getNodeResource() {
         return new ResourceProfile(CPU.of(0), Memory.of(Runtime.getRuntime().maxMemory()));
     }
-
+    
     public <E> InvocationFuture<E> sendToMaster(Operation operation) {
         return NodeEngineUtil.sendOperationToMasterNode(nodeEngine, operation);
     }

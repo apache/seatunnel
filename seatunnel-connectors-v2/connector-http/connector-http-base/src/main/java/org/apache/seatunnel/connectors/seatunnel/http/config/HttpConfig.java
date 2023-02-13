@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.http.config;
 
 import org.apache.seatunnel.api.configuration.Option;
@@ -23,6 +22,7 @@ import org.apache.seatunnel.api.configuration.Options;
 import java.util.Map;
 
 public class HttpConfig {
+    
     public static final String BASIC = "Basic";
     public static final int DEFAULT_RETRY_BACKOFF_MULTIPLIER_MS = 100;
     public static final int DEFAULT_RETRY_BACKOFF_MAX_MS = 10000;
@@ -69,7 +69,7 @@ public class HttpConfig {
                     .defaultValue(DEFAULT_RETRY_BACKOFF_MAX_MS)
                     .withDescription(
                             "The maximum retry-backoff times(millis) if request http failed");
-
+    
     public static final Option<JsonField> JSON_FIELD =
             Options.key("json_field")
                     .objectType(JsonField.class)
@@ -82,20 +82,21 @@ public class HttpConfig {
                     .noDefaultValue()
                     .withDescription(
                             "SeaTunnel content field.This parameter can get some json data, and there is no need to configure each field separately.");
-
+    
     public enum ResponseFormat {
+        
         JSON("json");
-
+        
         private String format;
-
+        
         ResponseFormat(String format) {
             this.format = format;
         }
-
+        
         public String getFormat() {
             return format;
         }
-
+        
         @Override
         public String toString() {
             return format;

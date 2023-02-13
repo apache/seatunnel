@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.translation.flink.serialization;
 
 import org.apache.seatunnel.api.table.type.MapType;
@@ -37,17 +36,17 @@ import java.util.function.BiFunction;
  * between flink row and seatunnel row
  */
 public class FlinkRowConverter extends RowConverter<Row> {
-
+    
     public FlinkRowConverter(SeaTunnelDataType<?> dataType) {
         super(dataType);
     }
-
+    
     @Override
     public Row convert(SeaTunnelRow seaTunnelRow) throws IOException {
         validate(seaTunnelRow);
         return (Row) convert(seaTunnelRow, dataType);
     }
-
+    
     private static Object convert(Object field, SeaTunnelDataType<?> dataType) {
         if (field == null) {
             return null;
@@ -72,11 +71,11 @@ public class FlinkRowConverter extends RowConverter<Row> {
                 return field;
         }
     }
-
+    
     private static Object convertMap(
-            Map<?, ?> mapData,
-            MapType<?, ?> mapType,
-            BiFunction<Object, SeaTunnelDataType<?>, Object> convertFunction) {
+                                     Map<?, ?> mapData,
+                                     MapType<?, ?> mapType,
+                                     BiFunction<Object, SeaTunnelDataType<?>, Object> convertFunction) {
         if (mapData == null || mapData.size() == 0) {
             return mapData;
         }
@@ -94,12 +93,12 @@ public class FlinkRowConverter extends RowConverter<Row> {
                 return mapData;
         }
     }
-
+    
     @Override
     public SeaTunnelRow reconvert(Row engineRow) throws IOException {
         return (SeaTunnelRow) reconvert(engineRow, dataType);
     }
-
+    
     private static Object reconvert(Object field, SeaTunnelDataType<?> dataType) {
         if (field == null) {
             return null;

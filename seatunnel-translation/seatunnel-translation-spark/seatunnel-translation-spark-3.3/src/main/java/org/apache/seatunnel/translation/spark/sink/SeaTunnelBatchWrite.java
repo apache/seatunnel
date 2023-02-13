@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.translation.spark.sink;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -38,24 +37,26 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class SeaTunnelBatchWrite<StateT, CommitInfoT, AggregatedCommitInfoT>
-        implements BatchWrite, StreamingWrite {
-
+        implements
+            BatchWrite,
+            StreamingWrite {
+    
     private final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
-
+    
     private final SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> aggregatedCommitter;
-
+    
     public SeaTunnelBatchWrite(
-            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink)
-            throws IOException {
+                               SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink)
+                                                                                                             throws IOException {
         this.sink = sink;
         this.aggregatedCommitter = sink.createAggregatedCommitter().orElse(null);
     }
-
+    
     @Override
     public DataWriterFactory createBatchWriterFactory(PhysicalWriteInfo info) {
         return new SeaTunnelSparkDataWriterFactory<>(sink);
     }
-
+    
     @Override
     public void commit(WriterCommitMessage[] messages) {
         if (aggregatedCommitter != null) {
@@ -66,7 +67,7 @@ public class SeaTunnelBatchWrite<StateT, CommitInfoT, AggregatedCommitInfoT>
             }
         }
     }
-
+    
     @Override
     public void abort(WriterCommitMessage[] messages) {
         if (aggregatedCommitter != null) {
@@ -77,22 +78,22 @@ public class SeaTunnelBatchWrite<StateT, CommitInfoT, AggregatedCommitInfoT>
             }
         }
     }
-
+    
     @Override
     public StreamingDataWriterFactory createStreamingWriterFactory(PhysicalWriteInfo info) {
         return (StreamingDataWriterFactory) createBatchWriterFactory(info);
     }
-
+    
     @Override
     public void commit(long epochId, WriterCommitMessage[] messages) {
         commit(messages);
     }
-
+    
     @Override
     public void abort(long epochId, WriterCommitMessage[] messages) {
         abort(messages);
     }
-
+    
     private List<AggregatedCommitInfoT> combineCommitMessage(WriterCommitMessage[] messages) {
         if (aggregatedCommitter == null || messages.length == 0) {
             return Collections.emptyList();

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.task.flow;
 
 import org.apache.seatunnel.api.table.type.Record;
@@ -34,25 +33,26 @@ import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
-        implements OneInputFlowLifeCycle<Record<?>> {
-
+        implements
+            OneInputFlowLifeCycle<Record<?>> {
+    
     private final TransformChainAction<T> action;
-
+    
     private final List<SeaTunnelTransform<T>> transform;
-
+    
     private final Collector<Record<?>> collector;
-
+    
     public TransformFlowLifeCycle(
-            TransformChainAction<T> action,
-            SeaTunnelTask runningTask,
-            Collector<Record<?>> collector,
-            CompletableFuture<Void> completableFuture) {
+                                  TransformChainAction<T> action,
+                                  SeaTunnelTask runningTask,
+                                  Collector<Record<?>> collector,
+                                  CompletableFuture<Void> completableFuture) {
         super(action, runningTask, completableFuture);
         this.action = action;
         this.transform = action.getTransforms();
         this.collector = collector;
     }
-
+    
     @Override
     public void received(Record<?> record) {
         if (record.getData() instanceof Barrier) {
@@ -79,7 +79,7 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
                     log.trace("Transform[{}] filtered data row {}", t, inputData);
                     break;
                 }
-
+                
                 inputData = outputData;
             }
             if (outputData != null) {
@@ -88,7 +88,7 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
             }
         }
     }
-
+    
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
         // nothing

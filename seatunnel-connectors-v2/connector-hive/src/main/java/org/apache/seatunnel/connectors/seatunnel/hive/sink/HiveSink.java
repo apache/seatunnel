@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.hive.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -67,15 +66,16 @@ import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.T
 
 @AutoService(SeaTunnelSink.class)
 public class HiveSink extends BaseHdfsFileSink {
+    
     private String dbName;
     private String tableName;
     private Table tableInformation;
-
+    
     @Override
     public String getPluginName() {
         return "Hive";
     }
-
+    
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result =
@@ -171,10 +171,9 @@ public class HiveSink extends BaseHdfsFileSink {
         }
         this.pluginConfig = pluginConfig;
     }
-
+    
     @Override
-    public Optional<SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo>>
-            createAggregatedCommitter() throws IOException {
+    public Optional<SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo>> createAggregatedCommitter() throws IOException {
         return Optional.of(
                 new HiveSinkAggregatedCommitter(pluginConfig, dbName, tableName, fileSystemUtils));
     }

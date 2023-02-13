@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.api.source;
 
 import org.apache.seatunnel.api.state.CheckpointListener;
@@ -32,20 +31,22 @@ import java.util.Set;
  * @param <StateT>source split state type
  */
 public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT>
-        extends AutoCloseable, CheckpointListener {
-
+        extends
+            AutoCloseable,
+            CheckpointListener {
+    
     void open();
-
+    
     /** The method is executed by the engine only once. */
     void run() throws Exception;
-
+    
     /**
      * Called to close the enumerator, in case it holds on to any resources, like threads or network
      * connections.
      */
     @Override
     void close() throws IOException;
-
+    
     /**
      * Add a split back to the split enumerator. It will only happen when a {@link SourceReader}
      * fails and there are splits assigned to it after the last successful checkpoint.
@@ -54,38 +55,39 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT>
      * @param subtaskId The id of the subtask to which the returned splits belong.
      */
     void addSplitsBack(List<SplitT> splits, int subtaskId);
-
+    
     int currentUnassignedSplitSize();
-
+    
     void handleSplitRequest(int subtaskId);
-
+    
     void registerReader(int subtaskId);
-
+    
     /** If the source is bounded, checkpoint is not triggered. */
     StateT snapshotState(long checkpointId) throws Exception;
-
+    
     /**
      * Handle the source event from {@link SourceReader}.
      *
      * @param subtaskId The id of the subtask to which the source event from.
      * @param sourceEvent source event.
      */
-    default void handleSourceEvent(int subtaskId, SourceEvent sourceEvent) {}
-
+    default void handleSourceEvent(int subtaskId, SourceEvent sourceEvent) {
+    }
+    
     interface Context<SplitT extends SourceSplit> {
-
+        
         int currentParallelism();
-
+        
         /**
          * Get the currently registered readers. The mapping is from subtask id to the reader info.
          *
          * @return the currently registered readers.
          */
         Set<Integer> registeredReaders();
-
+        
         /** Assign the splits. */
         void assignSplit(int subtaskId, List<SplitT> splits);
-
+        
         /**
          * Assigns a single split.
          *
@@ -99,7 +101,7 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT>
         default void assignSplit(int subtaskId, SplitT split) {
             assignSplit(subtaskId, Collections.singletonList(split));
         }
-
+        
         /**
          * Signals a subtask that it will not receive any further split.
          *
@@ -107,7 +109,7 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT>
          *     will not receive any further split.
          */
         void signalNoMoreSplits(int subtask);
-
+        
         /**
          * Send a source event to a source reader. The source reader is identified by its subtask
          * id.

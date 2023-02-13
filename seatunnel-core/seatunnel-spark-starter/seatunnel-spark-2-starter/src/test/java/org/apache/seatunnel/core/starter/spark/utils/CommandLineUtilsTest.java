@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.core.starter.spark.utils;
 
 import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
@@ -26,22 +25,22 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 
 public class CommandLineUtilsTest {
-
+    
     @Test
     public void testParseSparkArgs() {
         String[] args = {"-c", "app.conf", "-e", "cluster", "-m", "local[*]"};
         SparkCommandArgs commandLineArgs = CommandLineUtils.parse(args, new SparkCommandArgs());
-
+        
         Assertions.assertEquals("app.conf", commandLineArgs.getConfigFile());
         Assertions.assertEquals("cluster", commandLineArgs.getDeployMode().getDeployMode());
-
+        
         args =
-                new String[] {
-                    "-c", "app.conf", "-e", "cluster", "-m", "local[*]", "--queue", "test"
+                new String[]{
+                        "-c", "app.conf", "-e", "cluster", "-m", "local[*]", "--queue", "test"
                 };
         commandLineArgs =
                 CommandLineUtils.parse(args, new SparkCommandArgs(), "seatunnel-spark", true);
-
+        
         Assertions.assertEquals(
                 Arrays.asList("--queue", "test"), commandLineArgs.getOriginalParameters());
     }

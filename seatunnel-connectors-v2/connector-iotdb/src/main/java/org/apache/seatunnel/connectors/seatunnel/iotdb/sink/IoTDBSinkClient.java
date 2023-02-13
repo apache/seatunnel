@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.iotdb.sink;
 
 import org.apache.seatunnel.common.exception.CommonErrorCode;
@@ -42,26 +41,26 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class IoTDBSinkClient {
-
+    
     private final SinkConfig sinkConfig;
     private final List<IoTDBRecord> batchList;
-
+    
     private Session session;
     private ScheduledExecutorService scheduler;
     private ScheduledFuture<?> scheduledFuture;
     private volatile boolean initialize;
     private volatile Exception flushException;
-
+    
     public IoTDBSinkClient(SinkConfig sinkConfig) {
         this.sinkConfig = sinkConfig;
         this.batchList = new ArrayList<>();
     }
-
+    
     private void tryInit() throws IOException {
         if (initialize) {
             return;
         }
-
+        
         Session.Builder sessionBuilder =
                 new Session.Builder()
                         .nodeUrls(sinkConfig.getNodeUrls())
@@ -76,7 +75,7 @@ public class IoTDBSinkClient {
         if (sinkConfig.getZoneId() != null) {
             sessionBuilder.zoneId(sinkConfig.getZoneId());
         }
-
+        
         session = sessionBuilder.build();
         try {
             if (sinkConfig.getConnectionTimeoutInMs() != null) {
@@ -95,7 +94,7 @@ public class IoTDBSinkClient {
                     "Initialize IoTDB client failed.",
                     e);
         }
-
+        
         if (sinkConfig.getBatchIntervalMs() != null) {
             scheduler =
                     Executors.newSingleThreadScheduledExecutor(
@@ -117,25 +116,25 @@ public class IoTDBSinkClient {
         }
         initialize = true;
     }
-
+    
     public synchronized void write(IoTDBRecord record) throws IOException {
         tryInit();
         checkFlushException();
-
+        
         batchList.add(record);
         if (sinkConfig.getBatchSize() > 0 && batchList.size() >= sinkConfig.getBatchSize()) {
             flush();
         }
     }
-
+    
     public synchronized void close() throws IOException {
         if (scheduledFuture != null) {
             scheduledFuture.cancel(false);
             scheduler.shutdown();
         }
-
+        
         flush();
-
+        
         try {
             if (session != null) {
                 session.close();
@@ -146,13 +145,13 @@ public class IoTDBSinkClient {
                     IotdbConnectorErrorCode.CLOSE_CLIENT_FAILED, "Close IoTDB client failed.", e);
         }
     }
-
+    
     synchronized void flush() throws IOException {
         checkFlushException();
         if (batchList.isEmpty()) {
             return;
         }
-
+        
         BatchRecords batchRecords = new BatchRecords(batchList);
         for (int i = 0; i <= sinkConfig.getMaxRetries(); i++) {
             try {
@@ -178,7 +177,7 @@ public class IoTDBSinkClient {
                             "Writing records to IoTDB failed.",
                             e);
                 }
-
+                
                 try {
                     long backoff =
                             Math.min(
@@ -194,10 +193,10 @@ public class IoTDBSinkClient {
                 }
             }
         }
-
+        
         batchList.clear();
     }
-
+    
     private void checkFlushException() {
         if (flushException != null) {
             throw new IotdbConnectorException(
@@ -206,15 +205,16 @@ public class IoTDBSinkClient {
                     flushException);
         }
     }
-
+    
     @Getter
     private static class BatchRecords {
+        
         private final List<String> deviceIds;
         private final List<Long> timestamps;
         private final List<List<String>> measurementsList;
         private final List<List<TSDataType>> typesList;
         private final List<List<Object>> valuesList;
-
+        
         public BatchRecords(List<IoTDBRecord> batchList) {
             int batchSize = batchList.size();
             this.deviceIds = new ArrayList<>(batchSize);
@@ -222,7 +222,7 @@ public class IoTDBSinkClient {
             this.measurementsList = new ArrayList<>(batchSize);
             this.typesList = new ArrayList<>(batchSize);
             this.valuesList = new ArrayList<>(batchSize);
-
+            
             for (IoTDBRecord record : batchList) {
                 deviceIds.add(record.getDevice());
                 timestamps.add(record.getTimestamp());
@@ -233,7 +233,7 @@ public class IoTDBSinkClient {
                 valuesList.add(record.getValues());
             }
         }
-
+        
         private List<List<String>> getStringValuesList() {
             List<?> tmp = valuesList;
             return (List<List<String>>) tmp;

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.gitlab.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -42,13 +41,14 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @AutoService(SeaTunnelSource.class)
 public class GitlabSource extends HttpSource {
+    
     private final GitlabSourceParameter gitlabSourceParameter = new GitlabSourceParameter();
-
+    
     @Override
     public String getPluginName() {
         return "Gitlab";
     }
-
+    
     @Override
     public Boundedness getBoundedness() {
         if (JobMode.BATCH.equals(jobContext.getJobMode())) {
@@ -57,7 +57,7 @@ public class GitlabSource extends HttpSource {
         throw new UnsupportedOperationException(
                 "Gitlab source connector not support unbounded operation");
     }
-
+    
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result =
@@ -75,10 +75,10 @@ public class GitlabSource extends HttpSource {
         this.gitlabSourceParameter.buildWithConfig(pluginConfig);
         buildSchemaWithConfig(pluginConfig);
     }
-
+    
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(
-            SingleSplitReaderContext readerContext) throws Exception {
+                                                                SingleSplitReaderContext readerContext) throws Exception {
         return new HttpSourceReader(
                 this.gitlabSourceParameter,
                 readerContext,

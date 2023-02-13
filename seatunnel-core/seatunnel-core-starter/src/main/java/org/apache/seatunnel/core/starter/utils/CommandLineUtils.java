@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.core.starter.utils;
 
 import org.apache.seatunnel.core.starter.command.CommandArgs;
@@ -26,18 +25,18 @@ import com.beust.jcommander.ParameterException;
 import static org.apache.seatunnel.core.starter.constants.SeaTunnelStarterConstants.USAGE_EXIT_CODE;
 
 public class CommandLineUtils {
-
+    
     private CommandLineUtils() {
         throw new UnsupportedOperationException(
                 "CommandLineUtils is a utility class and cannot be instantiated");
     }
-
+    
     public static <T extends CommandArgs> T parse(String[] args, T obj) {
         return parse(args, obj, null, false);
     }
-
+    
     public static <T extends CommandArgs> T parse(
-            String[] args, T obj, String programName, boolean acceptUnknownOptions) {
+                                                  String[] args, T obj, String programName, boolean acceptUnknownOptions) {
         JCommander jCommander =
                 JCommander.newBuilder()
                         .programName(programName)
@@ -52,13 +51,13 @@ public class CommandLineUtils {
             System.err.println(e.getLocalizedMessage());
             exit(jCommander);
         }
-
+        
         if (obj.isHelp()) {
             exit(jCommander);
         }
         return obj;
     }
-
+    
     private static void exit(JCommander jCommander) {
         jCommander.setUsageFormatter(new UsageFormatter(jCommander));
         jCommander.usage();

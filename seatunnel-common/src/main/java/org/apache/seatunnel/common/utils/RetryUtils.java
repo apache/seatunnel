@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.common.utils;
 
 import lombok.extern.slf4j.Slf4j;
@@ -23,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class RetryUtils {
-
+    
     /**
      * Execute the given execution with retry
      *
@@ -33,10 +32,10 @@ public class RetryUtils {
      * @return result of execution
      */
     public static <T> T retryWithException(
-            Execution<T, Exception> execution, RetryMaterial retryMaterial) throws Exception {
+                                           Execution<T, Exception> execution, RetryMaterial retryMaterial) throws Exception {
         final RetryCondition<Exception> retryCondition = retryMaterial.getRetryCondition();
         final int retryTimes = retryMaterial.getRetryTimes();
-
+        
         if (retryMaterial.getRetryTimes() < 0) {
             throw new IllegalArgumentException("Retry times must be greater than 0");
         }
@@ -73,14 +72,15 @@ public class RetryUtils {
         }
         return null;
     }
-
+    
     public static class RetryMaterial {
+        
         /** An arbitrary absolute maximum practical retry time. */
         public static final long MAX_RETRY_TIME_MS = TimeUnit.SECONDS.toMillis(20);
-
+        
         /** The maximum retry time. */
         public static final long MAX_RETRY_TIME = 32;
-
+        
         /**
          * Retry times, if you set it to 1, the given execution will be executed twice. Should be
          * greater than 0.
@@ -90,56 +90,56 @@ public class RetryUtils {
         private final boolean shouldThrowException;
         // this is the exception condition, can add result condition in the future.
         private final RetryCondition<Exception> retryCondition;
-
+        
         private final boolean sleepTimeIncrease;
-
+        
         /** The interval between each retry */
         private final long sleepTimeMillis;
-
+        
         public RetryMaterial(
-                int retryTimes,
-                boolean shouldThrowException,
-                RetryCondition<Exception> retryCondition) {
+                             int retryTimes,
+                             boolean shouldThrowException,
+                             RetryCondition<Exception> retryCondition) {
             this(retryTimes, shouldThrowException, retryCondition, 0);
         }
-
+        
         public RetryMaterial(
-                int retryTimes,
-                boolean shouldThrowException,
-                RetryCondition<Exception> retryCondition,
-                long sleepTimeMillis) {
+                             int retryTimes,
+                             boolean shouldThrowException,
+                             RetryCondition<Exception> retryCondition,
+                             long sleepTimeMillis) {
             this(retryTimes, shouldThrowException, retryCondition, sleepTimeMillis, false);
         }
-
+        
         public RetryMaterial(
-                int retryTimes,
-                boolean shouldThrowException,
-                RetryCondition<Exception> retryCondition,
-                long sleepTimeMillis,
-                boolean sleepTimeIncrease) {
+                             int retryTimes,
+                             boolean shouldThrowException,
+                             RetryCondition<Exception> retryCondition,
+                             long sleepTimeMillis,
+                             boolean sleepTimeIncrease) {
             this.retryTimes = retryTimes;
             this.shouldThrowException = shouldThrowException;
             this.retryCondition = retryCondition;
             this.sleepTimeMillis = sleepTimeMillis;
             this.sleepTimeIncrease = sleepTimeIncrease;
         }
-
+        
         public int getRetryTimes() {
             return retryTimes;
         }
-
+        
         public boolean shouldThrowException() {
             return shouldThrowException;
         }
-
+        
         public RetryCondition<Exception> getRetryCondition() {
             return retryCondition;
         }
-
+        
         public long getSleepTimeMillis() {
             return sleepTimeMillis;
         }
-
+        
         public long computeRetryWaitTimeMillis(int retryAttempts) {
             if (sleepTimeMillis < 0) {
                 return 0;
@@ -155,13 +155,15 @@ public class RetryUtils {
             return result < 0L ? MAX_RETRY_TIME_MS : Math.min(MAX_RETRY_TIME_MS, result);
         }
     }
-
+    
     @FunctionalInterface
     public interface Execution<T, E extends Exception> {
+        
         T execute() throws E;
     }
-
+    
     public interface RetryCondition<T> {
+        
         boolean canRetry(T input);
     }
 }

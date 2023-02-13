@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.e2e.flink.v2.jdbc;
 
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
@@ -46,25 +45,25 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class JdbcPhoenixIT extends FlinkContainer {
-
+    
     private static final String PHOENIX_DOCKER_IMAGE = "iteblog/hbase-phoenix-docker:1.0";
-
+    
     private static final String PHOENIX_CONTAINER_HOST = "flink_e2e_phoenix_sink";
-
+    
     private static final int PHOENIX_PORT = 8764;
     private static final int PHOENIX_CONTAINER_PORT = 8765;
-
+    
     private static final String PHOENIX_CONNECT_URL =
             "jdbc:phoenix:thin:url=http://%s:%s;serialization=PROTOBUF";
     private static final String PHOENIX_JDBC_DRIVER =
             "org.apache.phoenix.queryserver.client.Driver";
-
+    
     private GenericContainer<?> phoenixServer;
-
+    
     private Connection connection;
     private static final String THIRD_PARTY_PLUGINS_URL =
             "https://repo1.maven.org/maven2/com/aliyun/phoenix/ali-phoenix-shaded-thin-client/5.2.5-HBase-2.x/ali-phoenix-shaded-thin-client-5.2.5-HBase-2.x.jar";
-
+    
     @BeforeEach
     public void startPhoenixContainer() throws ClassNotFoundException, SQLException {
         phoenixServer =
@@ -82,14 +81,13 @@ public class JdbcPhoenixIT extends FlinkContainer {
         initializePhoenixTable();
         batchInsertData();
     }
-
+    
     @Test
-    public void testJdbcPhoenixSourceAndSink()
-            throws IOException, InterruptedException, SQLException {
+    public void testJdbcPhoenixSourceAndSink() throws IOException, InterruptedException, SQLException {
         Container.ExecResult execResult =
                 executeSeaTunnelFlinkJob("/jdbc/jdbc_phoenix_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-
+        
         // query result
         String sql = "select f1, f2, f3, f4, f5, f6, f7 from test.sink order by f5 asc";
         List<List> result = new ArrayList<>();
@@ -109,14 +107,14 @@ public class JdbcPhoenixIT extends FlinkContainer {
         }
         Assertions.assertIterableEquals(generateTestDataset(), result);
     }
-
+    
     private void initializeJdbcConnection() throws SQLException, ClassNotFoundException {
         Class.forName(PHOENIX_JDBC_DRIVER);
         connection =
                 DriverManager.getConnection(
                         String.format(PHOENIX_CONNECT_URL, phoenixServer.getHost(), PHOENIX_PORT));
     }
-
+    
     private void initializePhoenixTable() {
         try {
             Statement statement = connection.createStatement();
@@ -146,14 +144,14 @@ public class JdbcPhoenixIT extends FlinkContainer {
             throw new RuntimeException("Initializing  table failed!", e);
         }
     }
-
+    
     @AfterEach
     public void closePhoenixContainer() throws SQLException {
         if (phoenixServer != null) {
             phoenixServer.stop();
         }
     }
-
+    
     private static List<List> generateTestDataset() {
         List<List> rows = new ArrayList<>();
         for (int i = 1; i <= 100; i++) {
@@ -169,11 +167,11 @@ public class JdbcPhoenixIT extends FlinkContainer {
         }
         return rows;
     }
-
+    
     private void batchInsertData() throws SQLException, ClassNotFoundException {
         String sql =
                 "upsert into test.source(f1, f2, f3, f4, f5, f6, f7) values(?, ?, ?, ?, ?, ?, ?)";
-
+        
         try {
             connection.setAutoCommit(false);
             try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
@@ -195,10 +193,9 @@ public class JdbcPhoenixIT extends FlinkContainer {
             throw e;
         }
     }
-
+    
     @Override
-    protected void executeExtraCommands(GenericContainer<?> container)
-            throws IOException, InterruptedException {
+    protected void executeExtraCommands(GenericContainer<?> container) throws IOException, InterruptedException {
         Container.ExecResult extraCommands =
                 container.execInContainer(
                         "bash",

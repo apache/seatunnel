@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.core.starter.flink.execution;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -43,18 +42,19 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class TransformExecuteProcessor
-        extends FlinkAbstractPluginExecuteProcessor<SeaTunnelTransform> {
-
+        extends
+            FlinkAbstractPluginExecuteProcessor<SeaTunnelTransform> {
+    
     private static final String PLUGIN_TYPE = "transform";
-
+    
     protected TransformExecuteProcessor(
-            List<URL> jarPaths, List<? extends Config> pluginConfigs, JobContext jobContext) {
+                                        List<URL> jarPaths, List<? extends Config> pluginConfigs, JobContext jobContext) {
         super(jarPaths, pluginConfigs, jobContext);
     }
-
+    
     @Override
     protected List<SeaTunnelTransform> initializePlugins(
-            List<URL> jarPaths, List<? extends Config> pluginConfigs) {
+                                                         List<URL> jarPaths, List<? extends Config> pluginConfigs) {
         SeaTunnelTransformPluginDiscovery transformPluginDiscovery =
                 new SeaTunnelTransformPluginDiscovery();
         List<URL> pluginJars = new ArrayList<>();
@@ -83,10 +83,9 @@ public class TransformExecuteProcessor
         jarPaths.addAll(pluginJars);
         return transforms;
     }
-
+    
     @Override
-    public List<DataStream<Row>> execute(List<DataStream<Row>> upstreamDataStreams)
-            throws TaskExecuteException {
+    public List<DataStream<Row>> execute(List<DataStream<Row>> upstreamDataStreams) throws TaskExecuteException {
         if (plugins.isEmpty()) {
             return upstreamDataStreams;
         }
@@ -110,7 +109,7 @@ public class TransformExecuteProcessor
         }
         return result;
     }
-
+    
     protected DataStream<Row> flinkTransform(SeaTunnelTransform transform, DataStream<Row> stream) {
         SeaTunnelDataType seaTunnelDataType = TypeConverterUtils.convert(stream.getType());
         transform.setTypeInfo(seaTunnelDataType);
@@ -121,6 +120,7 @@ public class TransformExecuteProcessor
         DataStream<Row> output =
                 stream.flatMap(
                         new FlatMapFunction<Row, Row>() {
+                            
                             @Override
                             public void flatMap(Row value, Collector<Row> out) throws Exception {
                                 SeaTunnelRow seaTunnelRow =

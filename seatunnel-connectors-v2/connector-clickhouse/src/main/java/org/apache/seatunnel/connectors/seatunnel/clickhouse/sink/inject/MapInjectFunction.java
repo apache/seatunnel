@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject;
 
 import java.sql.PreparedStatement;
@@ -22,15 +21,14 @@ import java.sql.SQLException;
 import java.util.regex.Pattern;
 
 public class MapInjectFunction implements ClickhouseFieldInjectFunction {
-
+    
     private static final Pattern PATTERN = Pattern.compile("(Map.*)");
-
+    
     @Override
-    public void injectFields(PreparedStatement statement, int index, Object value)
-            throws SQLException {
+    public void injectFields(PreparedStatement statement, int index, Object value) throws SQLException {
         statement.setObject(index, value);
     }
-
+    
     @Override
     public boolean isCurrentFieldType(String fieldType) {
         return PATTERN.matcher(fieldType).matches();

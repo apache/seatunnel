@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -45,16 +44,16 @@ import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOp
 
 @AutoService(SeaTunnelSink.class)
 public class MongodbSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
-
+    
     private SeaTunnelRowType rowType;
-
+    
     private MongodbConfig params;
-
+    
     @Override
     public String getPluginName() {
         return "MongoDB";
     }
-
+    
     @Override
     public void prepare(Config config) throws PrepareFailException {
         CheckResult result =
@@ -66,23 +65,22 @@ public class MongodbSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SINK, result.getMsg()));
         }
-
+        
         this.params = MongodbConfig.buildWithConfig(config);
     }
-
+    
     @Override
     public void setTypeInfo(SeaTunnelRowType rowType) {
         this.rowType = rowType;
     }
-
+    
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
         return rowType;
     }
-
+    
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
-            throws IOException {
+    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) throws IOException {
         boolean useSimpleTextSchema = SeaTunnelSchema.buildSimpleTextSchema().equals(rowType);
         return new MongodbSinkWriter(rowType, useSimpleTextSchema, params);
     }

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.datahub.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -40,22 +39,22 @@ import java.util.List;
 /** DataHub write class */
 @Slf4j
 public class DataHubWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
-
+    
     private final DatahubClient dataHubClient;
     private final String project;
     private final String topic;
     private final Integer retryTimes;
     private final SeaTunnelRowType seaTunnelRowType;
-
+    
     public DataHubWriter(
-            SeaTunnelRowType seaTunnelRowType,
-            String endpoint,
-            String accessId,
-            String accessKey,
-            String project,
-            String topic,
-            Integer timeout,
-            Integer retryTimes) {
+                         SeaTunnelRowType seaTunnelRowType,
+                         String endpoint,
+                         String accessId,
+                         String accessKey,
+                         String project,
+                         String topic,
+                         Integer timeout,
+                         Integer retryTimes) {
         this.dataHubClient =
                 DatahubClientBuilder.newBuilder()
                         .setDatahubConfig(
@@ -71,7 +70,7 @@ public class DataHubWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         this.topic = topic;
         this.retryTimes = retryTimes;
     }
-
+    
     @Override
     public void write(SeaTunnelRow element) {
         String[] fieldNames = seaTunnelRowType.getFieldNames();
@@ -102,12 +101,12 @@ public class DataHubWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             log.error("requestId:" + e.getRequestId() + "\tmessage:" + e.getErrorMessage());
         }
     }
-
+    
     @Override
     public void close() throws IOException {
         // the client does not need to be closed
     }
-
+    
     private boolean retry(List<RecordEntry> records, int retryNums, String project, String topic) {
         boolean success = false;
         while (retryNums != 0) {

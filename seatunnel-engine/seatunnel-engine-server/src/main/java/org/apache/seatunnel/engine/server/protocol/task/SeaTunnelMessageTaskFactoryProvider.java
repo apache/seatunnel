@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.protocol.task;
 
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelCancelJobCodec;
@@ -36,56 +35,50 @@ import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
 public class SeaTunnelMessageTaskFactoryProvider implements MessageTaskFactoryProvider {
+    
     private final Int2ObjectHashMap<MessageTaskFactory> factories = new Int2ObjectHashMap<>(60);
     public final Node node;
-
+    
     public SeaTunnelMessageTaskFactoryProvider(NodeEngine nodeEngine) {
         this.node = ((NodeEngineImpl) nodeEngine).getNode();
         initFactories();
     }
-
+    
     @Override
     public Int2ObjectHashMap<MessageTaskFactory> getFactories() {
         return this.factories;
     }
-
+    
     private void initFactories() {
         factories.put(
                 SeaTunnelPrintMessageCodec.REQUEST_MESSAGE_TYPE,
-                (clientMessage, connection) ->
-                        new PrintMessageTask(clientMessage, node, connection));
+                (clientMessage, connection) -> new PrintMessageTask(clientMessage, node, connection));
         factories.put(
                 SeaTunnelSubmitJobCodec.REQUEST_MESSAGE_TYPE,
                 (clientMessage, connection) -> new SubmitJobTask(clientMessage, node, connection));
         factories.put(
                 SeaTunnelWaitForJobCompleteCodec.REQUEST_MESSAGE_TYPE,
-                (clientMessage, connection) ->
-                        new WaitForJobCompleteTask(clientMessage, node, connection));
+                (clientMessage, connection) -> new WaitForJobCompleteTask(clientMessage, node, connection));
         factories.put(
                 SeaTunnelCancelJobCodec.REQUEST_MESSAGE_TYPE,
                 (clientMessage, connection) -> new CancelJobTask(clientMessage, node, connection));
         factories.put(
                 SeaTunnelGetJobStatusCodec.REQUEST_MESSAGE_TYPE,
-                (clientMessage, connection) ->
-                        new GetJobStatusTask(clientMessage, node, connection));
+                (clientMessage, connection) -> new GetJobStatusTask(clientMessage, node, connection));
         factories.put(
                 SeaTunnelGetJobDetailStatusCodec.REQUEST_MESSAGE_TYPE,
-                (clientMessage, connection) ->
-                        new GetJobDetailStatusTask(clientMessage, node, connection));
+                (clientMessage, connection) -> new GetJobDetailStatusTask(clientMessage, node, connection));
         factories.put(
                 SeaTunnelListJobStatusCodec.REQUEST_MESSAGE_TYPE,
-                (clientMessage, connection) ->
-                        new ListJobStatusTask(clientMessage, node, connection));
+                (clientMessage, connection) -> new ListJobStatusTask(clientMessage, node, connection));
         factories.put(
                 SeaTunnelGetJobMetricsCodec.REQUEST_MESSAGE_TYPE,
-                (clientMessage, connection) ->
-                        new GetJobMetricsTask(clientMessage, node, connection));
+                (clientMessage, connection) -> new GetJobMetricsTask(clientMessage, node, connection));
         factories.put(
                 SeaTunnelGetJobInfoCodec.REQUEST_MESSAGE_TYPE,
                 (clientMessage, connection) -> new GetJobInfoTask(clientMessage, node, connection));
         factories.put(
                 SeaTunnelSavePointJobCodec.REQUEST_MESSAGE_TYPE,
-                (clientMessage, connection) ->
-                        new SavePointJobTask(clientMessage, node, connection));
+                (clientMessage, connection) -> new SavePointJobTask(clientMessage, node, connection));
     }
 }

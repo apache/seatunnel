@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.core.dag.actions;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -27,27 +26,28 @@ import java.util.Set;
 
 @SuppressWarnings("checkstyle:ClassTypeParameterName")
 public class SinkAction<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends AbstractAction {
+    
     private final SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
-
+    
     public SinkAction(
-            long id,
-            @NonNull String name,
-            @NonNull List<Action> upstreams,
-            @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
-            @NonNull Set<URL> jarUrls) {
+                      long id,
+                      @NonNull String name,
+                      @NonNull List<Action> upstreams,
+                      @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
+                      @NonNull Set<URL> jarUrls) {
         super(id, name, upstreams, jarUrls);
         this.sink = sink;
     }
-
+    
     public SinkAction(
-            long id,
-            @NonNull String name,
-            @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
-            @NonNull Set<URL> jarUrls) {
+                      long id,
+                      @NonNull String name,
+                      @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
+                      @NonNull Set<URL> jarUrls) {
         super(id, name, jarUrls);
         this.sink = sink;
     }
-
+    
     public SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> getSink() {
         return sink;
     }

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.transform;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -39,6 +38,7 @@ import java.util.Set;
 @ToString(of = {"includeKinds", "excludeKinds"})
 @AutoService(SeaTunnelTransform.class)
 public class FilterRowKindTransform extends FilterRowTransform {
+    
     public static final Option<List<RowKind>> INCLUDE_KINDS =
             Options.key("include_kinds")
                     .listType(RowKind.class)
@@ -49,15 +49,15 @@ public class FilterRowKindTransform extends FilterRowTransform {
                     .listType(RowKind.class)
                     .noDefaultValue()
                     .withDescription("the row kinds to exclude");
-
+    
     private Set<RowKind> includeKinds = Collections.emptySet();
     private Set<RowKind> excludeKinds = Collections.emptySet();
-
+    
     @Override
     public String getPluginName() {
         return "FilterRowKind";
     }
-
+    
     @Override
     protected void setConfig(Config pluginConfig) {
         if (pluginConfig.hasPath(INCLUDE_KINDS.key())) {
@@ -77,7 +77,7 @@ public class FilterRowKindTransform extends FilterRowTransform {
                             INCLUDE_KINDS.key(), EXCLUDE_KINDS.key()));
         }
     }
-
+    
     @Override
     protected SeaTunnelRow transformRow(SeaTunnelRow inputRow) {
         if (!excludeKinds.isEmpty()) {

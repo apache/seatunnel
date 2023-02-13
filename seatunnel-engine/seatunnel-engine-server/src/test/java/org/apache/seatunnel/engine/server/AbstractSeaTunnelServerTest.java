@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
@@ -31,15 +30,15 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelServerTest> {
-
+    
     protected SeaTunnelServer server;
-
+    
     protected NodeEngine nodeEngine;
-
+    
     protected HazelcastInstanceImpl instance;
-
+    
     protected static ILogger LOGGER;
-
+    
     @BeforeAll
     public void before() {
         String name = ((T) this).getClass().getName();
@@ -50,14 +49,14 @@ public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelSer
         server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
         LOGGER = nodeEngine.getLogger(AbstractSeaTunnelServerTest.class);
     }
-
+    
     @AfterAll
     public void after() {
         try {
             if (server != null) {
                 server.shutdown(true);
             }
-
+            
             if (instance != null) {
                 instance.shutdown();
             }
@@ -65,7 +64,7 @@ public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelSer
             log.error(ExceptionUtils.getMessage(e));
         }
     }
-
+    
     /** For tests that require a cluster restart */
     public void restartServer() {
         this.after();

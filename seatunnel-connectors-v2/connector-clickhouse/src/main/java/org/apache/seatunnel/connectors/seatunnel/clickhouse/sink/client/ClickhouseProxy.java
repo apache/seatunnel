@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
@@ -43,31 +42,31 @@ import java.util.stream.Collectors;
 
 @SuppressWarnings("magicnumber")
 public class ClickhouseProxy {
-
+    
     private final ClickHouseRequest<?> clickhouseRequest;
     private final ClickHouseClient client;
-
+    
     private final Map<Shard, ClickHouseClient> shardToDataSource = new ConcurrentHashMap<>(16);
-
+    
     public ClickhouseProxy(ClickHouseNode node) {
         this.client = ClickHouseClient.newInstance(node.getProtocol());
         this.clickhouseRequest =
                 client.connect(node).format(ClickHouseFormat.RowBinaryWithNamesAndTypes);
     }
-
+    
     public ClickHouseRequest<?> getClickhouseConnection() {
         return this.clickhouseRequest;
     }
-
+    
     public ClickHouseRequest<?> getClickhouseConnection(Shard shard) {
         ClickHouseClient c =
                 shardToDataSource.computeIfAbsent(
                         shard, s -> ClickHouseClient.newInstance(s.getNode().getProtocol()));
         return c.connect(shard.getNode()).format(ClickHouseFormat.RowBinaryWithNamesAndTypes);
     }
-
+    
     public DistributedEngine getClickhouseDistributedTable(
-            ClickHouseRequest<?> connection, String database, String table) {
+                                                           ClickHouseRequest<?> connection, String database, String table) {
         String sql =
                 String.format(
                         "select engine_full from system.tables where database = '%s' and name = '%s' and engine = 'Distributed'",
@@ -83,19 +82,20 @@ public class ClickhouseProxy {
                         Arrays.stream(engineFull.substring(12).split(","))
                                 .map(s -> s.replace("'", "").trim())
                                 .collect(Collectors.toList());
-
+                
                 String clusterName = infos.get(0);
                 String localDatabase = infos.get(1);
                 String localTable = infos.get(2).replace("\\)", "").trim();
-
+                
                 String localTableSQL =
                         String.format(
                                 "select engine,create_table_query from system.tables where database = '%s' and name = '%s'",
                                 localDatabase, localTable);
                 String localTableDDL;
                 String localTableEngine;
-                try (ClickHouseResponse localTableResponse =
-                        clickhouseRequest.query(localTableSQL).executeAndWait()) {
+                try (
+                        ClickHouseResponse localTableResponse =
+                                clickhouseRequest.query(localTableSQL).executeAndWait()) {
                     List<ClickHouseRecord> localTableRecords =
                             localTableResponse.stream().collect(Collectors.toList());
                     if (localTableRecords.isEmpty()) {
@@ -107,7 +107,7 @@ public class ClickhouseProxy {
                     localTableDDL = localTableRecords.get(0).getValue(1).asString();
                     localTableDDL = localizationEngine(localTableEngine, localTableDDL);
                 }
-
+                
                 return new DistributedEngine(
                         clusterName, localDatabase, localTable, localTableEngine, localTableDDL);
             }
@@ -121,7 +121,7 @@ public class ClickhouseProxy {
                     e);
         }
     }
-
+    
     /**
      * Get ClickHouse table schema, the key is fileName, value is value type.
      *
@@ -132,9 +132,9 @@ public class ClickhouseProxy {
         ClickHouseRequest<?> request = getClickhouseConnection();
         return getClickhouseTableSchema(request, table);
     }
-
+    
     public Map<String, String> getClickhouseTableSchema(
-            ClickHouseRequest<?> request, String table) {
+                                                        ClickHouseRequest<?> request, String table) {
         String sql = "desc " + table;
         Map<String, String> schema = new LinkedHashMap<>();
         try (ClickHouseResponse response = request.query(sql).executeAndWait()) {
@@ -148,7 +148,7 @@ public class ClickhouseProxy {
         }
         return schema;
     }
-
+    
     /**
      * Get the shard of the given cluster.
      *
@@ -159,12 +159,12 @@ public class ClickhouseProxy {
      * @return shard list.
      */
     public List<Shard> getClusterShardList(
-            ClickHouseRequest<?> connection,
-            String clusterName,
-            String database,
-            int port,
-            String username,
-            String password) {
+                                           ClickHouseRequest<?> connection,
+                                           String clusterName,
+                                           String database,
+                                           int port,
+                                           String username,
+                                           String password) {
         String sql =
                 "select shard_num,shard_weight,replica_num,host_name,host_address,port from system.clusters where cluster = '"
                         + clusterName
@@ -195,7 +195,7 @@ public class ClickhouseProxy {
                     e);
         }
     }
-
+    
     /**
      * Get ClickHouse table info.
      *
@@ -245,7 +245,7 @@ public class ClickhouseProxy {
                     SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED, "Cannot get clickhouse table", e);
         }
     }
-
+    
     /**
      * Localization the engine in clickhouse local table's createTableDDL to support specific
      * engine. For example: change ReplicatedMergeTree to MergeTree.
@@ -262,7 +262,7 @@ public class ClickhouseProxy {
             return ddl;
         }
     }
-
+    
     public void close() {
         if (this.client != null) {
             this.client.close();
