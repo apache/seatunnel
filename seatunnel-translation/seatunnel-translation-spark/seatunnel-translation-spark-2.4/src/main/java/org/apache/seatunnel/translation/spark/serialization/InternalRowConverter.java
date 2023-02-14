@@ -79,9 +79,11 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 return (int) ((LocalDate) field).toEpochDay();
             case TIME:
                 // TODO: Support TIME Type
-                throw new RuntimeException("time type is not supported now, but will be supported in the future.");
+                throw new RuntimeException(
+                        "time type is not supported now, but will be supported in the future.");
             case TIMESTAMP:
-                return InstantConverterUtils.toEpochMicro(Timestamp.valueOf((LocalDateTime) field).toInstant());
+                return InstantConverterUtils.toEpochMicro(
+                        Timestamp.valueOf((LocalDateTime) field).toInstant());
             case MAP:
                 return convertMap((Map<?, ?>) field, (MapType<?, ?>) dataType);
             case STRING:
@@ -95,7 +97,8 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                     Object[] objects = Arrays.stream(fields).map(UTF8String::fromString).toArray();
                     return ArrayData.toArrayData(objects);
                 }
-                // except string, now only support convert boolean int tinyint smallint bigint float double, because SeaTunnel Array only support these types
+                // except string, now only support convert boolean int tinyint smallint bigint float
+                // double, because SeaTunnel Array only support these types
                 return ArrayData.toArrayData(field);
             default:
                 return field;
@@ -121,12 +124,13 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
 
     private static ArrayBasedMapData convertMap(Map<?, ?> mapData, MapType<?, ?> mapType) {
         if (mapData == null || mapData.size() == 0) {
-            return ArrayBasedMapData.apply(new Object[]{}, new Object[]{});
+            return ArrayBasedMapData.apply(new Object[] {}, new Object[] {});
         }
         SeaTunnelDataType<?> keyType = mapType.getKeyType();
         SeaTunnelDataType<?> valueType = mapType.getValueType();
         Map<Object, Object> newMap = new HashMap<>(mapData.size());
-        mapData.forEach((key, value) -> newMap.put(convert(key, keyType), convert(value, valueType)));
+        mapData.forEach(
+                (key, value) -> newMap.put(convert(key, keyType), convert(value, valueType)));
         Object[] keys = newMap.keySet().toArray();
         Object[] values = newMap.values().toArray();
         return ArrayBasedMapData.apply(keys, values);
@@ -189,12 +193,11 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 return LocalDate.ofEpochDay((int) field);
             case TIME:
                 // TODO: Support TIME Type
-                throw new RuntimeException("SeaTunnel not support time type, it will be supported in the future.");
+                throw new RuntimeException(
+                        "SeaTunnel not support time type, it will be supported in the future.");
             case TIMESTAMP:
-                if (field instanceof Timestamp) {
-                    return ((Timestamp) field).toLocalDateTime();
-                }
-                return Timestamp.from(InstantConverterUtils.ofEpochMicro((long) field)).toLocalDateTime();
+                return Timestamp.from(InstantConverterUtils.ofEpochMicro((long) field))
+                        .toLocalDateTime();
             case MAP:
                 return reconvertMap((MapData) field, (MapType<?, ?>) dataType);
             case STRING:
@@ -211,8 +214,10 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
     private static SeaTunnelRow reconvert(InternalRow engineRow, SeaTunnelRowType rowType) {
         Object[] fields = new Object[engineRow.numFields()];
         for (int i = 0; i < engineRow.numFields(); i++) {
-            fields[i] = reconvert(engineRow.get(i, TypeConverterUtils.convert(rowType.getFieldType(i))),
-                rowType.getFieldType(i));
+            fields[i] =
+                    reconvert(
+                            engineRow.get(i, TypeConverterUtils.convert(rowType.getFieldType(i))),
+                            rowType.getFieldType(i));
         }
         return new SeaTunnelRow(fields);
     }
@@ -222,7 +227,8 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             return Collections.emptyList().toArray();
         }
         Object[] newArray = new Object[arrayData.numElements()];
-        Object[] values = arrayData.toObjectArray(TypeConverterUtils.convert(arrayType.getElementType()));
+        Object[] values =
+                arrayData.toObjectArray(TypeConverterUtils.convert(arrayType.getElementType()));
         for (int i = 0; i < arrayData.numElements(); i++) {
             newArray[i] = reconvert(values[i], arrayType.getElementType());
         }

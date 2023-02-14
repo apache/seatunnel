@@ -26,7 +26,8 @@ public class MapInjectFunction implements ClickhouseFieldInjectFunction {
     private static final Pattern PATTERN = Pattern.compile("(Map.*)");
 
     @Override
-    public void injectFields(PreparedStatement statement, int index, Object value) throws SQLException {
+    public void injectFields(PreparedStatement statement, int index, Object value)
+            throws SQLException {
         statement.setObject(index, value);
     }
 

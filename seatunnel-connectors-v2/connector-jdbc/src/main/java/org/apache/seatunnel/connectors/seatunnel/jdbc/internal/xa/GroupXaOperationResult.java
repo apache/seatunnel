@@ -34,7 +34,7 @@ public class GroupXaOperationResult<T> {
     void failedTransiently(T x, XaFacade.TransientXaException e) {
         toRetry.add(x);
         transientFailure =
-            getTransientFailure().isPresent() ? getTransientFailure() : Optional.of(e);
+                getTransientFailure().isPresent() ? getTransientFailure() : Optional.of(e);
     }
 
     void failed(T x, Exception e) {
@@ -46,10 +46,11 @@ public class GroupXaOperationResult<T> {
         succeeded.add(x);
     }
 
-    private RuntimeException wrapFailure(
-        Exception error, String formatWithCounts, int errCount) {
-        return new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED,
-            String.format(formatWithCounts, errCount, total()), error);
+    private RuntimeException wrapFailure(Exception error, String formatWithCounts, int errCount) {
+        return new JdbcConnectorException(
+                JdbcConnectorErrorCode.XA_OPERATION_FAILED,
+                String.format(formatWithCounts, errCount, total()),
+                error);
     }
 
     private int total() {
@@ -70,14 +71,14 @@ public class GroupXaOperationResult<T> {
 
     void throwIfAnyFailed(String action) {
         failure.map(
-            f ->
-                    wrapFailure(
-                        f,
-                        "failed to " + action + " %d transactions out of %d",
-                        toRetry.size() + failed.size()))
-            .ifPresent(
-                f -> {
-                    throw f;
-                });
+                        f ->
+                                wrapFailure(
+                                        f,
+                                        "failed to " + action + " %d transactions out of %d",
+                                        toRetry.size() + failed.size()))
+                .ifPresent(
+                        f -> {
+                            throw f;
+                        });
     }
 }

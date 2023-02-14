@@ -17,20 +17,16 @@
 
 package org.apache.seatunnel.engine.common.config;
 
-import static com.hazelcast.internal.config.DeclarativeConfigUtil.YAML_ACCEPTED_SUFFIXES;
-
 import org.apache.seatunnel.engine.common.Constant;
 
 import com.hazelcast.internal.config.AbstractConfigLocator;
 
-/**
- * A support class for the {@link YamlSeaTunnelConfigBuilder} to locate the
- * yaml configuration.
- */
+import static com.hazelcast.internal.config.DeclarativeConfigUtil.YAML_ACCEPTED_SUFFIXES;
+
+/** A support class for the {@link YamlSeaTunnelConfigBuilder} to locate the yaml configuration. */
 public final class YamlSeaTunnelConfigLocator extends AbstractConfigLocator {
 
-    public YamlSeaTunnelConfigLocator() {
-    }
+    public YamlSeaTunnelConfigLocator() {}
 
     @Override
     public boolean locateFromSystemProperty() {
@@ -39,18 +35,20 @@ public final class YamlSeaTunnelConfigLocator extends AbstractConfigLocator {
 
     @Override
     protected boolean locateFromSystemPropertyOrFailOnUnacceptedSuffix() {
-        return loadFromSystemPropertyOrFailOnUnacceptedSuffix(Constant.SYSPROP_SEATUNNEL_CONFIG,
-            YAML_ACCEPTED_SUFFIXES);
+        return loadFromSystemPropertyOrFailOnUnacceptedSuffix(
+                Constant.SYSPROP_SEATUNNEL_CONFIG, YAML_ACCEPTED_SUFFIXES);
     }
 
     @Override
     protected boolean locateInWorkDir() {
-        return loadFromWorkingDirectory(Constant.HAZELCAST_SEATUNNEL_CONF_FILE_PREFIX, YAML_ACCEPTED_SUFFIXES);
+        return loadFromWorkingDirectory(
+                Constant.HAZELCAST_SEATUNNEL_CONF_FILE_PREFIX, YAML_ACCEPTED_SUFFIXES);
     }
 
     @Override
     protected boolean locateOnClasspath() {
-        return loadConfigurationFromClasspath(Constant.HAZELCAST_SEATUNNEL_CONF_FILE_PREFIX, YAML_ACCEPTED_SUFFIXES);
+        return loadConfigurationFromClasspath(
+                Constant.HAZELCAST_SEATUNNEL_CONF_FILE_PREFIX, YAML_ACCEPTED_SUFFIXES);
     }
 
     @Override

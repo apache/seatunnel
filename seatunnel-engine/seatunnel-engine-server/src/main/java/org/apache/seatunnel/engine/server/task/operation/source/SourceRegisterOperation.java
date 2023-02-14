@@ -33,8 +33,8 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 import java.io.IOException;
 
 /**
- * For {@link org.apache.seatunnel.api.source.SourceReader} to register with
- * the {@link org.apache.seatunnel.api.source.SourceSplitEnumerator}
+ * For {@link org.apache.seatunnel.api.source.SourceReader} to register with the {@link
+ * org.apache.seatunnel.api.source.SourceSplitEnumerator}
  */
 public class SourceRegisterOperation extends Operation implements IdentifiedDataSerializable {
     private static final int RETRY_TIME = 20;
@@ -44,8 +44,7 @@ public class SourceRegisterOperation extends Operation implements IdentifiedData
     private TaskLocation readerTaskID;
     private TaskLocation enumeratorTaskID;
 
-    public SourceRegisterOperation() {
-    }
+    public SourceRegisterOperation() {}
 
     public SourceRegisterOperation(TaskLocation readerTaskID, TaskLocation enumeratorTaskID) {
         this.readerTaskID = readerTaskID;
@@ -56,14 +55,21 @@ public class SourceRegisterOperation extends Operation implements IdentifiedData
     public void run() throws Exception {
         SeaTunnelServer server = getService();
         Address readerAddress = getCallerAddress();
-        RetryUtils.retryWithException(() -> {
-            SourceSplitEnumeratorTask<?> task =
-                server.getTaskExecutionService().getTask(enumeratorTaskID);
-            task.receivedReader(readerTaskID, readerAddress);
-            return null;
-        }, new RetryUtils.RetryMaterial(RETRY_TIME, true,
-            exception -> exception instanceof SeaTunnelException &&
-                !server.taskIsEnded(enumeratorTaskID.getTaskGroupLocation()), RETRY_TIME_OUT));
+        RetryUtils.retryWithException(
+                () -> {
+                    SourceSplitEnumeratorTask<?> task =
+                            server.getTaskExecutionService().getTask(enumeratorTaskID);
+                    task.receivedReader(readerTaskID, readerAddress);
+                    return null;
+                },
+                new RetryUtils.RetryMaterial(
+                        RETRY_TIME,
+                        true,
+                        exception ->
+                                exception instanceof SeaTunnelException
+                                        && !server.taskIsEnded(
+                                                enumeratorTaskID.getTaskGroupLocation()),
+                        RETRY_TIME_OUT));
     }
 
     @Override

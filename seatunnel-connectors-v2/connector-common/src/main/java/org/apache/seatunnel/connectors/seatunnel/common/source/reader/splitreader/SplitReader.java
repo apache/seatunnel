@@ -22,11 +22,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordsWit
 
 import java.io.IOException;
 
-/**
- *
- * An interface used to read from splits.
- *
- */
+/** An interface used to read from splits. */
 public interface SplitReader<E, SplitT extends SourceSplit> {
 
     /**
@@ -36,7 +32,6 @@ public interface SplitReader<E, SplitT extends SourceSplit> {
      * throw an interrupted exception. In either case, this method should be reentrant, meaning that
      * the next fetch call should just resume from where the last fetch call was waken up or
      * interrupted.
-     *
      */
     RecordsWithSplitIds<E> fetch() throws IOException;
 
@@ -44,20 +39,16 @@ public interface SplitReader<E, SplitT extends SourceSplit> {
      * Handle the split changes. This call should be non-blocking.
      *
      * @param splitsChanges
-     *
      */
     void handleSplitsChanges(SplitsChange<SplitT> splitsChanges);
 
-    /**
-     * Wake up the split reader in case the fetcher thread is blocking in {@link #fetch()}.
-     */
+    /** Wake up the split reader in case the fetcher thread is blocking in {@link #fetch()}. */
     void wakeUp();
 
     /**
      * Close the split reader.
      *
      * @throws Exception
-     *
      */
     void close() throws Exception;
 }

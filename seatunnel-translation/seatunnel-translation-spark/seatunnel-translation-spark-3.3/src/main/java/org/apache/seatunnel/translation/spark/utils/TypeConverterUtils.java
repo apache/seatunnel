@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.translation.spark.utils;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -37,8 +35,11 @@ import org.apache.spark.sql.types.StructType;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public class TypeConverterUtils {
-    private static final Map<DataType, SeaTunnelDataType<?>> TO_SEA_TUNNEL_TYPES = new HashMap<>(16);
+    private static final Map<DataType, SeaTunnelDataType<?>> TO_SEA_TUNNEL_TYPES =
+            new HashMap<>(16);
     public static final String ROW_KIND_FIELD = "op";
 
     static {
@@ -57,7 +58,8 @@ public class TypeConverterUtils {
     }
 
     private TypeConverterUtils() {
-        throw new UnsupportedOperationException("TypeConverterUtils is a utility class and cannot be instantiated");
+        throw new UnsupportedOperationException(
+                "TypeConverterUtils is a utility class and cannot be instantiated");
     }
 
     public static DataType convert(SeaTunnelDataType<?> dataType) {
@@ -85,18 +87,21 @@ public class TypeConverterUtils {
                 return DataTypes.BinaryType;
             case DATE:
                 return DataTypes.DateType;
-            // case TIME:
-            // TODO: not support now, how reconvert?
+                // case TIME:
+                // TODO: not support now, how reconvert?
             case TIMESTAMP:
                 return DataTypes.TimestampType;
             case ARRAY:
-                return DataTypes.createArrayType(convert(((ArrayType<?, ?>) dataType).getElementType()));
+                return DataTypes.createArrayType(
+                        convert(((ArrayType<?, ?>) dataType).getElementType()));
             case MAP:
                 MapType<?, ?> mapType = (MapType<?, ?>) dataType;
-                return DataTypes.createMapType(convert(mapType.getKeyType()), convert(mapType.getValueType()));
+                return DataTypes.createMapType(
+                        convert(mapType.getKeyType()), convert(mapType.getValueType()));
             case DECIMAL:
                 DecimalType decimalType = (DecimalType) dataType;
-                return new org.apache.spark.sql.types.DecimalType(decimalType.getPrecision(), decimalType.getScale());
+                return new org.apache.spark.sql.types.DecimalType(
+                        decimalType.getPrecision(), decimalType.getScale());
             case ROW:
                 return convert((SeaTunnelRowType) dataType);
             default:
@@ -108,8 +113,12 @@ public class TypeConverterUtils {
         // TODO: row kind
         StructField[] fields = new StructField[rowType.getFieldNames().length];
         for (int i = 0; i < rowType.getFieldNames().length; i++) {
-            fields[i] = new StructField(rowType.getFieldNames()[i],
-                convert(rowType.getFieldTypes()[i]), true, Metadata.empty());
+            fields[i] =
+                    new StructField(
+                            rowType.getFieldNames()[i],
+                            convert(rowType.getFieldTypes()[i]),
+                            true,
+                            Metadata.empty());
         }
         return new StructType(fields);
     }
@@ -124,11 +133,13 @@ public class TypeConverterUtils {
             return convert((org.apache.spark.sql.types.ArrayType) sparkType);
         }
         if (sparkType instanceof org.apache.spark.sql.types.MapType) {
-            org.apache.spark.sql.types.MapType mapType = (org.apache.spark.sql.types.MapType) sparkType;
+            org.apache.spark.sql.types.MapType mapType =
+                    (org.apache.spark.sql.types.MapType) sparkType;
             return new MapType<>(convert(mapType.keyType()), convert(mapType.valueType()));
         }
         if (sparkType instanceof org.apache.spark.sql.types.DecimalType) {
-            org.apache.spark.sql.types.DecimalType decimalType = (org.apache.spark.sql.types.DecimalType) sparkType;
+            org.apache.spark.sql.types.DecimalType decimalType =
+                    (org.apache.spark.sql.types.DecimalType) sparkType;
             return new DecimalType(decimalType.precision(), decimalType.scale());
         }
         if (sparkType instanceof StructType) {
@@ -156,7 +167,8 @@ public class TypeConverterUtils {
             case DOUBLE:
                 return ArrayType.DOUBLE_ARRAY_TYPE;
             default:
-                throw new UnsupportedOperationException(String.format("Unsupported Spark's array type: %s.", arrayType.sql()));
+                throw new UnsupportedOperationException(
+                        String.format("Unsupported Spark's array type: %s.", arrayType.sql()));
         }
     }
 

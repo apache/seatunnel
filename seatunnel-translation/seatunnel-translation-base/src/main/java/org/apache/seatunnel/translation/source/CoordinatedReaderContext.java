@@ -27,9 +27,10 @@ public class CoordinatedReaderContext implements SourceReader.Context {
     protected final Boundedness boundedness;
     protected final Integer subtaskId;
 
-    public CoordinatedReaderContext(CoordinatedSource<?, ?, ?> coordinatedSource,
-                                    Boundedness boundedness,
-                                    Integer subtaskId) {
+    public CoordinatedReaderContext(
+            CoordinatedSource<?, ?, ?> coordinatedSource,
+            Boundedness boundedness,
+            Integer subtaskId) {
         this.coordinatedSource = coordinatedSource;
         this.boundedness = boundedness;
         this.subtaskId = subtaskId;

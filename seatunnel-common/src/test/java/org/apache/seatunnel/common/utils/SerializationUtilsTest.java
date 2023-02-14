@@ -42,7 +42,6 @@ public class SerializationUtilsTest {
 
         data.put("key2", "");
         Assertions.assertNotEquals(dataAfter, data);
-
     }
 
     @Test
@@ -67,8 +66,8 @@ public class SerializationUtilsTest {
 
         Assertions.assertEquals(array2, array);
 
-        Assertions.assertThrows(SerializationException.class, () -> SerializationUtils.deserialize(new byte[]{1, 0, 1}));
-
+        Assertions.assertThrows(
+                SerializationException.class,
+                () -> SerializationUtils.deserialize(new byte[] {1, 0, 1}));
     }
-
 }

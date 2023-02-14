@@ -17,27 +17,23 @@
 
 package org.apache.seatunnel.connectors.seatunnel.sentry.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.sentry.config.SentryConfig;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import io.sentry.Sentry;
 import io.sentry.SentryOptions;
 
 import java.io.IOException;
 
-/**
- * @description: SentrySinkWriter class
- */
-
+/** @description: SentrySinkWriter class */
 public class SentrySinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private SeaTunnelRowType seaTunnelRowType;
 
-    public SentrySinkWriter(SeaTunnelRowType seaTunnelRowType,
-                            Config pluginConfig) {
+    public SentrySinkWriter(SeaTunnelRowType seaTunnelRowType, Config pluginConfig) {
         SentryOptions options = new SentryOptions();
         options.setDsn(pluginConfig.getString(SentryConfig.DSN.key()));
         if (pluginConfig.hasPath(SentryConfig.ENV.key())) {
@@ -56,10 +52,12 @@ public class SentrySinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             options.setMaxQueueSize(pluginConfig.getInt(SentryConfig.MAX_QUEUESIZE.key()));
         }
         if (pluginConfig.hasPath(SentryConfig.FLUSH_TIMEOUTMILLIS.key())) {
-            options.setFlushTimeoutMillis(pluginConfig.getLong(SentryConfig.FLUSH_TIMEOUTMILLIS.key()));
+            options.setFlushTimeoutMillis(
+                    pluginConfig.getLong(SentryConfig.FLUSH_TIMEOUTMILLIS.key()));
         }
         if (pluginConfig.hasPath(SentryConfig.ENABLE_EXTERNAL_CONFIGURATION.key())) {
-            options.setEnableExternalConfiguration(pluginConfig.getBoolean(SentryConfig.ENABLE_EXTERNAL_CONFIGURATION.key()));
+            options.setEnableExternalConfiguration(
+                    pluginConfig.getBoolean(SentryConfig.ENABLE_EXTERNAL_CONFIGURATION.key()));
         }
         Sentry.init(options);
     }
@@ -73,5 +71,4 @@ public class SentrySinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     public void close() throws IOException {
         Sentry.close();
     }
-
 }

@@ -15,19 +15,19 @@ Used to read data from GoogleSheets.
 - [ ] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 - [ ] file format
-    - [ ] text
-    - [ ] csv
-    - [ ] json
+  - [ ] text
+  - [ ] csv
+  - [ ] json
 
 ## Options
 
-| name                | type         | required | default value |
-|-------------------  |--------------|----------|---------------|
-| service_account_key | string       | yes      | -             |
-| sheet_id            | string       | yes      | -             |
-| sheet_name          | string       | yes      | -             |
-| range               | string       | yes      | -             |
-| schema              | config       | no       | -             |
+|        name         |  type  | required | default value |
+|---------------------|--------|----------|---------------|
+| service_account_key | string | yes      | -             |
+| sheet_id            | string | yes      | -             |
+| sheet_name          | string | yes      | -             |
+| range               | string | yes      | -             |
+| schema              | config | no       | -             |
 
 ### service_account_key [string]
 
@@ -56,24 +56,24 @@ the schema fields of upstream data
 simple:
 
 ```hocon
-  GoogleSheets {
-    service_account_key = "seatunnel-test"
-    sheet_id = "1VI0DvyZK-NIdssSdsDSsSSSC-_-rYMi7ppJiI_jhE"
-    sheet_name = "sheets01"
-    range = "A1:C3"
-    schema = {
-      fields {
-        a = int
-        b = string
-        c = string
-      }
+GoogleSheets {
+  service_account_key = "seatunnel-test"
+  sheet_id = "1VI0DvyZK-NIdssSdsDSsSSSC-_-rYMi7ppJiI_jhE"
+  sheet_name = "sheets01"
+  range = "A1:C3"
+  schema = {
+    fields {
+      a = int
+      b = string
+      c = string
     }
   }
+}
 ```
-
 
 ## Changelog
 
 ### next version
 
 - Add GoogleSheets Source Connector
+

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.core.starter.flink.execution;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -27,49 +29,64 @@ import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginD
 import org.apache.seatunnel.translation.flink.serialization.FlinkRowConverter;
 import org.apache.seatunnel.translation.flink.utils.TypeConverterUtils;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import com.google.common.collect.Lists;
 import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.Collector;
 
+import com.google.common.collect.Lists;
+
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class TransformExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<SeaTunnelTransform> {
+public class TransformExecuteProcessor
+        extends FlinkAbstractPluginExecuteProcessor<SeaTunnelTransform> {
 
     private static final String PLUGIN_TYPE = "transform";
 
-    protected TransformExecuteProcessor(List<URL> jarPaths, List<? extends Config> pluginConfigs, JobContext jobContext) {
+    protected TransformExecuteProcessor(
+            List<URL> jarPaths, List<? extends Config> pluginConfigs, JobContext jobContext) {
         super(jarPaths, pluginConfigs, jobContext);
     }
 
     @Override
-    protected List<SeaTunnelTransform> initializePlugins(List<URL> jarPaths, List<? extends Config> pluginConfigs) {
-        SeaTunnelTransformPluginDiscovery transformPluginDiscovery = new SeaTunnelTransformPluginDiscovery();
+    protected List<SeaTunnelTransform> initializePlugins(
+            List<URL> jarPaths, List<? extends Config> pluginConfigs) {
+        SeaTunnelTransformPluginDiscovery transformPluginDiscovery =
+                new SeaTunnelTransformPluginDiscovery();
         List<URL> pluginJars = new ArrayList<>();
-        List<SeaTunnelTransform> transforms = pluginConfigs.stream()
-            .map(transformConfig -> {
-                PluginIdentifier pluginIdentifier = PluginIdentifier.of(ENGINE_TYPE, PLUGIN_TYPE, transformConfig.getString(PLUGIN_NAME));
-                List<URL> pluginJarPaths = transformPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier));
-                SeaTunnelTransform<?> seaTunnelTransform =
-                        transformPluginDiscovery.createPluginInstance(pluginIdentifier);
-                jarPaths.addAll(pluginJarPaths);
-                seaTunnelTransform.prepare(transformConfig);
-                seaTunnelTransform.setJobContext(jobContext);
-                return seaTunnelTransform;
-            }).distinct().collect(Collectors.toList());
+        List<SeaTunnelTransform> transforms =
+                pluginConfigs.stream()
+                        .map(
+                                transformConfig -> {
+                                    PluginIdentifier pluginIdentifier =
+                                            PluginIdentifier.of(
+                                                    ENGINE_TYPE,
+                                                    PLUGIN_TYPE,
+                                                    transformConfig.getString(PLUGIN_NAME));
+                                    List<URL> pluginJarPaths =
+                                            transformPluginDiscovery.getPluginJarPaths(
+                                                    Lists.newArrayList(pluginIdentifier));
+                                    SeaTunnelTransform<?> seaTunnelTransform =
+                                            transformPluginDiscovery.createPluginInstance(
+                                                    pluginIdentifier);
+                                    jarPaths.addAll(pluginJarPaths);
+                                    seaTunnelTransform.prepare(transformConfig);
+                                    seaTunnelTransform.setJobContext(jobContext);
+                                    return seaTunnelTransform;
+                                })
+                        .distinct()
+                        .collect(Collectors.toList());
         jarPaths.addAll(pluginJars);
         return transforms;
     }
 
     @Override
-    public List<DataStream<Row>> execute(List<DataStream<Row>> upstreamDataStreams) throws TaskExecuteException {
+    public List<DataStream<Row>> execute(List<DataStream<Row>> upstreamDataStreams)
+            throws TaskExecuteException {
         if (plugins.isEmpty()) {
             return upstreamDataStreams;
         }
@@ -85,7 +102,10 @@ public class TransformExecuteProcessor extends FlinkAbstractPluginExecuteProcess
                 result.add(input);
             } catch (Exception e) {
                 throw new TaskExecuteException(
-                    String.format("SeaTunnel transform task: %s execute error", plugins.get(i).getPluginName()), e);
+                        String.format(
+                                "SeaTunnel transform task: %s execute error",
+                                plugins.get(i).getPluginName()),
+                        e);
             }
         }
         return result;
@@ -96,19 +116,23 @@ public class TransformExecuteProcessor extends FlinkAbstractPluginExecuteProcess
         transform.setTypeInfo(seaTunnelDataType);
         TypeInformation rowTypeInfo = TypeConverterUtils.convert(transform.getProducedType());
         FlinkRowConverter transformInputRowConverter = new FlinkRowConverter(seaTunnelDataType);
-        FlinkRowConverter transformOutputRowConverter = new FlinkRowConverter(transform.getProducedType());
-        DataStream<Row> output =  stream.flatMap(new FlatMapFunction<Row, Row>() {
-            @Override
-            public void flatMap(Row value, Collector<Row> out) throws Exception {
-                SeaTunnelRow seaTunnelRow = transformInputRowConverter.reconvert(value);
-                SeaTunnelRow dataRow = (SeaTunnelRow) transform.map(seaTunnelRow);
-                if (dataRow != null) {
-                    Row copy = transformOutputRowConverter.convert(dataRow);
-                    out.collect(copy);
-                }
-            }
-        },
-            rowTypeInfo);
+        FlinkRowConverter transformOutputRowConverter =
+                new FlinkRowConverter(transform.getProducedType());
+        DataStream<Row> output =
+                stream.flatMap(
+                        new FlatMapFunction<Row, Row>() {
+                            @Override
+                            public void flatMap(Row value, Collector<Row> out) throws Exception {
+                                SeaTunnelRow seaTunnelRow =
+                                        transformInputRowConverter.reconvert(value);
+                                SeaTunnelRow dataRow = (SeaTunnelRow) transform.map(seaTunnelRow);
+                                if (dataRow != null) {
+                                    Row copy = transformOutputRowConverter.convert(dataRow);
+                                    out.collect(copy);
+                                }
+                            }
+                        },
+                        rowTypeInfo);
         return output;
     }
 }

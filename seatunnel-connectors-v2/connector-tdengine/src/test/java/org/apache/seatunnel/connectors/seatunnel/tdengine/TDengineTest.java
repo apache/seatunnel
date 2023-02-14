@@ -18,9 +18,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.tdengine;
 
+import org.junit.jupiter.api.Assertions;
+
 import com.taosdata.jdbc.TSDBDriver;
 import lombok.SneakyThrows;
-import org.junit.jupiter.api.Assertions;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -31,13 +32,16 @@ import java.util.Properties;
 public class TDengineTest {
 
     public void testQueryUrl(String jdbcUrl) {
-        Assertions.assertDoesNotThrow(() -> {
-            try (Connection conn = getConnection(jdbcUrl)) {
-                try (Statement stmt = conn.createStatement()) {
-                    ResultSet rs = stmt.executeQuery("SELECT location,AVG(voltage) FROM meters GROUP BY location;");
-                }
-            }
-        });
+        Assertions.assertDoesNotThrow(
+                () -> {
+                    try (Connection conn = getConnection(jdbcUrl)) {
+                        try (Statement stmt = conn.createStatement()) {
+                            ResultSet rs =
+                                    stmt.executeQuery(
+                                            "SELECT location,AVG(voltage) FROM meters GROUP BY location;");
+                        }
+                    }
+                });
     }
 
     @SneakyThrows
@@ -46,5 +50,4 @@ public class TDengineTest {
         connProps.setProperty(TSDBDriver.PROPERTY_KEY_BATCH_LOAD, "true");
         return DriverManager.getConnection(jdbcUrl, connProps);
     }
-
 }

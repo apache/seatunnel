@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.lemlist.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.http.util.AuthorizationUtil.getTokenByBasicAuth;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
@@ -34,15 +34,16 @@ import org.apache.seatunnel.connectors.seatunnel.lemlist.source.config.LemlistSo
 import org.apache.seatunnel.connectors.seatunnel.lemlist.source.config.LemlistSourceParameter;
 import org.apache.seatunnel.connectors.seatunnel.lemlist.source.exception.LemlistConnectorException;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
+
+import static org.apache.seatunnel.connectors.seatunnel.http.util.AuthorizationUtil.getTokenByBasicAuth;
 
 @Slf4j
 @AutoService(SeaTunnelSource.class)
 public class LemlistSource extends HttpSource {
     private final LemlistSourceParameter lemlistSourceParameter = new LemlistSourceParameter();
+
     @Override
     public String getPluginName() {
         return "Lemlist";
@@ -50,20 +51,33 @@ public class LemlistSource extends HttpSource {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, LemlistSourceConfig.URL.key(), LemlistSourceConfig.PASSWORD.key());
+        CheckResult result =
+                CheckConfigUtil.checkAllExists(
+                        pluginConfig,
+                        LemlistSourceConfig.URL.key(),
+                        LemlistSourceConfig.PASSWORD.key());
         if (!result.isSuccess()) {
-            throw new LemlistConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+            throw new LemlistConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
-        //get accessToken by basic auth
-        String accessToken = getTokenByBasicAuth("", pluginConfig.getString(LemlistSourceConfig.PASSWORD.key()));
+        // get accessToken by basic auth
+        String accessToken =
+                getTokenByBasicAuth("", pluginConfig.getString(LemlistSourceConfig.PASSWORD.key()));
         lemlistSourceParameter.buildWithConfig(pluginConfig, accessToken);
         buildSchemaWithConfig(pluginConfig);
     }
 
     @Override
-    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new HttpSourceReader(this.lemlistSourceParameter, readerContext, this.deserializationSchema, jsonField, contentField);
+    public AbstractSingleSplitReader<SeaTunnelRow> createReader(
+            SingleSplitReaderContext readerContext) throws Exception {
+        return new HttpSourceReader(
+                this.lemlistSourceParameter,
+                readerContext,
+                this.deserializationSchema,
+                jsonField,
+                contentField);
     }
 }

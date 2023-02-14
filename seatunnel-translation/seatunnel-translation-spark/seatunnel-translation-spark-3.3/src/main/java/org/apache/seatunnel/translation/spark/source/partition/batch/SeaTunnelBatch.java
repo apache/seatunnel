@@ -25,9 +25,7 @@ import org.apache.spark.sql.connector.read.Batch;
 import org.apache.spark.sql.connector.read.InputPartition;
 import org.apache.spark.sql.connector.read.PartitionReaderFactory;
 
-/**
- * A physical plan of SeaTunnel source
- */
+/** A physical plan of SeaTunnel source */
 public class SeaTunnelBatch implements Batch {
 
     private final SeaTunnelSource<SeaTunnelRow, ?, ?> source;

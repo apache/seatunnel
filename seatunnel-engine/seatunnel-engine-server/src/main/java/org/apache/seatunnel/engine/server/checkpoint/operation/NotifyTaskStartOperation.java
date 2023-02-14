@@ -48,14 +48,18 @@ public class NotifyTaskStartOperation extends TaskOperation {
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        RetryUtils.retryWithException(() -> {
-            AbstractTask task = server
-                .getTaskExecutionService()
-                .getTask(taskLocation);
-            task.startCall();
-            return null;
-        }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-            exception -> exception instanceof SeaTunnelException &&
-                !server.taskIsEnded(taskLocation.getTaskGroupLocation()), Constant.OPERATION_RETRY_SLEEP));
+        RetryUtils.retryWithException(
+                () -> {
+                    AbstractTask task = server.getTaskExecutionService().getTask(taskLocation);
+                    task.startCall();
+                    return null;
+                },
+                new RetryUtils.RetryMaterial(
+                        Constant.OPERATION_RETRY_TIME,
+                        true,
+                        exception ->
+                                exception instanceof SeaTunnelException
+                                        && !server.taskIsEnded(taskLocation.getTaskGroupLocation()),
+                        Constant.OPERATION_RETRY_SLEEP));
     }
 }

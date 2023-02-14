@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.config;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.EmbeddedDatabaseHistory;
 
@@ -27,6 +25,8 @@ import io.debezium.connector.sqlserver.SqlServerConnector;
 import java.util.Properties;
 import java.util.UUID;
 import java.util.stream.Collectors;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /** Factory for creating {@link SqlServerSourceConfig}. */
 public class SqlServerSourceConfigFactory extends JdbcSourceConfigFactory {
@@ -58,17 +58,22 @@ public class SqlServerSourceConfigFactory extends JdbcSourceConfigFactory {
         props.setProperty("database.history.skip.unparseable.ddl", String.valueOf(true));
         props.setProperty("database.history.refer.ddl", String.valueOf(true));
 
-        //TODO Not yet supported
+        // TODO Not yet supported
         props.setProperty("include.schema.changes", String.valueOf(false));
 
         if (databaseList != null) {
             props.setProperty("database.include.list", String.join(",", databaseList));
         }
         if (tableList != null) {
-            //SqlServer identifier is of the form schemaName.tableName
-            props.setProperty("table.include.list", tableList.stream().map(tableStr -> {
-                return tableStr.substring(tableStr.indexOf(".") + 1);
-            }).collect(Collectors.joining(",")));
+            // SqlServer identifier is of the form schemaName.tableName
+            props.setProperty(
+                    "table.include.list",
+                    tableList.stream()
+                            .map(
+                                    tableStr -> {
+                                        return tableStr.substring(tableStr.indexOf(".") + 1);
+                                    })
+                            .collect(Collectors.joining(",")));
         }
 
         if (dbzProperties != null) {

@@ -26,7 +26,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class KuduSourceSplitEnumerator implements SourceSplitEnumerator<KuduSourceSplit, KuduSourceState> {
+public class KuduSourceSplitEnumerator
+        implements SourceSplitEnumerator<KuduSourceSplit, KuduSourceState> {
 
     private final SourceSplitEnumerator.Context<KuduSourceSplit> enumeratorContext;
     private PartitionParameter partitionParameter;
@@ -36,30 +37,24 @@ public class KuduSourceSplitEnumerator implements SourceSplitEnumerator<KuduSour
     private Long batchSize;
     private Integer batchNum;
 
-    public KuduSourceSplitEnumerator(SourceSplitEnumerator.Context<KuduSourceSplit> enumeratorContext, PartitionParameter partitionParameter) {
+    public KuduSourceSplitEnumerator(
+            SourceSplitEnumerator.Context<KuduSourceSplit> enumeratorContext,
+            PartitionParameter partitionParameter) {
         this.enumeratorContext = enumeratorContext;
         this.partitionParameter = partitionParameter;
     }
 
     @Override
-    public void open() {
-
-    }
+    public void open() {}
 
     @Override
-    public void run() {
-
-    }
+    public void run() {}
 
     @Override
-    public void close() throws IOException {
-
-    }
+    public void close() throws IOException {}
 
     @Override
-    public void addSplitsBack(List<KuduSourceSplit> splits, int subtaskId) {
-
-    }
+    public void addSplitsBack(List<KuduSourceSplit> splits, int subtaskId) {}
 
     @Override
     public int currentUnassignedSplitSize() {
@@ -67,16 +62,18 @@ public class KuduSourceSplitEnumerator implements SourceSplitEnumerator<KuduSour
     }
 
     @Override
-    public void handleSplitRequest(int subtaskId) {
-
-    }
+    public void handleSplitRequest(int subtaskId) {}
 
     @Override
     public void registerReader(int subtaskId) {
         int parallelism = enumeratorContext.currentParallelism();
         if (allSplit.isEmpty()) {
             if (null != partitionParameter) {
-                Serializable[][] parameterValues = getParameterValues(partitionParameter.minValue, partitionParameter.maxValue, parallelism);
+                Serializable[][] parameterValues =
+                        getParameterValues(
+                                partitionParameter.minValue,
+                                partitionParameter.maxValue,
+                                parallelism);
                 for (int i = 0; i < parameterValues.length; i++) {
                     allSplit.add(new KuduSourceSplit(parameterValues[i], i));
                 }
@@ -85,7 +82,10 @@ public class KuduSourceSplitEnumerator implements SourceSplitEnumerator<KuduSour
             }
         }
         // Filter the split that the current task needs to run
-        List<KuduSourceSplit> splits = allSplit.stream().filter(p -> p.splitId % parallelism == subtaskId).collect(Collectors.toList());
+        List<KuduSourceSplit> splits =
+                allSplit.stream()
+                        .filter(p -> p.splitId % parallelism == subtaskId)
+                        .collect(Collectors.toList());
         enumeratorContext.assignSplit(subtaskId, splits);
         enumeratorContext.signalNoMoreSplits(subtaskId);
     }
@@ -102,11 +102,10 @@ public class KuduSourceSplitEnumerator implements SourceSplitEnumerator<KuduSour
         long start = minVal;
         for (int i = 0; i < batchNum; i++) {
             long end = start + batchSize - 1 - (i >= bigBatchNum ? 1 : 0);
-            parameters[i] = new Long[]{start, end};
+            parameters[i] = new Long[] {start, end};
             start = end + 1;
         }
         return parameters;
-
     }
 
     private void getBatchSizeAndBatchNum(int parallelism) {
@@ -125,7 +124,5 @@ public class KuduSourceSplitEnumerator implements SourceSplitEnumerator<KuduSour
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {
-
-    }
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
 }

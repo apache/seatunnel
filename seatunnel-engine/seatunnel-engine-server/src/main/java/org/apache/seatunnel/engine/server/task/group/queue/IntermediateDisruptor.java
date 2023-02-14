@@ -38,14 +38,22 @@ public class IntermediateDisruptor extends AbstractIntermediateQueue<Disruptor<R
     @Override
     public void received(Record<?> record) {
         getIntermediateQueue().getRingBuffer();
-        RecordEventProducer.onData(record, getIntermediateQueue().getRingBuffer(), getIntermediateQueueFlowLifeCycle());
+        RecordEventProducer.onData(
+                record,
+                getIntermediateQueue().getRingBuffer(),
+                getIntermediateQueueFlowLifeCycle());
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void collect(Collector<Record<?>> collector) throws Exception {
         if (!isExecuted) {
-            getIntermediateQueue().handleEventsWith(new RecordEventHandler(getRunningTask(), collector, getIntermediateQueueFlowLifeCycle()));
+            getIntermediateQueue()
+                    .handleEventsWith(
+                            new RecordEventHandler(
+                                    getRunningTask(),
+                                    collector,
+                                    getIntermediateQueueFlowLifeCycle()));
             getIntermediateQueue().start();
             isExecuted = true;
         } else {

@@ -23,11 +23,12 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.ShardMetadata;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.DistributedEngine;
 
+import org.apache.commons.lang3.StringUtils;
+
 import com.clickhouse.client.ClickHouseRequest;
 import lombok.Getter;
 import net.jpountz.xxhash.XXHash64;
 import net.jpountz.xxhash.XXHashFactory;
-import org.apache.commons.lang3.StringUtils;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
@@ -48,8 +49,7 @@ public class ShardRouter implements Serializable {
     private final TreeMap<Integer, Shard> shards;
     private final String shardKey;
     private final String shardKeyType;
-    @Getter
-    private final String sortingKey;
+    @Getter private final String sortingKey;
     private final boolean splitMode;
 
     private static final XXHash64 HASH_INSTANCE = XXHashFactory.fastestInstance().hash64();
@@ -64,16 +64,25 @@ public class ShardRouter implements Serializable {
         this.table = shardMetadata.getTable();
         this.tableEngine = shardMetadata.getTableEngine();
         if (StringUtils.isNotEmpty(shardKey) && StringUtils.isEmpty(shardKeyType)) {
-            throw new ClickhouseConnectorException(ClickhouseConnectorErrorCode.SHARD_KEY_NOT_FOUND, "Shard key " + shardKey + " not found in table " + table);
+            throw new ClickhouseConnectorException(
+                    ClickhouseConnectorErrorCode.SHARD_KEY_NOT_FOUND,
+                    "Shard key " + shardKey + " not found in table " + table);
         }
         ClickHouseRequest<?> connection = proxy.getClickhouseConnection();
         if (splitMode) {
-            DistributedEngine localTable = proxy.getClickhouseDistributedTable(connection, shardMetadata.getDatabase(), table);
+            DistributedEngine localTable =
+                    proxy.getClickhouseDistributedTable(
+                            connection, shardMetadata.getDatabase(), table);
             this.shardTable = localTable.getTable();
             this.shardTableEngine = localTable.getTableEngine();
-            List<Shard> shardList = proxy.getClusterShardList(connection, localTable.getClusterName(),
-                localTable.getDatabase(), shardMetadata.getDefaultShard().getNode().getPort(),
-                shardMetadata.getUsername(), shardMetadata.getPassword());
+            List<Shard> shardList =
+                    proxy.getClusterShardList(
+                            connection,
+                            localTable.getClusterName(),
+                            localTable.getDatabase(),
+                            shardMetadata.getDefaultShard().getNode().getPort(),
+                            shardMetadata.getUsername(),
+                            shardMetadata.getPassword());
             int weight = 0;
             for (Shard shard : shardList) {
                 shards.put(weight, shard);
@@ -100,8 +109,15 @@ public class ShardRouter implements Serializable {
         if (StringUtils.isEmpty(shardKey) || shardValue == null) {
             return shards.lowerEntry(threadLocalRandom.nextInt(shardWeightCount) + 1).getValue();
         }
-        int offset = (int) (HASH_INSTANCE.hash(ByteBuffer.wrap(shardValue.toString().getBytes(StandardCharsets.UTF_8)),
-            0) & Long.MAX_VALUE % shardWeightCount);
+        int offset =
+                (int)
+                        (HASH_INSTANCE.hash(
+                                        ByteBuffer.wrap(
+                                                shardValue
+                                                        .toString()
+                                                        .getBytes(StandardCharsets.UTF_8)),
+                                        0)
+                                & Long.MAX_VALUE % shardWeightCount);
         return shards.lowerEntry(offset + 1).getValue();
     }
 

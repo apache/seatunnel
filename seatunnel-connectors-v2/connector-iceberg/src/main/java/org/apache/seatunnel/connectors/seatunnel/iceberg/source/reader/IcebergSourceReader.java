@@ -28,10 +28,11 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.data.DefaultDeserialize
 import org.apache.seatunnel.connectors.seatunnel.iceberg.data.Deserializer;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFileScanTaskSplit;
 
-import lombok.NonNull;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.io.CloseableIterator;
+
+import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -57,11 +58,12 @@ public class IcebergSourceReader implements SourceReader<SeaTunnelRow, IcebergFi
     private IcebergFileScanTaskSplit currentReadSplit;
     private boolean noMoreSplitsAssignment;
 
-    public IcebergSourceReader(@NonNull SourceReader.Context context,
-                               @NonNull SeaTunnelRowType seaTunnelRowType,
-                               @NonNull Schema tableSchema,
-                               @NonNull Schema projectedSchema,
-                               @NonNull SourceConfig sourceConfig) {
+    public IcebergSourceReader(
+            @NonNull SourceReader.Context context,
+            @NonNull SeaTunnelRowType seaTunnelRowType,
+            @NonNull Schema tableSchema,
+            @NonNull Schema projectedSchema,
+            @NonNull SourceConfig sourceConfig) {
         this.context = context;
         this.pendingSplits = new LinkedList<>();
         this.deserializer = new DefaultDeserializer(seaTunnelRowType, projectedSchema);
@@ -75,14 +77,16 @@ public class IcebergSourceReader implements SourceReader<SeaTunnelRow, IcebergFi
         icebergTableLoader = IcebergTableLoader.create(sourceConfig);
         icebergTableLoader.open();
 
-        icebergFileScanTaskSplitReader = new IcebergFileScanTaskSplitReader(deserializer,
-            IcebergFileScanTaskReader.builder()
-                .fileIO(icebergTableLoader.loadTable().io())
-                .tableSchema(tableSchema)
-                .projectedSchema(projectedSchema)
-                .caseSensitive(sourceConfig.isCaseSensitive())
-                .reuseContainers(true)
-                .build());
+        icebergFileScanTaskSplitReader =
+                new IcebergFileScanTaskSplitReader(
+                        deserializer,
+                        IcebergFileScanTaskReader.builder()
+                                .fileIO(icebergTableLoader.loadTable().io())
+                                .tableSchema(tableSchema)
+                                .projectedSchema(projectedSchema)
+                                .caseSensitive(sourceConfig.isCaseSensitive())
+                                .reuseContainers(true)
+                                .build());
     }
 
     @Override
@@ -96,9 +100,11 @@ public class IcebergSourceReader implements SourceReader<SeaTunnelRow, IcebergFi
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         for (IcebergFileScanTaskSplit pendingSplit = pendingSplits.poll();
-             pendingSplit != null; pendingSplit = pendingSplits.poll()) {
+                pendingSplit != null;
+                pendingSplit = pendingSplits.poll()) {
             currentReadSplit = pendingSplit;
-            try (CloseableIterator<SeaTunnelRow> rowIterator = icebergFileScanTaskSplitReader.open(currentReadSplit)) {
+            try (CloseableIterator<SeaTunnelRow> rowIterator =
+                    icebergFileScanTaskSplitReader.open(currentReadSplit)) {
                 while (rowIterator.hasNext()) {
                     output.collect(rowIterator.next());
                 }
@@ -140,6 +146,5 @@ public class IcebergSourceReader implements SourceReader<SeaTunnelRow, IcebergFi
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {
-    }
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
 }

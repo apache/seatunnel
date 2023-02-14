@@ -31,5 +31,4 @@ public class KafkaSinkState implements Serializable {
     private final String transactionIdPrefix;
     private final long checkpointId;
     private final Properties kafkaProperties;
-
 }

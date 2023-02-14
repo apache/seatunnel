@@ -20,10 +20,11 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.executo
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
+import org.apache.commons.lang3.tuple.Pair;
+
 import lombok.AllArgsConstructor;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
-import org.apache.commons.lang3.tuple.Pair;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -35,17 +36,14 @@ import java.util.function.Function;
 @AllArgsConstructor
 @RequiredArgsConstructor
 public class ReduceBufferedBatchStatementExecutor implements JdbcBatchStatementExecutor {
-    @NonNull
-    private final JdbcBatchStatementExecutor insertOrUpdateExecutor;
-    @NonNull
-    private final JdbcBatchStatementExecutor deleteExecutor;
-    @NonNull
-    private final Function<SeaTunnelRow, SeaTunnelRow> keyExtractor;
-    @NonNull
-    private final Function<SeaTunnelRow, SeaTunnelRow> valueTransform;
+    @NonNull private final JdbcBatchStatementExecutor insertOrUpdateExecutor;
+    @NonNull private final JdbcBatchStatementExecutor deleteExecutor;
+    @NonNull private final Function<SeaTunnelRow, SeaTunnelRow> keyExtractor;
+    @NonNull private final Function<SeaTunnelRow, SeaTunnelRow> valueTransform;
     private boolean ignoreUpdateBefore;
-    @NonNull
-    private final LinkedHashMap<SeaTunnelRow, Pair<Boolean, SeaTunnelRow>> buffer = new LinkedHashMap<>();
+
+    @NonNull private final LinkedHashMap<SeaTunnelRow, Pair<Boolean, SeaTunnelRow>> buffer =
+            new LinkedHashMap<>();
 
     @Override
     public void prepareStatements(Connection connection) throws SQLException {

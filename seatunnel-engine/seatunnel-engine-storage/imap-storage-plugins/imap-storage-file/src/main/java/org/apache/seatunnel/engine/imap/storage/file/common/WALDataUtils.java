@@ -51,5 +51,4 @@ public class WALDataUtils {
         encodedValue[0] = (byte) value;
         return encodedValue;
     }
-
 }

@@ -11,7 +11,6 @@ Output data to AWS Redshift.
 > We made some trade-offs in order to support more file types, so we used the HDFS protocol for internal access to S3 and this connector need some hadoop dependencies.
 > It's only support hadoop version **2.6.5+**.
 
-
 ## Key features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
@@ -19,15 +18,15 @@ Output data to AWS Redshift.
 By default, we use 2PC commit to ensure `exactly-once`
 
 - [x] file format
-    - [x] text
-    - [x] csv
-    - [x] parquet
-    - [x] orc
-    - [x] json
+  - [x] text
+  - [x] csv
+  - [x] parquet
+  - [x] orc
+  - [x] json
 
 ## Options
 
-| name                             | type    | required | default value                                             |
+|               name               |  type   | required |                       default value                       |
 |----------------------------------|---------|----------|-----------------------------------------------------------|
 | jdbc_url                         | string  | yes      | -                                                         |
 | jdbc_user                        | string  | yes      | -                                                         |
@@ -73,6 +72,7 @@ eg:
 
 COPY target_table FROM 's3://yourbucket${path}' IAM_ROLE 'arn:XXX' REGION 'your region' format as json 'auto';
 ```
+
 `target_table` is the table name in Redshift.
 
 `${path}` is the path of the file written to S3. please confirm your sql include this variable. and don't need replace it. we will replace it when execute sql.
@@ -104,10 +104,11 @@ The access secret of s3 file system. If this parameter is not set, please confir
 ### hadoop_s3_properties [map]
 
 If you need to add a other option, you could add it here and refer to this [Hadoop-AWS](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)
+
 ```
-     hadoop_s3_properties {
-       "fs.s3a.aws.credentials.provider" = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
-      }
+hadoop_s3_properties {
+  "fs.s3a.aws.credentials.provider" = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+ }
 ```
 
 ### file_name_expression [string]
@@ -129,7 +130,7 @@ Please note that, The final file name will end with the file_format's suffix, th
 
 When the format in the `file_name_expression` parameter is `xxxx-${now}` , `filename_time_format` can specify the time format of the path, and the default value is `yyyy.MM.dd` . The commonly used time formats are listed as follows:
 
-| Symbol | Description        |
+| Symbol |    Description     |
 |--------|--------------------|
 | y      | Year               |
 | M      | Month              |

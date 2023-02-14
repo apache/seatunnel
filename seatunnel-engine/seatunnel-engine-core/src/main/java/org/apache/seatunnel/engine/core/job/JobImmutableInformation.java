@@ -44,10 +44,14 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
 
     private List<URL> pluginJarsUrls;
 
-    public JobImmutableInformation() {
-    }
+    public JobImmutableInformation() {}
 
-    public JobImmutableInformation(long jobId, @NonNull boolean isStartWithSavePoint, @NonNull Data logicalDag, @NonNull JobConfig jobConfig, @NonNull List<URL> pluginJarsUrls) {
+    public JobImmutableInformation(
+            long jobId,
+            @NonNull boolean isStartWithSavePoint,
+            @NonNull Data logicalDag,
+            @NonNull JobConfig jobConfig,
+            @NonNull List<URL> pluginJarsUrls) {
         this.createTime = System.currentTimeMillis();
         this.jobId = jobId;
         this.isStartWithSavePoint = isStartWithSavePoint;
@@ -56,7 +60,11 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
         this.pluginJarsUrls = pluginJarsUrls;
     }
 
-    public JobImmutableInformation(long jobId, @NonNull Data logicalDag, @NonNull JobConfig jobConfig, @NonNull List<URL> pluginJarsUrls) {
+    public JobImmutableInformation(
+            long jobId,
+            @NonNull Data logicalDag,
+            @NonNull JobConfig jobConfig,
+            @NonNull List<URL> pluginJarsUrls) {
         this(jobId, false, logicalDag, jobConfig, pluginJarsUrls);
     }
 
@@ -102,7 +110,6 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
         IOUtil.writeData(out, logicalDag);
         out.writeObject(jobConfig);
         out.writeObject(pluginJarsUrls);
-
     }
 
     @Override

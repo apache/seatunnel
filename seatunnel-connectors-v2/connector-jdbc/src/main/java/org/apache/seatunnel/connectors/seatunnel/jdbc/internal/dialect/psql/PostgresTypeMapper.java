@@ -87,7 +87,8 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
-    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException {
+    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
+            throws SQLException {
 
         String pgType = metadata.getColumnTypeName(colIndex);
 
@@ -154,8 +155,9 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
             case PG_TIME_ARRAY:
             case PG_DATE_ARRAY:
             default:
-                throw new JdbcConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
-                    String.format("Doesn't support Postgres type '%s' yet", pgType));
+                throw new JdbcConnectorException(
+                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        String.format("Doesn't support Postgres type '%s' yet", pgType));
         }
     }
 }

@@ -16,10 +16,6 @@
 
 package org.apache.seatunnel.engine.common.config;
 
-import static com.hazelcast.internal.config.DeclarativeConfigUtil.SYSPROP_CLIENT_CONFIG;
-import static com.hazelcast.internal.config.DeclarativeConfigUtil.SYSPROP_MEMBER_CONFIG;
-import static com.hazelcast.internal.config.DeclarativeConfigUtil.validateSuffixInSystemProperty;
-
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.client.config.YamlClientConfigBuilder;
 import com.hazelcast.client.config.impl.YamlClientConfigLocator;
@@ -30,6 +26,10 @@ import lombok.NonNull;
 
 import java.util.Properties;
 
+import static com.hazelcast.internal.config.DeclarativeConfigUtil.SYSPROP_CLIENT_CONFIG;
+import static com.hazelcast.internal.config.DeclarativeConfigUtil.SYSPROP_MEMBER_CONFIG;
+import static com.hazelcast.internal.config.DeclarativeConfigUtil.validateSuffixInSystemProperty;
+
 /**
  * Locates and loads SeaTunnel or SeaTunnel Client configurations from various locations.
  *
@@ -37,37 +37,42 @@ import java.util.Properties;
  */
 public final class ConfigProvider {
 
-    private ConfigProvider() {
-    }
+    private ConfigProvider() {}
 
     public static SeaTunnelConfig locateAndGetSeaTunnelConfig() {
         return locateAndGetSeaTunnelConfig(null);
     }
 
-    @NonNull
-    public static SeaTunnelConfig locateAndGetSeaTunnelConfig(Properties properties) {
+    @NonNull public static SeaTunnelConfig locateAndGetSeaTunnelConfig(Properties properties) {
 
         YamlSeaTunnelConfigLocator yamlConfigLocator = new YamlSeaTunnelConfigLocator();
         SeaTunnelConfig config;
 
         if (yamlConfigLocator.locateFromSystemProperty()) {
             // 1. Try loading YAML config if provided in system property
-            config = new YamlSeaTunnelConfigBuilder(yamlConfigLocator).setProperties(properties).build();
+            config =
+                    new YamlSeaTunnelConfigBuilder(yamlConfigLocator)
+                            .setProperties(properties)
+                            .build();
 
         } else if (yamlConfigLocator.locateInWorkDirOrOnClasspath()) {
             // 2. Try loading YAML config from the working directory or from the classpath
-            config = new YamlSeaTunnelConfigBuilder(yamlConfigLocator).setProperties(properties).build();
+            config =
+                    new YamlSeaTunnelConfigBuilder(yamlConfigLocator)
+                            .setProperties(properties)
+                            .build();
         } else {
             // 3. Loading the default YAML configuration file
             yamlConfigLocator.locateDefault();
-            config = new YamlSeaTunnelConfigBuilder(yamlConfigLocator).setProperties(properties).build();
+            config =
+                    new YamlSeaTunnelConfigBuilder(yamlConfigLocator)
+                            .setProperties(properties)
+                            .build();
         }
         return config;
-
     }
 
-    @NonNull
-    public static ClientConfig locateAndGetClientConfig() {
+    @NonNull public static ClientConfig locateAndGetClientConfig() {
         validateSuffixInSystemProperty(SYSPROP_CLIENT_CONFIG);
 
         ClientConfig config;
@@ -87,8 +92,7 @@ public final class ConfigProvider {
         return config;
     }
 
-    @NonNull
-    public static Config locateAndGetMemberConfig(Properties properties) {
+    @NonNull public static Config locateAndGetMemberConfig(Properties properties) {
         validateSuffixInSystemProperty(SYSPROP_MEMBER_CONFIG);
 
         Config config;
@@ -96,14 +100,23 @@ public final class ConfigProvider {
 
         if (yamlConfigLocator.locateFromSystemProperty()) {
             // 1. Try loading config if provided in system property, and it is an YAML file
-            config = new YamlConfigBuilder(yamlConfigLocator.getIn()).setProperties(properties).build();
+            config =
+                    new YamlConfigBuilder(yamlConfigLocator.getIn())
+                            .setProperties(properties)
+                            .build();
         } else if (yamlConfigLocator.locateInWorkDirOrOnClasspath()) {
             // 2. Try loading YAML config from the working directory or from the classpath
-            config = new YamlConfigBuilder(yamlConfigLocator.getIn()).setProperties(properties).build();
+            config =
+                    new YamlConfigBuilder(yamlConfigLocator.getIn())
+                            .setProperties(properties)
+                            .build();
         } else {
             // 3. Loading the default YAML configuration file
             yamlConfigLocator.locateDefault();
-            config = new YamlConfigBuilder(yamlConfigLocator.getIn()).setProperties(properties).build();
+            config =
+                    new YamlConfigBuilder(yamlConfigLocator.getIn())
+                            .setProperties(properties)
+                            .build();
         }
         return config;
     }

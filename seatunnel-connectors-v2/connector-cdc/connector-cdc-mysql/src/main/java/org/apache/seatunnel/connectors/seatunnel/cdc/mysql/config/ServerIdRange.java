@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 
 import java.io.Serializable;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 /**
  * This class defines a range of server id. The boundaries of the range are inclusive.
