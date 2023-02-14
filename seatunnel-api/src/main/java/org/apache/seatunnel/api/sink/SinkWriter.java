@@ -35,11 +35,11 @@ import java.util.Optional;
 public interface SinkWriter<T, CommitInfoT, StateT> {
 
     /**
-     * call it when SinkWriter open
+     * call it when SinkWriter initialed
      *
      * @throws IOException if prepare failed
      */
-    default void prepared() throws IOException {}
+    default void open() throws IOException {}
 
     /**
      * write data to third party data receiver.

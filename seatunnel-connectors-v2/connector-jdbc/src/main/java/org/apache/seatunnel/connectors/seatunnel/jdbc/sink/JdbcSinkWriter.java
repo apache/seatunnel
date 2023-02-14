@@ -75,7 +75,7 @@ public class JdbcSinkWriter implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSin
     }
 
     @Override
-    public void prepared() throws IOException {
+    public void open() throws IOException {
         if (CollectionUtils.isNotEmpty(jdbcSinkOptions.getPreSQL())) {
             try {
                 tryOpen();
