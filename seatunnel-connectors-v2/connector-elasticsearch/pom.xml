@@ -29,6 +29,7 @@
     <artifactId>connector-elasticsearch</artifactId>
     <properties>
         <elasticsearch-rest-client.version>7.5.1</elasticsearch-rest-client.version>
+        <guava.version>31.1-jre</guava.version>
     </properties>
 
     <dependencies>
@@ -52,6 +53,18 @@
             <groupId>io.airlift</groupId>
             <artifactId>security</artifactId>
             <version>206</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.guava</groupId>
+                    <artifactId>guava</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- I'm not sure which version of guava to use, so I choose the latest; sure enough, the version inherited from the parent project is not compatible -->
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>${guava.version}</version>
         </dependency>
     </dependencies>
 </project>
