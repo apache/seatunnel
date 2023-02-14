@@ -63,7 +63,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
             HttpGetCommandProcessor httpGetCommandProcessor) {
         super(
                 textCommandService,
-                textCommandService.getNode().getLogger(Log4j2HttpGetCommandProcessor.class));
+                textCommandService.getNode().getLogger(RestHttpGetCommandProcessor.class));
         this.original = httpGetCommandProcessor;
     }
 
