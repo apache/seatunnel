@@ -39,14 +39,15 @@ public class MicroBatchPartition implements InputPartition<InternalRow> {
     protected final String hdfsRoot;
     protected final String hdfsUser;
 
-    public MicroBatchPartition(SeaTunnelSource<SeaTunnelRow, ?, ?> source,
-                               Integer parallelism,
-                               Integer subtaskId,
-                               Integer checkpointId,
-                               Integer checkpointInterval,
-                               String checkpointPath,
-                               String hdfsRoot,
-                               String hdfsUser) {
+    public MicroBatchPartition(
+            SeaTunnelSource<SeaTunnelRow, ?, ?> source,
+            Integer parallelism,
+            Integer subtaskId,
+            Integer checkpointId,
+            Integer checkpointInterval,
+            String checkpointPath,
+            String hdfsRoot,
+            String hdfsUser) {
         this.source = source;
         this.parallelism = parallelism;
         this.subtaskId = subtaskId;
@@ -61,9 +62,27 @@ public class MicroBatchPartition implements InputPartition<InternalRow> {
     public InputPartitionReader<InternalRow> createPartitionReader() {
         ParallelBatchPartitionReader partitionReader;
         if (source instanceof SupportCoordinate) {
-            partitionReader = new CoordinatedMicroBatchPartitionReader(source, parallelism, subtaskId, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser);
+            partitionReader =
+                    new CoordinatedMicroBatchPartitionReader(
+                            source,
+                            parallelism,
+                            subtaskId,
+                            checkpointId,
+                            checkpointInterval,
+                            checkpointPath,
+                            hdfsRoot,
+                            hdfsUser);
         } else {
-            partitionReader = new ParallelMicroBatchPartitionReader(source, parallelism, subtaskId, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser);
+            partitionReader =
+                    new ParallelMicroBatchPartitionReader(
+                            source,
+                            parallelism,
+                            subtaskId,
+                            checkpointId,
+                            checkpointInterval,
+                            checkpointPath,
+                            hdfsRoot,
+                            hdfsUser);
         }
         return new SeaTunnelInputPartitionReader(partitionReader);
     }

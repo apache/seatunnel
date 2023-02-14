@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode.CLOSE_BE_READER_FAILED;
-
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.client.source.model.QueryPartition;
@@ -45,6 +43,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode.CLOSE_BE_READER_FAILED;
+
 @Slf4j
 public class StarRocksBeReadClient implements Serializable {
     private static final String DEFAULT_CLUSTER_NAME = "default_cluster";
@@ -63,16 +63,18 @@ public class StarRocksBeReadClient implements Serializable {
     private final String queryPlan;
     protected AtomicBoolean eos = new AtomicBoolean(false);
 
-    public StarRocksBeReadClient(QueryPartition queryPartition,
-                                 SourceConfig sourceConfig,
-                                 SeaTunnelRowType seaTunnelRowType) {
+    public StarRocksBeReadClient(
+            QueryPartition queryPartition,
+            SourceConfig sourceConfig,
+            SeaTunnelRowType seaTunnelRowType) {
         this.sourceConfig = sourceConfig;
         this.seaTunnelRowType = seaTunnelRowType;
         String beNodeInfo = queryPartition.getBeAddress();
         log.debug("Parse StarRocks BE address: '{}'.", beNodeInfo);
         String[] hostPort = beNodeInfo.split(":");
         if (hostPort.length != 2) {
-            throw new StarRocksConnectorException(StarRocksConnectorErrorCode.CREATE_BE_READER_FAILED,
+            throw new StarRocksConnectorException(
+                    StarRocksConnectorErrorCode.CREATE_BE_READER_FAILED,
                     String.format("Format of StarRocks BE address[%s] is illegal", beNodeInfo));
         }
         this.ip = hostPort[0].trim();
@@ -80,17 +82,23 @@ public class StarRocksBeReadClient implements Serializable {
         this.queryPlan = queryPartition.getQueryPlan();
         this.tabletIds = new ArrayList<>(queryPartition.getTabletIds());
         TBinaryProtocol.Factory factory = new TBinaryProtocol.Factory();
-        TSocket socket = new TSocket(ip, port, sourceConfig.getConnectTimeoutMs(), sourceConfig.getConnectTimeoutMs());
+        TSocket socket =
+                new TSocket(
+                        ip,
+                        port,
+                        sourceConfig.getConnectTimeoutMs(),
+                        sourceConfig.getConnectTimeoutMs());
         try {
             socket.open();
         } catch (TTransportException e) {
             socket.close();
-            throw new StarRocksConnectorException(StarRocksConnectorErrorCode.CREATE_BE_READER_FAILED,
-                    "Failed to open socket", e);
+            throw new StarRocksConnectorException(
+                    StarRocksConnectorErrorCode.CREATE_BE_READER_FAILED,
+                    "Failed to open socket",
+                    e);
         }
         TProtocol protocol = factory.getProtocol(socket);
         client = new TStarrocksExternalService.Client(protocol);
-
     }
 
     public void openScanner() {
@@ -117,19 +125,24 @@ public class StarRocksBeReadClient implements Serializable {
         try {
             result = client.open_scanner(params);
             if (!TStatusCode.OK.equals(result.getStatus().getStatus_code())) {
-                throw new StarRocksConnectorException(StarRocksConnectorErrorCode.SCAN_BE_DATA_FAILED,
+                throw new StarRocksConnectorException(
+                        StarRocksConnectorErrorCode.SCAN_BE_DATA_FAILED,
                         "Failed to open scanner."
                                 + result.getStatus().getStatus_code()
-                                + result.getStatus().getError_msgs()
-                );
+                                + result.getStatus().getError_msgs());
             }
         } catch (TException e) {
-            throw new StarRocksConnectorException(StarRocksConnectorErrorCode.SCAN_BE_DATA_FAILED,
-                    e.getMessage());
+            throw new StarRocksConnectorException(
+                    StarRocksConnectorErrorCode.SCAN_BE_DATA_FAILED, e.getMessage());
         }
         this.contextId = result.getContext_id();
-        log.info("Open scanner for {}:{} with context id {}, and there are {} tablets {}",
-                ip, port, contextId, tabletIds.size(), tabletIds);
+        log.info(
+                "Open scanner for {}:{} with context id {}, and there are {} tablets {}",
+                ip,
+                port,
+                contextId,
+                tabletIds.size(),
+                tabletIds);
     }
 
     public boolean hasNext() {
@@ -147,16 +160,22 @@ public class StarRocksBeReadClient implements Serializable {
             try {
                 result = client.get_next(nextBatchParams);
                 if (!TStatusCode.OK.equals(result.getStatus().getStatus_code())) {
-                    throw new StarRocksConnectorException(StarRocksConnectorErrorCode.SCAN_BE_DATA_FAILED, "Failed to get next from be -> ip:[" + ip + "] "
-                            + result.getStatus().getStatus_code() + " msg:" + result.getStatus().getError_msgs());
+                    throw new StarRocksConnectorException(
+                            StarRocksConnectorErrorCode.SCAN_BE_DATA_FAILED,
+                            "Failed to get next from be -> ip:["
+                                    + ip
+                                    + "] "
+                                    + result.getStatus().getStatus_code()
+                                    + " msg:"
+                                    + result.getStatus().getError_msgs());
                 }
                 eos.set(result.isEos());
                 if (!eos.get()) {
                     rowBatch = new StarRocksRowBatchReader(result, seaTunnelRowType).readArrow();
                 }
             } catch (TException e) {
-                throw new StarRocksConnectorException(StarRocksConnectorErrorCode.SCAN_BE_DATA_FAILED,
-                        e.getMessage());
+                throw new StarRocksConnectorException(
+                        StarRocksConnectorErrorCode.SCAN_BE_DATA_FAILED, e.getMessage());
             }
         }
         hasNext = !eos.get();

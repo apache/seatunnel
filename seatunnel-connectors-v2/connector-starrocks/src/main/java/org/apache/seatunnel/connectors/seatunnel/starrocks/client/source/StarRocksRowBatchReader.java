@@ -17,16 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client.source;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
-import com.starrocks.thrift.TScanBatchResult;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
@@ -42,6 +38,9 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.types.Types;
 
+import com.starrocks.thrift.TScanBatchResult;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -50,6 +49,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 @Slf4j
 public class StarRocksRowBatchReader {
@@ -63,16 +64,16 @@ public class StarRocksRowBatchReader {
     private VectorSchemaRoot root;
     private List<FieldVector> fieldVectors;
     private RootAllocator rootAllocator;
-    private final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private final DateTimeFormatter dateTimeFormatter =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     public StarRocksRowBatchReader(TScanBatchResult nextResult, SeaTunnelRowType seaTunnelRowType) {
         this.seaTunnelDataTypes = seaTunnelRowType.getFieldTypes();
         this.rootAllocator = new RootAllocator(Integer.MAX_VALUE);
-        this.arrowStreamReader = new ArrowStreamReader(
-                new ByteArrayInputStream(nextResult.getRows()),
-                rootAllocator
-        );
+        this.arrowStreamReader =
+                new ArrowStreamReader(
+                        new ByteArrayInputStream(nextResult.getRows()), rootAllocator);
     }
 
     public StarRocksRowBatchReader readArrow() {
@@ -81,9 +82,13 @@ public class StarRocksRowBatchReader {
             while (arrowStreamReader.loadNextBatch()) {
                 fieldVectors = root.getFieldVectors();
                 if (fieldVectors.size() != seaTunnelDataTypes.length) {
-                    log.error("seaTunnel schema size '{}' is not equal to arrow field size '{}'.",
-                            fieldVectors.size(), seaTunnelDataTypes.length);
-                    throw new StarRocksConnectorException(StarRocksConnectorErrorCode.READER_ARROW_DATA_FAILED, "schema size of fetch data is wrong.");
+                    log.error(
+                            "seaTunnel schema size '{}' is not equal to arrow field size '{}'.",
+                            fieldVectors.size(),
+                            seaTunnelDataTypes.length);
+                    throw new StarRocksConnectorException(
+                            StarRocksConnectorErrorCode.READER_ARROW_DATA_FAILED,
+                            "schema size of fetch data is wrong.");
                 }
                 if (fieldVectors.size() == 0 || root.getRowCount() == 0) {
                     log.debug("one batch in arrow has no data.");
@@ -101,7 +106,8 @@ public class StarRocksRowBatchReader {
             }
             return this;
         } catch (Exception e) {
-            throw new StarRocksConnectorException(StarRocksConnectorErrorCode.READER_ARROW_DATA_FAILED, e);
+            throw new StarRocksConnectorException(
+                    StarRocksConnectorErrorCode.READER_ARROW_DATA_FAILED, e);
         } finally {
             close();
         }
@@ -116,13 +122,16 @@ public class StarRocksRowBatchReader {
 
     private void addValueToRow(int rowIndex, int colIndex, Object obj) {
         if (rowIndex > rowCountInOneBatch) {
-            throw new StarRocksConnectorException(StarRocksConnectorErrorCode.READER_ARROW_DATA_FAILED,
-                    String.format("Get row offset: %d larger than row size: %d", rowIndex, rowCountInOneBatch));
+            throw new StarRocksConnectorException(
+                    StarRocksConnectorErrorCode.READER_ARROW_DATA_FAILED,
+                    String.format(
+                            "Get row offset: %d larger than row size: %d",
+                            rowIndex, rowCountInOneBatch));
         }
         seaTunnelRowBatch.get(readRowCount + rowIndex).setField(colIndex, obj);
     }
 
-    public void convertArrowToRowBatch()  {
+    public void convertArrowToRowBatch() {
         try {
             for (int col = 0; col < fieldVectors.size(); col++) {
                 SeaTunnelDataType<?> dataType = seaTunnelDataTypes[col];
@@ -132,72 +141,114 @@ public class StarRocksRowBatchReader {
                 Types.MinorType mt = curFieldVector.getMinorType();
                 switch (dataType.getSqlType()) {
                     case BOOLEAN:
-                        checkArgument(mt.equals(Types.MinorType.BIT),
-                                "seaTunnel type is %1$s, but arrow type is %2$s.", currentType, mt.name());
+                        checkArgument(
+                                mt.equals(Types.MinorType.BIT),
+                                "seaTunnel type is %1$s, but arrow type is %2$s.",
+                                currentType,
+                                mt.name());
                         BitVector bitVector = (BitVector) curFieldVector;
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
-                            Object fieldValue = bitVector.isNull(rowIndex) ? null : bitVector.get(rowIndex) != 0;
+                            Object fieldValue =
+                                    bitVector.isNull(rowIndex)
+                                            ? null
+                                            : bitVector.get(rowIndex) != 0;
                             addValueToRow(rowIndex, col, fieldValue);
                         }
                         break;
                     case TINYINT:
-                        checkArgument(mt.equals(Types.MinorType.TINYINT),
-                                "seaTunnel type is %1$s, but arrow type is %2$s.", currentType, mt.name());
+                        checkArgument(
+                                mt.equals(Types.MinorType.TINYINT),
+                                "seaTunnel type is %1$s, but arrow type is %2$s.",
+                                currentType,
+                                mt.name());
                         TinyIntVector tinyIntVector = (TinyIntVector) curFieldVector;
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
-                            Object fieldValue = tinyIntVector.isNull(rowIndex) ? null : tinyIntVector.get(rowIndex);
+                            Object fieldValue =
+                                    tinyIntVector.isNull(rowIndex)
+                                            ? null
+                                            : tinyIntVector.get(rowIndex);
                             addValueToRow(rowIndex, col, fieldValue);
                         }
                         break;
                     case SMALLINT:
-                        checkArgument(mt.equals(Types.MinorType.SMALLINT),
-                                "seaTunnel type is %1$s, but arrow type is %2$s.", currentType, mt.name());
+                        checkArgument(
+                                mt.equals(Types.MinorType.SMALLINT),
+                                "seaTunnel type is %1$s, but arrow type is %2$s.",
+                                currentType,
+                                mt.name());
                         SmallIntVector smallIntVector = (SmallIntVector) curFieldVector;
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
-                            Object fieldValue = smallIntVector.isNull(rowIndex) ? null : smallIntVector.get(rowIndex);
+                            Object fieldValue =
+                                    smallIntVector.isNull(rowIndex)
+                                            ? null
+                                            : smallIntVector.get(rowIndex);
                             addValueToRow(rowIndex, col, fieldValue);
                         }
                         break;
                     case INT:
-                        checkArgument(mt.equals(Types.MinorType.INT),
-                                "seaTunnel type is %1$s, but arrow type is %2$s.", currentType, mt.name());
+                        checkArgument(
+                                mt.equals(Types.MinorType.INT),
+                                "seaTunnel type is %1$s, but arrow type is %2$s.",
+                                currentType,
+                                mt.name());
                         IntVector intVector = (IntVector) curFieldVector;
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
-                            Object fieldValue = intVector.isNull(rowIndex) ? null : intVector.get(rowIndex);
+                            Object fieldValue =
+                                    intVector.isNull(rowIndex) ? null : intVector.get(rowIndex);
                             addValueToRow(rowIndex, col, fieldValue);
                         }
                         break;
                     case BIGINT:
-
-                        checkArgument(mt.equals(Types.MinorType.BIGINT),
-                                "seaTunnel type is %1$s, but arrow type is %2$s.", currentType, mt.name());
+                        checkArgument(
+                                mt.equals(Types.MinorType.BIGINT),
+                                "seaTunnel type is %1$s, but arrow type is %2$s.",
+                                currentType,
+                                mt.name());
                         BigIntVector bigIntVector = (BigIntVector) curFieldVector;
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
-                            Object fieldValue = bigIntVector.isNull(rowIndex) ? null : bigIntVector.get(rowIndex);
+                            Object fieldValue =
+                                    bigIntVector.isNull(rowIndex)
+                                            ? null
+                                            : bigIntVector.get(rowIndex);
                             addValueToRow(rowIndex, col, fieldValue);
                         }
                         break;
                     case FLOAT:
-                        checkArgument(mt.equals(Types.MinorType.FLOAT4),
-                                "seaTunnel type is %1$s, but arrow type is %2$s.", currentType, mt.name());
+                        checkArgument(
+                                mt.equals(Types.MinorType.FLOAT4),
+                                "seaTunnel type is %1$s, but arrow type is %2$s.",
+                                currentType,
+                                mt.name());
                         Float4Vector float4Vector = (Float4Vector) curFieldVector;
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
-                            Object fieldValue = float4Vector.isNull(rowIndex) ? null : float4Vector.get(rowIndex);
+                            Object fieldValue =
+                                    float4Vector.isNull(rowIndex)
+                                            ? null
+                                            : float4Vector.get(rowIndex);
                             addValueToRow(rowIndex, col, fieldValue);
                         }
                         break;
                     case DOUBLE:
-                        checkArgument(mt.equals(Types.MinorType.FLOAT8),
-                                "seaTunnel type is %1$s, but arrow type is %2$s.", currentType, mt.name());
+                        checkArgument(
+                                mt.equals(Types.MinorType.FLOAT8),
+                                "seaTunnel type is %1$s, but arrow type is %2$s.",
+                                currentType,
+                                mt.name());
                         Float8Vector float8Vector = (Float8Vector) curFieldVector;
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
-                            Object fieldValue = float8Vector.isNull(rowIndex) ? null : float8Vector.get(rowIndex);
+                            Object fieldValue =
+                                    float8Vector.isNull(rowIndex)
+                                            ? null
+                                            : float8Vector.get(rowIndex);
                             addValueToRow(rowIndex, col, fieldValue);
                         }
                         break;
                     case DECIMAL:
-                        checkArgument(mt.equals(Types.MinorType.DECIMAL),
-                                "seaTunnel type is %1$s, but arrow type is %2$s.", currentType, mt.name());
+                        checkArgument(
+                                mt.equals(Types.MinorType.DECIMAL),
+                                "seaTunnel type is %1$s, but arrow type is %2$s.",
+                                currentType,
+                                mt.name());
                         DecimalVector decimalVector = (DecimalVector) curFieldVector;
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
                             if (decimalVector.isNull(rowIndex)) {
@@ -209,8 +260,11 @@ public class StarRocksRowBatchReader {
                         }
                         break;
                     case DATE:
-                        checkArgument(mt.equals(Types.MinorType.VARCHAR),
-                                "seaTunnel type is %1$s, but arrow type is %2$s.", currentType, mt.name());
+                        checkArgument(
+                                mt.equals(Types.MinorType.VARCHAR),
+                                "seaTunnel type is %1$s, but arrow type is %2$s.",
+                                currentType,
+                                mt.name());
                         VarCharVector date = (VarCharVector) curFieldVector;
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
                             if (date.isNull(rowIndex)) {
@@ -223,8 +277,11 @@ public class StarRocksRowBatchReader {
                         }
                         break;
                     case TIMESTAMP:
-                        checkArgument(mt.equals(Types.MinorType.VARCHAR),
-                                "seaTunnel type is %1$s, but arrow type is %2$s.", currentType, mt.name());
+                        checkArgument(
+                                mt.equals(Types.MinorType.VARCHAR),
+                                "seaTunnel type is %1$s, but arrow type is %2$s.",
+                                currentType,
+                                mt.name());
                         VarCharVector timeStampSecVector = (VarCharVector) curFieldVector;
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
                             if (timeStampSecVector.isNull(rowIndex)) {
@@ -237,8 +294,11 @@ public class StarRocksRowBatchReader {
                         }
                         break;
                     case STRING:
-                        checkArgument(mt.equals(Types.MinorType.VARCHAR),
-                                "seaTunnel type is %1$s, but arrow type is %2$s.", currentType, mt.name());
+                        checkArgument(
+                                mt.equals(Types.MinorType.VARCHAR),
+                                "seaTunnel type is %1$s, but arrow type is %2$s.",
+                                currentType,
+                                mt.name());
                         VarCharVector varCharVector = (VarCharVector) curFieldVector;
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
                             if (varCharVector.isNull(rowIndex)) {
@@ -250,20 +310,27 @@ public class StarRocksRowBatchReader {
                         }
                         break;
                     default:
-                        throw new StarRocksConnectorException(StarRocksConnectorErrorCode.READER_ARROW_DATA_FAILED,
-                                String.format("Unsupported type %s", seaTunnelDataTypes[col].getSqlType().name()));
+                        throw new StarRocksConnectorException(
+                                StarRocksConnectorErrorCode.READER_ARROW_DATA_FAILED,
+                                String.format(
+                                        "Unsupported type %s",
+                                        seaTunnelDataTypes[col].getSqlType().name()));
                 }
             }
         } catch (Exception e) {
             close();
-            throw new StarRocksConnectorException(StarRocksConnectorErrorCode.READER_ARROW_DATA_FAILED, e);
+            throw new StarRocksConnectorException(
+                    StarRocksConnectorErrorCode.READER_ARROW_DATA_FAILED, e);
         }
     }
 
     public SeaTunnelRow next() {
         if (!hasNext()) {
-            throw new StarRocksConnectorException(StarRocksConnectorErrorCode.READER_ARROW_DATA_FAILED,
-                    String.format("Get row offset: %d larger than row size: %d", offsetInRowBatch, readRowCount));
+            throw new StarRocksConnectorException(
+                    StarRocksConnectorErrorCode.READER_ARROW_DATA_FAILED,
+                    String.format(
+                            "Get row offset: %d larger than row size: %d",
+                            offsetInRowBatch, readRowCount));
         }
         return seaTunnelRowBatch.get(offsetInRowBatch++);
     }
@@ -281,7 +348,10 @@ public class StarRocksRowBatchReader {
                 rootAllocator.close();
             }
         } catch (IOException e) {
-            throw new StarRocksConnectorException(StarRocksConnectorErrorCode.READER_ARROW_DATA_FAILED, "Failed to close ArrowStreamReader", e);
+            throw new StarRocksConnectorException(
+                    StarRocksConnectorErrorCode.READER_ARROW_DATA_FAILED,
+                    "Failed to close ArrowStreamReader",
+                    e);
         }
     }
 }

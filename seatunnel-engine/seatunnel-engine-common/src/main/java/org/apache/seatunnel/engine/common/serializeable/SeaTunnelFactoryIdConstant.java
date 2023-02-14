@@ -26,18 +26,16 @@ public final class SeaTunnelFactoryIdConstant {
      * Name of the system property that specifies SeaTunnelEngine's data serialization factory ID.
      */
     public static final String SEATUNNEL_OPERATION_DATA_SERIALIZER_FACTORY =
-        "hazelcast.serialization.ds.seatunnel.engine.operation";
-    /**
-     * Default ID of SeaTunnelEngine's data serialization factory.
-     */
+            "hazelcast.serialization.ds.seatunnel.engine.operation";
+    /** Default ID of SeaTunnelEngine's data serialization factory. */
     public static final int SEATUNNEL_OPERATION_DATA_SERIALIZER_FACTORY_ID = -30001;
 
     public static final String SEATUNNEL_JOB_DATA_SERIALIZER_FACTORY =
-        "hazelcast.serialization.ds.seatunnel.engine.job";
+            "hazelcast.serialization.ds.seatunnel.engine.job";
     public static final int SEATUNNEL_JOB_DATA_SERIALIZER_FACTORY_ID = -30002;
 
     public static final String SEATUNNEL_CONFIG_DATA_SERIALIZER_FACTORY =
-        "hazelcast.serialization.ds.seatunnel.engine.config";
+            "hazelcast.serialization.ds.seatunnel.engine.config";
     public static final int SEATUNNEL_CONFIG_DATA_SERIALIZER_FACTORY_ID = -30003;
 
     public static final String SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY =
@@ -49,6 +47,6 @@ public final class SeaTunnelFactoryIdConstant {
     public static final int SEATUNNEL_RESOURCE_DATA_SERIALIZER_FACTORY_ID = -30005;
 
     public static final String SEATUNNEL_CHECKPOINT_DATA_SERIALIZER_FACTORY =
-        "hazelcast.serialization.ds.seatunnel.engine.checkpoint";
+            "hazelcast.serialization.ds.seatunnel.engine.checkpoint";
     public static final int SEATUNNEL_CHECKPOINT_DATA_SERIALIZER_FACTORY_ID = -30006;
 }

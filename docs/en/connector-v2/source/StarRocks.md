@@ -3,9 +3,11 @@
 > StarRocks source connector
 
 ## Description
+
 Read external data source data through StarRocks.
-The internal implementation of StarRocks source connector is obtains the query plan from the frontend (FE), 
-delivers the query plan as a parameter to BE nodes, and then obtains data results from BE nodes..
+The internal implementation of StarRocks source connector is obtains the query plan from the frontend (FE),
+delivers the query plan as a parameter to BE nodes, and then obtains data results from BE nodes.
+
 ## Key features
 
 - [x] [batch](../../concept/connector-v2-features.md)
@@ -17,7 +19,7 @@ delivers the query plan as a parameter to BE nodes, and then obtains data result
 
 ## Options
 
-| name                    | type   | required | default value     |
+|          name           |  type  | required |   default value   |
 |-------------------------|--------|----------|-------------------|
 | node_urls               | list   | yes      | -                 |
 | username                | string | yes      | -                 |
@@ -146,3 +148,4 @@ source {
 ### next version
 
 - Add StarRocks Source Connector
+

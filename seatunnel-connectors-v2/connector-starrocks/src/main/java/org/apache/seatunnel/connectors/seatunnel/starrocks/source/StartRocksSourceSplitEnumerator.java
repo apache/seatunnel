@@ -37,7 +37,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class StartRocksSourceSplitEnumerator implements SourceSplitEnumerator<StarRocksSourceSplit, StarRocksSourceState> {
+public class StartRocksSourceSplitEnumerator
+        implements SourceSplitEnumerator<StarRocksSourceSplit, StarRocksSourceState> {
     private SourceConfig sourceConfig;
     private StarRocksQueryPlanReadClient starRocksQueryPlanReadClient;
     private final Map<Integer, List<StarRocksSourceSplit>> pendingSplit;
@@ -46,13 +47,21 @@ public class StartRocksSourceSplitEnumerator implements SourceSplitEnumerator<St
     private volatile boolean shouldEnumerate;
     private final Context<StarRocksSourceSplit> context;
 
-    public StartRocksSourceSplitEnumerator(SourceSplitEnumerator.Context<StarRocksSourceSplit> context, SourceConfig sourceConfig, SeaTunnelRowType seaTunnelRowType) {
+    public StartRocksSourceSplitEnumerator(
+            SourceSplitEnumerator.Context<StarRocksSourceSplit> context,
+            SourceConfig sourceConfig,
+            SeaTunnelRowType seaTunnelRowType) {
         this(context, sourceConfig, seaTunnelRowType, null);
     }
 
-    public StartRocksSourceSplitEnumerator(SourceSplitEnumerator.Context<StarRocksSourceSplit> context, SourceConfig sourceConfig, SeaTunnelRowType seaTunnelRowType, StarRocksSourceState sourceState) {
+    public StartRocksSourceSplitEnumerator(
+            SourceSplitEnumerator.Context<StarRocksSourceSplit> context,
+            SourceConfig sourceConfig,
+            SeaTunnelRowType seaTunnelRowType,
+            StarRocksSourceState sourceState) {
         this.sourceConfig = sourceConfig;
-        this.starRocksQueryPlanReadClient = new StarRocksQueryPlanReadClient(sourceConfig, seaTunnelRowType);
+        this.starRocksQueryPlanReadClient =
+                new StarRocksQueryPlanReadClient(sourceConfig, seaTunnelRowType);
 
         this.context = context;
         this.pendingSplit = new HashMap<>();
@@ -77,15 +86,14 @@ public class StartRocksSourceSplitEnumerator implements SourceSplitEnumerator<St
             assignSplit(readers);
         }
 
-        log.debug("No more splits to assign." +
-                " Sending NoMoreSplitsEvent to reader {}.", readers);
+        log.debug(
+                "No more splits to assign." + " Sending NoMoreSplitsEvent to reader {}.", readers);
         readers.forEach(context::signalNoMoreSplits);
     }
 
     @Override
     public void addSplitsBack(List<StarRocksSourceSplit> splits, int subtaskId) {
-        log.debug("Add back splits {} to StartRocksSourceSplitEnumerator.",
-                splits);
+        log.debug("Add back splits {} to StartRocksSourceSplitEnumerator.", splits);
         if (!splits.isEmpty()) {
             addPendingSplit(splits);
             assignSplit(Collections.singletonList(subtaskId));
@@ -99,8 +107,7 @@ public class StartRocksSourceSplitEnumerator implements SourceSplitEnumerator<St
 
     @Override
     public void registerReader(int subtaskId) {
-        log.debug("Register reader {} to StartRocksSourceSplitEnumerator.",
-                subtaskId);
+        log.debug("Register reader {} to StartRocksSourceSplitEnumerator.", subtaskId);
         if (!pendingSplit.isEmpty()) {
             assignSplit(Collections.singletonList(subtaskId));
         }
@@ -115,22 +122,23 @@ public class StartRocksSourceSplitEnumerator implements SourceSplitEnumerator<St
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) {
-        //nothing to do
+        // nothing to do
     }
 
     @Override
     public void open() {
-        //nothing to do
+        // nothing to do
     }
 
     @Override
     public void close() {
-        //nothing to do
+        // nothing to do
     }
 
     @Override
     public void handleSplitRequest(int subtaskId) {
-        throw new StarRocksConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
+        throw new StarRocksConnectorException(
+                CommonErrorCode.UNSUPPORTED_OPERATION,
                 String.format("Unsupported handleSplitRequest: %d", subtaskId));
     }
 
@@ -139,8 +147,7 @@ public class StartRocksSourceSplitEnumerator implements SourceSplitEnumerator<St
         for (StarRocksSourceSplit split : splits) {
             int ownerReader = getSplitOwner(split.splitId(), readerCount);
             log.info("Assigning {} to {} reader.", split.getSplitId(), ownerReader);
-            pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>())
-                    .add(split);
+            pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(split);
         }
     }
 
@@ -150,13 +157,22 @@ public class StartRocksSourceSplitEnumerator implements SourceSplitEnumerator<St
         for (int reader : readers) {
             List<StarRocksSourceSplit> assignmentForReader = pendingSplit.remove(reader);
             if (assignmentForReader != null && !assignmentForReader.isEmpty()) {
-                log.info("Assign splits {} to reader {}",
-                        String.join(",", assignmentForReader.stream().map(p -> p.getSplitId()).collect(Collectors.toList())), reader);
+                log.info(
+                        "Assign splits {} to reader {}",
+                        String.join(
+                                ",",
+                                assignmentForReader.stream()
+                                        .map(p -> p.getSplitId())
+                                        .collect(Collectors.toList())),
+                        reader);
                 try {
                     context.assignSplit(reader, assignmentForReader);
                 } catch (Exception e) {
-                    log.error("Failed to assign splits {} to reader {}",
-                            assignmentForReader, reader, e);
+                    log.error(
+                            "Failed to assign splits {} to reader {}",
+                            assignmentForReader,
+                            reader,
+                            e);
                     pendingSplit.put(reader, assignmentForReader);
                 }
             }
@@ -167,7 +183,9 @@ public class StartRocksSourceSplitEnumerator implements SourceSplitEnumerator<St
         List<StarRocksSourceSplit> sourceSplits = new ArrayList<>();
         List<QueryPartition> partitions = starRocksQueryPlanReadClient.findPartitions();
         for (int i = 0; i < partitions.size(); i++) {
-            sourceSplits.add(new StarRocksSourceSplit(partitions.get(i), String.valueOf(partitions.get(i).hashCode())));
+            sourceSplits.add(
+                    new StarRocksSourceSplit(
+                            partitions.get(i), String.valueOf(partitions.get(i).hashCode())));
         }
         return sourceSplits;
     }

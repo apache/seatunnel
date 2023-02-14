@@ -19,5 +19,4 @@ package org.apache.seatunnel.connectors.seatunnel.kudu.state;
 
 import java.io.Serializable;
 
-public class KuduSourceState implements Serializable {
-}
+public class KuduSourceState implements Serializable {}

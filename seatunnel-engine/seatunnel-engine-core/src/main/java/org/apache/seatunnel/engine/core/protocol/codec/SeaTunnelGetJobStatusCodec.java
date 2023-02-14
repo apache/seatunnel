@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.engine.core.protocol.codec;
 
+import com.hazelcast.client.impl.protocol.ClientMessage;
+import com.hazelcast.client.impl.protocol.Generated;
+
 import static com.hazelcast.client.impl.protocol.ClientMessage.ForwardFrameIterator;
 import static com.hazelcast.client.impl.protocol.ClientMessage.Frame;
 import static com.hazelcast.client.impl.protocol.ClientMessage.PARTITION_ID_FIELD_OFFSET;
@@ -31,9 +34,6 @@ import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCod
 import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCodec.encodeInt;
 import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCodec.encodeLong;
 
-import com.hazelcast.client.impl.protocol.ClientMessage;
-import com.hazelcast.client.impl.protocol.Generated;
-
 /*
  * definitions on the https://github.com/hazelcast/hazelcast-client-protocol
  * to seatunnel-engine/seatunnel-engine-core/src/main/resources/client-protocol-definition/SeaTunnelEngine.yaml
@@ -41,17 +41,20 @@ import com.hazelcast.client.impl.protocol.Generated;
 
 @Generated("069a370867d61e85d3d51ea5453d880a")
 public final class SeaTunnelGetJobStatusCodec {
-    //hex: 0xDE0500
+    // hex: 0xDE0500
     public static final int REQUEST_MESSAGE_TYPE = 14550272;
-    //hex: 0xDE0501
+    // hex: 0xDE0501
     public static final int RESPONSE_MESSAGE_TYPE = 14550273;
-    private static final int REQUEST_JOB_ID_FIELD_OFFSET = PARTITION_ID_FIELD_OFFSET + INT_SIZE_IN_BYTES;
-    private static final int REQUEST_INITIAL_FRAME_SIZE = REQUEST_JOB_ID_FIELD_OFFSET + LONG_SIZE_IN_BYTES;
-    private static final int RESPONSE_JOB_STATUS_FIELD_OFFSET = RESPONSE_BACKUP_ACKS_FIELD_OFFSET + BYTE_SIZE_IN_BYTES;
-    private static final int RESPONSE_INITIAL_FRAME_SIZE = RESPONSE_JOB_STATUS_FIELD_OFFSET + INT_SIZE_IN_BYTES;
+    private static final int REQUEST_JOB_ID_FIELD_OFFSET =
+            PARTITION_ID_FIELD_OFFSET + INT_SIZE_IN_BYTES;
+    private static final int REQUEST_INITIAL_FRAME_SIZE =
+            REQUEST_JOB_ID_FIELD_OFFSET + LONG_SIZE_IN_BYTES;
+    private static final int RESPONSE_JOB_STATUS_FIELD_OFFSET =
+            RESPONSE_BACKUP_ACKS_FIELD_OFFSET + BYTE_SIZE_IN_BYTES;
+    private static final int RESPONSE_INITIAL_FRAME_SIZE =
+            RESPONSE_JOB_STATUS_FIELD_OFFSET + INT_SIZE_IN_BYTES;
 
-    private SeaTunnelGetJobStatusCodec() {
-    }
+    private SeaTunnelGetJobStatusCodec() {}
 
     public static ClientMessage encodeRequest(long jobId) {
         ClientMessage clientMessage = ClientMessage.createForEncode();

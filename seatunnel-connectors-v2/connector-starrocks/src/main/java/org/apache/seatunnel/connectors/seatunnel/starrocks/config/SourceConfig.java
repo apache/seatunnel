@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.config;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.Getter;
 import lombok.NonNull;
@@ -33,68 +33,74 @@ import java.util.Map;
 
 @Setter
 @Getter
-public class SourceConfig extends CommonConfig{
+public class SourceConfig extends CommonConfig {
 
     private static final long DEFAULT_SCAN_MEM_LIMIT = 1024 * 1024 * 1024L;
 
-    public SourceConfig(@NonNull List<String> nodeUrls,
-                      @NonNull String username,
-                      @NonNull String password,
-                      @NonNull String database,
-                      @NonNull String table) {
+    public SourceConfig(
+            @NonNull List<String> nodeUrls,
+            @NonNull String username,
+            @NonNull String password,
+            @NonNull String database,
+            @NonNull String table) {
         super(nodeUrls, username, password, database, table);
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
-    public static final Option<Integer> MAX_RETRIES = Options.key("max_retries")
-            .intType()
-            .defaultValue(3)
-            .withDescription("number of retry requests sent to StarRocks");
+    public static final Option<Integer> MAX_RETRIES =
+            Options.key("max_retries")
+                    .intType()
+                    .defaultValue(3)
+                    .withDescription("number of retry requests sent to StarRocks");
 
-    public static final Option<Integer> QUERY_TABLET_SIZE = Options.key("request_tablet_size")
-            .intType()
-            .defaultValue(Integer.MAX_VALUE)
-            .withDescription("The number of Tablets corresponding to an Partition");
+    public static final Option<Integer> QUERY_TABLET_SIZE =
+            Options.key("request_tablet_size")
+                    .intType()
+                    .defaultValue(Integer.MAX_VALUE)
+                    .withDescription("The number of Tablets corresponding to an Partition");
 
-    public static final Option<String> SCAN_FILTER = Options.key("scan_filter")
-            .stringType()
-            .defaultValue("")
-            .withDescription("SQL filter");
-
-    @SuppressWarnings("checkstyle:MagicNumber")
-    public static final Option<Integer> SCAN_CONNECT_TIMEOUT = Options.key("scan_connect_timeout_ms")
-            .intType()
-            .defaultValue(1000)
-            .withDescription("scan connect timeout");
+    public static final Option<String> SCAN_FILTER =
+            Options.key("scan_filter").stringType().defaultValue("").withDescription("SQL filter");
 
     @SuppressWarnings("checkstyle:MagicNumber")
-    public static final Option<Integer> SCAN_BATCH_ROWS = Options.key("scan_batch_rows")
-            .intType()
-            .defaultValue(1024)
-            .withDescription("scan batch rows");
+    public static final Option<Integer> SCAN_CONNECT_TIMEOUT =
+            Options.key("scan_connect_timeout_ms")
+                    .intType()
+                    .defaultValue(1000)
+                    .withDescription("scan connect timeout");
 
     @SuppressWarnings("checkstyle:MagicNumber")
-    public static final Option<Integer> SCAN_KEEP_ALIVE_MIN = Options.key("scan_keep_alive_min")
-            .intType()
-            .defaultValue(10)
-            .withDescription("Max keep alive time min");
+    public static final Option<Integer> SCAN_BATCH_ROWS =
+            Options.key("scan_batch_rows")
+                    .intType()
+                    .defaultValue(1024)
+                    .withDescription("scan batch rows");
 
     @SuppressWarnings("checkstyle:MagicNumber")
-    public static final Option<Integer> SCAN_QUERY_TIMEOUT_SEC = Options.key("scan_query_timeout_sec")
-            .intType()
-            .defaultValue(3600)
-            .withDescription("Query timeout for a single query");
+    public static final Option<Integer> SCAN_KEEP_ALIVE_MIN =
+            Options.key("scan_keep_alive_min")
+                    .intType()
+                    .defaultValue(10)
+                    .withDescription("Max keep alive time min");
 
-    public static final Option<Long> SCAN_MEM_LIMIT = Options.key("scan_mem_limit")
-            .longType()
-            .defaultValue(DEFAULT_SCAN_MEM_LIMIT)
-            .withDescription("Memory byte limit for a single query");
+    @SuppressWarnings("checkstyle:MagicNumber")
+    public static final Option<Integer> SCAN_QUERY_TIMEOUT_SEC =
+            Options.key("scan_query_timeout_sec")
+                    .intType()
+                    .defaultValue(3600)
+                    .withDescription("Query timeout for a single query");
 
-    public static final Option<String> STARROCKS_SCAN_CONFIG_PREFIX = Options.key("scan.params.")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("The parameter of the scan data from be");
+    public static final Option<Long> SCAN_MEM_LIMIT =
+            Options.key("scan_mem_limit")
+                    .longType()
+                    .defaultValue(DEFAULT_SCAN_MEM_LIMIT)
+                    .withDescription("Memory byte limit for a single query");
 
+    public static final Option<String> STARROCKS_SCAN_CONFIG_PREFIX =
+            Options.key("scan.params.")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The parameter of the scan data from be");
 
     private int maxRetries = MAX_RETRIES.defaultValue();
     private int requestTabletSize = QUERY_TABLET_SIZE.defaultValue();
@@ -107,11 +113,13 @@ public class SourceConfig extends CommonConfig{
     private final Map<String, String> sourceOptionProps = new HashMap<>();
 
     public static SourceConfig loadConfig(Config pluginConfig) {
-        SourceConfig sourceConfig = new SourceConfig(pluginConfig.getStringList(NODE_URLS.key()),
-                pluginConfig.getString(USERNAME.key()),
-                pluginConfig.getString(PASSWORD.key()),
-                pluginConfig.getString(DATABASE.key()),
-                pluginConfig.getString(TABLE.key()));
+        SourceConfig sourceConfig =
+                new SourceConfig(
+                        pluginConfig.getStringList(NODE_URLS.key()),
+                        pluginConfig.getString(USERNAME.key()),
+                        pluginConfig.getString(PASSWORD.key()),
+                        pluginConfig.getString(DATABASE.key()),
+                        pluginConfig.getString(TABLE.key()));
 
         if (pluginConfig.hasPath(MAX_RETRIES.key())) {
             sourceConfig.setMaxRetries(pluginConfig.getInt(MAX_RETRIES.key()));
@@ -141,13 +149,18 @@ public class SourceConfig extends CommonConfig{
         return sourceConfig;
     }
 
-    private static void parseSourceOptionProperties(Config pluginConfig, SourceConfig sourceConfig) {
-        Config sourceOptionConfig = TypesafeConfigUtils.extractSubConfig(pluginConfig,
-                STARROCKS_SCAN_CONFIG_PREFIX.key(), false);
-        sourceOptionConfig.entrySet().forEach(entry -> {
-            final String configKey = entry.getKey().toLowerCase();
-            sourceConfig.sourceOptionProps.put(configKey, (String) entry.getValue().unwrapped());
-        });
+    private static void parseSourceOptionProperties(
+            Config pluginConfig, SourceConfig sourceConfig) {
+        Config sourceOptionConfig =
+                TypesafeConfigUtils.extractSubConfig(
+                        pluginConfig, STARROCKS_SCAN_CONFIG_PREFIX.key(), false);
+        sourceOptionConfig
+                .entrySet()
+                .forEach(
+                        entry -> {
+                            final String configKey = entry.getKey().toLowerCase();
+                            sourceConfig.sourceOptionProps.put(
+                                    configKey, (String) entry.getValue().unwrapped());
+                        });
     }
-
 }

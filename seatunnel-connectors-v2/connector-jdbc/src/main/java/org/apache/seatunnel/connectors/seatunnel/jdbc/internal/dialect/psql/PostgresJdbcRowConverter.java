@@ -24,5 +24,4 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
     public String converterName() {
         return null;
     }
-
 }

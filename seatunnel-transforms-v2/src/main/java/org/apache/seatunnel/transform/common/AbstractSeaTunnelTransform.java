@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.transform.common;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.source.SourceCommonOptions;
@@ -24,8 +26,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.util.Objects;
 
@@ -43,17 +43,22 @@ public abstract class AbstractSeaTunnelTransform implements SeaTunnelTransform<S
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         if (!pluginConfig.hasPath(SOURCE_TABLE_NAME)) {
-            throw new IllegalArgumentException("The configuration missing key: " + SOURCE_TABLE_NAME);
+            throw new IllegalArgumentException(
+                    "The configuration missing key: " + SOURCE_TABLE_NAME);
         }
         if (!pluginConfig.hasPath(RESULT_TABLE_NAME)) {
-            throw new IllegalArgumentException("The configuration missing key: " + RESULT_TABLE_NAME);
+            throw new IllegalArgumentException(
+                    "The configuration missing key: " + RESULT_TABLE_NAME);
         }
 
         this.inputTableName = pluginConfig.getString(SOURCE_TABLE_NAME);
         this.outputTableName = pluginConfig.getString(RESULT_TABLE_NAME);
         if (Objects.equals(inputTableName, outputTableName)) {
-            throw new IllegalArgumentException("source and result cannot be equals: "
-                + inputTableName + ", " + outputTableName);
+            throw new IllegalArgumentException(
+                    "source and result cannot be equals: "
+                            + inputTableName
+                            + ", "
+                            + outputTableName);
         }
 
         setConfig(pluginConfig);

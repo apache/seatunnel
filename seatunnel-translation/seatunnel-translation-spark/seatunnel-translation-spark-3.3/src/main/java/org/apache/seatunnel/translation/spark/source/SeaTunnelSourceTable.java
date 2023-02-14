@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.translation.spark.source;
 
-import static org.apache.seatunnel.api.source.SourceCommonOptions.PARALLELISM;
-
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Constants;
@@ -26,7 +24,6 @@ import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.translation.spark.source.scan.SeaTunnelScanBuilder;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
-import com.google.common.collect.Sets;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.spark.sql.connector.catalog.SupportsRead;
 import org.apache.spark.sql.connector.catalog.Table;
@@ -36,12 +33,14 @@ import org.apache.spark.sql.connector.read.ScanBuilder;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 
+import com.google.common.collect.Sets;
+
 import java.util.Map;
 import java.util.Set;
 
-/**
- * The basic unit of SeaTunnel DataSource generated, supporting read and write
- */
+import static org.apache.seatunnel.api.source.SourceCommonOptions.PARALLELISM;
+
+/** The basic unit of SeaTunnel DataSource generated, supporting read and write */
 public class SeaTunnelSourceTable implements Table, SupportsRead {
     private static final String SOURCE_TABLE_NAME = "SeaTunnelSourceTable";
 
@@ -60,8 +59,9 @@ public class SeaTunnelSourceTable implements Table, SupportsRead {
 
     /**
      * Returns a {@link ScanBuilder} which can be used to build a {@link Scan}
-     * @param caseInsensitiveStringMap The options for reading, which is an immutable case-insensitive
-     *                string-to-string map.
+     *
+     * @param caseInsensitiveStringMap The options for reading, which is an immutable
+     *     case-insensitive string-to-string map.
      */
     @Override
     public ScanBuilder newScanBuilder(CaseInsensitiveStringMap caseInsensitiveStringMap) {
@@ -69,25 +69,19 @@ public class SeaTunnelSourceTable implements Table, SupportsRead {
         return new SeaTunnelScanBuilder(source, parallelism, caseInsensitiveStringMap);
     }
 
-    /**
-     * A name to identify this table
-     */
+    /** A name to identify this table */
     @Override
     public String name() {
         return SOURCE_TABLE_NAME;
     }
 
-    /**
-     * Returns the schema of this table
-     */
+    /** Returns the schema of this table */
     @Override
     public StructType schema() {
         return (StructType) TypeConverterUtils.convert(source.getProducedType());
     }
 
-    /**
-     * Returns the set of capabilities for this table
-     */
+    /** Returns the set of capabilities for this table */
     @Override
     public Set<TableCapability> capabilities() {
         return Sets.newHashSet(TableCapability.BATCH_READ, TableCapability.MICRO_BATCH_READ);

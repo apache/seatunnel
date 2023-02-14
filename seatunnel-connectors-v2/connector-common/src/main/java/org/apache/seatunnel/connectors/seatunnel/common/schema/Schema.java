@@ -28,5 +28,4 @@ public class Schema {
 
     @OptionMark(description = "The schema fields map")
     private Map<String, String> fields;
-
 }

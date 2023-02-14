@@ -77,7 +77,6 @@ public class DB2TypeMapper implements JdbcDialectTypeMapper {
     private static final String DB2_TIME = "TIME";
     private static final String DB2_TIMESTAMP = "TIMESTAMP";
 
-
     // ------------------------------blob-------------------------
     private static final String DB2_BLOB = "BLOB";
 
@@ -86,7 +85,8 @@ public class DB2TypeMapper implements JdbcDialectTypeMapper {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
-    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException {
+    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
+            throws SQLException {
         String columnType = metadata.getColumnTypeName(colIndex).toUpperCase();
         int precision = metadata.getPrecision(colIndex);
         switch (columnType) {
@@ -139,8 +139,11 @@ public class DB2TypeMapper implements JdbcDialectTypeMapper {
             case DB2_XML:
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
-                throw new JdbcConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
-                    String.format("Doesn't support DB2 type '%s' on column '%s'  yet.", columnType, jdbcColumnName));
+                throw new JdbcConnectorException(
+                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        String.format(
+                                "Doesn't support DB2 type '%s' on column '%s'  yet.",
+                                columnType, jdbcColumnName));
         }
     }
 }

@@ -31,35 +31,40 @@ import java.util.List;
 @ToString
 @AllArgsConstructor
 public class CommonConfig implements Serializable {
-    public static final Option<List<String>> NODE_URLS = Options.key("nodeUrls")
-            .listType()
-            .noDefaultValue()
-            .withDescription("StarRocks cluster address, the format is [\"fe_ip:fe_http_port\", ...]");
+    public static final Option<List<String>> NODE_URLS =
+            Options.key("nodeUrls")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "StarRocks cluster address, the format is [\"fe_ip:fe_http_port\", ...]");
 
-    public static final Option<String> DATABASE = Options.key("database")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("The name of StarRocks database");
+    public static final Option<String> DATABASE =
+            Options.key("database")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The name of StarRocks database");
 
-    public static final Option<String> TABLE = Options.key("table")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("The name of StarRocks table");
+    public static final Option<String> TABLE =
+            Options.key("table")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The name of StarRocks table");
 
-    public static final Option<String> USERNAME = Options.key("username")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("StarRocks user username");
+    public static final Option<String> USERNAME =
+            Options.key("username")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("StarRocks user username");
 
-    public static final Option<String> PASSWORD = Options.key("password")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("StarRocks user password");
+    public static final Option<String> PASSWORD =
+            Options.key("password")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("StarRocks user password");
 
     private List<String> nodeUrls;
     private String username;
     private String password;
     private String database;
     private String table;
-
 }

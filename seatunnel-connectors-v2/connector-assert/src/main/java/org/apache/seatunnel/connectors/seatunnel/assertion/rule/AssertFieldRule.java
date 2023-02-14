@@ -37,37 +37,23 @@ public class AssertFieldRule implements Serializable {
     }
 
     /**
-     * Here is all supported value assert rule type,
-     * An exception will be thrown if a field value break the rule
+     * Here is all supported value assert rule type, An exception will be thrown if a field value
+     * break the rule
      */
     public enum AssertRuleType {
-        /**
-         * value can't be null
-         */
+        /** value can't be null */
         NOT_NULL,
-        /**
-         * minimum value of the data
-         */
+        /** minimum value of the data */
         MIN,
-        /**
-         * maximum value of the data
-         */
+        /** maximum value of the data */
         MAX,
-        /**
-         * minimum string length of a string data
-         */
+        /** minimum string length of a string data */
         MIN_LENGTH,
-        /**
-         * maximum string length of a string data
-         */
+        /** maximum string length of a string data */
         MAX_LENGTH,
-        /**
-         * maximum number of rows
-         */
+        /** maximum number of rows */
         MAX_ROW,
-        /**
-         * minimum number of rows
-         */
+        /** minimum number of rows */
         MIN_ROW
     }
 }

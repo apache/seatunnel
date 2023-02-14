@@ -17,24 +17,20 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public class TaskStatistics implements Serializable {
-    /**
-     * ID of the task the statistics belong to.
-     */
+    /** ID of the task the statistics belong to. */
     private final Long jobVertexId;
 
     private final List<SubtaskStatistics> subtaskStats;
 
-    /**
-     * Marks whether a subtask is complete;
-     */
+    /** Marks whether a subtask is complete; */
     private final boolean[] subtaskCompleted;
 
     private int numAcknowledgedSubtasks = 0;
@@ -67,7 +63,7 @@ public class TaskStatistics implements Serializable {
 
     /**
      * @return The latest acknowledged subtask stats or <code>null</code> if none was acknowledged
-     * yet.
+     *     yet.
      */
     public SubtaskStatistics getLatestAcknowledgedSubtaskStatistics() {
         return latestAckedSubtaskStatistics;
@@ -75,12 +71,12 @@ public class TaskStatistics implements Serializable {
 
     /**
      * @return Ack timestamp of the latest acknowledged subtask or <code>-1</code> if none was
-     * acknowledged yet..
+     *     acknowledged yet..
      */
     public long getLatestAckTimestamp() {
-        return latestAckedSubtaskStatistics != null ?
-            latestAckedSubtaskStatistics.getAckTimestamp() :
-            -1;
+        return latestAckedSubtaskStatistics != null
+                ? latestAckedSubtaskStatistics.getAckTimestamp()
+                : -1;
     }
 
     public Long getJobVertexId() {

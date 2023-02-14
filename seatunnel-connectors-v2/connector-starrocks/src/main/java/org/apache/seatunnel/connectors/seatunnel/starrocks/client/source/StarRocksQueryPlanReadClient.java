@@ -27,9 +27,10 @@ import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -49,15 +50,22 @@ public class StarRocksQueryPlanReadClient {
 
     private static final long DEFAULT_SLEEP_TIME_MS = 1000L;
 
-    public StarRocksQueryPlanReadClient(SourceConfig sourceConfig, SeaTunnelRowType seaTunnelRowType) {
+    public StarRocksQueryPlanReadClient(
+            SourceConfig sourceConfig, SeaTunnelRowType seaTunnelRowType) {
         this.sourceConfig = sourceConfig;
         this.seaTunnelRowType = seaTunnelRowType;
-        this.retryMaterial = new RetryUtils.RetryMaterial(sourceConfig.getMaxRetries(), true, exception -> true, DEFAULT_SLEEP_TIME_MS);
+        this.retryMaterial =
+                new RetryUtils.RetryMaterial(
+                        sourceConfig.getMaxRetries(),
+                        true,
+                        exception -> true,
+                        DEFAULT_SLEEP_TIME_MS);
     }
 
     public List<QueryPartition> findPartitions() {
         List<String> nodeUrls = sourceConfig.getNodeUrls();
-        QueryPlan queryPlan = getQueryPlan(genQuerySql(), nodeUrls.get(new Random().nextInt(nodeUrls.size())));
+        QueryPlan queryPlan =
+                getQueryPlan(genQuerySql(), nodeUrls.get(new Random().nextInt(nodeUrls.size())));
         Map<String, List<Long>> be2Tablets = selectBeForTablet(queryPlan);
         return tabletsMapToPartition(
                 be2Tablets,
@@ -66,8 +74,11 @@ public class StarRocksQueryPlanReadClient {
                 sourceConfig.getTable());
     }
 
-    private List<QueryPartition> tabletsMapToPartition(Map<String, List<Long>> be2Tablets,
-                                                       String opaquedQueryPlan, String database, String table)
+    private List<QueryPartition> tabletsMapToPartition(
+            Map<String, List<Long>> be2Tablets,
+            String opaquedQueryPlan,
+            String database,
+            String table)
             throws IllegalArgumentException {
         int tabletsSize = sourceConfig.getRequestTabletSize();
         List<QueryPartition> partitions = new ArrayList<>();
@@ -78,12 +89,22 @@ public class StarRocksQueryPlanReadClient {
             beInfo.getValue().addAll(tabletSet);
             int first = 0;
             while (first < beInfo.getValue().size()) {
-                Set<Long> partitionTablets = new HashSet<>(beInfo.getValue().subList(
-                        first, Math.min(beInfo.getValue().size(), first + tabletsSize)));
+                Set<Long> partitionTablets =
+                        new HashSet<>(
+                                beInfo.getValue()
+                                        .subList(
+                                                first,
+                                                Math.min(
+                                                        beInfo.getValue().size(),
+                                                        first + tabletsSize)));
                 first = first + tabletsSize;
                 QueryPartition partitionDefinition =
-                        new QueryPartition(database, table,
-                                beInfo.getKey(), partitionTablets, opaquedQueryPlan);
+                        new QueryPartition(
+                                database,
+                                table,
+                                beInfo.getKey(),
+                                partitionTablets,
+                                opaquedQueryPlan);
                 log.debug("Generate one PartitionDefinition '{}'.", partitionDefinition);
                 partitions.add(partitionDefinition);
             }
@@ -93,48 +114,57 @@ public class StarRocksQueryPlanReadClient {
 
     private Map<String, List<Long>> selectBeForTablet(QueryPlan queryPlan) {
         Map<String, List<Long>> beXTablets = new HashMap<>();
-        queryPlan.getPartitions().forEach((tabletId, routingList) -> {
-            int tabletCount = Integer.MAX_VALUE;
-            String candidateBe = "";
-            for (String beNode : routingList.getRoutings()) {
-                if (!beXTablets.containsKey(beNode)) {
-                    beXTablets.put(beNode, new ArrayList<>());
-                    candidateBe = beNode;
-                    break;
-                }
-                if (beXTablets.get(beNode).size() < tabletCount) {
-                    candidateBe = beNode;
-                    tabletCount = beXTablets.get(beNode).size();
-                }
-            }
-            beXTablets.get(candidateBe).add(Long.valueOf(tabletId));
-        });
+        queryPlan
+                .getPartitions()
+                .forEach(
+                        (tabletId, routingList) -> {
+                            int tabletCount = Integer.MAX_VALUE;
+                            String candidateBe = "";
+                            for (String beNode : routingList.getRoutings()) {
+                                if (!beXTablets.containsKey(beNode)) {
+                                    beXTablets.put(beNode, new ArrayList<>());
+                                    candidateBe = beNode;
+                                    break;
+                                }
+                                if (beXTablets.get(beNode).size() < tabletCount) {
+                                    candidateBe = beNode;
+                                    tabletCount = beXTablets.get(beNode).size();
+                                }
+                            }
+                            beXTablets.get(candidateBe).add(Long.valueOf(tabletId));
+                        });
         return beXTablets;
     }
 
     private QueryPlan getQueryPlan(String querySQL, String httpNode) {
-        String url = new StringBuilder("http://")
-                .append(httpNode)
-                .append("/api/")
-                .append(sourceConfig.getDatabase())
-                .append("/")
-                .append(sourceConfig.getTable())
-                .append("/_query_plan")
-                .toString();
+        String url =
+                new StringBuilder("http://")
+                        .append(httpNode)
+                        .append("/api/")
+                        .append(sourceConfig.getDatabase())
+                        .append("/")
+                        .append(sourceConfig.getTable())
+                        .append("/_query_plan")
+                        .toString();
 
         Map<String, Object> bodyMap = new HashMap<>();
         bodyMap.put("sql", querySQL);
         String body = JsonUtils.toJsonString(bodyMap);
         String respString;
         try {
-            respString = RetryUtils.retryWithException(() -> httpHelper.doHttpPost(url, getQueryPlanHttpHeader(), body),
-                    retryMaterial);
+            respString =
+                    RetryUtils.retryWithException(
+                            () -> httpHelper.doHttpPost(url, getQueryPlanHttpHeader(), body),
+                            retryMaterial);
         } catch (Exception e) {
-            throw new StarRocksConnectorException(StarRocksConnectorErrorCode.QUEST_QUERY_PLAN_FAILED, e);
+            throw new StarRocksConnectorException(
+                    StarRocksConnectorErrorCode.QUEST_QUERY_PLAN_FAILED, e);
         }
 
         if (StringUtils.isEmpty(respString)) {
-            throw new StarRocksConnectorException(StarRocksConnectorErrorCode.QUEST_QUERY_PLAN_FAILED, "query failed with empty response");
+            throw new StarRocksConnectorException(
+                    StarRocksConnectorErrorCode.QUEST_QUERY_PLAN_FAILED,
+                    "query failed with empty response");
         }
         return JsonUtils.parseObject(respString, QueryPlan.class);
     }
@@ -148,22 +178,35 @@ public class StarRocksQueryPlanReadClient {
     private Map<String, String> getQueryPlanHttpHeader() {
         Map<String, String> headerMap = new HashMap<>();
         headerMap.put("Content-Type", "application/json;charset=UTF-8");
-        headerMap.put("Authorization", getBasicAuthHeader(sourceConfig.getUsername(), sourceConfig.getPassword()));
+        headerMap.put(
+                "Authorization",
+                getBasicAuthHeader(sourceConfig.getUsername(), sourceConfig.getPassword()));
         return headerMap;
     }
 
     private String genQuerySql() {
-        String columns = seaTunnelRowType.getFieldNames().length != 0 ? String.join(",", seaTunnelRowType.getFieldNames()) : "*";
-        String filter = sourceConfig.getScanFilter().isEmpty() ? "" : " where " + sourceConfig.getScanFilter();
+        String columns =
+                seaTunnelRowType.getFieldNames().length != 0
+                        ? String.join(",", seaTunnelRowType.getFieldNames())
+                        : "*";
+        String filter =
+                sourceConfig.getScanFilter().isEmpty()
+                        ? ""
+                        : " where " + sourceConfig.getScanFilter();
 
-        String sql = "select " + columns +
-                " from " +
-                "`" + sourceConfig.getDatabase() + "`" +
-                "." +
-                "`" + sourceConfig.getTable() + "`" +
-                filter;
+        String sql =
+                "select "
+                        + columns
+                        + " from "
+                        + "`"
+                        + sourceConfig.getDatabase()
+                        + "`"
+                        + "."
+                        + "`"
+                        + sourceConfig.getTable()
+                        + "`"
+                        + filter;
         log.debug("Generate query sql '{}'.", sql);
         return sql;
-
     }
 }

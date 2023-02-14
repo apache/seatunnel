@@ -30,8 +30,8 @@ public class SourceReaderContext implements SourceReader.Context {
 
     private final SourceFlowLifeCycle<?, ?> sourceActionLifeCycle;
 
-    public SourceReaderContext(int index, Boundedness boundedness,
-                               SourceFlowLifeCycle<?, ?> sourceActionLifeCycle) {
+    public SourceReaderContext(
+            int index, Boundedness boundedness, SourceFlowLifeCycle<?, ?> sourceActionLifeCycle) {
         this.index = index;
         this.boundedness = boundedness;
         this.sourceActionLifeCycle = sourceActionLifeCycle;

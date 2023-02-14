@@ -28,7 +28,8 @@ import org.junit.jupiter.api.Disabled;
 import java.util.HashMap;
 import java.util.Map;
 
-@Disabled("S3 is not available in CI, if you want to run this test, please set up your own S3 environment")
+@Disabled(
+        "S3 is not available in CI, if you want to run this test, please set up your own S3 environment")
 public class S3FileCheckpointTest extends AbstractFileCheckPointTest {
 
     @BeforeAll
@@ -38,9 +39,10 @@ public class S3FileCheckpointTest extends AbstractFileCheckPointTest {
         config.put("access.key", "your access key");
         config.put("secret.key", "your secret key");
         config.put("s3.bucket", "s3a://calvin.test.cn");
-        config.put("fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider");
+        config.put(
+                "fs.s3a.aws.credentials.provider",
+                "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider");
         STORAGE = new HdfsStorage(config);
         initStorageData();
     }
-
 }

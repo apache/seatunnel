@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.cdc.base.relational.connection;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 
 /** A pool collection that consists of multiple connection pools. */
-
 public interface ConnectionPools<P, C extends SourceConfig> {
 
     /**

@@ -20,8 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.kafka.config;
 public enum KafkaSemantics {
 
     /**
-     * At this semantics, we will directly send the message to kafka, the data may duplicat/lost
-     * if job restart/retry or network error.
+     * At this semantics, we will directly send the message to kafka, the data may duplicat/lost if
+     * job restart/retry or network error.
      */
     NON,
 
@@ -35,6 +35,4 @@ public enum KafkaSemantics {
      */
     EXACTLY_ONCE,
     ;
-
-
 }

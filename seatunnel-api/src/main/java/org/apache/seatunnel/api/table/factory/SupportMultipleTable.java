@@ -23,29 +23,25 @@ import java.util.List;
 
 /**
  * Used to declare that the connector can handle data from multiple tables.
- * <p> The expansion of the {@link TableSourceFactory}.
+ *
+ * <p>The expansion of the {@link TableSourceFactory}.
  */
 public interface SupportMultipleTable {
 
-    /**
-     * A connector can pick tables and return the accepted and remaining tables.
-     */
+    /** A connector can pick tables and return the accepted and remaining tables. */
     Result applyTables(TableFactoryContext context);
 
     final class Result {
         private final List<CatalogTable> acceptedTables;
         private final List<CatalogTable> remainingTables;
 
-        private Result(
-                List<CatalogTable> acceptedTables,
-                List<CatalogTable> remainingTables) {
+        private Result(List<CatalogTable> acceptedTables, List<CatalogTable> remainingTables) {
             this.acceptedTables = acceptedTables;
             this.remainingTables = remainingTables;
         }
 
         public static Result of(
-                List<CatalogTable> acceptedTables,
-                List<CatalogTable> remainingTables) {
+                List<CatalogTable> acceptedTables, List<CatalogTable> remainingTables) {
             return new Result(acceptedTables, remainingTables);
         }
 

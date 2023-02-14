@@ -37,10 +37,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-
-/**
- * DataHub write class
- */
+/** DataHub write class */
 @Slf4j
 public class DataHubWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
@@ -50,13 +47,25 @@ public class DataHubWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private final Integer retryTimes;
     private final SeaTunnelRowType seaTunnelRowType;
 
-    public DataHubWriter(SeaTunnelRowType seaTunnelRowType, String endpoint, String accessId, String accessKey, String project, String topic, Integer timeout, Integer retryTimes) {
-        this.dataHubClient = DatahubClientBuilder.newBuilder()
-                .setDatahubConfig(new DatahubConfig(endpoint,
-                        new AliyunAccount(accessId, accessKey), true))
-                .setHttpConfig(new HttpConfig().setCompressType(HttpConfig.CompressType.LZ4)
-                        .setConnTimeout(timeout))
-                .build();
+    public DataHubWriter(
+            SeaTunnelRowType seaTunnelRowType,
+            String endpoint,
+            String accessId,
+            String accessKey,
+            String project,
+            String topic,
+            Integer timeout,
+            Integer retryTimes) {
+        this.dataHubClient =
+                DatahubClientBuilder.newBuilder()
+                        .setDatahubConfig(
+                                new DatahubConfig(
+                                        endpoint, new AliyunAccount(accessId, accessKey), true))
+                        .setHttpConfig(
+                                new HttpConfig()
+                                        .setCompressType(HttpConfig.CompressType.LZ4)
+                                        .setConnTimeout(timeout))
+                        .build();
         this.seaTunnelRowType = seaTunnelRowType;
         this.project = project;
         this.topic = topic;
@@ -64,7 +73,7 @@ public class DataHubWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     }
 
     @Override
-    public void write(SeaTunnelRow element)  {
+    public void write(SeaTunnelRow element) {
         String[] fieldNames = seaTunnelRowType.getFieldNames();
         Object[] fields = element.getFields();
         List<RecordEntry> recordEntries = new ArrayList<>();
@@ -96,7 +105,7 @@ public class DataHubWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     @Override
     public void close() throws IOException {
-        //the client does not need to be closed
+        // the client does not need to be closed
     }
 
     private boolean retry(List<RecordEntry> records, int retryNums, String project, String topic) {
@@ -113,4 +122,3 @@ public class DataHubWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         return success;
     }
 }
-

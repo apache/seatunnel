@@ -22,15 +22,17 @@ import org.apache.seatunnel.connectors.seatunnel.influxdb.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorException;
 
+import org.apache.commons.lang3.StringUtils;
+
+import org.influxdb.InfluxDB;
+import org.influxdb.impl.InfluxDBImpl;
+
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.HttpUrl;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
-import org.apache.commons.lang3.StringUtils;
-import org.influxdb.InfluxDB;
-import org.influxdb.impl.InfluxDBImpl;
 
 import java.io.IOException;
 import java.net.ConnectException;
@@ -40,40 +42,41 @@ import java.util.concurrent.TimeUnit;
 public class InfluxDBClient {
     public static InfluxDB getInfluxDB(InfluxDBConfig config) throws ConnectException {
         OkHttpClient.Builder clientBuilder =
-            new OkHttpClient.Builder()
-                .connectTimeout(config.getConnectTimeOut(), TimeUnit.MILLISECONDS)
-                .readTimeout(config.getQueryTimeOut(), TimeUnit.SECONDS);
+                new OkHttpClient.Builder()
+                        .connectTimeout(config.getConnectTimeOut(), TimeUnit.MILLISECONDS)
+                        .readTimeout(config.getQueryTimeOut(), TimeUnit.SECONDS);
         InfluxDB.ResponseFormat format = InfluxDB.ResponseFormat.valueOf(config.getFormat());
         clientBuilder.addInterceptor(
-            new Interceptor() {
-                @Override
-                public Response intercept(Chain chain) throws IOException {
-                    Request request = chain.request();
-                    HttpUrl httpUrl =
-                        request.url()
-                            .newBuilder()
-                            //set epoch
-                            .addQueryParameter("epoch", config.getEpoch())
-                            .build();
-                    Request build = request.newBuilder().url(httpUrl).build();
-                    return chain.proceed(build);
-                }
-            });
+                new Interceptor() {
+                    @Override
+                    public Response intercept(Chain chain) throws IOException {
+                        Request request = chain.request();
+                        HttpUrl httpUrl =
+                                request.url()
+                                        .newBuilder()
+                                        // set epoch
+                                        .addQueryParameter("epoch", config.getEpoch())
+                                        .build();
+                        Request build = request.newBuilder().url(httpUrl).build();
+                        return chain.proceed(build);
+                    }
+                });
         InfluxDB influxdb =
-            new InfluxDBImpl(
-                config.getUrl(),
-                StringUtils.isEmpty(config.getUsername()) ? StringUtils.EMPTY : config.getUsername(),
-                StringUtils.isEmpty(config.getPassword()) ? StringUtils.EMPTY : config.getPassword(),
-                clientBuilder,
-                format);
+                new InfluxDBImpl(
+                        config.getUrl(),
+                        StringUtils.isEmpty(config.getUsername())
+                                ? StringUtils.EMPTY
+                                : config.getUsername(),
+                        StringUtils.isEmpty(config.getPassword())
+                                ? StringUtils.EMPTY
+                                : config.getPassword(),
+                        clientBuilder,
+                        format);
         String version = influxdb.version();
         if (!influxdb.ping().isGood()) {
-            throw new InfluxdbConnectorException(InfluxdbConnectorErrorCode.CONNECT_FAILED,
-                String.format(
-                    "Connect influxdb failed, the url is: {%s}",
-                    config.getUrl()
-                )
-            );
+            throw new InfluxdbConnectorException(
+                    InfluxdbConnectorErrorCode.CONNECT_FAILED,
+                    String.format("Connect influxdb failed, the url is: {%s}", config.getUrl()));
         }
         log.info("connect influxdb successful. sever version :{}.", version);
         return influxdb;

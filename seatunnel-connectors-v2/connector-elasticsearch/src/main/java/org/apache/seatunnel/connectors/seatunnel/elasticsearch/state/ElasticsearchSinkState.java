@@ -19,6 +19,4 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.state;
 
 import java.io.Serializable;
 
-public class ElasticsearchSinkState implements Serializable {
-
-}
+public class ElasticsearchSinkState implements Serializable {}

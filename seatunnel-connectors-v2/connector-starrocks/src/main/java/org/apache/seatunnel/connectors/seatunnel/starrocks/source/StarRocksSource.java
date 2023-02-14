@@ -17,11 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.CommonConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.CommonConfig.NODE_URLS;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.CommonConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.CommonConfig.TABLE;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.CommonConfig.USERNAME;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
@@ -39,12 +35,17 @@ import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import com.google.auto.service.AutoService;
 
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.CommonConfig.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.CommonConfig.NODE_URLS;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.CommonConfig.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.CommonConfig.TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.CommonConfig.USERNAME;
+
 @AutoService(SeaTunnelSource.class)
-public class StarRocksSource implements SeaTunnelSource<SeaTunnelRow, StarRocksSourceSplit, StarRocksSourceState> {
+public class StarRocksSource
+        implements SeaTunnelSource<SeaTunnelRow, StarRocksSourceSplit, StarRocksSourceState> {
 
     private SeaTunnelRowType typeInfo;
     private SourceConfig sourceConfig;
@@ -56,16 +57,25 @@ public class StarRocksSource implements SeaTunnelSource<SeaTunnelRow, StarRocksS
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult checkResult = CheckConfigUtil.checkAllExists(pluginConfig, NODE_URLS.key(), DATABASE.key(), TABLE.key(), USERNAME.key(), PASSWORD.key());
+        CheckResult checkResult =
+                CheckConfigUtil.checkAllExists(
+                        pluginConfig,
+                        NODE_URLS.key(),
+                        DATABASE.key(),
+                        TABLE.key(),
+                        USERNAME.key(),
+                        PASSWORD.key());
 
-        CheckResult schemaCheckResult = CheckConfigUtil.checkAllExists(pluginConfig, SeaTunnelSchema.SCHEMA.key());
-        CheckResult mergedConfigCheck = CheckConfigUtil.mergeCheckResults(checkResult, schemaCheckResult);
+        CheckResult schemaCheckResult =
+                CheckConfigUtil.checkAllExists(pluginConfig, SeaTunnelSchema.SCHEMA.key());
+        CheckResult mergedConfigCheck =
+                CheckConfigUtil.mergeCheckResults(checkResult, schemaCheckResult);
         if (!mergedConfigCheck.isSuccess()) {
-            throw new StarRocksConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format("PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE,
-                            mergedConfigCheck.getMsg())
-            );
+            throw new StarRocksConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SOURCE, mergedConfigCheck.getMsg()));
         }
 
         Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
@@ -89,8 +99,12 @@ public class StarRocksSource implements SeaTunnelSource<SeaTunnelRow, StarRocksS
     }
 
     @Override
-    public SourceSplitEnumerator<StarRocksSourceSplit, StarRocksSourceState> restoreEnumerator(SourceSplitEnumerator.Context<StarRocksSourceSplit> enumeratorContext, StarRocksSourceState checkpointState) throws Exception {
-        return new StartRocksSourceSplitEnumerator(enumeratorContext, sourceConfig, typeInfo, checkpointState);
+    public SourceSplitEnumerator<StarRocksSourceSplit, StarRocksSourceState> restoreEnumerator(
+            SourceSplitEnumerator.Context<StarRocksSourceSplit> enumeratorContext,
+            StarRocksSourceState checkpointState)
+            throws Exception {
+        return new StartRocksSourceSplitEnumerator(
+                enumeratorContext, sourceConfig, typeInfo, checkpointState);
     }
 
     @Override

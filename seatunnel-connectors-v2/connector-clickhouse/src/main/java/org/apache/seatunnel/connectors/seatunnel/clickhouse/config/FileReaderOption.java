@@ -42,15 +42,18 @@ public class FileReaderOption implements Serializable {
     private String fileTempPath;
     private String fileFieldsDelimiter;
 
-    public FileReaderOption(ShardMetadata shardMetadata, Map<String, String> tableSchema,
-                            List<String> fields, String clickhouseLocalPath,
-                            ClickhouseFileCopyMethod copyMethod,
-                            Map<String, String> nodeUser,
-                            boolean nodeFreePass,
-                            Map<String, String> nodePassword,
-                            boolean compatibleMode,
-                            String fileTempPath,
-                            String fileFieldsDelimiter) {
+    public FileReaderOption(
+            ShardMetadata shardMetadata,
+            Map<String, String> tableSchema,
+            List<String> fields,
+            String clickhouseLocalPath,
+            ClickhouseFileCopyMethod copyMethod,
+            Map<String, String> nodeUser,
+            boolean nodeFreePass,
+            Map<String, String> nodePassword,
+            boolean compatibleMode,
+            String fileTempPath,
+            String fileFieldsDelimiter) {
         this.shardMetadata = shardMetadata;
         this.tableSchema = tableSchema;
         this.fields = fields;

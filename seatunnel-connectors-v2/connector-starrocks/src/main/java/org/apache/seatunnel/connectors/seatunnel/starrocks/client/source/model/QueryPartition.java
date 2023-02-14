@@ -84,11 +84,11 @@ public class QueryPartition implements Serializable, Comparable<QueryPartition> 
             return false;
         }
         QueryPartition that = (QueryPartition) o;
-        return Objects.equals(database, that.database) &&
-                Objects.equals(table, that.table) &&
-                Objects.equals(beAddress, that.beAddress) &&
-                Objects.equals(tabletIds, that.tabletIds) &&
-                Objects.equals(queryPlan, that.queryPlan);
+        return Objects.equals(database, that.database)
+                && Objects.equals(table, that.table)
+                && Objects.equals(beAddress, that.beAddress)
+                && Objects.equals(tabletIds, that.tabletIds)
+                && Objects.equals(queryPlan, that.queryPlan);
     }
 
     @Override
@@ -102,12 +102,21 @@ public class QueryPartition implements Serializable, Comparable<QueryPartition> 
 
     @Override
     public String toString() {
-        return "QueryPartition{" +
-                ", database='" + database + '\'' +
-                ", table='" + table + '\'' +
-                ", beAddress='" + beAddress + '\'' +
-                ", tabletIds=" + tabletIds +
-                ", queryPlan='" + queryPlan + '\'' +
-                '}';
+        return "QueryPartition{"
+                + ", database='"
+                + database
+                + '\''
+                + ", table='"
+                + table
+                + '\''
+                + ", beAddress='"
+                + beAddress
+                + '\''
+                + ", tabletIds="
+                + tabletIds
+                + ", queryPlan='"
+                + queryPlan
+                + '\''
+                + '}';
     }
 }

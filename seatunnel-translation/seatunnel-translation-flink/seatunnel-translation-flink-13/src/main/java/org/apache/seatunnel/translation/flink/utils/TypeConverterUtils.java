@@ -50,35 +50,83 @@ public class TypeConverterUtils {
 
     static {
         // basic types
-        BRIDGED_TYPES.put(String.class, BridgedType.of(BasicType.STRING_TYPE, BasicTypeInfo.STRING_TYPE_INFO));
-        BRIDGED_TYPES.put(Boolean.class, BridgedType.of(BasicType.BOOLEAN_TYPE, BasicTypeInfo.BOOLEAN_TYPE_INFO));
-        BRIDGED_TYPES.put(Byte.class, BridgedType.of(BasicType.BYTE_TYPE, BasicTypeInfo.BYTE_TYPE_INFO));
-        BRIDGED_TYPES.put(Short.class, BridgedType.of(BasicType.SHORT_TYPE, BasicTypeInfo.SHORT_TYPE_INFO));
-        BRIDGED_TYPES.put(Integer.class, BridgedType.of(BasicType.INT_TYPE, BasicTypeInfo.INT_TYPE_INFO));
-        BRIDGED_TYPES.put(Long.class, BridgedType.of(BasicType.LONG_TYPE, BasicTypeInfo.LONG_TYPE_INFO));
-        BRIDGED_TYPES.put(Float.class, BridgedType.of(BasicType.FLOAT_TYPE, BasicTypeInfo.FLOAT_TYPE_INFO));
-        BRIDGED_TYPES.put(Double.class, BridgedType.of(BasicType.DOUBLE_TYPE, BasicTypeInfo.DOUBLE_TYPE_INFO));
-        BRIDGED_TYPES.put(Void.class, BridgedType.of(BasicType.VOID_TYPE, BasicTypeInfo.VOID_TYPE_INFO));
-        // TODO: there is a still an unresolved issue that the BigDecimal type will lose the precision and scale
-        BRIDGED_TYPES.put(BigDecimal.class, BridgedType.of(new DecimalType(38, 18), BasicTypeInfo.BIG_DEC_TYPE_INFO));
+        BRIDGED_TYPES.put(
+                String.class,
+                BridgedType.of(BasicType.STRING_TYPE, BasicTypeInfo.STRING_TYPE_INFO));
+        BRIDGED_TYPES.put(
+                Boolean.class,
+                BridgedType.of(BasicType.BOOLEAN_TYPE, BasicTypeInfo.BOOLEAN_TYPE_INFO));
+        BRIDGED_TYPES.put(
+                Byte.class, BridgedType.of(BasicType.BYTE_TYPE, BasicTypeInfo.BYTE_TYPE_INFO));
+        BRIDGED_TYPES.put(
+                Short.class, BridgedType.of(BasicType.SHORT_TYPE, BasicTypeInfo.SHORT_TYPE_INFO));
+        BRIDGED_TYPES.put(
+                Integer.class, BridgedType.of(BasicType.INT_TYPE, BasicTypeInfo.INT_TYPE_INFO));
+        BRIDGED_TYPES.put(
+                Long.class, BridgedType.of(BasicType.LONG_TYPE, BasicTypeInfo.LONG_TYPE_INFO));
+        BRIDGED_TYPES.put(
+                Float.class, BridgedType.of(BasicType.FLOAT_TYPE, BasicTypeInfo.FLOAT_TYPE_INFO));
+        BRIDGED_TYPES.put(
+                Double.class,
+                BridgedType.of(BasicType.DOUBLE_TYPE, BasicTypeInfo.DOUBLE_TYPE_INFO));
+        BRIDGED_TYPES.put(
+                Void.class, BridgedType.of(BasicType.VOID_TYPE, BasicTypeInfo.VOID_TYPE_INFO));
+        // TODO: there is a still an unresolved issue that the BigDecimal type will lose the
+        // precision and scale
+        BRIDGED_TYPES.put(
+                BigDecimal.class,
+                BridgedType.of(new DecimalType(38, 18), BasicTypeInfo.BIG_DEC_TYPE_INFO));
         // data time types
-        BRIDGED_TYPES.put(LocalDate.class, BridgedType.of(LocalTimeType.LOCAL_DATE_TYPE, LocalTimeTypeInfo.LOCAL_DATE));
-        BRIDGED_TYPES.put(LocalTime.class, BridgedType.of(LocalTimeType.LOCAL_TIME_TYPE, LocalTimeTypeInfo.LOCAL_TIME));
-        BRIDGED_TYPES.put(LocalDateTime.class, BridgedType.of(LocalTimeType.LOCAL_DATE_TIME_TYPE, LocalTimeTypeInfo.LOCAL_DATE_TIME));
+        BRIDGED_TYPES.put(
+                LocalDate.class,
+                BridgedType.of(LocalTimeType.LOCAL_DATE_TYPE, LocalTimeTypeInfo.LOCAL_DATE));
+        BRIDGED_TYPES.put(
+                LocalTime.class,
+                BridgedType.of(LocalTimeType.LOCAL_TIME_TYPE, LocalTimeTypeInfo.LOCAL_TIME));
+        BRIDGED_TYPES.put(
+                LocalDateTime.class,
+                BridgedType.of(
+                        LocalTimeType.LOCAL_DATE_TIME_TYPE, LocalTimeTypeInfo.LOCAL_DATE_TIME));
         // basic array types
-        BRIDGED_TYPES.put(byte[].class, BridgedType.of(PrimitiveByteArrayType.INSTANCE, PrimitiveArrayTypeInfo.BYTE_PRIMITIVE_ARRAY_TYPE_INFO));
-        BRIDGED_TYPES.put(String[].class, BridgedType.of(ArrayType.STRING_ARRAY_TYPE, BasicArrayTypeInfo.STRING_ARRAY_TYPE_INFO));
-        BRIDGED_TYPES.put(Boolean[].class, BridgedType.of(ArrayType.BOOLEAN_ARRAY_TYPE, BasicArrayTypeInfo.BOOLEAN_ARRAY_TYPE_INFO));
-        BRIDGED_TYPES.put(Byte[].class, BridgedType.of(ArrayType.BYTE_ARRAY_TYPE, BasicArrayTypeInfo.BYTE_ARRAY_TYPE_INFO));
-        BRIDGED_TYPES.put(Short[].class, BridgedType.of(ArrayType.SHORT_ARRAY_TYPE, BasicArrayTypeInfo.SHORT_ARRAY_TYPE_INFO));
-        BRIDGED_TYPES.put(Integer[].class, BridgedType.of(ArrayType.INT_ARRAY_TYPE, BasicArrayTypeInfo.INT_ARRAY_TYPE_INFO));
-        BRIDGED_TYPES.put(Long[].class, BridgedType.of(ArrayType.LONG_ARRAY_TYPE, BasicArrayTypeInfo.LONG_ARRAY_TYPE_INFO));
-        BRIDGED_TYPES.put(Float[].class, BridgedType.of(ArrayType.FLOAT_ARRAY_TYPE, BasicArrayTypeInfo.FLOAT_ARRAY_TYPE_INFO));
-        BRIDGED_TYPES.put(Double[].class, BridgedType.of(ArrayType.DOUBLE_ARRAY_TYPE, BasicArrayTypeInfo.DOUBLE_ARRAY_TYPE_INFO));
+        BRIDGED_TYPES.put(
+                byte[].class,
+                BridgedType.of(
+                        PrimitiveByteArrayType.INSTANCE,
+                        PrimitiveArrayTypeInfo.BYTE_PRIMITIVE_ARRAY_TYPE_INFO));
+        BRIDGED_TYPES.put(
+                String[].class,
+                BridgedType.of(
+                        ArrayType.STRING_ARRAY_TYPE, BasicArrayTypeInfo.STRING_ARRAY_TYPE_INFO));
+        BRIDGED_TYPES.put(
+                Boolean[].class,
+                BridgedType.of(
+                        ArrayType.BOOLEAN_ARRAY_TYPE, BasicArrayTypeInfo.BOOLEAN_ARRAY_TYPE_INFO));
+        BRIDGED_TYPES.put(
+                Byte[].class,
+                BridgedType.of(ArrayType.BYTE_ARRAY_TYPE, BasicArrayTypeInfo.BYTE_ARRAY_TYPE_INFO));
+        BRIDGED_TYPES.put(
+                Short[].class,
+                BridgedType.of(
+                        ArrayType.SHORT_ARRAY_TYPE, BasicArrayTypeInfo.SHORT_ARRAY_TYPE_INFO));
+        BRIDGED_TYPES.put(
+                Integer[].class,
+                BridgedType.of(ArrayType.INT_ARRAY_TYPE, BasicArrayTypeInfo.INT_ARRAY_TYPE_INFO));
+        BRIDGED_TYPES.put(
+                Long[].class,
+                BridgedType.of(ArrayType.LONG_ARRAY_TYPE, BasicArrayTypeInfo.LONG_ARRAY_TYPE_INFO));
+        BRIDGED_TYPES.put(
+                Float[].class,
+                BridgedType.of(
+                        ArrayType.FLOAT_ARRAY_TYPE, BasicArrayTypeInfo.FLOAT_ARRAY_TYPE_INFO));
+        BRIDGED_TYPES.put(
+                Double[].class,
+                BridgedType.of(
+                        ArrayType.DOUBLE_ARRAY_TYPE, BasicArrayTypeInfo.DOUBLE_ARRAY_TYPE_INFO));
     }
 
     private TypeConverterUtils() {
-        throw new UnsupportedOperationException("TypeConverterUtils is a utility class and cannot be instantiated");
+        throw new UnsupportedOperationException(
+                "TypeConverterUtils is a utility class and cannot be instantiated");
     }
 
     public static SeaTunnelDataType<?> convert(TypeInformation<?> dataType) {
@@ -92,13 +140,16 @@ public class TypeConverterUtils {
         }
         if (dataType instanceof MapTypeInfo) {
             MapTypeInfo<?, ?> mapTypeInfo = (MapTypeInfo<?, ?>) dataType;
-            return new MapType<>(convert(mapTypeInfo.getKeyTypeInfo()), convert(mapTypeInfo.getValueTypeInfo()));
+            return new MapType<>(
+                    convert(mapTypeInfo.getKeyTypeInfo()), convert(mapTypeInfo.getValueTypeInfo()));
         }
         if (dataType instanceof RowTypeInfo) {
             RowTypeInfo typeInformation = (RowTypeInfo) dataType;
             String[] fieldNames = typeInformation.getFieldNames();
-            SeaTunnelDataType<?>[] seaTunnelDataTypes = Arrays.stream(typeInformation.getFieldTypes())
-                .map(TypeConverterUtils::convert).toArray(SeaTunnelDataType[]::new);
+            SeaTunnelDataType<?>[] seaTunnelDataTypes =
+                    Arrays.stream(typeInformation.getFieldTypes())
+                            .map(TypeConverterUtils::convert)
+                            .toArray(SeaTunnelDataType[]::new);
             return new SeaTunnelRowType(fieldNames, seaTunnelDataTypes);
         }
         throw new IllegalArgumentException("Unsupported Flink's data type: " + dataType);
@@ -115,12 +166,15 @@ public class TypeConverterUtils {
         }
         if (dataType instanceof MapType) {
             MapType<?, ?> mapType = (MapType<?, ?>) dataType;
-            return new MapTypeInfo<>(convert(mapType.getKeyType()), convert(mapType.getValueType()));
+            return new MapTypeInfo<>(
+                    convert(mapType.getKeyType()), convert(mapType.getValueType()));
         }
         if (dataType instanceof SeaTunnelRowType) {
             SeaTunnelRowType rowType = (SeaTunnelRowType) dataType;
-            TypeInformation<?>[] types = Arrays.stream(rowType.getFieldTypes())
-                .map(TypeConverterUtils::convert).toArray(TypeInformation[]::new);
+            TypeInformation<?>[] types =
+                    Arrays.stream(rowType.getFieldTypes())
+                            .map(TypeConverterUtils::convert)
+                            .toArray(TypeInformation[]::new);
             return new RowTypeInfo(types, rowType.getFieldNames());
         }
         throw new IllegalArgumentException("Unsupported SeaTunnel's data type: " + dataType);
@@ -135,7 +189,8 @@ public class TypeConverterUtils {
             this.flinkType = flinkType;
         }
 
-        public static BridgedType of(SeaTunnelDataType<?> seaTunnelType, TypeInformation<?> flinkType) {
+        public static BridgedType of(
+                SeaTunnelDataType<?> seaTunnelType, TypeInformation<?> flinkType) {
             return new BridgedType(seaTunnelType, flinkType);
         }
 

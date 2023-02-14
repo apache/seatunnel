@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.source;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -26,15 +28,14 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeTypeMapper;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @AutoService(SeaTunnelSource.class)
-public class MaxcomputeSource implements SeaTunnelSource<SeaTunnelRow, MaxcomputeSourceSplit, MaxcomputeSourceState>,
-    SupportParallelism {
+public class MaxcomputeSource
+        implements SeaTunnelSource<SeaTunnelRow, MaxcomputeSourceSplit, MaxcomputeSourceState>,
+                SupportParallelism {
     private SeaTunnelRowType typeInfo;
     private Config pluginConfig;
 
@@ -55,7 +56,8 @@ public class MaxcomputeSource implements SeaTunnelSource<SeaTunnelRow, Maxcomput
     }
 
     @Override
-    public SourceReader<SeaTunnelRow, MaxcomputeSourceSplit> createReader(SourceReader.Context readerContext) throws Exception {
+    public SourceReader<SeaTunnelRow, MaxcomputeSourceSplit> createReader(
+            SourceReader.Context readerContext) throws Exception {
         return new MaxcomputeSourceReader(this.pluginConfig, readerContext, this.typeInfo);
     }
 
@@ -65,12 +67,18 @@ public class MaxcomputeSource implements SeaTunnelSource<SeaTunnelRow, Maxcomput
     }
 
     @Override
-    public SourceSplitEnumerator<MaxcomputeSourceSplit, MaxcomputeSourceState> createEnumerator(SourceSplitEnumerator.Context<MaxcomputeSourceSplit> enumeratorContext) throws Exception {
+    public SourceSplitEnumerator<MaxcomputeSourceSplit, MaxcomputeSourceState> createEnumerator(
+            SourceSplitEnumerator.Context<MaxcomputeSourceSplit> enumeratorContext)
+            throws Exception {
         return new MaxcomputeSourceSplitEnumerator(enumeratorContext, this.pluginConfig);
     }
 
     @Override
-    public SourceSplitEnumerator<MaxcomputeSourceSplit, MaxcomputeSourceState> restoreEnumerator(SourceSplitEnumerator.Context<MaxcomputeSourceSplit> enumeratorContext, MaxcomputeSourceState checkpointState) throws Exception {
-        return new MaxcomputeSourceSplitEnumerator(enumeratorContext, this.pluginConfig, checkpointState);
+    public SourceSplitEnumerator<MaxcomputeSourceSplit, MaxcomputeSourceState> restoreEnumerator(
+            SourceSplitEnumerator.Context<MaxcomputeSourceSplit> enumeratorContext,
+            MaxcomputeSourceState checkpointState)
+            throws Exception {
+        return new MaxcomputeSourceSplitEnumerator(
+                enumeratorContext, this.pluginConfig, checkpointState);
     }
 }

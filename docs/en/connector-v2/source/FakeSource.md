@@ -18,7 +18,7 @@ just for some test cases such as type conversion or connector new feature testin
 
 ## Options
 
-| name                | type     | required | default value           |
+|        name         |   type   | required |      default value      |
 |---------------------|----------|----------|-------------------------|
 | schema              | config   | yes      | -                       |
 | rows                | config   | no       | -                       |
@@ -65,9 +65,25 @@ The schema of fake data that you want to generate
 #### Examples
 
 ```hocon
-  schema = {
-    fields {
-      c_map = "map<string, array<int>>"
+schema = {
+  fields {
+    c_map = "map<string, array<int>>"
+    c_array = "array<int>"
+    c_string = string
+    c_boolean = boolean
+    c_tinyint = tinyint
+    c_smallint = smallint
+    c_int = int
+    c_bigint = bigint
+    c_float = float
+    c_double = double
+    c_decimal = "decimal(30, 8)"
+    c_null = "null"
+    c_bytes = bytes
+    c_date = date
+    c_timestamp = timestamp
+    c_row = {
+      c_map = "map<string, map<string, string>>"
       c_array = "array<int>"
       c_string = string
       c_boolean = boolean
@@ -82,25 +98,9 @@ The schema of fake data that you want to generate
       c_bytes = bytes
       c_date = date
       c_timestamp = timestamp
-      c_row = {
-        c_map = "map<string, map<string, string>>"
-        c_array = "array<int>"
-        c_string = string
-        c_boolean = boolean
-        c_tinyint = tinyint
-        c_smallint = smallint
-        c_int = int
-        c_bigint = bigint
-        c_float = float
-        c_double = double
-        c_decimal = "decimal(30, 8)"
-        c_null = "null"
-        c_bytes = bytes
-        c_date = date
-        c_timestamp = timestamp
-      }
     }
   }
+}
 ```
 
 ### rows
@@ -110,24 +110,24 @@ The row list of fake data output per degree of parallelism
 example
 
 ```hocon
-  rows = [
-    {
-      kind = INSERT
-      fields = [1, "A", 100]
-    },
-    {
-      kind = UPDATE_BEFORE
-      fields = [1, "A", 100]
-    },
-    {
-      kind = UPDATE_AFTER
-      fields = [1, "A_1", 100]
-    },
-    {
-      kind = DELETE
-      fields = [1, "A_1", 100]
-    }
-  ]
+rows = [
+  {
+    kind = INSERT
+    fields = [1, "A", 100]
+  },
+  {
+    kind = UPDATE_BEFORE
+    fields = [1, "A", 100]
+  },
+  {
+    kind = UPDATE_AFTER
+    fields = [1, "A_1", 100]
+  },
+  {
+    kind = DELETE
+    fields = [1, "A_1", 100]
+  }
+]
 ```
 
 ### row.num
@@ -442,3 +442,4 @@ FakeSource {
 
 - [Feature] Support config fake data rows [3865](https://github.com/apache/incubator-seatunnel/pull/3865)
 - [Feature] Support config template or range for fake data [3932](https://github.com/apache/incubator-seatunnel/pull/3932)
+

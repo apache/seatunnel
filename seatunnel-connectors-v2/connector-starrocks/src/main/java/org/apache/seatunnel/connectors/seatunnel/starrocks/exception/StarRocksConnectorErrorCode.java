@@ -38,7 +38,7 @@ public enum StarRocksConnectorErrorCode implements SeaTunnelErrorCode {
 
     @Override
     public String getCode() {
-        return this.code;
+        return code;
     }
 
     @Override

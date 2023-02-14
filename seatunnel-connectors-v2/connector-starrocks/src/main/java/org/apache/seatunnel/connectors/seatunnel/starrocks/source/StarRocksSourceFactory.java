@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema.SCHEMA;
-
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -26,6 +24,8 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SourceConfig;
 
 import com.google.auto.service.AutoService;
+
+import static org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema.SCHEMA;
 
 @AutoService(Factory.class)
 public class StarRocksSourceFactory implements TableSourceFactory {
@@ -37,11 +37,23 @@ public class StarRocksSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-            .required(SourceConfig.NODE_URLS, SourceConfig.USERNAME, SourceConfig.PASSWORD, SourceConfig.DATABASE, SourceConfig.TABLE, SCHEMA)
-            .optional(SourceConfig.MAX_RETRIES, SourceConfig.QUERY_TABLET_SIZE, SourceConfig.SCAN_FILTER,
-                    SourceConfig.SCAN_MEM_LIMIT, SourceConfig.SCAN_QUERY_TIMEOUT_SEC, SourceConfig.SCAN_KEEP_ALIVE_MIN,
-                    SourceConfig.SCAN_BATCH_ROWS, SourceConfig.SCAN_CONNECT_TIMEOUT)
-            .build();
+                .required(
+                        SourceConfig.NODE_URLS,
+                        SourceConfig.USERNAME,
+                        SourceConfig.PASSWORD,
+                        SourceConfig.DATABASE,
+                        SourceConfig.TABLE,
+                        SCHEMA)
+                .optional(
+                        SourceConfig.MAX_RETRIES,
+                        SourceConfig.QUERY_TABLET_SIZE,
+                        SourceConfig.SCAN_FILTER,
+                        SourceConfig.SCAN_MEM_LIMIT,
+                        SourceConfig.SCAN_QUERY_TIMEOUT_SEC,
+                        SourceConfig.SCAN_KEEP_ALIVE_MIN,
+                        SourceConfig.SCAN_BATCH_ROWS,
+                        SourceConfig.SCAN_CONNECT_TIMEOUT)
+                .build();
     }
 
     @Override

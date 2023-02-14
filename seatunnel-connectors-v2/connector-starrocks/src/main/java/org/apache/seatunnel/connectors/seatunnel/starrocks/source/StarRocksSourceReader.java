@@ -42,7 +42,10 @@ public class StarRocksSourceReader implements SourceReader<SeaTunnelRow, StarRoc
     private final SeaTunnelRowType seaTunnelRowType;
     private volatile boolean noMoreSplitsAssignment;
 
-    public StarRocksSourceReader(SourceReader.Context readerContext, SeaTunnelRowType seaTunnelRowType, SourceConfig sourceConfig) {
+    public StarRocksSourceReader(
+            SourceReader.Context readerContext,
+            SeaTunnelRowType seaTunnelRowType,
+            SourceConfig sourceConfig) {
         this.pendingSplits = new LinkedList<>();
         this.context = readerContext;
         this.sourceConfig = sourceConfig;
@@ -84,27 +87,26 @@ public class StarRocksSourceReader implements SourceReader<SeaTunnelRow, StarRoc
     }
 
     private void read(StarRocksSourceSplit split, Collector<SeaTunnelRow> output) {
-        StarRocksBeReadClient client = new StarRocksBeReadClient(split.getPartition(), sourceConfig, seaTunnelRowType);
-        //open scanner to be
+        StarRocksBeReadClient client =
+                new StarRocksBeReadClient(split.getPartition(), sourceConfig, seaTunnelRowType);
+        // open scanner to be
         client.openScanner();
         while (client.hasNext()) {
             SeaTunnelRow seaTunnelRow = client.getNext();
             output.collect(seaTunnelRow);
         }
-        //close client to be
+        // close client to be
         if (client != null) {
             client.close();
         }
     }
 
     @Override
-    public void open() throws Exception {
-
-    }
+    public void open() throws Exception {}
 
     @Override
     public void close() throws IOException {
-        //nothing to do
+        // nothing to do
     }
 
     @Override

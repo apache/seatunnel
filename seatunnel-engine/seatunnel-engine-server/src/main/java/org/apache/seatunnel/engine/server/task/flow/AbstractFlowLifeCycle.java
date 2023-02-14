@@ -27,17 +27,14 @@ import java.util.concurrent.CompletableFuture;
 
 public class AbstractFlowLifeCycle implements FlowLifeCycle {
 
-    @Getter
-    protected final SeaTunnelTask runningTask;
+    @Getter protected final SeaTunnelTask runningTask;
 
     protected final CompletableFuture<Void> completableFuture;
 
-    @Getter
-    @Setter
-    protected Boolean prepareClose;
+    @Getter @Setter protected Boolean prepareClose;
 
-    public AbstractFlowLifeCycle(SeaTunnelTask runningTask,
-                                 CompletableFuture<Void> completableFuture) {
+    public AbstractFlowLifeCycle(
+            SeaTunnelTask runningTask, CompletableFuture<Void> completableFuture) {
         this.runningTask = runningTask;
         this.completableFuture = completableFuture;
         this.prepareClose = false;

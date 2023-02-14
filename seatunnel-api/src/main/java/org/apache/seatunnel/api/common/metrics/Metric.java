@@ -19,45 +19,29 @@ package org.apache.seatunnel.api.common.metrics;
 
 public interface Metric {
 
-    /**
-     * Returns the name of the associated metric.
-     */
-
+    /** Returns the name of the associated metric. */
     String name();
 
     /**
-     * Return the measurement unit for the associated metric. Meant
-     * to provide further information on the type of value measured
-     * by the user-defined metric. Doesn't affect the functionality of the
-     * metric, it still remains a simple numeric value, but is used to
-     * populate the {@link MetricTags#UNIT} tag in the metric's description.
+     * Return the measurement unit for the associated metric. Meant to provide further information
+     * on the type of value measured by the user-defined metric. Doesn't affect the functionality of
+     * the metric, it still remains a simple numeric value, but is used to populate the {@link
+     * MetricTags#UNIT} tag in the metric's description.
      */
-
     Unit unit();
 
-    /**
-     * Increments the current value by 1.
-     */
+    /** Increments the current value by 1. */
     void increment();
 
-    /**
-     * Increments the current value by the specified amount.
-     */
+    /** Increments the current value by the specified amount. */
     void increment(long amount);
 
-    /**
-     * Decrements the current value by 1.
-     */
+    /** Decrements the current value by 1. */
     void decrement();
 
-    /**
-     * Decrements the current value by the specified amount.
-     */
+    /** Decrements the current value by the specified amount. */
     void decrement(long amount);
 
-    /**
-     * Sets the current value.
-     */
+    /** Sets the current value. */
     void set(long newValue);
-
 }
