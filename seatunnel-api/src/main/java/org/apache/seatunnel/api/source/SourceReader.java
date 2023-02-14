@@ -109,9 +109,7 @@ public interface SourceReader<T, SplitT extends SourceSplit>
          */
         void sendSourceEventToEnumerator(SourceEvent sourceEvent);
 
-        /**
-         * @return metricsContext of this reader.
-         */
+        /** @return metricsContext of this reader. */
         MetricsContext getMetricsContext();
     }
 }

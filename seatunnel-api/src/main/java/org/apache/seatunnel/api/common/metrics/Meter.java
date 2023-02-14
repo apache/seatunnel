@@ -18,7 +18,7 @@
 package org.apache.seatunnel.api.common.metrics;
 
 /** Metric for measuring throughput. */
-public interface Meter extends Metric{
+public interface Meter extends Metric {
     /** Mark occurrence of an event. */
     void markEvent();
 

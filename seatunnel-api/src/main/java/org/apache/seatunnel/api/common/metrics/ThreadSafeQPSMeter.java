@@ -25,7 +25,7 @@ public class ThreadSafeQPSMeter implements Meter, Serializable {
     private static final long serialVersionUID = 1L;
 
     private static final AtomicLongFieldUpdater<ThreadSafeQPSMeter> VOLATILE_VALUE_UPDATER =
-        AtomicLongFieldUpdater.newUpdater(ThreadSafeQPSMeter.class, "value");
+            AtomicLongFieldUpdater.newUpdater(ThreadSafeQPSMeter.class, "value");
 
     private final String name;
 
@@ -72,10 +72,14 @@ public class ThreadSafeQPSMeter implements Meter, Serializable {
 
     @Override
     public String toString() {
-        return "ThreadSafeQPSMeter{" +
-            "name='" + name + '\'' +
-            ", value=" + value +
-            ", timestamp=" + timestamp +
-            '}';
+        return "ThreadSafeQPSMeter{"
+                + "name='"
+                + name
+                + '\''
+                + ", value="
+                + value
+                + ", timestamp="
+                + timestamp
+                + '}';
     }
 }

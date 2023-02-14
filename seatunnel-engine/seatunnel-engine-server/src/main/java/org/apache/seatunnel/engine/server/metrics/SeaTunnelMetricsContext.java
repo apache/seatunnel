@@ -31,23 +31,34 @@ import com.hazelcast.internal.metrics.ProbeUnit;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class SeaTunnelMetricsContext extends AbstractMetricsContext implements DynamicMetricsProvider {
+public class SeaTunnelMetricsContext extends AbstractMetricsContext
+        implements DynamicMetricsProvider {
 
     @Override
     public void provideDynamicMetrics(MetricDescriptor tagger, MetricsCollectionContext context) {
-        metrics.forEach((name, metric) -> {
-            if (metric instanceof Counter) {
-                context.collect(tagger.copy(), name, ProbeLevel.INFO, toProbeUnit(metric.unit()),
-                    ((Counter) metric).getCount());
-            } else if (metric instanceof Meter) {
-                context.collect(tagger.copy(), name, ProbeLevel.INFO, toProbeUnit(metric.unit()),
-                    ((Meter) metric).getRate());
-            } else {
-                throw new SeaTunnelException(
-                    "The value of Metric does not support " + metric.getClass().getSimpleName() +
-                        " data type");
-            }
-        });
+        metrics.forEach(
+                (name, metric) -> {
+                    if (metric instanceof Counter) {
+                        context.collect(
+                                tagger.copy(),
+                                name,
+                                ProbeLevel.INFO,
+                                toProbeUnit(metric.unit()),
+                                ((Counter) metric).getCount());
+                    } else if (metric instanceof Meter) {
+                        context.collect(
+                                tagger.copy(),
+                                name,
+                                ProbeLevel.INFO,
+                                toProbeUnit(metric.unit()),
+                                ((Meter) metric).getRate());
+                    } else {
+                        throw new SeaTunnelException(
+                                "The value of Metric does not support "
+                                        + metric.getClass().getSimpleName()
+                                        + " data type");
+                    }
+                });
     }
 
     private ProbeUnit toProbeUnit(Unit unit) {

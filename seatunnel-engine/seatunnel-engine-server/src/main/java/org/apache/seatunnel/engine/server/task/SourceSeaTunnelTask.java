@@ -41,6 +41,7 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
     private transient SeaTunnelSourceCollector<T> collector;
 
     private transient Object checkpointLock;
+
     public SourceSeaTunnelTask(long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
         super(jobID, taskID, indexID, executionFlow);
     }
@@ -51,18 +52,31 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
         this.checkpointLock = new Object();
         LOGGER.info("starting seatunnel source task, index " + indexID);
         if (!(startFlowLifeCycle instanceof SourceFlowLifeCycle)) {
-            throw new TaskRuntimeException("SourceSeaTunnelTask only support SourceFlowLifeCycle, but get " + startFlowLifeCycle.getClass().getName());
+            throw new TaskRuntimeException(
+                    "SourceSeaTunnelTask only support SourceFlowLifeCycle, but get "
+                            + startFlowLifeCycle.getClass().getName());
         } else {
-            this.collector = new SeaTunnelSourceCollector<>(checkpointLock, outputs, this.getMetricsContext());
+            this.collector =
+                    new SeaTunnelSourceCollector<>(
+                            checkpointLock, outputs, this.getMetricsContext());
             ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).setCollector(collector);
         }
     }
 
     @Override
-    protected SourceFlowLifeCycle<?, ?> createSourceFlowLifeCycle(SourceAction<?, ?, ?> sourceAction,
-                                                                  SourceConfig config, CompletableFuture<Void> completableFuture,
-                                                                  MetricsContext metricsContext) {
-        return new SourceFlowLifeCycle<>(sourceAction, indexID, config.getEnumeratorTask(), this, taskLocation, completableFuture, metricsContext);
+    protected SourceFlowLifeCycle<?, ?> createSourceFlowLifeCycle(
+            SourceAction<?, ?, ?> sourceAction,
+            SourceConfig config,
+            CompletableFuture<Void> completableFuture,
+            MetricsContext metricsContext) {
+        return new SourceFlowLifeCycle<>(
+                sourceAction,
+                indexID,
+                config.getEnumeratorTask(),
+                this,
+                taskLocation,
+                completableFuture,
+                metricsContext);
     }
 
     @Override
@@ -70,8 +84,7 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
         ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).collect();
     }
 
-    @NonNull
-    @Override
+    @NonNull @Override
     public ProgressState call() throws Exception {
         stateProcess();
         return progress.toState();
@@ -83,7 +96,8 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
 
     @Override
     public void triggerBarrier(Barrier barrier) throws Exception {
-        SourceFlowLifeCycle<T, SplitT> sourceFlow = (SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle;
+        SourceFlowLifeCycle<T, SplitT> sourceFlow =
+                (SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle;
         sourceFlow.triggerBarrier(barrier);
     }
 }

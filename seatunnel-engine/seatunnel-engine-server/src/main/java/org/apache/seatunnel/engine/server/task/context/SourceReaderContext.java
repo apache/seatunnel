@@ -33,9 +33,11 @@ public class SourceReaderContext implements SourceReader.Context {
 
     private final MetricsContext metricsContext;
 
-    public SourceReaderContext(int index, Boundedness boundedness,
-                               SourceFlowLifeCycle<?, ?> sourceActionLifeCycle,
-                               MetricsContext metricsContext) {
+    public SourceReaderContext(
+            int index,
+            Boundedness boundedness,
+            SourceFlowLifeCycle<?, ?> sourceActionLifeCycle,
+            MetricsContext metricsContext) {
         this.index = index;
         this.boundedness = boundedness;
         this.sourceActionLifeCycle = sourceActionLifeCycle;

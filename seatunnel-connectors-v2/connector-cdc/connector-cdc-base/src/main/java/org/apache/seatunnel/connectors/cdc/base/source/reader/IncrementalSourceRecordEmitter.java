@@ -17,13 +17,6 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.reader;
 
-import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isHighWatermarkEvent;
-import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isWatermarkEvent;
-import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.getFetchTimestamp;
-import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.getMessageTimestamp;
-import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.isDataChangeRecord;
-import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.isSchemaChangeEvent;
-
 import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.source.Collector;
@@ -34,12 +27,20 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.state.SourceSplitSt
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordEmitter;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.connect.source.SourceRecord;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+
+import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isHighWatermarkEvent;
+import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isWatermarkEvent;
+import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.getFetchTimestamp;
+import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.getMessageTimestamp;
+import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.isDataChangeRecord;
+import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.isSchemaChangeEvent;
 
 /**
  * The {@link RecordEmitter} implementation for {@link IncrementalSourceReader}.
@@ -102,15 +103,15 @@ public class IncrementalSourceRecordEmitter<T>
     }
 
     protected void processElement(
-        SourceRecord element, Collector<T> output, SourceSplitStateBase splitState)
-        throws Exception {
+            SourceRecord element, Collector<T> output, SourceSplitStateBase splitState)
+            throws Exception {
         if (isWatermarkEvent(element)) {
             Offset watermark = getWatermark(element);
             if (isHighWatermarkEvent(element) && splitState.isSnapshotSplitState()) {
                 splitState.asSnapshotSplitState().setHighWatermark(watermark);
             }
         } else if (isSchemaChangeEvent(element) && splitState.isIncrementalSplitState()) {
-            //TODO Currently not supported Schema Change
+            // TODO Currently not supported Schema Change
         } else if (isDataChangeRecord(element)) {
             if (splitState.isIncrementalSplitState()) {
                 Offset position = getOffsetPosition(element);

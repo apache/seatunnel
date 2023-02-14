@@ -26,7 +26,8 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import java.util.List;
 import java.util.Set;
 
-public class CoordinatedEnumeratorContext<SplitT extends SourceSplit> implements SourceSplitEnumerator.Context<SplitT> {
+public class CoordinatedEnumeratorContext<SplitT extends SourceSplit>
+        implements SourceSplitEnumerator.Context<SplitT> {
 
     protected final CoordinatedSource<?, SplitT, ?> coordinatedSource;
 
@@ -61,10 +62,8 @@ public class CoordinatedEnumeratorContext<SplitT extends SourceSplit> implements
 
     @Override
     public MetricsContext getMetricsContext() {
-        //TODO Waiting for Flink and Spark to implement MetricsContext
+        // TODO Waiting for Flink and Spark to implement MetricsContext
         // https://github.com/apache/incubator-seatunnel/issues/3431
-        return new AbstractMetricsContext() {
-        };
+        return new AbstractMetricsContext() {};
     }
-
 }

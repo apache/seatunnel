@@ -52,12 +52,11 @@ public class TaskExecutionContext {
 
     public SeaTunnelMetricsContext getOrCreateMetricsContext(TaskLocation taskLocation) {
         IMap<TaskLocation, SeaTunnelMetricsContext> map =
-            nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
         return map.computeIfAbsent(taskLocation, k -> new SeaTunnelMetricsContext());
     }
 
     public <T> T getTask() {
         return (T) task;
     }
-
 }

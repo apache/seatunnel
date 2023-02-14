@@ -66,8 +66,10 @@ public abstract class AbstractMetricsContext implements MetricsContext, Serializ
                 Metric prior = this.metrics.put(name, metric);
                 if (prior != null) {
                     this.metrics.put(name, prior);
-                    log.warn("Name collision: MetricsContext already contains a Metric with the name '" + name +
-                        "'. Metric will not be reported.");
+                    log.warn(
+                            "Name collision: MetricsContext already contains a Metric with the name '"
+                                    + name
+                                    + "'. Metric will not be reported.");
                 }
             }
         }
@@ -75,8 +77,6 @@ public abstract class AbstractMetricsContext implements MetricsContext, Serializ
 
     @Override
     public String toString() {
-        return "AbstractMetricsContext{" +
-            "metrics=" + metrics +
-            '}';
+        return "AbstractMetricsContext{" + "metrics=" + metrics + '}';
     }
 }

@@ -46,10 +46,14 @@ public abstract class CoordinatorTask extends AbstractTask {
     }
 
     @Override
-    public void provideDynamicMetrics(MetricDescriptor descriptor, MetricsCollectionContext context) {
+    public void provideDynamicMetrics(
+            MetricDescriptor descriptor, MetricsCollectionContext context) {
         if (null != metricsContext) {
             metricsContext.provideDynamicMetrics(
-                descriptor.copy().withTag(MetricTags.TASK_NAME, this.getClass().getSimpleName()), context);
+                    descriptor
+                            .copy()
+                            .withTag(MetricTags.TASK_NAME, this.getClass().getSimpleName()),
+                    context);
         }
     }
 }

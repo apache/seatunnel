@@ -20,7 +20,7 @@ package org.apache.seatunnel.api.common.metrics;
 public interface MetricsContext {
 
     /**
-     * registers a  {@link ThreadSafeCounter} with SeaTunnel.
+     * registers a {@link ThreadSafeCounter} with SeaTunnel.
      *
      * @param name name of the counter
      * @return the created counter
@@ -38,7 +38,7 @@ public interface MetricsContext {
     <C extends Counter> C counter(String name, C counter);
 
     /**
-     * Registers a  {@link ThreadSafeQPSMeter} with SeaTunnel.
+     * Registers a {@link ThreadSafeQPSMeter} with SeaTunnel.
      *
      * @param name name of the meter
      * @return the registered meter

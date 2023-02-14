@@ -18,7 +18,7 @@
 package org.apache.seatunnel.api.common.metrics;
 
 /** A Counter is a {@link Metric} that measures a count. */
-public interface Counter extends Metric{
+public interface Counter extends Metric {
 
     /** Increment the current count by 1. */
     void inc();
@@ -40,9 +40,7 @@ public interface Counter extends Metric{
      */
     void dec(long n);
 
-    /**
-     * Sets the current value.
-     */
+    /** Sets the current value. */
     void set(long n);
 
     /**

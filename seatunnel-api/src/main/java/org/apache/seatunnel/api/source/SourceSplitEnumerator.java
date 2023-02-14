@@ -118,9 +118,7 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT>
          */
         void sendEventToSourceReader(int subtaskId, SourceEvent event);
 
-        /**
-         * @return metricsContext of this reader.
-         */
+        /** @return metricsContext of this reader. */
         MetricsContext getMetricsContext();
     }
 }

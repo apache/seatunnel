@@ -65,9 +65,8 @@ public class CoordinatedReaderContext implements SourceReader.Context {
 
     @Override
     public MetricsContext getMetricsContext() {
-        //TODO Waiting for Flink and Spark to implement MetricsContext
+        // TODO Waiting for Flink and Spark to implement MetricsContext
         // https://github.com/apache/incubator-seatunnel/issues/3431
-        return new AbstractMetricsContext() {
-        };
+        return new AbstractMetricsContext() {};
     }
 }

@@ -26,7 +26,7 @@ public class ThreadSafeCounter implements Counter, Serializable {
 
     private final String name;
     private static final AtomicLongFieldUpdater<ThreadSafeCounter> VOLATILE_VALUE_UPDATER =
-        AtomicLongFieldUpdater.newUpdater(ThreadSafeCounter.class, "value");
+            AtomicLongFieldUpdater.newUpdater(ThreadSafeCounter.class, "value");
 
     private volatile long value;
 
@@ -76,9 +76,6 @@ public class ThreadSafeCounter implements Counter, Serializable {
 
     @Override
     public String toString() {
-        return "ThreadSafeCounter{" +
-            "name='" + name + '\'' +
-            ", value=" + value +
-            '}';
+        return "ThreadSafeCounter{" + "name='" + name + '\'' + ", value=" + value + '}';
     }
 }
