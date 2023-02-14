@@ -46,20 +46,25 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
 
     @Override
     public void startUp() throws Exception {
-        master = new GenericContainer<>(getDockerImage())
-            .withNetwork(NETWORK)
-            .withNetworkAliases("spark-master")
-            .withExposedPorts()
-            .withEnv("SPARK_MODE", "master")
-            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(getDockerImage())))
-            .withCreateContainerCmdModifier(cmd -> cmd.withUser("root"))
-            .waitingFor(new LogMessageWaitStrategy()
-                .withRegEx(".*Master: Starting Spark master at.*")
-                .withStartupTimeout(Duration.ofMinutes(2)));
+        master =
+                new GenericContainer<>(getDockerImage())
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases("spark-master")
+                        .withExposedPorts()
+                        .withEnv("SPARK_MODE", "master")
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(
+                                        DockerLoggerFactory.getLogger(getDockerImage())))
+                        .withCreateContainerCmdModifier(cmd -> cmd.withUser("root"))
+                        .waitingFor(
+                                new LogMessageWaitStrategy()
+                                        .withRegEx(".*Master: Starting Spark master at.*")
+                                        .withStartupTimeout(Duration.ofMinutes(2)));
         copySeaTunnelStarterToContainer(master);
         copySeaTunnelStarterLoggingToContainer(master);
 
-        // In most case we can just use standalone mode to execute a spark job, if we want to use cluster mode, we need to
+        // In most case we can just use standalone mode to execute a spark job, if we want to use
+        // cluster mode, we need to
         // start a worker.
         Startables.deepStart(Stream.of(master)).join();
         // execute extra commands
@@ -75,15 +80,16 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
 
     @Override
     protected List<String> getExtraStartShellCommands() {
-        return Arrays.asList("--master local",
-            "--deploy-mode client");
+        return Arrays.asList("--master local", "--deploy-mode client");
     }
 
-    public void executeExtraCommands(ContainerExtendedFactory extendedFactory) throws IOException, InterruptedException {
+    public void executeExtraCommands(ContainerExtendedFactory extendedFactory)
+            throws IOException, InterruptedException {
         extendedFactory.extend(master);
     }
 
-    public Container.ExecResult executeJob(String confFile) throws IOException, InterruptedException {
+    public Container.ExecResult executeJob(String confFile)
+            throws IOException, InterruptedException {
         return executeJob(master, confFile);
     }
 }

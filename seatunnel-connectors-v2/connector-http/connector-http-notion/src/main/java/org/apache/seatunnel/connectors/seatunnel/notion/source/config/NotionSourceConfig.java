@@ -26,12 +26,15 @@ public class NotionSourceConfig extends HttpConfig {
     public static final String BEARER = "Bearer";
     public static final String NOTION_VERSION = "Notion-Version";
 
-    public static final Option<String> PASSWORD = Options.key("password")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("Notion login api key");
-    public static final Option<String> VERSION = Options.key("version")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("The Notion API is versioned. API versions are named for the date the version is released");
+    public static final Option<String> PASSWORD =
+            Options.key("password")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Notion login api key");
+    public static final Option<String> VERSION =
+            Options.key("version")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The Notion API is versioned. API versions are named for the date the version is released");
 }

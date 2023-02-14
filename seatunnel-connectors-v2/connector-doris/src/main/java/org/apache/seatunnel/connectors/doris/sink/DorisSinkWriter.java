@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.doris.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -29,8 +31,6 @@ import org.apache.seatunnel.connectors.doris.util.DelimiterParserUtil;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -48,10 +48,10 @@ public class DorisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private final SerializationSchema serializationSchema;
     private final DorisSinkManager manager;
 
-    public DorisSinkWriter(Config pluginConfig,
-                           SeaTunnelRowType seaTunnelRowType) {
+    public DorisSinkWriter(Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
         SinkConfig sinkConfig = SinkConfig.loadConfig(pluginConfig);
-        List<String> fieldNames = Arrays.stream(seaTunnelRowType.getFieldNames()).collect(Collectors.toList());
+        List<String> fieldNames =
+                Arrays.stream(seaTunnelRowType.getFieldNames()).collect(Collectors.toList());
         this.serializationSchema = createSerializer(sinkConfig, seaTunnelRowType);
         this.manager = new DorisSinkManager(sinkConfig, fieldNames);
     }
@@ -77,14 +77,16 @@ public class DorisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                 manager.close();
             }
         } catch (IOException e) {
-            throw new DorisConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED,
-                    "Close doris manager failed.", e);
+            throw new DorisConnectorException(
+                    CommonErrorCode.WRITER_OPERATION_FAILED, "Close doris manager failed.", e);
         }
     }
 
-    public static SerializationSchema createSerializer(SinkConfig sinkConfig, SeaTunnelRowType seaTunnelRowType) {
+    public static SerializationSchema createSerializer(
+            SinkConfig sinkConfig, SeaTunnelRowType seaTunnelRowType) {
         if (SinkConfig.StreamLoadFormat.CSV.equals(sinkConfig.getLoadFormat())) {
-            String columnSeparator = DelimiterParserUtil.parse(sinkConfig.getColumnSeparator(), "\t");
+            String columnSeparator =
+                    DelimiterParserUtil.parse(sinkConfig.getColumnSeparator(), "\t");
             return TextSerializationSchema.builder()
                     .seaTunnelRowType(seaTunnelRowType)
                     .delimiter(columnSeparator)
@@ -93,7 +95,8 @@ public class DorisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         if (SinkConfig.StreamLoadFormat.JSON.equals(sinkConfig.getLoadFormat())) {
             return new JsonSerializationSchema(seaTunnelRowType);
         }
-        throw new DorisConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
+        throw new DorisConnectorException(
+                CommonErrorCode.ILLEGAL_ARGUMENT,
                 "Failed to create row serializer, unsupported `format` from stream load properties.");
     }
 }

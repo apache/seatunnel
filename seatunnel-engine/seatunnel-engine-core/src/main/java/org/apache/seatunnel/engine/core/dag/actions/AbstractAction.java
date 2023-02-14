@@ -34,7 +34,11 @@ public abstract class AbstractAction implements Action {
 
     private final Set<URL> jarUrls;
 
-    protected AbstractAction(long id, @NonNull String name, @NonNull List<Action> upstreams, @NonNull Set<URL> jarUrls) {
+    protected AbstractAction(
+            long id,
+            @NonNull String name,
+            @NonNull List<Action> upstreams,
+            @NonNull Set<URL> jarUrls) {
         this.id = id;
         this.name = name;
         this.upstreams = upstreams;
@@ -47,8 +51,7 @@ public abstract class AbstractAction implements Action {
         this.jarUrls = jarUrls;
     }
 
-    @NonNull
-    @Override
+    @NonNull @Override
     public String getName() {
         return name;
     }
@@ -58,8 +61,7 @@ public abstract class AbstractAction implements Action {
         this.name = name;
     }
 
-    @NonNull
-    @Override
+    @NonNull @Override
     public List<Action> getUpstream() {
         return upstreams;
     }

@@ -30,19 +30,21 @@ public class TransformChainAction<T> extends AbstractAction {
     private static final long serialVersionUID = -340174711145367535L;
     private final List<SeaTunnelTransform<T>> transforms;
 
-    public TransformChainAction(long id,
-                                @NonNull String name,
-                                @NonNull List<Action> upstreams,
-                                @NonNull Set<URL> jarUrls,
-                                @NonNull List<SeaTunnelTransform<T>> transforms) {
+    public TransformChainAction(
+            long id,
+            @NonNull String name,
+            @NonNull List<Action> upstreams,
+            @NonNull Set<URL> jarUrls,
+            @NonNull List<SeaTunnelTransform<T>> transforms) {
         super(id, name, upstreams, jarUrls);
         this.transforms = transforms;
     }
 
-    public TransformChainAction(long id,
-                                @NonNull String name,
-                                @NonNull Set<URL> jarUrls,
-                                @NonNull List<SeaTunnelTransform<T>> transforms) {
+    public TransformChainAction(
+            long id,
+            @NonNull String name,
+            @NonNull Set<URL> jarUrls,
+            @NonNull List<SeaTunnelTransform<T>> transforms) {
         super(id, name, jarUrls);
         this.transforms = transforms;
     }

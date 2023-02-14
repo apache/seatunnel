@@ -19,9 +19,7 @@ package org.apache.seatunnel.plugin.discovery;
 
 import org.apache.commons.lang3.StringUtils;
 
-/**
- * Used to identify a plugin.
- */
+/** Used to identify a plugin. */
 public class PluginIdentifier {
     private final String engineType;
     private final String pluginType;
@@ -79,10 +77,16 @@ public class PluginIdentifier {
 
     @Override
     public String toString() {
-        return "PluginIdentifier{" +
-            "engineType='" + engineType + '\'' +
-            ", pluginType='" + pluginType + '\'' +
-            ", pluginName='" + pluginName + '\'' +
-            '}';
+        return "PluginIdentifier{"
+                + "engineType='"
+                + engineType
+                + '\''
+                + ", pluginType='"
+                + pluginType
+                + '\''
+                + ", pluginName='"
+                + pluginName
+                + '\''
+                + '}';
     }
 }

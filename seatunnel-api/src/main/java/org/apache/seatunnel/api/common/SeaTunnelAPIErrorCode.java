@@ -25,7 +25,8 @@ public enum SeaTunnelAPIErrorCode implements SeaTunnelErrorCode {
     CATALOG_INITIALIZE_FAILED("API-03", "Catalog initialize failed"),
     DATABASE_NOT_EXISTED("API-04", "Database not existed"),
     TABLE_NOT_EXISTED("API-05", "Table not existed"),
-    FACTORY_INITIALIZE_FAILED("API-06", "Factory initialize failed"),;
+    FACTORY_INITIALIZE_FAILED("API-06", "Factory initialize failed"),
+    ;
 
     private final String code;
     private final String description;

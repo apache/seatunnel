@@ -21,14 +21,15 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
-import lombok.NonNull;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+
+import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -51,7 +52,8 @@ public class FileSystemUtils implements Serializable {
     public Configuration getConfiguration(HadoopConf hadoopConf) {
         Configuration configuration = new Configuration();
         configuration.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, hadoopConf.getHdfsNameKey());
-        configuration.set(String.format("fs.%s.impl", hadoopConf.getSchema()), hadoopConf.getFsHdfsImpl());
+        configuration.set(
+                String.format("fs.%s.impl", hadoopConf.getSchema()), hadoopConf.getFsHdfsImpl());
         hadoopConf.setExtraOptionsForConfiguration(configuration);
         return configuration;
     }
@@ -60,7 +62,8 @@ public class FileSystemUtils implements Serializable {
         if (configuration == null) {
             configuration = getConfiguration(hadoopConf);
         }
-        FileSystem fileSystem = FileSystem.get(URI.create(path.replaceAll("\\\\", "/")), configuration);
+        FileSystem fileSystem =
+                FileSystem.get(URI.create(path.replaceAll("\\\\", "/")), configuration);
         fileSystem.setWriteChecksum(false);
         return fileSystem;
     }
@@ -75,8 +78,8 @@ public class FileSystemUtils implements Serializable {
         FileSystem fileSystem = getFileSystem(filePath);
         Path path = new Path(filePath);
         if (!fileSystem.createNewFile(path)) {
-            throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED,
-                    "create file " + filePath + " error");
+            throw new FileConnectorException(
+                    CommonErrorCode.FILE_OPERATION_FAILED, "create file " + filePath + " error");
         }
     }
 
@@ -85,8 +88,8 @@ public class FileSystemUtils implements Serializable {
         Path path = new Path(file);
         if (fileSystem.exists(path)) {
             if (!fileSystem.delete(path, true)) {
-                throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED,
-                        "delete file " + file + " error");
+                throw new FileConnectorException(
+                        CommonErrorCode.FILE_OPERATION_FAILED, "delete file " + file + " error");
             }
         }
     }
@@ -94,13 +97,13 @@ public class FileSystemUtils implements Serializable {
     /**
      * rename file
      *
-     * @param oldName     old file name
-     * @param newName     target file name
+     * @param oldName old file name
+     * @param newName target file name
      * @param rmWhenExist if this is true, we will delete the target file when it already exists
      * @throws IOException throw IOException
      */
     public void renameFile(@NonNull String oldName, @NonNull String newName, boolean rmWhenExist)
-        throws IOException {
+            throws IOException {
         FileSystem fileSystem = getFileSystem(newName);
         log.info("begin rename file oldName :[" + oldName + "] to newName :[" + newName + "]");
 
@@ -108,7 +111,12 @@ public class FileSystemUtils implements Serializable {
         Path newPath = new Path(newName);
 
         if (!fileExist(oldPath.toString())) {
-            log.warn("rename file :[" + oldPath + "] to [" + newPath + "] already finished in the last commit, skip");
+            log.warn(
+                    "rename file :["
+                            + oldPath
+                            + "] to ["
+                            + newPath
+                            + "] already finished in the last commit, skip");
             return;
         }
 
@@ -125,7 +133,8 @@ public class FileSystemUtils implements Serializable {
         if (fileSystem.rename(oldPath, newPath)) {
             log.info("rename file :[" + oldPath + "] to [" + newPath + "] finish");
         } else {
-            throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED,
+            throw new FileConnectorException(
+                    CommonErrorCode.FILE_OPERATION_FAILED,
                     "rename file :[" + oldPath + "] to [" + newPath + "] error");
         }
     }
@@ -134,8 +143,8 @@ public class FileSystemUtils implements Serializable {
         FileSystem fileSystem = getFileSystem(filePath);
         Path dfs = new Path(filePath);
         if (!fileSystem.mkdirs(dfs)) {
-            throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED,
-                    "create dir " + filePath + " error");
+            throw new FileConnectorException(
+                    CommonErrorCode.FILE_OPERATION_FAILED, "create dir " + filePath + " error");
         }
     }
 
@@ -145,9 +154,7 @@ public class FileSystemUtils implements Serializable {
         return fileSystem.exists(fileName);
     }
 
-    /**
-     * get the dir in filePath
-     */
+    /** get the dir in filePath */
     public List<Path> dirList(@NonNull String filePath) throws IOException {
         FileSystem fileSystem = getFileSystem(filePath);
         List<Path> pathList = new ArrayList<>();

@@ -17,16 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.influxdb.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig.SQL_WHERE;
-
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.state.InfluxDBSourceState;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -37,19 +36,26 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig.SQL_WHERE;
+
 @Slf4j
-public class InfluxDBSourceSplitEnumerator implements SourceSplitEnumerator<InfluxDBSourceSplit, InfluxDBSourceState> {
+public class InfluxDBSourceSplitEnumerator
+        implements SourceSplitEnumerator<InfluxDBSourceSplit, InfluxDBSourceState> {
     final SourceConfig config;
     private final Context<InfluxDBSourceSplit> context;
     private final Map<Integer, List<InfluxDBSourceSplit>> pendingSplit;
     private final Object stateLock = new Object();
     private volatile boolean shouldEnumerate;
 
-    public InfluxDBSourceSplitEnumerator(SourceSplitEnumerator.Context<InfluxDBSourceSplit> context, SourceConfig config) {
+    public InfluxDBSourceSplitEnumerator(
+            SourceSplitEnumerator.Context<InfluxDBSourceSplit> context, SourceConfig config) {
         this(context, null, config);
     }
 
-    public InfluxDBSourceSplitEnumerator(SourceSplitEnumerator.Context<InfluxDBSourceSplit> context, InfluxDBSourceState sourceState, SourceConfig config) {
+    public InfluxDBSourceSplitEnumerator(
+            SourceSplitEnumerator.Context<InfluxDBSourceSplit> context,
+            InfluxDBSourceState sourceState,
+            SourceConfig config) {
         this.context = context;
         this.config = config;
         this.pendingSplit = new HashMap<>();
@@ -74,15 +80,14 @@ public class InfluxDBSourceSplitEnumerator implements SourceSplitEnumerator<Infl
             assignSplit(readers);
         }
 
-        log.debug("No more splits to assign." +
-                " Sending NoMoreSplitsEvent to reader {}.", readers);
+        log.debug(
+                "No more splits to assign." + " Sending NoMoreSplitsEvent to reader {}.", readers);
         readers.forEach(context::signalNoMoreSplits);
     }
 
     @Override
     public void addSplitsBack(List splits, int subtaskId) {
-        log.debug("Add back splits {} to InfluxDBSourceSplitEnumerator.",
-                splits);
+        log.debug("Add back splits {} to InfluxDBSourceSplitEnumerator.", splits);
         if (!splits.isEmpty()) {
             addPendingSplit(splits);
             assignSplit(Collections.singletonList(subtaskId));
@@ -96,8 +101,7 @@ public class InfluxDBSourceSplitEnumerator implements SourceSplitEnumerator<Infl
 
     @Override
     public void registerReader(int subtaskId) {
-        log.debug("Register reader {} to InfluxDBSourceSplitEnumerator.",
-                subtaskId);
+        log.debug("Register reader {} to InfluxDBSourceSplitEnumerator.", subtaskId);
         if (!pendingSplit.isEmpty()) {
             assignSplit(Collections.singletonList(subtaskId));
         }
@@ -118,29 +122,42 @@ public class InfluxDBSourceSplitEnumerator implements SourceSplitEnumerator<Infl
             influxDBSourceSplits.add(new InfluxDBSourceSplit(SourceConfig.DEFAULT_PARTITIONS, sql));
             return influxDBSourceSplits;
         }
-        //calculate numRange base on (lowerBound upperBound partitionNum)
-        List<Pair<Long, Long>> rangePairs = genSplitNumRange(config.getLowerBound(), config.getUpperBound(), config.getPartitionNum());
+        // calculate numRange base on (lowerBound upperBound partitionNum)
+        List<Pair<Long, Long>> rangePairs =
+                genSplitNumRange(
+                        config.getLowerBound(), config.getUpperBound(), config.getPartitionNum());
 
         String[] sqls = sql.split(SQL_WHERE.key());
         if (sqls.length > 2) {
-            throw new InfluxdbConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
-                "sql should not contain more than one where");
+            throw new InfluxdbConnectorException(
+                    CommonErrorCode.ILLEGAL_ARGUMENT, "sql should not contain more than one where");
         }
 
         int i = 0;
         while (i < rangePairs.size()) {
-            String query = " where (" + config.getSplitKey() + " >= " + rangePairs.get(i).getLeft() + " and " + config.getSplitKey()  + " < " + rangePairs.get(i).getRight() + ") ";
+            String query =
+                    " where ("
+                            + config.getSplitKey()
+                            + " >= "
+                            + rangePairs.get(i).getLeft()
+                            + " and "
+                            + config.getSplitKey()
+                            + " < "
+                            + rangePairs.get(i).getRight()
+                            + ") ";
             i++;
             query = sqls[0] + query;
             if (sqls.length > 1) {
                 query = query + " and ( " + sqls[1] + " ) ";
             }
-            influxDBSourceSplits.add(new InfluxDBSourceSplit(String.valueOf(i + System.nanoTime()), query));
+            influxDBSourceSplits.add(
+                    new InfluxDBSourceSplit(String.valueOf(i + System.nanoTime()), query));
         }
         return influxDBSourceSplits;
     }
 
-    public static List<Pair<Long, Long>> genSplitNumRange(long lowerBound, long upperBound, int splitNum) {
+    public static List<Pair<Long, Long>> genSplitNumRange(
+            long lowerBound, long upperBound, int splitNum) {
         List<Pair<Long, Long>> rangeList = new ArrayList<>();
         int numPartitions = splitNum;
         int size = (int) (upperBound - lowerBound) / numPartitions + 1;
@@ -166,8 +183,7 @@ public class InfluxDBSourceSplitEnumerator implements SourceSplitEnumerator<Infl
         for (InfluxDBSourceSplit split : splits) {
             int ownerReader = getSplitOwner(split.splitId(), readerCount);
             log.info("Assigning {} to {} reader.", split, ownerReader);
-            pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>())
-                    .add(split);
+            pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(split);
         }
     }
 
@@ -177,13 +193,15 @@ public class InfluxDBSourceSplitEnumerator implements SourceSplitEnumerator<Infl
         for (int reader : readers) {
             List<InfluxDBSourceSplit> assignmentForReader = pendingSplit.remove(reader);
             if (assignmentForReader != null && !assignmentForReader.isEmpty()) {
-                log.info("Assign splits {} to reader {}",
-                        assignmentForReader, reader);
+                log.info("Assign splits {} to reader {}", assignmentForReader, reader);
                 try {
                     context.assignSplit(reader, assignmentForReader);
                 } catch (Exception e) {
-                    log.error("Failed to assign splits {} to reader {}",
-                            assignmentForReader, reader, e);
+                    log.error(
+                            "Failed to assign splits {} to reader {}",
+                            assignmentForReader,
+                            reader,
+                            e);
                     pendingSplit.put(reader, assignmentForReader);
                 }
             }
@@ -196,24 +214,24 @@ public class InfluxDBSourceSplitEnumerator implements SourceSplitEnumerator<Infl
 
     @Override
     public void open() {
-        //nothing to do
+        // nothing to do
     }
 
     @Override
     public void close() {
-        //nothing to do
+        // nothing to do
     }
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) {
-        //nothing to do
+        // nothing to do
 
     }
 
     @Override
     public void handleSplitRequest(int subtaskId) {
-        throw new InfluxdbConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
-            String.format("Unsupported handleSplitRequest: %d", subtaskId));
+        throw new InfluxdbConnectorException(
+                CommonErrorCode.UNSUPPORTED_OPERATION,
+                String.format("Unsupported handleSplitRequest: %d", subtaskId));
     }
-
 }

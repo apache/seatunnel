@@ -36,5 +36,4 @@ public class CompletedSnapshotSplitsAckEvent implements SourceEvent {
     private static final long serialVersionUID = 1L;
 
     private final List<String> completedSplits;
-
 }

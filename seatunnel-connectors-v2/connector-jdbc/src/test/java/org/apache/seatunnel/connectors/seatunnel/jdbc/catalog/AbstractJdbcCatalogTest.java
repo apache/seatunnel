@@ -26,23 +26,41 @@ import org.junit.jupiter.params.provider.ValueSource;
 public class AbstractJdbcCatalogTest {
 
     @ParameterizedTest
-    @ValueSource(strings = {"jdbc:mysql://localhost:5432/", "jdbc:mysql://localhost:5432", "jdbc:mysql://localhost:5432/", "jdbc:postgresql://localhost:5432"})
+    @ValueSource(
+            strings = {
+                "jdbc:mysql://localhost:5432/",
+                "jdbc:mysql://localhost:5432",
+                "jdbc:mysql://localhost:5432/",
+                "jdbc:postgresql://localhost:5432"
+            })
     public void testValidateJdbcBaseUrl(String baseUrl) {
-        Assertions.assertDoesNotThrow(() -> AbstractJdbcCatalog.validateJdbcUrlWithoutDatabase(baseUrl));
-        Assertions.assertThrowsExactly(IllegalArgumentException.class, () -> AbstractJdbcCatalog.validateJdbcUrlWithDatabase(baseUrl));
+        Assertions.assertDoesNotThrow(
+                () -> AbstractJdbcCatalog.validateJdbcUrlWithoutDatabase(baseUrl));
+        Assertions.assertThrowsExactly(
+                IllegalArgumentException.class,
+                () -> AbstractJdbcCatalog.validateJdbcUrlWithDatabase(baseUrl));
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"jdbc:mysql://localhost:5432/db", "jdbc:postgresql://localhost:5432/db"})
+    @ValueSource(
+            strings = {"jdbc:mysql://localhost:5432/db", "jdbc:postgresql://localhost:5432/db"})
     public void testValidateJdbcDefault(String defaultUrl) {
-        Assertions.assertDoesNotThrow(() -> AbstractJdbcCatalog.validateJdbcUrlWithDatabase(defaultUrl));
-        Assertions.assertThrowsExactly(IllegalArgumentException.class, () -> AbstractJdbcCatalog.validateJdbcUrlWithoutDatabase(defaultUrl));
+        Assertions.assertDoesNotThrow(
+                () -> AbstractJdbcCatalog.validateJdbcUrlWithDatabase(defaultUrl));
+        Assertions.assertThrowsExactly(
+                IllegalArgumentException.class,
+                () -> AbstractJdbcCatalog.validateJdbcUrlWithoutDatabase(defaultUrl));
     }
 
     @ParameterizedTest
-    @CsvSource({"jdbc:mysql://localhost:5432/db, jdbc:mysql://localhost:5432/, db",
-        "jdbc:postgresql://localhost:5432/db, jdbc:postgresql://localhost:5432/, db"})
-    public void testSplitDefaultUrl(String defaultUrl, String expectedUrl, String expectedDatabase) {
-        Assertions.assertArrayEquals(new String[] {expectedUrl, expectedDatabase}, AbstractJdbcCatalog.splitDefaultUrl(defaultUrl));
+    @CsvSource({
+        "jdbc:mysql://localhost:5432/db, jdbc:mysql://localhost:5432/, db",
+        "jdbc:postgresql://localhost:5432/db, jdbc:postgresql://localhost:5432/, db"
+    })
+    public void testSplitDefaultUrl(
+            String defaultUrl, String expectedUrl, String expectedDatabase) {
+        Assertions.assertArrayEquals(
+                new String[] {expectedUrl, expectedDatabase},
+                AbstractJdbcCatalog.splitDefaultUrl(defaultUrl));
     }
 }

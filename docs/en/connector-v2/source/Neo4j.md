@@ -19,7 +19,7 @@ Read data from Neo4j.
 
 ## Options
 
-| name                       | type   | required | default value |
+|            name            |  type  | required | default value |
 |----------------------------|--------|----------|---------------|
 | uri                        | String | Yes      | -             |
 | username                   | String | No       | -             |
@@ -104,3 +104,4 @@ source {
 ### next version
 
 - Add Neo4j Source Connector
+

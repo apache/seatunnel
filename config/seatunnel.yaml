@@ -18,6 +18,7 @@
 seatunnel:
   engine:
     backup-count: 1
+    queue-type: blockingqueue
     print-execution-info-interval: 60
     print-job-metrics-info-interval: 60
     slot-service:

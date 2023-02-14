@@ -17,7 +17,7 @@ Read data from MongoDB.
 
 ## Options
 
-| name           | type   | required | default value |
+|      name      |  type  | required | default value |
 |----------------|--------|----------|---------------|
 | uri            | string | yes      | -             |
 | database       | string | yes      | -             |
@@ -46,7 +46,7 @@ MatchQuery is a JSON string that specifies the selection criteria using query op
 
 #### fields [Config]
 
-Because `MongoDB` does not have the concept of `schema`, when engine reads `MongoDB` , it will sample `MongoDB` data and infer the `schema` . In fact, this process will be slow and may be inaccurate. This parameter can be manually specified. Avoid these problems. 
+Because `MongoDB` does not have the concept of `schema`, when engine reads `MongoDB` , it will sample `MongoDB` data and infer the `schema` . In fact, this process will be slow and may be inaccurate. This parameter can be manually specified. Avoid these problems.
 
 such as:
 
@@ -60,7 +60,7 @@ schema {
 }
 ```
 
-### common options 
+### common options
 
 Source Plugin common parameters, refer to [Source Plugin](common-options.md) for details
 
@@ -92,3 +92,4 @@ mongodb {
 ### Next Version
 
 - common-options is not a required option
+

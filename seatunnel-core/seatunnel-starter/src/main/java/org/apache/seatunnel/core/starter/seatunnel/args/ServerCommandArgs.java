@@ -22,22 +22,19 @@ import org.apache.seatunnel.core.starter.command.CommandArgs;
 import org.apache.seatunnel.core.starter.seatunnel.command.ServerExecuteCommand;
 
 import com.beust.jcommander.Parameter;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
+@EqualsAndHashCode(callSuper = true)
+@Data
 public class ServerCommandArgs extends CommandArgs {
-    @Parameter(names = {"-cn", "--cluster"},
-        description = "The name of cluster")
+    @Parameter(
+            names = {"-cn", "--cluster"},
+            description = "The name of cluster")
     private String clusterName = "seatunnel_default_cluster";
 
     @Override
     public Command<?> buildCommand() {
         return new ServerExecuteCommand(this);
-    }
-
-    public String getClusterName() {
-        return clusterName;
-    }
-
-    public void setClusterName(String clusterName) {
-        this.clusterName = clusterName;
     }
 }

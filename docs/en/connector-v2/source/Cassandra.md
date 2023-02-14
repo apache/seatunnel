@@ -17,15 +17,15 @@ Read data from Apache Cassandra.
 
 ## Options
 
-| name                    | type   | required | default value |
-|-------------------------|--------|----------|---------------|
-| host                    | String | Yes      | -             |
-| keyspace                | String | Yes      | -             |
-| cql                     | String | Yes      | -             |
-| username                | String | No       | -             |
-| password                | String | No       | -             |
-| datacenter              | String | No       | datacenter1   |
-| consistency_level       | String | No       | LOCAL_ONE     |
+|       name        |  type  | required | default value |
+|-------------------|--------|----------|---------------|
+| host              | String | Yes      | -             |
+| keyspace          | String | Yes      | -             |
+| cql               | String | Yes      | -             |
+| username          | String | No       | -             |
+| password          | String | No       | -             |
+| datacenter        | String | No       | datacenter1   |
+| consistency_level | String | No       | LOCAL_ONE     |
 
 ### host [string]
 
@@ -77,6 +77,4 @@ source {
 ### next version
 
 - Add Cassandra Source Connector
-
-
 

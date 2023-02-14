@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.common.utils;
 
-import lombok.NonNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import lombok.NonNull;
 
 import java.io.BufferedWriter;
 import java.io.File;

@@ -19,9 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.index;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
-/**
- * index is a variable
- */
+/** index is a variable */
 public interface IndexSerializer {
 
     String serialize(SeaTunnelRow row);

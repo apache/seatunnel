@@ -26,9 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
 
-/**
- * Use to validate the configuration of the SeaTunnel API.
- */
+/** Use to validate the configuration of the SeaTunnel API. */
 @Slf4j
 public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> {
 

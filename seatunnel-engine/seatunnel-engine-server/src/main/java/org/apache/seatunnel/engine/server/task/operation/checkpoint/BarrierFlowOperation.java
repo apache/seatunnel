@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.engine.server.task.operation.checkpoint;
 
-import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow;
-
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
@@ -33,6 +31,8 @@ import com.hazelcast.nio.ObjectDataOutput;
 import lombok.NoArgsConstructor;
 
 import java.io.IOException;
+
+import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow;
 
 @NoArgsConstructor
 public class BarrierFlowOperation extends TaskOperation {
@@ -69,18 +69,26 @@ public class BarrierFlowOperation extends TaskOperation {
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        RetryUtils.retryWithException(() -> {
-            Task task = server.getTaskExecutionService()
-                .getExecutionContext(taskLocation.getTaskGroupLocation()).getTaskGroup()
-                .getTask(taskLocation.getTaskID());
-            try {
-                task.triggerBarrier(barrier);
-            } catch (Exception e) {
-                sneakyThrow(e);
-            }
-            return null;
-        }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-            exception -> exception instanceof NullPointerException &&
-                !server.taskIsEnded(taskLocation.getTaskGroupLocation()), Constant.OPERATION_RETRY_SLEEP));
+        RetryUtils.retryWithException(
+                () -> {
+                    Task task =
+                            server.getTaskExecutionService()
+                                    .getExecutionContext(taskLocation.getTaskGroupLocation())
+                                    .getTaskGroup()
+                                    .getTask(taskLocation.getTaskID());
+                    try {
+                        task.triggerBarrier(barrier);
+                    } catch (Exception e) {
+                        sneakyThrow(e);
+                    }
+                    return null;
+                },
+                new RetryUtils.RetryMaterial(
+                        Constant.OPERATION_RETRY_TIME,
+                        true,
+                        exception ->
+                                exception instanceof NullPointerException
+                                        && !server.taskIsEnded(taskLocation.getTaskGroupLocation()),
+                        Constant.OPERATION_RETRY_SLEEP));
     }
 }

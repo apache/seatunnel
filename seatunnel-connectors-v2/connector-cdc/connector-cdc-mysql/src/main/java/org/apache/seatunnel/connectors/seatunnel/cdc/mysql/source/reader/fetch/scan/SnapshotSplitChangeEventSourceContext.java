@@ -21,7 +21,8 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogO
 
 import io.debezium.pipeline.source.spi.ChangeEventSource;
 
-public class SnapshotSplitChangeEventSourceContext implements ChangeEventSource.ChangeEventSourceContext{
+public class SnapshotSplitChangeEventSourceContext
+        implements ChangeEventSource.ChangeEventSourceContext {
     private BinlogOffset lowWatermark;
     private BinlogOffset highWatermark;
 

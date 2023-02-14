@@ -1,7 +1,8 @@
 # Connector Release Status
+
 SeaTunnel uses a grading system for connectors to help you understand what to expect from a connector:
 
-|                      | Alpha                                                                                                                                                                                                            | Beta                                                                                                                                                                                                                                       | General Availability (GA)                                                                                                                                                                                      |
+|                      |                                                                                                      Alpha                                                                                                       |                                                                                                                    Beta                                                                                                                    |                                                                                           General Availability (GA)                                                                                            |
 |----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Expectations         | An alpha connector signifies a connector under development and helps SeaTunnel gather early feedback and issues reported by early adopters. We strongly discourage using alpha releases for production use cases | A beta connector is considered stable and reliable with no backwards incompatible changes but has not been validated by a broader group of users. We expect to find and fix a few issues and bugs in the release before it’s ready for GA. | A generally available connector has been deemed ready for use in a production environment and is officially supported by SeaTunnel. Its documentation is considered sufficient to support widespread adoption. |
 |                      |                                                                                                                                                                                                                  |                                                                                                                                                                                                                                            |                                                                                                                                                                                                                |
@@ -9,7 +10,7 @@ SeaTunnel uses a grading system for connectors to help you understand what to ex
 
 ## Connector V2 Health
 
-| Connector Name                                              | Type   | Status | Support Version |
+|                       Connector Name                        |  Type  | Status | Support Version |
 |-------------------------------------------------------------|--------|--------|-----------------|
 | [AmazonDynamoDB](connector-v2/sink/AmazonDynamoDB.md)       | Sink   | Beta   | 2.3.0           |
 | [AmazonDynamoDB](connector-v2/source/AmazonDynamoDB.md)     | Source | Beta   | 2.3.0           |
@@ -82,3 +83,4 @@ SeaTunnel uses a grading system for connectors to help you understand what to ex
 | [Socket](connector-v2/source/Socket.md)                     | Source | Beta   | 2.2.0-beta      |
 | [StarRocks](connector-v2/sink/StarRocks.md)                 | Sink   | Alpha  | 2.3.0           |
 | [Tablestore](connector-v2/sink/Tablestore.md)               | Sink   | Alpha  | 2.3.0           |
+

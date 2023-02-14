@@ -30,9 +30,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * checkpoint plan info
- */
+/** checkpoint plan info */
 @Getter
 @Builder(builderClassName = "Builder")
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
@@ -42,26 +40,23 @@ public class CheckpointPlan {
 
     private final int pipelineId;
 
-    /**
-     * All task locations of the pipeline.
-     */
+    /** All task locations of the pipeline. */
     private final Set<TaskLocation> pipelineSubtasks;
 
-    /**
-     * All starting task of a pipeline.
-     */
+    /** All starting task of a pipeline. */
     private final Set<TaskLocation> startingSubtasks;
 
     /**
-     * All actions in this pipeline.
-     * <br> key: the action id;
-     * <br> value: the parallelism of the action;
+     * All actions in this pipeline. <br>
+     * key: the action id; <br>
+     * value: the parallelism of the action;
      */
     private final Map<Long, Integer> pipelineActions;
 
     /**
-     * <br> key: the subtask locations;
-     * <br> value: all actions in this subtask; f0: action id, f1: action index;
+     * <br>
+     * key: the subtask locations; <br>
+     * value: all actions in this subtask; f0: action id, f1: action index;
      */
     private final Map<TaskLocation, Set<Tuple2<Long, Integer>>> subtaskActions;
 
@@ -70,10 +65,10 @@ public class CheckpointPlan {
         private final Set<TaskLocation> startingSubtasks = new HashSet<>();
         private final Map<Long, Integer> pipelineActions = new HashMap<>();
 
-        private final Map<TaskLocation, Set<Tuple2<Long, Integer>>> subtaskActions = new HashMap<>();
+        private final Map<TaskLocation, Set<Tuple2<Long, Integer>>> subtaskActions =
+                new HashMap<>();
 
-        private Builder() {
-        }
+        private Builder() {}
 
         public Builder pipelineSubtasks(Set<TaskLocation> pipelineTaskIds) {
             this.pipelineSubtasks.addAll(pipelineTaskIds);
@@ -90,7 +85,8 @@ public class CheckpointPlan {
             return this;
         }
 
-        public Builder subtaskActions(Map<TaskLocation, Set<Tuple2<Long, Integer>>> subtaskActions) {
+        public Builder subtaskActions(
+                Map<TaskLocation, Set<Tuple2<Long, Integer>>> subtaskActions) {
             this.subtaskActions.putAll(subtaskActions);
             return this;
         }

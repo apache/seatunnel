@@ -24,9 +24,6 @@ import java.util.List;
  */
 public interface Starter {
 
-    /**
-     * Return the SeaTunnel job commandline start commands
-     */
+    /** Return the SeaTunnel job commandline start commands */
     List<String> buildCommands() throws Exception;
-
 }
