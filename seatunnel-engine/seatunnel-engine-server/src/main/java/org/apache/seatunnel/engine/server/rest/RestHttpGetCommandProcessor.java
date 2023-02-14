@@ -22,7 +22,6 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.engine.common.Constant;
-import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
@@ -33,12 +32,10 @@ import org.apache.seatunnel.engine.server.log.Log4j2HttpGetCommandProcessor;
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;
 import com.hazelcast.internal.ascii.rest.HttpGetCommand;
-import com.hazelcast.internal.ascii.rest.HttpGetCommandProcessor;
 import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.internal.json.JsonValue;
 import com.hazelcast.internal.util.JsonUtil;
-import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.map.IMap;
 
 import java.text.SimpleDateFormat;
@@ -48,23 +45,23 @@ import java.util.Map;
 
 public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCommand> {
 
-    private final HttpGetCommandProcessor original;
+    private final Log4j2HttpGetCommandProcessor original;
 
     private static final String SOURCE_RECEIVED_COUNT = "SourceReceivedCount";
 
     private static final String SINK_WRITE_COUNT = "SinkWriteCount";
 
     public RestHttpGetCommandProcessor(TextCommandService textCommandService) {
-        this(textCommandService, new HttpGetCommandProcessor(textCommandService));
+        this(textCommandService, new Log4j2HttpGetCommandProcessor(textCommandService));
     }
 
     public RestHttpGetCommandProcessor(
             TextCommandService textCommandService,
-            HttpGetCommandProcessor httpGetCommandProcessor) {
+            Log4j2HttpGetCommandProcessor log4j2HttpGetCommandProcessor) {
         super(
                 textCommandService,
-                textCommandService.getNode().getLogger(RestHttpGetCommandProcessor.class));
-        this.original = httpGetCommandProcessor;
+                textCommandService.getNode().getLogger(Log4j2HttpGetCommandProcessor.class));
+        this.original = log4j2HttpGetCommandProcessor;
     }
 
     @Override
@@ -100,7 +97,6 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                         .map(
                                 jobInfoEntry -> {
                                     JsonObject jobInfo = new JsonObject();
-
                                     JobImmutableInformation jobImmutableInformation =
                                             this.textCommandService
                                                     .getNode()
@@ -115,17 +111,12 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                                                                             jobInfoEntry
                                                                                     .getValue()
                                                                                     .getJobImmutableInformation()));
-                                    ClassLoader classLoader =
-                                            new SeaTunnelChildFirstClassLoader(
-                                                    jobImmutableInformation.getPluginJarsUrls());
                                     LogicalDag logicalDag =
-                                            CustomClassLoadedObject
-                                                    .deserializeWithCustomClassLoader(
-                                                            this.textCommandService
-                                                                    .getNode()
-                                                                    .getNodeEngine()
-                                                                    .getSerializationService(),
-                                                            classLoader,
+                                            this.textCommandService
+                                                    .getNode()
+                                                    .getNodeEngine()
+                                                    .getSerializationService()
+                                                    .toObject(
                                                             jobImmutableInformation
                                                                     .getLogicalDag());
 
@@ -192,9 +183,11 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         long sinkWriteCount = 0L;
         try {
             JsonNode jobMetricsStr = new ObjectMapper().readTree(jobMetrics);
+            JsonNode sourceReceivedCountJson = jobMetricsStr.get(SOURCE_RECEIVED_COUNT);
+            JsonNode sinkWriteCountJson = jobMetricsStr.get(SINK_WRITE_COUNT);
             for (int i = 0; i < jobMetricsStr.get(SOURCE_RECEIVED_COUNT).size(); i++) {
-                JsonNode sourceReader = jobMetricsStr.get(SOURCE_RECEIVED_COUNT).get(i);
-                JsonNode sinkWriter = jobMetricsStr.get(SINK_WRITE_COUNT).get(i);
+                JsonNode sourceReader = sourceReceivedCountJson.get(i);
+                JsonNode sinkWriter = sinkWriteCountJson.get(i);
                 sourceReadCount += sourceReader.get("value").asLong();
                 sinkWriteCount += sinkWriter.get("value").asLong();
             }
