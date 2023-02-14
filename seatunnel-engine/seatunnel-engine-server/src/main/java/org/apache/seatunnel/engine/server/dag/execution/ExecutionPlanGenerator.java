@@ -22,7 +22,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
-import org.apache.seatunnel.engine.core.dag.actions.PartitionTransformAction;
+import org.apache.seatunnel.engine.core.dag.actions.ShuffleAction;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.actions.TransformAction;
@@ -180,10 +180,10 @@ public class ExecutionPlanGenerator {
 
     public static Action recreateAction(Action action, Long id, int parallelism) {
         Action newAction;
-        if (action instanceof PartitionTransformAction) {
-            newAction = new PartitionTransformAction(id,
+        if (action instanceof ShuffleAction) {
+            newAction = new ShuffleAction(id,
                 action.getName(),
-                ((PartitionTransformAction) action).getPartitionTransformation(),
+                ((ShuffleAction) action).getPartitionTransformation(),
                 action.getJarUrls());
         } else if (action instanceof SinkAction) {
             newAction = new SinkAction<>(id,
