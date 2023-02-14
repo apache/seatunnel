@@ -132,7 +132,7 @@ SeaTunnel Engine uses the following discovery mechanisms.
 
 #### TCP
 
-You can configure SeaTunnel Engine to be a full TCP/IP cluster. See the [Discovering Members by TCP section](tcp.md) for configuration details.
+You can configure SeaTunnel Engine to be a full TCP/IP cluster. See the [Discovering Members by TCP section](network.md) for configuration details.
 
 An example is like this `hazelcast.yaml`
 
