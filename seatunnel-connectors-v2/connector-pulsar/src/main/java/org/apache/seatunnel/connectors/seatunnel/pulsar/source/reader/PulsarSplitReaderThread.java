@@ -81,6 +81,7 @@ public class PulsarSplitReaderThread extends Thread implements Closeable {
         if (split.getLatestConsumedId() == null) {
             startCursor.seekPosition(consumer);
         }
+        this.running = true;
     }
 
     @Override
