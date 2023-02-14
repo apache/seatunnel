@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.core.starter.spark.execution;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import static org.apache.spark.sql.types.DataTypes.LongType;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -29,16 +29,20 @@ import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginD
 import org.apache.seatunnel.translation.spark.serialization.InternalRowConverter;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import com.google.common.collect.Lists;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema;
 import org.apache.spark.sql.catalyst.expressions.MutableValue;
 import org.apache.spark.sql.catalyst.expressions.SpecificInternalRow;
+import org.apache.spark.sql.types.Metadata;
+import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
-
-import com.google.common.collect.Lists;
-import lombok.extern.slf4j.Slf4j;
+import org.apache.spark.sql.types.TimestampType;
 
 import java.io.IOException;
 import java.net.URL;
@@ -50,50 +54,50 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class TransformExecuteProcessor
-        extends SparkAbstractPluginExecuteProcessor<SeaTunnelTransform> {
+    extends SparkAbstractPluginExecuteProcessor<SeaTunnelTransform> {
 
     private static final String PLUGIN_TYPE = "transform";
 
     protected TransformExecuteProcessor(
-            SparkRuntimeEnvironment sparkRuntimeEnvironment,
-            JobContext jobContext,
-            List<? extends Config> pluginConfigs) {
+        SparkRuntimeEnvironment sparkRuntimeEnvironment,
+        JobContext jobContext,
+        List<? extends Config> pluginConfigs) {
         super(sparkRuntimeEnvironment, jobContext, pluginConfigs);
     }
 
     @Override
     protected List<SeaTunnelTransform> initializePlugins(List<? extends Config> pluginConfigs) {
         SeaTunnelTransformPluginDiscovery transformPluginDiscovery =
-                new SeaTunnelTransformPluginDiscovery();
+            new SeaTunnelTransformPluginDiscovery();
         List<URL> pluginJars = new ArrayList<>();
         List<SeaTunnelTransform> transforms =
-                pluginConfigs.stream()
-                        .map(
-                                transformConfig -> {
-                                    PluginIdentifier pluginIdentifier =
-                                            PluginIdentifier.of(
-                                                    ENGINE_TYPE,
-                                                    PLUGIN_TYPE,
-                                                    transformConfig.getString(PLUGIN_NAME));
-                                    pluginJars.addAll(
-                                            transformPluginDiscovery.getPluginJarPaths(
-                                                    Lists.newArrayList(pluginIdentifier)));
-                                    SeaTunnelTransform pluginInstance =
-                                            transformPluginDiscovery.createPluginInstance(
-                                                    pluginIdentifier);
-                                    pluginInstance.prepare(transformConfig);
-                                    pluginInstance.setJobContext(jobContext);
-                                    return pluginInstance;
-                                })
-                        .distinct()
-                        .collect(Collectors.toList());
+            pluginConfigs.stream()
+                .map(
+                    transformConfig -> {
+                        PluginIdentifier pluginIdentifier =
+                            PluginIdentifier.of(
+                                ENGINE_TYPE,
+                                PLUGIN_TYPE,
+                                transformConfig.getString(PLUGIN_NAME));
+                        pluginJars.addAll(
+                            transformPluginDiscovery.getPluginJarPaths(
+                                Lists.newArrayList(pluginIdentifier)));
+                        SeaTunnelTransform pluginInstance =
+                            transformPluginDiscovery.createPluginInstance(
+                                pluginIdentifier);
+                        pluginInstance.prepare(transformConfig);
+                        pluginInstance.setJobContext(jobContext);
+                        return pluginInstance;
+                    })
+                .distinct()
+                .collect(Collectors.toList());
         sparkRuntimeEnvironment.registerPlugin(pluginJars);
         return transforms;
     }
 
     @Override
     public List<Dataset<Row>> execute(List<Dataset<Row>> upstreamDataStreams)
-            throws TaskExecuteException {
+        throws TaskExecuteException {
         if (plugins.isEmpty()) {
             return upstreamDataStreams;
         }
@@ -104,33 +108,40 @@ public class TransformExecuteProcessor
                 SeaTunnelTransform<SeaTunnelRow> transform = plugins.get(i);
                 Config pluginConfig = pluginConfigs.get(i);
                 Dataset<Row> stream =
-                        fromSourceTable(pluginConfig, sparkRuntimeEnvironment).orElse(input);
+                    fromSourceTable(pluginConfig, sparkRuntimeEnvironment).orElse(input);
                 input = sparkTransform(transform, stream);
                 registerInputTempView(pluginConfig, input);
                 result.add(input);
             } catch (Exception e) {
                 throw new TaskExecuteException(
-                        String.format(
-                                "SeaTunnel transform task: %s execute error",
-                                plugins.get(i).getPluginName()),
-                        e);
+                    String.format(
+                        "SeaTunnel transform task: %s execute error",
+                        plugins.get(i).getPluginName()),
+                    e);
             }
         }
         return result;
     }
 
     private Dataset<Row> sparkTransform(SeaTunnelTransform transform, Dataset<Row> stream)
-            throws IOException {
+        throws IOException {
         SeaTunnelDataType<?> seaTunnelDataType = TypeConverterUtils.convert(stream.schema());
         transform.setTypeInfo(seaTunnelDataType);
         StructType structType =
-                (StructType) TypeConverterUtils.convert(transform.getProducedType());
+            (StructType) TypeConverterUtils.convert(transform.getProducedType());
+        StructField[] newStructFields = Arrays.stream(structType.fields()).map(structField -> {
+            if (structField.dataType() instanceof TimestampType) {
+                structField = new StructField(structField.name(), LongType, true, Metadata.empty());
+            }
+            return structField;
+        }).toArray(StructField[]::new);
+        structType = new StructType(newStructFields);
         SeaTunnelRow seaTunnelRow;
         List<Row> outputRows = new ArrayList<>();
         Iterator<Row> rowIterator = stream.toLocalIterator();
         InternalRowConverter inputRowConverter = new InternalRowConverter(seaTunnelDataType);
         InternalRowConverter outputRowConverter =
-                new InternalRowConverter(transform.getProducedType());
+            new InternalRowConverter(transform.getProducedType());
         while (rowIterator.hasNext()) {
             Row row = rowIterator.next();
             seaTunnelRow = inputRowConverter.reconvert(InternalRow.apply(row.toSeq()));
@@ -140,11 +151,11 @@ public class TransformExecuteProcessor
             }
             InternalRow internalRow = outputRowConverter.convert(seaTunnelRow);
             outputRows.add(
-                    new GenericRowWithSchema(
-                            Arrays.stream(((SpecificInternalRow) internalRow).values())
-                                    .map(MutableValue::boxed)
-                                    .toArray(),
-                            structType));
+                new GenericRowWithSchema(
+                    Arrays.stream(((SpecificInternalRow) internalRow).values())
+                        .map(MutableValue::boxed)
+                        .toArray(),
+                    structType));
         }
         return sparkRuntimeEnvironment.getSparkSession().createDataFrame(outputRows, structType);
     }
