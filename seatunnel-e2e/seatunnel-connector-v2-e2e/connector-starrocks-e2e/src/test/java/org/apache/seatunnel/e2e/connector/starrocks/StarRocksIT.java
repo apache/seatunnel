@@ -241,7 +241,8 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testStarRocksSink(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/starrocks-thrift-to-starrocks-steamload.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/starrocks-thrift-to-starrocks-streamload.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         try {
             assertHasData(SINK_TABLE);
