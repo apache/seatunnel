@@ -303,8 +303,6 @@ http://spark.apache.org/docs/latest/configuration.html#configuring-logging
 
 https://medium.com/@iacomini.riccardo/spark-logging-configuration-in-yarn-faf5ba5fdb01
 
-https://stackoverflow.com/questions/27781187/how-to-stop-info-messages-displaying-on-spark-console
-
 ## Error when writing to ClickHouse: ClassCastException
 
 In SeaTunnel, the data type will not be actively converted. After the Input reads the data, the corresponding

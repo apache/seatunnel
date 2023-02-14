@@ -26,6 +26,8 @@ public class AssertConfig {
 
     public static final String RULE_VALUE = "rule_value";
 
+    public static final String EQUALS_TO = "equals_to";
+
     public static final String ROW_RULES = "row_rules";
 
     public static final String FIELD_NAME = "field_name";

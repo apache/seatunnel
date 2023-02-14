@@ -126,6 +126,7 @@
         <maven-scm-provider-jgit.version>1.9.5</maven-scm-provider-jgit.version>
         <testcontainer.version>1.17.3</testcontainer.version>
         <spotless.version>2.29.0</spotless.version>
+        <jsqlparser.version>4.5</jsqlparser.version>
         <!-- Option args -->
         <skipUT>false</skipUT>
         <skipIT>true</skipIT>

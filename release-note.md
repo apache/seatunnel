@@ -11,6 +11,7 @@
 ### Transformer
 - [Spark] Support transform-v2 for spark (#3409)
 - [ALL]Add FieldMapper Transform #3781
+- [ALL]Add SimpleSQL Transform #4148 
 ### Connectors
 - [Elasticsearch] Support https protocol & compatible with opensearch
 - [Hbase] Add hbase sink connector #4049

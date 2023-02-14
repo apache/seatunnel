@@ -44,6 +44,11 @@
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-api</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.github.jsqlparser</groupId>
+            <artifactId>jsqlparser</artifactId>
+            <version>${jsqlparser.version}</version>
+        </dependency>
     </dependencies>
 
     <build>

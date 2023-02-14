@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.assertion.rule;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import com.google.common.collect.Maps;
@@ -28,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.EQUALS_TO;
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.FIELD_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.FIELD_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.FIELD_VALUE;
@@ -75,6 +77,9 @@ public class AssertRuleParser {
                             if (config.hasPath(RULE_VALUE)) {
                                 valueRule.setRuleValue(config.getDouble(RULE_VALUE));
                             }
+                            if (config.hasPath(EQUALS_TO)) {
+                                valueRule.setEqualTo(config.getString(EQUALS_TO));
+                            }
                             return valueRule;
                         })
                 .collect(Collectors.toList());
@@ -96,5 +101,9 @@ public class AssertRuleParser {
         TYPES.put("float", BasicType.FLOAT_TYPE);
         TYPES.put("double", BasicType.DOUBLE_TYPE);
         TYPES.put("void", BasicType.VOID_TYPE);
+        TYPES.put("timestamp", LocalTimeType.LOCAL_DATE_TIME_TYPE);
+        TYPES.put("datetime", LocalTimeType.LOCAL_DATE_TIME_TYPE);
+        TYPES.put("date", LocalTimeType.LOCAL_DATE_TYPE);
+        TYPES.put("time", LocalTimeType.LOCAL_TIME_TYPE);
     }
 }
