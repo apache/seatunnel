@@ -34,10 +34,10 @@ public class NotifyTaskStatusOperation extends Operation implements IdentifiedDa
     private TaskGroupLocation taskGroupLocation;
     private TaskExecutionState taskExecutionState;
 
-    public NotifyTaskStatusOperation() {
-    }
+    public NotifyTaskStatusOperation() {}
 
-    public NotifyTaskStatusOperation(TaskGroupLocation taskGroupLocation, TaskExecutionState taskExecutionState) {
+    public NotifyTaskStatusOperation(
+            TaskGroupLocation taskGroupLocation, TaskExecutionState taskExecutionState) {
         super();
         this.taskGroupLocation = taskGroupLocation;
         this.taskExecutionState = taskExecutionState;

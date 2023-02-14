@@ -25,9 +25,7 @@ import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 
-/**
- * This command is used to execute the SeaTunnel engine job by SeaTunnel API.
- */
+/** This command is used to execute the SeaTunnel engine job by SeaTunnel API. */
 public class ServerExecuteCommand implements Command<ServerCommandArgs> {
 
     private final ServerCommandArgs serverCommandArgs;
@@ -40,9 +38,9 @@ public class ServerExecuteCommand implements Command<ServerCommandArgs> {
     public void execute() {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(serverCommandArgs.getClusterName());
-        HazelcastInstanceFactory.newHazelcastInstance(seaTunnelConfig.getHazelcastConfig(),
-            Thread.currentThread().getName(),
-            new SeaTunnelNodeContext(seaTunnelConfig));
+        HazelcastInstanceFactory.newHazelcastInstance(
+                seaTunnelConfig.getHazelcastConfig(),
+                Thread.currentThread().getName(),
+                new SeaTunnelNodeContext(seaTunnelConfig));
     }
-
 }

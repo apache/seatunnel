@@ -28,13 +28,13 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
 
-public class CheckTaskGroupIsExecutingOperation extends Operation implements IdentifiedDataSerializable {
+public class CheckTaskGroupIsExecutingOperation extends Operation
+        implements IdentifiedDataSerializable {
 
     private TaskGroupLocation taskGroupLocation;
     private Boolean response;
 
-    public CheckTaskGroupIsExecutingOperation() {
-    }
+    public CheckTaskGroupIsExecutingOperation() {}
 
     public CheckTaskGroupIsExecutingOperation(TaskGroupLocation taskGroupLocation) {
         this.taskGroupLocation = taskGroupLocation;

@@ -17,13 +17,10 @@
 
 package org.apache.seatunnel.api.state;
 
-/**
- * If the data flow is bounded, checkpoint is not triggered.
- */
+/** If the data flow is bounded, checkpoint is not triggered. */
 public interface CheckpointListener {
 
     void notifyCheckpointComplete(long checkpointId) throws Exception;
 
-    default void notifyCheckpointAborted(long checkpointId) throws Exception {
-    }
+    default void notifyCheckpointAborted(long checkpointId) throws Exception {}
 }

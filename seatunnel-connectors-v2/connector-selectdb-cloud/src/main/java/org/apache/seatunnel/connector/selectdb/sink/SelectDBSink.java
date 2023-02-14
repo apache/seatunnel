@@ -17,11 +17,7 @@
 
 package org.apache.seatunnel.connector.selectdb.sink;
 
-import static org.apache.seatunnel.connector.selectdb.config.SelectDBConfig.CLUSTER_NAME;
-import static org.apache.seatunnel.connector.selectdb.config.SelectDBConfig.JDBC_URL;
-import static org.apache.seatunnel.connector.selectdb.config.SelectDBConfig.LOAD_URL;
-import static org.apache.seatunnel.connector.selectdb.config.SelectDBConfig.TABLE_IDENTIFIER;
-import static org.apache.seatunnel.connector.selectdb.config.SelectDBConfig.USERNAME;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
@@ -44,8 +40,6 @@ import org.apache.seatunnel.connector.selectdb.sink.writer.SelectDBSinkState;
 import org.apache.seatunnel.connector.selectdb.sink.writer.SelectDBSinkStateSerializer;
 import org.apache.seatunnel.connector.selectdb.sink.writer.SelectDBSinkWriter;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import com.google.auto.service.AutoService;
 
 import java.io.IOException;
@@ -53,10 +47,19 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import static org.apache.seatunnel.connector.selectdb.config.SelectDBConfig.CLUSTER_NAME;
+import static org.apache.seatunnel.connector.selectdb.config.SelectDBConfig.JDBC_URL;
+import static org.apache.seatunnel.connector.selectdb.config.SelectDBConfig.LOAD_URL;
+import static org.apache.seatunnel.connector.selectdb.config.SelectDBConfig.TABLE_IDENTIFIER;
+import static org.apache.seatunnel.connector.selectdb.config.SelectDBConfig.USERNAME;
+
 @AutoService(SeaTunnelSink.class)
-public class SelectDBSink implements SeaTunnelSink<SeaTunnelRow, SelectDBSinkState, SelectDBCommitInfo, SelectDBCommitInfo> {
+public class SelectDBSink
+        implements SeaTunnelSink<
+                SeaTunnelRow, SelectDBSinkState, SelectDBCommitInfo, SelectDBCommitInfo> {
     private Config pluginConfig;
     private SeaTunnelRowType seaTunnelRowType;
+
     @Override
     public String getPluginName() {
         return "SelectDBCloud";
@@ -65,10 +68,19 @@ public class SelectDBSink implements SeaTunnelSink<SeaTunnelRow, SelectDBSinkSta
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         this.pluginConfig = pluginConfig;
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, JDBC_URL.key(), LOAD_URL.key(), CLUSTER_NAME.key(), USERNAME.key(), TABLE_IDENTIFIER.key());
+        CheckResult result =
+                CheckConfigUtil.checkAllExists(
+                        pluginConfig,
+                        JDBC_URL.key(),
+                        LOAD_URL.key(),
+                        CLUSTER_NAME.key(),
+                        USERNAME.key(),
+                        TABLE_IDENTIFIER.key());
         if (!result.isSuccess()) {
-            throw new SelectDBConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+            throw new SelectDBConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SINK, result.getMsg()));
         }
     }
@@ -84,15 +96,20 @@ public class SelectDBSink implements SeaTunnelSink<SeaTunnelRow, SelectDBSinkSta
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, SelectDBCommitInfo, SelectDBSinkState> createWriter(SinkWriter.Context context) throws IOException {
-        SelectDBSinkWriter dorisWriter = new SelectDBSinkWriter(context, Collections.emptyList(), seaTunnelRowType, pluginConfig);
+    public SinkWriter<SeaTunnelRow, SelectDBCommitInfo, SelectDBSinkState> createWriter(
+            SinkWriter.Context context) throws IOException {
+        SelectDBSinkWriter dorisWriter =
+                new SelectDBSinkWriter(
+                        context, Collections.emptyList(), seaTunnelRowType, pluginConfig);
         dorisWriter.initializeLoad(Collections.emptyList());
         return dorisWriter;
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, SelectDBCommitInfo, SelectDBSinkState> restoreWriter(SinkWriter.Context context, List<SelectDBSinkState> states) throws IOException {
-        SelectDBSinkWriter dorisWriter = new SelectDBSinkWriter(context, states, seaTunnelRowType, pluginConfig);
+    public SinkWriter<SeaTunnelRow, SelectDBCommitInfo, SelectDBSinkState> restoreWriter(
+            SinkWriter.Context context, List<SelectDBSinkState> states) throws IOException {
+        SelectDBSinkWriter dorisWriter =
+                new SelectDBSinkWriter(context, states, seaTunnelRowType, pluginConfig);
         dorisWriter.initializeLoad(states);
         return dorisWriter;
     }
@@ -113,7 +130,8 @@ public class SelectDBSink implements SeaTunnelSink<SeaTunnelRow, SelectDBSinkSta
     }
 
     @Override
-    public Optional<SinkAggregatedCommitter<SelectDBCommitInfo, SelectDBCommitInfo>> createAggregatedCommitter() throws IOException {
+    public Optional<SinkAggregatedCommitter<SelectDBCommitInfo, SelectDBCommitInfo>>
+            createAggregatedCommitter() throws IOException {
         return Optional.empty();
     }
 

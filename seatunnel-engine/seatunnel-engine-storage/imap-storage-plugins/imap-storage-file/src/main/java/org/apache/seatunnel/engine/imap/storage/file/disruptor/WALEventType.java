@@ -21,16 +21,10 @@
 package org.apache.seatunnel.engine.imap.storage.file.disruptor;
 
 public enum WALEventType {
-    /**
-     * write data to wal file
-     */
+    /** write data to wal file */
     APPEND,
-    /**
-     * delete all wal file in this namespace
-     */
+    /** delete all wal file in this namespace */
     CLEAR,
-    /**
-     * Close wal file
-     */
+    /** Close wal file */
     CLOSED
 }

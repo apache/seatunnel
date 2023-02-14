@@ -17,14 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.slack.client;
 
-import static org.apache.seatunnel.connectors.seatunnel.slack.config.SlackConfig.OAUTH_TOKEN;
-import static org.apache.seatunnel.connectors.seatunnel.slack.config.SlackConfig.SLACK_CHANNEL;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.slack.exception.SlackConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.slack.exception.SlackConnectorException;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.slack.api.Slack;
 import com.slack.api.methods.MethodsClient;
@@ -37,6 +34,9 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.List;
 
+import static org.apache.seatunnel.connectors.seatunnel.slack.config.SlackConfig.OAUTH_TOKEN;
+import static org.apache.seatunnel.connectors.seatunnel.slack.config.SlackConfig.SLACK_CHANNEL;
+
 @Slf4j
 public class SlackClient {
     private final Config pluginConfig;
@@ -47,18 +47,18 @@ public class SlackClient {
         this.methodsClient = Slack.getInstance().methods();
     }
 
-    /**
-     * Find conversation ID using the conversations.list method
-     */
+    /** Find conversation ID using the conversations.list method */
     public String findConversation() {
         String conversionId = "";
         List<Conversation> channels;
         try {
             // Get Conversion List
-            ConversationsListResponse conversationsListResponse = methodsClient.conversationsList(r -> r
-                // The Token used to initialize app
-                .token(pluginConfig.getString(OAUTH_TOKEN.key()))
-            );
+            ConversationsListResponse conversationsListResponse =
+                    methodsClient.conversationsList(
+                            r ->
+                                    r
+                                            // The Token used to initialize app
+                                            .token(pluginConfig.getString(OAUTH_TOKEN.key())));
             channels = conversationsListResponse.getChannels();
             for (Conversation channel : channels) {
                 if (channel.getName().equals(pluginConfig.getString(SLACK_CHANNEL.key()))) {
@@ -69,23 +69,24 @@ public class SlackClient {
             }
         } catch (IOException | SlackApiException e) {
             log.warn("Find Slack Conversion Fail.", e);
-            throw new SlackConnectorException(SlackConnectorErrorCode.FIND_SLACK_CONVERSATION_FAILED, e);
+            throw new SlackConnectorException(
+                    SlackConnectorErrorCode.FIND_SLACK_CONVERSATION_FAILED, e);
         }
         return conversionId;
     }
 
-    /**
-     * Post a message to a channel using Channel ID and message text
-     */
+    /** Post a message to a channel using Channel ID and message text */
     public boolean publishMessage(String channelId, String text) {
         boolean publishMessageSuccess = false;
         try {
-            ChatPostMessageResponse chatPostMessageResponse = methodsClient.chatPostMessage(r -> r
-                // The Token used to initialize app
-                .token(pluginConfig.getString(SLACK_CHANNEL.key()))
-                .channel(channelId)
-                .text(text)
-            );
+            ChatPostMessageResponse chatPostMessageResponse =
+                    methodsClient.chatPostMessage(
+                            r ->
+                                    r
+                                            // The Token used to initialize app
+                                            .token(pluginConfig.getString(SLACK_CHANNEL.key()))
+                                            .channel(channelId)
+                                            .text(text));
             publishMessageSuccess = chatPostMessageResponse.isOk();
         } catch (IOException | SlackApiException e) {
             log.error("error: {}", ExceptionUtils.getMessage(e));
@@ -93,9 +94,6 @@ public class SlackClient {
         return publishMessageSuccess;
     }
 
-    /**
-     * Close Conversion
-     */
-    public void closeMethodClient() {
-    }
+    /** Close Conversion */
+    public void closeMethodClient() {}
 }

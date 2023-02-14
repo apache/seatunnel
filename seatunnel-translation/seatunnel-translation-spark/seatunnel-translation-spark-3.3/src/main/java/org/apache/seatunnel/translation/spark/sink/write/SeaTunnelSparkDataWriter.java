@@ -38,15 +38,16 @@ public class SeaTunnelSparkDataWriter<CommitInfoT, StateT> implements DataWriter
 
     private final SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter;
 
-    @Nullable
-    private final SinkCommitter<CommitInfoT> sinkCommitter;
+    @Nullable private final SinkCommitter<CommitInfoT> sinkCommitter;
     private final RowConverter<InternalRow> rowConverter;
     private CommitInfoT latestCommitInfoT;
     private long epochId;
 
-    public SeaTunnelSparkDataWriter(SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter,
-                             @Nullable SinkCommitter<CommitInfoT> sinkCommitter,
-                             SeaTunnelDataType<?> dataType, long epochId) {
+    public SeaTunnelSparkDataWriter(
+            SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter,
+            @Nullable SinkCommitter<CommitInfoT> sinkCommitter,
+            SeaTunnelDataType<?> dataType,
+            long epochId) {
         this.sinkWriter = sinkWriter;
         this.sinkCommitter = sinkCommitter;
         this.rowConverter = new InternalRowConverter(dataType);
@@ -70,7 +71,8 @@ public class SeaTunnelSparkDataWriter<CommitInfoT, StateT> implements DataWriter
                 sinkCommitter.commit(Collections.singletonList(latestCommitInfoT));
             }
         }
-        SeaTunnelSparkWriterCommitMessage<CommitInfoT> seaTunnelSparkWriterCommitMessage = new SeaTunnelSparkWriterCommitMessage<>(latestCommitInfoT);
+        SeaTunnelSparkWriterCommitMessage<CommitInfoT> seaTunnelSparkWriterCommitMessage =
+                new SeaTunnelSparkWriterCommitMessage<>(latestCommitInfoT);
         cleanCommitInfo();
         sinkWriter.close();
         return seaTunnelSparkWriterCommitMessage;
@@ -94,7 +96,5 @@ public class SeaTunnelSparkDataWriter<CommitInfoT, StateT> implements DataWriter
     }
 
     @Override
-    public void close() throws IOException {
-
-    }
+    public void close() throws IOException {}
 }

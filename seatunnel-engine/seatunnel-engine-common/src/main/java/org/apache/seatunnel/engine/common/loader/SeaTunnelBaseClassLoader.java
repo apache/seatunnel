@@ -35,7 +35,8 @@ public abstract class SeaTunnelBaseClassLoader extends URLClassLoader {
         this(urls, parent, NOOP_EXCEPTION_HANDLER);
     }
 
-    protected SeaTunnelBaseClassLoader(URL[] urls, ClassLoader parent, Consumer<Throwable> classLoadingExceptionHandler) {
+    protected SeaTunnelBaseClassLoader(
+            URL[] urls, ClassLoader parent, Consumer<Throwable> classLoadingExceptionHandler) {
         super(urls, parent);
         this.classLoadingExceptionHandler = classLoadingExceptionHandler;
     }
@@ -50,7 +51,8 @@ public abstract class SeaTunnelBaseClassLoader extends URLClassLoader {
         }
     }
 
-    protected Class<?> loadClassWithoutExceptionHandling(String name, boolean resolve) throws ClassNotFoundException {
+    protected Class<?> loadClassWithoutExceptionHandling(String name, boolean resolve)
+            throws ClassNotFoundException {
         return super.loadClass(name, resolve);
     }
 }

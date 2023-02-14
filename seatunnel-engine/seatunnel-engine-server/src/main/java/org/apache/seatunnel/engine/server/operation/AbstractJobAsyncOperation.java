@@ -25,8 +25,7 @@ import java.io.IOException;
 public abstract class AbstractJobAsyncOperation extends AsyncOperation {
     protected long jobId;
 
-    public AbstractJobAsyncOperation() {
-    }
+    public AbstractJobAsyncOperation() {}
 
     public AbstractJobAsyncOperation(long jobId) {
         this.jobId = jobId;

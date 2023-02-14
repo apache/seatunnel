@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.core.starter.flink.execution;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -26,9 +28,6 @@ import org.apache.seatunnel.core.starter.flink.utils.ConfigKeyName;
 import org.apache.seatunnel.core.starter.flink.utils.EnvironmentUtil;
 import org.apache.seatunnel.core.starter.flink.utils.TableUtil;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import lombok.extern.slf4j.Slf4j;
 import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
@@ -46,6 +45,8 @@ import org.apache.flink.table.api.TableConfig;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.TernaryBoolean;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.net.URL;
 import java.util.ArrayList;
@@ -121,26 +122,42 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
         pluginPaths.forEach(url -> log.info("register plugins : {}", url));
         List<Configuration> configurations = new ArrayList<>();
         try {
-            configurations.add((Configuration) Objects.requireNonNull(ReflectionUtils.getDeclaredMethod(StreamExecutionEnvironment.class,
-                    "getConfiguration")).orElseThrow(() -> new RuntimeException("can't find " +
-                    "method: getConfiguration")).invoke(this.environment));
+            configurations.add(
+                    (Configuration)
+                            Objects.requireNonNull(
+                                            ReflectionUtils.getDeclaredMethod(
+                                                    StreamExecutionEnvironment.class,
+                                                    "getConfiguration"))
+                                    .orElseThrow(
+                                            () ->
+                                                    new RuntimeException(
+                                                            "can't find "
+                                                                    + "method: getConfiguration"))
+                                    .invoke(this.environment));
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        configurations.forEach(configuration -> {
-            List<String> jars = configuration.get(PipelineOptions.JARS);
-            if (jars == null) {
-                jars = new ArrayList<>();
-            }
-            jars.addAll(pluginPaths.stream().map(URL::toString).collect(Collectors.toList()));
-            configuration.set(PipelineOptions.JARS, jars.stream().distinct().collect(Collectors.toList()));
-            List<String> classpath = configuration.get(PipelineOptions.CLASSPATHS);
-            if (classpath == null) {
-                classpath = new ArrayList<>();
-            }
-            classpath.addAll(pluginPaths.stream().map(URL::toString).collect(Collectors.toList()));
-            configuration.set(PipelineOptions.CLASSPATHS, classpath.stream().distinct().collect(Collectors.toList()));
-        });
+        configurations.forEach(
+                configuration -> {
+                    List<String> jars = configuration.get(PipelineOptions.JARS);
+                    if (jars == null) {
+                        jars = new ArrayList<>();
+                    }
+                    jars.addAll(
+                            pluginPaths.stream().map(URL::toString).collect(Collectors.toList()));
+                    configuration.set(
+                            PipelineOptions.JARS,
+                            jars.stream().distinct().collect(Collectors.toList()));
+                    List<String> classpath = configuration.get(PipelineOptions.CLASSPATHS);
+                    if (classpath == null) {
+                        classpath = new ArrayList<>();
+                    }
+                    classpath.addAll(
+                            pluginPaths.stream().map(URL::toString).collect(Collectors.toList()));
+                    configuration.set(
+                            PipelineOptions.CLASSPATHS,
+                            classpath.stream().distinct().collect(Collectors.toList()));
+                });
     }
 
     public StreamExecutionEnvironment getStreamExecutionEnvironment() {
@@ -152,13 +169,13 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
     }
 
     private void createStreamTableEnvironment() {
-        EnvironmentSettings environmentSettings = EnvironmentSettings.newInstance()
-                .inStreamingMode()
-                .build();
-        tableEnvironment = StreamTableEnvironment.create(getStreamExecutionEnvironment(), environmentSettings);
+        EnvironmentSettings environmentSettings =
+                EnvironmentSettings.newInstance().inStreamingMode().build();
+        tableEnvironment =
+                StreamTableEnvironment.create(getStreamExecutionEnvironment(), environmentSettings);
         TableConfig config = tableEnvironment.getConfig();
-        if (this.config.hasPath(ConfigKeyName.MAX_STATE_RETENTION_TIME) && this.config
-                .hasPath(ConfigKeyName.MIN_STATE_RETENTION_TIME)) {
+        if (this.config.hasPath(ConfigKeyName.MAX_STATE_RETENTION_TIME)
+                && this.config.hasPath(ConfigKeyName.MIN_STATE_RETENTION_TIME)) {
             long max = this.config.getLong(ConfigKeyName.MAX_STATE_RETENTION_TIME);
             long min = this.config.getLong(ConfigKeyName.MIN_STATE_RETENTION_TIME);
             config.setIdleStateRetentionTime(Time.seconds(min), Time.seconds(max));
@@ -251,7 +268,8 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
                 if (config.hasPath(ConfigKeyName.STATE_BACKEND)) {
                     String stateBackend = config.getString(ConfigKeyName.STATE_BACKEND);
                     if ("rocksdb".equalsIgnoreCase(stateBackend)) {
-                        StateBackend rocksDBStateBackend = new RocksDBStateBackend(fsStateBackend, TernaryBoolean.TRUE);
+                        StateBackend rocksDBStateBackend =
+                                new RocksDBStateBackend(fsStateBackend, TernaryBoolean.TRUE);
                         environment.setStateBackend(rocksDBStateBackend);
                     }
                 } else {
@@ -272,7 +290,6 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
                 } else {
                     checkpointConfig.enableExternalizedCheckpoints(
                             CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
-
                 }
             }
 

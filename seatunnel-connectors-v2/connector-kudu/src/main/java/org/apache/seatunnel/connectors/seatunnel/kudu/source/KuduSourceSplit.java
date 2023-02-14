@@ -35,5 +35,4 @@ public class KuduSourceSplit implements SourceSplit {
     public String splitId() {
         return splitId.toString();
     }
-
 }

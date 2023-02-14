@@ -19,10 +19,11 @@ package org.apache.seatunnel.engine.server.execution;
 
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
 import java.io.Serializable;
 
@@ -51,20 +52,31 @@ public class TaskGroupLocation implements Serializable {
 
         TaskGroupLocation that = (TaskGroupLocation) o;
 
-        return new EqualsBuilder().append(jobId, that.jobId).append(pipelineId, that.pipelineId).append(taskGroupId, that.taskGroupId).isEquals();
+        return new EqualsBuilder()
+                .append(jobId, that.jobId)
+                .append(pipelineId, that.pipelineId)
+                .append(taskGroupId, that.taskGroupId)
+                .isEquals();
     }
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder(17, 37).append(jobId).append(pipelineId).append(taskGroupId).toHashCode();
+        return new HashCodeBuilder(17, 37)
+                .append(jobId)
+                .append(pipelineId)
+                .append(taskGroupId)
+                .toHashCode();
     }
 
     @Override
     public String toString() {
-        return "TaskGroupLocation{" +
-            "jobId=" + jobId +
-            ", pipelineId=" + pipelineId +
-            ", taskGroupId=" + taskGroupId +
-            '}';
+        return "TaskGroupLocation{"
+                + "jobId="
+                + jobId
+                + ", pipelineId="
+                + pipelineId
+                + ", taskGroupId="
+                + taskGroupId
+                + '}';
     }
 }

@@ -44,6 +44,7 @@ class FetchTask<E, SplitT extends SourceSplit> implements SplitFetcherTask {
 
     @Getter(value = AccessLevel.PRIVATE)
     private volatile boolean wakeup;
+
     private volatile RecordsWithSplitIds<E> lastRecords;
 
     @Override
@@ -62,7 +63,9 @@ class FetchTask<E, SplitT extends SourceSplit> implements SplitFetcherTask {
                     lastRecords = null;
                     log.debug("Enqueued records from split fetcher {}", fetcherIndex);
                 } else {
-                    log.debug("Enqueuing timed out in split fetcher {}, queue is blocked", fetcherIndex);
+                    log.debug(
+                            "Enqueuing timed out in split fetcher {}, queue is blocked",
+                            fetcherIndex);
                 }
             }
         } catch (InterruptedException e) {

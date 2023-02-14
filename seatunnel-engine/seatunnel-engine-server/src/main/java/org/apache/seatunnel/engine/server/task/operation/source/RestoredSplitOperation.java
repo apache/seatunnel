@@ -42,10 +42,10 @@ public class RestoredSplitOperation extends TaskOperation {
     private byte[] splits;
     private Integer subtaskIndex;
 
-    public RestoredSplitOperation() {
-    }
+    public RestoredSplitOperation() {}
 
-    public RestoredSplitOperation(TaskLocation enumeratorLocation, byte[] splits, int subtaskIndex) {
+    public RestoredSplitOperation(
+            TaskLocation enumeratorLocation, byte[] splits, int subtaskIndex) {
         super(enumeratorLocation);
         this.splits = splits;
         this.subtaskIndex = subtaskIndex;
@@ -79,17 +79,28 @@ public class RestoredSplitOperation extends TaskOperation {
     public void run() throws Exception {
         SeaTunnelServer server = getService();
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
-        ClassLoader classLoader = taskExecutionService.getExecutionContext(taskLocation.getTaskGroupLocation()).getClassLoader();
+        ClassLoader classLoader =
+                taskExecutionService
+                        .getExecutionContext(taskLocation.getTaskGroupLocation())
+                        .getClassLoader();
 
-        List<SourceSplit> deserialize = Arrays.stream((Object[]) SerializationUtils.deserialize(splits, classLoader))
-            .map(o -> (SourceSplit) o)
-            .collect(Collectors.toList());
-        RetryUtils.retryWithException(() -> {
-            SourceSplitEnumeratorTask<SourceSplit> task = taskExecutionService.getTask(taskLocation);
-            task.addSplitsBack(deserialize, subtaskIndex);
-            return null;
-        }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-            exception -> exception instanceof SeaTunnelException &&
-                !server.taskIsEnded(taskLocation.getTaskGroupLocation()), Constant.OPERATION_RETRY_SLEEP));
+        List<SourceSplit> deserialize =
+                Arrays.stream((Object[]) SerializationUtils.deserialize(splits, classLoader))
+                        .map(o -> (SourceSplit) o)
+                        .collect(Collectors.toList());
+        RetryUtils.retryWithException(
+                () -> {
+                    SourceSplitEnumeratorTask<SourceSplit> task =
+                            taskExecutionService.getTask(taskLocation);
+                    task.addSplitsBack(deserialize, subtaskIndex);
+                    return null;
+                },
+                new RetryUtils.RetryMaterial(
+                        Constant.OPERATION_RETRY_TIME,
+                        true,
+                        exception ->
+                                exception instanceof SeaTunnelException
+                                        && !server.taskIsEnded(taskLocation.getTaskGroupLocation()),
+                        Constant.OPERATION_RETRY_SLEEP));
     }
 }

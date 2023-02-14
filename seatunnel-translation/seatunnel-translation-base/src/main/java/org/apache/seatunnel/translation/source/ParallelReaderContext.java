@@ -29,9 +29,8 @@ public class ParallelReaderContext implements SourceReader.Context {
     protected final Boundedness boundedness;
     protected final Integer subtaskId;
 
-    public ParallelReaderContext(ParallelSource<?, ?, ?> parallelSource,
-                                 Boundedness boundedness,
-                                 Integer subtaskId) {
+    public ParallelReaderContext(
+            ParallelSource<?, ?, ?> parallelSource, Boundedness boundedness, Integer subtaskId) {
         this.parallelSource = parallelSource;
         this.boundedness = boundedness;
         this.subtaskId = subtaskId;
