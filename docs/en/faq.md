@@ -354,6 +354,10 @@ Scala, maven, sbt, gradle, whatever you want. This is also the way we recommend 
 
 ## Import project, compiler has exception "class not found `org.apache.seatunnel.shade.com.typesafe.config.Config`"
 
-Run `mvn install` first.
+SeaTunnel `v2.12` version no longer needs `mvn install`.
 
-Because in the `seatunnel-config/seatunnel-config-base` subproject, package `com.typesafe.config` has been relocated to `org.apache.seatunnel.shade.com.typesafe.config` and install to maven local repository in subproject `seatunnel-config/seatunnel-config-shade` .
+Refer to: [seatunnel-config](https://github.com/apache/incubator-seatunnel/blob/dev/seatunnel-config/README.md)
+
+~~Run `mvn install` first.~~
+
+~~Because in the `seatunnel-config/seatunnel-config-base` subproject, package `com.typesafe.config` has been relocated to `org.apache.seatunnel.shade.com.typesafe.config` and install to maven local repository in subproject `seatunnel-config/seatunnel-config-shade` .~~
