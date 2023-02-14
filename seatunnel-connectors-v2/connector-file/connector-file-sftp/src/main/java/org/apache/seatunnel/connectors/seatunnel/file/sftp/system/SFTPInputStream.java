@@ -17,24 +17,22 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sftp.system;
 
-import com.jcraft.jsch.ChannelSftp;
-import com.jcraft.jsch.JSchException;
-import com.jcraft.jsch.Session;
 import org.apache.hadoop.fs.FSInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.util.StringUtils;
 
+import com.jcraft.jsch.ChannelSftp;
+import com.jcraft.jsch.JSchException;
+import com.jcraft.jsch.Session;
+
 import java.io.IOException;
 import java.io.InputStream;
 
-/**
- * SFTP FileSystem input stream.
- */
+/** SFTP FileSystem input stream. */
 public class SFTPInputStream extends FSInputStream {
 
     public static final String E_SEEK_NOT_SUPPORTED = "Seek not supported";
-    public static final String E_CLIENT_NULL =
-            "SFTP client null or not connected";
+    public static final String E_CLIENT_NULL = "SFTP client null or not connected";
     public static final String E_NULL_INPUT_STREAM = "Null InputStream";
     public static final String E_STREAM_CLOSED = "Stream closed";
     public static final String E_CLIENT_NOT_CONNECTED = "Client not connected";
@@ -45,8 +43,7 @@ public class SFTPInputStream extends FSInputStream {
     private boolean closed;
     private long pos;
 
-    SFTPInputStream(InputStream stream, ChannelSftp channel,
-                    FileSystem.Statistics stats) {
+    SFTPInputStream(InputStream stream, ChannelSftp channel, FileSystem.Statistics stats) {
 
         if (stream == null) {
             throw new IllegalArgumentException(E_NULL_INPUT_STREAM);
@@ -93,8 +90,7 @@ public class SFTPInputStream extends FSInputStream {
         return byteRead;
     }
 
-    public synchronized int read(byte[] buf, int off, int len)
-            throws IOException {
+    public synchronized int read(byte[] buf, int off, int len) throws IOException {
         if (closed) {
             throw new IOException(E_STREAM_CLOSED);
         }

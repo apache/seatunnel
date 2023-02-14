@@ -22,15 +22,18 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 public class S3RedshiftJdbcConnectorException extends SeaTunnelRuntimeException {
 
-    public S3RedshiftJdbcConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
+    public S3RedshiftJdbcConnectorException(
+            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
         super(seaTunnelErrorCode, errorMessage);
     }
 
-    public S3RedshiftJdbcConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+    public S3RedshiftJdbcConnectorException(
+            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
         super(seaTunnelErrorCode, errorMessage, cause);
     }
 
-    public S3RedshiftJdbcConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
+    public S3RedshiftJdbcConnectorException(
+            SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
         super(seaTunnelErrorCode, cause);
     }
 }

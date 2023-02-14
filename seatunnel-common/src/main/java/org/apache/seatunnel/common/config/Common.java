@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.common.config;
 
-import static java.nio.file.FileVisitOption.FOLLOW_LINKS;
-
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
@@ -35,15 +33,15 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static java.nio.file.FileVisitOption.FOLLOW_LINKS;
+
 public class Common {
 
     private Common() {
         throw new IllegalStateException("Utility class");
     }
 
-    /**
-     * Used to set the size when create a new collection(just to pass the checkstyle).
-     */
+    /** Used to set the size when create a new collection(just to pass the checkstyle). */
     public static final int COLLECTION_SIZE = 16;
 
     private static final int APP_LIB_DIR_DEPTH = 2;
@@ -54,9 +52,7 @@ public class Common {
 
     private static boolean STARTER = false;
 
-    /**
-     * Set mode. return false in case of failure
-     */
+    /** Set mode. return false in case of failure */
     public static void setDeployMode(DeployMode mode) {
         MODE = mode;
     }
@@ -70,16 +66,23 @@ public class Common {
     }
 
     /**
-     * Root dir varies between different spark master and deploy mode,
-     * it also varies between relative and absolute path.
-     * When running seatunnel in --master local, you can put plugins related files in $project_dir/plugins,
-     * then these files will be automatically copied to $project_dir/seatunnel-core/target and token in effect if you start seatunnel in IDE tools such as IDEA.
-     * When running seatunnel in --master yarn or --master mesos, you can put plugins related files in plugins dir.
+     * Root dir varies between different spark master and deploy mode, it also varies between
+     * relative and absolute path. When running seatunnel in --master local, you can put plugins
+     * related files in $project_dir/plugins, then these files will be automatically copied to
+     * $project_dir/seatunnel-core/target and token in effect if you start seatunnel in IDE tools
+     * such as IDEA. When running seatunnel in --master yarn or --master mesos, you can put plugins
+     * related files in plugins dir.
      */
     public static Path appRootDir() {
         if (DeployMode.CLIENT == MODE || DeployMode.RUN == MODE || STARTER) {
             try {
-                String path = Common.class.getProtectionDomain().getCodeSource().getLocation().toURI().getPath();
+                String path =
+                        Common.class
+                                .getProtectionDomain()
+                                .getCodeSource()
+                                .getLocation()
+                                .toURI()
+                                .getPath();
                 path = new File(path).getPath();
                 return Paths.get(path).getParent().getParent();
             } catch (URISyntaxException e) {
@@ -96,23 +99,17 @@ public class Common {
         return appRootDir().resolve("starter");
     }
 
-    /**
-     * Plugin Root Dir
-     */
+    /** Plugin Root Dir */
     public static Path pluginRootDir() {
         return Paths.get(appRootDir().toString(), "plugins");
     }
 
-    /**
-     * Plugin Root Dir
-     */
+    /** Plugin Root Dir */
     public static Path connectorRootDir(String engine) {
         return Paths.get(appRootDir().toString(), "connectors", engine.toLowerCase());
     }
 
-    /**
-     * Plugin Connector Jar Dir
-     */
+    /** Plugin Connector Jar Dir */
     public static Path connectorJarDir(String engine) {
         String seatunnelHome = System.getProperty("SEATUNNEL_HOME");
         if (StringUtils.isBlank(seatunnelHome)) {
@@ -122,9 +119,7 @@ public class Common {
         }
     }
 
-    /**
-     * Plugin Connector Dir
-     */
+    /** Plugin Connector Dir */
     public static Path connectorDir() {
         String seatunnelHome = System.getProperty("SEATUNNEL_HOME");
         if (StringUtils.isBlank(seatunnelHome)) {
@@ -134,9 +129,7 @@ public class Common {
         }
     }
 
-    /**
-     * lib Dir
-     */
+    /** lib Dir */
     public static Path libDir() {
         String seatunnelHome = System.getProperty("SEATUNNEL_HOME");
         if (StringUtils.isBlank(seatunnelHome)) {
@@ -145,77 +138,66 @@ public class Common {
         return Paths.get(seatunnelHome, "lib");
     }
 
-    /**
-     * return lib jars, which located in 'lib/*' or 'lib/{dir}/*'.
-     */
+    /** return lib jars, which located in 'lib/*' or 'lib/{dir}/*'. */
     public static List<Path> getLibJars() {
         Path libRootDir = Common.libDir();
         if (!Files.exists(libRootDir) || !Files.isDirectory(libRootDir)) {
             return Collections.emptyList();
         }
         try (Stream<Path> stream = Files.walk(libRootDir, APP_LIB_DIR_DEPTH, FOLLOW_LINKS)) {
-            return stream
-                .filter(it -> !it.toFile().isDirectory())
-                .filter(it -> it.getFileName().toString().endsWith(".jar"))
-                .collect(Collectors.toList());
+            return stream.filter(it -> !it.toFile().isDirectory())
+                    .filter(it -> it.getFileName().toString().endsWith(".jar"))
+                    .collect(Collectors.toList());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    /**
-     * return the jar package configured in env jars
-     */
+    /** return the jar package configured in env jars */
     public static Set<Path> getThirdPartyJars(String paths) {
 
         return Arrays.stream(paths.split(";"))
-            .filter(s -> !"".equals(s))
-            .filter(it -> it.endsWith(".jar"))
-            .map(path -> Paths.get(URI.create(path))).collect(Collectors.toSet());
+                .filter(s -> !"".equals(s))
+                .filter(it -> it.endsWith(".jar"))
+                .map(path -> Paths.get(URI.create(path)))
+                .collect(Collectors.toSet());
     }
 
     public static Path pluginTarball() {
         return appRootDir().resolve("plugins.tar.gz");
     }
 
-    /**
-     * Get specific plugin dir
-     */
+    /** Get specific plugin dir */
     public static Path pluginDir(String pluginName) {
         return Paths.get(pluginRootDir().toString(), pluginName);
     }
 
-    /**
-     * Get files dir of specific plugin
-     */
+    /** Get files dir of specific plugin */
     public static Path pluginFilesDir(String pluginName) {
         return Paths.get(pluginDir(pluginName).toString(), "files");
     }
 
-    /**
-     * Get lib dir of specific plugin
-     */
+    /** Get lib dir of specific plugin */
     public static Path pluginLibDir(String pluginName) {
         return Paths.get(pluginDir(pluginName).toString(), "lib");
     }
 
-    /**
-     * return plugin's dependent jars, which located in 'plugins/${pluginName}/lib/*'.
-     */
+    /** return plugin's dependent jars, which located in 'plugins/${pluginName}/lib/*'. */
     public static List<Path> getPluginsJarDependencies() {
         Path pluginRootDir = Common.pluginRootDir();
         if (!Files.exists(pluginRootDir) || !Files.isDirectory(pluginRootDir)) {
             return Collections.emptyList();
         }
         try (Stream<Path> stream = Files.walk(pluginRootDir, PLUGIN_LIB_DIR_DEPTH, FOLLOW_LINKS)) {
-            return stream
-                .filter(it -> pluginRootDir.relativize(it).getNameCount() == PLUGIN_LIB_DIR_DEPTH)
-                .filter(it -> it.getParent().endsWith("lib"))
-                .filter(it -> it.getFileName().toString().endsWith(".jar"))
-                .collect(Collectors.toList());
+            return stream.filter(
+                            it ->
+                                    pluginRootDir.relativize(it).getNameCount()
+                                            == PLUGIN_LIB_DIR_DEPTH)
+                    .filter(it -> it.getParent().endsWith("lib"))
+                    .filter(it -> it.getFileName().toString().endsWith(".jar"))
+                    .collect(Collectors.toList());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
-
 }

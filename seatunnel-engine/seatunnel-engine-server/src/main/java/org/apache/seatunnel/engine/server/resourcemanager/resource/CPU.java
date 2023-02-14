@@ -35,8 +35,6 @@ public class CPU implements Resource {
 
     @Override
     public String toString() {
-        return "CPU{" +
-            "core=" + core +
-            '}';
+        return "CPU{" + "core=" + core + '}';
     }
 }

@@ -20,9 +20,7 @@ package org.apache.seatunnel.api.configuration;
 import java.nio.file.Path;
 import java.util.Map;
 
-/**
- * Adapter mode to support convert other config to HOCON.
- */
+/** Adapter mode to support convert other config to HOCON. */
 public interface ConfigAdapter {
 
     /**

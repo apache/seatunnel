@@ -27,9 +27,7 @@ import java.io.Serializable;
 @AllArgsConstructor
 public class JobResult implements Serializable {
 
-    @NonNull
-    private JobStatus status;
+    @NonNull private JobStatus status;
 
     private String error;
-
 }

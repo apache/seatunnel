@@ -21,14 +21,13 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum JdbcConnectorErrorCode implements SeaTunnelErrorCode {
-
     CREATE_DRIVER_FAILED("JDBC-01", "Fail to create driver of class"),
     NO_SUITABLE_DRIVER("JDBC-02", "No suitable driver found"),
     XA_OPERATION_FAILED("JDBC-03", "Xa operation failed, such as (commit, rollback) etc.."),
     CONNECT_DATABASE_FAILED("JDBC-04", "Connector database failed"),
-    TRANSACTION_OPERATION_FAILED("JDBC-05", "transaction operation failed, such as (commit, rollback) etc.."),
+    TRANSACTION_OPERATION_FAILED(
+            "JDBC-05", "transaction operation failed, such as (commit, rollback) etc.."),
     NO_SUITABLE_DIALECT_FACTORY("JDBC-06", "No suitable dialect factory found");
-
 
     private final String code;
 
@@ -48,5 +47,4 @@ public enum JdbcConnectorErrorCode implements SeaTunnelErrorCode {
     public String getDescription() {
         return this.description;
     }
-
 }

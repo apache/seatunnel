@@ -32,36 +32,38 @@ import java.util.List;
 
 public class ContainerTestingExtension implements BeforeAllCallback, AfterAllCallback {
     public static final ExtensionContext.Namespace TEST_RESOURCE_NAMESPACE =
-        ExtensionContext.Namespace.create("testResourceNamespace");
+            ExtensionContext.Namespace.create("testResourceNamespace");
     public static final String TEST_CONTAINERS_STORE_KEY = "testContainers";
     public static final String TEST_EXTENDED_FACTORY_STORE_KEY = "testContainerExtendedFactory";
 
     @Override
     public void beforeAll(ExtensionContext context) throws Exception {
         List<ContainerExtendedFactory> containerExtendedFactories =
-            AnnotationSupport.findAnnotatedFieldValues(
-                context.getRequiredTestInstance(),
-                TestContainerExtension.class,
-                ContainerExtendedFactory.class);
+                AnnotationSupport.findAnnotatedFieldValues(
+                        context.getRequiredTestInstance(),
+                        TestContainerExtension.class,
+                        ContainerExtendedFactory.class);
         checkAtMostOneAnnotationField(containerExtendedFactories, TestContainerExtension.class);
         ContainerExtendedFactory containerExtendedFactory = container -> {};
         if (!containerExtendedFactories.isEmpty()) {
             containerExtendedFactory = containerExtendedFactories.get(0);
         }
         context.getStore(TEST_RESOURCE_NAMESPACE)
-            .put(TEST_EXTENDED_FACTORY_STORE_KEY, containerExtendedFactory);
+                .put(TEST_EXTENDED_FACTORY_STORE_KEY, containerExtendedFactory);
 
-        List<TestContainersFactory> containersFactories = AnnotationSupport.findAnnotatedFieldValues(
-            context.getRequiredTestInstance(),
-            TestContainers.class,
-            TestContainersFactory.class);
+        List<TestContainersFactory> containersFactories =
+                AnnotationSupport.findAnnotatedFieldValues(
+                        context.getRequiredTestInstance(),
+                        TestContainers.class,
+                        TestContainersFactory.class);
 
         checkExactlyOneAnnotatedField(containersFactories, TestContainers.class);
 
-        List<TestContainer> testContainers = AnnotationUtil.filterDisabledContainers(containersFactories.get(0).create(),
-            context.getRequiredTestInstance().getClass());
-        context.getStore(TEST_RESOURCE_NAMESPACE)
-            .put(TEST_CONTAINERS_STORE_KEY, testContainers);
+        List<TestContainer> testContainers =
+                AnnotationUtil.filterDisabledContainers(
+                        containersFactories.get(0).create(),
+                        context.getRequiredTestInstance().getClass());
+        context.getStore(TEST_RESOURCE_NAMESPACE).put(TEST_CONTAINERS_STORE_KEY, testContainers);
     }
 
     @Override
@@ -70,27 +72,27 @@ public class ContainerTestingExtension implements BeforeAllCallback, AfterAllCal
     }
 
     private void checkExactlyOneAnnotatedField(
-        Collection<?> fields, Class<? extends Annotation> annotation) {
+            Collection<?> fields, Class<? extends Annotation> annotation) {
         checkAtMostOneAnnotationField(fields, annotation);
         checkAtLeastOneAnnotationField(fields, annotation);
     }
 
     private void checkAtLeastOneAnnotationField(
-        Collection<?> fields, Class<? extends Annotation> annotation) {
+            Collection<?> fields, Class<? extends Annotation> annotation) {
         if (fields.isEmpty()) {
             throw new IllegalStateException(
-                String.format(
-                    "No fields are annotated with '@%s'", annotation.getSimpleName()));
+                    String.format(
+                            "No fields are annotated with '@%s'", annotation.getSimpleName()));
         }
     }
 
     private void checkAtMostOneAnnotationField(
-        Collection<?> fields, Class<? extends Annotation> annotation) {
+            Collection<?> fields, Class<? extends Annotation> annotation) {
         if (fields.size() > 1) {
             throw new IllegalStateException(
-                String.format(
-                    "Multiple fields are annotated with '@%s'",
-                    annotation.getSimpleName()));
+                    String.format(
+                            "Multiple fields are annotated with '@%s'",
+                            annotation.getSimpleName()));
         }
     }
 }

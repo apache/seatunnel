@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.slack.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -32,17 +34,11 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.slack.config.SlackConfig;
 import org.apache.seatunnel.connectors.seatunnel.slack.exception.SlackConnectorException;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 
-
-
-/**
- * Slack sink class
- */
+/** Slack sink class */
 @AutoService(SeaTunnelSink.class)
 public class SlackSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
@@ -60,7 +56,8 @@ public class SlackSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) throws IOException {
+    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
+            throws IOException {
         return new SlackWriter(seaTunnelRowType, pluginConfig);
     }
 
@@ -71,15 +68,19 @@ public class SlackSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult checkResult = CheckConfigUtil.checkAllExists(pluginConfig, SlackConfig.WEBHOOKS_URL.key(), SlackConfig.OAUTH_TOKEN.key(), SlackConfig.SLACK_CHANNEL.key());
+        CheckResult checkResult =
+                CheckConfigUtil.checkAllExists(
+                        pluginConfig,
+                        SlackConfig.WEBHOOKS_URL.key(),
+                        SlackConfig.OAUTH_TOKEN.key(),
+                        SlackConfig.SLACK_CHANNEL.key());
         if (!checkResult.isSuccess()) {
-            throw new SlackConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+            throw new SlackConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SINK, checkResult.getMsg()));
         }
         this.pluginConfig = pluginConfig;
     }
 }
-
-
-

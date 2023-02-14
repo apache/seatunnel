@@ -45,11 +45,18 @@ public class SheetsSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
 
     private final SeaTunnelRowDeserializer seaTunnelRowDeserializer;
 
-    public SheetsSourceReader(SheetsParameters sheetsParameters, SingleSplitReaderContext context, DeserializationSchema<SeaTunnelRow> deserializationSchema, SeaTunnelRowType seaTunnelRowType) throws IOException {
+    public SheetsSourceReader(
+            SheetsParameters sheetsParameters,
+            SingleSplitReaderContext context,
+            DeserializationSchema<SeaTunnelRow> deserializationSchema,
+            SeaTunnelRowType seaTunnelRowType)
+            throws IOException {
         this.sheetsParameters = sheetsParameters;
         this.context = context;
         this.seaTunnelRowType = seaTunnelRowType;
-        this.seaTunnelRowDeserializer = new GoogleSheetsDeserializer(seaTunnelRowType.getFieldNames(), deserializationSchema);
+        this.seaTunnelRowDeserializer =
+                new GoogleSheetsDeserializer(
+                        seaTunnelRowType.getFieldNames(), deserializationSchema);
     }
 
     @Override

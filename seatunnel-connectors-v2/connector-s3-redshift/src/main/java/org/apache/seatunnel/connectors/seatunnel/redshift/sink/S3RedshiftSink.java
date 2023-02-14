@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redshift.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -33,8 +35,6 @@ import org.apache.seatunnel.connectors.seatunnel.redshift.commit.S3RedshiftSinkA
 import org.apache.seatunnel.connectors.seatunnel.redshift.config.S3RedshiftConfig;
 import org.apache.seatunnel.connectors.seatunnel.redshift.exception.S3RedshiftJdbcConnectorException;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import com.google.auto.service.AutoService;
 
 import java.util.Optional;
@@ -49,11 +49,19 @@ public class S3RedshiftSink extends BaseHdfsFileSink {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult checkResult = CheckConfigUtil.checkAllExists(pluginConfig, S3Config.S3_BUCKET.key(), S3RedshiftConfig.JDBC_URL.key(),
-            S3RedshiftConfig.JDBC_USER.key(), S3RedshiftConfig.JDBC_PASSWORD.key(), S3RedshiftConfig.EXECUTE_SQL.key());
+        CheckResult checkResult =
+                CheckConfigUtil.checkAllExists(
+                        pluginConfig,
+                        S3Config.S3_BUCKET.key(),
+                        S3RedshiftConfig.JDBC_URL.key(),
+                        S3RedshiftConfig.JDBC_USER.key(),
+                        S3RedshiftConfig.JDBC_PASSWORD.key(),
+                        S3RedshiftConfig.EXECUTE_SQL.key());
         if (!checkResult.isSuccess()) {
-            throw new S3RedshiftJdbcConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+            throw new S3RedshiftJdbcConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SINK, checkResult.getMsg()));
         }
         this.pluginConfig = pluginConfig;
@@ -61,7 +69,8 @@ public class S3RedshiftSink extends BaseHdfsFileSink {
     }
 
     @Override
-    public Optional<SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo>> createAggregatedCommitter() {
+    public Optional<SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo>>
+            createAggregatedCommitter() {
         return Optional.of(new S3RedshiftSinkAggregatedCommitter(fileSystemUtils, pluginConfig));
     }
 }

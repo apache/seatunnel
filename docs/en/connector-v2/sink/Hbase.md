@@ -12,7 +12,7 @@ Output data to Hbase
 
 ## Options
 
-| name               | type    | required | default value   |
+|        name        |  type   | required |  default value  |
 |--------------------|---------|----------|-----------------|
 | zookeeper_quorum   | string  | yes      | -               |
 | table              | string  | yes      | -               |
@@ -43,15 +43,15 @@ The column name list of row keys, example: ["id", "uuid"]
 
 The family name mapping of fields. For example the row from upstream like the following shown:
 
-| id  | name          | age |
-|-----|---------------|-----|
-| 1   | tyrantlucifer | 27  |
+| id |     name      | age |
+|----|---------------|-----|
+| 1  | tyrantlucifer | 27  |
 
 id as the row key and other fields written to the different families, you can assign
 
 family_name {
-    name = "info1"
-    age = "info2"
+name = "info1"
+age = "info2"
 }
 
 this means that `name` will be written to the family `info1` and the `age` will be written to the family `info2`
@@ -59,7 +59,7 @@ this means that `name` will be written to the family `info1` and the `age` will 
 if you want other fields written to the same family, you can assign
 
 family_name {
-    all_columns = "info"
+all_columns = "info"
 }
 
 this means that all fields will be written to the family `info`
@@ -119,3 +119,4 @@ Hbase {
 ### next version
 
 - Add hbase sink connector ([4049](https://github.com/apache/incubator-seatunnel/pull/4049))
+

@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.engine.server.task;
 
-import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_COUNT;
-import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_QPS;
-
 import org.apache.seatunnel.api.common.metrics.Unit;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.Record;
@@ -29,6 +26,9 @@ import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
 import java.io.IOException;
 import java.util.List;
 
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_COUNT;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_QPS;
+
 public class SeaTunnelSourceCollector<T> implements Collector<T> {
 
     private final Object checkpointLock;
@@ -37,7 +37,10 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
 
     private final MetricsContext metricsContext;
 
-    public SeaTunnelSourceCollector(Object checkpointLock, List<OneInputFlowLifeCycle<Record<?>>> outputs, MetricsContext metricsContext) {
+    public SeaTunnelSourceCollector(
+            Object checkpointLock,
+            List<OneInputFlowLifeCycle<Record<?>>> outputs,
+            MetricsContext metricsContext) {
         this.checkpointLock = checkpointLock;
         this.outputs = outputs;
         this.metricsContext = metricsContext;

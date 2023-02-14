@@ -75,7 +75,8 @@ public class PhoenixTypeMapper implements JdbcDialectTypeMapper {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
-    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException {
+    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
+            throws SQLException {
         String phoenixType = metadata.getColumnTypeName(colIndex).toUpperCase();
         int precision = metadata.getPrecision(colIndex);
         int scale = metadata.getScale(colIndex);
@@ -121,15 +122,16 @@ public class PhoenixTypeMapper implements JdbcDialectTypeMapper {
             case PHOENIX_VARBINARY:
             case PHOENIX_BINARY:
                 return PrimitiveByteArrayType.INSTANCE;
-            //Doesn't support yet
+                // Doesn't support yet
             case PHOENIX_UNKNOWN:
             case PHOENIX_ARRAY:
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
-                throw new JdbcConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
-                    String.format(
-                        "Doesn't support PHOENIX type '%s' on column '%s'  yet.",
-                        phoenixType, jdbcColumnName));
+                throw new JdbcConnectorException(
+                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        String.format(
+                                "Doesn't support PHOENIX type '%s' on column '%s'  yet.",
+                                phoenixType, jdbcColumnName));
         }
     }
 }

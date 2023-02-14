@@ -26,8 +26,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-public class ClickhouseSourceSplitEnumerator implements
-        SourceSplitEnumerator<ClickhouseSourceSplit, ClickhouseSourceState> {
+public class ClickhouseSourceSplitEnumerator
+        implements SourceSplitEnumerator<ClickhouseSourceSplit, ClickhouseSourceState> {
 
     private final Context<ClickhouseSourceSplit> context;
     private final Set<Integer> readers;
@@ -40,19 +40,13 @@ public class ClickhouseSourceSplitEnumerator implements
     }
 
     @Override
-    public void open() {
-
-    }
+    public void open() {}
 
     @Override
-    public void run() throws Exception {
-
-    }
+    public void run() throws Exception {}
 
     @Override
-    public void close() throws IOException {
-
-    }
+    public void close() throws IOException {}
 
     @Override
     public void addSplitsBack(List<ClickhouseSourceSplit> splits, int subtaskId) {
@@ -75,9 +69,7 @@ public class ClickhouseSourceSplitEnumerator implements
     }
 
     @Override
-    public void handleSplitRequest(int subtaskId) {
-
-    }
+    public void handleSplitRequest(int subtaskId) {}
 
     @Override
     public void registerReader(int subtaskId) {
@@ -94,7 +86,5 @@ public class ClickhouseSourceSplitEnumerator implements
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {
-
-    }
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
 }

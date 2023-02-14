@@ -25,12 +25,16 @@ import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.nio.Connection;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
-public class SubmitJobTask extends AbstractSeaTunnelMessageTask<SeaTunnelSubmitJobCodec.RequestParameters, Void> {
+public class SubmitJobTask
+        extends AbstractSeaTunnelMessageTask<SeaTunnelSubmitJobCodec.RequestParameters, Void> {
 
     protected SubmitJobTask(ClientMessage clientMessage, Node node, Connection connection) {
-        super(clientMessage, node, connection,
-            SeaTunnelSubmitJobCodec::decodeRequest,
-            x -> SeaTunnelSubmitJobCodec.encodeResponse());
+        super(
+                clientMessage,
+                node,
+                connection,
+                SeaTunnelSubmitJobCodec::decodeRequest,
+                x -> SeaTunnelSubmitJobCodec.encodeResponse());
     }
 
     @Override
@@ -45,6 +49,6 @@ public class SubmitJobTask extends AbstractSeaTunnelMessageTask<SeaTunnelSubmitJ
 
     @Override
     public Object[] getParameters() {
-        return new Object[]{};
+        return new Object[] {};
     }
 }

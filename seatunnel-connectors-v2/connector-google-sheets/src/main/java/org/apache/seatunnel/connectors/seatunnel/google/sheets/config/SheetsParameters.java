@@ -56,7 +56,8 @@ public class SheetsParameters implements Serializable {
     private String range;
 
     public SheetsParameters buildWithConfig(Config config) {
-        this.serviceAccountKey = config.getString(SheetsConfig.SERVICE_ACCOUNT_KEY.key()).getBytes();
+        this.serviceAccountKey =
+                config.getString(SheetsConfig.SERVICE_ACCOUNT_KEY.key()).getBytes();
         this.sheetId = config.getString(SheetsConfig.SHEET_ID.key());
         this.sheetName = config.getString(SheetsConfig.SHEET_NAME.key());
         this.range = config.getString(SheetsConfig.RANGE.key());

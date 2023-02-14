@@ -22,23 +22,18 @@ import lombok.Data;
 
 import java.util.List;
 
-/**
- * CommandArgs, used to create command {@link Command}
- */
+/** CommandArgs, used to create command {@link Command} */
 @Data
 public abstract class CommandArgs {
 
-    /**
-     * Help parameter
-     */
-    @Parameter(names = {"-h", "--help"},
-        help = true,
-        description = "Show the usage message")
+    /** Help parameter */
+    @Parameter(
+            names = {"-h", "--help"},
+            help = true,
+            description = "Show the usage message")
     protected boolean help = false;
 
-    /**
-     * Undefined parameters parsed will be stored here as engine original command parameters.
-     */
+    /** Undefined parameters parsed will be stored here as engine original command parameters. */
     protected List<String> originalParameters;
 
     public abstract Command<?> buildCommand();

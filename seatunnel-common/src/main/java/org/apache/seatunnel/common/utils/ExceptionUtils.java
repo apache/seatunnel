@@ -21,12 +21,11 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 
 public class ExceptionUtils {
-    private ExceptionUtils() {
-    }
+    private ExceptionUtils() {}
 
     public static String getMessage(Throwable e) {
         try (StringWriter sw = new StringWriter();
-             PrintWriter pw = new PrintWriter(sw)) {
+                PrintWriter pw = new PrintWriter(sw)) {
             // Output the error stack information to the printWriter
             e.printStackTrace(pw);
             pw.flush();

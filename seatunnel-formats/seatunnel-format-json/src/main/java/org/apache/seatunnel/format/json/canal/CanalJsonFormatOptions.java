@@ -27,24 +27,23 @@ import java.util.Map;
 /** Option utils for canal-json format. */
 public class CanalJsonFormatOptions {
 
-    public static final Option<Boolean> IGNORE_PARSE_ERRORS =
-        JsonFormatOptions.IGNORE_PARSE_ERRORS;
+    public static final Option<Boolean> IGNORE_PARSE_ERRORS = JsonFormatOptions.IGNORE_PARSE_ERRORS;
 
     public static final Option<String> DATABASE_INCLUDE =
-        Options.key("database.include")
-            .stringType()
-            .noDefaultValue()
-            .withDescription(
-                "An optional regular expression to only read the specific databases changelog rows by regular matching the \"database\" meta field in the Canal record."
-                    + "The pattern string is compatible with Java's Pattern.");
+            Options.key("database.include")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "An optional regular expression to only read the specific databases changelog rows by regular matching the \"database\" meta field in the Canal record."
+                                    + "The pattern string is compatible with Java's Pattern.");
 
     public static final Option<String> TABLE_INCLUDE =
-        Options.key("table.include")
-            .stringType()
-            .noDefaultValue()
-            .withDescription(
-                "An optional regular expression to only read the specific tables changelog rows by regular matching the \"table\" meta field in the Canal record."
-                    + "The pattern string is compatible with Java's Pattern.");
+            Options.key("table.include")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "An optional regular expression to only read the specific tables changelog rows by regular matching the \"table\" meta field in the Canal record."
+                                    + "The pattern string is compatible with Java's Pattern.");
 
     public static String getTableInclude(Map<String, String> options) {
         return options.getOrDefault(TABLE_INCLUDE.key(), null);
@@ -55,7 +54,7 @@ public class CanalJsonFormatOptions {
     }
 
     public static boolean getIgnoreParseErrors(Map<String, String> options) {
-        return Boolean.parseBoolean(options.getOrDefault(IGNORE_PARSE_ERRORS.key(), IGNORE_PARSE_ERRORS.toString()));
+        return Boolean.parseBoolean(
+                options.getOrDefault(IGNORE_PARSE_ERRORS.key(), IGNORE_PARSE_ERRORS.toString()));
     }
-
 }

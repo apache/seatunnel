@@ -45,19 +45,22 @@ public class TablestoreDialect implements JdbcDialect {
     }
 
     @Override
-    public Optional<String> getUpsertStatement(String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+    public Optional<String> getUpsertStatement(
+            String tableName, String[] fieldNames, String[] uniqueKeyFields) {
         return Optional.empty();
     }
 
     @Override
-    public PreparedStatement creatPreparedStatement(Connection connection, String queryTemplate, int fetchSize) throws SQLException {
+    public PreparedStatement creatPreparedStatement(
+            Connection connection, String queryTemplate, int fetchSize) throws SQLException {
         PreparedStatement statement = connection.prepareStatement(queryTemplate);
         statement.setFetchSize(fetchSize);
         return statement;
     }
 
     @Override
-    public ResultSetMetaData getResultSetMetaData(Connection conn, JdbcSourceOptions jdbcSourceOptions) throws SQLException {
+    public ResultSetMetaData getResultSetMetaData(
+            Connection conn, JdbcSourceOptions jdbcSourceOptions) throws SQLException {
         PreparedStatement ps = conn.prepareStatement(jdbcSourceOptions.getQuery());
         return ps.executeQuery().getMetaData();
     }

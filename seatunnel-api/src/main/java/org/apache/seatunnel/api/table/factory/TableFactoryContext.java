@@ -27,14 +27,11 @@ import java.util.List;
 public class TableFactoryContext {
 
     private final List<CatalogTable> catalogTables;
-    @Getter
-    private final ReadonlyConfig options;
+    @Getter private final ReadonlyConfig options;
     private final ClassLoader classLoader;
 
     public TableFactoryContext(
-            List<CatalogTable> catalogTables,
-            ReadonlyConfig options,
-            ClassLoader classLoader) {
+            List<CatalogTable> catalogTables, ReadonlyConfig options, ClassLoader classLoader) {
         this.catalogTables = catalogTables;
         this.options = options;
         this.classLoader = classLoader;
@@ -47,9 +44,9 @@ public class TableFactoryContext {
     /**
      * Returns a list of tables that need to be processed.
      *
-     * <p> By default, return only single table.
+     * <p>By default, return only single table.
      *
-     * <p> If you need multiple tables, implement {@link SupportMultipleTable}.
+     * <p>If you need multiple tables, implement {@link SupportMultipleTable}.
      */
     public List<CatalogTable> getCatalogTables() {
         return catalogTables;

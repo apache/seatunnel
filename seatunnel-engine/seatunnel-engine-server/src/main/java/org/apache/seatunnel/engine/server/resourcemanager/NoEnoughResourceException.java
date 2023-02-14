@@ -19,8 +19,7 @@ package org.apache.seatunnel.engine.server.resourcemanager;
 
 public class NoEnoughResourceException extends RuntimeException {
 
-    public NoEnoughResourceException() {
-    }
+    public NoEnoughResourceException() {}
 
     public NoEnoughResourceException(String message) {
         super(message);

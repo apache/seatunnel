@@ -17,13 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema.SCHEMA;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.HOST;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.PORT;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.QUEUE_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.USERNAME;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.VIRTUAL_HOST;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
@@ -48,13 +42,20 @@ import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplit;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplitEnumeratorState;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import com.google.auto.service.AutoService;
 
+import static org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema.SCHEMA;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.HOST;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.PORT;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.QUEUE_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.VIRTUAL_HOST;
+
 @AutoService(SeaTunnelSource.class)
-public class RabbitmqSource implements SeaTunnelSource<SeaTunnelRow, RabbitmqSplit, RabbitmqSplitEnumeratorState>,
-    SupportParallelism {
+public class RabbitmqSource
+        implements SeaTunnelSource<SeaTunnelRow, RabbitmqSplit, RabbitmqSplitEnumeratorState>,
+                SupportParallelism {
 
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private JobContext jobContext;
@@ -63,8 +64,10 @@ public class RabbitmqSource implements SeaTunnelSource<SeaTunnelRow, RabbitmqSpl
     @Override
     public Boundedness getBoundedness() {
         if (!JobMode.STREAMING.equals(jobContext.getJobMode())) {
-            throw new RabbitmqConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+            throw new RabbitmqConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, "not support batch job mode"));
         }
         return rabbitMQConfig.isForE2ETesting() ? Boundedness.BOUNDED : Boundedness.UNBOUNDED;
@@ -77,10 +80,21 @@ public class RabbitmqSource implements SeaTunnelSource<SeaTunnelRow, RabbitmqSpl
 
     @Override
     public void prepare(Config config) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(config, HOST.key(), PORT.key(), VIRTUAL_HOST.key(), USERNAME.key(), PASSWORD.key(), QUEUE_NAME.key(), SCHEMA.key());
+        CheckResult result =
+                CheckConfigUtil.checkAllExists(
+                        config,
+                        HOST.key(),
+                        PORT.key(),
+                        VIRTUAL_HOST.key(),
+                        USERNAME.key(),
+                        PASSWORD.key(),
+                        QUEUE_NAME.key(),
+                        SCHEMA.key());
         if (!result.isSuccess()) {
-            throw new RabbitmqConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+            throw new RabbitmqConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         this.rabbitMQConfig = new RabbitmqConfig(config);
@@ -93,17 +107,22 @@ public class RabbitmqSource implements SeaTunnelSource<SeaTunnelRow, RabbitmqSpl
     }
 
     @Override
-    public SourceReader<SeaTunnelRow, RabbitmqSplit> createReader(SourceReader.Context readerContext) throws Exception {
+    public SourceReader<SeaTunnelRow, RabbitmqSplit> createReader(
+            SourceReader.Context readerContext) throws Exception {
         return new RabbitmqSourceReader(deserializationSchema, readerContext, rabbitMQConfig);
     }
 
     @Override
-    public SourceSplitEnumerator<RabbitmqSplit, RabbitmqSplitEnumeratorState> createEnumerator(SourceSplitEnumerator.Context<RabbitmqSplit> enumeratorContext) throws Exception {
+    public SourceSplitEnumerator<RabbitmqSplit, RabbitmqSplitEnumeratorState> createEnumerator(
+            SourceSplitEnumerator.Context<RabbitmqSplit> enumeratorContext) throws Exception {
         return new RabbitmqSplitEnumerator();
     }
 
     @Override
-    public SourceSplitEnumerator<RabbitmqSplit, RabbitmqSplitEnumeratorState> restoreEnumerator(SourceSplitEnumerator.Context<RabbitmqSplit> enumeratorContext, RabbitmqSplitEnumeratorState checkpointState) throws Exception {
+    public SourceSplitEnumerator<RabbitmqSplit, RabbitmqSplitEnumeratorState> restoreEnumerator(
+            SourceSplitEnumerator.Context<RabbitmqSplit> enumeratorContext,
+            RabbitmqSplitEnumeratorState checkpointState)
+            throws Exception {
         return new RabbitmqSplitEnumerator();
     }
 
@@ -114,8 +133,10 @@ public class RabbitmqSource implements SeaTunnelSource<SeaTunnelRow, RabbitmqSpl
 
     private void setDeserialization(Config config) {
         // TODO: format SPI
-        //only support json deserializationSchema
-        SeaTunnelRowType rowType = SeaTunnelSchema.buildWithConfig(config.getConfig(SCHEMA.key())).getSeaTunnelRowType();
+        // only support json deserializationSchema
+        SeaTunnelRowType rowType =
+                SeaTunnelSchema.buildWithConfig(config.getConfig(SCHEMA.key()))
+                        .getSeaTunnelRowType();
         this.deserializationSchema = new JsonDeserializationSchema(false, false, rowType);
     }
 }
