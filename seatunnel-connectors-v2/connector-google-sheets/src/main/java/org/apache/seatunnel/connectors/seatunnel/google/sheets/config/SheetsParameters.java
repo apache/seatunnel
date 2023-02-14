@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.google.sheets.config;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.connectors.seatunnel.google.sheets.exception.GoogleSheetsConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.google.sheets.exception.GoogleSheetsConnectorException;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.HttpRequestInitializer;
@@ -66,21 +66,24 @@ public class SheetsParameters implements Serializable {
 
     public Sheets buildSheets() throws IOException {
         byte[] keyBytes = Base64.getDecoder().decode(this.serviceAccountKey);
-        ServiceAccountCredentials sourceCredentials = ServiceAccountCredentials
-                .fromStream(new ByteArrayInputStream(keyBytes));
-        sourceCredentials = (ServiceAccountCredentials) sourceCredentials
-                .createScoped(Collections.singletonList(SheetsScopes.SPREADSHEETS));
+        ServiceAccountCredentials sourceCredentials =
+                ServiceAccountCredentials.fromStream(new ByteArrayInputStream(keyBytes));
+        sourceCredentials =
+                (ServiceAccountCredentials)
+                        sourceCredentials.createScoped(
+                                Collections.singletonList(SheetsScopes.SPREADSHEETS));
         HttpRequestInitializer requestInitializer = new HttpCredentialsAdapter(sourceCredentials);
         NetHttpTransport httpTransport = null;
         try {
             httpTransport = GoogleNetHttpTransport.newTrustedTransport();
         } catch (GeneralSecurityException e) {
-            throw new GoogleSheetsConnectorException(GoogleSheetsConnectorErrorCode.BUILD_SHEETS_REQUEST_EXCEPTION,
-                    "Build google sheets http request exception", e);
+            throw new GoogleSheetsConnectorException(
+                    GoogleSheetsConnectorErrorCode.BUILD_SHEETS_REQUEST_EXCEPTION,
+                    "Build google sheets http request exception",
+                    e);
         }
         return new Sheets.Builder(httpTransport, JSON_FACTORY, requestInitializer)
                 .setApplicationName(APPLICATION_NAME)
                 .build();
-
     }
 }

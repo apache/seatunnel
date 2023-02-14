@@ -43,7 +43,8 @@ public class SheetsSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private final Integer batchSize = 100;
     private Integer totalCount = 0;
 
-    public SheetsSinkWriter(SheetsParameters sheetsParameters, RangePosition rangePosition) throws IOException {
+    public SheetsSinkWriter(SheetsParameters sheetsParameters, RangePosition rangePosition)
+            throws IOException {
         this.sheetsParameters = sheetsParameters;
         this.seaTunnelRowSerializer = new GoogleSheetsSerializer();
         this.service = sheetsParameters.buildSheets();
@@ -78,12 +79,9 @@ public class SheetsSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             start += rangePosition.getStartY();
         }
 
-        data.add(new ValueRange()
-                .setRange(start + ":" + end)
-                .setValues(values));
-        BatchUpdateValuesRequest body = new BatchUpdateValuesRequest()
-                .setValueInputOption("RAW")
-                .setData(data);
+        data.add(new ValueRange().setRange(start + ":" + end).setValues(values));
+        BatchUpdateValuesRequest body =
+                new BatchUpdateValuesRequest().setValueInputOption("RAW").setData(data);
         service.spreadsheets().values().batchUpdate(sheetsParameters.getSheetId(), body).execute();
         seaTunnelRowList.clear();
     }

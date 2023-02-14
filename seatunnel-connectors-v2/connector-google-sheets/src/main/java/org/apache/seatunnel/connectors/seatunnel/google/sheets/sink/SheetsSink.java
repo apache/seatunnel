@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.google.sheets.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -33,8 +35,6 @@ import org.apache.seatunnel.connectors.seatunnel.google.sheets.config.RangePosit
 import org.apache.seatunnel.connectors.seatunnel.google.sheets.config.SheetsConfig;
 import org.apache.seatunnel.connectors.seatunnel.google.sheets.config.SheetsParameters;
 import org.apache.seatunnel.connectors.seatunnel.google.sheets.exception.GoogleSheetsConnectorException;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
 
@@ -54,10 +54,18 @@ public class SheetsSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult checkResult = CheckConfigUtil.checkAllExists(pluginConfig, SheetsConfig.SERVICE_ACCOUNT_KEY.key(), SheetsConfig.SHEET_ID.key(), SheetsConfig.SHEET_NAME.key(), SheetsConfig.RANGE.key());
+        CheckResult checkResult =
+                CheckConfigUtil.checkAllExists(
+                        pluginConfig,
+                        SheetsConfig.SERVICE_ACCOUNT_KEY.key(),
+                        SheetsConfig.SHEET_ID.key(),
+                        SheetsConfig.SHEET_NAME.key(),
+                        SheetsConfig.RANGE.key());
         if (!checkResult.isSuccess()) {
-            throw new GoogleSheetsConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+            throw new GoogleSheetsConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SINK, checkResult.getMsg()));
         }
         this.sheetsParameters = new SheetsParameters().buildWithConfig(pluginConfig);
@@ -75,7 +83,8 @@ public class SheetsSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) throws IOException {
+    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
+            throws IOException {
         return new SheetsSinkWriter(this.sheetsParameters, this.rangePosition);
     }
 }

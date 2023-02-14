@@ -1,7 +1,8 @@
 # GoogleSheets
 
 > GoogleSheets sink connector
-## Description
+>
+  ## Description
 
 Used to write data to GoogleSheets.
 
@@ -11,12 +12,12 @@ Used to write data to GoogleSheets.
 
 ## Options
 
-| name                | type         | required | default value |
-|-------------------  |--------------|----------|---------------|
-| service_account_key | string       | yes      | -             |
-| sheet_id            | string       | yes      | -             |
-| sheet_name          | string       | yes      | -             |
-| range               | string       | yes      | -             |
+|        name         |  type  | required | default value |
+|---------------------|--------|----------|---------------|
+| service_account_key | string | yes      | -             |
+| sheet_id            | string | yes      | -             |
+| sheet_name          | string | yes      | -             |
+| range               | string | yes      | -             |
 
 ### service_account_key [string]
 
@@ -39,12 +40,12 @@ the range of the sheet you want to output
 simple:
 
 ```hocon
-  GoogleSheets {
-    service_account_key = "Your account key"
-    sheet_id = "1VI0DvyZK-NIdssSdsDSsSSSC-_-rYMi7ppJiI_jhE"
-    sheet_name = "sheets01"
-    range = "A1:C3"
-  }
+GoogleSheets {
+  service_account_key = "Your account key"
+  sheet_id = "1VI0DvyZK-NIdssSdsDSsSSSC-_-rYMi7ppJiI_jhE"
+  sheet_name = "sheets01"
+  range = "A1:C3"
+}
 ```
 
 ## Changelog
@@ -52,3 +53,4 @@ simple:
 ### next version
 
 - Add GoogleSheets Sink Connector [3848](https://github.com/apache/incubator-seatunnel/pull/3848)
+

@@ -25,8 +25,7 @@ import java.util.List;
 
 public class GoogleSheetsSerializer implements SeaTunnelRowSerializer {
 
-    public GoogleSheetsSerializer() {
-    }
+    public GoogleSheetsSerializer() {}
 
     @Override
     public List<List<Object>> deserializeRow(List<SeaTunnelRow> input) {

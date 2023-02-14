@@ -224,7 +224,7 @@ problems encountered by users.
 
 ## GoogleSheets Connector Error Codes
 
-| code            | description                                | solution                                                                                                             |
+|      code       |                description                 |                                                       solution                                                       |
 |-----------------|--------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
 | GOOGLESHEETS-01 | Build google sheets http request exception | When users encounter this error code, it means that send http request to build google sheets failed, please check it |
 
@@ -240,3 +240,4 @@ problems encountered by users.
 |   code   |    description    |                                                                              solution                                                                               |
 |----------|-------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | EMAIL-01 | Send email failed | When users encounter this error code, it means that send email to target server failed, please adjust the network environment according to the abnormal information |
+

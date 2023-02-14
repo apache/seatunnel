@@ -71,9 +71,13 @@ public class SheetsSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        ValueRange response = service.spreadsheets().values()
-                .get(sheetsParameters.getSheetId(), sheetsParameters.getSheetName() + "!" + sheetsParameters.getRange())
-                .execute();
+        ValueRange response =
+                service.spreadsheets()
+                        .values()
+                        .get(
+                                sheetsParameters.getSheetId(),
+                                sheetsParameters.getSheetName() + "!" + sheetsParameters.getRange())
+                        .execute();
         List<List<Object>> values = response.getValues();
         if (values != null) {
             for (List<Object> row : values) {

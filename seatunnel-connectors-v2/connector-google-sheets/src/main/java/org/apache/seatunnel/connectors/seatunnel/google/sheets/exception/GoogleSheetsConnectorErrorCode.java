@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.google.sheets.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum GoogleSheetsConnectorErrorCode implements SeaTunnelErrorCode {
-    BUILD_SHEETS_REQUEST_EXCEPTION("GOOGLESHEETS-01",  "Build google sheets http request exception");
+    BUILD_SHEETS_REQUEST_EXCEPTION("GOOGLESHEETS-01", "Build google sheets http request exception");
 
     private final String code;
 
