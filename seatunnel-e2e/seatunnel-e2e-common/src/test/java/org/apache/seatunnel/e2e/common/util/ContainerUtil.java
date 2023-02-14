@@ -25,6 +25,8 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.factory.FactoryException;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
+import org.apache.commons.lang3.StringUtils;
+
 import org.junit.jupiter.api.Assertions;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.MountableFile;
@@ -123,7 +125,7 @@ public final class ContainerUtil {
             String seatunnelHomeInContainer) {
         // solve the problem of multi modules such as
         // seatunnel-flink-starter/seatunnel-flink-13-starter
-        final String[] splits = startModuleName.split(File.separator);
+        final String[] splits = StringUtils.split(startModuleName, File.separator);
         final String startJarName = splits[splits.length - 1] + ".jar";
         // copy starter
         final String startJarPath =
