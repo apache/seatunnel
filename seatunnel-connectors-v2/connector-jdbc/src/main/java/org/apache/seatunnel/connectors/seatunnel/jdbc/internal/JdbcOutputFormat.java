@@ -76,6 +76,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         try {
             connectionProvider.getOrEstablishConnection();
         } catch (Exception e) {
+            connectionProvider.closeConnection();
             throw new JdbcConnectorException(
                     JdbcConnectorErrorCode.CONNECT_DATABASE_FAILED,
                     "unable to open JDBC writer",
@@ -120,6 +121,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         try {
             exec.prepareStatements(connectionProvider.getConnection());
         } catch (SQLException e) {
+            connectionProvider.closeConnection();
             throw new JdbcConnectorException(
                     CommonErrorCode.SQL_OPERATION_FAILED, "unable to open JDBC writer", e);
         }
@@ -147,6 +149,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                 flush();
             }
         } catch (Exception e) {
+            connectionProvider.closeConnection();
             throw new JdbcConnectorException(
                     CommonErrorCode.SQL_OPERATION_FAILED, "Writing records to JDBC failed.", e);
         }
@@ -167,6 +170,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
             } catch (SQLException e) {
                 LOG.error("JDBC executeBatch error, retry times = {}", i, e);
                 if (i >= jdbcConnectionOptions.getMaxRetries()) {
+                    connectionProvider.closeConnection();
                     throw new JdbcConnectorException(CommonErrorCode.FLUSH_DATA_FAILED, e);
                 }
                 try {
@@ -177,6 +181,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                     LOG.error(
                             "JDBC connection is not valid, and reestablish connection failed.",
                             exception);
+                    connectionProvider.closeConnection();
                     throw new JdbcConnectorException(
                             JdbcConnectorErrorCode.CONNECT_DATABASE_FAILED,
                             "Reestablish JDBC connection failed",
@@ -186,6 +191,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                     Thread.sleep(sleepMs * i);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
+                    connectionProvider.closeConnection();
                     throw new JdbcConnectorException(
                             CommonErrorCode.FLUSH_DATA_FAILED,
                             "unable to flush; interrupted while doing another attempt",
