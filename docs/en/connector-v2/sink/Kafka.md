@@ -211,8 +211,10 @@ sink {
 
 ### next version
 
-- [Improve] Support to specify multiple partition keys [3230](https://github.com/apache/seatunnel/pull/3230)
-- [Improve] Add text format for kafka sink connector [3711](https://github.com/apache/seatunnel/pull/3711)
-- [Improve] Support extract topic from SeaTunnelRow fields [3742](https://github.com/apache/seatunnel/pull/3742)
-- [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/seatunnel/pull/3719)
+- [Improve] Support to specify multiple partition keys [3230](https://github.com/apache/incubator-seatunnel/pull/3230)
+- [Improve] Add text format for kafka sink connector [3711](https://github.com/apache/incubator-seatunnel/pull/3711)
+- [Improve] Support extract topic from SeaTunnelRow fields [3742](https://github.com/apache/incubator-seatunnel/pull/3742)
+- [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/incubator-seatunnel/pull/3719)
+- [Improve] Support read canal format message [3950](https://github.com/apache/incubator-seatunnel/pull/3950)
+- [Improve] Support read debezium format message [3981](https://github.com/apache/incubator-seatunnel/pull/3981)
 
