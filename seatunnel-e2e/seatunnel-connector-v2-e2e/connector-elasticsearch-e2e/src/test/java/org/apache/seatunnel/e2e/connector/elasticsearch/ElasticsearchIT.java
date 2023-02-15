@@ -221,17 +221,17 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         return docs;
     }
 
-    private List<String> mapTestDatasetForDSL(){
-        return testDataset
-                .stream()
+    private List<String> mapTestDatasetForDSL() {
+        return testDataset.stream()
                 .map(JsonUtils::toJsonNode)
-                .filter(node -> {
-                    if (node.hasNonNull("c_int")){
-                        int cInt = node.get("c_int").asInt();
-                        return cInt >= 10 && cInt <= 20;
-                    }
-                    return false;
-                })
+                .filter(
+                        node -> {
+                            if (node.hasNonNull("c_int")) {
+                                int cInt = node.get("c_int").asInt();
+                                return cInt >= 10 && cInt <= 20;
+                            }
+                            return false;
+                        })
                 .map(JsonNode::toString)
                 .collect(Collectors.toList());
     }
