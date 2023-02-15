@@ -47,7 +47,7 @@ public class ConfigShadeTest {
     public void testParseConfig() {
         URL resource = ConfigShadeTest.class.getResource("/config.shade.conf");
         Assertions.assertNotNull(resource);
-        String file = resource.getFile();
+        String file = resource.getPath();
         Config config = ConfigBuilder.of(file);
         Config decryptConfig = ConfigShadeUtils.decryptConfig(config);
         Config fields =
