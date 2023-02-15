@@ -16,6 +16,7 @@
 - [Hbase] Add hbase sink connector #4049
 ### Formats
 - [Canal]Support read canal format message #3950
+- [Debezium]Support debezium canal format message #3981
 
 ## Improves
 ### Connectors
