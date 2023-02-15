@@ -41,6 +41,8 @@ hazelcast:
           enabled: true
         HEALTH_CHECK:
           enabled: true
+        DATA:
+          enabled: true
     join:
       tcp-ip:
         enabled: true
