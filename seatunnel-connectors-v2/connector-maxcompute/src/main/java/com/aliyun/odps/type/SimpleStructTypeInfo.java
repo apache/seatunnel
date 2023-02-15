@@ -51,10 +51,14 @@ public class SimpleStructTypeInfo implements StructTypeInfo {
     private void validateParameters(List<String> names, List<TypeInfo> typeInfos) {
         if (names != null && typeInfos != null && !names.isEmpty() && !typeInfos.isEmpty()) {
             if (names.size() != typeInfos.size()) {
-                throw new MaxcomputeConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, "The amount of field names must be equal to the amount of field types.");
+                throw new MaxcomputeConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "The amount of field names must be equal to the amount of field types.");
             }
         } else {
-            throw new MaxcomputeConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Invalid name or element type for struct.");
+            throw new MaxcomputeConnectorException(
+                    CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                    "Invalid name or element type for struct.");
         }
     }
 
@@ -96,4 +100,3 @@ public class SimpleStructTypeInfo implements StructTypeInfo {
         return this.getTypeName();
     }
 }
-

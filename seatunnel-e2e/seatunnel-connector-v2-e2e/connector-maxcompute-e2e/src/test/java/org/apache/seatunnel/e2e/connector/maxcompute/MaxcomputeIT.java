@@ -35,15 +35,11 @@ public class MaxcomputeIT extends TestSuiteBase implements TestResource {
 
     @BeforeEach
     @Override
-    public void startUp() throws Exception {
-
-    }
+    public void startUp() throws Exception {}
 
     @AfterEach
     @Override
-    public void tearDown() throws Exception {
-
-    }
+    public void tearDown() throws Exception {}
 
     @TestTemplate
     public void testMaxcompute(TestContainer container) throws IOException, InterruptedException {
