@@ -128,6 +128,8 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
 
     private void checkFlushException() {
         if (flushException != null) {
+            // close the JDBC connection before throw Exception
+            connectionProvider.closeConnection();
             throw new JdbcConnectorException(
                     CommonErrorCode.FLUSH_DATA_FAILED,
                     "Writing records to JDBC failed.",
