@@ -36,12 +36,15 @@ import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.internal.json.JsonValue;
 import com.hazelcast.internal.util.JsonUtil;
+import com.hazelcast.internal.util.StringUtil;
 import com.hazelcast.map.IMap;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+
+import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
 
 public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCommand> {
 
@@ -67,10 +70,19 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     @Override
     public void handle(HttpGetCommand httpGetCommand) {
         String uri = httpGetCommand.getURI();
-        if (uri.startsWith("/hazelcast/rest/maps/running-jobs")) {
-            handleRunningJobsInfo(httpGetCommand);
-        } else {
-            original.handle(httpGetCommand);
+        try {
+            if (uri.startsWith("/hazelcast/rest/maps/running-jobs")) {
+                handleRunningJobsInfo(httpGetCommand);
+            } else if (uri.startsWith("/hazelcast/rest/maps/running-job")) {
+                handleJobInfoById(httpGetCommand, uri);
+            } else {
+                original.handle(httpGetCommand);
+            }
+        } catch (IndexOutOfBoundsException e) {
+            httpGetCommand.send400();
+        } catch (Throwable e) {
+            logger.warning("An error occurred while handling request " + httpGetCommand, e);
+            prepareResponse(SC_500, httpGetCommand, exceptionResponse(e));
         }
 
         this.textCommandService.sendResponse(httpGetCommand);
@@ -88,93 +100,35 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                         .getNodeEngine()
                         .getHazelcastInstance()
                         .getMap(Constant.IMAP_RUNNING_JOB_INFO);
-        Map<String, Object> extensionServices =
-                this.textCommandService.getNode().getNodeExtension().createExtensionServices();
-        SeaTunnelServer seaTunnelServer =
-                (SeaTunnelServer) extensionServices.get(Constant.SEATUNNEL_SERVICE_NAME);
         JsonArray jobs =
                 values.entrySet().stream()
                         .map(
-                                jobInfoEntry -> {
-                                    JsonObject jobInfo = new JsonObject();
-                                    JobImmutableInformation jobImmutableInformation =
-                                            this.textCommandService
-                                                    .getNode()
-                                                    .getNodeEngine()
-                                                    .getSerializationService()
-                                                    .toObject(
-                                                            this.textCommandService
-                                                                    .getNode()
-                                                                    .getNodeEngine()
-                                                                    .getSerializationService()
-                                                                    .toObject(
-                                                                            jobInfoEntry
-                                                                                    .getValue()
-                                                                                    .getJobImmutableInformation()));
-                                    LogicalDag logicalDag =
-                                            this.textCommandService
-                                                    .getNode()
-                                                    .getNodeEngine()
-                                                    .getSerializationService()
-                                                    .toObject(
-                                                            jobImmutableInformation
-                                                                    .getLogicalDag());
-
-                                    String jobMetrics =
-                                            seaTunnelServer
-                                                    .getCoordinatorService()
-                                                    .getJobMetrics(jobInfoEntry.getKey())
-                                                    .toJsonString();
-                                    JobStatus jobStatus =
-                                            seaTunnelServer
-                                                    .getCoordinatorService()
-                                                    .getJobStatus(jobInfoEntry.getKey());
-                                    return jobInfo.add("jobId", jobInfoEntry.getKey())
-                                            .add("jobName", logicalDag.getJobConfig().getName())
-                                            .add("jobStatus", jobStatus.toString())
-                                            .add(
-                                                    "envOptions",
-                                                    JsonUtil.toJsonObject(
-                                                            logicalDag
-                                                                    .getJobConfig()
-                                                                    .getEnvOptions()))
-                                            .add(
-                                                    "createTime",
-                                                    new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
-                                                            .format(
-                                                                    new Date(
-                                                                            jobImmutableInformation
-                                                                                    .getCreateTime())))
-                                            .add("jobDag", logicalDag.getLogicalDagAsJson())
-                                            .add(
-                                                    "pluginJarsUrls",
-                                                    (JsonValue)
-                                                            jobImmutableInformation
-                                                                    .getPluginJarsUrls().stream()
-                                                                    .map(
-                                                                            url -> {
-                                                                                JsonObject jarUrl =
-                                                                                        new JsonObject();
-                                                                                jarUrl.add(
-                                                                                        "jarPath",
-                                                                                        url
-                                                                                                .toString());
-                                                                                return jarUrl;
-                                                                            })
-                                                                    .collect(
-                                                                            JsonArray::new,
-                                                                            JsonArray::add,
-                                                                            JsonArray::add))
-                                            .add(
-                                                    "isStartWithSavePoint",
-                                                    jobImmutableInformation.isStartWithSavePoint())
-                                            .add(
-                                                    "metrics",
-                                                    JsonUtil.toJsonObject(
-                                                            getJobMetrics(jobMetrics)));
-                                })
+                                jobInfoEntry ->
+                                        convertToJson(
+                                                jobInfoEntry.getValue(), jobInfoEntry.getKey()))
                         .collect(JsonArray::new, JsonArray::add, JsonArray::add);
         this.prepareResponse(command, jobs);
+    }
+
+    private void handleJobInfoById(HttpGetCommand command, String uri) {
+        uri = StringUtil.stripTrailingSlash(uri);
+        int indexEnd = uri.indexOf('/', URI_MAPS.length());
+        String jobId = uri.substring(indexEnd + 1);
+
+        JobInfo jobInfo =
+                (JobInfo)
+                        this.textCommandService
+                                .getNode()
+                                .getNodeEngine()
+                                .getHazelcastInstance()
+                                .getMap(Constant.IMAP_RUNNING_JOB_INFO)
+                                .get(Long.valueOf(jobId));
+
+        if (!"".equals(jobId) && jobInfo != null) {
+            this.prepareResponse(command, convertToJson(jobInfo, Long.parseLong(jobId)));
+        } else {
+            this.prepareResponse(command, new JsonObject());
+        }
     }
 
     private Map<String, Long> getJobMetrics(String jobMetrics) {
@@ -198,5 +152,63 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         metricsMap.put("sinkWriteCount", sinkWriteCount);
 
         return metricsMap;
+    }
+
+    private SeaTunnelServer getSeatunnelServer() {
+        Map<String, Object> extensionServices =
+                this.textCommandService.getNode().getNodeExtension().createExtensionServices();
+        return (SeaTunnelServer) extensionServices.get(Constant.SEATUNNEL_SERVICE_NAME);
+    }
+
+    private JsonObject convertToJson(JobInfo jobInfo, long jobId) {
+
+        JsonObject jobInfoJson = new JsonObject();
+        JobImmutableInformation jobImmutableInformation =
+                this.textCommandService
+                        .getNode()
+                        .getNodeEngine()
+                        .getSerializationService()
+                        .toObject(
+                                this.textCommandService
+                                        .getNode()
+                                        .getNodeEngine()
+                                        .getSerializationService()
+                                        .toObject(jobInfo.getJobImmutableInformation()));
+        LogicalDag logicalDag =
+                this.textCommandService
+                        .getNode()
+                        .getNodeEngine()
+                        .getSerializationService()
+                        .toObject(jobImmutableInformation.getLogicalDag());
+
+        String jobMetrics =
+                getSeatunnelServer().getCoordinatorService().getJobMetrics(jobId).toJsonString();
+        JobStatus jobStatus = getSeatunnelServer().getCoordinatorService().getJobStatus(jobId);
+
+        jobInfoJson
+                .add("jobId", jobId)
+                .add("jobName", logicalDag.getJobConfig().getName())
+                .add("jobStatus", jobStatus.toString())
+                .add("envOptions", JsonUtil.toJsonObject(logicalDag.getJobConfig().getEnvOptions()))
+                .add(
+                        "createTime",
+                        new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+                                .format(new Date(jobImmutableInformation.getCreateTime())))
+                .add("jobDag", logicalDag.getLogicalDagAsJson())
+                .add(
+                        "pluginJarsUrls",
+                        (JsonValue)
+                                jobImmutableInformation.getPluginJarsUrls().stream()
+                                        .map(
+                                                url -> {
+                                                    JsonObject jarUrl = new JsonObject();
+                                                    jarUrl.add("jarPath", url.toString());
+                                                    return jarUrl;
+                                                })
+                                        .collect(JsonArray::new, JsonArray::add, JsonArray::add))
+                .add("isStartWithSavePoint", jobImmutableInformation.isStartWithSavePoint())
+                .add("metrics", JsonUtil.toJsonObject(getJobMetrics(jobMetrics)));
+
+        return jobInfoJson;
     }
 }
