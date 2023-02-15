@@ -24,6 +24,8 @@
 
     <artifactId>seatunnel-connector-v2-e2e</artifactId>
     <packaging>pom</packaging>
+    <name>SeaTunnel : E2E : Connector V2 :</name>
+
     <modules>
         <module>connector-assert-e2e</module>
         <module>connector-jdbc-e2e</module>

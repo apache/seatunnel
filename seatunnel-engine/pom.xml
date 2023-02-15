@@ -23,6 +23,7 @@
     </parent>
     <artifactId>seatunnel-engine</artifactId>
     <packaging>pom</packaging>
+    <name>SeaTunnel : Engine :</name>
 
     <modules>
         <module>seatunnel-engine-client</module>

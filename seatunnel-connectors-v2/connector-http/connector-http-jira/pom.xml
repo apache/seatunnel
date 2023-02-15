@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-http-jira</artifactId>
+    <name>SeaTunnel : Connectors V2 : Http : Jira</name>
 
     <dependencies>
         <dependency>

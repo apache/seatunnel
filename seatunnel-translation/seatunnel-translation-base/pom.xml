@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>seatunnel-translation-base</artifactId>
+    <name>SeaTunnel : Translation : Base</name>
 
     <dependencies>
         <dependency>

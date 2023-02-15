@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-starrocks</artifactId>
+    <name>SeaTunnel : Connectors V2 : StarRocks</name>
 
     <properties>
         <httpclient.version>4.5.13</httpclient.version>

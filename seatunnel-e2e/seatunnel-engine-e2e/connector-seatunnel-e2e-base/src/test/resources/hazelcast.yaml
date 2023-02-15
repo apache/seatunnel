@@ -17,16 +17,35 @@
 
 hazelcast:
   cluster-name: seatunnel
-  network:
+  advanced-network:
+    enabled: true
+    member-server-socket-endpoint-config:
+      port:
+        auto-increment: true
+        port-count: 100
+        port: 9000
+    client-server-socket-endpoint-config:
+      port:
+        auto-increment: true
+        port-count: 100
+        port: 5801
+    rest-server-socket-endpoint-config:
+      port:
+        auto-increment: true
+        port-count: 100
+        port: 8080
+      endpoint-groups:
+        WAN:
+          enabled: true
+        CLUSTER_READ:
+          enabled: true
+        HEALTH_CHECK:
+          enabled: true
     join:
       tcp-ip:
         enabled: true
         member-list:
           - localhost
-    port:
-      auto-increment: true
-      port-count: 100
-      port: 5801
   properties:
     hazelcast.invocation.max.retry.count: 200
     hazelcast.invocation.retry.pause.millis: 2000

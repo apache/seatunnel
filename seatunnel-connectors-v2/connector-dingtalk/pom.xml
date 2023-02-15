@@ -25,6 +25,8 @@
     </parent>
 
     <artifactId>connector-dingtalk</artifactId>
+    <name>SeaTunnel : Connectors V2 : DingTalk</name>
+
     <properties>
         <dingtalk.service.version>2.0.0</dingtalk.service.version>
     </properties>

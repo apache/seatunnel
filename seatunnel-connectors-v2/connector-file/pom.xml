@@ -27,6 +27,7 @@
     </parent>
     <artifactId>connector-file</artifactId>
     <packaging>pom</packaging>
+    <name>SeaTunnel : Connectors V2 : File :</name>
 
     <modules>
         <module>connector-file-base</module>

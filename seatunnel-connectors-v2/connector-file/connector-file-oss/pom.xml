@@ -27,6 +27,8 @@
     </parent>
 
     <artifactId>connector-file-oss</artifactId>
+    <name>SeaTunnel : Connectors V2 : File : Oss</name>
+
     <properties>
         <hadoop-aliyun.version>2.9.2</hadoop-aliyun.version>
     </properties>
