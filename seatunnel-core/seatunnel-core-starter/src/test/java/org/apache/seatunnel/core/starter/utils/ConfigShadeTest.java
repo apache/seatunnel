@@ -51,11 +51,7 @@ public class ConfigShadeTest {
         Assertions.assertNotNull(resource);
         Config config = ConfigBuilder.of(Paths.get(resource.toURI()));
         Config fields =
-                config
-                        .getConfigList("source")
-                        .get(0)
-                        .getConfig("schema")
-                        .getConfig("fields");
+                config.getConfigList("source").get(0).getConfig("schema").getConfig("fields");
         log.info("Schema fields: {}", fields.root().render(CONFIG_RENDER_OPTIONS));
         ObjectNode jsonNodes = JsonUtils.parseObject(fields.root().render(CONFIG_RENDER_OPTIONS));
         List<String> field = new ArrayList<>();
