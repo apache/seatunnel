@@ -83,6 +83,7 @@ public class ElasticsearchSourceReader
                         esRestClient.searchByScroll(
                                 sourceIndexInfo.getIndex(),
                                 sourceIndexInfo.getSource(),
+                                sourceIndexInfo.getQuery(),
                                 sourceIndexInfo.getScrollTime(),
                                 sourceIndexInfo.getScrollSize());
                 outputFromScrollResult(scrollResult, sourceIndexInfo.getSource(), output);

@@ -19,23 +19,24 @@ support version >= 2.x and < 8.x.
 
 ## Options
 
-|          name           |  type   | required | default value |
-|-------------------------|---------|----------|---------------|
-| hosts                   | array   | yes      | -             |
-| username                | string  | no       | -             |
-| password                | string  | no       | -             |
-| index                   | string  | yes      | -             |
-| source                  | array   | no       | -             |
-| scroll_time             | string  | no       | 1m            |
-| scroll_size             | int     | no       | 100           |
-| schema                  |         | no       | -             |
-| tls_verify_certificate  | boolean | no       | true          |
-| tls_verify_hostnames    | boolean | no       | true          |
-| tls_keystore_path       | string  | no       | -             |
-| tls_keystore_password   | string  | no       | -             |
-| tls_truststore_path     | string  | no       | -             |
-| tls_truststore_password | string  | no       | -             |
-| common-options          |         | no       | -             |
+|          name           |  type   | required |   default value   |
+|-------------------------|---------|----------|-------------------|
+| hosts                   | array   | yes      | -                 |
+| username                | string  | no       | -                 |
+| password                | string  | no       | -                 |
+| index                   | string  | yes      | -                 |
+| source                  | array   | no       | -                 |
+| query                   | map     | no       | {"match_all": {}} |
+| scroll_time             | string  | no       | 1m                |
+| scroll_size             | int     | no       | 100               |
+| schema                  |         | no       | -                 |
+| tls_verify_certificate  | boolean | no       | true              |
+| tls_verify_hostnames    | boolean | no       | true              |
+| tls_keystore_path       | string  | no       | -                 |
+| tls_keystore_password   | string  | no       | -                 |
+| tls_truststore_path     | string  | no       | -                 |
+| tls_truststore_password | string  | no       | -                 |
+| common-options          |         | no       | -                 |
 
 ### hosts [array]
 
@@ -58,6 +59,11 @@ Elasticsearch index name, support * fuzzy matching.
 The fields of index.
 You can get the document id by specifying the field `_id`.If sink _id to other index,you need specify an alias for _id due to the Elasticsearch limit.
 If you don't config source, you must config `schema`.
+
+### query [map]
+
+Elasticsearch query language.
+You can control the range of data read
 
 ### scroll_time [String]
 
@@ -109,6 +115,7 @@ Elasticsearch {
     hosts = ["localhost:9200"]
     index = "seatunnel-*"
     source = ["_id","name","age"]
+    query = {"range":{"firstPacket":{"gte":1669225429990,"lte":1669225429990}}}
 }
 ```
 
@@ -136,6 +143,7 @@ Elasticsearch {
             c_timestamp = timestamp
         }
     }
+    query = {"range":{"firstPacket":{"gte":1669225429990,"lte":1669225429990}}}
 }
 ```
 
@@ -188,4 +196,5 @@ source {
 
 - Add Elasticsearch Source Connector
 - [Feature] Support https protocol & compatible with opensearch ([3997](https://github.com/apache/incubator-seatunnel/pull/3997))
+- [Feature] Support DSL
 

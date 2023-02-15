@@ -35,6 +35,7 @@ import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsC
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig.TLS_VERIFY_HOSTNAME;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig.USERNAME;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig.INDEX;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig.QUERY;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig.SCROLL_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig.SCROLL_TIME;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig.SOURCE;
@@ -55,6 +56,7 @@ public class ElasticsearchSourceFactory implements TableSourceFactory {
                         PASSWORD,
                         SCROLL_TIME,
                         SCROLL_SIZE,
+                        QUERY,
                         TLS_VERIFY_CERTIFICATE,
                         TLS_VERIFY_HOSTNAME,
                         TLS_KEY_STORE_PATH,

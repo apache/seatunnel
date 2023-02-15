@@ -197,7 +197,10 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         "c_bytes",
                         "c_date",
                         "c_timestamp");
-        ScrollResult scrollResult = esRestClient.searchByScroll("st_index2", source, "1m", 1000);
+        Map<String, Object> query = new HashMap<>();
+        query.put("match_all", new HashMap<String, String>());
+        ScrollResult scrollResult =
+                esRestClient.searchByScroll("st_index2", source, query, "1m", 1000);
         scrollResult
                 .getDocs()
                 .forEach(
