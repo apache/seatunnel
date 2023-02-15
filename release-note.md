@@ -13,6 +13,7 @@
 - [ALL]Add FieldMapper Transform #3781
 ### Connectors
 - [Elasticsearch] Support https protocol & compatible with opensearch
+- [Elasticsearch] Support DSL
 - [Hbase] Add hbase sink connector #4049
 ### Formats
 - [Canal]Support read canal format message #3950
