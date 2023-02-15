@@ -159,6 +159,37 @@ def get_sub_it_modules(modules, total_num, current_num):
     output = output[1:len(output)]
     print(output)
 
+
+# If the check passes, it succeeds, and if the check fails, it exits.
+def check_connector_complete_status(output_module):
+    changed_connector = output_module.split(',')
+    for connector in changed_connector:
+        if judge(connector):
+            print("check result success!")
+        else:
+            print("check result fail!")
+            sys.exit(-1)
+
+
+# Determine whether the plugin_config and pom.xml configurations match the updated connector
+def judge(output):
+    plugin_config_flag = False
+    seatunnel_dist_flag = False
+    with open(
+            "../../config/plugin_config",
+            'r', encoding='utf-8') as f:
+        for line in f.readlines():
+            if line.strip().startswith("connector-") and line.strip() == output.strip():
+                plugin_config_flag = True
+    with open(
+            "../../seatunnel-dist/pom.xml",
+            'r', encoding='utf-8') as f:
+        for line in f.readlines():
+            if line.strip().startswith("<artifactId>connector-") and line.strip()[12:-13] == output.strip():
+                seatunnel_dist_flag = True
+    return plugin_config_flag and seatunnel_dist_flag
+
+
 def main(argv):
     if argv[1] == "cv2":
         get_cv2_modules(argv[2])
