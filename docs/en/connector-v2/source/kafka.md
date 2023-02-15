@@ -72,8 +72,10 @@ The structure of the data, including field names and field types.
 
 ## format
 
-Data format. The default format is json. Optional text format. The default field separator is ", ".
-If you customize the delimiter, add the "field_delimiter" option.
+Data format. The default format is json. Optional text format, canal-json and debezium-json.
+If you use json or text format. The default field separator is ", ". If you customize the delimiter, add the "field_delimiter" option.
+If you use canal format, please refer to [canal-json](../formats/canal-json.md) for details.
+If you use debezium format, please refer to [debezium-json](../formats/debezium-json.md) for details.
 
 ## field_delimiter
 
