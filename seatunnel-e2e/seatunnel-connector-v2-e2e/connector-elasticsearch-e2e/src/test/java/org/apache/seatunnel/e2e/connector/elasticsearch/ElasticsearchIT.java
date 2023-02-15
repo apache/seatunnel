@@ -18,6 +18,7 @@
 package org.apache.seatunnel.e2e.connector.elasticsearch;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
@@ -126,7 +127,8 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/elasticsearch/elasticsearch_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         List<String> sinData = readSinkData();
-        Assertions.assertIterableEquals(testDataset, sinData);
+        // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
+        Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinData);
     }
 
     private List<String> generateTestDataSet()
@@ -198,7 +200,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         "c_date",
                         "c_timestamp");
         Map<String, Object> query = new HashMap<>();
-        query.put("match_all", new HashMap<String, String>());
+        query.put("range", "{\"c_int\":{\"gte\":10,\"lte\":20}}");
         ScrollResult scrollResult =
                 esRestClient.searchByScroll("st_index2", source, query, "1m", 1000);
         scrollResult
@@ -217,6 +219,21 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         .map(JsonUtils::toJsonString)
                         .collect(Collectors.toList());
         return docs;
+    }
+
+    private List<String> mapTestDatasetForDSL(){
+        return testDataset
+                .stream()
+                .map(JsonUtils::toJsonNode)
+                .filter(node -> {
+                    if (node.hasNonNull("c_int")){
+                        int cInt = node.get("c_int").asInt();
+                        return cInt >= 10 && cInt <= 20;
+                    }
+                    return false;
+                })
+                .map(JsonNode::toString)
+                .collect(Collectors.toList());
     }
 
     @AfterEach
