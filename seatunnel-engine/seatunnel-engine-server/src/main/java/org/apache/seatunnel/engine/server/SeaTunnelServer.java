@@ -60,8 +60,7 @@ public class SeaTunnelServer
     private CoordinatorService coordinatorService;
     private ScheduledExecutorService monitorService;
 
-    @Getter
-    private SeaTunnelHealthMonitor seaTunnelHealthMonitor;
+    @Getter private SeaTunnelHealthMonitor seaTunnelHealthMonitor;
 
     private final SeaTunnelConfig seaTunnelConfig;
 

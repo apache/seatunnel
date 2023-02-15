@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.engine.client.job;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.apache.seatunnel.engine.client.SeaTunnelHazelcastClient;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -30,10 +34,6 @@ import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobMetricsCod
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobStatusCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelListJobStatusCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelSavePointJobCodec;
-
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.NonNull;
 
@@ -58,15 +58,15 @@ public class JobClient {
 
     public String getJobDetailStatus(Long jobId) {
         return hazelcastClient.requestOnMasterAndDecodeResponse(
-            SeaTunnelGetJobDetailStatusCodec.encodeRequest(jobId),
-            SeaTunnelGetJobDetailStatusCodec::decodeResponse);
+                SeaTunnelGetJobDetailStatusCodec.encodeRequest(jobId),
+                SeaTunnelGetJobDetailStatusCodec::decodeResponse);
     }
 
     /** list all jobId and job status */
     public String listJobStatus() {
         return hazelcastClient.requestOnMasterAndDecodeResponse(
-            SeaTunnelListJobStatusCodec.encodeRequest(),
-            SeaTunnelListJobStatusCodec::decodeResponse);
+                SeaTunnelListJobStatusCodec.encodeRequest(),
+                SeaTunnelListJobStatusCodec::decodeResponse);
     }
 
     /**
@@ -76,41 +76,41 @@ public class JobClient {
      */
     public String getJobStatus(Long jobId) {
         int jobStatusOrdinal =
-            hazelcastClient.requestOnMasterAndDecodeResponse(
-                SeaTunnelGetJobStatusCodec.encodeRequest(jobId),
-                SeaTunnelGetJobStatusCodec::decodeResponse);
+                hazelcastClient.requestOnMasterAndDecodeResponse(
+                        SeaTunnelGetJobStatusCodec.encodeRequest(jobId),
+                        SeaTunnelGetJobStatusCodec::decodeResponse);
         return JobStatus.values()[jobStatusOrdinal].toString();
     }
 
     public String getJobMetrics(Long jobId) {
         return hazelcastClient.requestOnMasterAndDecodeResponse(
-            SeaTunnelGetJobMetricsCodec.encodeRequest(jobId),
-            SeaTunnelGetJobMetricsCodec::decodeResponse);
+                SeaTunnelGetJobMetricsCodec.encodeRequest(jobId),
+                SeaTunnelGetJobMetricsCodec::decodeResponse);
     }
 
     public void savePointJob(Long jobId) {
         PassiveCompletableFuture<Void> cancelFuture =
-            hazelcastClient.requestOnMasterAndGetCompletableFuture(
-                SeaTunnelSavePointJobCodec.encodeRequest(jobId));
+                hazelcastClient.requestOnMasterAndGetCompletableFuture(
+                        SeaTunnelSavePointJobCodec.encodeRequest(jobId));
 
         cancelFuture.join();
     }
 
     public void cancelJob(Long jobId) {
         PassiveCompletableFuture<Void> cancelFuture =
-            hazelcastClient.requestOnMasterAndGetCompletableFuture(
-                SeaTunnelCancelJobCodec.encodeRequest(jobId));
+                hazelcastClient.requestOnMasterAndGetCompletableFuture(
+                        SeaTunnelCancelJobCodec.encodeRequest(jobId));
 
         cancelFuture.join();
     }
 
     public JobDAGInfo getJobInfo(Long jobId) {
         return hazelcastClient
-            .getSerializationService()
-            .toObject(
-                hazelcastClient.requestOnMasterAndDecodeResponse(
-                    SeaTunnelGetJobInfoCodec.encodeRequest(jobId),
-                    SeaTunnelGetJobInfoCodec::decodeResponse));
+                .getSerializationService()
+                .toObject(
+                        hazelcastClient.requestOnMasterAndDecodeResponse(
+                                SeaTunnelGetJobInfoCodec.encodeRequest(jobId),
+                                SeaTunnelGetJobInfoCodec::decodeResponse));
     }
 
     public JobMetricsRunner.JobMetricsSummary getJobMetricsSummary(Long jobId) {

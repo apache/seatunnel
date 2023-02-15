@@ -25,7 +25,7 @@ import com.hazelcast.spi.impl.AllowedDuringPassiveState;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
 public class GetClusterHealthMetricsOperation extends Operation
-    implements IdentifiedDataSerializable, AllowedDuringPassiveState {
+        implements IdentifiedDataSerializable, AllowedDuringPassiveState {
 
     private String response;
 

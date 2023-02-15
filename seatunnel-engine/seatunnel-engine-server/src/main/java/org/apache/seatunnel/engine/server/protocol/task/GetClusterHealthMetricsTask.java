@@ -26,11 +26,14 @@ import com.hazelcast.internal.nio.Connection;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
 public class GetClusterHealthMetricsTask extends AbstractSeaTunnelMessageTask<Void, String> {
-    protected GetClusterHealthMetricsTask(ClientMessage clientMessage,
-                                          Node node,
-                                          Connection connection) {
-        super(clientMessage, node, connection, m -> null,
-            SeaTunnelGetClusterHealthMetricsCodec::encodeResponse);
+    protected GetClusterHealthMetricsTask(
+            ClientMessage clientMessage, Node node, Connection connection) {
+        super(
+                clientMessage,
+                node,
+                connection,
+                m -> null,
+                SeaTunnelGetClusterHealthMetricsCodec::encodeResponse);
     }
 
     @Override

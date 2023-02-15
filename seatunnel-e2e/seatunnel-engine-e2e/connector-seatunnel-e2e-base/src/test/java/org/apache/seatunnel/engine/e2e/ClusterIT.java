@@ -22,12 +22,13 @@ import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
-import com.hazelcast.client.config.ClientConfig;
-import com.hazelcast.instance.impl.HazelcastInstanceImpl;
-import lombok.extern.slf4j.Slf4j;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -45,30 +46,32 @@ public class ClusterIT {
 
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig
-            .getHazelcastConfig()
-            .setClusterName(TestUtils.getClusterName(testClusterName));
+                .getHazelcastConfig()
+                .setClusterName(TestUtils.getClusterName(testClusterName));
 
         try {
             node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
             node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
             HazelcastInstanceImpl finalNode = node1;
             Awaitility.await()
-                .atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                    () ->
-                        Assertions.assertEquals(
-                            2, finalNode.getCluster().getMembers().size()));
+                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            2, finalNode.getCluster().getMembers().size()));
 
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
             engineClient = new SeaTunnelClient(clientConfig);
 
             Map<String, String> clusterHealthMetrics = engineClient.getClusterHealthMetrics();
-            System.out.println("=====================================cluster metrics==================================================");
+            System.out.println(
+                    "=====================================cluster metrics==================================================");
             for (Map.Entry<String, String> entry : clusterHealthMetrics.entrySet()) {
                 System.out.println(entry.getKey());
                 System.out.println(entry.getValue());
-                System.out.println("======================================================================================================");
+                System.out.println(
+                        "======================================================================================================");
             }
             Assertions.assertEquals(2, clusterHealthMetrics.size());
 
