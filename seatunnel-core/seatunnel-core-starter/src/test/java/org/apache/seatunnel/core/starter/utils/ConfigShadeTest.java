@@ -17,9 +17,11 @@
 
 package org.apache.seatunnel.core.starter.utils;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.configuration.ConfigShade;
+import org.apache.seatunnel.common.utils.JsonUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -28,12 +30,18 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 
 import static org.apache.seatunnel.core.starter.utils.ConfigBuilder.CONFIG_RENDER_OPTIONS;
 
 @Slf4j
 public class ConfigShadeTest {
+
+    private static final String USERNAME = "seatunnel";
+
+    private static final String PASSWORD = "seatunnel_password";
 
     @Test
     public void testParseConfig() {
@@ -49,21 +57,30 @@ public class ConfigShadeTest {
                         .getConfig("schema")
                         .getConfig("fields");
         log.info("Schema fields: {}", fields.root().render(CONFIG_RENDER_OPTIONS));
+        ObjectNode jsonNodes = JsonUtils.parseObject(fields.root().render(CONFIG_RENDER_OPTIONS));
+        List<String> field = new ArrayList<>();
+        jsonNodes.fieldNames().forEachRemaining(field::add);
+        Assertions.assertEquals(field.size(), jsonNodes.size());
+        Assertions.assertEquals(field.get(0), "name");
+        Assertions.assertEquals(field.get(1), "age");
+        Assertions.assertEquals(field.get(2), "sex");
         log.info("Decrypt config: {}", decryptConfig.root().render(CONFIG_RENDER_OPTIONS));
+        Assertions.assertEquals(
+                decryptConfig.getConfigList("source").get(0).getString("username"), USERNAME);
+        Assertions.assertEquals(
+                decryptConfig.getConfigList("source").get(0).getString("password"), PASSWORD);
     }
 
     @Test
     public void testDecryptAndEncrypt() {
-        String username = "seatunnel";
-        String password = "seatunnel_password";
-        String encryptUsername = ConfigShadeUtils.encryptOption("base64", username);
+        String encryptUsername = ConfigShadeUtils.encryptOption("base64", USERNAME);
         String decryptUsername = ConfigShadeUtils.decryptOption("base64", encryptUsername);
-        String encryptPassword = ConfigShadeUtils.encryptOption("base64", password);
+        String encryptPassword = ConfigShadeUtils.encryptOption("base64", PASSWORD);
         String decryptPassword = ConfigShadeUtils.decryptOption("base64", encryptPassword);
         Assertions.assertEquals("c2VhdHVubmVs", encryptUsername);
         Assertions.assertEquals("c2VhdHVubmVsX3Bhc3N3b3Jk", encryptPassword);
-        Assertions.assertEquals(decryptUsername, username);
-        Assertions.assertEquals(decryptPassword, password);
+        Assertions.assertEquals(decryptUsername, USERNAME);
+        Assertions.assertEquals(decryptPassword, PASSWORD);
     }
 
     public static class Base64ConfigShade implements ConfigShade {

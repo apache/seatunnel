@@ -21,7 +21,6 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
 import org.apache.seatunnel.api.configuration.ConfigShade;
 import org.apache.seatunnel.common.Constants;
@@ -128,10 +127,6 @@ public final class ConfigShadeUtils {
                 });
         configMap.put(Constants.SOURCE, sources);
         configMap.put(Constants.SINK, sinks);
-        return ConfigFactory.parseMap(configMap)
-                .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-                .resolveWith(
-                        ConfigFactory.systemProperties(),
-                        ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        return ConfigFactory.parseMap(configMap);
     }
 }

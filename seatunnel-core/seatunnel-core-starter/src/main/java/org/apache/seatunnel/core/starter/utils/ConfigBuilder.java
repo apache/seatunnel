@@ -71,11 +71,7 @@ public class ConfigBuilder {
         log.info("With config adapter spi {}", configAdapter.getClass().getName());
         try {
             Map<String, Object> flattenedMap = configAdapter.loadConfig(filePath);
-            return ConfigFactory.parseMap(flattenedMap)
-                    .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-                    .resolveWith(
-                            ConfigFactory.systemProperties(),
-                            ConfigResolveOptions.defaults().setAllowUnresolved(true));
+            return ConfigFactory.parseMap(flattenedMap);
         } catch (Exception warn) {
             log.warn(
                     "Loading config failed with spi {}, fallback to HOCON loader.",
