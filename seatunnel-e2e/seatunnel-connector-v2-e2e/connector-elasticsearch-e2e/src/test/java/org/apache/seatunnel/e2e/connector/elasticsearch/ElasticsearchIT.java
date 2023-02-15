@@ -199,8 +199,13 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         "c_bytes",
                         "c_date",
                         "c_timestamp");
+        HashMap<String, Object> rangeParam = new HashMap<>();
+        rangeParam.put("get", 10);
+        rangeParam.put("lte", 20);
+        HashMap<String, Object> range = new HashMap<>();
+        range.put("c_int", rangeParam);
         Map<String, Object> query = new HashMap<>();
-        query.put("range", "{\"c_int\":{\"gte\":10,\"lte\":20}}");
+        query.put("range", range);
         ScrollResult scrollResult =
                 esRestClient.searchByScroll("st_index2", source, query, "1m", 1000);
         scrollResult
