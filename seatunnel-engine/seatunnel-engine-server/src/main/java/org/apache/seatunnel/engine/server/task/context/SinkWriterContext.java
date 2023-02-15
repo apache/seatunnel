@@ -17,19 +17,27 @@
 
 package org.apache.seatunnel.engine.server.task.context;
 
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.sink.SinkWriter;
 
 public class SinkWriterContext implements SinkWriter.Context {
 
     private static final long serialVersionUID = -3082515319043725121L;
     private final int indexID;
+    private final MetricsContext metricsContext;
 
-    public SinkWriterContext(int indexID) {
+    public SinkWriterContext(int indexID, MetricsContext metricsContext) {
         this.indexID = indexID;
+        this.metricsContext = metricsContext;
     }
 
     @Override
     public int getIndexOfSubtask() {
         return indexID;
+    }
+
+    @Override
+    public MetricsContext getMetricsContext() {
+        return metricsContext;
     }
 }
