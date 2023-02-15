@@ -200,7 +200,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         "c_date",
                         "c_timestamp");
         HashMap<String, Object> rangeParam = new HashMap<>();
-        rangeParam.put("get", 10);
+        rangeParam.put("gte", 10);
         rangeParam.put("lte", 20);
         HashMap<String, Object> range = new HashMap<>();
         range.put("c_int", rangeParam);
@@ -228,7 +228,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
 
     private List<String> mapTestDatasetForDSL() {
         return testDataset.stream()
-                .map(JsonUtils::toJsonNode)
+                .map(JsonUtils::parseObject)
                 .filter(
                         node -> {
                             if (node.hasNonNull("c_int")) {
