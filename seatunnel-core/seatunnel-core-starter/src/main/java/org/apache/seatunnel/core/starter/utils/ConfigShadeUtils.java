@@ -98,7 +98,7 @@ public final class ConfigShadeUtils {
     public static Config decryptConfig(Config config) {
         String identifier =
                 TypesafeConfigUtils.getConfig(
-                        config.getConfig(Constants.ENV),
+                        TypesafeConfigUtils.getConfig(config, Constants.ENV, ConfigFactory.empty()),
                         SHADE_IDENTIFIER_OPTION,
                         DEFAULT_SHADE.getIdentifier());
         return decryptConfig(identifier, config);
@@ -107,7 +107,7 @@ public final class ConfigShadeUtils {
     public static Config encryptConfig(Config config) {
         String identifier =
                 TypesafeConfigUtils.getConfig(
-                        config.getConfig(Constants.ENV),
+                        TypesafeConfigUtils.getConfig(config, Constants.ENV, ConfigFactory.empty()),
                         SHADE_IDENTIFIER_OPTION,
                         DEFAULT_SHADE.getIdentifier());
         return encryptConfig(identifier, config);
