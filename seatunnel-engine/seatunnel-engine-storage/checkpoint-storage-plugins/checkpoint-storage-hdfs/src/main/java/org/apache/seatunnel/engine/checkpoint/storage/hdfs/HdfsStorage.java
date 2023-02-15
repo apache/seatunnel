@@ -33,10 +33,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.RemoteIterator;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -202,7 +201,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
         try {
             fs.delete(new Path(jobPath), true);
         } catch (IOException e) {
-            log.error("Failed to delete checkpoint for job {}", jobId, e);
+            log.warn("Failed to delete checkpoint for job {}", jobId, e);
         }
     }
 
@@ -247,15 +246,14 @@ public class HdfsStorage extends AbstractCheckpointStorage {
 
     private List<String> getFileNames(String path) throws CheckpointStorageException {
         try {
-
-            RemoteIterator<LocatedFileStatus> fileStatusRemoteIterator = fs.listFiles(new Path(path), false);
+            Path parentPath = new Path(path);
+            if (!fs.exists(parentPath)) {
+                throw new CheckpointStorageException("Path " + path + " is not a directory");
+            }
+            FileStatus[] fileStatus = fs.listStatus(parentPath, path1 -> path1.getName().endsWith(FILE_FORMAT));
             List<String> fileNames = new ArrayList<>();
-            while (fileStatusRemoteIterator.hasNext()) {
-                LocatedFileStatus fileStatus = fileStatusRemoteIterator.next();
-                if (!fileStatus.getPath().getName().endsWith(FILE_FORMAT)) {
-                    fileNames.add(fileStatus.getPath().getName());
-                }
-                fileNames.add(fileStatus.getPath().getName());
+            for (FileStatus status : fileStatus) {
+                fileNames.add(status.getPath().getName());
             }
             return fileNames;
         } catch (IOException e) {

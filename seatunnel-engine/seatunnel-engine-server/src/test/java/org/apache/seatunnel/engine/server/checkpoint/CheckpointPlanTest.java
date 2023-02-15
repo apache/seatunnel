@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
@@ -67,7 +68,8 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
             Executors.newCachedThreadPool(),
             instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME),
             runningJobState,
-            runningJobStateTimestamp).f1();
+            runningJobStateTimestamp,
+            QueueType.BLOCKINGQUEUE).f1();
         Assertions.assertNotNull(checkpointPlans);
         Assertions.assertEquals(2, checkpointPlans.size());
         // enum(1) + reader(2) + writer(2)

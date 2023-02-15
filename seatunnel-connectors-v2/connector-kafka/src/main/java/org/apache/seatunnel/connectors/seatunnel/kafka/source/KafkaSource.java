@@ -89,7 +89,7 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
 
     @Override
     public String getPluginName() {
-        return "Kafka";
+        return org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CONNECTOR_IDENTITY;
     }
 
     @Override
@@ -194,6 +194,7 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
     private void setDeserialization(Config config) {
         if (config.hasPath(SCHEMA.key())) {
             Config schema = config.getConfig(SCHEMA.key());
+            // todo: use KafkaDataTypeConvertor here?
             typeInfo = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
             String format = DEFAULT_FORMAT;
             if (config.hasPath(FORMAT.key())) {

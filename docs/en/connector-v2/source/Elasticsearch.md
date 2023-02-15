@@ -19,16 +19,23 @@ support version >= 2.x and < 8.x.
 
 ## Options
 
-| name        | type   | required | default value | 
-|-------------|--------|----------|---------------|
-| hosts       | array  | yes      | -             |
-| username    | string | no       | -             |
-| password    | string | no       | -             |
-| index       | string | yes      | -             |
-| source      | array  | no       | -             |
-| scroll_time | string | no       | 1m            |
-| scroll_size | int    | no       | 100           |
-| schema      |        | no       | -             |
+| name                    | type    | required | default value | 
+|-------------------------|---------|----------|---------------|
+| hosts                   | array   | yes      | -             |
+| username                | string  | no       | -             |
+| password                | string  | no       | -             |
+| index                   | string  | yes      | -             |
+| source                  | array   | no       | -             |
+| scroll_time             | string  | no       | 1m            |
+| scroll_size             | int     | no       | 100           |
+| schema                  |         | no       | -             |
+| tls_verify_certificate  | boolean | no       | true          |
+| tls_verify_hostnames    | boolean | no       | true          |
+| tls_keystore_path       | string  | no       | -             |
+| tls_keystore_password   | string  | no       | -             |
+| tls_truststore_path     | string  | no       | -             |
+| tls_truststore_password | string  | no       | -             |
+| common-options          |         | no       | -             |
 
 
 
@@ -59,8 +66,38 @@ Maximum number of hits to be returned with each Elasticsearch scroll request.
 The structure of the data, including field names and field types.
 If you don't config schema, you must config `source`.
 
+### tls_verify_certificate [boolean]
+
+Enable certificates validation for HTTPS endpoints
+
+### tls_verify_hostname [boolean]
+
+Enable hostname validation for HTTPS endpoints
+
+### tls_keystore_path [string]
+
+The path to the PEM or JKS key store. This file must be readable by the operating system user running SeaTunnel.
+
+### tls_keystore_password [string]
+
+The key password for the key store specified
+
+### tls_truststore_path [string]
+
+The path to PEM or JKS trust store. This file must be readable by the operating system user running SeaTunnel.
+
+### tls_truststore_password [string]
+
+The key password for the trust store specified
+
+### common options
+
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
+
 ## Examples
+
 simple
+
 ```hocon
 Elasticsearch {
     hosts = ["localhost:9200"]
@@ -69,6 +106,7 @@ Elasticsearch {
 }
 ```
 complex
+
 ```hocon
 Elasticsearch {
     hosts = ["elasticsearch:9200"]
@@ -94,8 +132,52 @@ Elasticsearch {
 }
 ```
 
+SSL (Disable certificates validation)
+
+```hocon
+source {
+    Elasticsearch {
+        hosts = ["https://localhost:9200"]
+        username = "elastic"
+        password = "elasticsearch"
+        
+        tls_verify_certificate = false
+    }
+}
+```
+
+SSL (Disable hostname validation)
+
+```hocon
+source {
+    Elasticsearch {
+        hosts = ["https://localhost:9200"]
+        username = "elastic"
+        password = "elasticsearch"
+        
+        tls_verify_hostname = false
+    }
+}
+```
+
+SSL (Enable certificates validation)
+
+```hocon
+source {
+    Elasticsearch {
+        hosts = ["https://localhost:9200"]
+        username = "elastic"
+        password = "elasticsearch"
+        
+        tls_keystore_path = "${your elasticsearch home}/config/certs/http.p12"
+        tls_keystore_password = "${your password}"
+    }
+}
+```
+
 ## Changelog
 
 ### next version
 
 - Add Elasticsearch Source Connector
+- [Feature] Support https protocol & compatible with opensearch ([3997](https://github.com/apache/incubator-seatunnel/pull/3997))

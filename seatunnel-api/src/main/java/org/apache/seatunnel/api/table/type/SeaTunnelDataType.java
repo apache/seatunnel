@@ -33,4 +33,5 @@ public interface SeaTunnelDataType<T> extends Serializable {
      * Gets the SQL standard type represented by this data type.
      */
     SqlType getSqlType();
+
 }

@@ -50,12 +50,22 @@
         </fileSet>
         <!-- ============ Starter Bin ============  -->
         <fileSet>
-            <directory>../seatunnel-core/seatunnel-flink-starter/src/main/bin</directory>
+            <directory>../seatunnel-core/seatunnel-flink-starter/seatunnel-flink-13-starter/src/main/bin</directory>
             <outputDirectory>/bin</outputDirectory>
             <fileMode>0755</fileMode>
         </fileSet>
         <fileSet>
-            <directory>../seatunnel-core/seatunnel-spark-starter/src/main/bin</directory>
+            <directory>../seatunnel-core/seatunnel-flink-starter/seatunnel-flink-15-starter/src/main/bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
+        </fileSet>
+        <fileSet>
+            <directory>../seatunnel-core/seatunnel-spark-starter/seatunnel-spark-2-starter/src/main/bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
+        </fileSet>
+        <fileSet>
+            <directory>../seatunnel-core/seatunnel-spark-starter/seatunnel-spark-3-starter/src/main/bin</directory>
             <outputDirectory>/bin</outputDirectory>
             <fileMode>0755</fileMode>
         </fileSet>
@@ -117,9 +127,11 @@
             <unpack>false</unpack>
             <includes>
                 <!-- Flink V2 starter -->
-                <include>org.apache.seatunnel:seatunnel-flink-starter:jar</include>
+                <include>org.apache.seatunnel:seatunnel-flink-13-starter:jar</include>
+                <include>org.apache.seatunnel:seatunnel-flink-15-starter:jar</include>
                 <!-- Spark V2 starter -->
-                <include>org.apache.seatunnel:seatunnel-spark-starter:jar</include>
+                <include>org.apache.seatunnel:seatunnel-spark-2-starter:jar</include>
+                <include>org.apache.seatunnel:seatunnel-spark-3-starter:jar</include>
                 <!-- SeaTunnel Engine starter -->
                 <include>org.apache.seatunnel:seatunnel-starter:jar</include>
             </includes>

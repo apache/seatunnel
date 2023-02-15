@@ -17,11 +17,14 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
+import static org.apache.seatunnel.engine.common.config.server.QueueType.BLOCKINGQUEUE;
+
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
+import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
-import org.apache.seatunnel.engine.core.dag.actions.PartitionTransformAction;
+import org.apache.seatunnel.engine.core.dag.actions.ShuffleAction;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.internal.IntermediateQueue;
@@ -49,7 +52,8 @@ import org.apache.seatunnel.engine.server.task.SinkAggregatedCommitterTask;
 import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 import org.apache.seatunnel.engine.server.task.TransformSeaTunnelTask;
-import org.apache.seatunnel.engine.server.task.group.TaskGroupWithIntermediateQueue;
+import org.apache.seatunnel.engine.server.task.group.TaskGroupWithIntermediateBlockingQueue;
+import org.apache.seatunnel.engine.server.task.group.TaskGroupWithIntermediateDisruptor;
 
 import com.google.common.collect.Lists;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
@@ -121,6 +125,8 @@ public class PhysicalPlanGenerator {
 
     private final IMap<Object, Object> runningJobStateTimestampsIMap;
 
+    private final QueueType queueType;
+
     public PhysicalPlanGenerator(@NonNull ExecutionPlan executionPlan,
                                  @NonNull NodeEngine nodeEngine,
                                  @NonNull JobImmutableInformation jobImmutableInformation,
@@ -128,7 +134,8 @@ public class PhysicalPlanGenerator {
                                  @NonNull ExecutorService executorService,
                                  @NonNull FlakeIdGenerator flakeIdGenerator,
                                  @NonNull IMap runningJobStateIMap,
-                                 @NonNull IMap runningJobStateTimestampsIMap) {
+                                 @NonNull IMap runningJobStateTimestampsIMap,
+                                 @NonNull QueueType queueType) {
         this.pipelines = executionPlan.getPipelines();
         this.nodeEngine = nodeEngine;
         this.jobImmutableInformation = jobImmutableInformation;
@@ -141,6 +148,7 @@ public class PhysicalPlanGenerator {
         this.subtaskActions = new HashMap<>();
         this.runningJobStateIMap = runningJobStateIMap;
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
+        this.queueType = queueType;
     }
 
     public Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> generate() {
@@ -169,7 +177,7 @@ public class PhysicalPlanGenerator {
                 getSourceTask(edges, sources, pipelineId, totalPipelineNum);
 
             physicalVertexList.addAll(
-                getPartitionTask(edges, pipelineId, totalPipelineNum));
+                getShuffleTask(edges, pipelineId, totalPipelineNum));
 
             CompletableFuture<PipelineStatus> pipelineFuture = new CompletableFuture<>();
             waitForCompleteBySubPlanList.add(new PassiveCompletableFuture<>(pipelineFuture));
@@ -259,11 +267,11 @@ public class PhysicalPlanGenerator {
             }).filter(Objects::nonNull).collect(Collectors.toList());
     }
 
-    private List<PhysicalVertex> getPartitionTask(List<ExecutionEdge> edges,
-                                                  int pipelineIndex,
-                                                  int totalPipelineNum) {
-        return edges.stream().filter(s -> s.getLeftVertex().getAction() instanceof PartitionTransformAction)
-            .map(q -> (PartitionTransformAction) q.getLeftVertex().getAction())
+    private List<PhysicalVertex> getShuffleTask(List<ExecutionEdge> edges,
+                                                int pipelineIndex,
+                                                int totalPipelineNum) {
+        return edges.stream().filter(s -> s.getLeftVertex().getAction() instanceof ShuffleAction)
+            .map(q -> (ShuffleAction) q.getLeftVertex().getAction())
             .map(q -> new PhysicalExecutionFlow(q, getNextWrapper(edges, q)))
             .flatMap(flow -> {
                 List<PhysicalVertex> t = new ArrayList<>();
@@ -284,7 +292,7 @@ public class PhysicalPlanGenerator {
                         executorService,
                         flow.getAction().getParallelism(),
                         new TaskGroupDefaultImpl(taskGroupLocation, flow.getAction().getName() +
-                            "-PartitionTransformTask",
+                            "-ShuffleTask",
                             Lists.newArrayList(seaTunnelTask)),
                         flakeIdGenerator,
                         pipelineIndex,
@@ -378,13 +386,21 @@ public class PhysicalPlanGenerator {
 
                     if (taskList.stream().anyMatch(TransformSeaTunnelTask.class::isInstance)) {
                         // contains IntermediateExecutionFlow in task group
+                        TaskGroupDefaultImpl taskGroup;
+                        if (queueType.equals(BLOCKINGQUEUE)) {
+                            taskGroup = new TaskGroupWithIntermediateBlockingQueue(taskGroupLocation, flow.getAction().getName() +
+                                "-SourceTask",
+                                taskList.stream().map(task -> (Task) task).collect(Collectors.toList()));
+                        } else {
+                            taskGroup = new TaskGroupWithIntermediateDisruptor(taskGroupLocation, flow.getAction().getName() +
+                                "-SourceTask",
+                                taskList.stream().map(task -> (Task) task).collect(Collectors.toList()));
+                        }
                         t.add(new PhysicalVertex(
                             i,
                             executorService,
                             flow.getAction().getParallelism(),
-                            new TaskGroupWithIntermediateQueue(taskGroupLocation, flow.getAction().getName() +
-                                "-SourceTask",
-                                taskList.stream().map(task -> (Task) task).collect(Collectors.toList())),
+                            taskGroup,
                             flakeIdGenerator,
                             pipelineIndex,
                             totalPipelineNum,
@@ -447,11 +463,11 @@ public class PhysicalPlanGenerator {
                     config.setCommitterTask(committerTaskIDMap.get((SinkAction<?, ?, ?, ?>) flow.getAction()));
                 }
                 flow.setConfig(config);
-            } else if (flow.getAction() instanceof PartitionTransformAction) {
+            } else if (flow.getAction() instanceof ShuffleAction) {
                 PartitionConfig config =
                     new PartitionConfig(
-                        ((PartitionTransformAction) flow.getAction()).getPartitionTransformation().getPartitionCount(),
-                        ((PartitionTransformAction) flow.getAction()).getPartitionTransformation().getTargetCount(),
+                        ((ShuffleAction) flow.getAction()).getPartitionTransformation().getPartitionCount(),
+                        ((ShuffleAction) flow.getAction()).getPartitionTransformation().getTargetCount(),
                         parallelismIndex);
                 flow.setConfig(config);
             }
@@ -513,10 +529,10 @@ public class PhysicalPlanGenerator {
         List<Action> actions = edges.stream().filter(e -> e.getLeftVertex().getAction().equals(start))
             .map(e -> e.getRightVertex().getAction()).collect(Collectors.toList());
         List<Flow> wrappers = actions.stream()
-            .filter(a -> a instanceof PartitionTransformAction || a instanceof SinkAction)
+            .filter(a -> a instanceof ShuffleAction || a instanceof SinkAction)
             .map(PhysicalExecutionFlow::new).collect(Collectors.toList());
         wrappers.addAll(actions.stream()
-            .filter(a -> !(a instanceof PartitionTransformAction || a instanceof SinkAction))
+            .filter(a -> !(a instanceof ShuffleAction || a instanceof SinkAction))
             .map(a -> new PhysicalExecutionFlow<>(a, getNextWrapper(edges, a))).collect(Collectors.toList()));
         return wrappers;
     }
