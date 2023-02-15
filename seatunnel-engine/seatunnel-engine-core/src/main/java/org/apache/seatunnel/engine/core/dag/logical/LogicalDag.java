@@ -21,9 +21,6 @@ import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.serializable.JobDataSerializerHook;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.nio.ObjectDataInput;
@@ -31,6 +28,7 @@ import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import lombok.Getter;
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.LinkedHashMap;
@@ -56,9 +54,9 @@ import java.util.Set;
  * Data travels from sources to sinks and is transformed and reshaped as it passes through the
  * processors.
  */
+@Slf4j
 public class LogicalDag implements IdentifiedDataSerializable {
 
-    private static final Logger LOG = LoggerFactory.getLogger(LogicalDag.class);
     @Getter private JobConfig jobConfig;
     private final Set<LogicalEdge> edges = new LinkedHashSet<>();
     private final Map<Long, LogicalVertex> logicalVertexMap = new LinkedHashMap<>();
@@ -167,5 +165,10 @@ public class LogicalDag implements IdentifiedDataSerializable {
 
         jobConfig = in.readObject();
         idGenerator = in.readObject();
+    }
+
+    @Override
+    public String toString() {
+        return getLogicalDagAsJson().toString();
     }
 }
