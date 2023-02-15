@@ -29,8 +29,10 @@ import org.apache.seatunnel.common.utils.JsonUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -44,7 +46,8 @@ public final class ConfigShadeUtils {
 
     private static final String SHADE_IDENTIFIER_OPTION = "shade.identifier";
 
-    private static final String[] DEFAULT_SENSITIVE_OPTIONS = new String[] {"password", "username"};
+    private static final String[] DEFAULT_SENSITIVE_OPTIONS =
+            new String[] {"password", "username", "auth"};
 
     private static final Map<String, ConfigShade> CONFIG_SHADES = new HashMap<>();
 
@@ -153,5 +156,29 @@ public final class ConfigShadeUtils {
         configMap.put(Constants.SOURCE, sources);
         configMap.put(Constants.SINK, sinks);
         return ConfigFactory.parseMap(configMap);
+    }
+
+    public static class Base64ConfigShade implements ConfigShade {
+
+        private static final Base64.Encoder ENCODER = Base64.getEncoder();
+
+        private static final Base64.Decoder DECODER = Base64.getDecoder();
+
+        private static final String IDENTIFIER = "base64";
+
+        @Override
+        public String getIdentifier() {
+            return IDENTIFIER;
+        }
+
+        @Override
+        public String encrypt(String content) {
+            return ENCODER.encodeToString(content.getBytes(StandardCharsets.UTF_8));
+        }
+
+        @Override
+        public String decrypt(String content) {
+            return new String(DECODER.decode(content));
+        }
     }
 }
