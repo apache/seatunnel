@@ -28,8 +28,10 @@ import org.junit.jupiter.api.Test;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -44,11 +46,10 @@ public class ConfigShadeTest {
     private static final String PASSWORD = "seatunnel_password";
 
     @Test
-    public void testParseConfig() {
+    public void testParseConfig() throws URISyntaxException {
         URL resource = ConfigShadeTest.class.getResource("/config.shade.conf");
         Assertions.assertNotNull(resource);
-        String file = resource.getPath();
-        Config config = ConfigBuilder.of(file);
+        Config config = ConfigBuilder.of(Paths.get(resource.toURI()));
         Config decryptConfig = ConfigShadeUtils.decryptConfig(config);
         Config fields =
                 decryptConfig
