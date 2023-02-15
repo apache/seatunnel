@@ -114,7 +114,7 @@ public class FakeSourceSplitEnumerator implements SourceSplitEnumerator<FakeSour
 
         assignedSplits.forEach(allSplit::remove);
         addSplitChangeToPendingAssignments(allSplit);
-        log.debug("Assigned {} to {} readers.", allSplit, numReaders);
+        log.info("Assigned {} to {} readers.", allSplit, numReaders);
         log.info("Calculated splits successfully, the size of splits is {}.", allSplit.size());
     }
 

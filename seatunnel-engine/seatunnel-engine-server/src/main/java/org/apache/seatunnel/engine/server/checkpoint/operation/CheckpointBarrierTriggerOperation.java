@@ -28,6 +28,7 @@ import org.apache.seatunnel.engine.server.serializable.CheckpointDataSerializerH
 import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
+import com.hazelcast.logging.ILogger;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import lombok.NoArgsConstructor;
@@ -68,12 +69,14 @@ public class CheckpointBarrierTriggerOperation extends TaskOperation {
 
     @Override
     public void run() throws Exception {
+        ILogger logger = getLogger();
         SeaTunnelServer server = getService();
         RetryUtils.retryWithException(() -> {
             Task task = server.getTaskExecutionService()
                 .getExecutionContext(taskLocation.getTaskGroupLocation()).getTaskGroup()
                 .getTask(taskLocation.getTaskID());
             try {
+                logger.info("=============CheckpointBarrierTriggerOperation============" + taskLocation);
                 task.triggerBarrier(barrier);
             } catch (Exception e) {
                 sneakyThrow(e);

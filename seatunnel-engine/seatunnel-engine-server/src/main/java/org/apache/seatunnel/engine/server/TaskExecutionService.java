@@ -200,6 +200,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
     public PassiveCompletableFuture<TaskExecutionState> deployTask(
         @NonNull TaskGroupImmutableInformation taskImmutableInfo) {
+        logger.info(String.format("received deploying task executionId [%s]", taskImmutableInfo.getExecutionId()));
         CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
         TaskGroup taskGroup = null;
         try {
@@ -214,7 +215,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             } else {
                 taskGroup = nodeEngine.getSerializationService().toObject(taskImmutableInfo.getGroup());
             }
-            logger.info(String.format("deploying task %s", taskGroup.getTaskGroupLocation()));
+            logger.info(String.format("deploying task %s, executionId [%s]", taskGroup.getTaskGroupLocation(), taskImmutableInfo.getExecutionId()));
 
             synchronized (this) {
                 if (executionContexts.containsKey(taskGroup.getTaskGroupLocation())) {

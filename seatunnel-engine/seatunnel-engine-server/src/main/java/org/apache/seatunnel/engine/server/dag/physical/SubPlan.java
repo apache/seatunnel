@@ -133,7 +133,7 @@ public class SubPlan {
         this.executorService = executorService;
     }
 
-    public PassiveCompletableFuture<PipelineExecutionState> initStateFuture() {
+    public synchronized PassiveCompletableFuture<PipelineExecutionState> initStateFuture() {
         physicalVertexList.forEach(physicalVertex -> {
             addPhysicalVertexCallBack(physicalVertex.initStateFuture());
         });
@@ -248,7 +248,7 @@ public class SubPlan {
         }
     }
 
-    public void cancelPipeline() {
+    public synchronized void cancelPipeline() {
         if (getPipelineState().isEndState()) {
             LOGGER.warning(
                 String.format("%s is in end state %s, can not be cancel", pipelineFullName, getPipelineState()));
@@ -303,7 +303,7 @@ public class SubPlan {
     /**
      * Before restore a pipeline, the pipeline must do reset
      */
-    private void reset() {
+    private synchronized void reset() {
         resetPipelineState();
         finishedTaskNum.set(0);
         canceledTaskNum.set(0);
@@ -382,8 +382,9 @@ public class SubPlan {
     /**
      * restore the pipeline state after new Master Node active
      */
-    public void restorePipelineState() {
-        // only need restore from RUNNING or CANCELING state
+    public synchronized void restorePipelineState() {
+        // if PipelineStatus is less than RUNNING or equals CANCELING, may some task is in state CREATED, we can not schedule this tasks because have no PipelineBaseScheduler instance.
+        // So, we need cancel the pipeline and restore it.
         if (getPipelineState().ordinal() < PipelineStatus.RUNNING.ordinal()) {
             cancelPipelineTasks();
         } else if (PipelineStatus.CANCELING.equals(getPipelineState())) {

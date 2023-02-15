@@ -23,6 +23,7 @@ import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.CheckpointDataSerializerHook;
 
+import com.hazelcast.logging.ILogger;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
@@ -72,9 +73,12 @@ public class TaskAcknowledgeOperation extends Operation implements IdentifiedDat
 
     @Override
     public void run() {
+        ILogger logger = getLogger();
+        logger.info("2222222222222222222222222" + taskLocation);
         ((SeaTunnelServer) getService())
             .getCoordinatorService().getJobMaster(taskLocation.getJobId())
             .getCheckpointManager()
             .acknowledgeTask(this);
+        logger.info("task ack finished " + taskLocation);
     }
 }

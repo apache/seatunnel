@@ -275,6 +275,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
     }
 
     public void ack(Barrier barrier) {
+        LOG.info("5555555555555555-------seatunnel task ----------" + this.taskLocation);
         Integer ackSize = cycleAcks.compute(barrier.getId(), (id, count) -> count == null ? 1 : ++count);
         if (ackSize == allCycles.size()) {
             if (barrier.prepareClose()) {

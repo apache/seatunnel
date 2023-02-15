@@ -97,18 +97,13 @@ public class CheckpointManager {
                 IMapCheckpointIDCounter idCounter = new IMapCheckpointIDCounter(plan.getPipelineId(), checkpointIdMap);
                 try {
                     idCounter.start();
-                    PipelineState pipelineState = null;
-                    if (isStartWithSavePoint){
-                        pipelineState = checkpointStorage.getLatestCheckpointByJobIdAndPipelineId(String.valueOf(jobId),
-                                String.valueOf(plan.getPipelineId()));
+                    idCounter.start();
+                    PipelineState pipelineState = checkpointStorage.getLatestCheckpointByJobIdAndPipelineId(String.valueOf(jobId),
+                        String.valueOf(plan.getPipelineId()));
+                    if (pipelineState != null) {
                         long checkpointId = pipelineState.getCheckpointId();
-                        idCounter.setCount(checkpointId);
+                        idCounter.setCount(checkpointId + 1);
                         log.info("pipeline({}) start with savePoint on checkPointId({})", plan.getPipelineId(), checkpointId);
-                    }
-                    else if (idCounter.get() != CheckpointIDCounter.INITIAL_CHECKPOINT_ID) {
-                        pipelineState =
-                            checkpointStorage.getCheckpoint(String.valueOf(jobId), String.valueOf(plan.getPipelineId()),
-                                String.valueOf(idCounter.get() - 1));
                     }
                     return new CheckpointCoordinator(this,
                         checkpointStorage,
@@ -206,7 +201,7 @@ public class CheckpointManager {
      */
     public CompletableFuture<Void> shutdown(JobStatus jobStatus) {
         if ((jobStatus == JobStatus.FINISHED || jobStatus == JobStatus.CANCELED) && !isSavePointEnd()) {
-            checkpointStorage.deleteCheckpoint(jobId + "");
+            //checkpointStorage.deleteCheckpoint(jobId + "");
         }
         return CompletableFuture.completedFuture(null);
     }
@@ -224,6 +219,7 @@ public class CheckpointManager {
      * <br> used for the ack of the checkpoint, including the state snapshot of all {@link Action} within the {@link Task}.
      */
     public void acknowledgeTask(TaskAcknowledgeOperation ackOperation) {
+        log.info("111111111111 {}", ackOperation.getTaskLocation());
         CheckpointCoordinator coordinator = getCheckpointCoordinator(ackOperation.getTaskLocation());
         if (coordinator.isCompleted()) {
             log.info("The checkpoint coordinator({}) is completed", ackOperation.getTaskLocation().getPipelineId());

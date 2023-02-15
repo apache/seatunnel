@@ -126,6 +126,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     @Override
     public void triggerBarrier(Barrier barrier) throws Exception {
+        log.info("333333333333333333333-------split enumer----------" + barrier);
         if (barrier.prepareClose()) {
             this.currState = PREPARE_CLOSE;
             this.prepareCloseBarrierId.set(barrier.getId());
@@ -288,8 +289,11 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     private void sendToAllReader(Function<TaskLocation, Operation> function) {
         List<InvocationFuture<?>> futures = new ArrayList<>();
-        taskMemberMapping.forEach((location, address) ->
-            futures.add(this.getExecutionContext().sendToMember(function.apply(location), address)));
+        taskMemberMapping.forEach((location, address) -> {
+            log.info("----------------7777777777777--------------send to read--size: " + taskMemberMapping.size() + "---location:" + location + ", address:" +
+                address.toString());
+            futures.add(this.getExecutionContext().sendToMember(function.apply(location), address));
+        });
         futures.forEach(InvocationFuture::join);
     }
 

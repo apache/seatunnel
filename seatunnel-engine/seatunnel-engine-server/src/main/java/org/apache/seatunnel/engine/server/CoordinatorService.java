@@ -183,7 +183,11 @@ public class CoordinatorService {
         List<CompletableFuture<Void>> collect = runningJobInfoIMap.entrySet().stream().map(entry ->
             CompletableFuture.runAsync(() -> {
                 logger.info(String.format("begin restore job (%s) from master active switch", entry.getKey()));
-                restoreJobFromMasterActiveSwitch(entry.getKey(), entry.getValue());
+                try {
+                    restoreJobFromMasterActiveSwitch(entry.getKey(), entry.getValue());
+                } catch (Exception e) {
+                    logger.severe(e);
+                }
                 logger.info(String.format("restore job (%s) from master active switch finished", entry.getKey()));
             }, executorService)).collect(Collectors.toList());
 
@@ -219,7 +223,6 @@ public class CoordinatorService {
         try {
             jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp(), true, !JobStatus.CANCELLING.equals(jobStatus));
         } catch (Exception e) {
-            jobMaster.cancelJob();
             throw new SeaTunnelEngineException(String.format("Job id %s init failed", jobId), e);
         }
 
@@ -496,7 +499,9 @@ public class CoordinatorService {
     }
 
     public void memberRemoved(MembershipServiceEvent event) {
-        this.getResourceManager().memberRemoved(event);
+        if (isCoordinatorActive()) {
+            this.getResourceManager().memberRemoved(event);
+        }
         this.failedTaskOnMemberRemoved(event);
     }
 

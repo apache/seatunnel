@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
-import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ReleaseSlotOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ResetResourceOperation;
@@ -42,6 +41,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
@@ -59,27 +59,33 @@ public abstract class AbstractResourceManager implements ResourceManager {
     private volatile boolean isRunning = true;
 
     public AbstractResourceManager(NodeEngine nodeEngine) {
-        this.registerWorker = nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RESOURCE_MANAGER_REGISTER_WORKER);
+        this.registerWorker = new ConcurrentHashMap<>();
         this.nodeEngine = nodeEngine;
     }
 
     @Override
     public void init() {
-        checkRegisterWorkerStillAlive();
+        LOGGER.info("Init ResourceManager");
+        initWorker();
     }
 
-    private void checkRegisterWorkerStillAlive() {
-        if (!registerWorker.isEmpty()) {
-            List<Address> aliveWorker = nodeEngine.getClusterService().getMembers().stream().map(Member::getAddress)
+    private void initWorker() {
+        List<Address> aliveWorker =
+            nodeEngine.getClusterService().getMembers().stream()
+                .map(Member::getAddress)
                 .collect(Collectors.toList());
-            List<Address> dead =
-                registerWorker.keySet().stream().filter(r -> !aliveWorker.contains(r)).collect(Collectors.toList());
-            dead.forEach(registerWorker::remove);
-            List<InternalCompletableFuture<Void>> futures = aliveWorker.stream().map(worker -> sendToMember(new SyncWorkerProfileOperation(), worker).thenAccept(p -> {
-                registerWorker.put(worker, (WorkerProfile) p);
-            })).collect(Collectors.toList());
-            futures.forEach(InternalCompletableFuture::join);
-        }
+        List<InternalCompletableFuture<Void>> futures =
+            aliveWorker.stream()
+                .map(
+                    worker ->
+                        sendToMember(new SyncWorkerProfileOperation(), worker)
+                            .thenAccept(
+                                p -> {
+                                    registerWorker.put(
+                                        worker, (WorkerProfile) p);
+                                }))
+                .collect(Collectors.toList());
+        futures.forEach(InternalCompletableFuture::join);
     }
 
     @Override
@@ -179,7 +185,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
         boolean active = false;
         if (registerWorker.containsKey(profile.getWorker())) {
             active = Arrays.stream(registerWorker.get(profile.getWorker()).getAssignedSlots())
-                .allMatch(s -> s.getSlotID() == profile.getSlotID() && s.getSequence().equals(profile.getSequence()));
+                .anyMatch(s -> s.getSlotID() == profile.getSlotID() && s.getSequence().equals(profile.getSequence()));
         }
 
         if (!active) {

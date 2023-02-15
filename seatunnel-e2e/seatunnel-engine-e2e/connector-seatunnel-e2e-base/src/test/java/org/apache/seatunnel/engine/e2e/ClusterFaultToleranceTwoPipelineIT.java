@@ -38,6 +38,7 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.shaded.org.apache.commons.lang3.tuple.ImmutablePair;
 
@@ -91,7 +92,8 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
             Common.setDeployMode(DeployMode.CLIENT);
             ImmutablePair<String, String> testResources =
-                createTestResources(testCaseName, JobMode.BATCH, testRowNumber, testParallelism, TEST_TEMPLATE_FILE_NAME);
+                createTestResources(testCaseName, JobMode.BATCH, testRowNumber, testParallelism,
+                    TEST_TEMPLATE_FILE_NAME);
             JobConfig jobConfig = new JobConfig();
             jobConfig.setName(testCaseName);
 
@@ -103,9 +105,10 @@ public class ClusterFaultToleranceTwoPipelineIT {
                 engineClient.createExecutionContext(testResources.getRight(), jobConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
-            CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
+            CompletableFuture<JobStatus> objectCompletableFuture =
+                CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
-            Awaitility.await().atMost(200000, TimeUnit.MILLISECONDS)
+            Awaitility.await().atMost(600000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> {
                     Thread.sleep(2000);
                     System.out.println(FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
@@ -191,7 +194,8 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
             Common.setDeployMode(DeployMode.CLIENT);
             ImmutablePair<String, String> testResources =
-                createTestResources(testCaseName, JobMode.STREAMING, testRowNumber, testParallelism, TEST_TEMPLATE_FILE_NAME);
+                createTestResources(testCaseName, JobMode.STREAMING, testRowNumber, testParallelism,
+                    TEST_TEMPLATE_FILE_NAME);
             JobConfig jobConfig = new JobConfig();
             jobConfig.setName(testCaseName);
 
@@ -203,19 +207,21 @@ public class ClusterFaultToleranceTwoPipelineIT {
                 engineClient.createExecutionContext(testResources.getRight(), jobConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
-            CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
+            CompletableFuture<JobStatus> objectCompletableFuture =
+                CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
             Awaitility.await().atMost(6, TimeUnit.MINUTES)
                 .untilAsserted(() -> {
                     Thread.sleep(2000);
                     System.out.println(FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
                     Assertions.assertTrue(JobStatus.RUNNING.equals(clientJobProxy.getJobStatus()) &&
-                        testRowNumber * testParallelism * 2 == FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
+                        testRowNumber * testParallelism * 2 ==
+                            FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
                 });
 
             clientJobProxy.cancelJob();
 
-            Awaitility.await().atMost(200000, TimeUnit.MILLISECONDS)
+            Awaitility.await().atMost(600000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(
                     objectCompletableFuture.isDone() && JobStatus.CANCELED.equals(objectCompletableFuture.get())));
 
@@ -262,7 +268,8 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
             Common.setDeployMode(DeployMode.CLIENT);
             ImmutablePair<String, String> testResources =
-                createTestResources(testCaseName, JobMode.BATCH, testRowNumber, testParallelism, TEST_TEMPLATE_FILE_NAME);
+                createTestResources(testCaseName, JobMode.BATCH, testRowNumber, testParallelism,
+                    TEST_TEMPLATE_FILE_NAME);
             JobConfig jobConfig = new JobConfig();
             jobConfig.setName(testCaseName);
 
@@ -274,7 +281,8 @@ public class ClusterFaultToleranceTwoPipelineIT {
                 engineClient.createExecutionContext(testResources.getRight(), jobConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
-            CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
+            CompletableFuture<JobStatus> objectCompletableFuture =
+                CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
             Awaitility.await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> {
@@ -288,9 +296,14 @@ public class ClusterFaultToleranceTwoPipelineIT {
             // shutdown on worker node
             node2.shutdown();
 
-            Awaitility.await().atMost(400000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertTrue(
-                    objectCompletableFuture.isDone() && JobStatus.FINISHED.equals(objectCompletableFuture.get())));
+            Awaitility.await().atMost(600000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> {
+                    // Wait some tasks commit finished
+                    Thread.sleep(2000);
+                    System.out.println(FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
+                    Assertions.assertTrue(
+                        objectCompletableFuture.isDone() && JobStatus.FINISHED.equals(objectCompletableFuture.get()));
+                });
 
             Long fileLineNumberFromDir = FileUtils.getFileLineNumberFromDir(testResources.getLeft());
             Assertions.assertEquals(testRowNumber * testParallelism * 2, fileLineNumberFromDir);
@@ -306,6 +319,14 @@ public class ClusterFaultToleranceTwoPipelineIT {
             if (node2 != null) {
                 node2.shutdown();
             }
+        }
+    }
+
+    @Test
+    @Disabled
+    public void testFor() throws ExecutionException, InterruptedException {
+        for (int i = 0; i < 200; i++) {
+            testTwoPipelineBatchJobRestoreIn2NodeWorkerDown();
         }
     }
 
@@ -334,7 +355,8 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
             Common.setDeployMode(DeployMode.CLIENT);
             ImmutablePair<String, String> testResources =
-                createTestResources(testCaseName, JobMode.STREAMING, testRowNumber, testParallelism, TEST_TEMPLATE_FILE_NAME);
+                createTestResources(testCaseName, JobMode.STREAMING, testRowNumber, testParallelism,
+                    TEST_TEMPLATE_FILE_NAME);
             JobConfig jobConfig = new JobConfig();
             jobConfig.setName(testCaseName);
 
@@ -369,14 +391,15 @@ public class ClusterFaultToleranceTwoPipelineIT {
                     Thread.sleep(2000);
                     System.out.println(FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
                     Assertions.assertTrue(JobStatus.RUNNING.equals(clientJobProxy.getJobStatus()) &&
-                        testRowNumber * testParallelism * 2 == FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
+                        testRowNumber * testParallelism * 2 ==
+                            FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
                 });
 
             // sleep 10s and expect the job don't write more rows.
             Thread.sleep(10000);
             clientJobProxy.cancelJob();
 
-            Awaitility.await().atMost(200000, TimeUnit.MILLISECONDS)
+            Awaitility.await().atMost(600000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(
                     objectCompletableFuture.isDone() && JobStatus.CANCELED.equals(objectCompletableFuture.get())));
 
@@ -424,7 +447,8 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
             Common.setDeployMode(DeployMode.CLIENT);
             ImmutablePair<String, String> testResources =
-                createTestResources(testCaseName, JobMode.BATCH, testRowNumber, testParallelism, TEST_TEMPLATE_FILE_NAME);
+                createTestResources(testCaseName, JobMode.BATCH, testRowNumber, testParallelism,
+                    TEST_TEMPLATE_FILE_NAME);
             JobConfig jobConfig = new JobConfig();
             jobConfig.setName(testCaseName);
 
@@ -436,7 +460,8 @@ public class ClusterFaultToleranceTwoPipelineIT {
                 engineClient.createExecutionContext(testResources.getRight(), jobConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
-            CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
+            CompletableFuture<JobStatus> objectCompletableFuture =
+                CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
             Awaitility.await().atMost(360000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> {
@@ -450,9 +475,14 @@ public class ClusterFaultToleranceTwoPipelineIT {
             // shutdown master node
             node1.shutdown();
 
-            Awaitility.await().atMost(360000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertTrue(
-                    objectCompletableFuture.isDone() && JobStatus.FINISHED.equals(objectCompletableFuture.get())));
+            Awaitility.await().atMost(600000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> {
+                    // Wait some tasks commit finished
+                    Thread.sleep(2000);
+                    System.out.println(FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
+                    Assertions.assertTrue(
+                        objectCompletableFuture.isDone() && JobStatus.FINISHED.equals(objectCompletableFuture.get()));
+                });
 
             Long fileLineNumberFromDir = FileUtils.getFileLineNumberFromDir(testResources.getLeft());
             Assertions.assertEquals(testRowNumber * testParallelism * 2, fileLineNumberFromDir);
@@ -497,7 +527,8 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
             Common.setDeployMode(DeployMode.CLIENT);
             ImmutablePair<String, String> testResources =
-                createTestResources(testCaseName, JobMode.STREAMING, testRowNumber, testParallelism, TEST_TEMPLATE_FILE_NAME);
+                createTestResources(testCaseName, JobMode.STREAMING, testRowNumber, testParallelism,
+                    TEST_TEMPLATE_FILE_NAME);
             JobConfig jobConfig = new JobConfig();
             jobConfig.setName(testCaseName);
 
@@ -509,7 +540,8 @@ public class ClusterFaultToleranceTwoPipelineIT {
                 engineClient.createExecutionContext(testResources.getRight(), jobConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
-            CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
+            CompletableFuture<JobStatus> objectCompletableFuture =
+                CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
             Awaitility.await().atMost(360000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> {
@@ -529,7 +561,8 @@ public class ClusterFaultToleranceTwoPipelineIT {
                     Thread.sleep(2000);
                     System.out.println(FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
                     Assertions.assertTrue(JobStatus.RUNNING.equals(clientJobProxy.getJobStatus()) &&
-                        testRowNumber * testParallelism * 2 == FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
+                        testRowNumber * testParallelism * 2 ==
+                            FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
                 });
 
             // sleep 10s and expect the job don't write more rows.

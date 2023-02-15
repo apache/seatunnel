@@ -86,7 +86,6 @@ public class PipelineBaseScheduler implements JobScheduler {
         try {
             if (!pipeline.updatePipelineState(PipelineStatus.CREATED, PipelineStatus.SCHEDULED)) {
                 handlePipelineStateTurnError(pipeline, PipelineStatus.SCHEDULED);
-                return null;
             }
 
             Map<TaskGroupLocation, SlotProfile> slotProfiles =
@@ -267,8 +266,8 @@ public class PipelineBaseScheduler implements JobScheduler {
         if (PipelineStatus.CANCELING.equals(pipeline.getPipelineState()) ||
             PipelineStatus.CANCELED.equals(pipeline.getPipelineState())) {
             // may be canceled
-            log.info("{} turn to state {}, skip {} this pipeline.", pipeline.getPipelineFullName(),
-                pipeline.getPipelineState(), targetState);
+            throw new SchedulerNotAllowException(String.format("%s turn to state %s, skip %s this pipeline.", pipeline.getPipelineFullName(),
+                pipeline.getPipelineState(), targetState));
         } else {
             throw new JobException(
                 String.format("%s turn to a unexpected state: %s, stop scheduler job",

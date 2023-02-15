@@ -176,6 +176,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT> ex
 
     @Override
     public void triggerBarrier(Barrier barrier) throws Exception {
+        LOGGER.info("44444444444444444-------sink agg commit ----------" + barrier);
         Integer count = checkpointBarrierCounter.compute(barrier.getId(), (id, num) -> num == null ? 1 : ++num);
         if (count != maxWriterSize) {
             return;

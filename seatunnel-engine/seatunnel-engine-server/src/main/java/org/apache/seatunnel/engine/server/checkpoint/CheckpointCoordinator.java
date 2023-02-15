@@ -485,16 +485,6 @@ public class CheckpointCoordinator {
         TaskLocation location = ackOperation.getTaskLocation();
         LOG.info("task[{}]({}/{}) ack. {}", location.getTaskID(), location.getPipelineId(), location.getJobId(), ackOperation.getBarrier().toString());
         if (ackOperation.getBarrier().getCheckpointType() == COMPLETED_POINT_TYPE) {
-            synchronized (lock) {
-                if (pendingCheckpoints.get(Barrier.PREPARE_CLOSE_BARRIER_ID) == null) {
-                    CompletableFuture<PendingCheckpoint> future = triggerPendingCheckpoint(
-                        Instant.now().toEpochMilli(),
-                        CompletableFuture.completedFuture(Barrier.PREPARE_CLOSE_BARRIER_ID),
-                        COMPLETED_POINT_TYPE);
-                    startTriggerPendingCheckpoint(future);
-                    future.join();
-                }
-            }
             pendingCheckpoints.values().parallelStream()
                 .forEach(cp -> cp.acknowledgeTask(ackOperation.getTaskLocation(), ackOperation.getStates(), SubtaskStatus.AUTO_PREPARE_CLOSE));
             return;
@@ -533,10 +523,10 @@ public class CheckpointCoordinator {
                 .build());
             if (completedCheckpoints.size() > coordinatorConfig.getStorage().getMaxRetainedCheckpoints()) {
                 CompletedCheckpoint superfluous = completedCheckpoints.removeFirst();
-                checkpointStorage.deleteCheckpoint(
-                    String.valueOf(superfluous.getJobId()),
-                    String.valueOf(superfluous.getPipelineId()),
-                    String.valueOf(superfluous.getCheckpointId()));
+//                checkpointStorage.deleteCheckpoint(
+//                    String.valueOf(superfluous.getJobId()),
+//                    String.valueOf(superfluous.getPipelineId()),
+//                    String.valueOf(superfluous.getCheckpointId()));
             }
         } catch (Throwable e) {
             LOG.error("store checkpoint states failed.", e);

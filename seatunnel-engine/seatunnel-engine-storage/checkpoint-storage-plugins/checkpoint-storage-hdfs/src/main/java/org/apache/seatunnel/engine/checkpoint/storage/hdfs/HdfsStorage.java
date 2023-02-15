@@ -119,7 +119,8 @@ public class HdfsStorage extends AbstractCheckpointStorage {
         String path = getStorageParentDirectory() + jobId;
         List<String> fileNames = getFileNames(path);
         if (fileNames.isEmpty()) {
-            throw new CheckpointStorageException("No checkpoint found for job, job id is: " + jobId);
+            log.info("No checkpoint found for job, job id is: " + jobId);
+            return new ArrayList<>();
         }
         List<PipelineState> states = new ArrayList<>();
         fileNames.forEach(file -> {
@@ -140,7 +141,8 @@ public class HdfsStorage extends AbstractCheckpointStorage {
         String path = getStorageParentDirectory() + jobId;
         List<String> fileNames = getFileNames(path);
         if (fileNames.isEmpty()) {
-            throw new CheckpointStorageException("No checkpoint found for job, job id is: " + jobId);
+            log.info("No checkpoint found for job, job id is: " + jobId);
+            return new ArrayList<>();
         }
         Set<String> latestPipelineNames = getLatestPipelineNames(fileNames);
         List<PipelineState> latestPipelineStates = new ArrayList<>();
@@ -153,7 +155,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
         });
 
         if (latestPipelineStates.isEmpty()) {
-            throw new CheckpointStorageException("No checkpoint found for job, job id:{} " + jobId);
+            log.info("No checkpoint found for job, job id:{} " + jobId);
         }
         return latestPipelineStates;
     }
@@ -163,12 +165,14 @@ public class HdfsStorage extends AbstractCheckpointStorage {
         String path = getStorageParentDirectory() + jobId;
         List<String> fileNames = getFileNames(path);
         if (fileNames.isEmpty()) {
-            throw new CheckpointStorageException("No checkpoint found for job, job id is: " + jobId);
+            log.info("No checkpoint found for job, job id is: " + jobId);
+            return null;
         }
 
         String latestFileName = getLatestCheckpointFileNameByJobIdAndPipelineId(fileNames, pipelineId);
         if (latestFileName == null) {
-            throw new CheckpointStorageException("No checkpoint found for job, job id is: " + jobId + ", pipeline id is: " + pipelineId);
+            log.info("No checkpoint found for job, job id is: " + jobId + ", pipeline id is: " + pipelineId);
+            return null;
         }
         return readPipelineState(latestFileName, jobId);
     }
@@ -178,7 +182,8 @@ public class HdfsStorage extends AbstractCheckpointStorage {
         String path = getStorageParentDirectory() + jobId;
         List<String> fileNames = getFileNames(path);
         if (fileNames.isEmpty()) {
-            throw new CheckpointStorageException("No checkpoint found for job, job id is: " + jobId);
+            log.info("No checkpoint found for job, job id is: " + jobId);
+            return new ArrayList<>();
         }
 
         List<PipelineState> pipelineStates = new ArrayList<>();
@@ -210,7 +215,8 @@ public class HdfsStorage extends AbstractCheckpointStorage {
         String path = getStorageParentDirectory() + jobId;
         List<String> fileNames = getFileNames(path);
         if (fileNames.isEmpty()) {
-            throw new CheckpointStorageException("No checkpoint found for job, job id is: " + jobId);
+            log.info("No checkpoint found for job, job id is: " + jobId);
+            return null;
         }
         for (String fileName : fileNames) {
             if (pipelineId.equals(getPipelineIdByFileName(fileName)) &&
@@ -248,7 +254,8 @@ public class HdfsStorage extends AbstractCheckpointStorage {
         try {
             Path parentPath = new Path(path);
             if (!fs.exists(parentPath)) {
-                throw new CheckpointStorageException("Path " + path + " is not a directory");
+                log.info("Path " + path + " is not a directory");
+                return new ArrayList<>();
             }
             FileStatus[] fileStatus = fs.listStatus(parentPath, path1 -> path1.getName().endsWith(FILE_FORMAT));
             List<String> fileNames = new ArrayList<>();

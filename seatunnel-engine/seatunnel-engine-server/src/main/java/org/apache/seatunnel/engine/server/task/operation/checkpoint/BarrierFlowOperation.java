@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.task.operation.checkpoint;
 
 import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
@@ -28,6 +29,7 @@ import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
+import com.hazelcast.logging.ILogger;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import lombok.NoArgsConstructor;
@@ -68,14 +70,17 @@ public class BarrierFlowOperation extends TaskOperation {
 
     @Override
     public void run() throws Exception {
+        ILogger logger = getLogger();
         SeaTunnelServer server = getService();
         RetryUtils.retryWithException(() -> {
             Task task = server.getTaskExecutionService()
                 .getExecutionContext(taskLocation.getTaskGroupLocation()).getTaskGroup()
                 .getTask(taskLocation.getTaskID());
             try {
+                logger.info("=========================BarrierFlowOperation==============" + taskLocation);
                 task.triggerBarrier(barrier);
             } catch (Exception e) {
+                logger.warning(ExceptionUtils.getMessage(e));
                 sneakyThrow(e);
             }
             return null;
