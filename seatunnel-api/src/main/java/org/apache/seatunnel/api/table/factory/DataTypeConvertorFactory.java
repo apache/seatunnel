@@ -35,20 +35,14 @@ public class DataTypeConvertorFactory {
 
     public DataTypeConvertorFactory(ClassLoader classLoader) {
         ServiceLoader.load(DataTypeConvertor.class, classLoader).forEach(dataTypeConvertor -> {
-            dataTypeConvertorMap.put(dataTypeConvertor.getIdentity(), dataTypeConvertor);
+            dataTypeConvertorMap.put(dataTypeConvertor.getIdentity().toUpperCase(), dataTypeConvertor);
         });
     }
 
     public DataTypeConvertor<?> getDataTypeConvertor(String convertorIdentify) {
         checkNotNull(convertorIdentify, "connectorIdentify can not be null");
-        if (dataTypeConvertorMap.containsKey(convertorIdentify)) {
-            return dataTypeConvertorMap.get(convertorIdentify);
-        }
         if (dataTypeConvertorMap.containsKey(convertorIdentify.toUpperCase())) {
             return dataTypeConvertorMap.get(convertorIdentify.toUpperCase());
-        }
-        if (dataTypeConvertorMap.containsKey(convertorIdentify.toLowerCase())) {
-            return dataTypeConvertorMap.get(convertorIdentify.toLowerCase());
         }
         throw new IllegalArgumentException("connectorIdentify " + convertorIdentify + " is not supported");
     }
