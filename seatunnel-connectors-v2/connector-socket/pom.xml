@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-socket</artifactId>
+    <name>SeaTunnel : Connectors V2 : Socket</name>
 
     <dependencies>
         <dependency>

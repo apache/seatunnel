@@ -25,6 +25,7 @@
     </parent>
 
     <artifactId>connector-cassandra-e2e</artifactId>
+    <name>SeaTunnel : E2E : Connector V2 : Cassandra</name>
 
     <dependencies>
         <dependency>

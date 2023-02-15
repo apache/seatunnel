@@ -24,6 +24,7 @@
 
     <artifactId>seatunnel-formats</artifactId>
     <packaging>pom</packaging>
+    <name>SeaTunnel : Formats :</name>
 
     <modules>
         <module>seatunnel-format-json</module>

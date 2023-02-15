@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-pulsar</artifactId>
+    <name>SeaTunnel : Connectors V2 : Pulsar</name>
 
     <properties>
         <pulsar.version>2.8.0</pulsar.version>

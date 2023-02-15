@@ -26,6 +26,7 @@
         <version>${revision}</version>
     </parent>
     <artifactId>connector-cdc-base</artifactId>
+    <name>SeaTunnel : Connectors V2 : CDC : Base</name>
 
     <properties>
         <hikaricp.version>4.0.3</hikaricp.version>

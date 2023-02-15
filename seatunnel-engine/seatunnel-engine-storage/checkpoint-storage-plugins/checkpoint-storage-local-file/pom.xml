@@ -28,6 +28,8 @@
     </parent>
 
     <artifactId>checkpoint-storage-local-file</artifactId>
+    <name>SeaTunnel : Engine : Storage : Checkpoint Storage Plugins : Local File</name>
+
     <dependencies>
         <dependency>
             <groupId>commons-io</groupId>
