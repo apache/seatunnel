@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
-import org.apache.seatunnel.api.common.metrics.Unit;
+import org.apache.seatunnel.api.common.metrics.Counter;
+import org.apache.seatunnel.api.common.metrics.Meter;
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -27,7 +29,6 @@ import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
-import org.apache.seatunnel.engine.server.metrics.MetricsContext;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.context.SinkWriterContext;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupAddressOperation;
@@ -77,6 +78,10 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     private MetricsContext metricsContext;
 
+    private Counter sinkWriteCount;
+
+    private Meter sinkWriteQPS;
+
     private final boolean containAggCommitter;
 
     public SinkFlowLifeCycle(
@@ -95,6 +100,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         this.committerTaskLocation = committerTaskLocation;
         this.containAggCommitter = containAggCommitter;
         this.metricsContext = metricsContext;
+        sinkWriteCount = metricsContext.counter(SINK_WRITE_COUNT);
+        sinkWriteQPS = metricsContext.meter(SINK_WRITE_QPS);
     }
 
     @Override
@@ -190,8 +197,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     return;
                 }
                 writer.write((T) record.getData());
-                metricsContext.threadSafeQpsMetric(SINK_WRITE_QPS, Unit.COUNT).increment();
-                metricsContext.threadSafeMetric(SINK_WRITE_COUNT, Unit.COUNT).increment();
+                sinkWriteCount.inc();
+                sinkWriteQPS.markEvent();
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -231,10 +238,15 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                             .collect(Collectors.toList());
         }
         if (states.isEmpty()) {
-            this.writer = sinkAction.getSink().createWriter(new SinkWriterContext(indexID));
+            this.writer =
+                    sinkAction
+                            .getSink()
+                            .createWriter(new SinkWriterContext(indexID, metricsContext));
         } else {
             this.writer =
-                    sinkAction.getSink().restoreWriter(new SinkWriterContext(indexID), states);
+                    sinkAction
+                            .getSink()
+                            .restoreWriter(new SinkWriterContext(indexID, metricsContext), states);
         }
     }
 }
