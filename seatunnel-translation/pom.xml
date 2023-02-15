@@ -24,6 +24,7 @@
 
     <artifactId>seatunnel-translation</artifactId>
     <packaging>pom</packaging>
+    <name>SeaTunnel : Translation :</name>
 
     <modules>
         <module>seatunnel-translation-base</module>

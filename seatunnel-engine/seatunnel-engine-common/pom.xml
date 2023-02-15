@@ -25,6 +25,7 @@
     </parent>
 
     <artifactId>seatunnel-engine-common</artifactId>
+    <name>SeaTunnel : Engine : Common</name>
 
     <dependencies>
         <dependency>

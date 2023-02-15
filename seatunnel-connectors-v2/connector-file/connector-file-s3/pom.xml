@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-file-s3</artifactId>
+    <name>SeaTunnel : Connectors V2 : File : S3</name>
 
     <properties>
         <hadoop-aws.version>2.6.5</hadoop-aws.version>

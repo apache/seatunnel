@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>seatunnel-engine-client</artifactId>
+    <name>SeaTunnel : Engine : Client</name>
 
     <dependencies>
         <dependency>

@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>seatunnel-transforms-v2</artifactId>
+    <name>SeaTunnel : Transforms : V2</name>
 
     <dependencyManagement>
         <dependencies>
@@ -47,7 +48,7 @@
     </dependencies>
 
     <build>
-        <finalName>${project.name}</finalName>
+        <finalName>${project.artifactId}</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

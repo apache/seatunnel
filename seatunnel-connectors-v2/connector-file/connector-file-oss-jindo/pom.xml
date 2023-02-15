@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-file-oss-jindo</artifactId>
+    <name>SeaTunnel : Connectors V2 : File : Oss Jindo</name>
 
     <properties>
         <jindo-sdk.version>4.6.1</jindo-sdk.version>

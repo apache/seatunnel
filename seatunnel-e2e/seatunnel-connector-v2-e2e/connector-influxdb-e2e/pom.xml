@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>connector-influxdb-e2e</artifactId>
+    <name>SeaTunnel : E2E : Connector V2 : Influxdb</name>
 
     <dependencies>
         <!-- SeaTunnel connectors -->

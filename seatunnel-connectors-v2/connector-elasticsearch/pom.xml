@@ -27,6 +27,8 @@
     </parent>
 
     <artifactId>connector-elasticsearch</artifactId>
+    <name>SeaTunnel : Connectors V2 : Elasticsearch</name>
+
     <properties>
         <elasticsearch-rest-client.version>7.5.1</elasticsearch-rest-client.version>
         <guava.version>31.1-jre</guava.version>

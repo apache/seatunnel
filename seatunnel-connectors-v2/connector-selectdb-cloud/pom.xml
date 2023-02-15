@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-selectdb-cloud</artifactId>
+    <name>SeaTunnel : Connectors V2 : SelectDB Cloud</name>
 
     <properties>
         <httpclient.version>4.5.13</httpclient.version>

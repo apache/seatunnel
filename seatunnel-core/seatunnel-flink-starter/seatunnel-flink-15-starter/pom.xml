@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>seatunnel-flink-15-starter</artifactId>
+    <name>SeaTunnel : Core : Flink Starter : 1.5</name>
 
     <dependencies>
 
