@@ -42,4 +42,9 @@ public interface ConfigShade {
      * @param content The content to decrypt
      */
     String decrypt(String content);
+
+    /** To expand the options that user want to encrypt */
+    default String[] sensitiveOptions() {
+        return new String[0];
+    }
 }

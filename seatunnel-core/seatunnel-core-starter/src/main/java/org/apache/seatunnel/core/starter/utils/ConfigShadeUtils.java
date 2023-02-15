@@ -30,11 +30,13 @@ import org.apache.seatunnel.common.utils.JsonUtils;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
+import java.util.function.BiFunction;
 
 /** Config shade utilities */
 @Slf4j
@@ -42,7 +44,7 @@ public final class ConfigShadeUtils {
 
     private static final String SHADE_IDENTIFIER_OPTION = "shade.identifier";
 
-    private static final String[] SENSITIVE_OPTIONS = new String[] {"password", "username"};
+    private static final String[] DEFAULT_SENSITIVE_OPTIONS = new String[] {"password", "username"};
 
     private static final Map<String, ConfigShade> CONFIG_SHADES = new HashMap<>();
 
@@ -99,9 +101,36 @@ public final class ConfigShadeUtils {
         return decryptConfig(identifier, config);
     }
 
-    @SuppressWarnings("unchecked")
+    public static Config encryptConfig(Config config) {
+        String identifier =
+                TypesafeConfigUtils.getConfig(
+                        config.getConfig(Constants.ENV),
+                        SHADE_IDENTIFIER_OPTION,
+                        DEFAULT_SHADE.getIdentifier());
+        return encryptConfig(identifier, config);
+    }
+
     public static Config decryptConfig(String identifier, Config config) {
+        return processConfig(identifier, config, true);
+    }
+
+    public static Config encryptConfig(String identifier, Config config) {
+        return processConfig(identifier, config, false);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Config processConfig(String identifier, Config config, boolean isDecrypted) {
         ConfigShade configShade = CONFIG_SHADES.getOrDefault(identifier, DEFAULT_SHADE);
+        List<String> sensitiveOptions = new ArrayList<>(Arrays.asList(DEFAULT_SENSITIVE_OPTIONS));
+        sensitiveOptions.addAll(Arrays.asList(configShade.sensitiveOptions()));
+        BiFunction<String, Object, String> processFunction =
+                (key, value) -> {
+                    if (isDecrypted) {
+                        return configShade.decrypt(value.toString());
+                    } else {
+                        return configShade.encrypt(value.toString());
+                    }
+                };
         String jsonString = config.root().render(ConfigRenderOptions.concise());
         ObjectNode jsonNodes = JsonUtils.parseObject(jsonString);
         Map<String, Object> configMap = JsonUtils.toMap(jsonNodes);
@@ -111,18 +140,14 @@ public final class ConfigShadeUtils {
                 (ArrayList<Map<String, Object>>) configMap.get(Constants.SINK);
         sources.forEach(
                 source -> {
-                    for (String sensitiveOption : SENSITIVE_OPTIONS) {
-                        source.computeIfPresent(
-                                sensitiveOption,
-                                (key, value) -> configShade.decrypt(value.toString()));
+                    for (String sensitiveOption : sensitiveOptions) {
+                        source.computeIfPresent(sensitiveOption, processFunction);
                     }
                 });
         sinks.forEach(
                 sink -> {
-                    for (String sensitiveOption : SENSITIVE_OPTIONS) {
-                        sink.computeIfPresent(
-                                sensitiveOption,
-                                (key, value) -> configShade.decrypt(value.toString()));
+                    for (String sensitiveOption : sensitiveOptions) {
+                        sink.computeIfPresent(sensitiveOption, processFunction);
                     }
                 });
         configMap.put(Constants.SOURCE, sources);
