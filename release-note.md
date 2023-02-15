@@ -58,6 +58,7 @@
 - [Checkpoint] Add savepoint and restore with savepoint #3930
 - [Core]Fix Local Mode can't deserialize split (#3817)
 - [Metrics] Fix Metrics will lose when Job be canceled or restart. #3797 #3977
+- [Restapi] add get running job info by jobId. #4140
 
 ### Documents
 - [Doc] seatunnel run with flink operator error #3998
