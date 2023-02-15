@@ -77,7 +77,7 @@ public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
 
     private static final int KAFKA_PORT = 9095;
 
-    private static final String KAFKA_HOST = "kafkaCluster";
+    private static final String KAFKA_HOST = "kafka";
 
     private KafkaProducer<String, String> producer;
 
