@@ -50,9 +50,8 @@ public class ConfigShadeTest {
         URL resource = ConfigShadeTest.class.getResource("/config.shade.conf");
         Assertions.assertNotNull(resource);
         Config config = ConfigBuilder.of(Paths.get(resource.toURI()));
-        Config decryptConfig = ConfigShadeUtils.decryptConfig(config);
         Config fields =
-                decryptConfig
+                config
                         .getConfigList("source")
                         .get(0)
                         .getConfig("schema")
@@ -65,11 +64,11 @@ public class ConfigShadeTest {
         Assertions.assertEquals(field.get(0), "name");
         Assertions.assertEquals(field.get(1), "age");
         Assertions.assertEquals(field.get(2), "sex");
-        log.info("Decrypt config: {}", decryptConfig.root().render(CONFIG_RENDER_OPTIONS));
+        log.info("Decrypt config: {}", config.root().render(CONFIG_RENDER_OPTIONS));
         Assertions.assertEquals(
-                decryptConfig.getConfigList("source").get(0).getString("username"), USERNAME);
+                config.getConfigList("source").get(0).getString("username"), USERNAME);
         Assertions.assertEquals(
-                decryptConfig.getConfigList("source").get(0).getString("password"), PASSWORD);
+                config.getConfigList("source").get(0).getString("password"), PASSWORD);
     }
 
     @Test
