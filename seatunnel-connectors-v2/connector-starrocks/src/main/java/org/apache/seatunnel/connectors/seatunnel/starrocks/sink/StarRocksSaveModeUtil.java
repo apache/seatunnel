@@ -30,14 +30,14 @@ import java.util.stream.Collectors;
 
 public class StarRocksSaveModeUtil {
 
-    static String fillingCreateSql(String template, String database, String table, TableSchema tableSchema) {
+    public static String fillingCreateSql(String template, String database, String table, TableSchema tableSchema) {
         String primaryKey = tableSchema.getPrimaryKey().getColumnNames().stream().map(r -> "`" + r + "`").collect(Collectors.joining(","));
         String rowTypeFields = tableSchema.getColumns().stream().map(StarRocksSaveModeUtil::columnToStarrocksType)
-            .collect(Collectors.joining(","));
-        return template.replace(String.format("{%s}", SaveModeConstants.DATABASE), database)
-            .replace(String.format("{%s}", SaveModeConstants.TABLE_NAME), table)
-            .replace(String.format("{%s}", SaveModeConstants.ROWTYPE_FIELDS), rowTypeFields)
-            .replace(String.format("{%s}", SaveModeConstants.ROWTYPE_PRIMARY_KEY), primaryKey);
+            .collect(Collectors.joining(",\n"));
+        return template.replace(String.format("${%s}", SaveModeConstants.DATABASE), database)
+            .replace(String.format("${%s}", SaveModeConstants.TABLE_NAME), table)
+            .replace(String.format("${%s}", SaveModeConstants.ROWTYPE_FIELDS), rowTypeFields)
+            .replace(String.format("${%s}", SaveModeConstants.ROWTYPE_PRIMARY_KEY), primaryKey);
     }
 
     static String columnToStarrocksType(Column column) {
