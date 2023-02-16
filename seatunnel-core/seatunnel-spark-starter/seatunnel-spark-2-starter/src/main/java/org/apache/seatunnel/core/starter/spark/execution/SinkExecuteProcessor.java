@@ -36,6 +36,7 @@ import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
+import org.apache.spark.sql.SaveMode;
 import org.apache.spark.sql.streaming.StreamingQueryException;
 
 import com.google.common.collect.Lists;
@@ -124,6 +125,7 @@ public class SinkExecuteProcessor
 
             if (sparkRuntimeEnvironment.getJobMode().equals(JobMode.BATCH)) {
                 SparkSinkInjector.inject(dataset.write(), seaTunnelSink)
+                        .mode(SaveMode.Append)
                         .option("checkpointLocation", "/tmp")
                         .save();
             } else {
