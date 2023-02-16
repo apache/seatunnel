@@ -6,7 +6,6 @@ In most production environments, sensitive configuration items such as passwords
 
 ## Design
 
-
 ## How to use
 
 SeaTunnel comes with the function of base64 encryption and decryption, but it is not recommended for production use, it is recommended that users implement custom encryption and decryption logic. You can refer to this chapter [How to implement user-defined encryption and decryption](#How to implement user-defined encryption and decryption) get more details about it.

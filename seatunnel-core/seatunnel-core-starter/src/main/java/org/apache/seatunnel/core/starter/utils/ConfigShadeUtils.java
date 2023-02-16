@@ -56,14 +56,11 @@ public final class ConfigShadeUtils {
     static {
         ServiceLoader<ConfigShade> serviceLoader = ServiceLoader.load(ConfigShade.class);
         Iterator<ConfigShade> it = serviceLoader.iterator();
-        if (it.hasNext()) {
-            try {
-                ConfigShade configShade = it.next();
-                CONFIG_SHADES.put(configShade.getIdentifier(), configShade);
-            } catch (Exception e) {
-                log.warn(e.getMessage());
-            }
-        }
+        it.forEachRemaining(
+                configShade -> {
+                    CONFIG_SHADES.put(configShade.getIdentifier(), configShade);
+                });
+        log.info("Load config shade spi: {}", CONFIG_SHADES.keySet());
     }
 
     private static class DefaultConfigShade implements ConfigShade {
