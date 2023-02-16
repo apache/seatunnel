@@ -35,12 +35,12 @@ public class StarRocksCatalogTest {
 
     @Test
     public void testCatalog() {
-        StarRocksCatalog catalog = new StarRocksCatalog("starrocks", "", "root", "root", "jdbc:mysql://47.109.52.28:9030/");
+        StarRocksCatalog catalog = new StarRocksCatalog("starrocks", "", "root", "123456", "jdbc:mysql://47.108.65.163:9030/");
         List<String> databases = catalog.listDatabases();
         LOGGER.info("find databases: " + databases);
 
         if (!catalog.databaseExists("default")) {
-            catalog.createDatabase("default");
+            catalog.createDatabase(TablePath.of("default", null), true);
         }
 
         databases = catalog.listDatabases();

@@ -74,9 +74,9 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void> implem
         CatalogTable catalogTable = null;
         sinkConfig = SinkConfig.loadConfig(pluginConfig);
         if (StringUtils.isEmpty(sinkConfig.getTable())) {
-            sinkConfig.setTable(catalogTable.getTableId().gettableName());
+            sinkConfig.setTable(catalogTable.getTableId().getTableName());
         }
-        sinkConfig.setTable(catalogTable.getTableId().gettableName());
+        sinkConfig.setTable(catalogTable.getTableId().getTableName());
         dataSaveMode = DataSaveMode.KEEP_SCHEMA_AND_DATA;
     }
 
@@ -84,7 +84,7 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void> implem
         StarRocksCatalog starRocksCatalog = new StarRocksCatalog("StarRocks", sinkConfig.getDatabase(),
             sinkConfig.getUsername(), sinkConfig.getPassword(), sinkConfig.getJdbcUrl());
         if (!starRocksCatalog.databaseExists(sinkConfig.getDatabase())) {
-            starRocksCatalog.createDatabase(sinkConfig.getDatabase());
+            starRocksCatalog.createDatabase(TablePath.of(sinkConfig.getDatabase(), ""), true);
         }
         // TODO get catalog Table
         CatalogTable catalogTable = null;

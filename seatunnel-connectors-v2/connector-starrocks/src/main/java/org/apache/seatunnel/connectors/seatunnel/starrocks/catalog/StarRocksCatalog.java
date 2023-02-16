@@ -21,10 +21,13 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
+import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
@@ -171,7 +174,7 @@ public class StarRocksCatalog implements Catalog {
 
         String dbUrl = baseUrl + tablePath.getDatabaseName();
         try (Connection conn = DriverManager.getConnection(dbUrl, username, pwd)) {
-            Optional<TableSchema.PrimaryKey> primaryKey = getPrimaryKey(tablePath.getDatabaseName(), tablePath.getTableName());
+            Optional<PrimaryKey> primaryKey = getPrimaryKey(tablePath.getDatabaseName(), tablePath.getTableName());
 
             PreparedStatement ps =
                 conn.prepareStatement(String.format("SELECT * FROM %s WHERE 1 = 0;", tablePath.getFullNameWithQuoted()));
@@ -181,7 +184,10 @@ public class StarRocksCatalog implements Catalog {
             TableSchema.Builder builder = TableSchema.builder();
             for (int i = 1; i <= tableMetaData.getColumnCount(); i++) {
                 SeaTunnelDataType<?> type = fromJdbcType(tableMetaData, i);
-                builder.physicalColumn(tableMetaData.getColumnName(i), type);
+                // TODO add default value and test it
+                builder.column(PhysicalColumn.of(tableMetaData.getColumnName(i), type, tableMetaData.getColumnDisplaySize(i),
+                    tableMetaData.isNullable(i) == ResultSetMetaData.columnNullable, null,
+                    tableMetaData.getColumnLabel(i)));
             }
 
             primaryKey.ifPresent(builder::primaryKey);
@@ -190,6 +196,44 @@ public class StarRocksCatalog implements Catalog {
             return CatalogTable.of(tableIdentifier, builder.build(), buildConnectorOptions(tablePath), Collections.emptyList(), "");
         } catch (Exception e) {
             throw new CatalogException(String.format("Failed getting table %s", tablePath.getFullName()), e);
+        }
+    }
+
+    @Override
+    public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists) throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void dropTable(TablePath tablePath, boolean ignoreIfNotExists) throws TableNotExistException, CatalogException {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void createDatabase(TablePath tablePath, boolean ignoreIfExists) throws DatabaseAlreadyExistException, CatalogException {
+        try (Connection conn = DriverManager.getConnection(baseUrl, username, pwd)) {
+            if (ignoreIfExists) {
+                conn.createStatement().execute("CREATE DATABASE IF NOT EXISTS `" + tablePath.getDatabaseName() + "`");
+            } else {
+                conn.createStatement().execute("CREATE DATABASE `" + tablePath.getDatabaseName() + "`");
+            }
+        } catch (Exception e) {
+            throw new CatalogException(
+                String.format("Failed listing database in catalog %s", catalogName), e);
+        }
+    }
+
+    @Override
+    public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists) throws DatabaseNotExistException, CatalogException {
+        try (Connection conn = DriverManager.getConnection(baseUrl, username, pwd)) {
+            if (ignoreIfNotExists) {
+                conn.createStatement().execute("DROP DATABASE IF EXISTS `" + tablePath.getDatabaseName() + "`");
+            } else {
+                conn.createStatement().execute(String.format("DROP DATABASE `%s`", tablePath.getDatabaseName()));
+            }
+        } catch (Exception e) {
+            throw new CatalogException(
+                String.format("Failed listing database in catalog %s", catalogName), e);
         }
     }
 
@@ -278,15 +322,6 @@ public class StarRocksCatalog implements Catalog {
         }
     }
 
-    public void createDatabase(String databaseName) throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
-        try (Connection conn = DriverManager.getConnection(baseUrl, username, pwd)) {
-            conn.createStatement().execute("CREATE DATABASE `" + databaseName + "`");
-        } catch (Exception e) {
-            throw new CatalogException(
-                String.format("Failed listing database in catalog %s", catalogName), e);
-        }
-    }
-
     /**
      * URL has to be without database, like "jdbc:mysql://localhost:5432/" or
      * "jdbc:mysql://localhost:5432" rather than "jdbc:mysql://localhost:5432/db".
@@ -342,7 +377,7 @@ public class StarRocksCatalog implements Catalog {
         LOG.info("Catalog {} closing", catalogName);
     }
 
-    protected Optional<TableSchema.PrimaryKey> getPrimaryKey(String schema, String table) throws SQLException {
+    protected Optional<PrimaryKey> getPrimaryKey(String schema, String table) throws SQLException {
 
         List<String> pkFields = new ArrayList<>();
         try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd)) {
@@ -356,7 +391,7 @@ public class StarRocksCatalog implements Catalog {
         if (!pkFields.isEmpty()) {
             // PK_NAME maybe null according to the javadoc, generate a unique name in that case
             String pkName = "pk_" + String.join("_", pkFields);
-            return Optional.of(TableSchema.PrimaryKey.of(pkName, pkFields));
+            return Optional.of(PrimaryKey.of(pkName, pkFields));
         }
         return Optional.empty();
     }
