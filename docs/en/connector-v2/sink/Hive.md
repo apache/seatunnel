@@ -35,7 +35,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | table_name           | string | yes      | -             |
 | metastore_uri        | string | yes      | -             |
 | compress_codec       | string | no       | none          |
-| hdfs_site_path       | string | no       | none          |
+| hdfs_site_path       | string | no       | -             |
 | kerberos_principal   | string | no       | -             |
 | kerberos_keytab_path | string | no       | -             |
 | common-options       |        | no       | -             |
