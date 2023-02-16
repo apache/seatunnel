@@ -21,14 +21,9 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.type.In
 
 import java.util.Map;
 
-/**
- * not need an index type for elasticsearch version:6.*,7.*,8.*
- */
+/** not need an index type for elasticsearch version:6.*,7.*,8.* */
 public class NotIndexTypeSerializer implements IndexTypeSerializer {
 
     @Override
-    public void fillType(Map<String, String> indexInner) {
-
-    }
-
+    public void fillType(Map<String, String> indexInner) {}
 }

@@ -43,8 +43,7 @@ public class TaskAcknowledgeOperation extends Operation implements IdentifiedDat
 
     private List<ActionSubtaskState> states;
 
-    public TaskAcknowledgeOperation() {
-    }
+    public TaskAcknowledgeOperation() {}
 
     @Override
     public int getFactoryId() {
@@ -73,8 +72,9 @@ public class TaskAcknowledgeOperation extends Operation implements IdentifiedDat
     @Override
     public void run() {
         ((SeaTunnelServer) getService())
-            .getCoordinatorService().getJobMaster(taskLocation.getJobId())
-            .getCheckpointManager()
-            .acknowledgeTask(this);
+                .getCoordinatorService()
+                .getJobMaster(taskLocation.getJobId())
+                .getCheckpointManager()
+                .acknowledgeTask(this);
     }
 }

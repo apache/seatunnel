@@ -32,6 +32,7 @@ import org.apache.pulsar.client.api.Message;
 import org.apache.pulsar.client.api.MessageId;
 import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.api.PulsarClientException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,28 +46,26 @@ public class PulsarSplitReaderThread extends Thread implements Closeable {
     protected final PulsarPartitionSplit split;
     protected final PulsarClient pulsarClient;
     protected final PulsarConsumerConfig consumerConfig;
-    /**
-     * The maximum number of milliseconds to wait for a fetch batch.
-     */
+    /** The maximum number of milliseconds to wait for a fetch batch. */
     protected final int pollTimeout;
+
     protected final long pollInterval;
     protected final StartCursor startCursor;
     protected final Handover<RecordWithSplitId> handover;
     protected Consumer<byte[]> consumer;
 
-    /**
-     * Flag to mark the main work loop as alive.
-     */
+    /** Flag to mark the main work loop as alive. */
     private volatile boolean running;
 
-    public PulsarSplitReaderThread(PulsarSourceReader sourceReader,
-                                   PulsarPartitionSplit split,
-                                   PulsarClient pulsarClient,
-                                   PulsarConsumerConfig consumerConfig,
-                                   int pollTimeout,
-                                   long pollInterval,
-                                   StartCursor startCursor,
-                                   Handover<RecordWithSplitId> handover) {
+    public PulsarSplitReaderThread(
+            PulsarSourceReader sourceReader,
+            PulsarPartitionSplit split,
+            PulsarClient pulsarClient,
+            PulsarConsumerConfig consumerConfig,
+            int pollTimeout,
+            long pollInterval,
+            StartCursor startCursor,
+            Handover<RecordWithSplitId> handover) {
         this.sourceReader = sourceReader;
         this.split = split;
         this.pulsarClient = pulsarClient;
@@ -126,12 +125,10 @@ public class PulsarSplitReaderThread extends Thread implements Closeable {
         consumer.acknowledgeAsync(offsetsToCommit);
     }
 
-    /**
-     * Create a specified {@link Consumer} by the given split information.
-     */
+    /** Create a specified {@link Consumer} by the given split information. */
     protected Consumer<byte[]> createPulsarConsumer(PulsarPartitionSplit split) {
         ConsumerBuilder<byte[]> consumerBuilder =
-            PulsarConfigUtil.createConsumerBuilder(pulsarClient, consumerConfig);
+                PulsarConfigUtil.createConsumerBuilder(pulsarClient, consumerConfig);
 
         consumerBuilder.topic(split.getPartition().getFullTopicName());
 
@@ -139,8 +136,10 @@ public class PulsarSplitReaderThread extends Thread implements Closeable {
         try {
             return consumerBuilder.subscribe();
         } catch (PulsarClientException e) {
-            throw new PulsarConnectorException(PulsarConnectorErrorCode.OPEN_PULSAR_ADMIN_FAILED, "Failed to create pulsar consumer:", e);
+            throw new PulsarConnectorException(
+                    PulsarConnectorErrorCode.OPEN_PULSAR_ADMIN_FAILED,
+                    "Failed to create pulsar consumer:",
+                    e);
         }
     }
-
 }

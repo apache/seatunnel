@@ -21,26 +21,27 @@ the same `key` and `timestamp`, the new data will overwrite the old one.
 
 ## Options
 
-| name                          | type              | required | default value                     |
-|-------------------------------|-------------------|----------|-----------------------------------|
-| node_urls                     | list              | yes      | -                                 |
-| username                      | string            | yes      | -                                 |
-| password                      | string            | yes      | -                                 |
-| key_device                    | string            | yes      | -                                 |
-| key_timestamp                 | string            | no       | processing time                   |
-| key_measurement_fields        | array             | no       | exclude `device` & `timestamp`    |
-| storage_group                 | string            | no       | -                                 |
-| batch_size                    | int               | no       | 1024                              |
-| batch_interval_ms             | int               | no       | -                                 |
-| max_retries                   | int               | no       | -                                 |
-| retry_backoff_multiplier_ms   | int               | no       | -                                 |
-| max_retry_backoff_ms          | int               | no       | -                                 |
-| default_thrift_buffer_size    | int               | no       | -                                 |
-| max_thrift_frame_size         | int               | no       | -                                 |
-| zone_id                       | string            | no       | -                                 |
-| enable_rpc_compression        | boolean           | no       | -                                 |
-| connection_timeout_in_ms      | int               | no       | -                                 |
-| common-options                |                   | no       | -                                 |
+|            name             |  type   | required |         default value          |
+|-----------------------------|---------|----------|--------------------------------|
+| node_urls                   | list    | yes      | -                              |
+| username                    | string  | yes      | -                              |
+| password                    | string  | yes      | -                              |
+| key_device                  | string  | yes      | -                              |
+| key_timestamp               | string  | no       | processing time                |
+| key_measurement_fields      | array   | no       | exclude `device` & `timestamp` |
+| storage_group               | string  | no       | -                              |
+| batch_size                  | int     | no       | 1024                           |
+| batch_interval_ms           | int     | no       | -                              |
+| max_retries                 | int     | no       | -                              |
+| retry_backoff_multiplier_ms | int     | no       | -                              |
+| max_retry_backoff_ms        | int     | no       | -                              |
+| default_thrift_buffer_size  | int     | no       | -                              |
+| max_thrift_frame_size       | int     | no       | -                              |
+| zone_id                     | string  | no       | -                              |
+| enable_rpc_compression      | boolean | no       | -                              |
+| connection_timeout_in_ms    | int     | no       | -                              |
+| common-options              |         | no       | -                              |
+
 ### node_urls [list]
 
 `IoTDB` cluster address, the format is `["host:port", ...]`
@@ -146,11 +147,11 @@ sink {
 
 Upstream SeaTunnelRow data format is the following:
 
-| device_name                | field_1     | field_2     |
-|----------------------------|-------------|-------------|
-| root.test_group.device_a   | 1001        | 1002        |
-| root.test_group.device_b   | 2001        | 2002        |
-| root.test_group.device_c   | 3001        | 3002        |
+|       device_name        | field_1 | field_2 |
+|--------------------------|---------|---------|
+| root.test_group.device_a | 1001    | 1002    |
+| root.test_group.device_b | 2001    | 2002    |
+| root.test_group.device_c | 3001    | 3002    |
 
 Output to `IoTDB` data format is the following:
 
@@ -182,11 +183,11 @@ sink {
 
 Upstream SeaTunnelRow data format is the following:
 
-|ts                  | device_name                | field_1     | field_2     | temperature | moisture    |
-|--------------------|----------------------------|-------------|-------------|-------------|-------------|
-|1664035200001       | root.test_group.device_a   | 1001        | 1002        | 36.1        | 100         |
-|1664035200001       | root.test_group.device_b   | 2001        | 2002        | 36.2        | 101         |
-|1664035200001       | root.test_group.device_c   | 3001        | 3002        | 36.3        | 102         |
+|      ts       |       device_name        | field_1 | field_2 | temperature | moisture |
+|---------------|--------------------------|---------|---------|-------------|----------|
+| 1664035200001 | root.test_group.device_a | 1001    | 1002    | 36.1        | 100      |
+| 1664035200001 | root.test_group.device_b | 2001    | 2002    | 36.2        | 101      |
+| 1664035200001 | root.test_group.device_c | 3001    | 3002    | 36.3        | 102      |
 
 Output to `IoTDB` data format is the following:
 
@@ -208,9 +209,11 @@ IoTDB> SELECT * FROM root.test_group.* align by device;
 - Add IoTDB Sink Connector
 
 ### 2.3.0-beta 2022-10-20
+
 - [Improve] Improve IoTDB Sink Connector ([2917](https://github.com/apache/incubator-seatunnel/pull/2917))
   - Support align by sql syntax
   - Support sql split ignore case
   - Support restore split offset to at-least-once
   - Support read timestamp from RowRecord
 - [BugFix] Fix IoTDB connector sink NPE ([3080](https://github.com/apache/incubator-seatunnel/pull/3080))
+

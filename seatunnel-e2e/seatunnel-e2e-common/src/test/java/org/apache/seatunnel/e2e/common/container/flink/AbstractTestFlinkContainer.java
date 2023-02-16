@@ -21,13 +21,14 @@ import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
-import lombok.NoArgsConstructor;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
+
+import lombok.NoArgsConstructor;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -37,18 +38,19 @@ import java.util.List;
 import java.util.stream.Stream;
 
 /**
- * This class is the base class of FlinkEnvironment test.
- * The before method will create a Flink cluster, and after method will close the Flink cluster.
- * You can use {@link TestContainer#executeJob} to submit a seatunnel config and run a seatunnel job.
+ * This class is the base class of FlinkEnvironment test. The before method will create a Flink
+ * cluster, and after method will close the Flink cluster. You can use {@link
+ * TestContainer#executeJob} to submit a seatunnel config and run a seatunnel job.
  */
 @NoArgsConstructor
 public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
 
-    protected static final List<String> DEFAULT_FLINK_PROPERTIES = Arrays.asList(
-        "jobmanager.rpc.address: jobmanager",
-        "taskmanager.numberOfTaskSlots: 10",
-        "parallelism.default: 4",
-        "env.java.opts: -Doracle.jdbc.timezoneAsRegion=false");
+    protected static final List<String> DEFAULT_FLINK_PROPERTIES =
+            Arrays.asList(
+                    "jobmanager.rpc.address: jobmanager",
+                    "taskmanager.numberOfTaskSlots: 10",
+                    "parallelism.default: 4",
+                    "env.java.opts: -Doracle.jdbc.timezoneAsRegion=false");
 
     protected static final String DEFAULT_DOCKER_IMAGE = "flink:1.13.6-scala_2.11";
 
@@ -64,29 +66,39 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
     public void startUp() throws Exception {
         final String dockerImage = getDockerImage();
         final String properties = String.join("\n", getFlinkProperties());
-        jobManager = new GenericContainer<>(dockerImage)
-            .withCommand("jobmanager")
-            .withNetwork(NETWORK)
-            .withNetworkAliases("jobmanager")
-            .withExposedPorts()
-            .withEnv("FLINK_PROPERTIES", properties)
-            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(dockerImage + ":jobmanager")))
-            .waitingFor(new LogMessageWaitStrategy()
-                .withRegEx(".*Starting the resource manager.*")
-                .withStartupTimeout(Duration.ofMinutes(2)));
+        jobManager =
+                new GenericContainer<>(dockerImage)
+                        .withCommand("jobmanager")
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases("jobmanager")
+                        .withExposedPorts()
+                        .withEnv("FLINK_PROPERTIES", properties)
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(
+                                        DockerLoggerFactory.getLogger(dockerImage + ":jobmanager")))
+                        .waitingFor(
+                                new LogMessageWaitStrategy()
+                                        .withRegEx(".*Starting the resource manager.*")
+                                        .withStartupTimeout(Duration.ofMinutes(2)));
         copySeaTunnelStarterToContainer(jobManager);
         copySeaTunnelStarterLoggingToContainer(jobManager);
 
-        taskManager = new GenericContainer<>(dockerImage)
-            .withCommand("taskmanager")
-            .withNetwork(NETWORK)
-            .withNetworkAliases("taskmanager")
-            .withEnv("FLINK_PROPERTIES", properties)
-            .dependsOn(jobManager)
-            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(dockerImage + ":taskmanager")))
-            .waitingFor(new LogMessageWaitStrategy()
-                .withRegEx(".*Successful registration at resource manager.*")
-                .withStartupTimeout(Duration.ofMinutes(2)));
+        taskManager =
+                new GenericContainer<>(dockerImage)
+                        .withCommand("taskmanager")
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases("taskmanager")
+                        .withEnv("FLINK_PROPERTIES", properties)
+                        .dependsOn(jobManager)
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(
+                                        DockerLoggerFactory.getLogger(
+                                                dockerImage + ":taskmanager")))
+                        .waitingFor(
+                                new LogMessageWaitStrategy()
+                                        .withRegEx(
+                                                ".*Successful registration at resource manager.*")
+                                        .withStartupTimeout(Duration.ofMinutes(2)));
 
         Startables.deepStart(Stream.of(jobManager)).join();
         Startables.deepStart(Stream.of(taskManager)).join();
@@ -113,13 +125,15 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
         return Collections.emptyList();
     }
 
-    public void executeExtraCommands(ContainerExtendedFactory extendedFactory) throws IOException, InterruptedException {
+    public void executeExtraCommands(ContainerExtendedFactory extendedFactory)
+            throws IOException, InterruptedException {
         extendedFactory.extend(jobManager);
         extendedFactory.extend(taskManager);
     }
 
     @Override
-    public Container.ExecResult executeJob(String confFile) throws IOException, InterruptedException {
+    public Container.ExecResult executeJob(String confFile)
+            throws IOException, InterruptedException {
         return executeJob(jobManager, confFile);
     }
 }

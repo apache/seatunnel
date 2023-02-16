@@ -32,14 +32,14 @@ import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-public class GetJobInfoOperation extends Operation implements IdentifiedDataSerializable, AllowedDuringPassiveState {
+public class GetJobInfoOperation extends Operation
+        implements IdentifiedDataSerializable, AllowedDuringPassiveState {
 
     private long jobId;
 
     private Data response;
 
-    public GetJobInfoOperation() {
-    }
+    public GetJobInfoOperation() {}
 
     public GetJobInfoOperation(long jobId) {
         this.jobId = jobId;
@@ -48,8 +48,11 @@ public class GetJobInfoOperation extends Operation implements IdentifiedDataSeri
     @Override
     public void run() throws Exception {
         SeaTunnelServer service = getService();
-        CompletableFuture<Data> future = CompletableFuture.supplyAsync(() -> this.getNodeEngine()
-            .toData(service.getCoordinatorService().getJobInfo(jobId)));
+        CompletableFuture<Data> future =
+                CompletableFuture.supplyAsync(
+                        () ->
+                                this.getNodeEngine()
+                                        .toData(service.getCoordinatorService().getJobInfo(jobId)));
 
         try {
             response = future.get();

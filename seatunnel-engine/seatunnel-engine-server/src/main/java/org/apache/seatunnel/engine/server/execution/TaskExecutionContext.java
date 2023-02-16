@@ -17,10 +17,13 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
+import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.logging.ILogger;
+import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
@@ -47,8 +50,13 @@ public class TaskExecutionContext {
         return nodeEngine.getLogger(task.getClass());
     }
 
+    public SeaTunnelMetricsContext getOrCreateMetricsContext(TaskLocation taskLocation) {
+        IMap<TaskLocation, SeaTunnelMetricsContext> map =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
+        return map.computeIfAbsent(taskLocation, k -> new SeaTunnelMetricsContext());
+    }
+
     public <T> T getTask() {
         return (T) task;
     }
-
 }

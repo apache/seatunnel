@@ -17,10 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.ORC_INPUT_FORMAT_CLASSNAME;
-import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.PARQUET_INPUT_FORMAT_CLASSNAME;
-import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.TEXT_INPUT_FORMAT_CLASSNAME;
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
@@ -36,15 +34,19 @@ import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
-
-import com.google.auto.service.AutoService;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.hive.metastore.api.Table;
 
+import com.google.auto.service.AutoService;
+
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.List;
+
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.ORC_INPUT_FORMAT_CLASSNAME;
+import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.PARQUET_INPUT_FORMAT_CLASSNAME;
+import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.TEXT_INPUT_FORMAT_CLASSNAME;
 
 @AutoService(SeaTunnelSource.class)
 public class HiveSource extends BaseHdfsFileSource {
@@ -57,27 +59,58 @@ public class HiveSource extends BaseHdfsFileSource {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HiveConfig.METASTORE_URI.key(),
-                HiveConfig.TABLE_NAME.key());
+        CheckResult result =
+                CheckConfigUtil.checkAllExists(
+                        pluginConfig, HiveConfig.METASTORE_URI.key(), HiveConfig.TABLE_NAME.key());
         if (!result.isSuccess()) {
-            throw new HiveConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+            throw new HiveConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
+        }
+        if (pluginConfig.hasPath(BaseSourceConfig.READ_PARTITIONS.key())) {
+            // verify partition list
+            List<String> partitionsList =
+                    pluginConfig.getStringList(BaseSourceConfig.READ_PARTITIONS.key());
+            if (partitionsList.isEmpty()) {
+                throw new HiveConnectorException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        "Partitions list is empty, please check");
+            }
+            int depth = partitionsList.get(0).replaceAll("\\\\", "/").split("/").length;
+            long count =
+                    partitionsList.stream()
+                            .map(partition -> partition.replaceAll("\\\\", "/").split("/").length)
+                            .filter(length -> length != depth)
+                            .count();
+            if (count > 0) {
+                throw new HiveConnectorException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        "Every partition that in partition list should has the same directory depth");
+            }
         }
         Pair<String[], Table> tableInfo = HiveConfig.getTableInfo(pluginConfig);
         tableInformation = tableInfo.getRight();
         String inputFormat = tableInformation.getSd().getInputFormat();
         if (TEXT_INPUT_FORMAT_CLASSNAME.equals(inputFormat)) {
-            pluginConfig = pluginConfig.withValue(BaseSourceConfig.FILE_TYPE.key(),
-                    ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()));
+            pluginConfig =
+                    pluginConfig.withValue(
+                            BaseSourceConfig.FILE_TYPE.key(),
+                            ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()));
         } else if (PARQUET_INPUT_FORMAT_CLASSNAME.equals(inputFormat)) {
-            pluginConfig = pluginConfig.withValue(BaseSourceConfig.FILE_TYPE.key(),
-                    ConfigValueFactory.fromAnyRef(FileFormat.PARQUET.toString()));
+            pluginConfig =
+                    pluginConfig.withValue(
+                            BaseSourceConfig.FILE_TYPE.key(),
+                            ConfigValueFactory.fromAnyRef(FileFormat.PARQUET.toString()));
         } else if (ORC_INPUT_FORMAT_CLASSNAME.equals(inputFormat)) {
-            pluginConfig = pluginConfig.withValue(BaseSourceConfig.FILE_TYPE.key(),
-                    ConfigValueFactory.fromAnyRef(FileFormat.ORC.toString()));
+            pluginConfig =
+                    pluginConfig.withValue(
+                            BaseSourceConfig.FILE_TYPE.key(),
+                            ConfigValueFactory.fromAnyRef(FileFormat.ORC.toString()));
         } else {
-            throw new HiveConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
+            throw new HiveConnectorException(
+                    CommonErrorCode.ILLEGAL_ARGUMENT,
                     "Hive connector only support [text parquet orc] table now");
         }
         String hdfsLocation = tableInformation.getSd().getLocation();
@@ -85,12 +118,21 @@ public class HiveSource extends BaseHdfsFileSource {
             URI uri = new URI(hdfsLocation);
             String path = uri.getPath();
             String defaultFs = hdfsLocation.replace(path, "");
-            pluginConfig = pluginConfig.withValue(BaseSourceConfig.FILE_PATH.key(), ConfigValueFactory.fromAnyRef(path))
-                .withValue(FS_DEFAULT_NAME_KEY, ConfigValueFactory.fromAnyRef(defaultFs));
+            pluginConfig =
+                    pluginConfig
+                            .withValue(
+                                    BaseSourceConfig.FILE_PATH.key(),
+                                    ConfigValueFactory.fromAnyRef(path))
+                            .withValue(
+                                    FS_DEFAULT_NAME_KEY, ConfigValueFactory.fromAnyRef(defaultFs));
         } catch (URISyntaxException e) {
-            String errorMsg = String.format("Get hdfs namenode host from table location [%s] failed," +
-                    "please check it", hdfsLocation);
-            throw new HiveConnectorException(HiveConnectorErrorCode.GET_HDFS_NAMENODE_HOST_FAILED, errorMsg, e);
+            String errorMsg =
+                    String.format(
+                            "Get hdfs namenode host from table location [%s] failed,"
+                                    + "please check it",
+                            hdfsLocation);
+            throw new HiveConnectorException(
+                    HiveConnectorErrorCode.GET_HDFS_NAMENODE_HOST_FAILED, errorMsg, e);
         }
         super.prepare(pluginConfig);
     }

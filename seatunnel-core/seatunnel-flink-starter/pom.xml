@@ -17,9 +17,10 @@
     limitations under the License.
 
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel-core</artifactId>
@@ -27,13 +28,17 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <modelVersion>4.0.0</modelVersion>
-
     <artifactId>seatunnel-flink-starter</artifactId>
+    <packaging>pom</packaging>
+    <name>SeaTunnel : Core : Flink Starter :</name>
+
+    <modules>
+        <module>seatunnel-flink-13-starter</module>
+        <module>seatunnel-flink-15-starter</module>
+    </modules>
 
     <properties>
         <docker.repo>seatunnel-flink</docker.repo>
-        <avro.version>1.8.2</avro.version>
     </properties>
 
     <dependencies>
@@ -44,91 +49,10 @@
             <version>${project.version}</version>
         </dependency>
 
-        <!-- flink-translation -->
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-translation-flink</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <!-- flink 1.13.6 java api -->
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-java</artifactId>
-            <version>${flink.1.13.6.version}</version>
-            <scope>${flink.scope}</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-streaming-java_${scala.binary.version}</artifactId>
-            <version>${flink.1.13.6.version}</version>
-            <scope>${flink.scope}</scope>
-        </dependency>
-
-        <!-- flink planner api -->
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-table-planner_${scala.binary.version}</artifactId>
-            <version>${flink.1.13.6.version}</version>
-            <scope>${flink.scope}</scope>
-        </dependency>
-
-        <!-- flink statebackend-rocksdb api -->
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-statebackend-rocksdb_${scala.binary.version}</artifactId>
-            <version>${flink.1.13.6.version}</version>
-            <scope>provided</scope>
-        </dependency>
-
-        <!-- flink format api -->
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-csv</artifactId>
-            <version>${flink.1.13.6.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-orc_${scala.binary.version}</artifactId>
-            <version>${flink.1.13.6.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-parquet_${scala.binary.version}</artifactId>
-            <version>${flink.1.13.6.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-json</artifactId>
-            <version>${flink.1.13.6.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-avro</artifactId>
-            <version>${flink.1.13.6.version}</version>
-            <exclusions>
-                <exclusion>
-                    <artifactId>avro</artifactId>
-                    <groupId>org.apache.avro</groupId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.avro</groupId>
-            <artifactId>avro</artifactId>
-            <version>${avro.version}</version>
-        </dependency>
-
     </dependencies>
 
     <build>
-        <finalName>${project.name}</finalName>
+        <finalName>${project.artifactId}</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -174,80 +98,4 @@
             </plugin>
         </plugins>
     </build>
-
-    <profiles>
-        <!--todo docker-->
-<!--        <profile>
-            <id>docker</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>exec-maven-plugin</artifactId>
-                        <version>${exec-maven-plugin.version}</version>
-                        <executions>
-                            <execution>
-                                <id>docker-build</id>
-                                <phase>package</phase>
-                                <goals>
-                                    <goal>exec</goal>
-                                </goals>
-                                <configuration>
-                                    <environmentVariables>
-                                        <DOCKER_BUILDKIT>1</DOCKER_BUILDKIT>
-                                    </environmentVariables>
-                                    <executable>docker</executable>
-                                    <workingDirectory>${project.basedir}</workingDirectory>
-                                    <arguments>
-                                        <argument>build</argument>
-                                        <argument>&#45;&#45;no-cache</argument>
-                                        <argument>&#45;&#45;build-arg</argument>
-                                        <argument>SCALA_VERSION=${scala.binary.version}</argument>
-                                        <argument>&#45;&#45;build-arg</argument>
-                                        <argument>FLINK_VERSION=${flink.version}</argument>
-                                        <argument>-t</argument>
-                                        <argument>${docker.hub}/${docker.repo}:${docker.tag}</argument>
-                                        <argument>-t</argument>
-                                        <argument>${docker.hub}/${docker.repo}:latest</argument>
-                                        <argument>.</argument>
-                                        <argument>&#45;&#45;file=src/main/docker/Dockerfile</argument>
-                                    </arguments>
-                                </configuration>
-                            </execution>
-                            <execution>
-                                <id>docker-push</id>
-                                <phase>deploy</phase>
-                                <goals>
-                                    <goal>exec</goal>
-                                </goals>
-                                <configuration>
-                                    <environmentVariables>
-                                        <DOCKER_BUILDKIT>1</DOCKER_BUILDKIT>
-                                    </environmentVariables>
-                                    <executable>docker</executable>
-                                    <workingDirectory>${project.basedir}</workingDirectory>
-                                    <arguments>
-                                        <argument>buildx</argument>
-                                        <argument>build</argument>
-                                        <argument>&#45;&#45;no-cache</argument>
-                                        <argument>&#45;&#45;build-arg</argument>
-                                        <argument>SCALA_VERSION=${scala.binary.version}</argument>
-                                        <argument>&#45;&#45;build-arg</argument>
-                                        <argument>FLINK_VERSION=${flink.version}</argument>
-                                        <argument>&#45;&#45;push</argument>
-                                        <argument>-t</argument>
-                                        <argument>${docker.hub}/${docker.repo}:${docker.tag}</argument>
-                                        <argument>-t</argument>
-                                        <argument>${docker.hub}/${docker.repo}:latest</argument>
-                                        <argument>.</argument>
-                                        <argument>&#45;&#45;file=src/main/docker/Dockerfile</argument>
-                                    </arguments>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>-->
-    </profiles>
 </project>

@@ -18,6 +18,7 @@
 seatunnel:
   engine:
     backup-count: 2
+    queue-type: disruptor
     print-execution-info-interval: 10
     slot-service:
       dynamic-slot: true

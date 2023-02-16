@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.translation.source;
 
-import static org.apache.seatunnel.translation.source.CoordinatedSource.SLEEP_TIME_INTERVAL;
-
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -40,7 +38,10 @@ import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 
-public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serializable> implements BaseSourceFunction<T> {
+import static org.apache.seatunnel.translation.source.CoordinatedSource.SLEEP_TIME_INTERVAL;
+
+public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serializable>
+        implements BaseSourceFunction<T> {
     private static final Logger LOG = LoggerFactory.getLogger(ParallelSource.class);
 
     protected final SeaTunnelSource<T, SplitT, StateT> source;
@@ -58,22 +59,22 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
     protected final SourceReader<T, SplitT> reader;
     protected transient volatile ScheduledThreadPoolExecutor executorService;
 
-    /**
-     * Flag indicating whether the consumer is still running.
-     */
+    /** Flag indicating whether the consumer is still running. */
     private volatile boolean running = true;
 
-    public ParallelSource(SeaTunnelSource<T, SplitT, StateT> source,
-                          Map<Integer, List<byte[]>> restoredState,
-                          int parallelism,
-                          int subtaskId) {
+    public ParallelSource(
+            SeaTunnelSource<T, SplitT, StateT> source,
+            Map<Integer, List<byte[]>> restoredState,
+            int parallelism,
+            int subtaskId) {
         this.source = source;
         this.subtaskId = subtaskId;
         this.parallelism = parallelism;
 
         this.splitSerializer = source.getSplitSerializer();
         this.enumeratorStateSerializer = source.getEnumeratorStateSerializer();
-        this.parallelEnumeratorContext = new ParallelEnumeratorContext<>(this, parallelism, subtaskId);
+        this.parallelEnumeratorContext =
+                new ParallelEnumeratorContext<>(this, parallelism, subtaskId);
         this.readerContext = new ParallelReaderContext(this, source.getBoundedness(), subtaskId);
 
         // Create or restore split enumerator & reader
@@ -81,14 +82,17 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
             if (restoredState != null && restoredState.size() > 0) {
                 StateT restoredEnumeratorState = null;
                 if (restoredState.containsKey(-1)) {
-                    restoredEnumeratorState = enumeratorStateSerializer.deserialize(restoredState.get(-1).get(0));
+                    restoredEnumeratorState =
+                            enumeratorStateSerializer.deserialize(restoredState.get(-1).get(0));
                 }
                 restoredSplitState = new ArrayList<>(restoredState.get(subtaskId).size());
                 for (byte[] splitBytes : restoredState.get(subtaskId)) {
                     restoredSplitState.add(splitSerializer.deserialize(splitBytes));
                 }
 
-                splitEnumerator = source.restoreEnumerator(parallelEnumeratorContext, restoredEnumeratorState);
+                splitEnumerator =
+                        source.restoreEnumerator(
+                                parallelEnumeratorContext, restoredEnumeratorState);
             } else {
                 restoredSplitState = Collections.emptyList();
                 splitEnumerator = source.createEnumerator(parallelEnumeratorContext);
@@ -101,7 +105,9 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
 
     @Override
     public void open() throws Exception {
-        executorService = ThreadPoolExecutorFactory.createScheduledThreadPoolExecutor(1, String.format("parallel-split-enumerator-executor-%s", subtaskId));
+        executorService =
+                ThreadPoolExecutorFactory.createScheduledThreadPoolExecutor(
+                        1, String.format("parallel-split-enumerator-executor-%s", subtaskId));
         splitEnumerator.open();
         if (restoredSplitState.size() > 0) {
             splitEnumerator.addSplitsBack(restoredSplitState, subtaskId);
@@ -113,13 +119,15 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
 
     @Override
     public void run(Collector<T> collector) throws Exception {
-        Future<?> future = executorService.submit(() -> {
-            try {
-                splitEnumerator.run();
-            } catch (Exception e) {
-                throw new RuntimeException("SourceSplitEnumerator run failed.", e);
-            }
-        });
+        Future<?> future =
+                executorService.submit(
+                        () -> {
+                            try {
+                                splitEnumerator.run();
+                            } catch (Exception e) {
+                                throw new RuntimeException("SourceSplitEnumerator run failed.", e);
+                            }
+                        });
 
         while (running) {
             if (future.isDone()) {

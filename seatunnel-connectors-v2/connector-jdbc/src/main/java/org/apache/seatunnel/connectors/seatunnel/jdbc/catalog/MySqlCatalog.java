@@ -63,7 +63,12 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         SYS_DATABASES.add("sys");
     }
 
-    public MySqlCatalog(String catalogName, String defaultDatabase, String username, String pwd, String baseUrl) {
+    public MySqlCatalog(
+            String catalogName,
+            String defaultDatabase,
+            String username,
+            String pwd,
+            String baseUrl) {
         super(catalogName, defaultDatabase, username, pwd, baseUrl);
     }
 
@@ -90,19 +95,19 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
             return databases;
         } catch (Exception e) {
             throw new CatalogException(
-                String.format("Failed listing database in catalog %s", this.catalogName), e);
+                    String.format("Failed listing database in catalog %s", this.catalogName), e);
         }
     }
 
     @Override
-    public List<String> listTables(String databaseName) throws CatalogException, DatabaseNotExistException {
+    public List<String> listTables(String databaseName)
+            throws CatalogException, DatabaseNotExistException {
         if (!databaseExists(databaseName)) {
             throw new DatabaseNotExistException(this.catalogName, databaseName);
         }
 
         try (Connection conn = DriverManager.getConnection(baseUrl + databaseName, username, pwd)) {
-            PreparedStatement ps =
-                conn.prepareStatement("SHOW TABLES;");
+            PreparedStatement ps = conn.prepareStatement("SHOW TABLES;");
 
             ResultSet rs = ps.executeQuery();
 
@@ -115,12 +120,13 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
             return tables;
         } catch (Exception e) {
             throw new CatalogException(
-                String.format("Failed listing database in catalog %s", catalogName), e);
+                    String.format("Failed listing database in catalog %s", catalogName), e);
         }
     }
 
     @Override
-    public CatalogTable getTable(TablePath tablePath) throws CatalogException, TableNotExistException {
+    public CatalogTable getTable(TablePath tablePath)
+            throws CatalogException, TableNotExistException {
         if (!tableExists(tablePath)) {
             throw new TableNotExistException(catalogName, tablePath);
         }
@@ -129,10 +135,12 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         try (Connection conn = DriverManager.getConnection(dbUrl, username, pwd)) {
             DatabaseMetaData metaData = conn.getMetaData();
             Optional<TableSchema.PrimaryKey> primaryKey =
-                getPrimaryKey(metaData, tablePath.getDatabaseName(), tablePath.getTableName());
+                    getPrimaryKey(metaData, tablePath.getDatabaseName(), tablePath.getTableName());
 
             PreparedStatement ps =
-                conn.prepareStatement(String.format("SELECT * FROM %s WHERE 1 = 0;", tablePath.getFullName()));
+                    conn.prepareStatement(
+                            String.format(
+                                    "SELECT * FROM %s WHERE 1 = 0;", tablePath.getFullName()));
 
             ResultSetMetaData tableMetaData = ps.getMetaData();
 
@@ -144,10 +152,18 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
 
             primaryKey.ifPresent(builder::primaryKey);
 
-            TableIdentifier tableIdentifier = TableIdentifier.of(catalogName, tablePath.getDatabaseName(), tablePath.getTableName());
-            return CatalogTable.of(tableIdentifier, builder.build(), buildConnectorOptions(tablePath), Collections.emptyList(), "");
+            TableIdentifier tableIdentifier =
+                    TableIdentifier.of(
+                            catalogName, tablePath.getDatabaseName(), tablePath.getTableName());
+            return CatalogTable.of(
+                    tableIdentifier,
+                    builder.build(),
+                    buildConnectorOptions(tablePath),
+                    Collections.emptyList(),
+                    "");
         } catch (Exception e) {
-            throw new CatalogException(String.format("Failed getting table %s", tablePath.getFullName()), e);
+            throw new CatalogException(
+                    String.format("Failed getting table %s", tablePath.getFullName()), e);
         }
     }
 
@@ -155,7 +171,8 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
      * @see com.mysql.cj.MysqlType
      * @see ResultSetImpl#getObjectStoredProc(int, int)
      */
-    private SeaTunnelDataType<?> fromJdbcType(ResultSetMetaData metadata, int colIndex) throws SQLException {
+    private SeaTunnelDataType<?> fromJdbcType(ResultSetMetaData metadata, int colIndex)
+            throws SQLException {
         MysqlType mysqlType = MysqlType.getByName(metadata.getColumnTypeName(colIndex));
         switch (mysqlType) {
             case NULL:
@@ -189,7 +206,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
             case TIMESTAMP:
             case DATETIME:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
-            // TODO: to confirm
+                // TODO: to confirm
             case CHAR:
             case VARCHAR:
             case TINYTEXT:
@@ -215,7 +232,9 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
                 return new DecimalType(precision, scale);
                 // TODO: support 'SET' & 'YEAR' type
             default:
-                throw new JdbcConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, String.format("Doesn't support MySQL type '%s' yet", mysqlType.getName()));
+                throw new JdbcConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        String.format("Doesn't support MySQL type '%s' yet", mysqlType.getName()));
         }
     }
 

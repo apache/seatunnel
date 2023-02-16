@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.gitlab.source.config;
 
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
-
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
 import java.util.HashMap;
 
@@ -29,7 +29,9 @@ public class GitlabSourceParameter extends HttpParameter {
     public void buildWithConfig(Config pluginConfig) {
         super.buildWithConfig(pluginConfig);
         this.headers = this.getHeaders() == null ? new HashMap<>() : this.getHeaders();
-        this.headers.put(GitlabSourceConfig.PRIVATE_TOKEN, pluginConfig.getString(GitlabSourceConfig.ACCESS_TOKEN.key()));
+        this.headers.put(
+                GitlabSourceConfig.PRIVATE_TOKEN,
+                pluginConfig.getString(GitlabSourceConfig.ACCESS_TOKEN.key()));
         this.setHeaders(this.headers);
     }
 }

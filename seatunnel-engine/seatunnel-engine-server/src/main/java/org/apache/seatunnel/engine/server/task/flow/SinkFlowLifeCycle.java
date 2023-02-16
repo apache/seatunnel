@@ -17,12 +17,9 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
-import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_COUNT;
-import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_QPS;
-import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
-import static org.apache.seatunnel.engine.server.task.AbstractTask.serializeStates;
-
-import org.apache.seatunnel.api.common.metrics.Unit;
+import org.apache.seatunnel.api.common.metrics.Counter;
+import org.apache.seatunnel.api.common.metrics.Meter;
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -32,7 +29,6 @@ import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
-import org.apache.seatunnel.engine.server.metrics.MetricsContext;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.context.SinkWriterContext;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupAddressOperation;
@@ -54,7 +50,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
-public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCommitInfoT, StateT> extends ActionFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>>, InternalCheckpointListener {
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_COUNT;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_QPS;
+import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
+import static org.apache.seatunnel.engine.server.task.AbstractTask.serializeStates;
+
+public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCommitInfoT, StateT>
+        extends ActionFlowLifeCycle
+        implements OneInputFlowLifeCycle<Record<?>>, InternalCheckpointListener {
 
     private final SinkAction<T, StateT, CommitInfoT, AggregatedCommitInfoT> sinkAction;
     private SinkWriter<T, CommitInfoT, StateT> writer;
@@ -75,12 +78,21 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     private MetricsContext metricsContext;
 
+    private Counter sinkWriteCount;
+
+    private Meter sinkWriteQPS;
+
     private final boolean containAggCommitter;
 
-    public SinkFlowLifeCycle(SinkAction<T, StateT, CommitInfoT, AggregatedCommitInfoT> sinkAction, TaskLocation taskLocation, int indexID,
-                             SeaTunnelTask runningTask, TaskLocation committerTaskLocation,
-                             boolean containAggCommitter, CompletableFuture<Void> completableFuture,
-                             MetricsContext metricsContext) {
+    public SinkFlowLifeCycle(
+            SinkAction<T, StateT, CommitInfoT, AggregatedCommitInfoT> sinkAction,
+            TaskLocation taskLocation,
+            int indexID,
+            SeaTunnelTask runningTask,
+            TaskLocation committerTaskLocation,
+            boolean containAggCommitter,
+            CompletableFuture<Void> completableFuture,
+            MetricsContext metricsContext) {
         super(sinkAction, runningTask, completableFuture);
         this.sinkAction = sinkAction;
         this.indexID = indexID;
@@ -88,6 +100,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         this.committerTaskLocation = committerTaskLocation;
         this.containAggCommitter = containAggCommitter;
         this.metricsContext = metricsContext;
+        sinkWriteCount = metricsContext.counter(SINK_WRITE_COUNT);
+        sinkWriteQPS = metricsContext.meter(SINK_WRITE_QPS);
     }
 
     @Override
@@ -106,8 +120,11 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     }
 
     private Address getCommitterTaskAddress() throws ExecutionException, InterruptedException {
-        return (Address) runningTask.getExecutionContext()
-            .sendToMaster(new GetTaskGroupAddressOperation(committerTaskLocation)).get();
+        return (Address)
+                runningTask
+                        .getExecutionContext()
+                        .sendToMaster(new GetTaskGroupAddressOperation(committerTaskLocation))
+                        .get();
     }
 
     @Override
@@ -118,8 +135,12 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     private void registerCommitter() {
         if (containAggCommitter) {
-            runningTask.getExecutionContext().sendToMember(new SinkRegisterOperation(taskLocation,
-                committerTaskLocation), committerTaskAddress).join();
+            runningTask
+                    .getExecutionContext()
+                    .sendToMember(
+                            new SinkRegisterOperation(taskLocation, committerTaskLocation),
+                            committerTaskAddress)
+                    .join();
         }
     }
 
@@ -142,15 +163,32 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     if (!writerStateSerializer.isPresent()) {
                         runningTask.addState(barrier, sinkAction.getId(), Collections.emptyList());
                     } else {
-                        runningTask.addState(barrier, sinkAction.getId(), serializeStates(writerStateSerializer.get(), states));
+                        runningTask.addState(
+                                barrier,
+                                sinkAction.getId(),
+                                serializeStates(writerStateSerializer.get(), states));
                     }
                     if (containAggCommitter) {
-                        lastCommitInfo.ifPresent(commitInfoT -> runningTask.getExecutionContext().sendToMember(new SinkPrepareCommitOperation(barrier, committerTaskLocation,
-                            SerializationUtils.serialize(commitInfoT)), committerTaskAddress).join());
+                        lastCommitInfo.ifPresent(
+                                commitInfoT ->
+                                        runningTask
+                                                .getExecutionContext()
+                                                .sendToMember(
+                                                        new SinkPrepareCommitOperation(
+                                                                barrier,
+                                                                committerTaskLocation,
+                                                                SerializationUtils.serialize(
+                                                                        commitInfoT)),
+                                                        committerTaskAddress)
+                                                .join());
                     }
                 } else {
                     if (containAggCommitter) {
-                        runningTask.getExecutionContext().sendToMember(new BarrierFlowOperation(barrier, committerTaskLocation), committerTaskAddress);
+                        runningTask
+                                .getExecutionContext()
+                                .sendToMember(
+                                        new BarrierFlowOperation(barrier, committerTaskLocation),
+                                        committerTaskAddress);
                     }
                 }
                 runningTask.ack(barrier);
@@ -159,8 +197,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     return;
                 }
                 writer.write((T) record.getData());
-                metricsContext.threadSafeQpsMetric(SINK_WRITE_QPS, Unit.COUNT).increment();
-                metricsContext.threadSafeMetric(SINK_WRITE_COUNT, Unit.COUNT).increment();
+                sinkWriteCount.inc();
+                sinkWriteQPS.markEvent();
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -185,17 +223,30 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
         List<StateT> states = new ArrayList<>();
         if (writerStateSerializer.isPresent()) {
-            states = actionStateList.stream()
-                .filter(state -> writerStateSerializer.isPresent())
-                .map(ActionSubtaskState::getState)
-                .flatMap(Collection::stream)
-                .map(bytes -> sneaky(() -> writerStateSerializer.get().deserialize(bytes)))
-                .collect(Collectors.toList());
+            states =
+                    actionStateList.stream()
+                            .filter(state -> writerStateSerializer.isPresent())
+                            .map(ActionSubtaskState::getState)
+                            .flatMap(Collection::stream)
+                            .map(
+                                    bytes ->
+                                            sneaky(
+                                                    () ->
+                                                            writerStateSerializer
+                                                                    .get()
+                                                                    .deserialize(bytes)))
+                            .collect(Collectors.toList());
         }
         if (states.isEmpty()) {
-            this.writer = sinkAction.getSink().createWriter(new SinkWriterContext(indexID));
+            this.writer =
+                    sinkAction
+                            .getSink()
+                            .createWriter(new SinkWriterContext(indexID, metricsContext));
         } else {
-            this.writer = sinkAction.getSink().restoreWriter(new SinkWriterContext(indexID), states);
+            this.writer =
+                    sinkAction
+                            .getSink()
+                            .restoreWriter(new SinkWriterContext(indexID, metricsContext), states);
         }
     }
 }

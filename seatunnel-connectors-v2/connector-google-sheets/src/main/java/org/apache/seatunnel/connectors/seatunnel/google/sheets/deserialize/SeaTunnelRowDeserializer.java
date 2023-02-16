@@ -24,5 +24,4 @@ import java.util.List;
 public interface SeaTunnelRowDeserializer {
 
     SeaTunnelRow deserializeRow(List<Object> row);
-
 }

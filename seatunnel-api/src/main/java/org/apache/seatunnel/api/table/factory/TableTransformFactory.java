@@ -20,7 +20,9 @@ package org.apache.seatunnel.api.table.factory;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 
 /**
- * This is an SPI interface, used to create {@link org.apache.seatunnel.api.table.connector.TableTransform}. Each plugin need to have it own implementation.
+ * This is an SPI interface, used to create {@link
+ * org.apache.seatunnel.api.table.connector.TableTransform}. Each plugin need to have it own
+ * implementation.
  */
 public interface TableTransformFactory extends Factory {
 

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.source;
 
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.state.CheckpointListener;
 
 import java.io.IOException;
@@ -25,14 +26,13 @@ import java.util.List;
 /**
  * The {@link SourceReader} is used to generate source record, and it will be running at worker.
  *
- * @param <T>      record type.
+ * @param <T> record type.
  * @param <SplitT> source split type.
  */
-public interface SourceReader<T, SplitT extends SourceSplit> extends AutoCloseable, CheckpointListener {
+public interface SourceReader<T, SplitT extends SourceSplit>
+        extends AutoCloseable, CheckpointListener {
 
-    /**
-     * Open the source reader.
-     */
+    /** Open the source reader. */
     void open() throws Exception;
 
     /**
@@ -53,7 +53,7 @@ public interface SourceReader<T, SplitT extends SourceSplit> extends AutoCloseab
     /**
      * Get the current split checkpoint state by checkpointId.
      *
-     * If the source is bounded, checkpoint is not triggered.
+     * <p>If the source is bounded, checkpoint is not triggered.
      *
      * @param checkpointId checkpoint Id.
      * @return split checkpoint state.
@@ -82,30 +82,23 @@ public interface SourceReader<T, SplitT extends SourceSplit> extends AutoCloseab
      *
      * @param sourceEvent source event.
      */
-    default void handleSourceEvent(SourceEvent sourceEvent) {
-    }
+    default void handleSourceEvent(SourceEvent sourceEvent) {}
 
     interface Context {
 
-        /**
-         * @return The index of this subtask.
-         */
+        /** @return The index of this subtask. */
         int getIndexOfSubtask();
 
-        /**
-         * @return boundedness of this reader.
-         */
+        /** @return boundedness of this reader. */
         Boundedness getBoundedness();
 
-        /**
-         * Indicator that the input has reached the end of data. Then will cancel this reader.
-         */
+        /** Indicator that the input has reached the end of data. Then will cancel this reader. */
         void signalNoMoreElement();
 
         /**
-         * Sends a split request to the source's {@link SourceSplitEnumerator}. This will result in a call to
-         * the {@link SourceSplitEnumerator#handleSplitRequest(int)} method, with this reader's
-         * parallel subtask id and the hostname where this reader runs.
+         * Sends a split request to the source's {@link SourceSplitEnumerator}. This will result in
+         * a call to the {@link SourceSplitEnumerator#handleSplitRequest(int)} method, with this
+         * reader's parallel subtask id and the hostname where this reader runs.
          */
         void sendSplitRequest();
 
@@ -115,5 +108,8 @@ public interface SourceReader<T, SplitT extends SourceSplit> extends AutoCloseab
          * @param sourceEvent the source event to coordinator.
          */
         void sendSourceEventToEnumerator(SourceEvent sourceEvent);
+
+        /** @return metricsContext of this reader. */
+        MetricsContext getMetricsContext();
     }
 }

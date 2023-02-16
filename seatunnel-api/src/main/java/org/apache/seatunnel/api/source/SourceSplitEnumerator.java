@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.source;
 
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.state.CheckpointListener;
 
 import java.io.IOException;
@@ -25,18 +26,18 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * The {@link SourceSplitEnumerator} is responsible for enumerating the splits of a source. It will run at master.
+ * The {@link SourceSplitEnumerator} is responsible for enumerating the splits of a source. It will
+ * run at master.
  *
- * @param <SplitT>       source split type
+ * @param <SplitT> source split type
  * @param <StateT>source split state type
  */
-public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT> extends AutoCloseable, CheckpointListener {
+public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT>
+        extends AutoCloseable, CheckpointListener {
 
     void open();
 
-    /**
-     * The method is executed by the engine only once.
-     */
+    /** The method is executed by the engine only once. */
     void run() throws Exception;
 
     /**
@@ -50,7 +51,7 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT> exten
      * Add a split back to the split enumerator. It will only happen when a {@link SourceReader}
      * fails and there are splits assigned to it after the last successful checkpoint.
      *
-     * @param splits    The split to add back to the enumerator for reassignment.
+     * @param splits The split to add back to the enumerator for reassignment.
      * @param subtaskId The id of the subtask to which the returned splits belong.
      */
     void addSplitsBack(List<SplitT> splits, int subtaskId);
@@ -61,19 +62,16 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT> exten
 
     void registerReader(int subtaskId);
 
-    /**
-     * If the source is bounded, checkpoint is not triggered.
-     */
+    /** If the source is bounded, checkpoint is not triggered. */
     StateT snapshotState(long checkpointId) throws Exception;
 
     /**
      * Handle the source event from {@link SourceReader}.
      *
-     * @param subtaskId   The id of the subtask to which the source event from.
+     * @param subtaskId The id of the subtask to which the source event from.
      * @param sourceEvent source event.
      */
-    default void handleSourceEvent(int subtaskId, SourceEvent sourceEvent) {
-    }
+    default void handleSourceEvent(int subtaskId, SourceEvent sourceEvent) {}
 
     interface Context<SplitT extends SourceSplit> {
 
@@ -86,9 +84,7 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT> exten
          */
         Set<Integer> registeredReaders();
 
-        /**
-         * Assign the splits.
-         */
+        /** Assign the splits. */
         void assignSplit(int subtaskId, List<SplitT> splits);
 
         /**
@@ -97,8 +93,9 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT> exten
          * <p>When assigning multiple splits, it is more efficient to assign all of them in a single
          * call to the {@link #assignSplit} method.
          *
-         * @param split     The new split
-         * @param subtaskId The index of the operator's parallel subtask that shall receive the split.
+         * @param split The new split
+         * @param subtaskId The index of the operator's parallel subtask that shall receive the
+         *     split.
          */
         default void assignSplit(int subtaskId, SplitT split) {
             assignSplit(subtaskId, Collections.singletonList(split));
@@ -107,18 +104,21 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT> exten
         /**
          * Signals a subtask that it will not receive any further split.
          *
-         * @param subtask The index of the operator's parallel subtask that shall be signaled it will
-         *                not receive any further split.
+         * @param subtask The index of the operator's parallel subtask that shall be signaled it
+         *     will not receive any further split.
          */
         void signalNoMoreSplits(int subtask);
 
         /**
-         * Send a source event to a source reader. The source reader is identified by its subtask id.
+         * Send a source event to a source reader. The source reader is identified by its subtask
+         * id.
          *
          * @param subtaskId the subtask id of the source reader to send this event to.
-         * @param event     the source event to send.
+         * @param event the source event to send.
          */
         void sendEventToSourceReader(int subtaskId, SourceEvent event);
-    }
 
+        /** @return metricsContext of this reader. */
+        MetricsContext getMetricsContext();
+    }
 }

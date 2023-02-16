@@ -36,41 +36,50 @@ import java.util.List;
 @EqualsAndHashCode(callSuper = true)
 @Data
 public class ClientCommandArgs extends AbstractCommandArgs {
-    @Parameter(names = {"-m", "--master"},
-        description = "SeaTunnel job submit master, support [local, cluster]",
-        converter = SeaTunnelMasterTargetConverter.class)
+    @Parameter(
+            names = {"-m", "--master"},
+            description = "SeaTunnel job submit master, support [local, cluster]",
+            converter = SeaTunnelMasterTargetConverter.class)
     private MasterType masterType = MasterType.CLUSTER;
 
-    @Parameter(names = {"-r", "--restore"},
-        description = "restore with savepoint by jobId")
+    @Parameter(
+            names = {"-r", "--restore"},
+            description = "restore with savepoint by jobId")
     private String restoreJobId;
 
-    @Parameter(names = {"-s", "--savepoint"},
-        description = "savepoint job by jobId")
+    @Parameter(
+            names = {"-s", "--savepoint"},
+            description = "savepoint job by jobId")
     private String savePointJobId;
 
-    @Parameter(names = {"-cn", "--cluster"},
-        description = "The name of cluster")
+    @Parameter(
+            names = {"-cn", "--cluster"},
+            description = "The name of cluster")
     private String clusterName = "seatunnel_default_cluster";
 
-    @Parameter(names = {"-j", "--job-id"},
-        description = "Get job status by JobId")
+    @Parameter(
+            names = {"-j", "--job-id"},
+            description = "Get job status by JobId")
     private String jobId;
 
-    @Parameter(names = {"-can", "--cancel-job"},
-        description = "Cancel job by JobId")
+    @Parameter(
+            names = {"-can", "--cancel-job"},
+            description = "Cancel job by JobId")
     private String cancelJobId;
 
-    @Parameter(names = {"--metrics"},
-        description = "Get job metrics by JobId")
+    @Parameter(
+            names = {"--metrics"},
+            description = "Get job metrics by JobId")
     private String metricsJobId;
 
-    @Parameter(names = {"-l", "--list"},
-        description = "list job status")
+    @Parameter(
+            names = {"-l", "--list"},
+            description = "list job status")
     private boolean listJob = false;
 
-    @Parameter(names = {"-cj", "--close-job"},
-        description = "Close client the task will also be closed")
+    @Parameter(
+            names = {"-cj", "--close-job"},
+            description = "Close client the task will also be closed")
     private boolean closeJob = true;
 
     @Override
@@ -101,8 +110,9 @@ public class ClientCommandArgs extends AbstractCommandArgs {
             if (MASTER_TYPE_LIST.contains(masterType)) {
                 return masterType;
             } else {
-                throw new IllegalArgumentException("SeaTunnel job on st-engine submitted target only " +
-                    "support these options: [local, cluster]");
+                throw new IllegalArgumentException(
+                        "SeaTunnel job on st-engine submitted target only "
+                                + "support these options: [local, cluster]");
             }
         }
     }

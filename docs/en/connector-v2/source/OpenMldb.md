@@ -17,7 +17,7 @@ Used to read data from OpenMldb.
 
 ## Options
 
-| name            | type    | required | default value |
+|      name       |  type   | required | default value |
 |-----------------|---------|----------|---------------|
 | cluster_mode    | boolean | yes      | -             |
 | sql             | string  | yes      | -             |
@@ -83,3 +83,4 @@ Source plugin common parameters, please refer to [Source Common Options](common-
   }
 
 ```
+

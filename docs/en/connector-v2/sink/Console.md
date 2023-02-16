@@ -5,17 +5,18 @@
 ## Description
 
 Used to send data to Console. Both support streaming and batch mode.
+
 > For example, if the data from upstream is [`age: 12, name: jared`], the content send to console is the following: `{"name":"jared","age":17}`
 
 ## Key features
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 
-##  Options
+## Options
 
-| name            | type  | required | default value |
-| -------------  |--------|----------|---------------|
-| common-options |        | no       | -             |
+|      name      | type | required | default value |
+|----------------|------|----------|---------------|
+| common-options |      | no       | -             |
 
 ### common options
 
@@ -63,7 +64,6 @@ sink {
 
 * Start a SeaTunnel task
 
-
 * Console print data
 
 ```text
@@ -87,4 +87,6 @@ sink {
 - Add Console Sink Connector
 
 ### 2.3.0-beta 2022-10-20
+
 - [Improve] Console sink support print subtask index ([3000](https://github.com/apache/incubator-seatunnel/pull/3000))
+

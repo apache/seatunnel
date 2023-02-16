@@ -18,8 +18,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
@@ -27,6 +25,7 @@ import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 
 import org.apache.commons.lang3.StringUtils;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,6 +40,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 public abstract class AbstractJdbcCatalog implements Catalog {
     private static final Logger LOG = LoggerFactory.getLogger(AbstractJdbcCatalog.class);
 
@@ -52,11 +53,11 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     protected final String defaultUrl;
 
     public AbstractJdbcCatalog(
-        String catalogName,
-        String defaultDatabase,
-        String username,
-        String pwd,
-        String baseUrl) {
+            String catalogName,
+            String defaultDatabase,
+            String username,
+            String pwd,
+            String baseUrl) {
 
         checkArgument(StringUtils.isNotBlank(username));
         checkArgument(StringUtils.isNotBlank(pwd));
@@ -82,11 +83,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         checkArgument(parts.length == 2);
     }
 
-    public AbstractJdbcCatalog(
-        String catalogName,
-        String username,
-        String pwd,
-        String defaultUrl) {
+    public AbstractJdbcCatalog(String catalogName, String username, String pwd, String defaultUrl) {
 
         checkArgument(StringUtils.isNotBlank(username));
         checkArgument(StringUtils.isNotBlank(pwd));
@@ -104,7 +101,8 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     }
 
     /**
-     * URL has to be with database, like "jdbc:mysql://localhost:5432/db" rather than "jdbc:mysql://localhost:5432/".
+     * URL has to be with database, like "jdbc:mysql://localhost:5432/db" rather than
+     * "jdbc:mysql://localhost:5432/".
      */
     @SuppressWarnings("MagicNumber")
     public static void validateJdbcUrlWithDatabase(String url) {
@@ -119,7 +117,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
      */
     public static String[] splitDefaultUrl(String defaultUrl) {
         String[] res = new String[2];
-        int index = defaultUrl.lastIndexOf("/")  + 1;
+        int index = defaultUrl.lastIndexOf("/") + 1;
         res[0] = defaultUrl.substring(0, index);
         res[1] = defaultUrl.substring(index, defaultUrl.length());
         return res;
@@ -152,7 +150,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             // test connection, fail early if we cannot connect to database
         } catch (SQLException e) {
             throw new CatalogException(
-                String.format("Failed connecting to %s via JDBC.", defaultUrl), e);
+                    String.format("Failed connecting to %s via JDBC.", defaultUrl), e);
         }
 
         LOG.info("Catalog {} established connection to {}", catalogName, defaultUrl);
@@ -164,7 +162,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     }
 
     protected Optional<TableSchema.PrimaryKey> getPrimaryKey(
-        DatabaseMetaData metaData, String schema, String table) throws SQLException {
+            DatabaseMetaData metaData, String schema, String table) throws SQLException {
 
         // According to the Javadoc of java.sql.DatabaseMetaData#getPrimaryKeys,
         // the returned primary key columns are ordered by COLUMN_NAME, not by KEY_SEQ.
@@ -203,7 +201,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     public boolean tableExists(TablePath tablePath) throws CatalogException {
         try {
             return databaseExists(tablePath.getDatabaseName())
-                && listTables(tablePath.getDatabaseName()).contains(tablePath.getTableName());
+                    && listTables(tablePath.getDatabaseName()).contains(tablePath.getTableName());
         } catch (DatabaseNotExistException e) {
             return false;
         }

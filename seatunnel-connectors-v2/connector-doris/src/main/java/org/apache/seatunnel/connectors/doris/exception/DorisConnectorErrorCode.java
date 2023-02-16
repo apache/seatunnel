@@ -39,5 +39,4 @@ public enum DorisConnectorErrorCode implements SeaTunnelErrorCode {
     public String getDescription() {
         return description;
     }
-
 }

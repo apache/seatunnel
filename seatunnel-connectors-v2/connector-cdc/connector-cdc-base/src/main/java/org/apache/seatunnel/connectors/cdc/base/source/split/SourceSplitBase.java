@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.source.SourceSplit;
 import java.util.Objects;
 
 /** The split of table comes from a Table that splits by primary key. */
-
 public abstract class SourceSplitBase implements SourceSplit {
 
     protected final String splitId;

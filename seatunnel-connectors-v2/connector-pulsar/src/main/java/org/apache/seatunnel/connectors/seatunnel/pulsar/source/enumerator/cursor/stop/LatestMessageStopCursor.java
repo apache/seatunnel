@@ -43,7 +43,10 @@ public class LatestMessageStopCursor implements StopCursor {
             try {
                 messageId = admin.topics().getLastMessageId(topic);
             } catch (PulsarAdminException e) {
-                throw new PulsarConnectorException(PulsarConnectorErrorCode.GET_LAST_CURSOR_FAILED, "Failed to get the last cursor", e);
+                throw new PulsarConnectorException(
+                        PulsarConnectorErrorCode.GET_LAST_CURSOR_FAILED,
+                        "Failed to get the last cursor",
+                        e);
             }
         }
     }

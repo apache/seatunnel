@@ -170,7 +170,7 @@ const sidebars = {
                 "seatunnel-engine/local-mode",
                 "seatunnel-engine/cluster-mode",
                 "seatunnel-engine/checkpoint-storage",
-                "seatunnel-engine/tcp"
+                "seatunnel-engine/network"
             ]
         },
         {

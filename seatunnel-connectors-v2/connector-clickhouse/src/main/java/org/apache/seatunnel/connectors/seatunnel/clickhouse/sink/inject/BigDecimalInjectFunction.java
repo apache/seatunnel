@@ -26,7 +26,8 @@ public class BigDecimalInjectFunction implements ClickhouseFieldInjectFunction {
     private static final Pattern PATTERN = Pattern.compile("(Decimal.*)");
 
     @Override
-    public void injectFields(PreparedStatement statement, int index, Object value) throws SQLException {
+    public void injectFields(PreparedStatement statement, int index, Object value)
+            throws SQLException {
         statement.setBigDecimal(index, (java.math.BigDecimal) value);
     }
 
