@@ -25,6 +25,8 @@ import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SupportDataSaveMode;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
@@ -34,13 +36,14 @@ import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
-import org.apache.spark.sql.SaveMode;
+import org.apache.spark.sql.streaming.StreamingQueryException;
 
 import com.google.common.collect.Lists;
 
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 public class SinkExecuteProcessor
@@ -119,11 +122,24 @@ public class SinkExecuteProcessor
                 DataSaveMode dataSaveMode = saveModeSink.getDataSaveMode();
                 saveModeSink.handleSaveMode(dataSaveMode);
             }
-            SparkSinkInjector.inject(dataset.write(), seaTunnelSink)
-                    .option("checkpointLocation", "/tmp")
-                    .mode(SaveMode.Append)
-                    .save();
+
+            if (sparkRuntimeEnvironment.getJobMode().equals(JobMode.BATCH)) {
+                SparkSinkInjector.inject(dataset.write(), seaTunnelSink)
+                        .option("checkpointLocation", "/tmp")
+                        .save();
+            } else {
+                try {
+                    SparkSinkInjector.inject(dataset.writeStream(), seaTunnelSink)
+                            .option("checkpointLocation", "/tmp")
+                            .start()
+                            .awaitTermination();
+                } catch (StreamingQueryException | TimeoutException e) {
+                    throw new SeaTunnelException(
+                            String.format("Spark Streaming checkpoint exception."), e);
+                }
+            }
         }
+
         // the sink is the last stream
         return null;
     }
