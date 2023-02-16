@@ -43,27 +43,6 @@ if [ ! -d ${SEATUNNEL_HOME}/connectors ];
       echo "create connectors directory"
 fi
 
-# create the flink-sql connectors directory (for v1)
-if [ ! -d ${SEATUNNEL_HOME}/connectors/flink-sql ];
-  then
-      mkdir ${SEATUNNEL_HOME}/connectors/flink-sql
-      echo "create flink-sql connectors directory"
-fi
-
-# create the flink connectors directory (for v1)
-if [ ! -d ${SEATUNNEL_HOME}/connectors/flink ];
-  then
-      mkdir ${SEATUNNEL_HOME}/connectors/flink
-      echo "create flink connectors directory"
-fi
-
-# create the spark connectors directory (for v1)
-if [ ! -d ${SEATUNNEL_HOME}/connectors/spark ];
-  then
-      mkdir ${SEATUNNEL_HOME}/connectors/spark
-      echo "create spark connectors directory"
-fi
-
 # create the seatunnel connectors directory (for v2)
 if [ ! -d ${SEATUNNEL_HOME}/connectors/seatunnel ];
   then
@@ -71,29 +50,9 @@ if [ ! -d ${SEATUNNEL_HOME}/connectors/seatunnel ];
       echo "create seatunnel connectors directory"
 fi  
 
-path=flink-sql
+path=seatunnel
 
 while read line; do
-    # v1 connectors flink-sql
-	  if [ "$line" = "--flink-sql-connectors--" ]
-	    then
-	  	 path=flink-sql
-	  fi
-	  # v1 connectors flink
-	  if [ "$line" = "--flink-connectors--" ]
-	    then
-	  	 path=flink
-	  fi
-	  # v1 connectors spark
-	  if [ "$line" = "--spark-connectors--" ]
-	    then
-	  	 path=spark
-	  fi
-	  # v2 connectors
-	  if [ "$line" = "--connectors-v2--" ]
-	    then
-	  	 path=seatunnel
-	  fi
     if  [ ${line:0:1} != "-" ] && [ ${line:0:1} != "#" ]
       	then
       		echo "install connector : " $line
