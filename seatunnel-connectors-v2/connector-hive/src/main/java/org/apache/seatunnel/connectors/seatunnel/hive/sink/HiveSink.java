@@ -53,6 +53,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FILE_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FILE_NAME_EXPRESSION;
@@ -157,9 +158,13 @@ public class HiveSink extends BaseHdfsFileSink {
         try {
             URI uri = new URI(hdfsLocation);
             String path = uri.getPath();
-            pluginConfig =
-                    pluginConfig.withValue(FILE_PATH.key(), ConfigValueFactory.fromAnyRef(path));
             hadoopConf = new HadoopConf(hdfsLocation.replace(path, ""));
+            pluginConfig =
+                    pluginConfig
+                            .withValue(FILE_PATH.key(), ConfigValueFactory.fromAnyRef(path))
+                            .withValue(
+                                    FS_DEFAULT_NAME_KEY,
+                                    ConfigValueFactory.fromAnyRef(hadoopConf.getHdfsNameKey()));
         } catch (URISyntaxException e) {
             String errorMsg =
                     String.format(
@@ -170,6 +175,7 @@ public class HiveSink extends BaseHdfsFileSink {
                     HiveConnectorErrorCode.GET_HDFS_NAMENODE_HOST_FAILED, errorMsg, e);
         }
         this.pluginConfig = pluginConfig;
+        super.prepare(pluginConfig);
     }
 
     @Override
