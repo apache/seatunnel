@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.serializable;
 
 import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
 import org.apache.seatunnel.engine.server.operation.CancelJobOperation;
+import org.apache.seatunnel.engine.server.operation.GetClusterHealthMetricsOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobDetailStatusOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobInfoOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
@@ -56,6 +57,8 @@ public final class ClientToServerOperationDataSerializerHook implements DataSeri
     public static final int GET_JOB_INFO_OPERATION = 7;
 
     public static final int SAVEPOINT_JOB_OPERATOR = 8;
+
+    public static final int GET_CLUSTER_HEALTH_METRICS = 9;
 
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
@@ -95,6 +98,8 @@ public final class ClientToServerOperationDataSerializerHook implements DataSeri
                     return new GetJobInfoOperation();
                 case SAVEPOINT_JOB_OPERATOR:
                     return new SavePointJobOperation();
+                case GET_CLUSTER_HEALTH_METRICS:
+                    return new GetClusterHealthMetricsOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }
