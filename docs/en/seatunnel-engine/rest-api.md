@@ -69,7 +69,7 @@ rest-server-socket-endpoint-config:
 ### Return details of a job.
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-job/{jobId}</b></code> <code>(Return details of a job.)</code></summary>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-job/:jobId</b></code> <code>(Return details of a job.)</code></summary>
 
 #### Parameters
 
