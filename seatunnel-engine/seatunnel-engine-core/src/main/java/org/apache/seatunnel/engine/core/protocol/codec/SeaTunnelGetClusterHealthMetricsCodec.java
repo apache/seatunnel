@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.core.protocol.codec;
 
 import com.hazelcast.client.impl.protocol.ClientMessage;
 import com.hazelcast.client.impl.protocol.Generated;
+import com.hazelcast.client.impl.protocol.codec.builtin.StringCodec;
 
 import static com.hazelcast.client.impl.protocol.ClientMessage.ForwardFrameIterator;
 import static com.hazelcast.client.impl.protocol.ClientMessage.Frame;
