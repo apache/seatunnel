@@ -17,21 +17,28 @@
 
 package org.apache.seatunnel.api.table.type;
 
-import lombok.RequiredArgsConstructor;
+import lombok.Getter;
 
-import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
-@RequiredArgsConstructor
 public class MultipleRowType implements SeaTunnelDataType<SeaTunnelRow>, Iterable<Map.Entry<String, SeaTunnelRowType>> {
     private final Map<String, SeaTunnelRowType> rowTypeMap;
+    @Getter
+    private String[] tableIds;
 
     public MultipleRowType(String[] tableIds, SeaTunnelRowType[] rowTypes) {
-        Map<String, SeaTunnelRowType> rowTypeMap = new HashMap<>();
+        Map<String, SeaTunnelRowType> rowTypeMap = new LinkedHashMap<>();
         for (int i = 0; i < tableIds.length; i++) {
             rowTypeMap.put(tableIds[i], rowTypes[i]);
         }
+        this.tableIds = tableIds;
+        this.rowTypeMap = rowTypeMap;
+    }
+
+    public MultipleRowType(Map<String, SeaTunnelRowType> rowTypeMap) {
+        this.tableIds = rowTypeMap.keySet().toArray(new String[0]);
         this.rowTypeMap = rowTypeMap;
     }
 

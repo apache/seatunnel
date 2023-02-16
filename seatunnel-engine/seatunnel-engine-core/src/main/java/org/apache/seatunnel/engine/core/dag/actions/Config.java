@@ -17,21 +17,7 @@
 
 package org.apache.seatunnel.engine.core.dag.actions;
 
-import lombok.NonNull;
+import java.io.Serializable;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-
-public class ShuffleAction extends AbstractAction {
-
-    public ShuffleAction(long id,
-                         @NonNull String name,
-                         @NonNull ShuffleConfig shuffleConfig) {
-        super(id, name, new ArrayList<>(), new HashSet<>(), shuffleConfig);
-    }
-
-    @Override
-    public ShuffleConfig getConfig() {
-        return (ShuffleConfig) super.getConfig();
-    }
+public interface Config extends Serializable {
 }
