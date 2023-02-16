@@ -35,6 +35,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | table_name           | string | yes      | -             |
 | metastore_uri        | string | yes      | -             |
 | compress_codec       | string | no       | none          |
+| hdfs_site_path       | string | no       | none          |
 | kerberos_principal   | string | no       | -             |
 | kerberos_keytab_path | string | no       | -             |
 | common-options       |        | no       | -             |
@@ -46,6 +47,10 @@ Target Hive table name eg: db1.table1
 ### metastore_uri [string]
 
 Hive metastore uri
+
+### hdfs_site_path [string]
+
+The path of `hdfs-site.xml`, used to load ha configuration of namenodes
 
 ### kerberos_principal [string]
 
