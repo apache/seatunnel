@@ -19,7 +19,7 @@ support version >= 2.x and < 8.x.
 
 ## Options
 
-|          name           | type    | required |   default value   |
+|          name           |  type   | required |   default value   |
 |-------------------------|---------|----------|-------------------|
 | hosts                   | array   | yes      | -                 |
 | username                | string  | no       | -                 |
