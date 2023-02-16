@@ -19,14 +19,14 @@ support version >= 2.x and < 8.x.
 
 ## Options
 
-|          name           |  type   | required |   default value   |
+|          name           | type    | required |   default value   |
 |-------------------------|---------|----------|-------------------|
 | hosts                   | array   | yes      | -                 |
 | username                | string  | no       | -                 |
 | password                | string  | no       | -                 |
 | index                   | string  | yes      | -                 |
 | source                  | array   | no       | -                 |
-| query                   | map     | no       | {"match_all": {}} |
+| query                   | json    | no       | {"match_all": {}} |
 | scroll_time             | string  | no       | 1m                |
 | scroll_size             | int     | no       | 100               |
 | schema                  |         | no       | -                 |
@@ -60,9 +60,9 @@ The fields of index.
 You can get the document id by specifying the field `_id`.If sink _id to other index,you need specify an alias for _id due to the Elasticsearch limit.
 If you don't config source, you must config `schema`.
 
-### query [map]
+### query [json]
 
-Elasticsearch query language.
+Elasticsearch DSL.
 You can control the range of data read
 
 ### scroll_time [String]
