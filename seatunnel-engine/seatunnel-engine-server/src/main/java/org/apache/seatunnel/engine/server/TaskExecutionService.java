@@ -23,6 +23,7 @@ import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
@@ -55,6 +56,7 @@ import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import com.hazelcast.spi.properties.HazelcastProperties;
+import lombok.Getter;
 import lombok.NonNull;
 import lombok.SneakyThrows;
 
@@ -306,7 +308,14 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                         taskExecutionContextMap.put(
                                                 task.getTaskID(), taskExecutionContext);
                                     })
-                            .collect(partitioningBy(Task::isThreadsShare));
+                            .collect(partitioningBy(t -> {
+                                ThreadShareMode mode =
+                                    seaTunnelConfig.getEngineConfig().getTaskExecutionThreadShareMode();
+                                if(mode.equals(ThreadShareMode.ALL)) return true;
+                                if(mode.equals(ThreadShareMode.OFF)) return false;
+                                if(mode.equals(ThreadShareMode.PART)) return t.isThreadsShare();
+                                return true;
+                            }));
             executionContexts.put(
                     taskGroup.getTaskGroupLocation(), new TaskGroupContext(taskGroup, classLoader));
             cancellationFutures.put(taskGroup.getTaskGroupLocation(), cancellationFuture);
@@ -536,6 +545,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         final TaskCallTimer timer;
         private Thread myThread;
         public LinkedBlockingDeque<TaskTracker> taskqueue;
+        private Future<?> thisTaskFuture;
 
         @SuppressWarnings("checkstyle:MagicNumber")
         public CooperativeTaskWorker(
@@ -566,6 +576,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         continue;
                     }
                 }
+                taskGroupExecutionTracker.currRunningTaskFuture.put(
+                        taskTracker.task.getTaskID(), thisTaskFuture);
                 // start timer, if it's exclusive, don't need to start
                 if (null == exclusiveTaskTracker.get()) {
                     timer.timerStart(taskTracker);
@@ -581,6 +593,16 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                     synchronized (timer) {
                         timer.timerStop();
                     }
+                } catch (InterruptedException e) {
+                    if (taskGroupExecutionTracker.executionException.get() == null
+                            && !taskGroupExecutionTracker.isCancel.get()) {
+                        taskGroupExecutionTracker.exception(e);
+                    }
+                    taskGroupExecutionTracker.taskDone(taskTracker.task);
+                    logger.warning("Exception in " + taskTracker.task, e);
+                    if (null != exclusiveTaskTracker.get()) {
+                        break;
+                    }
                 } catch (Throwable e) {
                     // task Failure and complete
                     taskGroupExecutionTracker.exception(e);
@@ -593,6 +615,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 } finally {
                     // stop timer
                     timer.timerStop();
+                    taskGroupExecutionTracker.currRunningTaskFuture.remove(
+                            taskTracker.task.getTaskID());
                 }
                 // task call finished
                 if (null != call) {
@@ -612,6 +636,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 }
             }
         }
+
+        public void setThisTaskFuture(Future<?> future) {
+            this.thisTaskFuture = future;
+        }
     }
 
     /** Used to create a new BusWork and run */
@@ -628,7 +656,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
         public boolean runNewBusWork(boolean checkTaskQueue) {
             if (!checkTaskQueue || taskQueue.size() > 0) {
-                executorService.submit(new CooperativeTaskWorker(taskQueue, this));
+                CooperativeTaskWorker cooperativeTaskWorker =
+                        new CooperativeTaskWorker(taskQueue, this);
+                Future<?> submit = executorService.submit(cooperativeTaskWorker);
+                cooperativeTaskWorker.setThisTaskFuture(submit);
                 return true;
             }
             return false;
@@ -649,6 +680,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         private final AtomicReference<Throwable> executionException = new AtomicReference<>();
 
         private final AtomicBoolean isCancel = new AtomicBoolean(false);
+
+        @Getter private Map<Long, Future<?>> currRunningTaskFuture = new ConcurrentHashMap<>();
 
         TaskGroupExecutionTracker(
                 @NonNull CompletableFuture<Void> cancellationFuture,
@@ -679,6 +712,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         private void cancelAllTask() {
             try {
                 blockingFutures.forEach(f -> f.cancel(true));
+                currRunningTaskFuture.values().forEach(f -> f.cancel(true));
             } catch (CancellationException ignore) {
                 // ignore
             }
