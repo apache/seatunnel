@@ -65,8 +65,10 @@ public class CassandraSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult checkResult = CheckConfigUtil.checkAllExists(pluginConfig, HOST.key(), KEYSPACE.key(), TABLE.key());
         if (!checkResult.isSuccess()) {
-            throw new CassandraConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+            throw new CassandraConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SINK, checkResult.getMsg()));
         }
         this.cassandraParameters.buildWithConfig(pluginConfig);
@@ -88,14 +90,20 @@ public class CassandraSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
             } else {
                 for (String field : fields) {
                     if (!tableSchema.contains(field)) {
-                        throw new CassandraConnectorException(CassandraConnectorErrorCode.FIELD_NOT_IN_TABLE,
-                                "Field " + field + " does not exist in table " + pluginConfig.getString(TABLE.key()));
+                        throw new CassandraConnectorException(
+                                CassandraConnectorErrorCode.FIELD_NOT_IN_TABLE,
+                                "Field "
+                                        + field
+                                        + " does not exist in table "
+                                        + config.getString(TABLE));
                     }
                 }
             }
         } catch (Exception e) {
-            throw new CassandraConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+            throw new CassandraConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SINK, checkResult.getMsg()));
         }
     }

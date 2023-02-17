@@ -3,29 +3,33 @@
 > StarRocks sink connector
 
 ## Description
+
 Used to send data to StarRocks. Both support streaming and batch mode.
 The internal implementation of StarRocks sink connector is cached and imported by stream load in batches.
+
 ## Key features
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [cdc](../../concept/connector-v2-features.md)
 
 ## Options
 
-| name                        | type   | required | default value   |
-|-----------------------------|--------|----------|-----------------|
-| node_urls                   | list   | yes      | -               |
-| username                    | string | yes      | -               |
-| password                    | string | yes      | -               |
-| database                    | string | yes      | -               |
-| table                       | string | yes      | -               |
-| labelPrefix                 | string | no       | -               |
-| batch_max_rows              | long   | no       | 1024            |
-| batch_max_bytes             | int    | no       | 5 * 1024 * 1024 |
-| batch_interval_ms           | int    | no       | -               |
-| max_retries                 | int    | no       | -               |
-| retry_backoff_multiplier_ms | int    | no       | -               |
-| max_retry_backoff_ms        | int    | no       | -               |
-| starrocks.config            | map    | no       | -               |
+|            name             |  type   | required |  default value  |
+|-----------------------------|---------|----------|-----------------|
+| node_urls                   | list    | yes      | -               |
+| username                    | string  | yes      | -               |
+| password                    | string  | yes      | -               |
+| database                    | string  | yes      | -               |
+| table                       | string  | yes      | -               |
+| labelPrefix                 | string  | no       | -               |
+| batch_max_rows              | long    | no       | 1024            |
+| batch_max_bytes             | int     | no       | 5 * 1024 * 1024 |
+| batch_interval_ms           | int     | no       | -               |
+| max_retries                 | int     | no       | -               |
+| retry_backoff_multiplier_ms | int     | no       | -               |
+| max_retry_backoff_ms        | int     | no       | -               |
+| enable_upsert_delete        | boolean | no       | false           |
+| starrocks.config            | map     | no       | -               |
 
 ### node_urls [list]
 
@@ -74,6 +78,10 @@ Using as a multiplier for generating the next delay for backoff
 ### max_retry_backoff_ms [int]
 
 The amount of time to wait before attempting to retry a request to `StarRocks`
+
+### enable_upsert_delete [boolean]
+
+Whether to enable upsert/delete, only supports PrimaryKey model.
 
 ### starrocks.config  [map]
 
@@ -125,9 +133,29 @@ sink {
 }
 ```
 
+Support write cdc changelog event(INSERT/UPDATE/DELETE)
+
+```hocon
+sink {
+  StarRocks {
+    nodeUrls = ["e2e_starRocksdb:8030"]
+    username = root
+    password = ""
+    database = "test"
+    table = "e2e_table_sink"
+    ...
+    
+    // Support upsert/delete event synchronization (enable_upsert_delete=true), only supports PrimaryKey model.
+    enable_upsert_delete = true
+  }
+}
+```
+
 ## Changelog
 
 ### next version
 
 - Add StarRocks Sink Connector
 - [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/incubator-seatunnel/pull/3719)
+- [Feature] Support write cdc changelog event(INSERT/UPDATE/DELETE) [3865](https://github.com/apache/incubator-seatunnel/pull/3865)
+

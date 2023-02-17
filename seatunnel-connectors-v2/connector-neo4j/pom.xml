@@ -17,17 +17,18 @@
     limitations under the License.
 
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <artifactId>seatunnel-connectors-v2</artifactId>
         <groupId>org.apache.seatunnel</groupId>
+        <artifactId>seatunnel-connectors-v2</artifactId>
         <version>${revision}</version>
     </parent>
 
     <artifactId>connector-neo4j</artifactId>
+    <name>SeaTunnel : Connectors V2 : Neo4j</name>
+
     <properties>
         <neo4j-java-driver.version>4.4.9</neo4j-java-driver.version>
     </properties>

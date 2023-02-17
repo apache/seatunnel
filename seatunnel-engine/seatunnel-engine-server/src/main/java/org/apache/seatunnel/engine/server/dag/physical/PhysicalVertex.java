@@ -34,6 +34,8 @@ import org.apache.seatunnel.engine.server.task.operation.CancelTaskOperation;
 import org.apache.seatunnel.engine.server.task.operation.CheckTaskGroupIsExecutingOperation;
 import org.apache.seatunnel.engine.server.task.operation.DeployTaskOperation;
 
+import org.apache.commons.lang3.StringUtils;
+
 import com.hazelcast.cluster.Address;
 import com.hazelcast.cluster.Member;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
@@ -55,9 +57,10 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
- * PhysicalVertex is responsible for the scheduling and execution of a single task parallel
- * Each {@link org.apache.seatunnel.engine.server.dag.execution.ExecutionVertex} generates some PhysicalVertex.
- * And the number of PhysicalVertex equals the {@link ExecutionVertex#getParallelism()}.
+ * PhysicalVertex is responsible for the scheduling and execution of a single task parallel Each
+ * {@link org.apache.seatunnel.engine.server.dag.execution.ExecutionVertex} generates some
+ * PhysicalVertex. And the number of PhysicalVertex equals the {@link
+ * ExecutionVertex#getParallelism()}.
  */
 public class PhysicalVertex {
 
@@ -65,14 +68,7 @@ public class PhysicalVertex {
 
     private final TaskGroupLocation taskGroupLocation;
 
-    /**
-     * the index of PhysicalVertex
-     */
-    private final int subTaskGroupIndex;
-
     private final String taskFullName;
-
-    private final int parallelism;
 
     private final TaskGroupDefaultImpl taskGroup;
 
@@ -80,72 +76,57 @@ public class PhysicalVertex {
 
     private final FlakeIdGenerator flakeIdGenerator;
 
-    private final int pipelineId;
-
-    private final int totalPipelineNum;
-
     private final Set<URL> pluginJarsUrls;
 
     private final IMap<Object, Object> runningJobStateIMap;
 
     /**
-     * When PhysicalVertex status turn to end, complete this future. And then the waitForCompleteByPhysicalVertex
-     * in {@link SubPlan} whenComplete method will be called.
+     * When PhysicalVertex status turn to end, complete this future. And then the
+     * waitForCompleteByPhysicalVertex in {@link SubPlan} whenComplete method will be called.
      */
     private CompletableFuture<TaskExecutionState> taskFuture;
 
     /**
-     * Timestamps (in milliseconds as returned by {@code System.currentTimeMillis()} when the
-     * task transitioned into a certain state. The index into this array is the ordinal
-     * of the enum value, i.e. the timestamp when the graph went into state "RUNNING" is at {@code
+     * Timestamps (in milliseconds as returned by {@code System.currentTimeMillis()} when the task
+     * transitioned into a certain state. The index into this array is the ordinal of the enum
+     * value, i.e. the timestamp when the graph went into state "RUNNING" is at {@code
      * stateTimestamps[RUNNING.ordinal()]}.
      */
     private final IMap<Object, Long[]> runningJobStateTimestampsIMap;
 
-    private final JobImmutableInformation jobImmutableInformation;
-
-    private final long initializationTimestamp;
-
     private final NodeEngine nodeEngine;
-
-    private TaskGroupImmutableInformation taskGroupImmutableInformation;
 
     private JobMaster jobMaster;
 
-    public PhysicalVertex(int subTaskGroupIndex,
-                          @NonNull ExecutorService executorService,
-                          int parallelism,
-                          @NonNull TaskGroupDefaultImpl taskGroup,
-                          @NonNull FlakeIdGenerator flakeIdGenerator,
-                          int pipelineId,
-                          int totalPipelineNum,
-                          Set<URL> pluginJarsUrls,
-                          @NonNull JobImmutableInformation jobImmutableInformation,
-                          long initializationTimestamp,
-                          @NonNull NodeEngine nodeEngine,
-                          @NonNull IMap runningJobStateIMap,
-                          @NonNull IMap runningJobStateTimestampsIMap) {
+    public PhysicalVertex(
+            int subTaskGroupIndex,
+            @NonNull ExecutorService executorService,
+            int parallelism,
+            @NonNull TaskGroupDefaultImpl taskGroup,
+            @NonNull FlakeIdGenerator flakeIdGenerator,
+            int pipelineId,
+            int totalPipelineNum,
+            Set<URL> pluginJarsUrls,
+            @NonNull JobImmutableInformation jobImmutableInformation,
+            long initializationTimestamp,
+            @NonNull NodeEngine nodeEngine,
+            @NonNull IMap runningJobStateIMap,
+            @NonNull IMap runningJobStateTimestampsIMap) {
         this.taskGroupLocation = taskGroup.getTaskGroupLocation();
-        this.subTaskGroupIndex = subTaskGroupIndex;
         this.executorService = executorService;
-        this.parallelism = parallelism;
         this.taskGroup = taskGroup;
         this.flakeIdGenerator = flakeIdGenerator;
-        this.pipelineId = pipelineId;
-        this.totalPipelineNum = totalPipelineNum;
         this.pluginJarsUrls = pluginJarsUrls;
-        this.jobImmutableInformation = jobImmutableInformation;
-        this.initializationTimestamp = initializationTimestamp;
 
         Long[] stateTimestamps = new Long[ExecutionState.values().length];
         if (runningJobStateTimestampsIMap.get(taskGroup.getTaskGroupLocation()) == null) {
             stateTimestamps[ExecutionState.INITIALIZING.ordinal()] = initializationTimestamp;
             runningJobStateTimestampsIMap.put(taskGroup.getTaskGroupLocation(), stateTimestamps);
-
         }
 
         if (runningJobStateIMap.get(taskGroupLocation) == null) {
-            // we must update runningJobStateTimestampsIMap first and then can update runningJobStateIMap
+            // we must update runningJobStateTimestampsIMap first and then can update
+            // runningJobStateIMap
             stateTimestamps[ExecutionState.CREATED.ordinal()] = System.currentTimeMillis();
             runningJobStateTimestampsIMap.put(taskGroupLocation, stateTimestamps);
 
@@ -155,27 +136,27 @@ public class PhysicalVertex {
         this.nodeEngine = nodeEngine;
         if (LOGGER.isFineEnabled() || LOGGER.isFinestEnabled()) {
             this.taskFullName =
-                String.format(
-                    "Job %s (%s), Pipeline: [(%d/%d)], task: [%s (%d/%d)], taskGroupLocation: [%s]",
-                    jobImmutableInformation.getJobConfig().getName(),
-                    jobImmutableInformation.getJobId(),
-                    pipelineId,
-                    totalPipelineNum,
-                    taskGroup.getTaskGroupName(),
-                    subTaskGroupIndex + 1,
-                    parallelism,
-                    taskGroupLocation);
+                    String.format(
+                            "Job %s (%s), Pipeline: [(%d/%d)], task: [%s (%d/%d)], taskGroupLocation: [%s]",
+                            jobImmutableInformation.getJobConfig().getName(),
+                            jobImmutableInformation.getJobId(),
+                            pipelineId,
+                            totalPipelineNum,
+                            taskGroup.getTaskGroupName(),
+                            subTaskGroupIndex + 1,
+                            parallelism,
+                            taskGroupLocation);
         } else {
             this.taskFullName =
-                String.format(
-                    "Job %s (%s), Pipeline: [(%d/%d)], task: [%s (%d/%d)]",
-                    jobImmutableInformation.getJobConfig().getName(),
-                    jobImmutableInformation.getJobId(),
-                    pipelineId,
-                    totalPipelineNum,
-                    taskGroup.getTaskGroupName(),
-                    subTaskGroupIndex + 1,
-                    parallelism);
+                    String.format(
+                            "Job %s (%s), Pipeline: [(%d/%d)], task: [%s (%d/%d)]",
+                            jobImmutableInformation.getJobConfig().getName(),
+                            jobImmutableInformation.getJobId(),
+                            pipelineId,
+                            totalPipelineNum,
+                            taskGroup.getTaskGroupName(),
+                            subTaskGroupIndex + 1,
+                            parallelism);
         }
 
         this.taskFuture = new CompletableFuture<>();
@@ -189,79 +170,110 @@ public class PhysicalVertex {
         ExecutionState executionState = (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
         if (executionState != null) {
             LOGGER.info(
-                String.format("The task %s is in state %s when init state future", taskFullName, executionState));
+                    String.format(
+                            "The task %s is in state %s when init state future",
+                            taskFullName, executionState));
         }
         // if the task state is RUNNING
         // We need to check the real running status of Task from taskExecutionServer.
-        // Because the state may be RUNNING when the cluster is restarted, but the Task no longer exists.
-        if (ExecutionState.RUNNING.equals(executionState)){
+        // Because the state may be RUNNING when the cluster is restarted, but the Task no longer
+        // exists.
+        if (ExecutionState.RUNNING.equals(executionState)) {
             if (!checkTaskGroupIsExecuting(taskGroupLocation)) {
                 updateTaskState(ExecutionState.RUNNING, ExecutionState.FAILED);
-                this.taskFuture.complete(new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED, null));
+                this.taskFuture.complete(
+                        new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED, null));
             }
         }
         // If the task state is CANCELING we need call noticeTaskExecutionServiceCancel().
         else if (ExecutionState.CANCELING.equals(executionState)) {
             noticeTaskExecutionServiceCancel();
         } else if (executionState.isEndState()) {
-            this.taskFuture.complete(new TaskExecutionState(taskGroupLocation, executionState, null));
+            this.taskFuture.complete(
+                    new TaskExecutionState(taskGroupLocation, executionState, null));
         }
         return new PassiveCompletableFuture<>(this.taskFuture);
     }
 
-    private boolean checkTaskGroupIsExecuting(TaskGroupLocation taskGroupLocation){
-        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap = nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
-        SlotProfile slotProfile = getOwnedSlotProfilesByTaskGroup(taskGroupLocation, ownedSlotProfilesIMap);
-        if (null != slotProfile){
+    private boolean checkTaskGroupIsExecuting(TaskGroupLocation taskGroupLocation) {
+        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
+        SlotProfile slotProfile =
+                getOwnedSlotProfilesByTaskGroup(taskGroupLocation, ownedSlotProfilesIMap);
+        if (null != slotProfile) {
             Address worker = slotProfile.getWorker();
-            List<Address> members = nodeEngine.getClusterService().getMembers().stream().map(Member::getAddress)
-                .collect(Collectors.toList());
-            if (!members.contains(worker)){
-                LOGGER.warning("The node:" + worker.toString() + " running the taskGroup no longer exists, return false.");
+            List<Address> members =
+                    nodeEngine.getClusterService().getMembers().stream()
+                            .map(Member::getAddress)
+                            .collect(Collectors.toList());
+            if (!members.contains(worker)) {
+                LOGGER.warning(
+                        "The node:"
+                                + worker.toString()
+                                + " running the taskGroup no longer exists, return false.");
                 return false;
             }
-            InvocationFuture<Object> invoke = nodeEngine.getOperationService().createInvocationBuilder(
-                SeaTunnelServer.SERVICE_NAME,
-                new CheckTaskGroupIsExecutingOperation(taskGroupLocation),
-                worker).invoke();
+            InvocationFuture<Object> invoke =
+                    nodeEngine
+                            .getOperationService()
+                            .createInvocationBuilder(
+                                    SeaTunnelServer.SERVICE_NAME,
+                                    new CheckTaskGroupIsExecutingOperation(taskGroupLocation),
+                                    worker)
+                            .invoke();
             try {
                 return (Boolean) invoke.get();
             } catch (InterruptedException | ExecutionException e) {
-                LOGGER.warning("Execution of CheckTaskGroupIsExecutingOperation failed, checkTaskGroupIsExecuting return false. ", e);
+                LOGGER.warning(
+                        "Execution of CheckTaskGroupIsExecutingOperation failed, checkTaskGroupIsExecuting return false. ",
+                        e);
             }
         }
         return false;
     }
 
-    private SlotProfile getOwnedSlotProfilesByTaskGroup(TaskGroupLocation taskGroupLocation, IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap) {
+    private SlotProfile getOwnedSlotProfilesByTaskGroup(
+            TaskGroupLocation taskGroupLocation,
+            IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap) {
         PipelineLocation pipelineLocation = taskGroupLocation.getPipelineLocation();
-        if (ownedSlotProfilesIMap.containsKey(pipelineLocation) &&
-            ownedSlotProfilesIMap.get(pipelineLocation).containsKey(taskGroupLocation)) {
+        if (ownedSlotProfilesIMap.containsKey(pipelineLocation)
+                && ownedSlotProfilesIMap.get(pipelineLocation).containsKey(taskGroupLocation)) {
             return ownedSlotProfilesIMap.get(pipelineLocation).get(taskGroupLocation);
         }
         return null;
     }
 
     private void deployOnLocal(@NonNull SlotProfile slotProfile) {
-        deployInternal(taskGroupImmutableInformation -> {
-            SeaTunnelServer server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
-            server.getSlotService().getSlotContext(slotProfile)
-                .getTaskExecutionService().deployTask(taskGroupImmutableInformation);
-        });
+        deployInternal(
+                taskGroupImmutableInformation -> {
+                    SeaTunnelServer server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
+                    server.getSlotService()
+                            .getSlotContext(slotProfile)
+                            .getTaskExecutionService()
+                            .deployTask(taskGroupImmutableInformation);
+                });
     }
 
     private void deployOnRemote(@NonNull SlotProfile slotProfile) {
-        deployInternal(taskGroupImmutableInformation -> {
-            try {
-                nodeEngine.getOperationService().createInvocationBuilder(Constant.SEATUNNEL_SERVICE_NAME,
-                        new DeployTaskOperation(slotProfile,
-                            nodeEngine.getSerializationService().toData(taskGroupImmutableInformation)),
-                        slotProfile.getWorker())
-                    .invoke().get();
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        });
+        deployInternal(
+                taskGroupImmutableInformation -> {
+                    try {
+                        nodeEngine
+                                .getOperationService()
+                                .createInvocationBuilder(
+                                        Constant.SEATUNNEL_SERVICE_NAME,
+                                        new DeployTaskOperation(
+                                                slotProfile,
+                                                nodeEngine
+                                                        .getSerializationService()
+                                                        .toData(taskGroupImmutableInformation)),
+                                        slotProfile.getWorker())
+                                .invoke()
+                                .get();
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
@@ -279,9 +291,11 @@ public class PhysicalVertex {
     }
 
     private void deployInternal(Consumer<TaskGroupImmutableInformation> taskGroupConsumer) {
-        TaskGroupImmutableInformation taskGroupImmutableInformation = getTaskGroupImmutableInformation();
+        TaskGroupImmutableInformation taskGroupImmutableInformation =
+                getTaskGroupImmutableInformation();
         synchronized (this) {
-            ExecutionState currentState = (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
+            ExecutionState currentState =
+                    (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
             if (ExecutionState.DEPLOYING.equals(currentState)) {
                 taskGroupConsumer.accept(taskGroupImmutableInformation);
                 updateTaskState(ExecutionState.DEPLOYING, ExecutionState.RUNNING);
@@ -290,50 +304,56 @@ public class PhysicalVertex {
     }
 
     private void failedByException(Throwable th) {
-        LOGGER.severe(String.format("%s deploy error with Exception: %s",
-            this.taskFullName,
-            ExceptionUtils.getMessage(th)));
+        LOGGER.severe(
+                String.format(
+                        "%s deploy error with Exception: %s",
+                        this.taskFullName, ExceptionUtils.getMessage(th)));
         turnToEndState(ExecutionState.FAILED);
         taskFuture.complete(
-            new TaskExecutionState(this.taskGroupLocation, ExecutionState.FAILED, th));
+                new TaskExecutionState(this.taskGroupLocation, ExecutionState.FAILED, th));
     }
 
     private TaskGroupImmutableInformation getTaskGroupImmutableInformation() {
-        return new TaskGroupImmutableInformation(flakeIdGenerator.newId(),
-            nodeEngine.getSerializationService().toData(this.taskGroup),
-            this.pluginJarsUrls);
+        return new TaskGroupImmutableInformation(
+                flakeIdGenerator.newId(),
+                nodeEngine.getSerializationService().toData(this.taskGroup),
+                this.pluginJarsUrls);
     }
 
     private boolean turnToEndState(@NonNull ExecutionState endState) {
         synchronized (this) {
             if (!endState.isEndState()) {
                 String message =
-                    String.format("Turn task %s state to end state need gave a end state, not %s", taskFullName,
-                        endState);
+                        String.format(
+                                "Turn task %s state to end state need gave a end state, not %s",
+                                taskFullName, endState);
                 LOGGER.warning(message);
                 return false;
             }
             // consistency check
-            ExecutionState currentState = (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
+            ExecutionState currentState =
+                    (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
             if (currentState.equals(endState)) {
                 return true;
             }
             if (currentState.isEndState()) {
-                String message = String.format("Task %s is already in terminal state %s", taskFullName, currentState);
+                String message =
+                        String.format(
+                                "Task %s is already in terminal state %s",
+                                taskFullName, currentState);
                 LOGGER.warning(message);
                 return false;
             }
 
             updateStateTimestamps(endState);
             runningJobStateIMap.set(taskGroupLocation, endState);
-            LOGGER.info(String.format("%s turn to end state %s.",
-                taskFullName,
-                endState));
+            LOGGER.info(String.format("%s turn to end state %s.", taskFullName, endState));
             return true;
         }
     }
 
-    public boolean updateTaskState(@NonNull ExecutionState current, @NonNull ExecutionState targetState) {
+    public boolean updateTaskState(
+            @NonNull ExecutionState current, @NonNull ExecutionState targetState) {
         synchronized (this) {
             // consistency check
             if (current.isEndState()) {
@@ -342,19 +362,22 @@ public class PhysicalVertex {
                 throw new IllegalStateException(message);
             }
 
-            if (ExecutionState.SCHEDULED.equals(targetState) && !ExecutionState.CREATED.equals(current)) {
+            if (ExecutionState.SCHEDULED.equals(targetState)
+                    && !ExecutionState.CREATED.equals(current)) {
                 String message = "Only [CREATED] task can turn to [SCHEDULED]" + current;
                 LOGGER.severe(message);
                 throw new IllegalStateException(message);
             }
 
-            if (ExecutionState.DEPLOYING.equals(targetState) && !ExecutionState.SCHEDULED.equals(current)) {
+            if (ExecutionState.DEPLOYING.equals(targetState)
+                    && !ExecutionState.SCHEDULED.equals(current)) {
                 String message = "Only [SCHEDULED] task can turn to [DEPLOYING]" + current;
                 LOGGER.severe(message);
                 throw new IllegalStateException(message);
             }
 
-            if (ExecutionState.RUNNING.equals(targetState) && !ExecutionState.DEPLOYING.equals(current)) {
+            if (ExecutionState.RUNNING.equals(targetState)
+                    && !ExecutionState.DEPLOYING.equals(current)) {
                 String message = "Only [DEPLOYING] task can turn to [RUNNING]" + current;
                 LOGGER.severe(message);
                 throw new IllegalStateException(message);
@@ -364,10 +387,10 @@ public class PhysicalVertex {
             if (current.equals(runningJobStateIMap.get(taskGroupLocation))) {
                 updateStateTimestamps(targetState);
                 runningJobStateIMap.set(taskGroupLocation, targetState);
-                LOGGER.info(String.format("%s turn from state %s to %s.",
-                    taskFullName,
-                    current,
-                    targetState));
+                LOGGER.info(
+                        String.format(
+                                "%s turn from state %s to %s.",
+                                taskFullName, current, targetState));
                 return true;
             } else {
                 return false;
@@ -376,10 +399,11 @@ public class PhysicalVertex {
     }
 
     public void cancel() {
-        if (updateTaskState(ExecutionState.CREATED, ExecutionState.CANCELED) ||
-            updateTaskState(ExecutionState.SCHEDULED, ExecutionState.CANCELED) ||
-            updateTaskState(ExecutionState.DEPLOYING, ExecutionState.CANCELED)) {
-            taskFuture.complete(new TaskExecutionState(this.taskGroupLocation, ExecutionState.CANCELED, null));
+        if (updateTaskState(ExecutionState.CREATED, ExecutionState.CANCELED)
+                || updateTaskState(ExecutionState.SCHEDULED, ExecutionState.CANCELED)
+                || updateTaskState(ExecutionState.DEPLOYING, ExecutionState.CANCELED)) {
+            taskFuture.complete(
+                    new TaskExecutionState(this.taskGroupLocation, ExecutionState.CANCELED, null));
         } else if (updateTaskState(ExecutionState.RUNNING, ExecutionState.CANCELING)) {
             noticeTaskExecutionServiceCancel();
         }
@@ -387,27 +411,39 @@ public class PhysicalVertex {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     private void noticeTaskExecutionServiceCancel() {
-        //Check whether the node exists, and whether the Task on the node exists. If there is no direct update state
-        if (!checkTaskGroupIsExecuting(taskGroupLocation)){
+        // Check whether the node exists, and whether the Task on the node exists. If there is no
+        // direct update state
+        if (!checkTaskGroupIsExecuting(taskGroupLocation)) {
             updateTaskState(ExecutionState.CANCELING, ExecutionState.CANCELED);
-            taskFuture.complete(new TaskExecutionState(this.taskGroupLocation, ExecutionState.CANCELED, null));
+            taskFuture.complete(
+                    new TaskExecutionState(this.taskGroupLocation, ExecutionState.CANCELED, null));
             return;
         }
         int i = 0;
-        // In order not to generate uncontrolled tasks, We will try again until the taskFuture is completed
-        while (!taskFuture.isDone() && nodeEngine.getClusterService().getMember(getCurrentExecutionAddress()) != null) {
+        // In order not to generate uncontrolled tasks, We will try again until the taskFuture is
+        // completed
+        while (!taskFuture.isDone()
+                && nodeEngine.getClusterService().getMember(getCurrentExecutionAddress()) != null) {
             try {
                 i++;
                 LOGGER.info(
-                    String.format("Send cancel %s operator to member %s", taskFullName, getCurrentExecutionAddress()));
-                nodeEngine.getOperationService().createInvocationBuilder(Constant.SEATUNNEL_SERVICE_NAME,
-                        new CancelTaskOperation(taskGroupLocation),
-                        getCurrentExecutionAddress())
-                    .invoke().get();
+                        String.format(
+                                "Send cancel %s operator to member %s",
+                                taskFullName, getCurrentExecutionAddress()));
+                nodeEngine
+                        .getOperationService()
+                        .createInvocationBuilder(
+                                Constant.SEATUNNEL_SERVICE_NAME,
+                                new CancelTaskOperation(taskGroupLocation),
+                                getCurrentExecutionAddress())
+                        .invoke()
+                        .get();
                 return;
             } catch (Exception e) {
-                LOGGER.warning(String.format("%s cancel failed with Exception: %s, retry %s", this.getTaskFullName(),
-                    ExceptionUtils.getMessage(e), i));
+                LOGGER.warning(
+                        String.format(
+                                "%s cancel failed with Exception: %s, retry %s",
+                                this.getTaskFullName(), ExceptionUtils.getMessage(e), i));
                 try {
                     Thread.sleep(2000);
                 } catch (InterruptedException ex) {
@@ -418,11 +454,11 @@ public class PhysicalVertex {
     }
 
     private void updateStateTimestamps(@NonNull ExecutionState targetState) {
-        // we must update runningJobStateTimestampsIMap first and then can update runningJobStateIMap
+        // we must update runningJobStateTimestampsIMap first and then can update
+        // runningJobStateIMap
         Long[] stateTimestamps = runningJobStateTimestampsIMap.get(taskGroupLocation);
         stateTimestamps[targetState.ordinal()] = System.currentTimeMillis();
         runningJobStateTimestampsIMap.set(taskGroupLocation, stateTimestamps);
-
     }
 
     public ExecutionState getExecutionState() {
@@ -434,9 +470,9 @@ public class PhysicalVertex {
             ExecutionState executionState = getExecutionState();
             if (!executionState.isEndState()) {
                 String message =
-                    String.format("%s reset state failed, only end state can be reset, current is %s",
-                        getTaskFullName(),
-                        executionState);
+                        String.format(
+                                "%s reset state failed, only end state can be reset, current is %s",
+                                getTaskFullName(), executionState);
                 LOGGER.severe(message);
                 throw new IllegalStateException(message);
             }
@@ -457,15 +493,18 @@ public class PhysicalVertex {
         if (!turnToEndState(taskExecutionState.getExecutionState())) {
             return;
         }
-        if (taskExecutionState.getThrowable() != null) {
-            LOGGER.severe(String.format("%s end with state %s and Exception: %s",
-                this.taskFullName,
-                taskExecutionState.getExecutionState(),
-                ExceptionUtils.getMessage(taskExecutionState.getThrowable())));
+        if (StringUtils.isNotEmpty(taskExecutionState.getThrowableMsg())) {
+            LOGGER.severe(
+                    String.format(
+                            "%s end with state %s and Exception: %s",
+                            this.taskFullName,
+                            taskExecutionState.getExecutionState(),
+                            taskExecutionState.getThrowableMsg()));
         } else {
-            LOGGER.info(String.format("%s end with state %s",
-                this.taskFullName,
-                taskExecutionState.getExecutionState()));
+            LOGGER.info(
+                    String.format(
+                            "%s end with state %s",
+                            this.taskFullName, taskExecutionState.getExecutionState()));
         }
         taskFuture.complete(taskExecutionState);
     }

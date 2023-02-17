@@ -17,17 +17,21 @@
 
 package org.apache.seatunnel.e2e.common.container;
 
-import static org.apache.seatunnel.e2e.common.container.EngineType.FLINK;
-import static org.apache.seatunnel.e2e.common.container.EngineType.SPARK;
-
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+
+import static org.apache.seatunnel.e2e.common.container.EngineType.FLINK;
+import static org.apache.seatunnel.e2e.common.container.EngineType.SPARK;
 
 @AllArgsConstructor
 @Getter
 public enum TestContainerId {
     FLINK_1_13(FLINK, "1.13.6"),
+    FLINK_1_14(FLINK, "1.14.6"),
+    FLINK_1_15(FLINK, "1.15.3"),
+    FLINK_1_16(FLINK, "1.16.0"),
     SPARK_2_4(SPARK, "2.4.6"),
+    SPARK_3_3(SPARK, "3.3.0"),
     SEATUNNEL(EngineType.SEATUNNEL, "2.2.0");
 
     private final EngineType engineType;

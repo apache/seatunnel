@@ -17,8 +17,5 @@
 
 package org.apache.seatunnel.api.source;
 
-/**
- * Mark whether the Source connector supports ColumnProjection
- */
-public interface SupportColumnProjection {
-}
+/** Mark whether the Source connector supports ColumnProjection */
+public interface SupportColumnProjection {}

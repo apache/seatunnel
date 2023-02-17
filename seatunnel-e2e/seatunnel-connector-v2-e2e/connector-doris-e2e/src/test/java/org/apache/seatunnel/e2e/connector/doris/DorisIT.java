@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.doris;
 
-import static org.awaitility.Awaitility.given;
-
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -27,8 +25,6 @@ import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
-import com.google.common.collect.Lists;
-import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -39,6 +35,9 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
 import org.testcontainers.utility.DockerLoggerFactory;
+
+import com.google.common.collect.Lists;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -62,6 +61,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.awaitility.Awaitility.given;
+
 @Slf4j
 public class DorisIT extends TestSuiteBase implements TestResource {
     private static final String DOCKER_IMAGE = "taozex/doris:tagname";
@@ -76,92 +77,116 @@ public class DorisIT extends TestSuiteBase implements TestResource {
     private static final String DATABASE = "test";
     private static final String SOURCE_TABLE = "e2e_table_source";
     private static final String SINK_TABLE = "e2e_table_sink";
-    private static final String DRIVER_JAR = "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
-    private static final String COLUMN_STRING = "BIGINT_COL, LARGEINT_COL, SMALLINT_COL, TINYINT_COL, BOOLEAN_COL, DECIMAL_COL, DOUBLE_COL, FLOAT_COL, INT_COL, CHAR_COL, VARCHAR_11_COL, STRING_COL, DATETIME_COL, DATE_COL";
+    private static final String DRIVER_JAR =
+            "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
+    private static final String COLUMN_STRING =
+            "BIGINT_COL, LARGEINT_COL, SMALLINT_COL, TINYINT_COL, BOOLEAN_COL, DECIMAL_COL, DOUBLE_COL, FLOAT_COL, INT_COL, CHAR_COL, VARCHAR_11_COL, STRING_COL, DATETIME_COL, DATE_COL";
 
     private static final String CREATE_DATABASE = "CREATE DATABASE IF NOT EXISTS " + DATABASE;
-    private static final String DDL_SOURCE = "CREATE TABLE IF NOT EXISTS " + DATABASE + "." + SOURCE_TABLE + " (\n" +
-            "  BIGINT_COL     BIGINT,\n" +
-            "  LARGEINT_COL   LARGEINT,\n" +
-            "  SMALLINT_COL   SMALLINT,\n" +
-            "  TINYINT_COL    TINYINT,\n" +
-            "  BOOLEAN_COL    BOOLEAN,\n" +
-            "  DECIMAL_COL    DECIMAL,\n" +
-            "  DOUBLE_COL     DOUBLE,\n" +
-            "  FLOAT_COL      FLOAT,\n" +
-            "  INT_COL        INT,\n" +
-            "  CHAR_COL       CHAR,\n" +
-            "  VARCHAR_11_COL VARCHAR(11),\n" +
-            "  STRING_COL     STRING,\n" +
-            "  DATETIME_COL   DATETIME,\n" +
-            "  DATE_COL       DATE\n" +
-            ")ENGINE=OLAP\n" +
-            "DUPLICATE KEY(`BIGINT_COL`)\n" +
-            "DISTRIBUTED BY HASH(`BIGINT_COL`) BUCKETS 1\n" +
-            "PROPERTIES (\n" +
-            "\"replication_allocation\" = \"tag.location.default: 1\"" +
-            ")";
+    private static final String DDL_SOURCE =
+            "CREATE TABLE IF NOT EXISTS "
+                    + DATABASE
+                    + "."
+                    + SOURCE_TABLE
+                    + " (\n"
+                    + "  BIGINT_COL     BIGINT,\n"
+                    + "  LARGEINT_COL   LARGEINT,\n"
+                    + "  SMALLINT_COL   SMALLINT,\n"
+                    + "  TINYINT_COL    TINYINT,\n"
+                    + "  BOOLEAN_COL    BOOLEAN,\n"
+                    + "  DECIMAL_COL    DECIMAL,\n"
+                    + "  DOUBLE_COL     DOUBLE,\n"
+                    + "  FLOAT_COL      FLOAT,\n"
+                    + "  INT_COL        INT,\n"
+                    + "  CHAR_COL       CHAR,\n"
+                    + "  VARCHAR_11_COL VARCHAR(11),\n"
+                    + "  STRING_COL     STRING,\n"
+                    + "  DATETIME_COL   DATETIME,\n"
+                    + "  DATE_COL       DATE\n"
+                    + ")ENGINE=OLAP\n"
+                    + "DUPLICATE KEY(`BIGINT_COL`)\n"
+                    + "DISTRIBUTED BY HASH(`BIGINT_COL`) BUCKETS 1\n"
+                    + "PROPERTIES (\n"
+                    + "\"replication_allocation\" = \"tag.location.default: 1\""
+                    + ")";
 
-    private static final String DDL_SINK = "CREATE TABLE IF NOT EXISTS " + DATABASE + "." + SINK_TABLE + " (\n" +
-            "  BIGINT_COL     BIGINT,\n" +
-            "  LARGEINT_COL   LARGEINT,\n" +
-            "  SMALLINT_COL   SMALLINT,\n" +
-            "  TINYINT_COL    TINYINT,\n" +
-            "  BOOLEAN_COL    BOOLEAN,\n" +
-            "  DECIMAL_COL    DECIMAL,\n" +
-            "  DOUBLE_COL     DOUBLE,\n" +
-            "  FLOAT_COL      FLOAT,\n" +
-            "  INT_COL        INT,\n" +
-            "  CHAR_COL       CHAR,\n" +
-            "  VARCHAR_11_COL VARCHAR(11),\n" +
-            "  STRING_COL     STRING,\n" +
-            "  DATETIME_COL   DATETIME,\n" +
-            "  DATE_COL       DATE\n" +
-            ")ENGINE=OLAP\n" +
-            "DUPLICATE KEY(`BIGINT_COL`)\n" +
-            "DISTRIBUTED BY HASH(`BIGINT_COL`) BUCKETS 1\n" +
-            "PROPERTIES (\n" +
-            "\"replication_allocation\" = \"tag.location.default: 1\"" +
-            ")";
+    private static final String DDL_SINK =
+            "CREATE TABLE IF NOT EXISTS "
+                    + DATABASE
+                    + "."
+                    + SINK_TABLE
+                    + " (\n"
+                    + "  BIGINT_COL     BIGINT,\n"
+                    + "  LARGEINT_COL   LARGEINT,\n"
+                    + "  SMALLINT_COL   SMALLINT,\n"
+                    + "  TINYINT_COL    TINYINT,\n"
+                    + "  BOOLEAN_COL    BOOLEAN,\n"
+                    + "  DECIMAL_COL    DECIMAL,\n"
+                    + "  DOUBLE_COL     DOUBLE,\n"
+                    + "  FLOAT_COL      FLOAT,\n"
+                    + "  INT_COL        INT,\n"
+                    + "  CHAR_COL       CHAR,\n"
+                    + "  VARCHAR_11_COL VARCHAR(11),\n"
+                    + "  STRING_COL     STRING,\n"
+                    + "  DATETIME_COL   DATETIME,\n"
+                    + "  DATE_COL       DATE\n"
+                    + ")ENGINE=OLAP\n"
+                    + "DUPLICATE KEY(`BIGINT_COL`)\n"
+                    + "DISTRIBUTED BY HASH(`BIGINT_COL`) BUCKETS 1\n"
+                    + "PROPERTIES (\n"
+                    + "\"replication_allocation\" = \"tag.location.default: 1\""
+                    + ")";
 
-    private static final String INIT_DATA_SQL = "INSERT INTO " + DATABASE + "." + SOURCE_TABLE + " (\n" +
-            "  BIGINT_COL,\n" +
-            "  LARGEINT_COL,\n" +
-            "  SMALLINT_COL,\n" +
-            "  TINYINT_COL,\n" +
-            "  BOOLEAN_COL,\n" +
-            "  DECIMAL_COL,\n" +
-            "  DOUBLE_COL,\n" +
-            "  FLOAT_COL,\n" +
-            "  INT_COL,\n" +
-            "  CHAR_COL,\n" +
-            "  VARCHAR_11_COL,\n" +
-            "  STRING_COL,\n" +
-            "  DATETIME_COL,\n" +
-            "  DATE_COL\n" +
-            ")values(\n" +
-            "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?\n" +
-            ")";
+    private static final String INIT_DATA_SQL =
+            "INSERT INTO "
+                    + DATABASE
+                    + "."
+                    + SOURCE_TABLE
+                    + " (\n"
+                    + "  BIGINT_COL,\n"
+                    + "  LARGEINT_COL,\n"
+                    + "  SMALLINT_COL,\n"
+                    + "  TINYINT_COL,\n"
+                    + "  BOOLEAN_COL,\n"
+                    + "  DECIMAL_COL,\n"
+                    + "  DOUBLE_COL,\n"
+                    + "  FLOAT_COL,\n"
+                    + "  INT_COL,\n"
+                    + "  CHAR_COL,\n"
+                    + "  VARCHAR_11_COL,\n"
+                    + "  STRING_COL,\n"
+                    + "  DATETIME_COL,\n"
+                    + "  DATE_COL\n"
+                    + ")values(\n"
+                    + "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?\n"
+                    + ")";
 
     private Connection jdbcConnection;
     private GenericContainer<?> dorisServer;
     private static final List<SeaTunnelRow> TEST_DATASET = generateTestDataSet();
 
     @TestContainerExtension
-    private final ContainerExtendedFactory extendedFactory = container -> {
-        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O " + DRIVER_JAR);
-        Assertions.assertEquals(0, extraCommands.getExitCode());
-    };
+    private final ContainerExtendedFactory extendedFactory =
+            container -> {
+                Container.ExecResult extraCommands =
+                        container.execInContainer(
+                                "bash",
+                                "-c",
+                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
+                                        + DRIVER_JAR);
+                Assertions.assertEquals(0, extraCommands.getExitCode());
+            };
 
     @BeforeAll
     @Override
     public void startUp() throws Exception {
-        dorisServer = new GenericContainer<>(DOCKER_IMAGE)
-                .withNetwork(NETWORK)
-                .withNetworkAliases(HOST)
-                .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
-        dorisServer.setPortBindings(Lists.newArrayList(
-                String.format("%s:%s", PORT, DOCKER_PORT)));
+        dorisServer =
+                new GenericContainer<>(DOCKER_IMAGE)
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(HOST)
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
+        dorisServer.setPortBindings(Lists.newArrayList(String.format("%s:%s", PORT, DOCKER_PORT)));
         Startables.deepStart(Stream.of(dorisServer)).join();
         log.info("Doris container started");
 
@@ -178,23 +203,24 @@ public class DorisIT extends TestSuiteBase implements TestResource {
 
         List<SeaTunnelRow> rows = new ArrayList<>();
         for (int i = 0; i < 100; i++) {
-            SeaTunnelRow row = new SeaTunnelRow(
-                    new Object[]{
-                        Long.valueOf(i),
-                        Long.valueOf(1123456),
-                        Short.parseShort("1"),
-                        Byte.parseByte("1"),
-                        Boolean.FALSE,
-                        BigDecimal.valueOf(2222243, 1),
-                        Double.parseDouble("3.14"),
-                        Float.parseFloat("222224"),
-                        Integer.parseInt("1"),
-                        "a",
-                        "VARCHAR_COL",
-                        "STRING_COL",
-                        "2022-03-02 13:24:45",
-                        "2022-03-02"
-                    });
+            SeaTunnelRow row =
+                    new SeaTunnelRow(
+                            new Object[] {
+                                Long.valueOf(i),
+                                Long.valueOf(1123456),
+                                Short.parseShort("1"),
+                                Byte.parseByte("1"),
+                                Boolean.FALSE,
+                                BigDecimal.valueOf(2222243, 1),
+                                Double.parseDouble("3.14"),
+                                Float.parseFloat("222224"),
+                                Integer.parseInt("1"),
+                                "a",
+                                "VARCHAR_COL",
+                                "STRING_COL",
+                                "2022-03-02 13:24:45",
+                                "2022-03-02"
+                            });
             rows.add(row);
         }
         return rows;
@@ -215,17 +241,22 @@ public class DorisIT extends TestSuiteBase implements TestResource {
     public void testDorisSink(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/doris-jdbc-to-doris.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        try  {
+        try {
             assertHasData(SINK_TABLE);
 
             String sourceSql = String.format("select * from %s.%s", DATABASE, SOURCE_TABLE);
             String sinkSql = String.format("select * from %s.%s", DATABASE, SINK_TABLE);
-            List<String> columnList = Arrays.stream(COLUMN_STRING.split(",")).map(x -> x.trim()).collect(Collectors.toList());
+            List<String> columnList =
+                    Arrays.stream(COLUMN_STRING.split(","))
+                            .map(x -> x.trim())
+                            .collect(Collectors.toList());
             Statement sourceStatement = jdbcConnection.createStatement();
             Statement sinkStatement = jdbcConnection.createStatement();
             ResultSet sourceResultSet = sourceStatement.executeQuery(sourceSql);
             ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql);
-            Assertions.assertEquals(sourceResultSet.getMetaData().getColumnCount(), sinkResultSet.getMetaData().getColumnCount());
+            Assertions.assertEquals(
+                    sourceResultSet.getMetaData().getColumnCount(),
+                    sinkResultSet.getMetaData().getColumnCount());
             while (sourceResultSet.next()) {
                 if (sinkResultSet.next()) {
                     for (String column : columnList) {
@@ -234,14 +265,16 @@ public class DorisIT extends TestSuiteBase implements TestResource {
                         if (!Objects.deepEquals(source, sink)) {
                             InputStream sourceAsciiStream = sourceResultSet.getBinaryStream(column);
                             InputStream sinkAsciiStream = sinkResultSet.getBinaryStream(column);
-                            String sourceValue = IOUtils.toString(sourceAsciiStream, StandardCharsets.UTF_8);
-                            String sinkValue = IOUtils.toString(sinkAsciiStream, StandardCharsets.UTF_8);
+                            String sourceValue =
+                                    IOUtils.toString(sourceAsciiStream, StandardCharsets.UTF_8);
+                            String sinkValue =
+                                    IOUtils.toString(sinkAsciiStream, StandardCharsets.UTF_8);
                             Assertions.assertEquals(sourceValue, sinkValue);
                         }
                     }
                 }
             }
-            //Check the row numbers is equal
+            // Check the row numbers is equal
             sourceResultSet.last();
             sinkResultSet.last();
             Assertions.assertEquals(sourceResultSet.getRow(), sinkResultSet.getRow());
@@ -251,14 +284,17 @@ public class DorisIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    private void initializeJdbcConnection() throws SQLException, ClassNotFoundException, MalformedURLException, InstantiationException, IllegalAccessException {
-        URLClassLoader urlClassLoader = new URLClassLoader(new URL[]{new URL(DRIVER_JAR)}, DorisIT.class.getClassLoader());
+    private void initializeJdbcConnection()
+            throws SQLException, ClassNotFoundException, MalformedURLException,
+                    InstantiationException, IllegalAccessException {
+        URLClassLoader urlClassLoader =
+                new URLClassLoader(new URL[] {new URL(DRIVER_JAR)}, DorisIT.class.getClassLoader());
         Thread.currentThread().setContextClassLoader(urlClassLoader);
         Driver driver = (Driver) urlClassLoader.loadClass(DRIVER_CLASS).newInstance();
         Properties props = new Properties();
         props.put("user", USERNAME);
         props.put("password", PASSWORD);
-        jdbcConnection =  driver.connect(String.format(URL, dorisServer.getHost()), props);
+        jdbcConnection = driver.connect(String.format(URL, dorisServer.getHost()), props);
         try (Statement statement = jdbcConnection.createStatement()) {
             statement.execute(CREATE_DATABASE);
             statement.execute(DDL_SOURCE);
@@ -280,9 +316,10 @@ public class DorisIT extends TestSuiteBase implements TestResource {
 
     private void batchInsertData() {
         List<SeaTunnelRow> rows = TEST_DATASET;
-        try  {
+        try {
             jdbcConnection.setAutoCommit(false);
-            try (PreparedStatement preparedStatement = jdbcConnection.prepareStatement(INIT_DATA_SQL)) {
+            try (PreparedStatement preparedStatement =
+                    jdbcConnection.prepareStatement(INIT_DATA_SQL)) {
                 for (int i = 0; i < rows.size(); i++) {
                     for (int index = 0; index < rows.get(i).getFields().length; index++) {
                         preparedStatement.setObject(index + 1, rows.get(i).getFields()[index]);

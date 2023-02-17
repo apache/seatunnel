@@ -18,8 +18,10 @@
 
 package org.apache.seatunnel.format.json;
 
-import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
-import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.MapType;
@@ -30,11 +32,6 @@ import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -44,6 +41,9 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.function.IntFunction;
+
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
 public class RowToJsonConverters implements Serializable {
 
@@ -151,49 +151,55 @@ public class RowToJsonConverters implements Serializable {
                 return new RowToJsonConverter() {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
-                        return mapper.getNodeFactory().textNode(ISO_LOCAL_DATE.format((LocalDate) value));
+                        return mapper.getNodeFactory()
+                                .textNode(ISO_LOCAL_DATE.format((LocalDate) value));
                     }
                 };
             case TIME:
                 return new RowToJsonConverter() {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
-                        return mapper.getNodeFactory().textNode(TimeFormat.TIME_FORMAT.format((LocalTime) value));
+                        return mapper.getNodeFactory()
+                                .textNode(TimeFormat.TIME_FORMAT.format((LocalTime) value));
                     }
                 };
             case TIMESTAMP:
                 return new RowToJsonConverter() {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
-                        return mapper.getNodeFactory().textNode(ISO_LOCAL_DATE_TIME.format((LocalDateTime) value));
+                        return mapper.getNodeFactory()
+                                .textNode(ISO_LOCAL_DATE_TIME.format((LocalDateTime) value));
                     }
                 };
             case ARRAY:
                 return createArrayConverter((ArrayType) type);
             case MAP:
                 MapType mapType = (MapType) type;
-                return createMapConverter(mapType.toString(), mapType.getKeyType(), mapType.getValueType());
+                return createMapConverter(
+                        mapType.toString(), mapType.getKeyType(), mapType.getValueType());
             default:
-                throw new SeaTunnelJsonFormatException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        "unsupported parse type: " + type);
+                throw new SeaTunnelJsonFormatException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE, "unsupported parse type: " + type);
         }
     }
 
     private RowToJsonConverter createRowConverter(SeaTunnelRowType rowType) {
         final RowToJsonConverter[] fieldConverters =
                 Arrays.stream(rowType.getFieldTypes())
-                        .map(new Function<SeaTunnelDataType<?>, Object>() {
-                            @Override
-                            public Object apply(SeaTunnelDataType<?> seaTunnelDataType) {
-                                return createConverter(seaTunnelDataType);
-                            }
-                        })
-                        .toArray(new IntFunction<RowToJsonConverter[]>() {
-                            @Override
-                            public RowToJsonConverter[] apply(int value) {
-                                return new RowToJsonConverter[value];
-                            }
-                        });
+                        .map(
+                                new Function<SeaTunnelDataType<?>, Object>() {
+                                    @Override
+                                    public Object apply(SeaTunnelDataType<?> seaTunnelDataType) {
+                                        return createConverter(seaTunnelDataType);
+                                    }
+                                })
+                        .toArray(
+                                new IntFunction<RowToJsonConverter[]>() {
+                                    @Override
+                                    public RowToJsonConverter[] apply(int value) {
+                                        return new RowToJsonConverter[value];
+                                    }
+                                });
         final String[] fieldNames = rowType.getFieldNames();
         final int arity = fieldNames.length;
 
@@ -212,8 +218,10 @@ public class RowToJsonConverters implements Serializable {
                 for (int i = 0; i < arity; i++) {
                     String fieldName = fieldNames[i];
                     SeaTunnelRow row = (SeaTunnelRow) value;
-                    node.set(fieldName, fieldConverters[i].convert(
-                        mapper, node.get(fieldName), row.getField(i)));
+                    node.set(
+                            fieldName,
+                            fieldConverters[i].convert(
+                                    mapper, node.get(fieldName), row.getField(i)));
                 }
 
                 return node;
@@ -248,10 +256,13 @@ public class RowToJsonConverters implements Serializable {
         };
     }
 
-    private RowToJsonConverter createMapConverter(String typeSummary, SeaTunnelDataType<?> keyType, SeaTunnelDataType<?> valueType) {
+    private RowToJsonConverter createMapConverter(
+            String typeSummary, SeaTunnelDataType<?> keyType, SeaTunnelDataType<?> valueType) {
         if (!SqlType.STRING.equals(keyType.getSqlType())) {
-            throw new SeaTunnelJsonFormatException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                    "JSON format doesn't support non-string as key type of map. The type is: " + typeSummary);
+            throw new SeaTunnelJsonFormatException(
+                    CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                    "JSON format doesn't support non-string as key type of map. The type is: "
+                            + typeSummary);
         }
 
         final RowToJsonConverter valueConverter = createConverter(valueType);
@@ -271,7 +282,9 @@ public class RowToJsonConverters implements Serializable {
                 Map<String, ?> mapData = (Map) value;
                 for (Map.Entry<String, ?> entry : mapData.entrySet()) {
                     String fieldName = entry.getKey();
-                    node.set(fieldName, valueConverter.convert(mapper, node.get(fieldName), entry.getValue()));
+                    node.set(
+                            fieldName,
+                            valueConverter.convert(mapper, node.get(fieldName), entry.getValue()));
                 }
 
                 return node;

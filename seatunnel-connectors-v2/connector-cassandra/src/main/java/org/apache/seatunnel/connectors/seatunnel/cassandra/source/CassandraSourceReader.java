@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.cassandra.source;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.client.CassandraClient;
-import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraParameters;
+import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.util.TypeConvertUtil;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;

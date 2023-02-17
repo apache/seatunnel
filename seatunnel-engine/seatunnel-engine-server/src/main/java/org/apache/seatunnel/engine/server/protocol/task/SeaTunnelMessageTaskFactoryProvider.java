@@ -18,12 +18,14 @@
 package org.apache.seatunnel.engine.server.protocol.task;
 
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelCancelJobCodec;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetClusterHealthMetricsCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobDetailStatusCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobInfoCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobMetricsCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobStatusCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelListJobStatusCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelSavePointJobCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelSubmitJobCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelWaitForJobCompleteCodec;
 
@@ -49,23 +51,46 @@ public class SeaTunnelMessageTaskFactoryProvider implements MessageTaskFactoryPr
     }
 
     private void initFactories() {
-        factories.put(SeaTunnelPrintMessageCodec.REQUEST_MESSAGE_TYPE,
-            (clientMessage, connection) -> new PrintMessageTask(clientMessage, node, connection));
-        factories.put(SeaTunnelSubmitJobCodec.REQUEST_MESSAGE_TYPE,
-            (clientMessage, connection) -> new SubmitJobTask(clientMessage, node, connection));
-        factories.put(SeaTunnelWaitForJobCompleteCodec.REQUEST_MESSAGE_TYPE,
-            (clientMessage, connection) -> new WaitForJobCompleteTask(clientMessage, node, connection));
-        factories.put(SeaTunnelCancelJobCodec.REQUEST_MESSAGE_TYPE,
-            (clientMessage, connection) -> new CancelJobTask(clientMessage, node, connection));
-        factories.put(SeaTunnelGetJobStatusCodec.REQUEST_MESSAGE_TYPE,
-            (clientMessage, connection) -> new GetJobStatusTask(clientMessage, node, connection));
-        factories.put(SeaTunnelGetJobDetailStatusCodec.REQUEST_MESSAGE_TYPE,
-            (clientMessage, connection) -> new GetJobDetailStatusTask(clientMessage, node, connection));
-        factories.put(SeaTunnelListJobStatusCodec.REQUEST_MESSAGE_TYPE,
-            (clientMessage, connection) -> new ListJobStatusTask(clientMessage, node, connection));
-        factories.put(SeaTunnelGetJobMetricsCodec.REQUEST_MESSAGE_TYPE,
-            (clientMessage, connection) -> new GetJobMetricsTask(clientMessage, node, connection));
-        factories.put(SeaTunnelGetJobInfoCodec.REQUEST_MESSAGE_TYPE,
-            (clientMessage, connection) -> new GetJobInfoTask(clientMessage, node, connection));
+        factories.put(
+                SeaTunnelPrintMessageCodec.REQUEST_MESSAGE_TYPE,
+                (clientMessage, connection) ->
+                        new PrintMessageTask(clientMessage, node, connection));
+        factories.put(
+                SeaTunnelSubmitJobCodec.REQUEST_MESSAGE_TYPE,
+                (clientMessage, connection) -> new SubmitJobTask(clientMessage, node, connection));
+        factories.put(
+                SeaTunnelWaitForJobCompleteCodec.REQUEST_MESSAGE_TYPE,
+                (clientMessage, connection) ->
+                        new WaitForJobCompleteTask(clientMessage, node, connection));
+        factories.put(
+                SeaTunnelCancelJobCodec.REQUEST_MESSAGE_TYPE,
+                (clientMessage, connection) -> new CancelJobTask(clientMessage, node, connection));
+        factories.put(
+                SeaTunnelGetJobStatusCodec.REQUEST_MESSAGE_TYPE,
+                (clientMessage, connection) ->
+                        new GetJobStatusTask(clientMessage, node, connection));
+        factories.put(
+                SeaTunnelGetJobDetailStatusCodec.REQUEST_MESSAGE_TYPE,
+                (clientMessage, connection) ->
+                        new GetJobDetailStatusTask(clientMessage, node, connection));
+        factories.put(
+                SeaTunnelListJobStatusCodec.REQUEST_MESSAGE_TYPE,
+                (clientMessage, connection) ->
+                        new ListJobStatusTask(clientMessage, node, connection));
+        factories.put(
+                SeaTunnelGetJobMetricsCodec.REQUEST_MESSAGE_TYPE,
+                (clientMessage, connection) ->
+                        new GetJobMetricsTask(clientMessage, node, connection));
+        factories.put(
+                SeaTunnelGetJobInfoCodec.REQUEST_MESSAGE_TYPE,
+                (clientMessage, connection) -> new GetJobInfoTask(clientMessage, node, connection));
+        factories.put(
+                SeaTunnelSavePointJobCodec.REQUEST_MESSAGE_TYPE,
+                (clientMessage, connection) ->
+                        new SavePointJobTask(clientMessage, node, connection));
+        factories.put(
+                SeaTunnelGetClusterHealthMetricsCodec.REQUEST_MESSAGE_TYPE,
+                (clientMessage, connection) ->
+                        new GetClusterHealthMetricsTask(clientMessage, node, connection));
     }
 }

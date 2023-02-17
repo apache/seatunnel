@@ -29,8 +29,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Validation rule for {@link Option}.
- * <p>
- * The option rule is typically built in one of the following pattern:
+ *
+ * <p>The option rule is typically built in one of the following pattern:
  *
  * <pre>{@code
  * // simple rule
@@ -67,15 +67,16 @@ public class OptionRule {
     /**
      * Optional options with default value.
      *
-     * <p> This options will not be validated.
-     * <p> This is used by the web-UI to show what options are available.
+     * <p>This options will not be validated.
+     *
+     * <p>This is used by the web-UI to show what options are available.
      */
     private final List<Option<?>> optionalOptions;
 
     /**
      * Required options with no default value.
      *
-     * <p> Verify that the option is valid through the defined rules.
+     * <p>Verify that the option is valid through the defined rules.
      */
     private final List<RequiredOption> requiredOptions;
 
@@ -102,7 +103,7 @@ public class OptionRule {
         }
         OptionRule that = (OptionRule) o;
         return Objects.equals(optionalOptions, that.optionalOptions)
-            && Objects.equals(requiredOptions, that.requiredOptions);
+                && Objects.equals(requiredOptions, that.requiredOptions);
     }
 
     @Override
@@ -114,111 +115,106 @@ public class OptionRule {
         return new OptionRule.Builder();
     }
 
-    /**
-     * Builder for {@link OptionRule}.
-     */
+    /** Builder for {@link OptionRule}. */
     public static class Builder {
         private final List<Option<?>> optionalOptions = new ArrayList<>();
         private final List<RequiredOption> requiredOptions = new ArrayList<>();
 
-        private Builder() {
-        }
+        private Builder() {}
 
         /**
          * Optional options
          *
-         * <p> This options will not be validated.
-         * <p> This is used by the web-UI to show what options are available.
+         * <p>This options will not be validated.
+         *
+         * <p>This is used by the web-UI to show what options are available.
          */
         public Builder optional(@NonNull Option<?>... options) {
             for (Option<?> option : options) {
-                verifyDuplicate(option, "OptionsOption");
+                verifyOptionOptionsDuplicate(option, "OptionsOption");
             }
             this.optionalOptions.addAll(Arrays.asList(options));
             return this;
         }
 
-        /**
-         * Absolutely required options without any constraints.
-         */
+        /** Absolutely required options without any constraints. */
         public Builder required(@NonNull Option<?>... options) {
-            for (Option<?> option : options) {
-                verifyDuplicate(option, "RequiredOption");
-                //verifyRequiredOptionDefaultValue(option);
-            }
-            this.requiredOptions.add(RequiredOption.AbsolutelyRequiredOptions.of(options));
+            RequiredOption.AbsolutelyRequiredOptions requiredOption =
+                    RequiredOption.AbsolutelyRequiredOptions.of(options);
+            verifyRequiredOptionDuplicate(requiredOption);
+            this.requiredOptions.add(requiredOption);
             return this;
         }
 
-        /**
-         * Exclusive options, only one of the options needs to be configured.
-         */
+        /** Exclusive options, only one of the options needs to be configured. */
         public Builder exclusive(@NonNull Option<?>... options) {
             if (options.length <= 1) {
-                throw new OptionValidationException("The number of exclusive options must be greater than 1.");
+                throw new OptionValidationException(
+                        "The number of exclusive options must be greater than 1.");
             }
-            for (Option<?> option : options) {
-                verifyDuplicate(option, "ExclusiveOption");
-                //verifyRequiredOptionDefaultValue(option);
-            }
-            this.requiredOptions.add(RequiredOption.ExclusiveRequiredOptions.of(options));
+            RequiredOption.ExclusiveRequiredOptions exclusiveRequiredOption =
+                    RequiredOption.ExclusiveRequiredOptions.of(options);
+            verifyRequiredOptionDuplicate(exclusiveRequiredOption);
+            this.requiredOptions.add(exclusiveRequiredOption);
             return this;
         }
 
-        public <T> Builder conditional(@NonNull Option<T> conditionalOption, @NonNull List<T> expectValues, @NonNull Option<?>... requiredOptions) {
-            for (Option<?> o : requiredOptions) {
-                verifyDuplicate(o, "ConditionalOption");
-                //verifyRequiredOptionDefaultValue(o);
-            }
-
+        public <T> Builder conditional(
+                @NonNull Option<T> conditionalOption,
+                @NonNull List<T> expectValues,
+                @NonNull Option<?>... requiredOptions) {
             verifyConditionalExists(conditionalOption);
 
             if (expectValues.size() == 0) {
                 throw new OptionValidationException(
-                    String.format("conditional option '%s' must have expect values .", conditionalOption.key()));
+                        String.format(
+                                "conditional option '%s' must have expect values .",
+                                conditionalOption.key()));
             }
 
-            /**
-             * Each parameter can only be controlled by one other parameter
-             */
-            Expression expression = Expression.of(Condition.of(conditionalOption, expectValues.get(0)));
+            /** Each parameter can only be controlled by one other parameter */
+            Expression expression =
+                    Expression.of(Condition.of(conditionalOption, expectValues.get(0)));
             for (int i = 0; i < expectValues.size(); i++) {
                 if (i != 0) {
-                    expression = expression.or(Expression.of(Condition.of(conditionalOption, expectValues.get(i))));
+                    expression =
+                            expression.or(
+                                    Expression.of(
+                                            Condition.of(conditionalOption, expectValues.get(i))));
                 }
             }
 
-            this.requiredOptions.add(RequiredOption.ConditionalRequiredOptions.of(expression,
-                new ArrayList<>(Arrays.asList(requiredOptions))));
+            RequiredOption.ConditionalRequiredOptions option =
+                    RequiredOption.ConditionalRequiredOptions.of(
+                            expression, new ArrayList<>(Arrays.asList(requiredOptions)));
+            verifyRequiredOptionDuplicate(option);
+            this.requiredOptions.add(option);
             return this;
         }
 
-        public <T> Builder conditional(@NonNull Option<T> conditionalOption, @NonNull T expectValue, @NonNull Option<?>... requiredOptions) {
-            for (Option<?> o : requiredOptions) {
-                verifyDuplicate(o, "ConditionalOption");
-                //verifyRequiredOptionDefaultValue(o);
-            }
-
+        public <T> Builder conditional(
+                @NonNull Option<T> conditionalOption,
+                @NonNull T expectValue,
+                @NonNull Option<?>... requiredOptions) {
             verifyConditionalExists(conditionalOption);
 
-            /**
-             * Each parameter can only be controlled by one other parameter
-             */
+            /** Each parameter can only be controlled by one other parameter */
             Expression expression = Expression.of(Condition.of(conditionalOption, expectValue));
+            RequiredOption.ConditionalRequiredOptions conditionalRequiredOption =
+                    RequiredOption.ConditionalRequiredOptions.of(
+                            expression, new ArrayList<>(Arrays.asList(requiredOptions)));
 
-            this.requiredOptions.add(RequiredOption.ConditionalRequiredOptions.of(expression,
-                new ArrayList<>(Arrays.asList(requiredOptions))));
+            verifyRequiredOptionDuplicate(conditionalRequiredOption);
+            this.requiredOptions.add(conditionalRequiredOption);
             return this;
         }
 
-        /**
-         * Bundled options, must be present or absent together.
-         */
+        /** Bundled options, must be present or absent together. */
         public Builder bundled(@NonNull Option<?>... requiredOptions) {
-            for (Option<?> option : requiredOptions) {
-                verifyDuplicate(option, "BundledOption");
-            }
-            this.requiredOptions.add(RequiredOption.BundledRequiredOptions.of(requiredOptions));
+            RequiredOption.BundledRequiredOptions bundledRequiredOption =
+                    RequiredOption.BundledRequiredOptions.of(requiredOptions);
+            verifyRequiredOptionDuplicate(bundledRequiredOption);
+            this.requiredOptions.add(bundledRequiredOption);
             return this;
         }
 
@@ -229,36 +225,111 @@ public class OptionRule {
         private void verifyRequiredOptionDefaultValue(@NonNull Option<?> option) {
             if (option.defaultValue() != null) {
                 throw new OptionValidationException(
-                    String.format("Required option '%s' should have no default value.", option.key()));
+                        String.format(
+                                "Required option '%s' should have no default value.",
+                                option.key()));
             }
         }
 
-        private void verifyDuplicate(@NonNull Option<?> option, @NonNull String currentOptionType) {
+        private void verifyDuplicateWithOptionOptions(
+                @NonNull Option<?> option, @NonNull String currentOptionType) {
             if (optionalOptions.contains(option)) {
                 throw new OptionValidationException(
-                    String.format("%s '%s' duplicate in option options.", currentOptionType, option.key()));
+                        String.format(
+                                "%s '%s' duplicate in option options.",
+                                currentOptionType, option.key()));
             }
+        }
 
-            requiredOptions.forEach(requiredOption -> {
-                if (requiredOption.getOptions().contains(option)) {
-                    throw new OptionValidationException(
-                        String.format("%s '%s' duplicate in '%s'.", currentOptionType, option.key(), requiredOption.getClass().getName()));
-                }
-            });
+        private void verifyRequiredOptionDuplicate(@NonNull RequiredOption requiredOption) {
+            requiredOption
+                    .getOptions()
+                    .forEach(
+                            option -> {
+                                verifyDuplicateWithOptionOptions(
+                                        option, requiredOption.getClass().getSimpleName());
+                                requiredOptions.forEach(
+                                        ro -> {
+                                            if (ro
+                                                            instanceof
+                                                            RequiredOption
+                                                                    .ConditionalRequiredOptions
+                                                    && requiredOption
+                                                            instanceof
+                                                            RequiredOption
+                                                                    .ConditionalRequiredOptions) {
+                                                Option<?> requiredOptionCondition =
+                                                        ((RequiredOption.ConditionalRequiredOptions)
+                                                                        requiredOption)
+                                                                .getExpression()
+                                                                .getCondition()
+                                                                .getOption();
+
+                                                Option<?> roOptionCondition =
+                                                        ((RequiredOption.ConditionalRequiredOptions)
+                                                                        ro)
+                                                                .getExpression()
+                                                                .getCondition()
+                                                                .getOption();
+
+                                                if (ro.getOptions().contains(option)
+                                                        && !requiredOptionCondition.equals(
+                                                                roOptionCondition)) {
+                                                    throw new OptionValidationException(
+                                                            String.format(
+                                                                    "%s '%s' duplicate in %s options.",
+                                                                    requiredOption
+                                                                            .getClass()
+                                                                            .getSimpleName(),
+                                                                    option.key(),
+                                                                    ro.getClass().getSimpleName()));
+                                                }
+                                            } else {
+                                                if (ro.getOptions().contains(option)) {
+                                                    throw new OptionValidationException(
+                                                            String.format(
+                                                                    "%s '%s' duplicate in %s options.",
+                                                                    requiredOption
+                                                                            .getClass()
+                                                                            .getSimpleName(),
+                                                                    option.key(),
+                                                                    ro.getClass().getSimpleName()));
+                                                }
+                                            }
+                                        });
+                            });
+        }
+
+        private void verifyOptionOptionsDuplicate(
+                @NonNull Option<?> option, @NonNull String currentOptionType) {
+            verifyDuplicateWithOptionOptions(option, currentOptionType);
+
+            requiredOptions.forEach(
+                    requiredOption -> {
+                        if (requiredOption.getOptions().contains(option)) {
+                            throw new OptionValidationException(
+                                    String.format(
+                                            "%s '%s' duplicate in '%s'.",
+                                            currentOptionType,
+                                            option.key(),
+                                            requiredOption.getClass().getSimpleName()));
+                        }
+                    });
         }
 
         private void verifyConditionalExists(@NonNull Option<?> option) {
             boolean inOptions = optionalOptions.contains(option);
             AtomicBoolean inRequired = new AtomicBoolean(false);
-            requiredOptions.forEach(requiredOption -> {
-                if (requiredOption.getOptions().contains(option)) {
-                    inRequired.set(true);
-                }
-            });
+            requiredOptions.forEach(
+                    requiredOption -> {
+                        if (requiredOption.getOptions().contains(option)) {
+                            inRequired.set(true);
+                        }
+                    });
 
             if (!inOptions && !inRequired.get()) {
                 throw new OptionValidationException(
-                    String.format("Conditional '%s' not found in options.", option.key()));
+                        String.format("Conditional '%s' not found in options.", option.key()));
             }
         }
     }

@@ -18,24 +18,35 @@
   ~ under the License.
   ~
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
     <parent>
-        <artifactId>checkpoint-storage-plugins</artifactId>
         <groupId>org.apache.seatunnel</groupId>
+        <artifactId>checkpoint-storage-plugins</artifactId>
         <version>${revision}</version>
     </parent>
-    <modelVersion>4.0.0</modelVersion>
 
     <artifactId>checkpoint-storage-hdfs</artifactId>
+    <name>SeaTunnel : Engine : Storage : Checkpoint Storage Plugins : HDFS</name>
+
+    <properties>
+        <hadoop-aliyun.version>3.0.0</hadoop-aliyun.version>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
             <version>${project.version}</version>
-            <scope>provided</scope>
             <classifier>optional</classifier>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-aliyun</artifactId>
+            <version>${hadoop-aliyun.version}</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>

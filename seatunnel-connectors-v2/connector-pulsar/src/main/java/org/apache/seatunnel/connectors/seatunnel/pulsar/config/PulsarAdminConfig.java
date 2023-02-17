@@ -40,18 +40,14 @@ public class PulsarAdminConfig extends BasePulsarConfig {
     }
 
     public static final class Builder {
-        /**
-         * Name of the authentication plugin.
-         */
+        /** Name of the authentication plugin. */
         private String authPluginClassName = "";
-        /**
-         * Parameters for the authentication plugin.
-         */
+        /** Parameters for the authentication plugin. */
         private String authParams = "";
+
         private String adminUrl;
 
-        private Builder() {
-        }
+        private Builder() {}
 
         public Builder authPluginClassName(String authPluginClassName) {
             this.authPluginClassName = authPluginClassName;
@@ -69,7 +65,8 @@ public class PulsarAdminConfig extends BasePulsarConfig {
         }
 
         public PulsarAdminConfig build() {
-            Preconditions.checkArgument(StringUtils.isNotBlank(adminUrl), "Pulsar admin URL is required.");
+            Preconditions.checkArgument(
+                    StringUtils.isNotBlank(adminUrl), "Pulsar admin URL is required.");
             return new PulsarAdminConfig(authPluginClassName, authParams, adminUrl);
         }
     }

@@ -37,25 +37,46 @@ public class FtpFileSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-            .required(FtpConfig.FILE_PATH)
-            .required(FtpConfig.FTP_HOST)
-            .required(FtpConfig.FTP_PORT)
-            .required(FtpConfig.FTP_USERNAME)
-            .required(FtpConfig.FTP_PASSWORD)
-            .optional(BaseSinkConfig.FILE_FORMAT)
-            .conditional(BaseSinkConfig.FILE_FORMAT, FileFormat.TEXT, BaseSinkConfig.ROW_DELIMITER,
-                BaseSinkConfig.FIELD_DELIMITER)
-            .optional(BaseSinkConfig.CUSTOM_FILENAME)
-            .conditional(BaseSinkConfig.CUSTOM_FILENAME, true, BaseSinkConfig.FILE_NAME_EXPRESSION,
-                BaseSinkConfig.FILENAME_TIME_FORMAT)
-            .optional(BaseSinkConfig.HAVE_PARTITION)
-            .conditional(BaseSinkConfig.HAVE_PARTITION, true, BaseSinkConfig.PARTITION_BY,
-                BaseSinkConfig.PARTITION_DIR_EXPRESSION, BaseSinkConfig.IS_PARTITION_FIELD_WRITE_IN_FILE)
-            .optional(BaseSinkConfig.SINK_COLUMNS)
-            .optional(BaseSinkConfig.IS_ENABLE_TRANSACTION)
-            .optional(BaseSinkConfig.DATE_FORMAT)
-            .optional(BaseSinkConfig.DATETIME_FORMAT)
-            .optional(BaseSinkConfig.TIME_FORMAT)
-            .build();
+                .required(FtpConfig.FILE_PATH)
+                .required(FtpConfig.FTP_HOST)
+                .required(FtpConfig.FTP_PORT)
+                .required(FtpConfig.FTP_USERNAME)
+                .required(FtpConfig.FTP_PASSWORD)
+                .optional(BaseSinkConfig.FILE_FORMAT)
+                .conditional(
+                        BaseSinkConfig.FILE_FORMAT,
+                        FileFormat.TEXT,
+                        BaseSinkConfig.ROW_DELIMITER,
+                        BaseSinkConfig.FIELD_DELIMITER,
+                        BaseSinkConfig.TXT_COMPRESS)
+                .conditional(
+                        BaseSinkConfig.FILE_FORMAT, FileFormat.CSV, BaseSinkConfig.TXT_COMPRESS)
+                .conditional(
+                        BaseSinkConfig.FILE_FORMAT, FileFormat.JSON, BaseSinkConfig.TXT_COMPRESS)
+                .conditional(
+                        BaseSinkConfig.FILE_FORMAT, FileFormat.ORC, BaseSinkConfig.ORC_COMPRESS)
+                .conditional(
+                        BaseSinkConfig.FILE_FORMAT,
+                        FileFormat.PARQUET,
+                        BaseSinkConfig.PARQUET_COMPRESS)
+                .optional(BaseSinkConfig.CUSTOM_FILENAME)
+                .conditional(
+                        BaseSinkConfig.CUSTOM_FILENAME,
+                        true,
+                        BaseSinkConfig.FILE_NAME_EXPRESSION,
+                        BaseSinkConfig.FILENAME_TIME_FORMAT)
+                .optional(BaseSinkConfig.HAVE_PARTITION)
+                .conditional(
+                        BaseSinkConfig.HAVE_PARTITION,
+                        true,
+                        BaseSinkConfig.PARTITION_BY,
+                        BaseSinkConfig.PARTITION_DIR_EXPRESSION,
+                        BaseSinkConfig.IS_PARTITION_FIELD_WRITE_IN_FILE)
+                .optional(BaseSinkConfig.SINK_COLUMNS)
+                .optional(BaseSinkConfig.IS_ENABLE_TRANSACTION)
+                .optional(BaseSinkConfig.DATE_FORMAT)
+                .optional(BaseSinkConfig.DATETIME_FORMAT)
+                .optional(BaseSinkConfig.TIME_FORMAT)
+                .build();
     }
 }

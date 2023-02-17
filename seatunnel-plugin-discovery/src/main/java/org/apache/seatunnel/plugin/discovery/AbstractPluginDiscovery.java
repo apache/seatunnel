@@ -17,6 +17,11 @@
 
 package org.apache.seatunnel.plugin.discovery;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
+
 import org.apache.seatunnel.api.common.PluginIdentifierInterface;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -30,14 +35,10 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
-
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.io.FileFilter;
@@ -67,22 +68,27 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
      * Add jar url to classloader. The different engine should have different logic to add url into
      * their own classloader
      */
-    private static final BiConsumer<ClassLoader, URL> DEFAULT_URL_TO_CLASSLOADER = (classLoader, url) -> {
-        if (classLoader instanceof URLClassLoader) {
-            ReflectionUtils.invoke(classLoader, "addURL", url);
-        } else {
-            throw new UnsupportedOperationException("can't support custom load jar");
-        }
-    };
+    private static final BiConsumer<ClassLoader, URL> DEFAULT_URL_TO_CLASSLOADER =
+            (classLoader, url) -> {
+                if (classLoader instanceof URLClassLoader) {
+                    ReflectionUtils.invoke(classLoader, "addURL", url);
+                } else {
+                    throw new UnsupportedOperationException("can't support custom load jar");
+                }
+            };
 
     private final Path pluginDir;
     private final Config pluginConfig;
     private final BiConsumer<ClassLoader, URL> addURLToClassLoaderConsumer;
     protected final ConcurrentHashMap<PluginIdentifier, Optional<URL>> pluginJarPath =
-        new ConcurrentHashMap<>(Common.COLLECTION_SIZE);
+            new ConcurrentHashMap<>(Common.COLLECTION_SIZE);
 
-    public AbstractPluginDiscovery(String pluginSubDir, BiConsumer<ClassLoader, URL> addURLToClassloader) {
-        this(Common.connectorJarDir(pluginSubDir), loadConnectorPluginConfig(), addURLToClassloader);
+    public AbstractPluginDiscovery(
+            String pluginSubDir, BiConsumer<ClassLoader, URL> addURLToClassloader) {
+        this(
+                Common.connectorJarDir(pluginSubDir),
+                loadConnectorPluginConfig(),
+                addURLToClassloader);
     }
 
     public AbstractPluginDiscovery(String pluginSubDir) {
@@ -93,14 +99,14 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         this(pluginDir, loadConnectorPluginConfig());
     }
 
-    public AbstractPluginDiscovery(Path pluginDir,
-                                   Config pluginConfig) {
+    public AbstractPluginDiscovery(Path pluginDir, Config pluginConfig) {
         this(pluginDir, pluginConfig, DEFAULT_URL_TO_CLASSLOADER);
     }
 
-    public AbstractPluginDiscovery(Path pluginDir,
-                                   Config pluginConfig,
-                                   BiConsumer<ClassLoader, URL> addURLToClassLoaderConsumer) {
+    public AbstractPluginDiscovery(
+            Path pluginDir,
+            Config pluginConfig,
+            BiConsumer<ClassLoader, URL> addURLToClassLoaderConsumer) {
         this.pluginDir = pluginDir;
         this.pluginConfig = pluginConfig;
         this.addURLToClassLoaderConsumer = addURLToClassLoaderConsumer;
@@ -108,26 +114,29 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
     }
 
     protected static Config loadConnectorPluginConfig() {
-        return ConfigFactory
-            .parseFile(Common.connectorDir().resolve(PLUGIN_MAPPING_FILE).toFile())
-            .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-            .resolveWith(ConfigFactory.systemProperties(), ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        return ConfigFactory.parseFile(Common.connectorDir().resolve(PLUGIN_MAPPING_FILE).toFile())
+                .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
+                .resolveWith(
+                        ConfigFactory.systemProperties(),
+                        ConfigResolveOptions.defaults().setAllowUnresolved(true));
     }
 
     @Override
     public List<URL> getPluginJarPaths(List<PluginIdentifier> pluginIdentifiers) {
         return pluginIdentifiers.stream()
-            .map(this::getPluginJarPath)
-            .filter(Optional::isPresent)
-            .map(Optional::get).distinct()
-            .collect(Collectors.toList());
+                .map(this::getPluginJarPath)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .distinct()
+                .collect(Collectors.toList());
     }
 
     @Override
     public List<T> getAllPlugins(List<PluginIdentifier> pluginIdentifiers) {
         return pluginIdentifiers.stream()
-            .map(this::createPluginInstance).distinct()
-            .collect(Collectors.toList());
+                .map(this::createPluginInstance)
+                .distinct()
+                .collect(Collectors.toList());
     }
 
     /**
@@ -144,11 +153,18 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         }
         Config engineConfig = config.getConfig(CollectionConstants.SEATUNNEL_PLUGIN);
         if (engineConfig.hasPath(pluginType.getType())) {
-            engineConfig.getConfig(pluginType.getType()).entrySet().forEach(entry -> {
-                pluginIdentifiers.put(
-                    PluginIdentifier.of(CollectionConstants.SEATUNNEL_PLUGIN, pluginType.getType(), entry.getKey()),
-                    entry.getValue().unwrapped().toString());
-            });
+            engineConfig
+                    .getConfig(pluginType.getType())
+                    .entrySet()
+                    .forEach(
+                            entry -> {
+                                pluginIdentifiers.put(
+                                        PluginIdentifier.of(
+                                                CollectionConstants.SEATUNNEL_PLUGIN,
+                                                pluginType.getType(),
+                                                entry.getKey()),
+                                        entry.getValue().unwrapped().toString());
+                            });
         }
         return pluginIdentifiers;
     }
@@ -170,26 +186,33 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         // if the plugin jar not exist in classpath, will load from plugin dir.
         if (pluginJarPath.isPresent()) {
             try {
-                // use current thread classloader to avoid different classloader load same class error.
+                // use current thread classloader to avoid different classloader load same class
+                // error.
                 this.addURLToClassLoaderConsumer.accept(classLoader, pluginJarPath.get());
                 for (URL jar : pluginJars) {
                     addURLToClassLoaderConsumer.accept(classLoader, jar);
                 }
             } catch (Exception e) {
-                log.warn("can't load jar use current thread classloader, use URLClassLoader instead now." +
-                    " message: " + e.getMessage());
+                log.warn(
+                        "can't load jar use current thread classloader, use URLClassLoader instead now."
+                                + " message: "
+                                + e.getMessage());
                 URL[] urls = new URL[pluginJars.size() + 1];
                 int i = 0;
                 for (URL pluginJar : pluginJars) {
                     urls[i++] = pluginJar;
                 }
                 urls[i] = pluginJarPath.get();
-                classLoader = new URLClassLoader(urls, Thread.currentThread().getContextClassLoader());
+                classLoader =
+                        new URLClassLoader(urls, Thread.currentThread().getContextClassLoader());
             }
             pluginInstance = loadPluginInstance(pluginIdentifier, classLoader);
             if (pluginInstance != null) {
-                log.info("Load plugin: {} from path: {} use classloader: {}",
-                    pluginIdentifier, pluginJarPath.get(), classLoader.getClass().getName());
+                log.info(
+                        "Load plugin: {} from path: {} use classloader: {}",
+                        pluginIdentifier,
+                        pluginJarPath.get(),
+                        classLoader.getClass().getName());
                 return pluginInstance;
             }
         }
@@ -198,60 +221,68 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
 
     /**
      * Get all support plugin already in SEATUNNEL_HOME, only support connector-v2
+     *
      * @return the all plugin identifier of the engine
      */
     @SuppressWarnings("checkstyle:WhitespaceAfter")
-    public Map<PluginType, LinkedHashMap<PluginIdentifier, OptionRule>> getAllPlugin() throws IOException {
+    public Map<PluginType, LinkedHashMap<PluginIdentifier, OptionRule>> getAllPlugin()
+            throws IOException {
         List<Factory> factories;
         if (this.pluginDir.toFile().exists()) {
             log.info("load plugin from plugin dir: {}", this.pluginDir);
             List<URL> files = FileUtils.searchJarFiles(this.pluginDir);
-            factories = FactoryUtil.discoverFactories(new URLClassLoader(files.toArray(new URL[0])));
+            factories =
+                    FactoryUtil.discoverFactories(new URLClassLoader(files.toArray(new URL[0])));
         } else {
             log.info("plugin dir: {} not exists, load plugin from classpath", this.pluginDir);
-            factories = FactoryUtil.discoverFactories(Thread.currentThread().getContextClassLoader());
+            factories =
+                    FactoryUtil.discoverFactories(Thread.currentThread().getContextClassLoader());
         }
 
         Map<PluginType, LinkedHashMap<PluginIdentifier, OptionRule>> plugins = new HashMap<>();
 
-        factories.forEach(plugin -> {
-            if (TableSourceFactory.class.isAssignableFrom(plugin.getClass())) {
-                TableSourceFactory tableSourceFactory = (TableSourceFactory) plugin;
-                plugins.computeIfAbsent(PluginType.SOURCE, k -> new LinkedHashMap<>());
+        factories.forEach(
+                plugin -> {
+                    if (TableSourceFactory.class.isAssignableFrom(plugin.getClass())) {
+                        TableSourceFactory tableSourceFactory = (TableSourceFactory) plugin;
+                        plugins.computeIfAbsent(PluginType.SOURCE, k -> new LinkedHashMap<>());
 
-                plugins.get(PluginType.SOURCE).put(PluginIdentifier.of(
-                        "seatunnel",
-                        PluginType.SOURCE.getType(),
-                        plugin.factoryIdentifier()
-                    ),
-                    FactoryUtil.sourceFullOptionRule(tableSourceFactory));
-                return;
-            }
+                        plugins.get(PluginType.SOURCE)
+                                .put(
+                                        PluginIdentifier.of(
+                                                "seatunnel",
+                                                PluginType.SOURCE.getType(),
+                                                plugin.factoryIdentifier()),
+                                        FactoryUtil.sourceFullOptionRule(tableSourceFactory));
+                        return;
+                    }
 
-            if (TableSinkFactory.class.isAssignableFrom(plugin.getClass())) {
-                plugins.computeIfAbsent(PluginType.SINK, k -> new LinkedHashMap<>());
+                    if (TableSinkFactory.class.isAssignableFrom(plugin.getClass())) {
+                        plugins.computeIfAbsent(PluginType.SINK, k -> new LinkedHashMap<>());
 
-                plugins.get(PluginType.SINK).put(PluginIdentifier.of(
-                        "seatunnel",
-                        PluginType.SINK.getType(),
-                        plugin.factoryIdentifier()
-                    ),
-                    plugin.optionRule());
-                return;
-            }
+                        plugins.get(PluginType.SINK)
+                                .put(
+                                        PluginIdentifier.of(
+                                                "seatunnel",
+                                                PluginType.SINK.getType(),
+                                                plugin.factoryIdentifier()),
+                                        FactoryUtil.sinkFullOptionRule((TableSinkFactory) plugin));
+                        return;
+                    }
 
-            if (TableTransformFactory.class.isAssignableFrom(plugin.getClass())) {
-                plugins.computeIfAbsent(PluginType.TRANSFORM, k -> new LinkedHashMap<>());
+                    if (TableTransformFactory.class.isAssignableFrom(plugin.getClass())) {
+                        plugins.computeIfAbsent(PluginType.TRANSFORM, k -> new LinkedHashMap<>());
 
-                plugins.get(PluginType.TRANSFORM).put(PluginIdentifier.of(
-                        "seatunnel",
-                        PluginType.TRANSFORM.getType(),
-                        plugin.factoryIdentifier()
-                    ),
-                    plugin.optionRule());
-                return;
-            }
-        });
+                        plugins.get(PluginType.TRANSFORM)
+                                .put(
+                                        PluginIdentifier.of(
+                                                "seatunnel",
+                                                PluginType.TRANSFORM.getType(),
+                                                plugin.factoryIdentifier()),
+                                        plugin.optionRule());
+                        return;
+                    }
+                });
         return plugins;
     }
 
@@ -261,12 +292,14 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
             if (t instanceof PluginIdentifierInterface) {
                 // new api
                 PluginIdentifierInterface pluginIdentifierInstance = (PluginIdentifierInterface) t;
-                if (StringUtils.equalsIgnoreCase(pluginIdentifierInstance.getPluginName(),
-                    pluginIdentifier.getPluginName())) {
+                if (StringUtils.equalsIgnoreCase(
+                        pluginIdentifierInstance.getPluginName(),
+                        pluginIdentifier.getPluginName())) {
                     return (T) pluginIdentifierInstance;
                 }
             } else {
-                throw new UnsupportedOperationException("Plugin instance: " + t + " is not supported.");
+                throw new UnsupportedOperationException(
+                        "Plugin instance: " + t + " is not supported.");
             }
         }
         return null;
@@ -310,26 +343,35 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
             return Optional.empty();
         }
         Config typeConfig = engineConfig.getConfig(pluginType);
-        Optional<Map.Entry<String, ConfigValue>> optional = typeConfig.entrySet().stream()
-            .filter(entry -> StringUtils.equalsIgnoreCase(entry.getKey(), pluginName))
-            .findFirst();
+        Optional<Map.Entry<String, ConfigValue>> optional =
+                typeConfig.entrySet().stream()
+                        .filter(entry -> StringUtils.equalsIgnoreCase(entry.getKey(), pluginName))
+                        .findFirst();
         if (!optional.isPresent()) {
             return Optional.empty();
         }
         String pluginJarPrefix = optional.get().getValue().unwrapped().toString();
-        File[] targetPluginFiles = pluginDir.toFile().listFiles(new FileFilter() {
-            @Override
-            public boolean accept(File pathname) {
-                return pathname.getName().endsWith(".jar") &&
-                    StringUtils.startsWithIgnoreCase(pathname.getName(), pluginJarPrefix);
-            }
-        });
+        File[] targetPluginFiles =
+                pluginDir
+                        .toFile()
+                        .listFiles(
+                                new FileFilter() {
+                                    @Override
+                                    public boolean accept(File pathname) {
+                                        return pathname.getName().endsWith(".jar")
+                                                && StringUtils.startsWithIgnoreCase(
+                                                        pathname.getName(), pluginJarPrefix);
+                                    }
+                                });
         if (ArrayUtils.isEmpty(targetPluginFiles)) {
             return Optional.empty();
         }
         try {
             URL pluginJarPath = targetPluginFiles[0].toURI().toURL();
-            log.info("Discovery plugin jar: {} at: {}", pluginIdentifier.getPluginName(), pluginJarPath);
+            log.info(
+                    "Discovery plugin jar: {} at: {}",
+                    pluginIdentifier.getPluginName(),
+                    pluginJarPath);
             return Optional.of(pluginJarPath);
         } catch (MalformedURLException e) {
             log.warn("Cannot get plugin URL: " + targetPluginFiles[0], e);

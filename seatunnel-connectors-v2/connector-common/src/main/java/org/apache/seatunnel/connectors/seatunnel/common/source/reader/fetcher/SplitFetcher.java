@@ -37,13 +37,10 @@ import java.util.function.Consumer;
 
 @Slf4j
 public class SplitFetcher<E, SplitT extends SourceSplit> implements Runnable {
-    @Getter
-    private final int fetcherId;
+    @Getter private final int fetcherId;
     private final Deque<SplitFetcherTask> taskQueue = new ArrayDeque<>();
-    @Getter
-    private final Map<String, SplitT> assignedSplits = new HashMap<>();
-    @Getter
-    private final SplitReader<E, SplitT> splitReader;
+    @Getter private final Map<String, SplitT> assignedSplits = new HashMap<>();
+    @Getter private final SplitReader<E, SplitT> splitReader;
     private final Consumer<Throwable> errorHandler;
     private final Runnable shutdownHook;
     private final FetchTask fetchTask;
@@ -54,25 +51,27 @@ public class SplitFetcher<E, SplitT extends SourceSplit> implements Runnable {
     private final ReentrantLock lock = new ReentrantLock();
     private final Condition nonEmpty = lock.newCondition();
 
-    SplitFetcher(int fetcherId,
-                 @NonNull BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
-                 @NonNull SplitReader<E, SplitT> splitReader,
-                 @NonNull Consumer<Throwable> errorHandler,
-                 @NonNull Runnable shutdownHook,
-                 @NonNull Consumer<Collection<String>> splitFinishedHook) {
+    SplitFetcher(
+            int fetcherId,
+            @NonNull BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
+            @NonNull SplitReader<E, SplitT> splitReader,
+            @NonNull Consumer<Throwable> errorHandler,
+            @NonNull Runnable shutdownHook,
+            @NonNull Consumer<Collection<String>> splitFinishedHook) {
         this.fetcherId = fetcherId;
         this.splitReader = splitReader;
         this.errorHandler = errorHandler;
         this.shutdownHook = shutdownHook;
-        this.fetchTask = new FetchTask<>(
-            splitReader,
-            elementsQueue,
-            finishedSplits -> {
-                finishedSplits.forEach(assignedSplits::remove);
-                splitFinishedHook.accept(finishedSplits);
-                log.info("Finished reading from splits {}", finishedSplits);
-            },
-            fetcherId);
+        this.fetchTask =
+                new FetchTask<>(
+                        splitReader,
+                        elementsQueue,
+                        finishedSplits -> {
+                            finishedSplits.forEach(assignedSplits::remove);
+                            splitFinishedHook.accept(finishedSplits);
+                            log.info("Finished reading from splits {}", finishedSplits);
+                        },
+                        fetcherId);
     }
 
     @Override
@@ -163,8 +162,10 @@ public class SplitFetcher<E, SplitT extends SourceSplit> implements Runnable {
             nextTask.run();
         } catch (Exception e) {
             throw new RuntimeException(
-                String.format("SplitFetcher thread %d received unexpected exception while polling the records",
-                    fetcherId), e);
+                    String.format(
+                            "SplitFetcher thread %d received unexpected exception while polling the records",
+                            fetcherId),
+                    e);
         }
 
         // re-acquire lock as all post-processing steps, need it
@@ -194,7 +195,8 @@ public class SplitFetcher<E, SplitT extends SourceSplit> implements Runnable {
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new RuntimeException("The thread was interrupted while waiting for a fetcher task.");
+            throw new RuntimeException(
+                    "The thread was interrupted while waiting for a fetcher task.");
         }
     }
 

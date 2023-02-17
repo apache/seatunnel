@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.influxdb.config;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.common.annotations.VisibleForTesting;
 import lombok.Data;
@@ -31,40 +31,47 @@ import java.io.Serializable;
 @SuppressWarnings("checkstyle:MagicNumber")
 public class InfluxDBConfig implements Serializable {
 
-    public static final Option<String> USERNAME = Options.key("username")
-        .stringType()
-        .noDefaultValue()
-        .withDescription("the influxdb server username");
+    public static final Option<String> USERNAME =
+            Options.key("username")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("the influxdb server username");
 
-    public static final Option<String> PASSWORD = Options.key("password")
-        .stringType()
-        .noDefaultValue()
-        .withDescription("the influxdb server password");
+    public static final Option<String> PASSWORD =
+            Options.key("password")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("the influxdb server password");
 
-    public static final Option<String> URL = Options.key("url")
-        .stringType()
-        .noDefaultValue()
-        .withDescription("the influxdb server url");
+    public static final Option<String> URL =
+            Options.key("url")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("the influxdb server url");
 
-    public static final Option<Long> CONNECT_TIMEOUT_MS = Options.key("connect_timeout_ms")
-        .longType()
-        .defaultValue(15000L)
-        .withDescription("the influxdb client connect timeout ms");
+    public static final Option<Long> CONNECT_TIMEOUT_MS =
+            Options.key("connect_timeout_ms")
+                    .longType()
+                    .defaultValue(15000L)
+                    .withDescription("the influxdb client connect timeout ms");
 
-    public static final Option<Integer> QUERY_TIMEOUT_SEC = Options.key("query_timeout_sec")
-        .intType()
-        .defaultValue(3)
-        .withDescription("the influxdb client query timeout ms");
+    public static final Option<Integer> QUERY_TIMEOUT_SEC =
+            Options.key("query_timeout_sec")
+                    .intType()
+                    .defaultValue(3)
+                    .withDescription("the influxdb client query timeout ms");
 
-    public static final Option<String> DATABASES = Options.key("database")
-        .stringType()
-        .noDefaultValue()
-        .withDescription("the influxdb server database");
+    public static final Option<String> DATABASES =
+            Options.key("database")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("the influxdb server database");
 
-    public static final Option<String> EPOCH = Options.key("epoch")
-        .stringType()
-        .defaultValue("n")
-        .withDescription("the influxdb server query epoch");
+    public static final Option<String> EPOCH =
+            Options.key("epoch")
+                    .stringType()
+                    .defaultValue("n")
+                    .withDescription("the influxdb server query epoch");
 
     private static final String DEFAULT_FORMAT = "MSGPACK";
     private String url;

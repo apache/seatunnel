@@ -19,17 +19,15 @@ package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
 
-import lombok.Data;
 import org.apache.kafka.common.TopicPartition;
+
+import lombok.Data;
 
 import java.io.Serializable;
 import java.util.Map;
 import java.util.Properties;
 
-/**
- * Kafka consumer metadata, include topic, bootstrap server etc.
- */
-
+/** Kafka consumer metadata, include topic, bootstrap server etc. */
 @Data
 public class ConsumerMetadata implements Serializable {
 
@@ -42,5 +40,4 @@ public class ConsumerMetadata implements Serializable {
     private StartMode startMode = StartMode.GROUP_OFFSETS;
     private Map<TopicPartition, Long> specificStartOffsets;
     private Long startOffsetsTimestamp;
-
 }

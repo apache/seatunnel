@@ -26,5 +26,4 @@ public class CreateWorkerResult {
     private WorkerProfile workerProfile;
 
     private Throwable error;
-
 }

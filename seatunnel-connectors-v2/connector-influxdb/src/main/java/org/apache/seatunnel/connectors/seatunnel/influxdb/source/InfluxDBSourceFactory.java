@@ -17,6 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.influxdb.source;
 
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+
+import com.google.auto.service.AutoService;
+
 import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig.CONNECT_TIMEOUT_MS;
 import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig.DATABASES;
 import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig.EPOCH;
@@ -30,13 +38,6 @@ import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceCo
 import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig.SQL;
 import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig.UPPER_BOUND;
 
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-
-import com.google.auto.service.AutoService;
-
 @AutoService(Factory.class)
 public class InfluxDBSourceFactory implements TableSourceFactory {
     @Override
@@ -47,19 +48,11 @@ public class InfluxDBSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-            .required(
-                URL,
-                SQL,
-                DATABASES
-            )
-            .bundled(USERNAME, PASSWORD)
-            .bundled(LOWER_BOUND, UPPER_BOUND, PARTITION_NUM, SPLIT_COLUMN)
-            .optional(
-                EPOCH,
-                CONNECT_TIMEOUT_MS,
-                QUERY_TIMEOUT_SEC
-            )
-            .build();
+                .required(URL, SQL, DATABASES, SeaTunnelSchema.SCHEMA)
+                .bundled(USERNAME, PASSWORD)
+                .bundled(LOWER_BOUND, UPPER_BOUND, PARTITION_NUM, SPLIT_COLUMN)
+                .optional(EPOCH, CONNECT_TIMEOUT_MS, QUERY_TIMEOUT_SEC)
+                .build();
     }
 
     @Override

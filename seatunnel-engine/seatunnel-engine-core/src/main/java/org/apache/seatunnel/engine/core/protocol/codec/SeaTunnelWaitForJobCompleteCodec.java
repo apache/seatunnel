@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.engine.core.protocol.codec;
 
+import com.hazelcast.client.impl.protocol.ClientMessage;
+import com.hazelcast.client.impl.protocol.Generated;
+import com.hazelcast.client.impl.protocol.codec.builtin.DataCodec;
+
 import static com.hazelcast.client.impl.protocol.ClientMessage.PARTITION_ID_FIELD_OFFSET;
 import static com.hazelcast.client.impl.protocol.ClientMessage.RESPONSE_BACKUP_ACKS_FIELD_OFFSET;
 import static com.hazelcast.client.impl.protocol.ClientMessage.TYPE_FIELD_OFFSET;
@@ -24,39 +28,36 @@ import static com.hazelcast.client.impl.protocol.ClientMessage.UNFRAGMENTED_MESS
 import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCodec.BYTE_SIZE_IN_BYTES;
 import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCodec.INT_SIZE_IN_BYTES;
 import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCodec.LONG_SIZE_IN_BYTES;
-import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCodec.decodeInt;
 import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCodec.decodeLong;
 import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCodec.encodeInt;
 import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCodec.encodeLong;
-
-import com.hazelcast.client.impl.protocol.ClientMessage;
-import com.hazelcast.client.impl.protocol.Generated;
 
 /*
  * definitions on the https://github.com/hazelcast/hazelcast-client-protocol
  * to seatunnel-engine/seatunnel-engine-core/src/main/resources/client-protocol-definition/SeaTunnelEngine.yaml
  */
 
-@Generated("45a79cdd8ea874bd3c99b414d5f7639f")
+@Generated("a3d68a6968b7db8a71ab53d00085a575")
 public final class SeaTunnelWaitForJobCompleteCodec {
-    //hex: 0xDE0300
+    // hex: 0xDE0300
     public static final int REQUEST_MESSAGE_TYPE = 14549760;
-    //hex: 0xDE0301
+    // hex: 0xDE0301
     public static final int RESPONSE_MESSAGE_TYPE = 14549761;
-    private static final int REQUEST_JOB_ID_FIELD_OFFSET = PARTITION_ID_FIELD_OFFSET + INT_SIZE_IN_BYTES;
-    private static final int REQUEST_INITIAL_FRAME_SIZE = REQUEST_JOB_ID_FIELD_OFFSET + LONG_SIZE_IN_BYTES;
-    private static final int RESPONSE_JOB_STATUS_FIELD_OFFSET = RESPONSE_BACKUP_ACKS_FIELD_OFFSET + BYTE_SIZE_IN_BYTES;
-    private static final int RESPONSE_INITIAL_FRAME_SIZE = RESPONSE_JOB_STATUS_FIELD_OFFSET + INT_SIZE_IN_BYTES;
+    private static final int REQUEST_JOB_ID_FIELD_OFFSET =
+            PARTITION_ID_FIELD_OFFSET + INT_SIZE_IN_BYTES;
+    private static final int REQUEST_INITIAL_FRAME_SIZE =
+            REQUEST_JOB_ID_FIELD_OFFSET + LONG_SIZE_IN_BYTES;
+    private static final int RESPONSE_INITIAL_FRAME_SIZE =
+            RESPONSE_BACKUP_ACKS_FIELD_OFFSET + BYTE_SIZE_IN_BYTES;
 
-    private SeaTunnelWaitForJobCompleteCodec() {
-    }
+    private SeaTunnelWaitForJobCompleteCodec() {}
 
     public static ClientMessage encodeRequest(long jobId) {
         ClientMessage clientMessage = ClientMessage.createForEncode();
         clientMessage.setRetryable(true);
         clientMessage.setOperationName("SeaTunnel.WaitForJobComplete");
         ClientMessage.Frame initialFrame =
-            new ClientMessage.Frame(new byte[REQUEST_INITIAL_FRAME_SIZE], UNFRAGMENTED_MESSAGE);
+                new ClientMessage.Frame(new byte[REQUEST_INITIAL_FRAME_SIZE], UNFRAGMENTED_MESSAGE);
         encodeInt(initialFrame.content, TYPE_FIELD_OFFSET, REQUEST_MESSAGE_TYPE);
         encodeInt(initialFrame.content, PARTITION_ID_FIELD_OFFSET, -1);
         encodeLong(initialFrame.content, REQUEST_JOB_ID_FIELD_OFFSET, jobId);
@@ -64,29 +65,32 @@ public final class SeaTunnelWaitForJobCompleteCodec {
         return clientMessage;
     }
 
+    /** */
     public static long decodeRequest(ClientMessage clientMessage) {
         ClientMessage.ForwardFrameIterator iterator = clientMessage.frameIterator();
         ClientMessage.Frame initialFrame = iterator.next();
         return decodeLong(initialFrame.content, REQUEST_JOB_ID_FIELD_OFFSET);
     }
 
-    public static ClientMessage encodeResponse(int jobStatus) {
+    public static ClientMessage encodeResponse(
+            com.hazelcast.internal.serialization.Data jobResult) {
         ClientMessage clientMessage = ClientMessage.createForEncode();
         ClientMessage.Frame initialFrame =
-            new ClientMessage.Frame(new byte[RESPONSE_INITIAL_FRAME_SIZE], UNFRAGMENTED_MESSAGE);
+                new ClientMessage.Frame(
+                        new byte[RESPONSE_INITIAL_FRAME_SIZE], UNFRAGMENTED_MESSAGE);
         encodeInt(initialFrame.content, TYPE_FIELD_OFFSET, RESPONSE_MESSAGE_TYPE);
-        encodeInt(initialFrame.content, RESPONSE_JOB_STATUS_FIELD_OFFSET, jobStatus);
         clientMessage.add(initialFrame);
 
+        DataCodec.encode(clientMessage, jobResult);
         return clientMessage;
     }
 
-    /**
-     *
-     */
-    public static int decodeResponse(ClientMessage clientMessage) {
+    /** */
+    public static com.hazelcast.internal.serialization.Data decodeResponse(
+            ClientMessage clientMessage) {
         ClientMessage.ForwardFrameIterator iterator = clientMessage.frameIterator();
-        ClientMessage.Frame initialFrame = iterator.next();
-        return decodeInt(initialFrame.content, RESPONSE_JOB_STATUS_FIELD_OFFSET);
+        // empty initial frame
+        iterator.next();
+        return DataCodec.decode(iterator);
     }
 }

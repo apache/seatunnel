@@ -18,17 +18,43 @@ just for some test cases such as type conversion or connector new feature testin
 
 ## Options
 
-| name                | type   | required | default value |
-|---------------------|--------|----------|---------------|
-| schema              | config | yes      | -             |
-| row.num             | int    | no       | 5             |
-| split.num           | int    | no       | 1             |
-| split.read-interval | long   | no       | 1             |
-| map.size            | int    | no       | 5             |
-| array.size          | int    | no       | 5             |
-| bytes.length        | int    | no       | 5             |
-| string.length       | int    | no       | 5             |
-| common-options      |        | no       | -             |
+|        name         |   type   | required |      default value      |
+|---------------------|----------|----------|-------------------------|
+| schema              | config   | yes      | -                       |
+| rows                | config   | no       | -                       |
+| row.num             | int      | no       | 5                       |
+| split.num           | int      | no       | 1                       |
+| split.read-interval | long     | no       | 1                       |
+| map.size            | int      | no       | 5                       |
+| array.size          | int      | no       | 5                       |
+| bytes.length        | int      | no       | 5                       |
+| string.length       | int      | no       | 5                       |
+| string.fake.mode    | string   | no       | range                   |
+| tinyint.fake.mode   | string   | no       | range                   |
+| tinyint.min         | tinyint  | no       | 0                       |
+| tinyint.max         | tinyint  | no       | 127                     |
+| tinyint.template    | list     | no       | -                       |
+| smallint.fake.mode  | string   | no       | range                   |
+| smallint.min        | smallint | no       | 0                       |
+| smallint.max        | smallint | no       | 32767                   |
+| smallint.template   | list     | no       | -                       |
+| int.fake.template   | string   | no       | range                   |
+| int.min             | int      | no       | 0                       |
+| int.max             | int      | no       | 0x7fffffff              |
+| int.template        | list     | no       | -                       |
+| bigint.fake.mode    | string   | no       | range                   |
+| bigint.min          | bigint   | no       | 0                       |
+| bigint.max          | bigint   | no       | 0x7fffffffffffffff      |
+| bigint.template     | list     | no       | -                       |
+| float.fake.mode     | string   | no       | range                   |
+| float.min           | float    | no       | 0                       |
+| float.max           | float    | no       | 0x1.fffffeP+127         |
+| float.template      | list     | no       | -                       |
+| double.fake.mode    | string   | no       | range                   |
+| double.min          | double   | no       | 0                       |
+| double.max          | double   | no       | 0x1.fffffffffffffP+1023 |
+| double.template     | list     | no       | -                       |
+| common-options      |          | no       | -                       |
 
 ### schema [config]
 
@@ -39,9 +65,25 @@ The schema of fake data that you want to generate
 #### Examples
 
 ```hocon
-  schema = {
-    fields {
-      c_map = "map<string, array<int>>"
+schema = {
+  fields {
+    c_map = "map<string, array<int>>"
+    c_array = "array<int>"
+    c_string = string
+    c_boolean = boolean
+    c_tinyint = tinyint
+    c_smallint = smallint
+    c_int = int
+    c_bigint = bigint
+    c_float = float
+    c_double = double
+    c_decimal = "decimal(30, 8)"
+    c_null = "null"
+    c_bytes = bytes
+    c_date = date
+    c_timestamp = timestamp
+    c_row = {
+      c_map = "map<string, map<string, string>>"
       c_array = "array<int>"
       c_string = string
       c_boolean = boolean
@@ -56,25 +98,36 @@ The schema of fake data that you want to generate
       c_bytes = bytes
       c_date = date
       c_timestamp = timestamp
-      c_row = {
-        c_map = "map<string, map<string, string>>"
-        c_array = "array<int>"
-        c_string = string
-        c_boolean = boolean
-        c_tinyint = tinyint
-        c_smallint = smallint
-        c_int = int
-        c_bigint = bigint
-        c_float = float
-        c_double = double
-        c_decimal = "decimal(30, 8)"
-        c_null = "null"
-        c_bytes = bytes
-        c_date = date
-        c_timestamp = timestamp
-      }
     }
   }
+}
+```
+
+### rows
+
+The row list of fake data output per degree of parallelism
+
+example
+
+```hocon
+rows = [
+  {
+    kind = INSERT
+    fields = [1, "A", 100]
+  },
+  {
+    kind = UPDATE_BEFORE
+    fields = [1, "A", 100]
+  },
+  {
+    kind = UPDATE_AFTER
+    fields = [1, "A_1", 100]
+  },
+  {
+    kind = DELETE
+    fields = [1, "A_1", 100]
+  }
+]
 ```
 
 ### row.num
@@ -105,11 +158,117 @@ The length of `bytes` type that connector generated
 
 The length of `string` type that connector generated
 
+### string.fake.mode
+
+The fake mode of generating string data, support `range` and `template`, default `range`，if use configured it to `template`, user should also configured `string.template` option
+
+### string.template
+
+The template list of string type that connector generated, if user configured it, connector will randomly select an item from the template list
+
+### tinyint.fake.mode
+
+The fake mode of generating tinyint data, support `range` and `template`, default `range`，if use configured it to `template`, user should also configured `tinyint.template` option
+
+### tinyint.min
+
+The min value of tinyint data that connector generated
+
+### tinyint.max
+
+The max value of tinyint data that connector generated
+
+### tinyint.template
+
+The template list of tinyint type that connector generated, if user configured it, connector will randomly select an item from the template list
+
+### smallint.fake.mode
+
+The fake mode of generating smallint data, support `range` and `template`, default `range`，if use configured it to `template`, user should also configured `smallint.template` option
+
+### smallint.min
+
+The min value of smallint data that connector generated
+
+### smallint.max
+
+The max value of smallint data that connector generated
+
+### smallint.template
+
+The template list of smallint type that connector generated, if user configured it, connector will randomly select an item from the template list
+
+### int.fake.mode
+
+The fake mode of generating int data, support `range` and `template`, default `range`，if use configured it to `template`, user should also configured `int.template` option
+
+### int.min
+
+The min value of int data that connector generated
+
+### int.max
+
+The max value of int data that connector generated
+
+### int.template
+
+The template list of int type that connector generated, if user configured it, connector will randomly select an item from the template list
+
+### bigint.fake.mode
+
+The fake mode of generating bigint data, support `range` and `template`, default `range`，if use configured it to `template`, user should also configured `bigint.template` option
+
+### bigint.min
+
+The min value of bigint data that connector generated
+
+### bigint.max
+
+The max value of bigint data that connector generated
+
+### bigint.template
+
+The template list of bigint type that connector generated, if user configured it, connector will randomly select an item from the template list
+
+### float.fake.mode
+
+The fake mode of generating float data, support `range` and `template`, default `range`，if use configured it to `template`, user should also configured `float.template` option
+
+### float.min
+
+The min value of float data that connector generated
+
+### float.max
+
+The max value of float data that connector generated
+
+### float.template
+
+The template list of float type that connector generated, if user configured it, connector will randomly select an item from the template list
+
+### double.fake.mode
+
+The fake mode of generating float data, support `range` and `template`, default `range`，if use configured it to `template`, user should also configured `double.template` option
+
+### double.min
+
+The min value of double data that connector generated
+
+### double.max
+
+The max value of double data that connector generated
+
+### double.template
+
+The template list of double type that connector generated, if user configured it, connector will randomly select an item from the template list
+
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
 ## Example
+
+Auto generate data rows
 
 ```hocon
 FakeSource {
@@ -157,6 +316,111 @@ FakeSource {
 }
 ```
 
+Using fake data rows
+
+```hocon
+FakeSource {
+  schema = {
+    fields {
+      pk_id = bigint
+      name = string
+      score = int
+    }
+  }
+  rows = [
+    {
+      kind = INSERT
+      fields = [1, "A", 100]
+    },
+    {
+      kind = INSERT
+      fields = [2, "B", 100]
+    },
+    {
+      kind = INSERT
+      fields = [3, "C", 100]
+    },
+    {
+      kind = UPDATE_BEFORE
+      fields = [1, "A", 100]
+    },
+    {
+      kind = UPDATE_AFTER
+      fields = [1, "A_1", 100]
+    },
+    {
+      kind = DELETE
+      fields = [2, "B", 100]
+    }
+  ]
+}
+```
+
+Using template
+
+```hocon
+FakeSource {
+  row.num = 5
+  string.fake.mode = "template"
+  string.template = ["tyrantlucifer", "hailin", "kris", "fanjia", "zongwen", "gaojun"]
+  tinyint.fake.mode = "template"
+  tinyint.template = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+  smalling.fake.mode = "template"
+  smallint.template = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+  int.fake.mode = "template"
+  int.template = [20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
+  bigint.fake.mode = "template"
+  bigint.template = [30, 31, 32, 33, 34, 35, 36, 37, 38, 39]
+  float.fake.mode = "template"
+  float.template = [40.0, 41.0, 42.0, 43.0]
+  double.fake.mode = "template"
+  double.template = [44.0, 45.0, 46.0, 47.0]
+  schema {
+    fields {
+      c_string = string
+      c_tinyint = tinyint
+      c_smallint = smallint
+      c_int = int
+      c_bigint = bigint
+      c_float = float
+      c_double = double
+    }
+  }
+}
+```
+
+Use range
+
+```hocon
+FakeSource {
+  row.num = 5
+  string.template = ["tyrantlucifer", "hailin", "kris", "fanjia", "zongwen", "gaojun"]
+  tinyint.min = 1
+  tinyint.max = 9
+  smallint.min = 10
+  smallint.max = 19
+  int.min = 20
+  int.max = 29
+  bigint.min = 30
+  bigint.max = 39
+  float.min = 40.0
+  float.max = 43.0
+  double.min = 44.0
+  double.max = 47.0
+  schema {
+    fields {
+      c_string = string
+      c_tinyint = tinyint
+      c_smallint = smallint
+      c_int = int
+      c_bigint = bigint
+      c_float = float
+      c_double = double
+    }
+  }
+}
+```
+
 ## Changelog
 
 ### 2.2.0-beta 2022-09-26
@@ -173,3 +437,9 @@ FakeSource {
   - Support user-defined bytes length
 - [Improve] Support multiple splits for fake source connector ([2974](https://github.com/apache/incubator-seatunnel/pull/2974))
 - [Improve] Supports setting the number of splits per parallelism and the reading interval between two splits ([3098](https://github.com/apache/incubator-seatunnel/pull/3098))
+
+### next version
+
+- [Feature] Support config fake data rows [3865](https://github.com/apache/incubator-seatunnel/pull/3865)
+- [Feature] Support config template or range for fake data [3932](https://github.com/apache/incubator-seatunnel/pull/3932)
+

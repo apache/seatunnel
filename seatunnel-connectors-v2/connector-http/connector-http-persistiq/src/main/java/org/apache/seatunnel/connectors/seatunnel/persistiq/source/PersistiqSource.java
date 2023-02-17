@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.persistiq.source;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -30,15 +32,15 @@ import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.persistiq.source.config.PersistiqSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.persistiq.source.config.PersistiqSourceParameter;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @AutoService(SeaTunnelSource.class)
 public class PersistiqSource extends HttpSource {
-    private final PersistiqSourceParameter persistiqSourceParameter = new PersistiqSourceParameter();
+    private final PersistiqSourceParameter persistiqSourceParameter =
+            new PersistiqSourceParameter();
+
     @Override
     public String getPluginName() {
         return "Persistiq";
@@ -46,7 +48,11 @@ public class PersistiqSource extends HttpSource {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, PersistiqSourceConfig.URL.key(), PersistiqSourceConfig.PASSWORD.key());
+        CheckResult result =
+                CheckConfigUtil.checkAllExists(
+                        pluginConfig,
+                        PersistiqSourceConfig.URL.key(),
+                        PersistiqSourceConfig.PASSWORD.key());
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
@@ -55,7 +61,13 @@ public class PersistiqSource extends HttpSource {
     }
 
     @Override
-    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new HttpSourceReader(this.persistiqSourceParameter, readerContext, this.deserializationSchema, jsonField, contentField);
+    public AbstractSingleSplitReader<SeaTunnelRow> createReader(
+            SingleSplitReaderContext readerContext) throws Exception {
+        return new HttpSourceReader(
+                this.persistiqSourceParameter,
+                readerContext,
+                this.deserializationSchema,
+                jsonField,
+                contentField);
     }
 }

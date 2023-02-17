@@ -21,7 +21,7 @@ If you use SeaTunnel Engine, You need put seatunnel-hadoop3-3.1.4-uber.jar and h
 
 Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
 
-- [ ] [column projection](../../concept/connector-v2-features.md)
+- [x] [schema projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 - [x] file format
@@ -33,11 +33,15 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 
 ## Options
 
-| name           | type   | required | default value |
-|----------------|--------|----------|---------------|
-| table_name     | string | yes      | -             |
-| metastore_uri  | string | yes      | -             |
-| common-options |        | no       | -             |
+|         name         |  type  | required | default value |
+|----------------------|--------|----------|---------------|
+| table_name           | string | yes      | -             |
+| metastore_uri        | string | yes      | -             |
+| kerberos_principal   | string | no       | -             |
+| kerberos_keytab_path | string | no       | -             |
+| hdfs_site_path       | string | no       | -             |
+| read_partitions      | list   | no       | -             |
+| common-options       |        | no       | -             |
 
 ### table_name [string]
 
@@ -47,7 +51,26 @@ Target Hive table name eg: db1.table1
 
 Hive metastore uri
 
-### common options 
+### hdfs_site_path [string]
+
+The path of `hdfs-site.xml`, used to load ha configuration of namenodes
+
+### read_partitions [list]
+
+The target partitions that user want to read from hive table, if user does not set this parameter, it will read all the data from hive table.
+
+**Tips: Every partition in partitions list should have the same directory depth. For example, a hive table has two partitions: par1 and par2, if user sets it like as the following:**
+**read_partitions = [par1=xxx, par1=yyy/par2=zzz], it is illegal**
+
+### kerberos_principal [string]
+
+The principal of kerberos authentication
+
+### kerberos_keytab_path [string]
+
+The keytab file path of kerberos authentication
+
+### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
@@ -67,3 +90,9 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 ### 2.2.0-beta 2022-09-26
 
 - Add Hive Source Connector
+
+### Next version
+
+- [Improve] Support kerberos authentication ([3840](https://github.com/apache/incubator-seatunnel/pull/3840))
+- Support user-defined partitions ([3842](https://github.com/apache/incubator-seatunnel/pull/3842))
+

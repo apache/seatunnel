@@ -19,18 +19,15 @@ package org.apache.seatunnel.engine.core.job;
 
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 
-/**
- * Job interface define the Running job apis
- */
+/** Job interface define the Running job apis */
 public interface Job {
     long getJobId();
 
-    PassiveCompletableFuture<JobStatus> doWaitForJobComplete();
+    PassiveCompletableFuture<JobResult> doWaitForJobComplete();
 
     void cancelJob();
 
     JobStatus getJobStatus();
 
     JobStatus waitForJobComplete();
-
 }

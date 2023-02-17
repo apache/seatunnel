@@ -34,7 +34,7 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.client.CassandraClient;
-import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraParameters;
+import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.exception.CassandraConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.exception.CassandraConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.util.TypeConvertUtil;
@@ -63,8 +63,10 @@ public class CassandraSource extends AbstractSingleSplitSource<SeaTunnelRow> imp
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult checkResult = CheckConfigUtil.checkAllExists(pluginConfig, HOST.key(), KEYSPACE.key(), CQL.key());
         if (!checkResult.isSuccess()) {
-            throw new CassandraConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+            throw new CassandraConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, checkResult.getMsg()));
         }
         this.cassandraParameters.buildWithConfig(pluginConfig);
@@ -79,7 +81,7 @@ public class CassandraSource extends AbstractSingleSplitSource<SeaTunnelRow> imp
             ).one();
             if (rs == null) {
                 throw new CassandraConnectorException(CassandraConnectorErrorCode.NO_DATA_IN_SOURCE_TABLE,
-                        "No data select from this cql: " + pluginConfig.getString(CQL.key()));
+                        "No data select from this cql: " + cassandraConfig.getCql());
             }
             int columnSize = rs.getColumnDefinitions().size();
             String[] fieldNames = new String[columnSize];
@@ -90,8 +92,10 @@ public class CassandraSource extends AbstractSingleSplitSource<SeaTunnelRow> imp
             }
             this.rowTypeInfo = new SeaTunnelRowType(fieldNames, seaTunnelDataTypes);
         } catch (Exception e) {
-            throw new CassandraConnectorException(CommonErrorCode.TABLE_SCHEMA_GET_FAILED,
-                    "Get table schema from cassandra source data failed", e);
+            throw new CassandraConnectorException(
+                    CommonErrorCode.TABLE_SCHEMA_GET_FAILED,
+                    "Get table schema from cassandra source data failed",
+                    e);
         }
     }
 
@@ -107,8 +111,7 @@ public class CassandraSource extends AbstractSingleSplitSource<SeaTunnelRow> imp
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new CassandraSourceReader(cassandraParameters, readerContext);
+        return new CassandraSourceReader(cassandraConfig, readerContext);
     }
 
 }
-

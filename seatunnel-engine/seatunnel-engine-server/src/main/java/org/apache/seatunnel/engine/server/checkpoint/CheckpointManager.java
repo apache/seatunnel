@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
-import static org.apache.seatunnel.engine.common.Constant.IMAP_CHECKPOINT_ID;
-
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFactory;
@@ -54,11 +52,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.engine.common.Constant.IMAP_CHECKPOINT_ID;
+
 /**
  * Used to manage all checkpoints for a job.
- * <p>
- * Maintain the life cycle of the {@link CheckpointCoordinator} through the {@link CheckpointPlan} and the status of the job.
- * </p>
+ *
+ * <p>Maintain the life cycle of the {@link CheckpointCoordinator} through the {@link
+ * CheckpointPlan} and the status of the job.
  */
 @Slf4j
 public class CheckpointManager {
@@ -68,8 +68,8 @@ public class CheckpointManager {
     private final NodeEngine nodeEngine;
 
     /**
-     * key: the pipeline id of the job;
-     * <br> value: the checkpoint coordinator of the pipeline;
+     * key: the pipeline id of the job; <br>
+     * value: the checkpoint coordinator of the pipeline;
      */
     private final Map<Integer, CheckpointCoordinator> coordinatorMap;
 
@@ -77,61 +77,92 @@ public class CheckpointManager {
 
     private final JobMaster jobMaster;
 
-    public CheckpointManager(long jobId,
-                             NodeEngine nodeEngine,
-                             JobMaster jobMaster,
-                             Map<Integer, CheckpointPlan> checkpointPlanMap,
-                             CheckpointConfig checkpointConfig) throws CheckpointStorageException {
+    public CheckpointManager(
+            long jobId,
+            boolean isStartWithSavePoint,
+            NodeEngine nodeEngine,
+            JobMaster jobMaster,
+            Map<Integer, CheckpointPlan> checkpointPlanMap,
+            CheckpointConfig checkpointConfig)
+            throws CheckpointStorageException {
         this.jobId = jobId;
         this.nodeEngine = nodeEngine;
         this.jobMaster = jobMaster;
         this.checkpointStorage =
-            FactoryUtil.discoverFactory(Thread.currentThread().getContextClassLoader(), CheckpointStorageFactory.class,
-                    checkpointConfig.getStorage().getStorage())
-                .create(checkpointConfig.getStorage().getStoragePluginConfig());
+                FactoryUtil.discoverFactory(
+                                Thread.currentThread().getContextClassLoader(),
+                                CheckpointStorageFactory.class,
+                                checkpointConfig.getStorage().getStorage())
+                        .create(checkpointConfig.getStorage().getStoragePluginConfig());
         IMap<Integer, Long> checkpointIdMap =
-            nodeEngine.getHazelcastInstance().getMap(String.format(IMAP_CHECKPOINT_ID, jobId));
-        this.coordinatorMap = checkpointPlanMap.values().parallelStream()
-            .map(plan -> {
-                IMapCheckpointIDCounter idCounter = new IMapCheckpointIDCounter(plan.getPipelineId(), checkpointIdMap);
-                try {
-                    idCounter.start();
-                    // TODO: support savepoint
-                    PipelineState pipelineState = null;
-                    if (idCounter.get() != CheckpointIDCounter.INITIAL_CHECKPOINT_ID) {
-                        pipelineState =
-                            checkpointStorage.getCheckpoint(String.valueOf(jobId), String.valueOf(plan.getPipelineId()),
-                                String.valueOf(idCounter.get() - 1));
-                    }
-                    return new CheckpointCoordinator(this,
-                        checkpointStorage,
-                        checkpointConfig,
-                        jobId,
-                        plan,
-                        idCounter,
-                        pipelineState);
-                } catch (Exception e) {
-                    ExceptionUtil.sneakyThrow(e);
-                }
-                throw new RuntimeException("Never throw here.");
-            }).collect(Collectors.toMap(CheckpointCoordinator::getPipelineId, Function.identity()));
+                nodeEngine.getHazelcastInstance().getMap(String.format(IMAP_CHECKPOINT_ID, jobId));
+        this.coordinatorMap =
+                checkpointPlanMap
+                        .values()
+                        .parallelStream()
+                        .map(
+                                plan -> {
+                                    IMapCheckpointIDCounter idCounter =
+                                            new IMapCheckpointIDCounter(
+                                                    plan.getPipelineId(), checkpointIdMap);
+                                    try {
+                                        idCounter.start();
+                                        PipelineState pipelineState = null;
+                                        if (isStartWithSavePoint) {
+                                            pipelineState =
+                                                    checkpointStorage
+                                                            .getLatestCheckpointByJobIdAndPipelineId(
+                                                                    String.valueOf(jobId),
+                                                                    String.valueOf(
+                                                                            plan.getPipelineId()));
+                                            long checkpointId = pipelineState.getCheckpointId();
+                                            idCounter.setCount(checkpointId);
+                                            log.info(
+                                                    "pipeline({}) start with savePoint on checkPointId({})",
+                                                    plan.getPipelineId(),
+                                                    checkpointId);
+                                        } else if (idCounter.get()
+                                                != CheckpointIDCounter.INITIAL_CHECKPOINT_ID) {
+                                            pipelineState =
+                                                    checkpointStorage.getCheckpoint(
+                                                            String.valueOf(jobId),
+                                                            String.valueOf(plan.getPipelineId()),
+                                                            String.valueOf(idCounter.get() - 1));
+                                        }
+                                        return new CheckpointCoordinator(
+                                                this,
+                                                checkpointStorage,
+                                                checkpointConfig,
+                                                jobId,
+                                                plan,
+                                                idCounter,
+                                                pipelineState);
+                                    } catch (Exception e) {
+                                        ExceptionUtil.sneakyThrow(e);
+                                    }
+                                    throw new RuntimeException("Never throw here.");
+                                })
+                        .collect(
+                                Collectors.toMap(
+                                        CheckpointCoordinator::getPipelineId, Function.identity()));
     }
 
     /**
-     * Called by the JobMaster, actually triggered by the user.
-     * <br> After the savepoint is triggered, it will cause the job to stop automatically.
+     * Called by the JobMaster, actually triggered by the user. <br>
+     * After the savepoint is triggered, it will cause the job to stop automatically.
      */
     @SuppressWarnings("unchecked")
     public PassiveCompletableFuture<CompletedCheckpoint>[] triggerSavepoints() {
-        return coordinatorMap.values()
-            .parallelStream()
-            .map(CheckpointCoordinator::startSavepoint)
-            .toArray(PassiveCompletableFuture[]::new);
+        return coordinatorMap
+                .values()
+                .parallelStream()
+                .map(CheckpointCoordinator::startSavepoint)
+                .toArray(PassiveCompletableFuture[]::new);
     }
 
     /**
-     * Called by the JobMaster, actually triggered by the user.
-     * <br> After the savepoint is triggered, it will cause the pipeline to stop automatically.
+     * Called by the JobMaster, actually triggered by the user. <br>
+     * After the savepoint is triggered, it will cause the pipeline to stop automatically.
      */
     public PassiveCompletableFuture<CompletedCheckpoint> triggerSavepoint(int pipelineId) {
         return getCheckpointCoordinator(pipelineId).startSavepoint();
@@ -152,81 +183,108 @@ public class CheckpointManager {
     private CheckpointCoordinator getCheckpointCoordinator(int pipelineId) {
         CheckpointCoordinator coordinator = coordinatorMap.get(pipelineId);
         if (coordinator == null) {
-            throw new RuntimeException(String.format("The checkpoint coordinator(%s) don't exist", pipelineId));
+            throw new RuntimeException(
+                    String.format("The checkpoint coordinator(%s) don't exist", pipelineId));
         }
         return coordinator;
     }
 
     /**
-     * Called by the {@link Task}.
-     * <br> used by Task to report the {@link SeaTunnelTaskState} of the state machine.
+     * Called by the {@link Task}. <br>
+     * used by Task to report the {@link SeaTunnelTaskState} of the state machine.
      */
     public void reportedTask(TaskReportStatusOperation reportStatusOperation) {
         // task address may change during restore.
-        log.debug("reported task({}) status {}", reportStatusOperation.getLocation().getTaskID(),
-            reportStatusOperation.getStatus());
-        getCheckpointCoordinator(reportStatusOperation.getLocation()).reportedTask(reportStatusOperation);
+        log.debug(
+                "reported task({}) status {}",
+                reportStatusOperation.getLocation().getTaskID(),
+                reportStatusOperation.getStatus());
+        getCheckpointCoordinator(reportStatusOperation.getLocation())
+                .reportedTask(reportStatusOperation);
     }
 
     /**
-     * Called by the {@link SourceSplitEnumeratorTask}.
-     * <br> used by SourceSplitEnumeratorTask to tell CheckpointCoordinator pipeline will trigger close barrier by SourceSplitEnumeratorTask.
+     * Called by the {@link SourceSplitEnumeratorTask}. <br>
+     * used by SourceSplitEnumeratorTask to tell CheckpointCoordinator pipeline will trigger close
+     * barrier by SourceSplitEnumeratorTask.
      */
     public void readyToClose(TaskLocation taskLocation) {
         getCheckpointCoordinator(taskLocation).readyToClose(taskLocation);
     }
 
     /**
-     * Called by the JobMaster.
-     * <br> Listen to the {@link PipelineStatus} of the {@link SubPlan}, which is used to cancel the running {@link PendingCheckpoint} when the SubPlan is abnormal.
+     * Called by the JobMaster. <br>
+     * Listen to the {@link PipelineStatus} of the {@link SubPlan}, which is used to cancel the
+     * running {@link PendingCheckpoint} when the SubPlan is abnormal.
      */
-    public CompletableFuture<Void> listenPipelineRetry(int pipelineId, PipelineStatus pipelineStatus) {
-        getCheckpointCoordinator(pipelineId).cleanPendingCheckpoint(CheckpointCloseReason.PIPELINE_END);
+    public CompletableFuture<Void> listenPipelineRetry(
+            int pipelineId, PipelineStatus pipelineStatus) {
+        getCheckpointCoordinator(pipelineId)
+                .cleanPendingCheckpoint(CheckpointCloseReason.PIPELINE_END);
         return CompletableFuture.completedFuture(null);
     }
 
     /**
-     * Called by the JobMaster.
-     * <br> Listen to the {@link PipelineStatus} of the {@link Pipeline}, which is used to shut down the running {@link CheckpointIDCounter} at the end of the pipeline.
+     * Called by the JobMaster. <br>
+     * Listen to the {@link PipelineStatus} of the {@link Pipeline}, which is used to shut down the
+     * running {@link CheckpointIDCounter} at the end of the pipeline.
      */
     public CompletableFuture<Void> listenPipeline(int pipelineId, PipelineStatus pipelineStatus) {
-        return getCheckpointCoordinator(pipelineId).getCheckpointIdCounter().shutdown(pipelineStatus);
+        return getCheckpointCoordinator(pipelineId)
+                .getCheckpointIdCounter()
+                .shutdown(pipelineStatus);
     }
 
     /**
-     * Called by the JobMaster.
-     * <br> Listen to the {@link JobStatus} of the {@link Job}.
+     * Called by the JobMaster. <br>
+     * Listen to the {@link JobStatus} of the {@link Job}.
      */
     public CompletableFuture<Void> shutdown(JobStatus jobStatus) {
-        if (jobStatus == JobStatus.FINISHED) {
+        if ((jobStatus == JobStatus.FINISHED || jobStatus == JobStatus.CANCELED)
+                && !isSavePointEnd()) {
             checkpointStorage.deleteCheckpoint(jobId + "");
         }
         return CompletableFuture.completedFuture(null);
     }
 
     /**
-     * Called by the JobMaster.
-     * <br> Returns whether the pipeline has completed; No need to deploy/restore the {@link SubPlan} if the pipeline has been completed;
+     * Called by the JobMaster. <br>
+     * Returns whether the pipeline has completed; No need to deploy/restore the {@link SubPlan} if
+     * the pipeline has been completed;
      */
     public boolean isCompletedPipeline(int pipelineId) {
         return getCheckpointCoordinator(pipelineId).isCompleted();
     }
 
     /**
-     * Called by the {@link Task}.
-     * <br> used for the ack of the checkpoint, including the state snapshot of all {@link Action} within the {@link Task}.
+     * Called by the {@link Task}. <br>
+     * used for the ack of the checkpoint, including the state snapshot of all {@link Action} within
+     * the {@link Task}.
      */
     public void acknowledgeTask(TaskAcknowledgeOperation ackOperation) {
-        CheckpointCoordinator coordinator = getCheckpointCoordinator(ackOperation.getTaskLocation());
+        CheckpointCoordinator coordinator =
+                getCheckpointCoordinator(ackOperation.getTaskLocation());
         if (coordinator.isCompleted()) {
-            log.info("The checkpoint coordinator({}) is completed", ackOperation.getTaskLocation().getPipelineId());
+            log.info(
+                    "The checkpoint coordinator({}) is completed",
+                    ackOperation.getTaskLocation().getPipelineId());
             return;
         }
         coordinator.acknowledgeTask(ackOperation);
     }
 
+    public boolean isSavePointEnd() {
+        return coordinatorMap.values().stream()
+                .map(CheckpointCoordinator::isEndOfSavePoint)
+                .reduce((v1, v2) -> v1 && v2)
+                .orElse(false);
+    }
+
     protected InvocationFuture<?> sendOperationToMemberNode(TaskOperation operation) {
-        return NodeEngineUtil.sendOperationToMemberNode(nodeEngine, operation,
-            jobMaster.queryTaskGroupAddress(operation.getTaskLocation().getTaskGroupLocation().getTaskGroupId()));
+        return NodeEngineUtil.sendOperationToMemberNode(
+                nodeEngine,
+                operation,
+                jobMaster.queryTaskGroupAddress(
+                        operation.getTaskLocation().getTaskGroupLocation().getTaskGroupId()));
     }
 }

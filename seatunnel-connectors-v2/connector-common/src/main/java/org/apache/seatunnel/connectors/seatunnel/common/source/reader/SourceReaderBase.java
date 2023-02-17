@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.common.source.reader;
 
-import static com.google.common.base.Preconditions.checkState;
-
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceEvent;
@@ -36,26 +34,27 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * An abstract implementation of {@link SourceReader} which provides some synchronization between
  * the mail box main thread and the SourceReader internal threads. This class allows user to just
  * provide a {@link SplitReader} and snapshot the split state.
  *
- * @param <E>           The type of the records (the raw type that typically contains checkpointing information).
- *
- * @param <T>           The final type of the records emitted by the source.
- *
+ * @param <E> The type of the records (the raw type that typically contains checkpointing
+ *     information).
+ * @param <T> The final type of the records emitted by the source.
  * @param <SplitT>
- *
  * @param <SplitStateT>
- *
  */
 @Slf4j
 public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitStateT>
-    implements SourceReader<T, SplitT> {
+        implements SourceReader<T, SplitT> {
     private final BlockingQueue<RecordsWithSplitIds<E>> elementsQueue;
-    private final Map<String, SplitContext<T, SplitStateT>> splitStates;
+    private final ConcurrentMap<String, SplitContext<T, SplitStateT>> splitStates;
     protected final RecordEmitter<E, T, SplitStateT> recordEmitter;
     protected final SplitFetcherManager<E, SplitT> splitFetcherManager;
     protected final SourceReaderOptions options;
@@ -66,15 +65,16 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
     private Collector<T> currentSplitOutput;
     private boolean noMoreSplitsAssignment;
 
-    public SourceReaderBase(BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
-                            SplitFetcherManager<E, SplitT> splitFetcherManager,
-                            RecordEmitter<E, T, SplitStateT> recordEmitter,
-                            SourceReaderOptions options,
-                            SourceReader.Context context) {
+    public SourceReaderBase(
+            BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
+            SplitFetcherManager<E, SplitT> splitFetcherManager,
+            RecordEmitter<E, T, SplitStateT> recordEmitter,
+            SourceReaderOptions options,
+            SourceReader.Context context) {
         this.elementsQueue = elementsQueue;
         this.splitFetcherManager = splitFetcherManager;
         this.recordEmitter = recordEmitter;
-        this.splitStates = new HashMap<>();
+        this.splitStates = new ConcurrentHashMap<>();
         this.options = options;
         this.context = context;
     }
@@ -91,9 +91,9 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
             recordsWithSplitId = getNextFetch(output);
             if (recordsWithSplitId == null) {
                 if (Boundedness.BOUNDED.equals(context.getBoundedness())
-                    && noMoreSplitsAssignment
-                    && splitFetcherManager.maybeShutdownFinishedFetchers()
-                    && elementsQueue.isEmpty()) {
+                        && noMoreSplitsAssignment
+                        && splitFetcherManager.maybeShutdownFinishedFetchers()
+                        && elementsQueue.isEmpty()) {
                     context.signalNoMoreElement();
                     log.info("Send NoMoreElement event");
                 }
@@ -123,10 +123,13 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
     @Override
     public void addSplits(List<SplitT> splits) {
         log.info("Adding split(s) to reader: {}", splits);
-        splits.forEach(split -> {
-            // Initialize the state for each split.
-            splitStates.put(split.splitId(), new SplitContext<>(split.splitId(), initializedState(split)));
-        });
+        splits.forEach(
+                split -> {
+                    // Initialize the state for each split.
+                    splitStates.put(
+                            split.splitId(),
+                            new SplitContext<>(split.splitId(), initializedState(split)));
+                });
         splitFetcherManager.addSplits(splits);
     }
 
@@ -163,7 +166,8 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
         return recordsWithSplitId;
     }
 
-    private boolean moveToNextSplit(RecordsWithSplitIds<E> recordsWithSplitIds, Collector<T> output) {
+    private boolean moveToNextSplit(
+            RecordsWithSplitIds<E> recordsWithSplitIds, Collector<T> output) {
         final String nextSplitId = recordsWithSplitIds.nextSplit();
         if (nextSplitId == null) {
             log.trace("Current fetch is finished.");
@@ -188,7 +192,8 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
             log.info("Finished reading split(s) {}", finishedSplits);
             Map<String, SplitStateT> stateOfFinishedSplits = new HashMap<>();
             for (String finishedSplitId : finishedSplits) {
-                stateOfFinishedSplits.put(finishedSplitId, splitStates.remove(finishedSplitId).state);
+                stateOfFinishedSplits.put(
+                        finishedSplitId, splitStates.remove(finishedSplitId).state);
             }
             onSplitFinished(stateOfFinishedSplits);
         }
@@ -204,7 +209,6 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
      * Handles the finished splits to clean the state if needed.
      *
      * @param finishedSplitIds
-     *
      */
     protected abstract void onSplitFinished(Map<String, SplitStateT> finishedSplitIds);
 

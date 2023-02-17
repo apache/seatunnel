@@ -13,8 +13,7 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
@@ -26,50 +25,12 @@
 
     <groupId>org.apache.seatunnel</groupId>
     <artifactId>seatunnel</artifactId>
-    <packaging>pom</packaging>
     <version>${revision}</version>
+    <packaging>pom</packaging>
 
-    <name>SeaTunnel</name>
+    <name>SeaTunnel :</name>
 
-    <description>
-        Production ready big data processing product based on Apache Spark and Apache Flink.
-    </description>
-
-    <url>https://github.com/apache/incubator-seatunnel</url>
-
-    <licenses>
-        <license>
-            <name>The Apache License, Version 2.0</name>
-            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
-        </license>
-    </licenses>
-
-    <scm>
-        <connection>scm:git:https://github.com/apache/incubator-seatunnel.git</connection>
-        <developerConnection>scm:git:https://github.com/apache/incubator-seatunnel.git</developerConnection>
-        <url>https://github.com/apache/incubator-seatunnel</url>
-        <tag>HEAD</tag>
-    </scm>
-
-    <issueManagement>
-        <system>GitHub</system>
-        <url>https://github.com/apache/incubator-seatunnel/issues</url>
-    </issueManagement>
-
-    <mailingLists>
-        <mailingList>
-            <name>SeaTunnel Developer List</name>
-            <post>dev@seatunnel.apache.org</post>
-            <subscribe>dev-subscribe@seatunnel.apache.org</subscribe>
-            <unsubscribe>dev-unsubscribe@seatunnel.apache.org</unsubscribe>
-        </mailingList>
-        <mailingList>
-            <name>SeaTunnel Commits List</name>
-            <post>commits@seatunnel.apache.org</post>
-            <subscribe>commits-subscribe@seatunnel.apache.org</subscribe>
-            <unsubscribe>commits-unsubscribe@seatunnel.apache.org</unsubscribe>
-        </mailingList>
-    </mailingLists>
+    <description>Production ready big data processing product based on Apache Spark and Apache Flink.</description>
 
     <modules>
         <!--
@@ -78,7 +39,6 @@
             <module>seatunnel-config</module>
         -->
         <module>seatunnel-common</module>
-        <module>seatunnel-apis</module>
         <module>seatunnel-core</module>
         <module>seatunnel-transforms-v2</module>
         <module>seatunnel-connectors-v2</module>
@@ -91,25 +51,6 @@
         <module>seatunnel-e2e</module>
         <module>seatunnel-shade</module>
     </modules>
-
-    <profiles>
-        <profile>
-            <id>release</id>
-            <activation>
-                <activeByDefault>true</activeByDefault>
-            </activation>
-            <modules>
-                <module>seatunnel-dist</module>
-            </modules>
-        </profile>
-        <!-- The ci need build without seatunnel-dist modules, so we need add a no_dist profile -->
-        <profile>
-            <id>ci</id>
-            <activation>
-                <activeByDefault>false</activeByDefault>
-            </activation>
-        </profile>
-    </profiles>
 
     <properties>
         <!--todo The classification is too confusing, reclassify by type-->
@@ -130,7 +71,9 @@
         <commons-logging.version>1.2</commons-logging.version>
         <iceberg.version>0.13.1</iceberg.version>
         <flink.1.13.6.version>1.13.6</flink.1.13.6.version>
+        <flink.1.15.3.version>1.15.3</flink.1.15.3.version>
         <spark.2.4.0.version>2.4.0</spark.2.4.0.version>
+        <spark.3.3.0.version>3.3.0</spark.3.3.0.version>
         <spark.binary.2.4.version>2.4</spark.binary.2.4.version>
         <commons.beanutils.version>1.9.4</commons.beanutils.version>
         <commons.cli.version>1.4</commons.cli.version>
@@ -148,13 +91,10 @@
         <maven.javadoc.skip>false</maven.javadoc.skip>
         <maven-surefire-plugin.version>2.22.2</maven-surefire-plugin.version>
         <maven-failsafe-plugin.version>2.22.2</maven-failsafe-plugin.version>
-        <maven-checkstyle-plugin.version>3.1.2</maven-checkstyle-plugin.version>
-        <checkstyle.fails.on.error>true</checkstyle.fails.on.error>
         <nexus-staging-maven-plugin.version>1.6.8</nexus-staging-maven-plugin.version>
         <maven-source-plugin.version>3.0.1</maven-source-plugin.version>
         <maven-javadoc-plugin.version>2.9.1</maven-javadoc-plugin.version>
         <maven-deploy-plugin.version>2.8.2</maven-deploy-plugin.version>
-        <scala-maven-plugin.version>3.3.1</scala-maven-plugin.version>
         <maven-compiler-plugin.version>3.10.1</maven-compiler-plugin.version>
         <maven-pmd-plugin.version>3.8</maven-pmd-plugin.version>
         <elasticsearch6.client.version>6.3.1</elasticsearch6.client.version>
@@ -185,6 +125,7 @@
         <p3c-pmd.version>1.3.0</p3c-pmd.version>
         <maven-scm-provider-jgit.version>1.9.5</maven-scm-provider-jgit.version>
         <testcontainer.version>1.17.3</testcontainer.version>
+        <spotless.version>2.29.0</spotless.version>
         <!-- Option args -->
         <skipUT>false</skipUT>
         <skipIT>true</skipIT>
@@ -192,7 +133,6 @@
         <guava.version>19.0</guava.version>
         <auto-service.version>1.0.1</auto-service.version>
         <hadoop2.version>2.6.5</hadoop2.version>
-        <hadoop3.version>3.0.0</hadoop3.version>
         <seatunnel.shade.package>org.apache.seatunnel.shade</seatunnel.shade.package>
         <snappy-java.version>1.1.8.3</snappy-java.version>
         <checker.qual.version>3.10.0</checker.qual.version>
@@ -434,8 +374,8 @@
                         <artifactId>slf4j-api</artifactId>
                     </exclusion>
                     <exclusion>
-                        <artifactId>junit</artifactId>
                         <groupId>junit</groupId>
+                        <artifactId>junit</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -586,8 +526,7 @@
                     <configuration>
                         <skip>${skipUT}</skip>
                         <systemPropertyVariables>
-                            <jacoco-agent.destfile>${project.build.directory}/jacoco.exec
-                            </jacoco-agent.destfile>
+                            <jacoco-agent.destfile>${project.build.directory}/jacoco.exec</jacoco-agent.destfile>
                         </systemPropertyVariables>
                         <excludes>
                             <exclude>**/*IT.java</exclude>
@@ -667,14 +606,14 @@
 
                     <executions>
                         <execution>
-                            <phase>package</phase>
                             <goals>
                                 <goal>shade</goal>
                             </goals>
+                            <phase>package</phase>
                             <configuration>
                                 <transformers combine.children="append">
                                     <!-- The service transformer is needed to merge META-INF/services files -->
-                                    <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                                    <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
                                 </transformers>
                             </configuration>
                         </execution>
@@ -687,51 +626,6 @@
                     <artifactId>maven-assembly-plugin</artifactId>
                     <version>${maven-assembly-plugin.version}</version>
                 </plugin>
-
-                <!-- checkstyle (Start) -->
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-checkstyle-plugin</artifactId>
-                    <version>${maven-checkstyle-plugin.version}</version>
-                    <configuration>
-                        <!--suppress UnresolvedMavenProperty -->
-                        <configLocation>${maven.multiModuleProjectDirectory}/tools/checkstyle/checkStyle.xml
-                        </configLocation>
-                        <encoding>UTF-8</encoding>
-                        <consoleOutput>true</consoleOutput>
-                        <includeTestSourceDirectory>true</includeTestSourceDirectory>
-                        <failOnViolation>${checkstyle.fails.on.error}</failOnViolation>
-                        <sourceDirectories>
-                            <sourceDirectory>${project.build.sourceDirectory}</sourceDirectory>
-                            <sourceDirectory>${project.build.testSourceDirectory}</sourceDirectory>
-                        </sourceDirectories>
-                        <resourceIncludes>
-                            **/*.properties,
-                            **/*.sh,
-                            **/*.bat,
-                            **/*.yml,
-                            **/*.yaml,
-                            **/*.xml
-                        </resourceIncludes>
-                        <resourceExcludes>
-                            **/.asf.yaml,
-                            **/.github/**
-                        </resourceExcludes>
-                        <excludes>
-                        </excludes>
-                    </configuration>
-                    <executions>
-                        <execution>
-                            <id>validate</id>
-                            <phase>process-sources</phase>
-                            <goals>
-                                <goal>check</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                </plugin>
-                
-                <!-- checkstyle (End) -->
 
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
@@ -768,7 +662,6 @@
                     </executions>
                 </plugin>
 
-
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>build-helper-maven-plugin</artifactId>
@@ -804,17 +697,17 @@
                     <executions>
                         <execution>
                             <id>flatten</id>
-                            <phase>process-resources</phase>
                             <goals>
                                 <goal>flatten</goal>
                             </goals>
+                            <phase>process-resources</phase>
                         </execution>
                         <execution>
                             <id>flatten.clean</id>
-                            <phase>clean</phase>
                             <goals>
                                 <goal>clean</goal>
                             </goals>
+                            <phase>clean</phase>
                         </execution>
                     </executions>
                 </plugin>
@@ -860,11 +753,6 @@
             </plugin>
 
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-checkstyle-plugin</artifactId>
-            </plugin>
-
-            <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>license-maven-plugin</artifactId>
             </plugin>
@@ -872,50 +760,136 @@
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>flatten-maven-plugin</artifactId>
             </plugin>
+
             <plugin>
-                <groupId>net.alchim31.maven</groupId>
-                <artifactId>scala-maven-plugin</artifactId>
-                <version>${scala-maven-plugin.version}</version>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <version>${spotless.version}</version>
                 <configuration>
-                    <args>
-                        <arg>-nobootcp</arg>
-                        <arg>-target:jvm-${java.version}</arg>
-                    </args>
+                    <java>
+                        <googleJavaFormat>
+                            <version>1.7</version>
+                            <style>AOSP</style>
+                        </googleJavaFormat>
+                        <removeUnusedImports />
+                        <formatAnnotations />
+                        <importOrder>
+                            <order>org.apache.seatunnel.shade,org.apache.seatunnel,org.apache,org,,javax,java,\#</order>
+                        </importOrder>
+                        <replaceRegex>
+                            <name>Remove wildcard imports</name>
+                            <searchRegex>import\s+(static)*\s*[^\*\s]+\*;(\r\n|\r|\n)</searchRegex>
+                            <replacement>$1</replacement>
+                        </replaceRegex>
+                        <replaceRegex>
+                            <name>Block powermock</name>
+                            <searchRegex>import\s+org\.powermock\.[^\*\s]*(|\*);(\r\n|\r|\n)</searchRegex>
+                            <replacement>$1</replacement>
+                        </replaceRegex>
+                        <replaceRegex>
+                            <name>Block jUnit4 imports</name>
+                            <searchRegex>import\s+org\.junit\.[^jupiter][^\*\s]*(|\*);(\r\n|\r|\n)</searchRegex>
+                            <replacement>$1</replacement>
+                        </replaceRegex>
+                    </java>
+                    <pom>
+                        <sortPom>
+                            <encoding>UTF-8</encoding>
+                            <nrOfIndentSpace>4</nrOfIndentSpace>
+                            <keepBlankLines>true</keepBlankLines>
+                            <indentBlankLines>false</indentBlankLines>
+                            <indentSchemaLocation>true</indentSchemaLocation>
+                            <spaceBeforeCloseEmptyElement>true</spaceBeforeCloseEmptyElement>
+                            <sortModules>false</sortModules>
+                            <sortExecutions>false</sortExecutions>
+                            <predefinedSortOrder>custom_1</predefinedSortOrder>
+                            <expandEmptyElements>false</expandEmptyElements>
+                            <sortProperties>false</sortProperties>
+                        </sortPom>
+                        <replace>
+                            <name>Leading blank line</name>
+                            <search>project</search>
+                            <replacement>project</replacement>
+                        </replace>
+                    </pom>
+                    <markdown>
+                        <includes>
+                            <include>docs/**/*.md</include>
+                        </includes>
+                        <excludes>
+                            <exclude>**/.github/**/*.md</exclude>
+                        </excludes>
+                        <flexmark />
+                    </markdown>
+                    <upToDateChecking>
+                        <enabled>true</enabled>
+                    </upToDateChecking>
                 </configuration>
                 <executions>
                     <execution>
-                        <id>scala-compile-first</id>
-                        <phase>process-resources</phase>
                         <goals>
-                            <goal>compile</goal>
+                            <goal>check</goal>
                         </goals>
-                    </execution>
-                    <execution>
-                        <id>scala-test-compile</id>
-                        <phase>process-test-resources</phase>
-                        <goals>
-                            <goal>testCompile</goal>
-                        </goals>
-                    </execution>
-                    <!-- attach javadocs and sources , -javadoc.jar, sources.jar, to pass mvn deploy-->
-                    <execution>
-                        <id>attach-javadocs</id>
-                        <goals>
-                            <goal>doc-jar</goal>
-                        </goals>
-                        <configuration>
-                            <skip>${maven.javadoc.skip}</skip>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>attach-sources</id>
-                        <goals>
-                            <goal>add-source</goal>
-                        </goals>
+                        <phase>compile</phase>
                     </execution>
                 </executions>
             </plugin>
         </plugins>
     </build>
+
+    <url>https://github.com/apache/incubator-seatunnel</url>
+
+    <licenses>
+        <license>
+            <name>The Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+
+    <mailingLists>
+        <mailingList>
+            <name>SeaTunnel Developer List</name>
+            <subscribe>dev-subscribe@seatunnel.apache.org</subscribe>
+            <unsubscribe>dev-unsubscribe@seatunnel.apache.org</unsubscribe>
+            <post>dev@seatunnel.apache.org</post>
+        </mailingList>
+        <mailingList>
+            <name>SeaTunnel Commits List</name>
+            <subscribe>commits-subscribe@seatunnel.apache.org</subscribe>
+            <unsubscribe>commits-unsubscribe@seatunnel.apache.org</unsubscribe>
+            <post>commits@seatunnel.apache.org</post>
+        </mailingList>
+    </mailingLists>
+
+    <scm>
+        <connection>scm:git:https://github.com/apache/incubator-seatunnel.git</connection>
+        <developerConnection>scm:git:https://github.com/apache/incubator-seatunnel.git</developerConnection>
+        <url>https://github.com/apache/incubator-seatunnel</url>
+        <tag>HEAD</tag>
+    </scm>
+
+    <issueManagement>
+        <system>GitHub</system>
+        <url>https://github.com/apache/incubator-seatunnel/issues</url>
+    </issueManagement>
+
+    <profiles>
+        <profile>
+            <id>release</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <modules>
+                <module>seatunnel-dist</module>
+            </modules>
+        </profile>
+        <!-- The ci need build without seatunnel-dist modules, so we need add a no_dist profile -->
+        <profile>
+            <id>ci</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+        </profile>
+    </profiles>
 
 </project>

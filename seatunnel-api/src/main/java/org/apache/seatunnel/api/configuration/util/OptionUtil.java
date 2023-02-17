@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.api.configuration.util;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+
 import org.apache.seatunnel.api.configuration.Option;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.commons.lang3.StringUtils;
 
 import java.lang.reflect.Field;
@@ -30,8 +31,7 @@ import java.util.List;
 
 public class OptionUtil {
 
-    private OptionUtil() {
-    }
+    private OptionUtil() {}
 
     public static String getOptionKeys(List<Option<?>> options) {
         StringBuilder builder = new StringBuilder();
@@ -40,16 +40,14 @@ public class OptionUtil {
             if (flag) {
                 builder.append(", ");
             }
-            builder.append("'")
-                .append(option.key())
-                .append("'");
+            builder.append("'").append(option.key()).append("'");
             flag = true;
         }
         return builder.toString();
     }
 
-    public static String getOptionKeys(List<Option<?>> options,
-                                       List<RequiredOption.BundledRequiredOptions> bundledOptions) {
+    public static String getOptionKeys(
+            List<Option<?>> options, List<RequiredOption.BundledRequiredOptions> bundledOptions) {
         List<List<Option<?>>> optionList = new ArrayList<>();
         for (Option<?> option : options) {
             optionList.add(Collections.singletonList(option));
@@ -63,15 +61,14 @@ public class OptionUtil {
             if (flag) {
                 builder.append(", ");
             }
-            builder.append("[")
-                .append(getOptionKeys(optionSet))
-                .append("]");
+            builder.append("[").append(getOptionKeys(optionSet)).append("]");
             flag = true;
         }
         return builder.toString();
     }
 
-    public static List<Option<?>> getOptions(Class<?> clazz) throws InstantiationException, IllegalAccessException {
+    public static List<Option<?>> getOptions(Class<?> clazz)
+            throws InstantiationException, IllegalAccessException {
         Field[] fields = clazz.getDeclaredFields();
         List<Option<?>> options = new ArrayList<>();
         Object object = clazz.newInstance();
@@ -79,21 +76,27 @@ public class OptionUtil {
             field.setAccessible(true);
             OptionMark option = field.getAnnotation(OptionMark.class);
             if (option != null) {
-                options.add(new Option<>(
-                    !StringUtils.isNotBlank(option.name()) ? formatUnderScoreCase(field.getName()) : option.name(),
-                    new TypeReference<Object>() {
-                        @Override
-                        public Type getType() {
-                            return field.getType();
-                        }
-                    }, field.get(object)).withDescription(option.description()));
+                options.add(
+                        new Option<>(
+                                        !StringUtils.isNotBlank(option.name())
+                                                ? formatUnderScoreCase(field.getName())
+                                                : option.name(),
+                                        new TypeReference<Object>() {
+                                            @Override
+                                            public Type getType() {
+                                                return field.getType();
+                                            }
+                                        },
+                                        field.get(object))
+                                .withDescription(option.description()));
             }
         }
         return options;
     }
 
     private static String formatUnderScoreCase(String camel) {
-        StringBuilder underScore = new StringBuilder(String.valueOf(Character.toLowerCase(camel.charAt(0))));
+        StringBuilder underScore =
+                new StringBuilder(String.valueOf(Character.toLowerCase(camel.charAt(0))));
         for (int i = 1; i < camel.length(); i++) {
             char c = camel.charAt(i);
             underScore.append(Character.isLowerCase(c) ? c : "_" + Character.toLowerCase(c));

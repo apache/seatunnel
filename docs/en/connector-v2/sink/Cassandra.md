@@ -57,12 +57,12 @@ The `Cassandra` write consistency level, default is `LOCAL_ONE`.
 
 ### fields [array]
 
-The data field that needs to be output to `Cassandra` , if not configured, it will be automatically adapted 
+The data field that needs to be output to `Cassandra` , if not configured, it will be automatically adapted
 according to the sink table `schema`.
 
 ### batch_size [number]
 
-The number of rows written through [Cassandra-Java-Driver](https://github.com/datastax/java-driver) each time, 
+The number of rows written through [Cassandra-Java-Driver](https://github.com/datastax/java-driver) each time,
 default is `5000`.
 
 ### batch_type [String]

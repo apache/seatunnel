@@ -17,15 +17,18 @@
 
 package org.apache.seatunnel.api.configuration;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.commons.lang3.StringUtils;
+
+import lombok.NonNull;
 
 import java.lang.reflect.Type;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class Options {
 
@@ -56,60 +59,39 @@ public class Options {
             this.key = key;
         }
 
-        /**
-         * Defines that the value of the option should be of {@link Boolean} type.
-         */
+        /** Defines that the value of the option should be of {@link Boolean} type. */
         public TypedOptionBuilder<Boolean> booleanType() {
-            return new TypedOptionBuilder<>(key, new TypeReference<Boolean>() {
-            });
+            return new TypedOptionBuilder<>(key, new TypeReference<Boolean>() {});
         }
 
-        /**
-         * Defines that the value of the option should be of {@link Integer} type.
-         */
+        /** Defines that the value of the option should be of {@link Integer} type. */
         public TypedOptionBuilder<Integer> intType() {
-            return new TypedOptionBuilder<>(key, new TypeReference<Integer>() {
-            });
+            return new TypedOptionBuilder<>(key, new TypeReference<Integer>() {});
         }
 
-        /**
-         * Defines that the value of the option should be of {@link Long} type.
-         */
+        /** Defines that the value of the option should be of {@link Long} type. */
         public TypedOptionBuilder<Long> longType() {
-            return new TypedOptionBuilder<>(key, new TypeReference<Long>() {
-            });
+            return new TypedOptionBuilder<>(key, new TypeReference<Long>() {});
         }
 
-        /**
-         * Defines that the value of the option should be of {@link Float} type.
-         */
+        /** Defines that the value of the option should be of {@link Float} type. */
         public TypedOptionBuilder<Float> floatType() {
-            return new TypedOptionBuilder<>(key, new TypeReference<Float>() {
-            });
+            return new TypedOptionBuilder<>(key, new TypeReference<Float>() {});
         }
 
-        /**
-         * Defines that the value of the option should be of {@link Double} type.
-         */
+        /** Defines that the value of the option should be of {@link Double} type. */
         public TypedOptionBuilder<Double> doubleType() {
-            return new TypedOptionBuilder<>(key, new TypeReference<Double>() {
-            });
+            return new TypedOptionBuilder<>(key, new TypeReference<Double>() {});
         }
 
-        /**
-         * Defines that the value of the option should be of {@link String} type.
-         */
+        /** Defines that the value of the option should be of {@link String} type. */
         public TypedOptionBuilder<String> stringType() {
-            return new TypedOptionBuilder<>(key, new TypeReference<String>() {
-            });
+            return new TypedOptionBuilder<>(key, new TypeReference<String>() {});
         }
 
-        /**
-         * Defines that the value of the option should be of {@link Duration} type.
-         */
+        /** Defines that the value of the option should be of {@link Duration} type. */
         public TypedOptionBuilder<Duration> durationType() {
-            return new TypedOptionBuilder<>(key, new TypeReference<Duration>() {
-            });
+            return new TypedOptionBuilder<>(key, new TypeReference<Duration>() {});
         }
 
         /**
@@ -118,12 +100,14 @@ public class Options {
          * @param enumClass Concrete type of the expected enum.
          */
         public <T extends Enum<T>> TypedOptionBuilder<T> enumType(Class<T> enumClass) {
-            return new TypedOptionBuilder<>(key, new TypeReference<T>() {
-                @Override
-                public Type getType() {
-                    return enumClass;
-                }
-            });
+            return new TypedOptionBuilder<>(
+                    key,
+                    new TypeReference<T>() {
+                        @Override
+                        public Type getType() {
+                            return enumClass;
+                        }
+                    });
         }
 
         /**
@@ -131,8 +115,7 @@ public class Options {
          * represented as {@code Map<String, String>}.
          */
         public TypedOptionBuilder<Map<String, String>> mapType() {
-            return new TypedOptionBuilder<>(key, new TypeReference<Map<String, String>>() {
-            });
+            return new TypedOptionBuilder<>(key, new TypeReference<Map<String, String>>() {});
         }
 
         /**
@@ -140,8 +123,7 @@ public class Options {
          * represented as {@code List<String>}.
          */
         public TypedOptionBuilder<List<String>> listType() {
-            return new TypedOptionBuilder<>(key, new TypeReference<List<String>>() {
-            });
+            return new TypedOptionBuilder<>(key, new TypeReference<List<String>>() {});
         }
 
         /**
@@ -149,17 +131,32 @@ public class Options {
          * represented as {@code List<T>}.
          */
         public <T> TypedOptionBuilder<List<T>> listType(Class<T> option) {
-            return new TypedOptionBuilder<>(key, new TypeReference<List<T>>() {
-            });
+            return new TypedOptionBuilder<>(key, new TypeReference<List<T>>() {});
         }
 
         public <T> TypedOptionBuilder<T> objectType(Class<T> option) {
-            return new TypedOptionBuilder<>(key, new TypeReference<T>() {
-                @Override
-                public Type getType() {
-                    return option;
-                }
-            });
+            return new TypedOptionBuilder<>(
+                    key,
+                    new TypeReference<T>() {
+                        @Override
+                        public Type getType() {
+                            return option;
+                        }
+                    });
+        }
+
+        /** Construct an option with multiple options and only one of them can be selected */
+        public <T> SingleChoiceOptionBuilder<T> singleChoice(
+                @NonNull Class<T> optionType, @NonNull List<T> optionValues) {
+            return new SingleChoiceOptionBuilder<T>(
+                    key,
+                    new TypeReference<T>() {
+                        @Override
+                        public Type getType() {
+                            return optionType;
+                        }
+                    },
+                    optionValues);
         }
 
         /**
@@ -203,6 +200,37 @@ public class Options {
          */
         public Option<T> noDefaultValue() {
             return new Option<>(key, typeReference, null);
+        }
+    }
+
+    public static class SingleChoiceOptionBuilder<T> {
+        private final List<T> optionValues;
+        private final String key;
+        private final TypeReference<T> typeReference;
+
+        SingleChoiceOptionBuilder(String key, TypeReference typeReference, List<T> optionValues) {
+            this.optionValues = optionValues;
+            this.key = key;
+            this.typeReference = typeReference;
+        }
+
+        /**
+         * Creates a Option with the given default value.
+         *
+         * @param value The default value for the config option
+         * @return The config option with the default value.
+         */
+        public Option<T> defaultValue(T value) {
+            return new SingleChoiceOption<T>(key, typeReference, optionValues, value);
+        }
+
+        /**
+         * Creates a Option without a default value.
+         *
+         * @return The config option without a default value.
+         */
+        public Option<T> noDefaultValue() {
+            return new SingleChoiceOption<T>(key, typeReference, optionValues, null);
         }
     }
 }

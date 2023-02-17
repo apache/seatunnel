@@ -23,27 +23,28 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 - [x] file format
-    - [x] text
-    - [x] csv
-    - [x] json
+  - [x] text
+  - [x] csv
+  - [x] json
 
 ## Options
 
-| name                        | type    | required | default value       |
-|-----------------------------|---------|----------|---------------------|
-| host                        | string  | yes      | -                   |
-| port                        | int     | yes      | -                   |
-| user                        | string  | yes      | -                   |
-| password                    | string  | yes      | -                   |
-| path                        | string  | yes      | -                   |
-| type                        | string  | yes      | -                   |
-| delimiter                   | string  | no       | \001                |
-| parse_partition_from_path   | boolean | no       | true                |
-| date_format                 | string  | no       | yyyy-MM-dd          |
-| datetime_format             | string  | no       | yyyy-MM-dd HH:mm:ss |
-| time_format                 | string  | no       | HH:mm:ss            |
-| schema                      | config  | no       | -                   |
-| common-options              |         | no       | -                   |
+|           name            |  type   | required |    default value    |
+|---------------------------|---------|----------|---------------------|
+| host                      | string  | yes      | -                   |
+| port                      | int     | yes      | -                   |
+| user                      | string  | yes      | -                   |
+| password                  | string  | yes      | -                   |
+| path                      | string  | yes      | -                   |
+| type                      | string  | yes      | -                   |
+| delimiter                 | string  | no       | \001                |
+| parse_partition_from_path | boolean | no       | true                |
+| date_format               | string  | no       | yyyy-MM-dd          |
+| skip_header_row_number    | long    | no       | 0                   |
+| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss |
+| time_format               | string  | no       | HH:mm:ss            |
+| schema                    | config  | no       | -                   |
+| common-options            |         | no       | -                   |
 
 ### host [string]
 
@@ -79,9 +80,9 @@ For example if you read a file from path `sftp://hadoop-cluster/tmp/seatunnel/pa
 
 Every record data from file will be added these two fields:
 
-| name           | age |
-|----------------|-----|
-| tyrantlucifer  | 26  |
+|     name      | age |
+|---------------|-----|
+| tyrantlucifer | 26  |
 
 Tips: **Do not define partition fields in schema option**
 
@@ -108,6 +109,16 @@ Time type format, used to tell connector how to convert string to time, supporte
 `HH:mm:ss` `HH:mm:ss.SSS`
 
 default `HH:mm:ss`
+
+### skip_header_row_number [long]
+
+Skip the first few lines, but only for the txt and csv.
+
+For example, set like following:
+
+`skip_header_row_number = 2`
+
+then Seatunnel will skip the first 2 lines from source files
 
 ### schema [config]
 
@@ -147,7 +158,7 @@ schema {
 
 connector will generate data as the following:
 
-| code | data        | success |
+| code |    data     | success |
 |------|-------------|---------|
 | 200  | get success | true    |
 
@@ -163,12 +174,11 @@ tyrantlucifer#26#male
 
 If you do not assign data schema connector will treat the upstream data as the following:
 
-| content                |
-|------------------------|
-| tyrantlucifer#26#male  | 
+|        content        |
+|-----------------------|
+| tyrantlucifer#26#male |
 
 If you assign data schema, you should also assign the option `delimiter` too except CSV file type
-
 
 you should assign schema and delimiter as the following:
 
@@ -187,7 +197,7 @@ schema {
 
 connector will generate data as the following:
 
-| name          | age | gender |
+|     name      | age | gender |
 |---------------|-----|--------|
 | tyrantlucifer | 26  | male   |
 
@@ -220,3 +230,4 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 ### next version
 
 - Add SftpFile Source Connector
+

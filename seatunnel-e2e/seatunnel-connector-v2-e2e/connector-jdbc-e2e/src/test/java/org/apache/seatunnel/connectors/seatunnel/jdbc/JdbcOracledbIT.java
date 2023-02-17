@@ -49,58 +49,68 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
     private static final String DATABASE = "xepdb1";
     private static final String SOURCE_TABLE = "e2e_table_source";
     private static final String SINK_TABLE = "e2e_table_sink";
-    private static final String DRIVER_JAR = "https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc8/12.2.0.1/ojdbc8-12.2.0.1.jar";
+    private static final String DRIVER_JAR =
+            "https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc8/12.2.0.1/ojdbc8-12.2.0.1.jar";
     private static final String CONFIG_FILE = "/jdbc_oracle_source_to_sink.conf";
-    private static final String DDL_SOURCE = "create table " + SOURCE_TABLE + " (\n" +
-        "  varchar_10_col   varchar2(10),\n" +
-        "  char_10_col      char(10),\n" +
-        "  clob_col         clob,\n" +
-        "  number_3_sf_2_dp  number(3, 2),\n" +
-        "  integer_col       integer,\n" +
-        "  float_col         float(10),\n" +
-        "  real_col          real,\n" +
-        "  binary_float_col  binary_float,\n" +
-        "  binary_double_col binary_double,\n" +
-        "  date_col                      date,\n" +
-        "  timestamp_with_3_frac_sec_col timestamp(3),\n" +
-        "  timestamp_with_local_tz       timestamp with local time zone,\n" +
-        "  raw_col  raw(1000),\n" +
-        "  blob_col blob\n" +
-        ")";
-    private static final String DDL_SINK = "create table " + SINK_TABLE + "(\n" +
-        "  varchar_10_col   varchar2(10),\n" +
-        "  char_10_col      char(10),\n" +
-        "  clob_col         clob,\n" +
-        "  number_3_sf_2_dp  number(3, 2),\n" +
-        "  integer_col       integer,\n" +
-        "  float_col         float(10),\n" +
-        "  real_col          real,\n" +
-        "  binary_float_col  binary_float,\n" +
-        "  binary_double_col binary_double,\n" +
-        "  date_col                      date,\n" +
-        "  timestamp_with_3_frac_sec_col timestamp(3),\n" +
-        "  timestamp_with_local_tz       timestamp with local time zone,\n" +
-        "  raw_col  raw(1000),\n" +
-        "  blob_col blob\n" +
-        ")";
-    private static final String INIT_DATA_SQL = "insert into " + SOURCE_TABLE + " (\n" +
-        "  varchar_10_col,\n" +
-        "  char_10_col,\n" +
-        "  clob_col,\n" +
-        "  number_3_sf_2_dp,\n" +
-        "  integer_col,\n" +
-        "  float_col,\n" +
-        "  real_col,\n" +
-        "  binary_float_col,\n" +
-        "  binary_double_col,\n" +
-        "  date_col,\n" +
-        "  timestamp_with_3_frac_sec_col,\n" +
-        "  timestamp_with_local_tz,\n" +
-        "  raw_col,\n" +
-        "  blob_col\n" +
-        ")values(\n" +
-        "\t?,?,?,?,?,?,?,?,?,?,?,?,rawtohex(?),rawtohex(?)\n" +
-        ")";
+    private static final String DDL_SOURCE =
+            "create table "
+                    + SOURCE_TABLE
+                    + " (\n"
+                    + "  varchar_10_col   varchar2(10),\n"
+                    + "  char_10_col      char(10),\n"
+                    + "  clob_col         clob,\n"
+                    + "  number_3_sf_2_dp  number(3, 2),\n"
+                    + "  integer_col       integer,\n"
+                    + "  float_col         float(10),\n"
+                    + "  real_col          real,\n"
+                    + "  binary_float_col  binary_float,\n"
+                    + "  binary_double_col binary_double,\n"
+                    + "  date_col                      date,\n"
+                    + "  timestamp_with_3_frac_sec_col timestamp(3),\n"
+                    + "  timestamp_with_local_tz       timestamp with local time zone,\n"
+                    + "  raw_col  raw(1000),\n"
+                    + "  blob_col blob\n"
+                    + ")";
+    private static final String DDL_SINK =
+            "create table "
+                    + SINK_TABLE
+                    + "(\n"
+                    + "  varchar_10_col   varchar2(10),\n"
+                    + "  char_10_col      char(10),\n"
+                    + "  clob_col         clob,\n"
+                    + "  number_3_sf_2_dp  number(3, 2),\n"
+                    + "  integer_col       integer,\n"
+                    + "  float_col         float(10),\n"
+                    + "  real_col          real,\n"
+                    + "  binary_float_col  binary_float,\n"
+                    + "  binary_double_col binary_double,\n"
+                    + "  date_col                      date,\n"
+                    + "  timestamp_with_3_frac_sec_col timestamp(3),\n"
+                    + "  timestamp_with_local_tz       timestamp with local time zone,\n"
+                    + "  raw_col  raw(1000),\n"
+                    + "  blob_col blob\n"
+                    + ")";
+    private static final String INIT_DATA_SQL =
+            "insert into "
+                    + SOURCE_TABLE
+                    + " (\n"
+                    + "  varchar_10_col,\n"
+                    + "  char_10_col,\n"
+                    + "  clob_col,\n"
+                    + "  number_3_sf_2_dp,\n"
+                    + "  integer_col,\n"
+                    + "  float_col,\n"
+                    + "  real_col,\n"
+                    + "  binary_float_col,\n"
+                    + "  binary_double_col,\n"
+                    + "  date_col,\n"
+                    + "  timestamp_with_3_frac_sec_col,\n"
+                    + "  timestamp_with_local_tz,\n"
+                    + "  raw_col,\n"
+                    + "  blob_col\n"
+                    + ")values(\n"
+                    + "\t?,?,?,?,?,?,?,?,?,?,?,?,rawtohex(?),rawtohex(?)\n"
+                    + ")";
 
     @Override
     JdbcCase getJdbcCase() {
@@ -109,17 +119,50 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
         containerEnv.put("APP_USER", USERNAME);
         containerEnv.put("APP_USER_PASSWORD", PASSWORD);
         String jdbcUrl = String.format(URL, PORT, DATABASE);
-        return JdbcCase.builder().dockerImage(DOCKER_IMAGE).networkAliases(NETWORK_ALIASES).containerEnv(containerEnv).driverClass(DRIVER_CLASS)
-            .host(HOST).port(PORT).localPort(PORT).jdbcTemplate(URL).jdbcUrl(jdbcUrl).userName(USERNAME).password(PASSWORD).dataBase(DATABASE)
-            .sourceTable(SOURCE_TABLE).sinkTable(SINK_TABLE).driverJar(DRIVER_JAR)
-            .ddlSource(DDL_SOURCE).ddlSink(DDL_SINK).initDataSql(INIT_DATA_SQL).configFile(CONFIG_FILE).seaTunnelRow(initTestData()).build();
+        return JdbcCase.builder()
+                .dockerImage(DOCKER_IMAGE)
+                .networkAliases(NETWORK_ALIASES)
+                .containerEnv(containerEnv)
+                .driverClass(DRIVER_CLASS)
+                .host(HOST)
+                .port(PORT)
+                .localPort(PORT)
+                .jdbcTemplate(URL)
+                .jdbcUrl(jdbcUrl)
+                .userName(USERNAME)
+                .password(PASSWORD)
+                .dataBase(DATABASE)
+                .sourceTable(SOURCE_TABLE)
+                .sinkTable(SINK_TABLE)
+                .driverJar(DRIVER_JAR)
+                .ddlSource(DDL_SOURCE)
+                .ddlSink(DDL_SINK)
+                .initDataSql(INIT_DATA_SQL)
+                .configFile(CONFIG_FILE)
+                .seaTunnelRow(initTestData())
+                .build();
     }
 
     @Override
     void compareResult() throws SQLException, IOException {
         String sourceSql = "select * from " + SOURCE_TABLE;
         String sinkSql = "select * from " + SINK_TABLE;
-        List<String> columns = Lists.newArrayList("varchar_10_col", "char_10_col", "clob_col", "number_3_sf_2_dp", "integer_col", "float_col", "real_col", "binary_float_col", "binary_double_col", "date_col", "timestamp_with_3_frac_sec_col", "timestamp_with_local_tz", "raw_col", "blob_col");
+        List<String> columns =
+                Lists.newArrayList(
+                        "varchar_10_col",
+                        "char_10_col",
+                        "clob_col",
+                        "number_3_sf_2_dp",
+                        "integer_col",
+                        "float_col",
+                        "real_col",
+                        "binary_float_col",
+                        "binary_double_col",
+                        "date_col",
+                        "timestamp_with_3_frac_sec_col",
+                        "timestamp_with_local_tz",
+                        "raw_col",
+                        "blob_col");
         try (Connection connection = initializeJdbcConnection(jdbcCase.getJdbcUrl())) {
             Statement sourceStatement = connection.createStatement();
             Statement sinkStatement = connection.createStatement();
@@ -134,8 +177,10 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
 
                             InputStream sourceAsciiStream = sourceResultSet.getBinaryStream(column);
                             InputStream sinkAsciiStream = sinkResultSet.getBinaryStream(column);
-                            String sourceValue = IOUtils.toString(sourceAsciiStream, StandardCharsets.UTF_8);
-                            String sinkValue = IOUtils.toString(sinkAsciiStream, StandardCharsets.UTF_8);
+                            String sourceValue =
+                                    IOUtils.toString(sourceAsciiStream, StandardCharsets.UTF_8);
+                            String sinkValue =
+                                    IOUtils.toString(sinkAsciiStream, StandardCharsets.UTF_8);
                             Assertions.assertEquals(sourceValue, sinkValue);
                         }
                         Assertions.assertTrue(true);
@@ -150,7 +195,8 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
 
     @Override
     void clearSinkTable() {
-        try (Statement statement = initializeJdbcConnection(jdbcCase.getJdbcUrl()).createStatement()) {
+        try (Statement statement =
+                initializeJdbcConnection(jdbcCase.getJdbcUrl()).createStatement()) {
             statement.execute(String.format("TRUNCATE TABLE %s", SINK_TABLE));
         } catch (Exception e) {
             throw new RuntimeException("test oracle server image error", e);
@@ -160,11 +206,21 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
     @Override
     SeaTunnelRow initTestData() {
         return new SeaTunnelRow(
-            new Object[]{"varchar", "char10col1", "clobS", 1.12, 2022, 1.2222, 1.22222, 1.22222, 1.22222,
-                LocalDate.now(),
-                LocalDateTime.now(),
-                LocalDateTime.now(),
-                "raw", "blob"
-            });
+                new Object[] {
+                    "varchar",
+                    "char10col1",
+                    "clobS",
+                    1.12,
+                    2022,
+                    1.2222,
+                    1.22222,
+                    1.22222,
+                    1.22222,
+                    LocalDate.now(),
+                    LocalDateTime.now(),
+                    LocalDateTime.now(),
+                    "raw",
+                    "blob"
+                });
     }
 }

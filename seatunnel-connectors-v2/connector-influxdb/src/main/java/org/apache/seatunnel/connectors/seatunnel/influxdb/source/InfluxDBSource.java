@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.influxdb.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig.SQL;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
@@ -40,23 +40,26 @@ import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConn
 import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.state.InfluxDBSourceState;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import com.google.auto.service.AutoService;
-import lombok.extern.slf4j.Slf4j;
 import org.influxdb.InfluxDB;
 import org.influxdb.dto.Query;
 import org.influxdb.dto.QueryResult;
+
+import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig.SQL;
+
 @Slf4j
 @AutoService(SeaTunnelSource.class)
-public class InfluxDBSource implements SeaTunnelSource<SeaTunnelRow, InfluxDBSourceSplit, InfluxDBSourceState>,
-    SupportParallelism, SupportColumnProjection {
+public class InfluxDBSource
+        implements SeaTunnelSource<SeaTunnelRow, InfluxDBSourceSplit, InfluxDBSourceState>,
+                SupportParallelism,
+                SupportColumnProjection {
     private SeaTunnelRowType typeInfo;
     private SourceConfig sourceConfig;
 
@@ -71,25 +74,26 @@ public class InfluxDBSource implements SeaTunnelSource<SeaTunnelRow, InfluxDBSou
 
     @Override
     public void prepare(Config config) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(config, SQL.key());
+        CheckResult result =
+                CheckConfigUtil.checkAllExists(config, SQL.key(), SeaTunnelSchema.SCHEMA.key());
         if (!result.isSuccess()) {
-            throw new InfluxdbConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                String.format("PluginName: %s, PluginType: %s, Message: %s",
-                    getPluginName(), PluginType.SOURCE,
-                    result.getMsg()
-                )
-            );
+            throw new InfluxdbConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         try {
             this.sourceConfig = SourceConfig.loadConfig(config);
-            SeaTunnelSchema seatunnelSchema = SeaTunnelSchema.buildWithConfig(config);
-            this.typeInfo = seatunnelSchema.getSeaTunnelRowType();
+            Config schema = config.getConfig(SeaTunnelSchema.SCHEMA.key());
+            this.typeInfo = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
             this.columnsIndexList = initColumnsIndex(InfluxDBClient.getInfluxDB(sourceConfig));
         } catch (Exception e) {
-            throw new InfluxdbConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                String.format("PluginName: %s, PluginType: %s, Message: %s",
-                    getPluginName(), PluginType.SOURCE, e)
-            );
+            throw new InfluxdbConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SOURCE, e));
         }
     }
 
@@ -109,31 +113,36 @@ public class InfluxDBSource implements SeaTunnelSource<SeaTunnelRow, InfluxDBSou
     }
 
     @Override
-    public SourceSplitEnumerator createEnumerator(SourceSplitEnumerator.Context enumeratorContext) throws Exception {
+    public SourceSplitEnumerator createEnumerator(SourceSplitEnumerator.Context enumeratorContext)
+            throws Exception {
         return new InfluxDBSourceSplitEnumerator(enumeratorContext, sourceConfig);
     }
 
     @Override
     public SourceSplitEnumerator<InfluxDBSourceSplit, InfluxDBSourceState> restoreEnumerator(
-        SourceSplitEnumerator.Context<InfluxDBSourceSplit> enumeratorContext, InfluxDBSourceState checkpointState)
-        throws Exception {
+            SourceSplitEnumerator.Context<InfluxDBSourceSplit> enumeratorContext,
+            InfluxDBSourceState checkpointState)
+            throws Exception {
         return new InfluxDBSourceSplitEnumerator(enumeratorContext, checkpointState, sourceConfig);
     }
 
     private List<Integer> initColumnsIndex(InfluxDB influxdb) {
-        //query one row to get column info
+        // query one row to get column info
         String query = sourceConfig.getSql() + QUERY_LIMIT;
         try {
-            QueryResult queryResult = influxdb.query(
-                new Query(query, sourceConfig.getDatabase()));
+            QueryResult queryResult = influxdb.query(new Query(query, sourceConfig.getDatabase()));
 
             List<QueryResult.Series> serieList = queryResult.getResults().get(0).getSeries();
             List<String> fieldNames = new ArrayList<>(serieList.get(0).getColumns());
 
-            return Arrays.stream(typeInfo.getFieldNames()).map(fieldNames::indexOf).collect(Collectors.toList());
+            return Arrays.stream(typeInfo.getFieldNames())
+                    .map(fieldNames::indexOf)
+                    .collect(Collectors.toList());
         } catch (Exception e) {
-            throw new InfluxdbConnectorException(InfluxdbConnectorErrorCode.GET_COLUMN_INDEX_FAILED,
-                "Get column index of query result exception", e);
+            throw new InfluxdbConnectorException(
+                    InfluxdbConnectorErrorCode.GET_COLUMN_INDEX_FAILED,
+                    "Get column index of query result exception",
+                    e);
         }
     }
 }

@@ -27,8 +27,7 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
 
-public interface XaGroupOps
-        extends Serializable {
+public interface XaGroupOps extends Serializable {
 
     // Commit a batch of transactions
     public GroupXaOperationResult<XidInfo> commit(
@@ -38,6 +37,9 @@ public interface XaGroupOps
 
     GroupXaOperationResult<XidInfo> failAndRollback(Collection<XidInfo> xids);
 
-    void recoverAndRollback(JobContext context, SinkWriter.Context sinkContext, XidGenerator xidGenerator, Xid excludeXid);
-
+    void recoverAndRollback(
+            JobContext context,
+            SinkWriter.Context sinkContext,
+            XidGenerator xidGenerator,
+            Xid excludeXid);
 }

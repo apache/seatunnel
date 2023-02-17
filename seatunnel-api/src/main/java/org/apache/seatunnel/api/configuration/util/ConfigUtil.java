@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.api.configuration.util;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.javaprop.JavaPropsMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.dataformat.javaprop.JavaPropsMapper;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,6 +34,8 @@ public class ConfigUtil {
     private static final ObjectMapper JACKSON_MAPPER = new ObjectMapper();
 
     /**
+     *
+     *
      * <pre>
      * poll.timeout = 1000
      *                      ==>>  poll : {timeout = 1000, interval = 500}
@@ -42,15 +44,17 @@ public class ConfigUtil {
      */
     public static Map<String, Object> treeMap(Object rawMap) {
         try {
-            return PROPERTIES_MAPPER.readValue(PROPERTIES_MAPPER.writeValueAsString(rawMap), new TypeReference<Map<String, Object>>() {
-            });
+            return PROPERTIES_MAPPER.readValue(
+                    PROPERTIES_MAPPER.writeValueAsString(rawMap),
+                    new TypeReference<Map<String, Object>>() {});
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("Json parsing exception.");
         }
     }
 
     @SuppressWarnings("unchecked")
-    static Object flatteningMap(Object rawValue, Map<String, Object> newMap, List<String> keys, boolean nestedMap) {
+    static Object flatteningMap(
+            Object rawValue, Map<String, Object> newMap, List<String> keys, boolean nestedMap) {
         if (rawValue == null) {
             return null;
         }
@@ -86,6 +90,8 @@ public class ConfigUtil {
     }
 
     /**
+     *
+     *
      * <pre>
      *                                                  poll.timeout = 1000
      * poll : {timeout = 1000, interval = 500}  ==>>
@@ -120,7 +126,11 @@ public class ConfigUtil {
             // complex type && untreated type
             return JACKSON_MAPPER.readValue(convertToJsonString(rawValue), typeReference);
         } catch (JsonProcessingException e) {
-            throw new IllegalArgumentException(String.format("Json parsing exception, value '%s', and expected type '%s'", rawValue, typeReference.getType().getTypeName()), e);
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Json parsing exception, value '%s', and expected type '%s'",
+                            rawValue, typeReference.getType().getTypeName()),
+                    e);
         }
     }
 
@@ -144,21 +154,26 @@ public class ConfigUtil {
                 return false;
             default:
                 throw new IllegalArgumentException(
-                    String.format(
-                        "Unrecognized option for boolean: %s. Expected either true or false(case insensitive)",
-                        o));
+                        String.format(
+                                "Unrecognized option for boolean: %s. Expected either true or false(case insensitive)",
+                                o));
         }
     }
 
     static <E extends Enum<?>> E convertToEnum(Object o, Class<E> clazz) {
         return Arrays.stream(clazz.getEnumConstants())
-            .filter(e -> e.toString()
-                .toUpperCase(Locale.ROOT)
-                .equals(o.toString().toUpperCase(Locale.ROOT)))
-            .findAny()
-            .orElseThrow(() -> new IllegalArgumentException(String.format(
-                "Could not parse value for enum %s. Expected one of: [%s]",
-                clazz, Arrays.toString(clazz.getEnumConstants()))));
+                .filter(
+                        e ->
+                                e.toString()
+                                        .toUpperCase(Locale.ROOT)
+                                        .equals(o.toString().toUpperCase(Locale.ROOT)))
+                .findAny()
+                .orElseThrow(
+                        () ->
+                                new IllegalArgumentException(
+                                        String.format(
+                                                "Could not parse value for enum %s. Expected one of: [%s]",
+                                                clazz, Arrays.toString(clazz.getEnumConstants()))));
     }
 
     public static String convertToJsonString(Object o) {

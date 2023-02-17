@@ -75,8 +75,8 @@ methods:
           doc: ''
     response:
       params:
-        - name: jobStatus
-          type: int
+        - name: jobResult
+          type: Data
           nullable: false
           since: 2.0
           doc: ''
@@ -191,6 +191,36 @@ methods:
       params:
         - name: response
           type: Data
+          nullable: false
+          since: 2.0
+          doc: ''
+  - id: 10
+    name: savePointJob
+    since: 2.0
+    doc: ''
+    request:
+      retryable: true
+      partitionIdentifier: -1
+      params:
+        - name: jobId
+          type: long
+          nullable: false
+          since: 2.0
+          doc: ''
+    response: {}
+
+  - id: 11
+    name: getClusterHealthMetrics
+    since: 2.0
+    doc: ''
+    request:
+      retryable: true
+      partitionIdentifier: -1
+      params: []
+    response:
+      params:
+        - name: response
+          type: String
           nullable: false
           since: 2.0
           doc: ''

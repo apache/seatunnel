@@ -17,26 +17,19 @@
 
 package org.apache.seatunnel.engine.server.task.record;
 
-/**
- * barrier flowing in data flow
- */
+/** barrier flowing in data flow */
 public interface Barrier {
     Long PREPARE_CLOSE_BARRIER_ID = Long.MAX_VALUE;
 
-    /**
-     * The ID of the barrier.
-     */
+    /** The ID of the barrier. */
     long getId();
 
     /**
-     * Whether the task needs to perform a status snapshot after the barrier is aligned.
-     * For example, DDL barrier does not require a snapshot.
+     * Whether the task needs to perform a status snapshot after the barrier is aligned. For
+     * example, DDL barrier does not require a snapshot.
      */
     boolean snapshot();
 
-    /**
-     * Barrier indicating that the task should prepare to close.
-     */
+    /** Barrier indicating that the task should prepare to close. */
     boolean prepareClose();
-
 }

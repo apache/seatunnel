@@ -18,6 +18,25 @@
 
 package org.apache.seatunnel.format.json;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.HashMap;
+import java.util.Map;
+
 import static org.apache.seatunnel.api.table.type.ArrayType.INT_ARRAY_TYPE;
 import static org.apache.seatunnel.api.table.type.ArrayType.STRING_ARRAY_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.BOOLEAN_TYPE;
@@ -29,24 +48,6 @@ import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.fail;
-
-import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.MapType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-
-import java.sql.Timestamp;
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.util.HashMap;
-import java.util.Map;
 
 public class JsonRowDataSerDeSchemaTest {
 
@@ -90,22 +91,36 @@ public class JsonRowDataSerDeSchemaTest {
 
         byte[] serializedJson = objectMapper.writeValueAsBytes(root);
 
-        SeaTunnelRowType schema = new SeaTunnelRowType(
-                new String[]{"bool", "int",
-                    "longValue", "float", "name", "date", "time", "timestamp3", "timestamp9", "map", "multiSet", "map2map"}, new SeaTunnelDataType[]{
-                        BOOLEAN_TYPE,
-                        INT_TYPE,
-                        LONG_TYPE,
-                        FLOAT_TYPE,
-                        STRING_TYPE,
-                        LocalTimeType.LOCAL_DATE_TYPE,
-                        LocalTimeType.LOCAL_TIME_TYPE,
-                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
-                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
-                        new MapType(STRING_TYPE, LONG_TYPE),
-                        new MapType(STRING_TYPE, INT_TYPE),
-                        new MapType(STRING_TYPE, new MapType(STRING_TYPE, INT_TYPE))}
-            );
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(
+                        new String[] {
+                            "bool",
+                            "int",
+                            "longValue",
+                            "float",
+                            "name",
+                            "date",
+                            "time",
+                            "timestamp3",
+                            "timestamp9",
+                            "map",
+                            "multiSet",
+                            "map2map"
+                        },
+                        new SeaTunnelDataType[] {
+                            BOOLEAN_TYPE,
+                            INT_TYPE,
+                            LONG_TYPE,
+                            FLOAT_TYPE,
+                            STRING_TYPE,
+                            LocalTimeType.LOCAL_DATE_TYPE,
+                            LocalTimeType.LOCAL_TIME_TYPE,
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                            new MapType(STRING_TYPE, LONG_TYPE),
+                            new MapType(STRING_TYPE, INT_TYPE),
+                            new MapType(STRING_TYPE, new MapType(STRING_TYPE, INT_TYPE))
+                        });
 
         JsonDeserializationSchema deserializationSchema =
                 new JsonDeserializationSchema(false, false, schema);
@@ -128,8 +143,7 @@ public class JsonRowDataSerDeSchemaTest {
         assertEquals(expected, seaTunnelRow);
 
         // test serialization
-        JsonSerializationSchema serializationSchema =
-                new JsonSerializationSchema(schema);
+        JsonSerializationSchema serializationSchema = new JsonSerializationSchema(schema);
 
         byte[] actualBytes = serializationSchema.serialize(seaTunnelRow);
         assertEquals(new String(serializedJson), new String(actualBytes));
@@ -137,18 +151,23 @@ public class JsonRowDataSerDeSchemaTest {
 
     @Test
     public void testSerDeMultiRows() throws Exception {
-        SeaTunnelRowType schema = new SeaTunnelRowType(new String[]{"f1", "f2", "f3", "f4", "f5", "f6"},
-                new SeaTunnelDataType[]{INT_TYPE,
-                    BOOLEAN_TYPE,
-                    STRING_TYPE,
-                    new MapType(STRING_TYPE, STRING_TYPE),
-                    STRING_ARRAY_TYPE,
-                    new SeaTunnelRowType(new String[]{"f1", "f2"}, new SeaTunnelDataType[]{STRING_TYPE, INT_TYPE})});
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(
+                        new String[] {"f1", "f2", "f3", "f4", "f5", "f6"},
+                        new SeaTunnelDataType[] {
+                            INT_TYPE,
+                            BOOLEAN_TYPE,
+                            STRING_TYPE,
+                            new MapType(STRING_TYPE, STRING_TYPE),
+                            STRING_ARRAY_TYPE,
+                            new SeaTunnelRowType(
+                                    new String[] {"f1", "f2"},
+                                    new SeaTunnelDataType[] {STRING_TYPE, INT_TYPE})
+                        });
 
         JsonDeserializationSchema deserializationSchema =
                 new JsonDeserializationSchema(false, false, schema);
-        JsonSerializationSchema serializationSchema =
-                new JsonSerializationSchema(schema);
+        JsonSerializationSchema serializationSchema = new JsonSerializationSchema(schema);
 
         ObjectMapper objectMapper = new ObjectMapper();
 
@@ -211,16 +230,20 @@ public class JsonRowDataSerDeSchemaTest {
                     "{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"ops\":null,\"ids\":null,\"metrics\":{}}",
                 };
 
-        SeaTunnelRowType rowType = new SeaTunnelRowType(new String[]{"svt", "ops", "ids", "metrics"},
-            new SeaTunnelDataType[]{STRING_TYPE,
-                new SeaTunnelRowType(new String[]{"id"}, new SeaTunnelDataType[]{STRING_TYPE}),
-                INT_ARRAY_TYPE,
-                new MapType(STRING_TYPE, DOUBLE_TYPE)});
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"svt", "ops", "ids", "metrics"},
+                        new SeaTunnelDataType[] {
+                            STRING_TYPE,
+                            new SeaTunnelRowType(
+                                    new String[] {"id"}, new SeaTunnelDataType[] {STRING_TYPE}),
+                            INT_ARRAY_TYPE,
+                            new MapType(STRING_TYPE, DOUBLE_TYPE)
+                        });
 
         JsonDeserializationSchema deserializationSchema =
                 new JsonDeserializationSchema(false, true, rowType);
-        JsonSerializationSchema serializationSchema =
-                new JsonSerializationSchema(rowType);
+        JsonSerializationSchema serializationSchema = new JsonSerializationSchema(rowType);
 
         for (int i = 0; i < jsons.length; i++) {
             String json = jsons[i];
@@ -232,16 +255,18 @@ public class JsonRowDataSerDeSchemaTest {
 
     @Test
     public void testDeserializationNullRow() throws Exception {
-        SeaTunnelRowType schema = new SeaTunnelRowType(new String[]{"name"}, new SeaTunnelDataType[]{STRING_TYPE});
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
         JsonDeserializationSchema deserializationSchema =
                 new JsonDeserializationSchema(true, false, schema);
-
-        assertNull(deserializationSchema.deserialize(null));
+        String s = null;
+        assertNull(deserializationSchema.deserialize(s));
     }
 
     @Test
     public void testDeserializationMissingNode() throws Exception {
-        SeaTunnelRowType schema = new SeaTunnelRowType(new String[]{"name"}, new SeaTunnelDataType[]{STRING_TYPE});
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
 
         JsonDeserializationSchema deserializationSchema =
                 new JsonDeserializationSchema(true, false, schema);
@@ -258,7 +283,8 @@ public class JsonRowDataSerDeSchemaTest {
         root.put("id", 123123123);
         byte[] serializedJson = objectMapper.writeValueAsBytes(root);
 
-        SeaTunnelRowType schema = new SeaTunnelRowType(new String[]{"name"}, new SeaTunnelDataType[]{STRING_TYPE});
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
 
         // pass on missing field
         JsonDeserializationSchema deserializationSchema =
@@ -269,10 +295,10 @@ public class JsonRowDataSerDeSchemaTest {
         assertEquals(expected, actual);
 
         // fail on missing field
-        deserializationSchema =
-                new JsonDeserializationSchema(true, false, schema);
+        deserializationSchema = new JsonDeserializationSchema(true, false, schema);
 
-        String errorMessage = "ErrorCode:[COMMON-02], ErrorDescription:[Json covert/parse operation failed] - Failed to deserialize JSON '{\"id\":123123123}'.";
+        String errorMessage =
+                "ErrorCode:[COMMON-02], ErrorDescription:[Json covert/parse operation failed] - Failed to deserialize JSON '{\"id\":123123123}'.";
         try {
             deserializationSchema.deserialize(serializedJson);
             fail("expecting exception message: " + errorMessage);
@@ -281,8 +307,7 @@ public class JsonRowDataSerDeSchemaTest {
         }
 
         // ignore on parse error
-        deserializationSchema =
-                new JsonDeserializationSchema(false, true, schema);
+        deserializationSchema = new JsonDeserializationSchema(false, true, schema);
         assertEquals(expected, deserializationSchema.deserialize(serializedJson));
 
         errorMessage =
@@ -295,5 +320,4 @@ public class JsonRowDataSerDeSchemaTest {
             assertEquals(errorMessage, t.getMessage());
         }
     }
-
 }

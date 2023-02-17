@@ -13,16 +13,19 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
     <parent>
-        <artifactId>seatunnel-e2e</artifactId>
         <groupId>org.apache.seatunnel</groupId>
+        <artifactId>seatunnel-e2e</artifactId>
         <version>${revision}</version>
     </parent>
-    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>seatunnel-connector-v2-e2e</artifactId>
     <packaging>pom</packaging>
+    <name>SeaTunnel : E2E : Connector V2 :</name>
+
     <modules>
         <module>connector-assert-e2e</module>
         <module>connector-jdbc-e2e</module>
@@ -47,9 +50,10 @@
         <module>connector-iceberg-hadoop3-e2e</module>
         <module>connector-tdengine-e2e</module>
         <module>connector-datahub-e2e</module>
+        <module>connector-mongodb-e2e</module>
+        <module>connector-selectdb-cloud-e2e</module>
+        <module>connector-hbase-e2e</module>
     </modules>
-
-    <artifactId>seatunnel-connector-v2-e2e</artifactId>
 
     <dependencies>
         <dependency>
@@ -61,13 +65,31 @@
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-flink-starter</artifactId>
+            <artifactId>seatunnel-flink-13-starter</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-spark-starter</artifactId>
+            <artifactId>seatunnel-flink-15-starter</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-spark-2-starter</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-spark-3-starter</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-starter</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>

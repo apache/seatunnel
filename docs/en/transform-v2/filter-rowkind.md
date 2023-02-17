@@ -8,8 +8,8 @@ Filter the data by RowKind
 
 ## Options
 
-| name          | type  | required | default value |
-|---------------|-------| -------- |---------------|
+|     name      | type  | required | default value |
+|---------------|-------|----------|---------------|
 | include_kinds | array | yes      |               |
 | exclude_kinds | array | yes      |               |
 
@@ -65,3 +65,4 @@ sink {
   }
 }
 ```
+

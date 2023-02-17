@@ -17,34 +17,49 @@
 
 package org.apache.seatunnel.engine.client;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.client.job.JobClient;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
+import org.apache.seatunnel.engine.client.job.JobMetricsRunner.JobMetricsSummary;
 import org.apache.seatunnel.engine.common.config.JobConfig;
-import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
-import org.apache.seatunnel.engine.core.job.JobStatus;
-import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelCancelJobCodec;
-import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobDetailStatusCodec;
-import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobInfoCodec;
-import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobMetricsCodec;
-import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobStatusCodec;
-import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelListJobStatusCodec;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetClusterHealthMetricsCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
 
 import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.cluster.Member;
 import com.hazelcast.logging.ILogger;
+import lombok.Getter;
 import lombok.NonNull;
 
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
+
 public class SeaTunnelClient implements SeaTunnelClientInstance {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private final SeaTunnelHazelcastClient hazelcastClient;
+    @Getter private final JobClient jobClient;
 
     public SeaTunnelClient(@NonNull ClientConfig clientConfig) {
         this.hazelcastClient = new SeaTunnelHazelcastClient(clientConfig);
+        this.jobClient = new JobClient(this.hazelcastClient);
     }
 
     @Override
-    public JobExecutionEnvironment createExecutionContext(@NonNull String filePath, @NonNull JobConfig jobConfig) {
+    public JobExecutionEnvironment createExecutionContext(
+            @NonNull String filePath, @NonNull JobConfig jobConfig) {
         return new JobExecutionEnvironment(jobConfig, filePath, hazelcastClient);
+    }
+
+    @Override
+    public JobExecutionEnvironment restoreExecutionContext(
+            @NonNull String filePath, @NonNull JobConfig jobConfig, @NonNull Long jobId) {
+        return new JobExecutionEnvironment(jobConfig, filePath, hazelcastClient, true, jobId);
     }
 
     @Override
@@ -63,15 +78,12 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
 
     public String printMessageToMaster(@NonNull String msg) {
         return hazelcastClient.requestOnMasterAndDecodeResponse(
-            SeaTunnelPrintMessageCodec.encodeRequest(msg),
-            SeaTunnelPrintMessageCodec::decodeResponse
-        );
+                SeaTunnelPrintMessageCodec.encodeRequest(msg),
+                SeaTunnelPrintMessageCodec::decodeResponse);
     }
 
     public void shutdown() {
-        if (hazelcastClient != null) {
-            hazelcastClient.shutdown();
-        }
+        hazelcastClient.shutdown();
     }
 
     /**
@@ -79,52 +91,73 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
      *
      * @param jobId jobId
      */
+    @Deprecated
     public String getJobDetailStatus(Long jobId) {
-        return hazelcastClient.requestOnMasterAndDecodeResponse(
-            SeaTunnelGetJobDetailStatusCodec.encodeRequest(jobId),
-            SeaTunnelGetJobDetailStatusCodec::decodeResponse
-        );
+        return jobClient.getJobDetailStatus(jobId);
     }
 
-    /**
-     * list all jobId and job status
-     */
+    /** list all jobId and job status */
+    @Deprecated
     public String listJobStatus() {
-        return hazelcastClient.requestOnMasterAndDecodeResponse(
-            SeaTunnelListJobStatusCodec.encodeRequest(),
-            SeaTunnelListJobStatusCodec::decodeResponse
-        );
+        return jobClient.listJobStatus();
     }
 
     /**
      * get one job status
+     *
      * @param jobId jobId
      */
+    @Deprecated
     public String getJobStatus(Long jobId) {
-        int jobStatusOrdinal = hazelcastClient.requestOnMasterAndDecodeResponse(
-            SeaTunnelGetJobStatusCodec.encodeRequest(jobId),
-            SeaTunnelGetJobStatusCodec::decodeResponse);
-        return JobStatus.values()[jobStatusOrdinal].toString();
+        return jobClient.getJobStatus(jobId);
     }
 
+    @Deprecated
     public String getJobMetrics(Long jobId) {
-        return hazelcastClient.requestOnMasterAndDecodeResponse(
-            SeaTunnelGetJobMetricsCodec.encodeRequest(jobId),
-            SeaTunnelGetJobMetricsCodec::decodeResponse
-        );
+        return jobClient.getJobMetrics(jobId);
     }
 
-    public void cancelJob(Long jobId) {
-        PassiveCompletableFuture<Void> cancelFuture = hazelcastClient.requestOnMasterAndGetCompletableFuture(
-            SeaTunnelCancelJobCodec.encodeRequest(jobId));
+    @Deprecated
+    public void savePointJob(Long jobId) {
+        jobClient.savePointJob(jobId);
+    }
 
-        cancelFuture.join();
+    @Deprecated
+    public void cancelJob(Long jobId) {
+        jobClient.cancelJob(jobId);
     }
 
     public JobDAGInfo getJobInfo(Long jobId) {
-        return hazelcastClient.getSerializationService().toObject(hazelcastClient.requestOnMasterAndDecodeResponse(
-            SeaTunnelGetJobInfoCodec.encodeRequest(jobId),
-            SeaTunnelGetJobInfoCodec::decodeResponse
-        ));
+        return jobClient.getJobInfo(jobId);
+    }
+
+    public JobMetricsSummary getJobMetricsSummary(Long jobId) {
+        return jobClient.getJobMetricsSummary(jobId);
+    }
+
+    public Map<String, String> getClusterHealthMetrics() {
+        Set<Member> members = hazelcastClient.getHazelcastInstance().getCluster().getMembers();
+        Map<String, String> healthMetricsMap = new HashMap<>();
+        members.stream()
+                .forEach(
+                        member -> {
+                            String metrics =
+                                    hazelcastClient.requestAndDecodeResponse(
+                                            member.getUuid(),
+                                            SeaTunnelGetClusterHealthMetricsCodec.encodeRequest(),
+                                            SeaTunnelGetClusterHealthMetricsCodec::decodeResponse);
+                            String[] split = metrics.split(",");
+                            Map<String, String> kvMap = new LinkedHashMap<>();
+                            Arrays.stream(split)
+                                    .forEach(
+                                            kv -> {
+                                                String[] kvArr = kv.split("=");
+                                                kvMap.put(kvArr[0], kvArr[1]);
+                                            });
+                            healthMetricsMap.put(
+                                    member.getAddress().toString(), JsonUtils.toJsonString(kvMap));
+                        });
+
+        return healthMetricsMap;
     }
 }

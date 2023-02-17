@@ -38,7 +38,6 @@ import java.util.stream.Collectors;
  * Incremental source enumerator that enumerates receive the split request and assign the split to
  * source readers.
  */
-
 public class IncrementalSourceEnumerator
         implements SourceSplitEnumerator<SourceSplitBase, PendingSplitsState> {
     private static final Logger LOG = LoggerFactory.getLogger(IncrementalSourceEnumerator.class);
@@ -46,15 +45,13 @@ public class IncrementalSourceEnumerator
     private final SourceSplitEnumerator.Context<SourceSplitBase> context;
     private final SplitAssigner splitAssigner;
 
-    /**
-     * using TreeSet to prefer assigning incremental split to task-0 for easier debug
-     */
+    /** using TreeSet to prefer assigning incremental split to task-0 for easier debug */
     private final TreeSet<Integer> readersAwaitingSplit;
 
     private volatile boolean running;
+
     public IncrementalSourceEnumerator(
-            SourceSplitEnumerator.Context<SourceSplitBase> context,
-            SplitAssigner splitAssigner) {
+            SourceSplitEnumerator.Context<SourceSplitBase> context, SplitAssigner splitAssigner) {
         this.context = context;
         this.splitAssigner = splitAssigner;
         this.readersAwaitingSplit = new TreeSet<>();
@@ -67,13 +64,13 @@ public class IncrementalSourceEnumerator
     }
 
     @Override
-    public void run() throws Exception {
+    public synchronized void run() throws Exception {
         this.running = true;
         assignSplits();
     }
 
     @Override
-    public void handleSplitRequest(int subtaskId) {
+    public synchronized void handleSplitRequest(int subtaskId) {
         if (!context.registeredReaders().contains(subtaskId)) {
             // reader failed between sending the request and now. skip this request.
             return;
@@ -110,14 +107,16 @@ public class IncrementalSourceEnumerator
                     subtaskId);
             CompletedSnapshotSplitsReportEvent reportEvent =
                     (CompletedSnapshotSplitsReportEvent) sourceEvent;
-            List<SnapshotSplitWatermark> completedSplitWatermarks = reportEvent.getCompletedSnapshotSplitWatermarks();
+            List<SnapshotSplitWatermark> completedSplitWatermarks =
+                    reportEvent.getCompletedSnapshotSplitWatermarks();
             splitAssigner.onCompletedSplits(completedSplitWatermarks);
 
             // send acknowledge event
             CompletedSnapshotSplitsAckEvent ackEvent =
-                    new CompletedSnapshotSplitsAckEvent(completedSplitWatermarks.stream()
-                        .map(SnapshotSplitWatermark::getSplitId)
-                        .collect(Collectors.toList()));
+                    new CompletedSnapshotSplitsAckEvent(
+                            completedSplitWatermarks.stream()
+                                    .map(SnapshotSplitWatermark::getSplitId)
+                                    .collect(Collectors.toList()));
             context.sendEventToSourceReader(subtaskId, ackEvent);
         }
     }
@@ -128,7 +127,7 @@ public class IncrementalSourceEnumerator
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) {
+    public synchronized void notifyCheckpointComplete(long checkpointId) {
         splitAssigner.notifyCheckpointComplete(checkpointId);
         // incremental split may be available after checkpoint complete
         assignSplits();

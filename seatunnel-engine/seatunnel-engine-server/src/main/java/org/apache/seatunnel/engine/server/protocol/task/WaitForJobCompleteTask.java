@@ -17,20 +17,24 @@
 
 package org.apache.seatunnel.engine.server.protocol.task;
 
-import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelWaitForJobCompleteCodec;
 import org.apache.seatunnel.engine.server.operation.WaitForJobCompleteOperation;
 
 import com.hazelcast.client.impl.protocol.ClientMessage;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.nio.Connection;
+import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
-public class WaitForJobCompleteTask extends AbstractSeaTunnelMessageTask<Long, JobStatus> {
-    protected WaitForJobCompleteTask(ClientMessage clientMessage, Node node, Connection connection) {
-        super(clientMessage, node, connection,
-            SeaTunnelWaitForJobCompleteCodec::decodeRequest,
-            x -> SeaTunnelWaitForJobCompleteCodec.encodeResponse(x.ordinal()));
+public class WaitForJobCompleteTask extends AbstractSeaTunnelMessageTask<Long, Data> {
+    protected WaitForJobCompleteTask(
+            ClientMessage clientMessage, Node node, Connection connection) {
+        super(
+                clientMessage,
+                node,
+                connection,
+                SeaTunnelWaitForJobCompleteCodec::decodeRequest,
+                SeaTunnelWaitForJobCompleteCodec::encodeResponse);
     }
 
     @Override

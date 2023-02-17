@@ -23,7 +23,8 @@ import java.sql.SQLException;
 
 public class FloatInjectFunction implements ClickhouseFieldInjectFunction {
     @Override
-    public void injectFields(PreparedStatement statement, int index, Object value) throws SQLException {
+    public void injectFields(PreparedStatement statement, int index, Object value)
+            throws SQLException {
         if (value instanceof BigDecimal) {
             statement.setFloat(index, ((BigDecimal) value).floatValue());
         } else {

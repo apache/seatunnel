@@ -5,7 +5,7 @@ problems encountered by users.
 
 ## SeaTunnel API Error Codes
 
-| code   | description                        | solution                                                                                                                                                                                       |
+|  code  |            description             |                                                                                            solution                                                                                            |
 |--------|------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | API-01 | Configuration item validate failed | When users encounter this error code, it is usually due to a problem with the connector parameters configured by the user, please check the connector documentation and correct the parameters |
 | API-02 | Option item validate failed        | -                                                                                                                                                                                              |
@@ -16,7 +16,7 @@ problems encountered by users.
 
 ## SeaTunnel Common Error Codes
 
-| code      | description                                                            | solution                                                                                                                                                                                           |
+|   code    |                              description                               |                                                                                              solution                                                                                              |
 |-----------|------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | COMMON-01 | File operation failed, such as (read,list,write,move,copy,sync) etc... | When users encounter this error code, it is usually there are some problems in the file operation, please check if the file is OK                                                                  |
 | COMMON-02 | Json covert/parse operation failed                                     | When users encounter this error code, it is usually there are some problems about json converting or parsing, please check if the json format is correct                                           |
@@ -31,17 +31,19 @@ problems encountered by users.
 | COMMON-11 | Sink writer operation failed, such as (open, close) etc...             | When users encounter this error code, it maybe some operation of writer such as Parquet,Orc,IceBerg failed, you need to check if the corresponding file or resource has read and write permissions |
 | COMMON-12 | Source reader operation failed, such as (open, close) etc...           | When users encounter this error code, it maybe some operation of reader such as Parquet,Orc,IceBerg failed, you need to check if the corresponding file or resource has read and write permissions |
 | COMMON-13 | Http operation failed, such as (open, close, response) etc...          | When users encounter this error code, it maybe some http requests failed, please check your network environment                                                                                    |
-| COMMON-14 | Class load operation failed                                            | When users encounter this error code, it maybe some The corresponding jar does not exist, or the type is not supported                                                                             |
+| COMMON-14 | Kerberos authorized failed                                             | When users encounter this error code, it maybe some The Kerberos authorized is misconfigured                                                                                                       |
+| COMMON-15 | Class load operation failed                                            | When users encounter this error code, it maybe some The corresponding jar does not exist, or the type is not supported                                                                             |
+| COMMON-16 | Encountered improperly formatted JVM option                            | When users encounter this error code, it maybe some The JVM option formatted improperly                                                                                                            |
 
 ## Assert Connector Error Codes
 
-| code      | description          | solution                                                                                  |
+|   code    |     description      |                                         solution                                          |
 |-----------|----------------------|-------------------------------------------------------------------------------------------|
 | ASSERT-01 | Rule validate failed | When users encounter this error code, it means that upstream data does not meet the rules |
 
 ## Cassandra Connector Error Codes
 
-| code         | description                                     | solution                                                                                                                                                              |
+|     code     |                   description                   |                                                                               solution                                                                                |
 |--------------|-------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | CASSANDRA-01 | Field is not existed in target table            | When users encounter this error code, it means that the fields of upstream data don't meet with target cassandra table, please check target cassandra table structure |
 | CASSANDRA-02 | Add batch SeaTunnelRow data into a batch failed | When users encounter this error code, it means that cassandra has some problems, please check it whether is work                                                      |
@@ -51,20 +53,20 @@ problems encountered by users.
 
 ## Slack Connector Error Codes
 
-| code      | description                                 | solution                                                                                                           |
-|-----------|---------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
-| SLACK-01  | Conversation can not be founded in channels | When users encounter this error code, it means that the channel is not existed in slack workspace, please check it |
-| SLACK-02  | Write to slack channel failed               | When users encounter this error code, it means that slack has some problems, please check it whether is work       |
+|   code   |                 description                 |                                                      solution                                                      |
+|----------|---------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
+| SLACK-01 | Conversation can not be founded in channels | When users encounter this error code, it means that the channel is not existed in slack workspace, please check it |
+| SLACK-02 | Write to slack channel failed               | When users encounter this error code, it means that slack has some problems, please check it whether is work       |
 
 ## MyHours Connector Error Codes
 
-| code        | description                      | solution                                                                                                                 | 
-|-------------|----------------------------------|--------------------------------------------------------------------------------------------------------------------------|
-| MYHOURS-01  | Get myhours token failed         | When users encounter this error code, it means that login to the MyHours Failed, please check your network and try again |
+|    code    |       description        |                                                         solution                                                         |
+|------------|--------------------------|--------------------------------------------------------------------------------------------------------------------------|
+| MYHOURS-01 | Get myhours token failed | When users encounter this error code, it means that login to the MyHours Failed, please check your network and try again |
 
 ## Rabbitmq Connector Error Codes
 
-| code        | description                                                   | solution                                                                                                        |
+|    code     |                          description                          |                                                    solution                                                     |
 |-------------|---------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
 | RABBITMQ-01 | handle queue consumer shutdown signal failed                  | When users encounter this error code, it means that job has some problems, please check it whether is work well |
 | RABBITMQ-02 | create rabbitmq client failed                                 | When users encounter this error code, it means that rabbitmq has some problems, please check it whether is work |
@@ -78,7 +80,7 @@ problems encountered by users.
 
 ## Socket Connector Error Codes
 
-| code      | description                                              | solution                                                                                                                       |
+|   code    |                       description                        |                                                            solution                                                            |
 |-----------|----------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
 | SOCKET-01 | Cannot connect to socket server                          | When the user encounters this error code, it means that the connection address may not match, please check                     |
 | SOCKET-02 | Failed to send message to socket server                  | When the user encounters this error code, it means that there is a problem sending data and retry is not enabled, please check |
@@ -86,13 +88,13 @@ problems encountered by users.
 
 ## TableStore Connector Error Codes
 
-| code           | description                           | solution                                                                                                                            |
-|----------------|---------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
-| TABLESTORE-01  | Failed to send these rows of data     | When users encounter this error code, it means that failed to write these rows of data, please check the rows that failed to import |
+|     code      |            description            |                                                              solution                                                               |
+|---------------|-----------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
+| TABLESTORE-01 | Failed to send these rows of data | When users encounter this error code, it means that failed to write these rows of data, please check the rows that failed to import |
 
 ## Hive Connector Error Codes
 
-| code    | description                                                   | solution                                                                                                                      |
+|  code   |                          description                          |                                                           solution                                                            |
 |---------|---------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
 | HIVE-01 | Get name node host from table location failed                 | When users encounter this error code, it means that the metastore inforamtion has some problems, please check it              |
 | HIVE-02 | Initialize hive metastore client failed                       | When users encounter this error code, it means that connect to hive metastore service failed, please check it whether is work |
@@ -100,54 +102,55 @@ problems encountered by users.
 
 ## Elasticsearch Connector Error Codes
 
-| code              | description                                   | solution                                                                                                                       |
-|-------------------|-----------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
-| ELASTICSEARCH-01  | Bulk es response error                        | When the user encounters this error code, it means that the connection was aborted, please check it whether is work            |
-| ELASTICSEARCH-02  | Get elasticsearch version failed              | When the user encounters this error code, it means that the connection was aborted, please check it whether is work            |
-| ELASTICSEARCH-03  | Fail to scroll request                        | When the user encounters this error code, it means that the connection was aborted, please check it whether is work            |
-| ELASTICSEARCH-04  | Get elasticsearch document index count failed | When the user encounters this error code, it means that the es index may not wrong or the connection was aborted, please check |
+|       code       |                  description                  |                                                            solution                                                            |
+|------------------|-----------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
+| ELASTICSEARCH-01 | Bulk es response error                        | When the user encounters this error code, it means that the connection was aborted, please check it whether is work            |
+| ELASTICSEARCH-02 | Get elasticsearch version failed              | When the user encounters this error code, it means that the connection was aborted, please check it whether is work            |
+| ELASTICSEARCH-03 | Fail to scroll request                        | When the user encounters this error code, it means that the connection was aborted, please check it whether is work            |
+| ELASTICSEARCH-04 | Get elasticsearch document index count failed | When the user encounters this error code, it means that the es index may not wrong or the connection was aborted, please check |
 
 ## Kafka Connector Error Codes
 
-| code     | description                                                                               | solution                                                                                                                          |
-|----------|-------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
-| KAFKA-01 | Incompatible KafkaProducer version                                                        | When users encounter this error code, it means that KafkaProducer version is incompatible, please check it                        |
-| KAFKA-02 | Get transactionManager in KafkaProducer exception                                         | When users encounter this error code, it means that can not get transactionManager in KafkaProducer, please check it              |
-| KAFKA-03 | Add the split checkpoint state to reader failed                                           | When users encounter this error code, it means that add the split checkpoint state to reader failed, please retry it              |
-| KAFKA-04 | Add a split back to the split enumerator,it will only happen when a SourceReader failed   | When users encounter this error code, it means that add a split back to the split enumerator failed, please check it              | 
-| KAFKA-05 | Error occurred when the kafka consumer thread was running                                 | When users encounter this error code, it means that an error occurred when the kafka consumer thread was running, please check it |
-| KAFKA-06 | Kafka failed to consume data                                                              | When users encounter this error code, it means that Kafka failed to consume data, please check config and retry it                |
+|   code   |                                       description                                       |                                                             solution                                                              |
+|----------|-----------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
+| KAFKA-01 | Incompatible KafkaProducer version                                                      | When users encounter this error code, it means that KafkaProducer version is incompatible, please check it                        |
+| KAFKA-02 | Get transactionManager in KafkaProducer exception                                       | When users encounter this error code, it means that can not get transactionManager in KafkaProducer, please check it              |
+| KAFKA-03 | Add the split checkpoint state to reader failed                                         | When users encounter this error code, it means that add the split checkpoint state to reader failed, please retry it              |
+| KAFKA-04 | Add a split back to the split enumerator,it will only happen when a SourceReader failed | When users encounter this error code, it means that add a split back to the split enumerator failed, please check it              |
+| KAFKA-05 | Error occurred when the kafka consumer thread was running                               | When users encounter this error code, it means that an error occurred when the kafka consumer thread was running, please check it |
+| KAFKA-06 | Kafka failed to consume data                                                            | When users encounter this error code, it means that Kafka failed to consume data, please check config and retry it                |
+| KAFKA-07 | Kafka failed to close consumer                                                          | When users encounter this error code, it means that Kafka failed to close consumer                                                |
 
 ## InfluxDB Connector Error Codes
 
-| code        | description                                                      | solution                                                                                                    |
+|    code     |                           description                            |                                                  solution                                                   |
 |-------------|------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
 | INFLUXDB-01 | Connect influxdb failed, due to influxdb version info is unknown | When the user encounters this error code, it indicates that the connection to influxdb failed. Please check |
 | INFLUXDB-02 | Get column index of query result exception                       | When the user encounters this error code, it indicates that obtaining the column index failed. Please check |
 
 ## Kudu Connector Error Codes
 
-| code    | description                                              | solution                                                                                                                                                                                          |
-|---------|----------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| KUDU-01 | Get the Kuduscan object for each splice failed           | When users encounter this error code, it is usually there are some problems with getting the KuduScan Object for each splice, please check your configuration whether correct and Kudu is work    |
-| KUDU-02 | Close Kudu client failed                                 | When users encounter this error code, it is usually there are some problems with closing the Kudu client, please check the Kudu is work                                                           |                                                                |
-| KUDU-03 | Value type does not match column type                    | When users encounter this error code, it is usually there are some problems on matching the Type between value type and colum type, please check if the data type is supported                    |
-| KUDU-04 | Upsert data to Kudu failed                               | When users encounter this error code, it means that Kudu has some problems, please check it whether is work                                                                                       |
-| KUDU-05 | Insert data to Kudu failed                               | When users encounter this error code, it means that Kudu has some problems, please check it whether is work                                                                                       |
-| KUDU-06 | Initialize the Kudu client failed                        | When users encounter this error code, it is usually there are some problems with initializing the Kudu client, please check your configuration whether correct and connector is work              |
-| KUDU-07 | Generate Kudu Parameters in the preparation phase failed | When users encounter this error code, it means that there are some problems on Kudu parameters generation, please check your configuration                                                        |
+|  code   |                       description                        |                                                                                            solution                                                                                            |
+|---------|----------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---|
+| KUDU-01 | Get the Kuduscan object for each splice failed           | When users encounter this error code, it is usually there are some problems with getting the KuduScan Object for each splice, please check your configuration whether correct and Kudu is work |
+| KUDU-02 | Close Kudu client failed                                 | When users encounter this error code, it is usually there are some problems with closing the Kudu client, please check the Kudu is work                                                        |   |
+| KUDU-03 | Value type does not match column type                    | When users encounter this error code, it is usually there are some problems on matching the Type between value type and colum type, please check if the data type is supported                 |
+| KUDU-04 | Upsert data to Kudu failed                               | When users encounter this error code, it means that Kudu has some problems, please check it whether is work                                                                                    |
+| KUDU-05 | Insert data to Kudu failed                               | When users encounter this error code, it means that Kudu has some problems, please check it whether is work                                                                                    |
+| KUDU-06 | Initialize the Kudu client failed                        | When users encounter this error code, it is usually there are some problems with initializing the Kudu client, please check your configuration whether correct and connector is work           |
+| KUDU-07 | Generate Kudu Parameters in the preparation phase failed | When users encounter this error code, it means that there are some problems on Kudu parameters generation, please check your configuration                                                     |
 
 ## IotDB Connector Error Codes
 
-| code     | description                                              | solution                                                                                                     |
-|----------|----------------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
-| IOTDB-01 | Close IoTDB session failed                               | When the user encounters this error code, it indicates that closing the session failed. Please check         |
-| IOTDB-02 | Initialize IoTDB client failed                           | When the user encounters this error code, it indicates that the client initialization failed. Please check   |
-| IOTDB-03 | Close IoTDB client failed                                | When the user encounters this error code, it indicates that closing the client failed. Please check          |
+|   code   |          description           |                                                  solution                                                  |
+|----------|--------------------------------|------------------------------------------------------------------------------------------------------------|
+| IOTDB-01 | Close IoTDB session failed     | When the user encounters this error code, it indicates that closing the session failed. Please check       |
+| IOTDB-02 | Initialize IoTDB client failed | When the user encounters this error code, it indicates that the client initialization failed. Please check |
+| IOTDB-03 | Close IoTDB client failed      | When the user encounters this error code, it indicates that closing the client failed. Please check        |
 
 ## File Connector Error Codes
 
-| code    | description                 | solution                                                                                                                                                         |
+|  code   |         description         |                                                                             solution                                                                             |
 |---------|-----------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | FILE-01 | File type is invalid        | When users encounter this error code, it means that the this file is not the format that user assigned, please check it                                          |
 | FILE-02 | Data deserialization failed | When users encounter this error code, it means that data from files not satisfied the schema that user assigned, please check data from files whether is correct |
@@ -155,13 +158,26 @@ problems encountered by users.
 
 ## Doris Connector Error Codes
 
-| code     | description                               | solution                                                                                                                                 |
-|----------|-------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
-| Doris-01 | Writing records to Doris failed.          | When users encounter this error code, it means that writing records to Doris failed, please check data from files whether is correct     |
+|   code   |           description            |                                                               solution                                                               |
+|----------|----------------------------------|--------------------------------------------------------------------------------------------------------------------------------------|
+| Doris-01 | Writing records to Doris failed. | When users encounter this error code, it means that writing records to Doris failed, please check data from files whether is correct |
+
+## SelectDB Cloud Connector Error Codes
+
+|    code     |             description             |                                                               solution                                                                |
+|-------------|-------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------|
+| SelectDB-01 | upload file to stage failed         | When users encounter this error code, it means that upload file to SelectDB Cloud failed, please check the configuration and network. |
+| SelectDB-01 | commit copy into sql failed         | When users encounter this error code, it means that commit copy into sql to SelectDB Cloud failed, please check the configuration.    |
+| SelectDB-03 | Closing httpClient failed           | When users encounter this error code, it means that closing the http connection failed. please check the network.                     |
+| SelectDB-04 | Get the redirected s3 address filed | When users encounter this error code, it means that get the redirected s3 address failed, please check the network.                   |
+| SelectDB-05 | error while loading data            | When users encounter this error code, it means that the file write check failed. please check the configuration.                      |
+| SelectDB-07 | buffer stop failed                  | When users encounter this error code, it means that the buffer stop failed. Check the detailed exception information.                 |
+| SelectDB-08 | buffer read failed                  | When users encounter this error code, it means that the buffer read failed. Check the detailed exception information.                 |
+| SelectDB-09 | buffer write failed                 | When users encounter this error code, it means that the buffer write failed. Check the detailed exception information.                |
 
 ## Clickhouse Connector Error Codes
 
-| code          | description                                                               | solution                                                                                                                                                                |
+|     code      |                                description                                |                                                                                solution                                                                                 |
 |---------------|---------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | CLICKHOUSE-01 | Field is not existed in target table                                      | When users encounter this error code, it means that the fields of upstream data don't meet with target clickhouse table, please check target clickhouse table structure |
 | CLICKHOUSE-02 | Can’t find password of shard node                                         | When users encounter this error code, it means that no password is configured for each node, please check                                                               |
@@ -172,18 +188,18 @@ problems encountered by users.
 
 ## Jdbc Connector Error Codes
 
-| code    | description                                                         | solution                                                                                                                                                                                                    |
-|---------|---------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| JDBC-01 | Fail to create driver of class                                      | When users encounter this error code, it means that driver package may not be added. Check whether the driver exists                                                                                        |
-| JDBC-02 | No suitable driver found                                            | When users encounter this error code, it means that no password is configured for each node, please check                                                                                                   |
-| JDBC-03 | Xa operation failed, such as (commit, rollback) etc..               | When users encounter this error code, it means that if a distributed sql transaction fails, check the transaction execution of the corresponding database to determine the cause of the transaction failure |
-| JDBC-04 | Connector database failed                                           | When users encounter this error code, it means that database connection failure, check whether the url is correct or whether the corresponding service is normal                                            |
-| JDBC-05 | transaction operation failed, such as (commit, rollback) etc..      | When users encounter this error code, it means that if a sql transaction fails, check the transaction execution of the corresponding database to determine the cause of the transaction failure             |
-| JDBC-06 | No suitable dialect factory found                                   | When users encounter this error code, it means that may be an unsupported dialect type                                                                                                                      |
+|  code   |                          description                           |                                                                                                  solution                                                                                                   |
+|---------|----------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| JDBC-01 | Fail to create driver of class                                 | When users encounter this error code, it means that driver package may not be added. Check whether the driver exists                                                                                        |
+| JDBC-02 | No suitable driver found                                       | When users encounter this error code, it means that no password is configured for each node, please check                                                                                                   |
+| JDBC-03 | Xa operation failed, such as (commit, rollback) etc..          | When users encounter this error code, it means that if a distributed sql transaction fails, check the transaction execution of the corresponding database to determine the cause of the transaction failure |
+| JDBC-04 | Connector database failed                                      | When users encounter this error code, it means that database connection failure, check whether the url is correct or whether the corresponding service is normal                                            |
+| JDBC-05 | transaction operation failed, such as (commit, rollback) etc.. | When users encounter this error code, it means that if a sql transaction fails, check the transaction execution of the corresponding database to determine the cause of the transaction failure             |
+| JDBC-06 | No suitable dialect factory found                              | When users encounter this error code, it means that may be an unsupported dialect type                                                                                                                      |
 
 ## Pulsar Connector Error Codes
 
-| code      | description                                      | solution                                                                                                              |
+|   code    |                   description                    |                                                       solution                                                        |
 |-----------|--------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
 | PULSAR-01 | Open pulsar admin failed                         | When users encounter this error code, it means that open pulsar admin failed, please check it                         |
 | PULSAR-02 | Open pulsar client failed                        | When users encounter this error code, it means that open pulsar client failed, please check it                        |
@@ -194,28 +210,28 @@ problems encountered by users.
 
 ## StarRocks Connector Error Codes
 
-| code         | description                               | solution                                                                                                                                 |
+|     code     |                description                |                                                                 solution                                                                 |
 |--------------|-------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
 | STARROCKS-01 | Flush batch data to sink connector failed | When users encounter this error code, it means that flush batch data to sink connector failed, please check it                           |
-| STARROCKS-02 | Writing records to StarRocks failed      | When users encounter this error code, it means that writing records to StarRocks failed, please check data from files whether is correct |
+| STARROCKS-02 | Writing records to StarRocks failed       | When users encounter this error code, it means that writing records to StarRocks failed, please check data from files whether is correct |
 
 ## DingTalk Connector Error Codes
 
-| code        | description                             | solution                                                                                                             |
+|    code     |               description               |                                                       solution                                                       |
 |-------------|-----------------------------------------|----------------------------------------------------------------------------------------------------------------------|
 | DINGTALK-01 | Send response to DinkTalk server failed | When users encounter this error code, it means that send response message to DinkTalk server failed, please check it |
 | DINGTALK-02 | Get sign from DinkTalk server failed    | When users encounter this error code, it means that get signature from DinkTalk server failed , please check it      |
 
 ## Iceberg Connector Error Codes
 
-| code       | description                     | solution                                                                                                 |
-|------------|---------------------------------|----------------------------------------------------------------------------------------------------------|
-| ICEBERG-01 | File Scan Split failed          | When users encounter this error code, it means that the file scanning and splitting failed. Please check |
-| ICEBERG-02 | Invalid starting record offset  | When users encounter this error code, it means that the starting record offset is invalid. Please check  |
+|    code    |          description           |                                                 solution                                                 |
+|------------|--------------------------------|----------------------------------------------------------------------------------------------------------|
+| ICEBERG-01 | File Scan Split failed         | When users encounter this error code, it means that the file scanning and splitting failed. Please check |
+| ICEBERG-02 | Invalid starting record offset | When users encounter this error code, it means that the starting record offset is invalid. Please check  |
 
 ## Email Connector Error Codes
 
-| code        | description       | solution                                                                                                                                                            |
-|-------------|-------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| EMAIL-01    | Send email failed | When users encounter this error code, it means that send email to target server failed, please adjust the network environment according to the abnormal information |
+|   code   |    description    |                                                                              solution                                                                               |
+|----------|-------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| EMAIL-01 | Send email failed | When users encounter this error code, it means that send email to target server failed, please adjust the network environment according to the abnormal information |
 

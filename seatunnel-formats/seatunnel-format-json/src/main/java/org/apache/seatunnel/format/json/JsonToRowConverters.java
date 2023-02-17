@@ -18,7 +18,7 @@
 
 package org.apache.seatunnel.format.json;
 
-import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.MapType;
@@ -28,9 +28,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -51,17 +48,22 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 
-/** Tool class used to convert from {@link JsonNode} to {@link org.apache.seatunnel.api.table.type.SeaTunnelRow}. * */
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
+
+/**
+ * Tool class used to convert from {@link JsonNode} to {@link
+ * org.apache.seatunnel.api.table.type.SeaTunnelRow}. *
+ */
 public class JsonToRowConverters implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     @SuppressWarnings("MagicNumber")
     public static final DateTimeFormatter TIME_FORMAT =
-        new DateTimeFormatterBuilder()
-            .appendPattern("HH:mm:ss")
-            .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
-            .toFormatter();
+            new DateTimeFormatterBuilder()
+                    .appendPattern("HH:mm:ss")
+                    .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
+                    .toFormatter();
 
     /** Flag indicating whether to fail if a field is missing. */
     private final boolean failOnMissingField;
@@ -69,9 +71,7 @@ public class JsonToRowConverters implements Serializable {
     /** Flag indicating whether to ignore invalid fields/rows (default: throw an exception). */
     private final boolean ignoreParseErrors;
 
-    public JsonToRowConverters(
-        boolean failOnMissingField,
-        boolean ignoreParseErrors) {
+    public JsonToRowConverters(boolean failOnMissingField, boolean ignoreParseErrors) {
         this.failOnMissingField = failOnMissingField;
         this.ignoreParseErrors = ignoreParseErrors;
     }
@@ -190,8 +190,8 @@ public class JsonToRowConverters implements Serializable {
             case MAP:
                 return createMapConverter((MapType<?, ?>) type);
             default:
-                throw new SeaTunnelJsonFormatException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        "Unsupported type: " + type);
+                throw new SeaTunnelJsonFormatException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported type: " + type);
         }
     }
 
@@ -250,7 +250,8 @@ public class JsonToRowConverters implements Serializable {
     }
 
     private LocalDateTime convertToLocalDateTime(JsonNode jsonNode) {
-        TemporalAccessor parsedTimestamp = DateTimeFormatter.ISO_LOCAL_DATE_TIME.parse(jsonNode.asText());
+        TemporalAccessor parsedTimestamp =
+                DateTimeFormatter.ISO_LOCAL_DATE_TIME.parse(jsonNode.asText());
         LocalTime localTime = parsedTimestamp.query(TemporalQueries.localTime());
         LocalDate localDate = parsedTimestamp.query(TemporalQueries.localDate());
         return LocalDateTime.of(localDate, localTime);
@@ -268,8 +269,8 @@ public class JsonToRowConverters implements Serializable {
         try {
             return jsonNode.binaryValue();
         } catch (IOException e) {
-            throw new SeaTunnelJsonFormatException(CommonErrorCode.JSON_OPERATION_FAILED,
-                    "Unable to deserialize byte array.", e);
+            throw new SeaTunnelJsonFormatException(
+                    CommonErrorCode.JSON_OPERATION_FAILED, "Unable to deserialize byte array.", e);
         }
     }
 
@@ -286,36 +287,44 @@ public class JsonToRowConverters implements Serializable {
 
     private JsonToRowConverter createRowConverter(SeaTunnelRowType rowType) {
         final JsonToRowConverter[] fieldConverters =
-            Arrays.stream(rowType.getFieldTypes())
-                .map(new Function<SeaTunnelDataType<?>, Object>() {
-                    @Override
-                    public Object apply(SeaTunnelDataType<?> seaTunnelDataType) {
-                        return createConverter(seaTunnelDataType);
-                    }
-                })
-                .toArray(new IntFunction<JsonToRowConverter[]>() {
-                    @Override
-                    public JsonToRowConverter[] apply(int value) {
-                        return new JsonToRowConverter[value];
-                    }
-                });
+                Arrays.stream(rowType.getFieldTypes())
+                        .map(
+                                new Function<SeaTunnelDataType<?>, Object>() {
+                                    @Override
+                                    public Object apply(SeaTunnelDataType<?> seaTunnelDataType) {
+                                        return createConverter(seaTunnelDataType);
+                                    }
+                                })
+                        .toArray(
+                                new IntFunction<JsonToRowConverter[]>() {
+                                    @Override
+                                    public JsonToRowConverter[] apply(int value) {
+                                        return new JsonToRowConverter[value];
+                                    }
+                                });
         final String[] fieldNames = rowType.getFieldNames();
 
         return new JsonToRowConverter() {
             @Override
             public Object convert(JsonNode jsonNode) {
-                ObjectNode node = (ObjectNode) jsonNode;
                 int arity = fieldNames.length;
                 SeaTunnelRow row = new SeaTunnelRow(arity);
                 for (int i = 0; i < arity; i++) {
                     String fieldName = fieldNames[i];
-                    JsonNode field = node.get(fieldName);
+                    JsonNode field;
+                    if (jsonNode.isArray()) {
+                        field = jsonNode.get(i);
+                    } else {
+                        field = jsonNode.get(fieldName);
+                    }
                     try {
                         Object convertedField = convertField(fieldConverters[i], fieldName, field);
                         row.setField(i, convertedField);
                     } catch (Throwable t) {
-                        throw new SeaTunnelJsonFormatException(CommonErrorCode.JSON_OPERATION_FAILED,
-                                String.format("Fail to deserialize at field: %s.", fieldName), t);
+                        throw new SeaTunnelJsonFormatException(
+                                CommonErrorCode.JSON_OPERATION_FAILED,
+                                String.format("Fail to deserialize at field: %s.", fieldName),
+                                t);
                     }
                 }
                 return row;
@@ -328,7 +337,8 @@ public class JsonToRowConverters implements Serializable {
         return new JsonToRowConverter() {
             @Override
             public Object convert(JsonNode jsonNode) {
-                Object arr = Array.newInstance(type.getElementType().getTypeClass(), jsonNode.size());
+                Object arr =
+                        Array.newInstance(type.getElementType().getTypeClass(), jsonNode.size());
                 for (int i = 0; i < jsonNode.size(); i++) {
                     Array.set(arr, i, valueConverter.convert(jsonNode.get(i)));
                 }
@@ -343,22 +353,27 @@ public class JsonToRowConverters implements Serializable {
             @Override
             public Object convert(JsonNode jsonNode) {
                 Map<Object, Object> value = new HashMap<>();
-                jsonNode.fields().forEachRemaining(new Consumer<Map.Entry<String, JsonNode>>() {
-                    @Override
-                    public void accept(Map.Entry<String, JsonNode> entry) {
-                        value.put(entry.getKey(), valueConverter.convert(entry.getValue()));
-                    }
-                });
+                jsonNode.fields()
+                        .forEachRemaining(
+                                new Consumer<Map.Entry<String, JsonNode>>() {
+                                    @Override
+                                    public void accept(Map.Entry<String, JsonNode> entry) {
+                                        value.put(
+                                                entry.getKey(),
+                                                valueConverter.convert(entry.getValue()));
+                                    }
+                                });
                 return value;
             }
         };
     }
 
     private Object convertField(
-        JsonToRowConverter fieldConverter, String fieldName, JsonNode field) {
+            JsonToRowConverter fieldConverter, String fieldName, JsonNode field) {
         if (field == null) {
             if (failOnMissingField) {
-                throw new SeaTunnelJsonFormatException(CommonErrorCode.JSON_OPERATION_FAILED,
+                throw new SeaTunnelJsonFormatException(
+                        CommonErrorCode.JSON_OPERATION_FAILED,
                         String.format("Could not find field with name %s .", fieldName));
             } else {
                 return null;
@@ -388,8 +403,7 @@ public class JsonToRowConverters implements Serializable {
     }
 
     /**
-     * Runtime converter that converts {@link JsonNode}s into objects of internal
-     * data structures.
+     * Runtime converter that converts {@link JsonNode}s into objects of internal data structures.
      */
     @FunctionalInterface
     public interface JsonToRowConverter extends Serializable {

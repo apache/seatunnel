@@ -24,5 +24,4 @@ public class Gbase8aJdbcRowConverter extends AbstractJdbcRowConverter {
     public String converterName() {
         return "Gbase8a";
     }
-
 }

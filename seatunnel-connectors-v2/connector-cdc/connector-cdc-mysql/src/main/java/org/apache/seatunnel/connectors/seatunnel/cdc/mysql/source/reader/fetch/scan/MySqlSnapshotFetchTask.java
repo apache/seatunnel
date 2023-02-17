@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.scan;
 
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.createMySqlConnection;
-
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
@@ -39,6 +37,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Map;
 
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.createMySqlConnection;
+
 public class MySqlSnapshotFetchTask implements FetchTask<SourceSplitBase> {
 
     private final SnapshotSplit split;
@@ -56,98 +56,98 @@ public class MySqlSnapshotFetchTask implements FetchTask<SourceSplitBase> {
         MySqlSourceFetchTaskContext sourceFetchContext = (MySqlSourceFetchTaskContext) context;
         taskRunning = true;
         snapshotSplitReadTask =
-            new MySqlSnapshotSplitReadTask(
-                sourceFetchContext.getDbzConnectorConfig(),
-                sourceFetchContext.getOffsetContext(),
-                sourceFetchContext.getSnapshotChangeEventSourceMetrics(),
-                sourceFetchContext.getDatabaseSchema(),
-                sourceFetchContext.getConnection(),
-                sourceFetchContext.getDispatcher(),
-                split);
+                new MySqlSnapshotSplitReadTask(
+                        sourceFetchContext.getDbzConnectorConfig(),
+                        sourceFetchContext.getOffsetContext(),
+                        sourceFetchContext.getSnapshotChangeEventSourceMetrics(),
+                        sourceFetchContext.getDatabaseSchema(),
+                        sourceFetchContext.getConnection(),
+                        sourceFetchContext.getDispatcher(),
+                        split);
         SnapshotSplitChangeEventSourceContext changeEventSourceContext =
-            new SnapshotSplitChangeEventSourceContext();
-        SnapshotResult snapshotResult = snapshotSplitReadTask.execute(
-                changeEventSourceContext, sourceFetchContext.getOffsetContext());
+                new SnapshotSplitChangeEventSourceContext();
+        SnapshotResult snapshotResult =
+                snapshotSplitReadTask.execute(
+                        changeEventSourceContext, sourceFetchContext.getOffsetContext());
 
-        final IncrementalSplit backfillBinlogSplit = createBackfillBinlogSplit(changeEventSourceContext);
+        final IncrementalSplit backfillBinlogSplit =
+                createBackfillBinlogSplit(changeEventSourceContext);
 
         // optimization that skip the binlog read when the low watermark equals high
         // watermark
         final boolean binlogBackfillRequired =
-            backfillBinlogSplit
-                .getStopOffset()
-                .isAfter(backfillBinlogSplit.getStartupOffset());
+                backfillBinlogSplit.getStopOffset().isAfter(backfillBinlogSplit.getStartupOffset());
         if (!binlogBackfillRequired) {
             dispatchBinlogEndEvent(
-                backfillBinlogSplit,
-                ((MySqlSourceFetchTaskContext) context).getOffsetContext().getPartition(),
-                ((MySqlSourceFetchTaskContext) context).getDispatcher());
+                    backfillBinlogSplit,
+                    ((MySqlSourceFetchTaskContext) context).getOffsetContext().getPartition(),
+                    ((MySqlSourceFetchTaskContext) context).getDispatcher());
             taskRunning = false;
             return;
         }
         // execute binlog read task
         if (snapshotResult.isCompletedOrSkipped()) {
             final MySqlBinlogFetchTask.MySqlBinlogSplitReadTask backfillBinlogReadTask =
-                createBackfillBinlogReadTask(backfillBinlogSplit, sourceFetchContext);
+                    createBackfillBinlogReadTask(backfillBinlogSplit, sourceFetchContext);
             backfillBinlogReadTask.execute(
-                new SnapshotBinlogSplitChangeEventSourceContext(),
-                sourceFetchContext.getOffsetContext());
+                    new SnapshotBinlogSplitChangeEventSourceContext(),
+                    sourceFetchContext.getOffsetContext());
         } else {
             taskRunning = false;
             throw new IllegalStateException(
-                String.format("Read snapshot for mysql split %s fail", split));
+                    String.format("Read snapshot for mysql split %s fail", split));
         }
     }
 
     private IncrementalSplit createBackfillBinlogSplit(
-        SnapshotSplitChangeEventSourceContext sourceContext) {
+            SnapshotSplitChangeEventSourceContext sourceContext) {
         return new IncrementalSplit(
-            split.splitId(),
-            Collections.singletonList(split.getTableId()),
-            sourceContext.getLowWatermark(),
-            sourceContext.getHighWatermark(),
-            new ArrayList<>());
+                split.splitId(),
+                Collections.singletonList(split.getTableId()),
+                sourceContext.getLowWatermark(),
+                sourceContext.getHighWatermark(),
+                new ArrayList<>());
     }
 
     private void dispatchBinlogEndEvent(
-        IncrementalSplit backFillBinlogSplit,
-        Map<String, ?> sourcePartition,
-        JdbcSourceEventDispatcher eventDispatcher)
-        throws InterruptedException {
+            IncrementalSplit backFillBinlogSplit,
+            Map<String, ?> sourcePartition,
+            JdbcSourceEventDispatcher eventDispatcher)
+            throws InterruptedException {
         eventDispatcher.dispatchWatermarkEvent(
-            sourcePartition,
-            backFillBinlogSplit,
-            backFillBinlogSplit.getStopOffset(),
-            WatermarkKind.END);
+                sourcePartition,
+                backFillBinlogSplit,
+                backFillBinlogSplit.getStopOffset(),
+                WatermarkKind.END);
     }
 
     private MySqlBinlogFetchTask.MySqlBinlogSplitReadTask createBackfillBinlogReadTask(
-        IncrementalSplit backfillBinlogSplit, MySqlSourceFetchTaskContext context) {
+            IncrementalSplit backfillBinlogSplit, MySqlSourceFetchTaskContext context) {
         final MySqlOffsetContext.Loader loader =
-            new MySqlOffsetContext.Loader(context.getSourceConfig().getDbzConnectorConfig());
+                new MySqlOffsetContext.Loader(context.getSourceConfig().getDbzConnectorConfig());
         final MySqlOffsetContext mySqlOffsetContext =
-            (MySqlOffsetContext)
-                loader.load(backfillBinlogSplit.getStartupOffset().getOffset());
+                (MySqlOffsetContext)
+                        loader.load(backfillBinlogSplit.getStartupOffset().getOffset());
         // we should only capture events for the current table,
         // otherwise, we may can't find corresponding schema
         Configuration dezConf =
-            context.getSourceConfig()
-                .getDbzConfiguration()
-                .edit()
-                .with("table.include.list", split.getTableId().toString())
-                // Disable heartbeat event in snapshot split fetcher
-                .with(Heartbeat.HEARTBEAT_INTERVAL, 0)
-                .build();
+                context.getSourceConfig()
+                        .getDbzConfiguration()
+                        .edit()
+                        .with("table.include.list", split.getTableId().toString())
+                        // Disable heartbeat event in snapshot split fetcher
+                        .with(Heartbeat.HEARTBEAT_INTERVAL, 0)
+                        .build();
         // task to read binlog and backfill for current split
         return new MySqlBinlogFetchTask.MySqlBinlogSplitReadTask(
-            new MySqlConnectorConfig(dezConf),
-            mySqlOffsetContext,
-            createMySqlConnection(context.getSourceConfig().getDbzConfiguration()),
-            context.getDispatcher(),
-            context.getErrorHandler(),
-            context.getTaskContext(),
-            context.getStreamingChangeEventSourceMetrics(),
-            backfillBinlogSplit);
+                new MySqlConnectorConfig(dezConf),
+                mySqlOffsetContext,
+                createMySqlConnection(context.getSourceConfig().getDbzConfiguration()),
+                context.getDispatcher(),
+                context.getErrorHandler(),
+                context.getTaskContext(),
+                context.getStreamingChangeEventSourceMetrics(),
+                backfillBinlogSplit);
     }
 
     @Override
@@ -165,7 +165,7 @@ public class MySqlSnapshotFetchTask implements FetchTask<SourceSplitBase> {
      * of a snapshot split task.
      */
     public class SnapshotBinlogSplitChangeEventSourceContext
-        implements ChangeEventSource.ChangeEventSourceContext {
+            implements ChangeEventSource.ChangeEventSourceContext {
 
         public void finished() {
             taskRunning = false;

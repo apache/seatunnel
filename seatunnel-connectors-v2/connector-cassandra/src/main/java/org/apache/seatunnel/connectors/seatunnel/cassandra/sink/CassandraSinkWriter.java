@@ -143,7 +143,8 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                 this.session.close();
             }
         } catch (Exception e) {
-            throw new CassandraConnectorException(CassandraConnectorErrorCode.CLOSE_CQL_SESSION_FAILED, e);
+            throw new CassandraConnectorException(
+                    CassandraConnectorErrorCode.CLOSE_CQL_SESSION_FAILED, e);
         }
     }
 }

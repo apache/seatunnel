@@ -25,7 +25,8 @@ public class DataHubConnectorException extends SeaTunnelRuntimeException {
         super(seaTunnelErrorCode, errorMessage);
     }
 
-    public DataHubConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+    public DataHubConnectorException(
+            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
         super(seaTunnelErrorCode, errorMessage, cause);
     }
 

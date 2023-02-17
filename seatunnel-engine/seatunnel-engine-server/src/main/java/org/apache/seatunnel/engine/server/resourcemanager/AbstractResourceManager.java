@@ -21,6 +21,7 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ReleaseSlotOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ResetResourceOperation;
+import org.apache.seatunnel.engine.server.resourcemanager.opeartion.SyncWorkerProfileOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
@@ -31,6 +32,7 @@ import com.hazelcast.cluster.Member;
 import com.hazelcast.internal.services.MembershipServiceEvent;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
+import com.hazelcast.spi.impl.InternalCompletableFuture;
 import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
@@ -57,7 +59,10 @@ public abstract class AbstractResourceManager implements ResourceManager {
     private volatile boolean isRunning = true;
 
     public AbstractResourceManager(NodeEngine nodeEngine) {
-        this.registerWorker = nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RESOURCE_MANAGER_REGISTER_WORKER);
+        this.registerWorker =
+                nodeEngine
+                        .getHazelcastInstance()
+                        .getMap(Constant.IMAP_RESOURCE_MANAGER_REGISTER_WORKER);
         this.nodeEngine = nodeEngine;
     }
 
@@ -68,25 +73,43 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     private void checkRegisterWorkerStillAlive() {
         if (!registerWorker.isEmpty()) {
-            List<Address> aliveWorker = nodeEngine.getClusterService().getMembers().stream().map(Member::getAddress)
-                .collect(Collectors.toList());
+            List<Address> aliveWorker =
+                    nodeEngine.getClusterService().getMembers().stream()
+                            .map(Member::getAddress)
+                            .collect(Collectors.toList());
             List<Address> dead =
-                registerWorker.keySet().stream().filter(r -> !aliveWorker.contains(r)).collect(Collectors.toList());
+                    registerWorker.keySet().stream()
+                            .filter(r -> !aliveWorker.contains(r))
+                            .collect(Collectors.toList());
             dead.forEach(registerWorker::remove);
+            List<InternalCompletableFuture<Void>> futures =
+                    aliveWorker.stream()
+                            .map(
+                                    worker ->
+                                            sendToMember(new SyncWorkerProfileOperation(), worker)
+                                                    .thenAccept(
+                                                            p -> {
+                                                                registerWorker.put(
+                                                                        worker, (WorkerProfile) p);
+                                                            }))
+                            .collect(Collectors.toList());
+            futures.forEach(InternalCompletableFuture::join);
         }
     }
 
     @Override
     public CompletableFuture<SlotProfile> applyResource(long jobId, ResourceProfile resourceProfile)
-        throws NoEnoughResourceException {
+            throws NoEnoughResourceException {
         CompletableFuture<SlotProfile> completableFuture = new CompletableFuture<>();
-        applyResources(jobId, Collections.singletonList(resourceProfile)).whenComplete((profile, error) -> {
-            if (error != null) {
-                completableFuture.completeExceptionally(error);
-            } else {
-                completableFuture.complete(profile.get(0));
-            }
-        });
+        applyResources(jobId, Collections.singletonList(resourceProfile))
+                .whenComplete(
+                        (profile, error) -> {
+                            if (error != null) {
+                                completableFuture.completeExceptionally(error);
+                            } else {
+                                completableFuture.complete(profile.get(0));
+                            }
+                        });
         return completableFuture;
     }
 
@@ -106,15 +129,16 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     @Override
     public void memberRemoved(MembershipServiceEvent event) {
-        LOGGER.severe("Node heartbeat timeout, disconnected for resource manager. " +
-            "Node Address: " + event.getMember().getAddress());
+        LOGGER.severe(
+                "Node heartbeat timeout, disconnected for resource manager. "
+                        + "Node Address: "
+                        + event.getMember().getAddress());
         registerWorker.remove(event.getMember().getAddress());
     }
 
     @Override
-    public CompletableFuture<List<SlotProfile>> applyResources(long jobId,
-                                                               List<ResourceProfile> resourceProfile)
-        throws NoEnoughResourceException {
+    public CompletableFuture<List<SlotProfile>> applyResources(
+            long jobId, List<ResourceProfile> resourceProfile) throws NoEnoughResourceException {
         waitingWorkerRegister();
         return new ResourceRequestHandler(jobId, resourceProfile, registerWorker, this).request();
     }
@@ -130,7 +154,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
      */
     protected void findNewWorker(List<ResourceProfile> resourceProfiles) {
         throw new UnsupportedOperationException(
-            "Unsupported operation to find new worker in " + this.getClass().getName());
+                "Unsupported operation to find new worker in " + this.getClass().getName());
     }
 
     @Override
@@ -149,13 +173,15 @@ public abstract class AbstractResourceManager implements ResourceManager {
         for (SlotProfile profile : profiles) {
             futures.add(releaseResource(jobId, profile));
         }
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).whenComplete((r, e) -> {
-            if (e != null) {
-                completableFuture.completeExceptionally(e);
-            } else {
-                completableFuture.complete(null);
-            }
-        });
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                .whenComplete(
+                        (r, e) -> {
+                            if (e != null) {
+                                completableFuture.completeExceptionally(e);
+                            } else {
+                                completableFuture.complete(null);
+                            }
+                        });
         return completableFuture;
     }
 
@@ -172,8 +198,13 @@ public abstract class AbstractResourceManager implements ResourceManager {
     public boolean slotActiveCheck(SlotProfile profile) {
         boolean active = false;
         if (registerWorker.containsKey(profile.getWorker())) {
-            active = Arrays.stream(registerWorker.get(profile.getWorker()).getAssignedSlots())
-                .allMatch(s -> s.getSlotID() == profile.getSlotID());
+            active =
+                    Arrays.stream(registerWorker.get(profile.getWorker()).getAssignedSlots())
+                            .allMatch(
+                                    s ->
+                                            s.getSlotID() == profile.getSlotID()
+                                                    && s.getSequence()
+                                                            .equals(profile.getSequence()));
         }
 
         if (!active) {

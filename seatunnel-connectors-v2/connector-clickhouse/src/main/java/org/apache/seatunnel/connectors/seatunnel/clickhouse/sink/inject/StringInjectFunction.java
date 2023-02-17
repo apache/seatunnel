@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -32,35 +32,41 @@ public class StringInjectFunction implements ClickhouseFieldInjectFunction {
     private String fieldType;
 
     @Override
-    public void injectFields(PreparedStatement statement, int index, Object value) throws SQLException {
+    public void injectFields(PreparedStatement statement, int index, Object value)
+            throws SQLException {
         try {
             if ("Point".equals(fieldType)) {
-                statement.setObject(index, MAPPER.readValue(replace(value.toString()), double[].class));
+                statement.setObject(
+                        index, MAPPER.readValue(replace(value.toString()), double[].class));
             } else if ("Ring".equals(fieldType)) {
-                statement.setObject(index, MAPPER.readValue(replace(value.toString()), double[][].class));
+                statement.setObject(
+                        index, MAPPER.readValue(replace(value.toString()), double[][].class));
             } else if ("Polygon".equals(fieldType)) {
-                statement.setObject(index, MAPPER.readValue(replace(value.toString()), double[][][].class));
+                statement.setObject(
+                        index, MAPPER.readValue(replace(value.toString()), double[][][].class));
             } else if ("MultiPolygon".equals(fieldType)) {
-                statement.setObject(index, MAPPER.readValue(replace(value.toString()), double[][][][].class));
+                statement.setObject(
+                        index, MAPPER.readValue(replace(value.toString()), double[][][][].class));
             } else {
                 statement.setString(index, value.toString());
             }
         } catch (JsonProcessingException e) {
-            throw new ClickhouseConnectorException(CommonErrorCode.JSON_OPERATION_FAILED, e.getMessage());
+            throw new ClickhouseConnectorException(
+                    CommonErrorCode.JSON_OPERATION_FAILED, e.getMessage());
         }
     }
 
     @Override
     public boolean isCurrentFieldType(String fieldType) {
         if ("String".equals(fieldType)
-            || "Int128".equals(fieldType)
-            || "UInt128".equals(fieldType)
-            || "Int256".equals(fieldType)
-            || "UInt256".equals(fieldType)
-            || "Point".equals(fieldType)
-            || "Ring".equals(fieldType)
-            || "Polygon".equals(fieldType)
-            || "MultiPolygon".equals(fieldType)) {
+                || "Int128".equals(fieldType)
+                || "UInt128".equals(fieldType)
+                || "Int256".equals(fieldType)
+                || "UInt256".equals(fieldType)
+                || "Point".equals(fieldType)
+                || "Ring".equals(fieldType)
+                || "Polygon".equals(fieldType)
+                || "MultiPolygon".equals(fieldType)) {
             this.fieldType = fieldType;
             return true;
         }

@@ -21,14 +21,18 @@ import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelHazelcastClient;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.Job;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.core.job.JobResult;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelCancelJobCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobStatusCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelSubmitJobCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelWaitForJobCompleteCodec;
+
+import org.apache.commons.lang3.StringUtils;
 
 import com.hazelcast.client.impl.protocol.ClientMessage;
 import com.hazelcast.logging.ILogger;
@@ -39,9 +43,11 @@ public class ClientJobProxy implements Job {
     private static final ILogger LOGGER = Logger.getLogger(ClientJobProxy.class);
     private final SeaTunnelHazelcastClient seaTunnelHazelcastClient;
     private final JobImmutableInformation jobImmutableInformation;
+    private JobResult jobResult;
 
-    public ClientJobProxy(@NonNull SeaTunnelHazelcastClient seaTunnelHazelcastClient,
-                          @NonNull JobImmutableInformation jobImmutableInformation) {
+    public ClientJobProxy(
+            @NonNull SeaTunnelHazelcastClient seaTunnelHazelcastClient,
+            @NonNull JobImmutableInformation jobImmutableInformation) {
         this.seaTunnelHazelcastClient = seaTunnelHazelcastClient;
         this.jobImmutableInformation = jobImmutableInformation;
         submitJob();
@@ -53,11 +59,19 @@ public class ClientJobProxy implements Job {
     }
 
     private void submitJob() {
-        LOGGER.info(String.format("start submit job, job id: %s, with plugin jar %s", jobImmutableInformation.getJobId(), jobImmutableInformation.getPluginJarsUrls()));
-        ClientMessage request = SeaTunnelSubmitJobCodec.encodeRequest(jobImmutableInformation.getJobId(),
-            seaTunnelHazelcastClient.getSerializationService().toData(jobImmutableInformation));
+        LOGGER.info(
+                String.format(
+                        "start submit job, job id: %s, with plugin jar %s",
+                        jobImmutableInformation.getJobId(),
+                        jobImmutableInformation.getPluginJarsUrls()));
+        ClientMessage request =
+                SeaTunnelSubmitJobCodec.encodeRequest(
+                        jobImmutableInformation.getJobId(),
+                        seaTunnelHazelcastClient
+                                .getSerializationService()
+                                .toData(jobImmutableInformation));
         PassiveCompletableFuture<Void> submitJobFuture =
-            seaTunnelHazelcastClient.requestOnMasterAndGetCompletableFuture(request);
+                seaTunnelHazelcastClient.requestOnMasterAndGetCompletableFuture(request);
         submitJobFuture.join();
     }
 
@@ -68,48 +82,79 @@ public class ClientJobProxy implements Job {
      */
     @Override
     public JobStatus waitForJobComplete() {
-        JobStatus jobStatus;
         try {
-            jobStatus = RetryUtils.retryWithException(() -> {
-                PassiveCompletableFuture<JobStatus> jobFuture = doWaitForJobComplete();
-                return jobFuture.get();
-            }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-                exception -> exception instanceof RuntimeException, Constant.OPERATION_RETRY_SLEEP));
+            jobResult =
+                    RetryUtils.retryWithException(
+                            () -> {
+                                PassiveCompletableFuture<JobResult> jobFuture =
+                                        doWaitForJobComplete();
+                                return jobFuture.get();
+                            },
+                            new RetryUtils.RetryMaterial(
+                                    Constant.OPERATION_RETRY_TIME,
+                                    true,
+                                    exception -> exception instanceof RuntimeException,
+                                    Constant.OPERATION_RETRY_SLEEP));
+            if (jobResult == null) {
+                throw new SeaTunnelEngineException("failed to fetch job result");
+            }
         } catch (Exception e) {
-            LOGGER.info(String.format("Job %s (%s) end with unknown state, and throw Exception: %s",
-                jobImmutableInformation.getJobId(),
-                jobImmutableInformation.getJobConfig().getName(),
-                ExceptionUtils.getMessage(e)));
+            LOGGER.info(
+                    String.format(
+                            "Job %s (%s) end with unknown state, and throw Exception: %s",
+                            jobImmutableInformation.getJobId(),
+                            jobImmutableInformation.getJobConfig().getName(),
+                            ExceptionUtils.getMessage(e)));
             throw new RuntimeException(e);
         }
-        LOGGER.info(String.format("Job %s (%s) end with state %s",
-            jobImmutableInformation.getJobConfig().getName(),
-            jobImmutableInformation.getJobId(),
-            jobStatus));
-        return jobStatus;
+        LOGGER.info(
+                String.format(
+                        "Job %s (%s) end with state %s",
+                        jobImmutableInformation.getJobConfig().getName(),
+                        jobImmutableInformation.getJobId(),
+                        jobResult.getStatus()));
+        if (StringUtils.isNotEmpty(jobResult.getError())
+                || jobResult.getStatus().equals(JobStatus.FAILED)) {
+            throw new SeaTunnelEngineException(jobResult.getError());
+        }
+        return jobResult.getStatus();
+    }
+
+    public JobResult getJobResultCache() {
+        return jobResult;
     }
 
     @Override
-    public PassiveCompletableFuture<JobStatus> doWaitForJobComplete() {
-        return seaTunnelHazelcastClient.requestOnMasterAndGetCompletableFuture(
-            SeaTunnelWaitForJobCompleteCodec.encodeRequest(jobImmutableInformation.getJobId()),
-            response -> JobStatus.values()[SeaTunnelWaitForJobCompleteCodec.decodeResponse(response)]);
+    public PassiveCompletableFuture<JobResult> doWaitForJobComplete() {
+        return new PassiveCompletableFuture<>(
+                seaTunnelHazelcastClient
+                        .requestOnMasterAndGetCompletableFuture(
+                                SeaTunnelWaitForJobCompleteCodec.encodeRequest(
+                                        jobImmutableInformation.getJobId()),
+                                SeaTunnelWaitForJobCompleteCodec::decodeResponse)
+                        .thenApply(
+                                jobResult ->
+                                        seaTunnelHazelcastClient
+                                                .getSerializationService()
+                                                .toObject(jobResult)));
     }
 
     @Override
     public void cancelJob() {
-        PassiveCompletableFuture<Void> cancelFuture = seaTunnelHazelcastClient.requestOnMasterAndGetCompletableFuture(
-            SeaTunnelCancelJobCodec.encodeRequest(jobImmutableInformation.getJobId()));
+        PassiveCompletableFuture<Void> cancelFuture =
+                seaTunnelHazelcastClient.requestOnMasterAndGetCompletableFuture(
+                        SeaTunnelCancelJobCodec.encodeRequest(jobImmutableInformation.getJobId()));
 
         cancelFuture.join();
     }
 
     @Override
     public JobStatus getJobStatus() {
-        int jobStatusOrdinal = seaTunnelHazelcastClient.requestOnMasterAndDecodeResponse(
-            SeaTunnelGetJobStatusCodec.encodeRequest(jobImmutableInformation.getJobId()),
-            SeaTunnelGetJobStatusCodec::decodeResponse);
+        int jobStatusOrdinal =
+                seaTunnelHazelcastClient.requestOnMasterAndDecodeResponse(
+                        SeaTunnelGetJobStatusCodec.encodeRequest(
+                                jobImmutableInformation.getJobId()),
+                        SeaTunnelGetJobStatusCodec::decodeResponse);
         return JobStatus.values()[jobStatusOrdinal];
     }
-
 }
