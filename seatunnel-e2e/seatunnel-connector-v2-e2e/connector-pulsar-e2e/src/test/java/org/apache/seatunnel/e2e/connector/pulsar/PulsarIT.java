@@ -17,19 +17,30 @@
 
 package org.apache.seatunnel.e2e.connector.pulsar;
 
-import lombok.extern.slf4j.Slf4j;
-import org.apache.pulsar.client.admin.PulsarAdmin;
-import org.apache.pulsar.client.api.*;
-import org.apache.pulsar.client.impl.conf.ClientConfigurationData;
-import org.apache.pulsar.client.impl.conf.ConsumerConfigurationData;
-import org.apache.seatunnel.api.table.type.*;
+import static java.time.temporal.ChronoUnit.SECONDS;
+
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
+
+import lombok.extern.slf4j.Slf4j;
+import org.apache.pulsar.client.admin.PulsarAdmin;
+import org.apache.pulsar.client.api.ClientBuilder;
+import org.apache.pulsar.client.api.Producer;
+import org.apache.pulsar.client.api.PulsarClient;
+import org.apache.pulsar.client.api.PulsarClientException;
+import org.apache.pulsar.client.api.Schema;
+import org.apache.pulsar.client.api.SubscriptionMode;
+import org.apache.pulsar.client.api.SubscriptionType;
+import org.apache.pulsar.client.impl.conf.ClientConfigurationData;
+import org.apache.pulsar.client.impl.conf.ConsumerConfigurationData;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
-import org.junit.Test;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
@@ -39,9 +50,7 @@ import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
 
 import java.io.IOException;
 import java.time.Duration;
-import java.util.*;
-
-import static java.time.temporal.ChronoUnit.SECONDS;
+import java.util.UUID;
 
 /**
  * Start / stop a Pulsar cluster.
@@ -49,23 +58,23 @@ import static java.time.temporal.ChronoUnit.SECONDS;
 @Slf4j
 public class PulsarIT extends TestSuiteBase implements TestResource {
 
-    protected static PulsarContainer pulsarService;
+    private PulsarContainer pulsarService;
 
-    protected static String serviceUrl;
+    private String serviceUrl;
 
-    protected static String adminUrl;
+    private String adminUrl;
 
-    protected static String zkUrl;
+    private String zkUrl;
 
-    protected static ClientConfigurationData clientConfigurationData = new ClientConfigurationData();
+    private ClientConfigurationData clientConfigurationData = new ClientConfigurationData();
 
-    protected static ConsumerConfigurationData<byte[]> consumerConfigurationData = new ConsumerConfigurationData<>();
+    private ConsumerConfigurationData<byte[]> consumerConfigurationData = new ConsumerConfigurationData<>();
 
-    protected static PulsarAdmin pulsarAdmin;
+    private PulsarAdmin pulsarAdmin;
 
-    protected static PulsarClient pulsarClient;
+    private PulsarClient pulsarClient;
 
-    public static final String TOPIC = "persistent://public/default/test";
+    private static final String TOPIC = "persistent://public/default/test";
 
     @BeforeAll
     @Override
@@ -88,16 +97,16 @@ public class PulsarIT extends TestSuiteBase implements TestResource {
         consumerConfigurationData.setSubscriptionMode(SubscriptionMode.NonDurable);
         consumerConfigurationData.setSubscriptionType(SubscriptionType.Exclusive);
         consumerConfigurationData.setSubscriptionName("flink-" + UUID.randomUUID());
-        log.info("serviceUrl:{}",serviceUrl);
-        log.info("adminUrl:{}",adminUrl);
-        log.info("zkUrl:{}",zkUrl);
+        log.info("serviceUrl:{}", serviceUrl);
+        log.info("adminUrl:{}", adminUrl);
+        log.info("zkUrl:{}", zkUrl);
 
         ClientBuilder builder = PulsarClient.builder();
         builder.serviceUrl(serviceUrl);
         pulsarClient = builder.build();
 
         TextSerializationSchema serializer = TextSerializationSchema.builder()
-                .seaTunnelRowType(SEATUNNEL_ROW_TYPE)
+                .seaTunnelRowType(seaTunnelRowType)
                 .delimiter(",")
                 .build();
         generateTestData(row -> new String(serializer.serialize(row)), 0, 2);
@@ -127,14 +136,12 @@ public class PulsarIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testSourcePulsarTextToConsole(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/pulsarsource_text_to_console.conf");
-        log.info("execResult.getExitCode:{}",execResult.getExitCode());
-        log.info("execResult.getStdout:{}",execResult.getStdout());
-        log.info("execResult.getStderr:{}",execResult.getStderr());
-
+        log.info("execResult.getExitCode:{}", execResult.getExitCode());
+        log.info("execResult.getStdout:{}", execResult.getStdout());
+        log.info("execResult.getStderr:{}", execResult.getStderr());
 
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
-
 
     private void generateTestData(ProducerRecordConverter converter, int start, int end) throws PulsarClientException {
         try (
@@ -143,30 +150,20 @@ public class PulsarIT extends TestSuiteBase implements TestResource {
                         .create();
         ) {
             for (int i = start; i < end; i++) {
-                SeaTunnelRow row = new SeaTunnelRow(
-                        new Object[]{
-                                Long.valueOf(i),
-                                "pulsarsource-test" + i
-                        });
+                SeaTunnelRow row = new SeaTunnelRow(new Object[]{Long.valueOf(i), "pulsarsource-test" + i});
                 String producerRecord = converter.convert(row);
                 producer.send(producerRecord);
             }
         }
-
     }
 
     interface ProducerRecordConverter {
         String convert(SeaTunnelRow row);
     }
 
-    private static final SeaTunnelRowType SEATUNNEL_ROW_TYPE = new SeaTunnelRowType(
-            new String[]{
-                    "id",
-                    "c_string"
-            },
-            new SeaTunnelDataType[]{
-                    BasicType.LONG_TYPE,
-                    BasicType.STRING_TYPE
-            }
+    @SuppressWarnings("checkstyle:InnerTypeLast")
+    SeaTunnelRowType seaTunnelRowType = new SeaTunnelRowType(
+            new String[]{"id", "c_string"},
+            new SeaTunnelDataType[]{BasicType.LONG_TYPE, BasicType.STRING_TYPE}
     );
 }
