@@ -15,11 +15,10 @@ Used to read data from Github.
 - [ ] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
-
 ## Options
 
-| name                        | type   | required | default value |
-| --------------------------- | ------ | -------- | ------------- |
+|            name             |  type  | required | default value |
+|-----------------------------|--------|----------|---------------|
 | url                         | String | Yes      | -             |
 | access_token                | String | No       | -             |
 | method                      | String | No       | get           |
@@ -293,3 +292,4 @@ Github {
 ```
 
 ## Changelog
+
