@@ -36,8 +36,8 @@ Source connector for Apache Pulsar.
 | cursor.stop.mode         | Enum    | No       | NEVER         |
 | cursor.stop.timestamp    | Long    | No       | -             |
 | schema                   | config  | No       | -             |
-| format                   | String  | no       | json          |           |
-| field_delimiter          | String  | no       | ,             |           |
+| format                   | String  | no       | json          |
+| field_delimiter          | String  | no       | ,             |
 | common-options           |         | no       | -             |
 
 ### topic [String]
