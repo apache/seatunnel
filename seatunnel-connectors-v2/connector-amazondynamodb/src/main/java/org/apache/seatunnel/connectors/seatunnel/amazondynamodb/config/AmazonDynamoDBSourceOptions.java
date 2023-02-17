@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config;
 
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -51,8 +51,8 @@ public class AmazonDynamoDBSourceOptions implements Serializable {
         this.accessKeyId = config.getString(AmazonDynamoDBConfig.ACCESS_KEY_ID.key());
         this.secretAccessKey = config.getString(AmazonDynamoDBConfig.SECRET_ACCESS_KEY.key());
         this.table = config.getString(AmazonDynamoDBConfig.TABLE.key());
-        if (config.hasPath(SeaTunnelSchema.SCHEMA.key())) {
-            this.schema = config.getConfig(SeaTunnelSchema.SCHEMA.key());
+        if (config.hasPath(CatalogTableUtil.SCHEMA.key())) {
+            this.schema = config.getConfig(CatalogTableUtil.SCHEMA.key());
         }
         if (config.hasPath(AmazonDynamoDBConfig.BATCH_SIZE.key())) {
             this.batchSize = config.getInt(AmazonDynamoDBConfig.BATCH_SIZE.key());

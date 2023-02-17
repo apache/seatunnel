@@ -30,9 +30,9 @@ import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jCommon
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 
 import com.google.auto.service.AutoService;
 
@@ -46,7 +46,7 @@ public class Neo4jSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-            .required(KEY_NEO4J_URI, KEY_DATABASE, KEY_QUERY, SeaTunnelSchema.SCHEMA)
+            .required(KEY_NEO4J_URI, KEY_DATABASE, KEY_QUERY, CatalogTableUtil.SCHEMA)
             .optional(KEY_USERNAME, KEY_PASSWORD, KEY_BEARER_TOKEN, KEY_KERBEROS_TICKET, KEY_MAX_CONNECTION_TIMEOUT,
                 KEY_MAX_TRANSACTION_RETRY_TIME)
             .build();

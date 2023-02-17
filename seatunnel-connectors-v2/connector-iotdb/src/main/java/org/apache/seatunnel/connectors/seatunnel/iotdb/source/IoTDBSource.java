@@ -30,13 +30,13 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.state.IoTDBSourceState;
 
@@ -69,7 +69,7 @@ public class IoTDBSource implements SeaTunnelSource<SeaTunnelRow, IoTDBSourceSpl
         if (!urlCheckResult.isSuccess()) {
             urlCheckResult = CheckConfigUtil.checkAllExists(pluginConfig, NODE_URLS.key());
         }
-        CheckResult schemaCheckResult = CheckConfigUtil.checkAllExists(pluginConfig, SeaTunnelSchema.SCHEMA.key());
+        CheckResult schemaCheckResult = CheckConfigUtil.checkAllExists(pluginConfig, CatalogTableUtil.SCHEMA.key());
         CheckResult mergedConfigCheck = CheckConfigUtil.mergeCheckResults(urlCheckResult, schemaCheckResult);
         if (!mergedConfigCheck.isSuccess()) {
             throw new IotdbConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -78,8 +78,7 @@ public class IoTDBSource implements SeaTunnelSource<SeaTunnelRow, IoTDBSourceSpl
                     mergedConfigCheck.getMsg())
             );
         }
-        Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
-        this.typeInfo = SeaTunnelSchema.buildWithConfig(schemaConfig).getSeaTunnelRowType();
+        this.typeInfo = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
         pluginConfig.entrySet().forEach(entry -> configParams.put(entry.getKey(), entry.getValue().unwrapped()));
     }
 
