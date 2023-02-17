@@ -164,5 +164,8 @@ source {
 ### 2.3.0-beta 2022-10-20
 
 - Add Pulsar Source Connector
+
 ### Next Version
+
 - Improve pulsar deserialization([3990](https://github.com/apache/incubator-seatunnel/pull/3990))
+

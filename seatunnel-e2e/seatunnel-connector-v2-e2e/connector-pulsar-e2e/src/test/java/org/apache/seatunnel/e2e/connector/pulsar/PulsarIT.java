@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.pulsar;
 
-import static java.time.temporal.ChronoUnit.SECONDS;
-
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -28,7 +26,6 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.api.ClientBuilder;
 import org.apache.pulsar.client.api.Producer;
@@ -39,6 +36,7 @@ import org.apache.pulsar.client.api.SubscriptionMode;
 import org.apache.pulsar.client.api.SubscriptionType;
 import org.apache.pulsar.client.impl.conf.ClientConfigurationData;
 import org.apache.pulsar.client.impl.conf.ConsumerConfigurationData;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -48,13 +46,15 @@ import org.testcontainers.containers.PulsarContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.time.Duration;
 import java.util.UUID;
 
-/**
- * Start / stop a Pulsar cluster.
- */
+import static java.time.temporal.ChronoUnit.SECONDS;
+
+/** Start / stop a Pulsar cluster. */
 @Slf4j
 public class PulsarIT extends TestSuiteBase implements TestResource {
 
@@ -68,7 +68,8 @@ public class PulsarIT extends TestSuiteBase implements TestResource {
 
     private ClientConfigurationData clientConfigurationData = new ClientConfigurationData();
 
-    private ConsumerConfigurationData<byte[]> consumerConfigurationData = new ConsumerConfigurationData<>();
+    private ConsumerConfigurationData<byte[]> consumerConfigurationData =
+            new ConsumerConfigurationData<>();
 
     private PulsarAdmin pulsarAdmin;
 
@@ -83,11 +84,12 @@ public class PulsarIT extends TestSuiteBase implements TestResource {
         log.info("Starting PulsarService ");
         pulsarService = new PulsarContainer();
         pulsarService.addExposedPort(2181);
-        pulsarService.waitingFor(new HttpWaitStrategy()
-                .forPort(PulsarContainer.BROKER_HTTP_PORT)
-                .forStatusCode(200)
-                .forPath("/admin/v2/namespaces/public/default")
-                .withStartupTimeout(Duration.of(400, SECONDS)));
+        pulsarService.waitingFor(
+                new HttpWaitStrategy()
+                        .forPort(PulsarContainer.BROKER_HTTP_PORT)
+                        .forStatusCode(200)
+                        .forPath("/admin/v2/namespaces/public/default")
+                        .withStartupTimeout(Duration.of(400, SECONDS)));
         pulsarService.start();
         pulsarService.followOutput(new Slf4jLogConsumer(log));
         serviceUrl = pulsarService.getPulsarBrokerUrl();
@@ -105,10 +107,11 @@ public class PulsarIT extends TestSuiteBase implements TestResource {
         builder.serviceUrl(serviceUrl);
         pulsarClient = builder.build();
 
-        TextSerializationSchema serializer = TextSerializationSchema.builder()
-                .seaTunnelRowType(seaTunnelRowType)
-                .delimiter(",")
-                .build();
+        TextSerializationSchema serializer =
+                TextSerializationSchema.builder()
+                        .seaTunnelRowType(seaTunnelRowType)
+                        .delimiter(",")
+                        .build();
         generateTestData(row -> new String(serializer.serialize(row)), 0, 2);
 
         log.info("Successfully started PulsarService");
@@ -134,8 +137,10 @@ public class PulsarIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testSourcePulsarTextToConsole(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/pulsarsource_text_to_console.conf");
+    public void testSourcePulsarTextToConsole(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/pulsarsource_text_to_console.conf");
         log.info("execResult.getExitCode:{}", execResult.getExitCode());
         log.info("execResult.getStdout:{}", execResult.getStdout());
         log.info("execResult.getStderr:{}", execResult.getStderr());
@@ -143,14 +148,13 @@ public class PulsarIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
-    private void generateTestData(ProducerRecordConverter converter, int start, int end) throws PulsarClientException {
-        try (
-                Producer<String> producer = pulsarClient.newProducer(Schema.STRING)
-                        .topic(TOPIC)
-                        .create();
-        ) {
+    private void generateTestData(ProducerRecordConverter converter, int start, int end)
+            throws PulsarClientException {
+        try (Producer<String> producer =
+                pulsarClient.newProducer(Schema.STRING).topic(TOPIC).create(); ) {
             for (int i = start; i < end; i++) {
-                SeaTunnelRow row = new SeaTunnelRow(new Object[]{Long.valueOf(i), "pulsarsource-test" + i});
+                SeaTunnelRow row =
+                        new SeaTunnelRow(new Object[] {Long.valueOf(i), "pulsarsource-test" + i});
                 String producerRecord = converter.convert(row);
                 producer.send(producerRecord);
             }
@@ -162,8 +166,8 @@ public class PulsarIT extends TestSuiteBase implements TestResource {
     }
 
     @SuppressWarnings("checkstyle:InnerTypeLast")
-    SeaTunnelRowType seaTunnelRowType = new SeaTunnelRowType(
-            new String[]{"id", "c_string"},
-            new SeaTunnelDataType[]{BasicType.LONG_TYPE, BasicType.STRING_TYPE}
-    );
+    SeaTunnelRowType seaTunnelRowType =
+            new SeaTunnelRowType(
+                    new String[] {"id", "c_string"},
+                    new SeaTunnelDataType[] {BasicType.LONG_TYPE, BasicType.STRING_TYPE});
 }

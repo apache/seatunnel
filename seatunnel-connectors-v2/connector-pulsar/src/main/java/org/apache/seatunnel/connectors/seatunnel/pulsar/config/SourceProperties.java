@@ -26,16 +26,12 @@ public class SourceProperties {
     private static final Integer DEFAULT_POLL_TIMEOUT = 100;
     private static final Long DEFAULT_POLL_INTERVAL = 50L;
     private static final Integer DEFAULT_POLL_BATCH_SIZE = 500;
-    /**
-     * The default data format is JSON
-     */
+    /** The default data format is JSON */
     public static final String DEFAULT_FORMAT = "json";
 
     public static final String TEXT_FORMAT = "text";
 
-    /**
-     * The default field delimiter is “,”
-     */
+    /** The default field delimiter is “,” */
     public static final String DEFAULT_FIELD_DELIMITER = ",";
 
     // --------------------------------------------------------------------------------------------
@@ -174,20 +170,24 @@ public class SourceProperties {
                             "Stop mode for Pulsar consumer, valid values are 'NEVER', 'LATEST' and 'TIMESTAMP'. Note, When 'NEVER' is specified, it is a real-time job, and other mode are off-line jobs.");
 
     public static final Option<Long> CURSOR_STOP_TIMESTAMP =
-        Options.key("cursor.stop.timestamp")
-            .longType()
-            .noDefaultValue()
-            .withDescription("Stop from the specified epoch timestamp (in milliseconds)");
-    public static final Option<String> FORMAT = Options.key("format")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("Data format. The default format is json. Optional text format. The default field separator is \", \". " +
-                    "If you customize the delimiter, add the \"field_delimiter\" option.");
+            Options.key("cursor.stop.timestamp")
+                    .longType()
+                    .noDefaultValue()
+                    .withDescription("Stop from the specified epoch timestamp (in milliseconds)");
+    public static final Option<String> FORMAT =
+            Options.key("format")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Data format. The default format is json. Optional text format. The default field separator is \", \". "
+                                    + "If you customize the delimiter, add the \"field_delimiter\" option.");
 
-    public static final Option<String> FIELD_DELIMITER = Options.key("field_delimiter")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("Customize the field delimiter for data format.");
+    public static final Option<String> FIELD_DELIMITER =
+            Options.key("field_delimiter")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Customize the field delimiter for data format.");
+
     public enum StartMode {
         /** Start from the earliest cursor possible. */
         EARLIEST,
