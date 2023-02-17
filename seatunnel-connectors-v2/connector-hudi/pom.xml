@@ -17,17 +17,18 @@
     limitations under the License.
 
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
     <parent>
-        <artifactId>seatunnel-connectors-v2</artifactId>
         <groupId>org.apache.seatunnel</groupId>
+        <artifactId>seatunnel-connectors-v2</artifactId>
         <version>${revision}</version>
     </parent>
-    <modelVersion>4.0.0</modelVersion>
 
     <artifactId>connector-hudi</artifactId>
+    <name>SeaTunnel : Connectors V2 : Hudi</name>
+
     <properties>
         <hive.exec.version>2.3.9</hive.exec.version>
         <hudi.version>0.11.1</hudi.version>
@@ -92,13 +93,13 @@
         <dependency>
             <groupId>org.apache.hudi</groupId>
             <artifactId>hudi-hadoop-mr-bundle</artifactId>
+            <version>${hudi.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.glassfish</groupId>
                     <artifactId>javax.el</artifactId>
                 </exclusion>
             </exclusions>
-            <version>${hudi.version}</version>
         </dependency>
 
         <dependency>

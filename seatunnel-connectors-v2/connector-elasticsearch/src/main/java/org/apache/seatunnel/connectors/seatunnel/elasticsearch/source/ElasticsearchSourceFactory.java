@@ -17,14 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig.HOSTS;
-import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig.USERNAME;
-import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig.INDEX;
-import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig.SCROLL_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig.SCROLL_TIME;
-import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig.SOURCE;
-
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -32,6 +24,20 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 
 import com.google.auto.service.AutoService;
+
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig.HOSTS;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig.TLS_KEY_STORE_PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig.TLS_KEY_STORE_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig.TLS_TRUST_STORE_PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig.TLS_TRUST_STORE_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig.TLS_VERIFY_CERTIFICATE;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig.TLS_VERIFY_HOSTNAME;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig.INDEX;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig.SCROLL_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig.SCROLL_TIME;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig.SOURCE;
 
 @AutoService(Factory.class)
 public class ElasticsearchSourceFactory implements TableSourceFactory {
@@ -42,8 +48,21 @@ public class ElasticsearchSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(HOSTS, INDEX).optional(USERNAME, PASSWORD, SCROLL_TIME, SCROLL_SIZE)
-            .exclusive(SOURCE, SeaTunnelSchema.SCHEMA).build();
+        return OptionRule.builder()
+                .required(HOSTS, INDEX)
+                .optional(
+                        USERNAME,
+                        PASSWORD,
+                        SCROLL_TIME,
+                        SCROLL_SIZE,
+                        TLS_VERIFY_CERTIFICATE,
+                        TLS_VERIFY_HOSTNAME,
+                        TLS_KEY_STORE_PATH,
+                        TLS_KEY_STORE_PASSWORD,
+                        TLS_TRUST_STORE_PATH,
+                        TLS_TRUST_STORE_PASSWORD)
+                .exclusive(SOURCE, SeaTunnelSchema.SCHEMA)
+                .build();
     }
 
     @Override

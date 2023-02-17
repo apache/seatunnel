@@ -17,7 +17,7 @@ Source connector for Apache Pulsar.
 
 ## Options
 
-| name                     | type    | required | default value |
+|           name           |  type   | required | default value |
 |--------------------------|---------|----------|---------------|
 | topic                    | String  | No       | -             |
 | topic-pattern            | String  | No       | -             |
@@ -141,7 +141,7 @@ Customize the field delimiter for data format.
 
 the schema fields of upstream data.
 
-### common options 
+### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
@@ -162,6 +162,7 @@ source {
 ## Changelog
 
 ### 2.3.0-beta 2022-10-20
+
 - Add Pulsar Source Connector
 ### Next Version
 - Improve pulsar deserialization([3990](https://github.com/apache/incubator-seatunnel/pull/3990))

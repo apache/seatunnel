@@ -22,5 +22,4 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 public interface SinkWriterConverter<T> {
 
     T convert(SinkWriter<?, ?, ?> sinkWriter);
-
 }

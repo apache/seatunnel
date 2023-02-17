@@ -17,35 +17,36 @@
     limitations under the License.
 
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel</artifactId>
         <version>${revision}</version>
     </parent>
-    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>seatunnel-dist</artifactId>
+    <packaging>pom</packaging>
+    <name>SeaTunnel : Dist</name>
 
     <properties>
         <!-- disable mvn deploy to central maven repo by default -->
         <maven.deploy.skip>true</maven.deploy.skip>
     </properties>
 
-    <artifactId>seatunnel-dist</artifactId>
-    <packaging>pom</packaging>
-
     <build>
+        <finalName>apache-seatunnel-incubating-${project.version}</finalName>
         <plugins>
             <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>
                 <executions>
                     <execution>
                         <id>bin</id>
-                        <phase>package</phase>
                         <goals>
                             <goal>single</goal>
                         </goals>
+                        <phase>package</phase>
                         <configuration>
                             <descriptors>
                                 <descriptor>src/main/assembly/assembly-bin-ci.xml</descriptor>
@@ -55,10 +56,10 @@
                     </execution>
                     <execution>
                         <id>src</id>
-                        <phase>package</phase>
                         <goals>
                             <goal>single</goal>
                         </goals>
+                        <phase>package</phase>
                         <configuration>
                             <descriptors>
                                 <descriptor>src/main/assembly/assembly-src.xml</descriptor>
@@ -70,7 +71,6 @@
                 </executions>
             </plugin>
         </plugins>
-        <finalName>apache-seatunnel-incubating-${project.version}</finalName>
     </build>
 
     <profiles>
@@ -97,23 +97,29 @@
                 <teradata.version>17.20.00.12</teradata.version>
                 <redshift.version>2.1.0.9</redshift.version>
             </properties>
-            <repositories>
-                <repository>
-                    <id>cloudera</id>
-                    <url>https://repository.cloudera.com/artifactory/cloudera-repos/</url>
-                </repository>
-            </repositories>
             <dependencies>
                 <!-- starters -->
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-flink-starter</artifactId>
+                    <artifactId>seatunnel-flink-13-starter</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-spark-starter</artifactId>
+                    <artifactId>seatunnel-flink-15-starter</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-spark-2-starter</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-spark-3-starter</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
@@ -449,6 +455,18 @@
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-selectdb-cloud</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-hbase</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
 
                 <!-- jdbc driver -->
                 <dependency>
@@ -538,11 +556,17 @@
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
                     <version>${project.version}</version>
-                    <scope>provided</scope>
                     <classifier>optional</classifier>
+                    <scope>provided</scope>
                 </dependency>
                 <!-- hadoop jar end -->
             </dependencies>
+            <repositories>
+                <repository>
+                    <id>cloudera</id>
+                    <url>https://repository.cloudera.com/artifactory/cloudera-repos/</url>
+                </repository>
+            </repositories>
         </profile>
         <profile>
             <id>release</id>
@@ -562,13 +586,25 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-flink-starter</artifactId>
+                    <artifactId>seatunnel-flink-13-starter</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-spark-starter</artifactId>
+                    <artifactId>seatunnel-flink-15-starter</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-spark-2-starter</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-spark-3-starter</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
@@ -595,16 +631,17 @@
                 </dependency>
             </dependencies>
             <build>
+                <finalName>apache-seatunnel-incubating-${project.version}</finalName>
                 <plugins>
                     <plugin>
                         <artifactId>maven-assembly-plugin</artifactId>
                         <executions>
                             <execution>
                                 <id>bin</id>
-                                <phase>package</phase>
                                 <goals>
                                     <goal>single</goal>
                                 </goals>
+                                <phase>package</phase>
                                 <configuration>
                                     <descriptors>
                                         <descriptor>src/main/assembly/assembly-bin.xml</descriptor>
@@ -615,10 +652,10 @@
 
                             <execution>
                                 <id>src</id>
-                                <phase>package</phase>
                                 <goals>
                                     <goal>single</goal>
                                 </goals>
+                                <phase>package</phase>
                                 <configuration>
                                     <descriptors>
                                         <descriptor>src/main/assembly/assembly-src.xml</descriptor>
@@ -629,7 +666,6 @@
                         </executions>
                     </plugin>
                 </plugins>
-                <finalName>apache-seatunnel-incubating-${project.version}</finalName>
             </build>
         </profile>
     </profiles>

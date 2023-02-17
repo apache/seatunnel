@@ -22,13 +22,13 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig;
 import java.io.Serializable;
 import java.util.Optional;
 
-public class JdbcConnectionOptions
-    implements Serializable {
+public class JdbcConnectionOptions implements Serializable {
     private static final long serialVersionUID = 1L;
 
     public String url;
     public String driverName;
-    public int connectionCheckTimeoutSeconds = JdbcConfig.CONNECTION_CHECK_TIMEOUT_SEC.defaultValue();
+    public int connectionCheckTimeoutSeconds =
+            JdbcConfig.CONNECTION_CHECK_TIMEOUT_SEC.defaultValue();
     public int maxRetries = JdbcConfig.MAX_RETRIES.defaultValue();
     public String username;
     public String password;
@@ -45,8 +45,7 @@ public class JdbcConnectionOptions
 
     public int transactionTimeoutSec = JdbcConfig.TRANSACTION_TIMEOUT_SEC.defaultValue();
 
-    public JdbcConnectionOptions() {
-    }
+    public JdbcConnectionOptions() {}
 
     public String getUrl() {
         return url;
@@ -103,7 +102,8 @@ public class JdbcConnectionOptions
     public static final class JdbcConnectionOptionsBuilder {
         private String url;
         private String driverName;
-        private int connectionCheckTimeoutSeconds = JdbcConfig.CONNECTION_CHECK_TIMEOUT_SEC.defaultValue();
+        private int connectionCheckTimeoutSeconds =
+                JdbcConfig.CONNECTION_CHECK_TIMEOUT_SEC.defaultValue();
         private int maxRetries = JdbcConfig.MAX_RETRIES.defaultValue();
         private String username;
         private String password;
@@ -115,8 +115,7 @@ public class JdbcConnectionOptions
         private int maxCommitAttempts = JdbcConfig.MAX_COMMIT_ATTEMPTS.defaultValue();
         private int transactionTimeoutSec = JdbcConfig.TRANSACTION_TIMEOUT_SEC.defaultValue();
 
-        private JdbcConnectionOptionsBuilder() {
-        }
+        private JdbcConnectionOptionsBuilder() {}
 
         public JdbcConnectionOptionsBuilder withUrl(String url) {
             this.url = url;
@@ -128,7 +127,8 @@ public class JdbcConnectionOptions
             return this;
         }
 
-        public JdbcConnectionOptionsBuilder withConnectionCheckTimeoutSeconds(int connectionCheckTimeoutSeconds) {
+        public JdbcConnectionOptionsBuilder withConnectionCheckTimeoutSeconds(
+                int connectionCheckTimeoutSeconds) {
             this.connectionCheckTimeoutSeconds = connectionCheckTimeoutSeconds;
             return this;
         }
@@ -168,7 +168,8 @@ public class JdbcConnectionOptions
             return this;
         }
 
-        public JdbcConnectionOptionsBuilder withXaDataSourceClassName(String xaDataSourceClassName) {
+        public JdbcConnectionOptionsBuilder withXaDataSourceClassName(
+                String xaDataSourceClassName) {
             this.xaDataSourceClassName = xaDataSourceClassName;
             return this;
         }
@@ -190,7 +191,8 @@ public class JdbcConnectionOptions
             jdbcConnectionOptions.driverName = this.driverName;
             jdbcConnectionOptions.maxRetries = this.maxRetries;
             jdbcConnectionOptions.password = this.password;
-            jdbcConnectionOptions.connectionCheckTimeoutSeconds = this.connectionCheckTimeoutSeconds;
+            jdbcConnectionOptions.connectionCheckTimeoutSeconds =
+                    this.connectionCheckTimeoutSeconds;
             jdbcConnectionOptions.url = this.url;
             jdbcConnectionOptions.autoCommit = this.autoCommit;
             jdbcConnectionOptions.username = this.username;

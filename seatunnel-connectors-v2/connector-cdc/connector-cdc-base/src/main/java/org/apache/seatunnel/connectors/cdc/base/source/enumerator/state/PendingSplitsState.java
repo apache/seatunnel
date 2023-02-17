@@ -23,5 +23,4 @@ import java.io.Serializable;
  * A checkpoint of the current state of the containing the currently pending splits that are not yet
  * assigned.
  */
-public interface PendingSplitsState extends Serializable {
-}
+public interface PendingSplitsState extends Serializable {}

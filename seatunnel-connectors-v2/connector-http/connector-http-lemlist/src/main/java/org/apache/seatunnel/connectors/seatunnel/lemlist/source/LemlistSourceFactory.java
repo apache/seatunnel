@@ -33,8 +33,6 @@ public class LemlistSourceFactory extends HttpSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return getHttpBuilder()
-                .required(LemlistSourceConfig.PASSWORD)
-                .build();
+        return getHttpBuilder().required(LemlistSourceConfig.PASSWORD).build();
     }
 }

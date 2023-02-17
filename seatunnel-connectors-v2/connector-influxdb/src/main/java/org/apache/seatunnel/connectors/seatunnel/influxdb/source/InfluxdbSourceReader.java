@@ -28,11 +28,13 @@ import org.apache.seatunnel.connectors.seatunnel.influxdb.converter.InfluxDBRowC
 import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorException;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
+
 import org.influxdb.InfluxDB;
 import org.influxdb.dto.Query;
 import org.influxdb.dto.QueryResult;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.net.ConnectException;
 import java.util.ArrayList;
@@ -54,7 +56,11 @@ public class InfluxdbSourceReader implements SourceReader<SeaTunnelRow, InfluxDB
 
     private volatile boolean noMoreSplitsAssignment;
 
-    InfluxdbSourceReader(InfluxDBConfig config, Context readerContext, SeaTunnelRowType seaTunnelRowType, List<Integer> columnsIndexList) {
+    InfluxdbSourceReader(
+            InfluxDBConfig config,
+            Context readerContext,
+            SeaTunnelRowType seaTunnelRowType,
+            List<Integer> columnsIndexList) {
         this.config = config;
         this.pendingSplits = new LinkedList<>();
         this.context = readerContext;
@@ -67,12 +73,11 @@ public class InfluxdbSourceReader implements SourceReader<SeaTunnelRow, InfluxDB
             influxdb = InfluxDBClient.getInfluxDB(config);
             String version = influxdb.version();
             if (!influxdb.ping().isGood()) {
-                throw new InfluxdbConnectorException(InfluxdbConnectorErrorCode.CONNECT_FAILED,
-                    String.format(
-                        "connect influxdb failed, due to influxdb version info is unknown, the url is: {%s}",
-                        config.getUrl()
-                    )
-                );
+                throw new InfluxdbConnectorException(
+                        InfluxdbConnectorErrorCode.CONNECT_FAILED,
+                        String.format(
+                                "connect influxdb failed, due to influxdb version info is unknown, the url is: {%s}",
+                                config.getUrl()));
             }
             log.info("connect influxdb successful. sever version :{}.", version);
         }
@@ -101,8 +106,8 @@ public class InfluxdbSourceReader implements SourceReader<SeaTunnelRow, InfluxDB
         }
 
         if (Boundedness.BOUNDED.equals(context.getBoundedness())
-            && noMoreSplitsAssignment
-            && pendingSplits.isEmpty()) {
+                && noMoreSplitsAssignment
+                && pendingSplits.isEmpty()) {
             // signal to the source that we have reached the end of the data.
             log.info("Closed the bounded influxDB source");
             context.signalNoMoreElement();
@@ -126,9 +131,7 @@ public class InfluxdbSourceReader implements SourceReader<SeaTunnelRow, InfluxDB
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) {
-
-    }
+    public void notifyCheckpointComplete(long checkpointId) {}
 
     private void read(InfluxDBSourceSplit split, Collector<SeaTunnelRow> output) {
         QueryResult queryResult = influxdb.query(new Query(split.getQuery(), config.getDatabase()));
@@ -137,13 +140,14 @@ public class InfluxdbSourceReader implements SourceReader<SeaTunnelRow, InfluxDB
             if (CollectionUtils.isNotEmpty(serieList)) {
                 for (QueryResult.Series series : serieList) {
                     for (List<Object> values : series.getValues()) {
-                        SeaTunnelRow row = InfluxDBRowConverter.convert(values, seaTunnelRowType, columnsIndexList);
+                        SeaTunnelRow row =
+                                InfluxDBRowConverter.convert(
+                                        values, seaTunnelRowType, columnsIndexList);
                         output.collect(row);
                     }
                 }
             } else {
-                log.debug(
-                    "split[{}] reader influxDB series is empty.", split.splitId());
+                log.debug("split[{}] reader influxDB series is empty.", split.splitId());
             }
         }
     }

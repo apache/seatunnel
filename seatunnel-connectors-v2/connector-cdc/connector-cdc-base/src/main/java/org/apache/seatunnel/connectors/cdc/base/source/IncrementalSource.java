@@ -17,7 +17,10 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -50,8 +53,6 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordEmit
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordsWithSplitIds;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SourceReaderOptions;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import io.debezium.relational.TableId;
 
 import java.util.HashMap;
@@ -61,7 +62,8 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Supplier;
 
-public abstract class IncrementalSource<T, C extends SourceConfig> implements SeaTunnelSource<T, SourceSplitBase, PendingSplitsState> {
+public abstract class IncrementalSource<T, C extends SourceConfig>
+        implements SeaTunnelSource<T, SourceSplitBase, PendingSplitsState> {
 
     protected ReadonlyConfig readonlyConfig;
     protected SourceConfig.Factory<C> configFactory;
@@ -92,23 +94,24 @@ public abstract class IncrementalSource<T, C extends SourceConfig> implements Se
 
     protected StartupConfig getStartupConfig(ReadonlyConfig config) {
         return new StartupConfig(
-            config.get(SourceOptions.STARTUP_MODE),
-            config.get(SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE),
-            config.get(SourceOptions.STARTUP_SPECIFIC_OFFSET_POS),
-            config.get(SourceOptions.STARTUP_TIMESTAMP));
+                config.get(SourceOptions.STARTUP_MODE),
+                config.get(SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE),
+                config.get(SourceOptions.STARTUP_SPECIFIC_OFFSET_POS),
+                config.get(SourceOptions.STARTUP_TIMESTAMP));
     }
 
     private StopConfig getStopConfig(ReadonlyConfig config) {
         return new StopConfig(
-            config.get(SourceOptions.STOP_MODE),
-            config.get(SourceOptions.STOP_SPECIFIC_OFFSET_FILE),
-            config.get(SourceOptions.STOP_SPECIFIC_OFFSET_POS),
-            config.get(SourceOptions.STOP_TIMESTAMP));
+                config.get(SourceOptions.STOP_MODE),
+                config.get(SourceOptions.STOP_SPECIFIC_OFFSET_FILE),
+                config.get(SourceOptions.STOP_SPECIFIC_OFFSET_POS),
+                config.get(SourceOptions.STOP_TIMESTAMP));
     }
 
     public abstract SourceConfig.Factory<C> createSourceConfigFactory(ReadonlyConfig config);
 
-    public abstract DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(ReadonlyConfig config);
+    public abstract DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(
+            ReadonlyConfig config);
 
     public abstract DataSourceDialect<C> createDataSourceDialect(ReadonlyConfig config);
 
@@ -126,83 +129,102 @@ public abstract class IncrementalSource<T, C extends SourceConfig> implements Se
 
     @SuppressWarnings("MagicNumber")
     @Override
-    public SourceReader<T, SourceSplitBase> createReader(SourceReader.Context readerContext) throws Exception {
+    public SourceReader<T, SourceSplitBase> createReader(SourceReader.Context readerContext)
+            throws Exception {
         // create source config for the given subtask (e.g. unique server id)
         C sourceConfig = configFactory.create(readerContext.getIndexOfSubtask());
-        BlockingQueue<RecordsWithSplitIds<SourceRecords>> elementsQueue = new LinkedBlockingQueue<>(1024);
+        BlockingQueue<RecordsWithSplitIds<SourceRecords>> elementsQueue =
+                new LinkedBlockingQueue<>(1024);
 
-        Supplier<IncrementalSourceSplitReader<C>> splitReaderSupplier = () ->
-            new IncrementalSourceSplitReader<>(
-                readerContext.getIndexOfSubtask(), dataSourceDialect, sourceConfig);
+        Supplier<IncrementalSourceSplitReader<C>> splitReaderSupplier =
+                () ->
+                        new IncrementalSourceSplitReader<>(
+                                readerContext.getIndexOfSubtask(), dataSourceDialect, sourceConfig);
         return new IncrementalSourceReader<>(
-            elementsQueue,
-            splitReaderSupplier,
-            createRecordEmitter(sourceConfig),
-            new SourceReaderOptions(readonlyConfig),
-            readerContext,
-            sourceConfig);
+                elementsQueue,
+                splitReaderSupplier,
+                createRecordEmitter(sourceConfig, readerContext.getMetricsContext()),
+                new SourceReaderOptions(readonlyConfig),
+                readerContext,
+                sourceConfig);
     }
 
     protected RecordEmitter<SourceRecords, T, SourceSplitStateBase> createRecordEmitter(
-        SourceConfig sourceConfig) {
+            SourceConfig sourceConfig, MetricsContext metricsContext) {
         return new IncrementalSourceRecordEmitter<>(
-            deserializationSchema,
-            offsetFactory);
+                deserializationSchema, offsetFactory, metricsContext);
     }
 
     @Override
-    public SourceSplitEnumerator<SourceSplitBase, PendingSplitsState> createEnumerator(SourceSplitEnumerator.Context<SourceSplitBase> enumeratorContext) throws Exception {
+    public SourceSplitEnumerator<SourceSplitBase, PendingSplitsState> createEnumerator(
+            SourceSplitEnumerator.Context<SourceSplitBase> enumeratorContext) throws Exception {
         C sourceConfig = configFactory.create(0);
-        final List<TableId> remainingTables = dataSourceDialect.discoverDataCollections(sourceConfig);
+        final List<TableId> remainingTables =
+                dataSourceDialect.discoverDataCollections(sourceConfig);
         final SplitAssigner splitAssigner;
-        SplitAssigner.Context<C> assignerContext = new SplitAssigner.Context<>(sourceConfig, new HashSet<>(remainingTables), new HashMap<>(), new HashMap<>());
+        SplitAssigner.Context<C> assignerContext =
+                new SplitAssigner.Context<>(
+                        sourceConfig,
+                        new HashSet<>(remainingTables),
+                        new HashMap<>(),
+                        new HashMap<>());
         if (sourceConfig.getStartupConfig().getStartupMode() == StartupMode.INITIAL) {
             try {
 
                 boolean isTableIdCaseSensitive =
-                    dataSourceDialect.isDataCollectionIdCaseSensitive(sourceConfig);
+                        dataSourceDialect.isDataCollectionIdCaseSensitive(sourceConfig);
                 splitAssigner =
-                    new HybridSplitAssigner<>(
-                        assignerContext,
-                        enumeratorContext.currentParallelism(),
-                        incrementalParallelism,
-                        remainingTables,
-                        isTableIdCaseSensitive,
-                        dataSourceDialect,
-                        offsetFactory);
+                        new HybridSplitAssigner<>(
+                                assignerContext,
+                                enumeratorContext.currentParallelism(),
+                                incrementalParallelism,
+                                remainingTables,
+                                isTableIdCaseSensitive,
+                                dataSourceDialect,
+                                offsetFactory);
             } catch (Exception e) {
                 throw new RuntimeException("Failed to discover captured tables for enumerator", e);
             }
         } else {
-            splitAssigner = new IncrementalSplitAssigner<>(assignerContext, incrementalParallelism, offsetFactory);
+            splitAssigner =
+                    new IncrementalSplitAssigner<>(
+                            assignerContext, incrementalParallelism, offsetFactory);
         }
 
         return new IncrementalSourceEnumerator(enumeratorContext, splitAssigner);
     }
 
     @Override
-    public SourceSplitEnumerator<SourceSplitBase, PendingSplitsState> restoreEnumerator(SourceSplitEnumerator.Context<SourceSplitBase> enumeratorContext,
-                                                                                        PendingSplitsState checkpointState) throws Exception {
+    public SourceSplitEnumerator<SourceSplitBase, PendingSplitsState> restoreEnumerator(
+            SourceSplitEnumerator.Context<SourceSplitBase> enumeratorContext,
+            PendingSplitsState checkpointState)
+            throws Exception {
         C sourceConfig = configFactory.create(0);
-        final List<TableId> remainingTables = dataSourceDialect.discoverDataCollections(sourceConfig);
-        SplitAssigner.Context<C> assignerContext = new SplitAssigner.Context<>(sourceConfig, new HashSet<>(remainingTables), new HashMap<>(), new HashMap<>());
+        final List<TableId> remainingTables =
+                dataSourceDialect.discoverDataCollections(sourceConfig);
+        SplitAssigner.Context<C> assignerContext =
+                new SplitAssigner.Context<>(
+                        sourceConfig,
+                        new HashSet<>(remainingTables),
+                        new HashMap<>(),
+                        new HashMap<>());
         final SplitAssigner splitAssigner;
         if (checkpointState instanceof HybridPendingSplitsState) {
-            splitAssigner = new HybridSplitAssigner<>(
-                assignerContext,
-                enumeratorContext.currentParallelism(),
-                incrementalParallelism,
-                (HybridPendingSplitsState) checkpointState,
-                dataSourceDialect,
-                offsetFactory);
+            splitAssigner =
+                    new HybridSplitAssigner<>(
+                            assignerContext,
+                            enumeratorContext.currentParallelism(),
+                            incrementalParallelism,
+                            (HybridPendingSplitsState) checkpointState,
+                            dataSourceDialect,
+                            offsetFactory);
         } else if (checkpointState instanceof IncrementalPhaseState) {
-            splitAssigner = new IncrementalSplitAssigner<>(
-                assignerContext,
-                incrementalParallelism,
-                offsetFactory);
+            splitAssigner =
+                    new IncrementalSplitAssigner<>(
+                            assignerContext, incrementalParallelism, offsetFactory);
         } else {
             throw new UnsupportedOperationException(
-                "Unsupported restored PendingSplitsState: " + checkpointState);
+                    "Unsupported restored PendingSplitsState: " + checkpointState);
         }
         return new IncrementalSourceEnumerator(enumeratorContext, splitAssigner);
     }

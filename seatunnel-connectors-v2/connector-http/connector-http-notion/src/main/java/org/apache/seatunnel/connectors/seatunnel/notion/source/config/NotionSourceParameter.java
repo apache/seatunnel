@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.notion.source.config;
 
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
-
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
 import java.util.HashMap;
 
@@ -28,8 +28,14 @@ public class NotionSourceParameter extends HttpParameter {
         super.buildWithConfig(pluginConfig);
         // put authorization in headers
         this.headers = this.getHeaders() == null ? new HashMap<>() : this.getHeaders();
-        this.headers.put(NotionSourceConfig.AUTHORIZATION, NotionSourceConfig.BEARER + " " + pluginConfig.getString(NotionSourceConfig.PASSWORD.key()));
-        this.headers.put(NotionSourceConfig.NOTION_VERSION, pluginConfig.getString(NotionSourceConfig.VERSION.key()));
+        this.headers.put(
+                NotionSourceConfig.AUTHORIZATION,
+                NotionSourceConfig.BEARER
+                        + " "
+                        + pluginConfig.getString(NotionSourceConfig.PASSWORD.key()));
+        this.headers.put(
+                NotionSourceConfig.NOTION_VERSION,
+                pluginConfig.getString(NotionSourceConfig.VERSION.key()));
         this.setHeaders(this.headers);
     }
 }

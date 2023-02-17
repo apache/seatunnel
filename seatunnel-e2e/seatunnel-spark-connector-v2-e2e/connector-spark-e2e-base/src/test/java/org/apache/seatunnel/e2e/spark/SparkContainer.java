@@ -20,9 +20,12 @@ package org.apache.seatunnel.e2e.spark;
 import org.apache.seatunnel.e2e.common.AbstractSparkContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 
+import java.io.File;
+
 /**
- * This class is the base class of SparkEnvironment test. The before method will create a Spark master, and after method will close the Spark master.
- * You can use {@link SparkContainer#executeSeaTunnelSparkJob} to submit a seatunnel conf and a seatunnel spark job.
+ * This class is the base class of SparkEnvironment test. The before method will create a Spark
+ * master, and after method will close the Spark master. You can use {@link
+ * SparkContainer#executeSeaTunnelSparkJob} to submit a seatunnel conf and a seatunnel spark job.
  */
 public abstract class SparkContainer extends AbstractSparkContainer {
 
@@ -33,12 +36,12 @@ public abstract class SparkContainer extends AbstractSparkContainer {
 
     @Override
     protected String getStartModuleName() {
-        return "seatunnel-spark-starter";
+        return "seatunnel-spark-starter" + File.separator + "seatunnel-spark-2-starter";
     }
 
     @Override
     protected String getStartShellName() {
-        return "start-seatunnel-spark-connector-v2.sh";
+        return "start-seatunnel-spark-2-connector-v2.sh";
     }
 
     @Override

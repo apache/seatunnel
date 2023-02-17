@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.serializable;
 
 import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
 import org.apache.seatunnel.engine.server.operation.CancelJobOperation;
+import org.apache.seatunnel.engine.server.operation.GetClusterHealthMetricsOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobDetailStatusOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobInfoOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
@@ -35,9 +36,8 @@ import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.annotation.PrivateApi;
 
 /**
- * A Java Service Provider hook for Hazelcast's Identified Data Serializable
- * mechanism. This is private API.
- * All about the Operation's data serializable define in this class.
+ * A Java Service Provider hook for Hazelcast's Identified Data Serializable mechanism. This is
+ * private API. All about the Operation's data serializable define in this class.
  */
 @PrivateApi
 public final class ClientToServerOperationDataSerializerHook implements DataSerializerHook {
@@ -58,10 +58,12 @@ public final class ClientToServerOperationDataSerializerHook implements DataSeri
 
     public static final int SAVEPOINT_JOB_OPERATOR = 8;
 
-    public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
-        SeaTunnelFactoryIdConstant.SEATUNNEL_OPERATION_DATA_SERIALIZER_FACTORY,
-        SeaTunnelFactoryIdConstant.SEATUNNEL_OPERATION_DATA_SERIALIZER_FACTORY_ID
-    );
+    public static final int GET_CLUSTER_HEALTH_METRICS = 9;
+
+    public static final int FACTORY_ID =
+            FactoryIdHelper.getFactoryId(
+                    SeaTunnelFactoryIdConstant.SEATUNNEL_OPERATION_DATA_SERIALIZER_FACTORY,
+                    SeaTunnelFactoryIdConstant.SEATUNNEL_OPERATION_DATA_SERIALIZER_FACTORY_ID);
 
     @Override
     public int getFactoryId() {
@@ -96,6 +98,8 @@ public final class ClientToServerOperationDataSerializerHook implements DataSeri
                     return new GetJobInfoOperation();
                 case SAVEPOINT_JOB_OPERATOR:
                     return new SavePointJobOperation();
+                case GET_CLUSTER_HEALTH_METRICS:
+                    return new GetClusterHealthMetricsOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

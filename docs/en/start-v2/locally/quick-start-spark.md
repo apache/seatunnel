@@ -1,6 +1,7 @@
 ---
+
 sidebar_position: 4
----
+-------------------
 
 # Quick Start With Spark
 
@@ -10,12 +11,11 @@ Before starting, make sure you have downloaded and deployed SeaTunnel as describ
 
 ## Step 2: Deployment And Config Spark
 
-Please [download Spark](https://spark.apache.org/downloads.html) first(**required version >= 2 and version < 3.x **). For more information you could
+Please [download Spark](https://spark.apache.org/downloads.html) first(**required version >= 2.4.0**). For more information you could
 see [Getting Started: standalone](https://spark.apache.org/docs/latest/spark-standalone.html#installing-spark-standalone-to-a-cluster)
 
 **Configure SeaTunnel**: Change the setting in `config/seatunnel-env.sh`, it is base on the path your engine install at [deployment](deployment.md).
 Change `SPARK_HOME` to the Spark deployment dir.
-
 
 ## Step 3: Add Job Config File to define a job
 
@@ -53,9 +53,21 @@ More information about config please check [config concept](../../concept/config
 
 You could start the application by the following commands
 
+spark 2.4.x
+
+```bash
+cd "apache-seatunnel-incubating-${version}"
+./bin/start-seatunnel-spark-2-connector-v2.sh \
+--master local[4] \
+--deploy-mode client \
+--config ./config/seatunnel.streaming.conf.template
+```
+
+spark3.x.x
+
 ```shell
 cd "apache-seatunnel-incubating-${version}"
-./bin/start-seatunnel-spark-connector-v2.sh \
+./bin/start-seatunnel-spark-3-connector-v2.sh \
 --master local[4] \
 --deploy-mode client \
 --config ./config/seatunnel.streaming.conf.template
@@ -92,4 +104,4 @@ row=16 : SGZCr, 94186144
 For now, you are already take a quick look about SeaTunnel with Spark, you could see [connector](/docs/category/connector-v2) to find all
 source and sink SeaTunnel supported. Or see [SeaTunnel With Spark](../../other-engine/spark.md) if you want to know more about SeaTunnel Run With Spark.
 
-SeaTunnel have an own engine named SeaTunnel Engine and SeaTunnel Engine is the default engine of SeaTunnel. You can follow [Quick Start](quick-start-seatunnel-engine.md) to configure and run a data synchronization job.
+SeaTunnel have an own engine named `Zeta` and `Zeta` is the default engine of SeaTunnel. You can follow [Quick Start](quick-start-seatunnel-engine.md) to configure and run a data synchronization job.

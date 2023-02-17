@@ -33,9 +33,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * A component used to get schema by table path.
- */
+/** A component used to get schema by table path. */
 public class MySqlSchema {
     private static final String SHOW_CREATE_TABLE = "SHOW CREATE TABLE ";
     private static final String DESC_TABLE = "DESC ";
@@ -46,7 +44,9 @@ public class MySqlSchema {
 
     public MySqlSchema(MySqlSourceConfig sourceConfig, boolean isTableIdCaseSensitive) {
         this.connectorConfig = sourceConfig.getDbzConnectorConfig();
-        this.databaseSchema = MySqlConnectionUtils.createMySqlDatabaseSchema(connectorConfig, isTableIdCaseSensitive);
+        this.databaseSchema =
+                MySqlConnectionUtils.createMySqlDatabaseSchema(
+                        connectorConfig, isTableIdCaseSensitive);
         this.schemasByTableId = new HashMap<>();
     }
 
@@ -69,31 +69,31 @@ public class MySqlSchema {
         final String sql = SHOW_CREATE_TABLE + MySqlUtils.quote(tableId);
         try {
             jdbc.query(
-                sql,
-                rs -> {
-                    if (rs.next()) {
-                        final String ddl = rs.getString(2);
-                        final MySqlOffsetContext offsetContext =
-                            MySqlOffsetContext.initial(connectorConfig);
-                        List<SchemaChangeEvent> schemaChangeEvents =
-                            databaseSchema.parseSnapshotDdl(
-                                ddl, tableId.catalog(), offsetContext, Instant.now());
-                        for (SchemaChangeEvent schemaChangeEvent : schemaChangeEvents) {
-                            for (TableChange tableChange :
-                                schemaChangeEvent.getTableChanges()) {
-                                tableChangeMap.put(tableId, tableChange);
+                    sql,
+                    rs -> {
+                        if (rs.next()) {
+                            final String ddl = rs.getString(2);
+                            final MySqlOffsetContext offsetContext =
+                                    MySqlOffsetContext.initial(connectorConfig);
+                            List<SchemaChangeEvent> schemaChangeEvents =
+                                    databaseSchema.parseSnapshotDdl(
+                                            ddl, tableId.catalog(), offsetContext, Instant.now());
+                            for (SchemaChangeEvent schemaChangeEvent : schemaChangeEvents) {
+                                for (TableChange tableChange :
+                                        schemaChangeEvent.getTableChanges()) {
+                                    tableChangeMap.put(tableId, tableChange);
+                                }
                             }
                         }
-                    }
-                });
+                    });
         } catch (SQLException e) {
             throw new RuntimeException(
-                String.format("Failed to read schema for table %s by running %s", tableId, sql),
-                e);
+                    String.format("Failed to read schema for table %s by running %s", tableId, sql),
+                    e);
         }
         if (!tableChangeMap.containsKey(tableId)) {
             throw new RuntimeException(
-                String.format("Can't obtain schema for table %s by running %s", tableId, sql));
+                    String.format("Can't obtain schema for table %s by running %s", tableId, sql));
         }
 
         return tableChangeMap.get(tableId);

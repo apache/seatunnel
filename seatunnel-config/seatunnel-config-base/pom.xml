@@ -28,7 +28,8 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>seatunnel-config-base</artifactId>
-    <name>seatunnel-config-base</name>
+    <name>SeaTunnel : Config : Base</name>
+
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>${java.version}</maven.compiler.source>
@@ -48,15 +49,6 @@
         <finalName>${project.artifactId}-${project.version}</finalName>
 
         <plugins>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-checkstyle-plugin</artifactId>
-                <configuration>
-                    <skip>true</skip>
-                </configuration>
-            </plugin>
-
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>

@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksCo
 import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksDelimiterParser;
 
 import org.apache.commons.codec.binary.Base64;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,26 +66,43 @@ public class StarRocksStreamLoadVisitor {
     public Boolean doStreamLoad(StarRocksFlushTuple flushData) throws IOException {
         String host = getAvailableHost();
         if (null == host) {
-            throw new StarRocksConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, "None of the host in `load_url` could be connected.");
+            throw new StarRocksConnectorException(
+                    CommonErrorCode.ILLEGAL_ARGUMENT,
+                    "None of the host in `load_url` could be connected.");
         }
-        String loadUrl = new StringBuilder(host)
-                .append("/api/")
-                .append(sinkConfig.getDatabase())
-                .append("/")
-                .append(sinkConfig.getTable())
-                .append("/_stream_load")
-                .toString();
+        String loadUrl =
+                new StringBuilder(host)
+                        .append("/api/")
+                        .append(sinkConfig.getDatabase())
+                        .append("/")
+                        .append(sinkConfig.getTable())
+                        .append("/_stream_load")
+                        .toString();
         if (LOG.isDebugEnabled()) {
-            LOG.debug(String.format("Start to join batch data: rows[%d] bytes[%d] label[%s].", flushData.getRows().size(), flushData.getBytes(), flushData.getLabel()));
+            LOG.debug(
+                    String.format(
+                            "Start to join batch data: rows[%d] bytes[%d] label[%s].",
+                            flushData.getRows().size(),
+                            flushData.getBytes(),
+                            flushData.getLabel()));
         }
-        Map<String, Object> loadResult = httpHelper.doHttpPut(loadUrl, joinRows(flushData.getRows(), flushData.getBytes().intValue()), getStreamLoadHttpHeader(flushData.getLabel()));
+        Map<String, Object> loadResult =
+                httpHelper.doHttpPut(
+                        loadUrl,
+                        joinRows(flushData.getRows(), flushData.getBytes().intValue()),
+                        getStreamLoadHttpHeader(flushData.getLabel()));
         final String keyStatus = "Status";
         if (null == loadResult || !loadResult.containsKey(keyStatus)) {
             LOG.error("unknown result status. {}", loadResult);
-            throw new StarRocksConnectorException(StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,  "Unable to flush data to StarRocks: unknown result status. " + loadResult);
+            throw new StarRocksConnectorException(
+                    StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,
+                    "Unable to flush data to StarRocks: unknown result status. " + loadResult);
         }
         if (LOG.isDebugEnabled()) {
-            LOG.debug(new StringBuilder("StreamLoad response:\n").append(JsonUtils.toJsonString(loadResult)).toString());
+            LOG.debug(
+                    new StringBuilder("StreamLoad response:\n")
+                            .append(JsonUtils.toJsonString(loadResult))
+                            .toString());
         }
         if (RESULT_FAILED.equals(loadResult.get(keyStatus))) {
             StringBuilder errorBuilder = new StringBuilder("Failed to flush data to StarRocks.\n");
@@ -95,7 +113,8 @@ public class StarRocksStreamLoadVisitor {
             if (loadResult.containsKey("ErrorURL")) {
                 LOG.error("StreamLoad response: {}", loadResult);
                 try {
-                    errorBuilder.append(httpHelper.doHttpGet(loadResult.get("ErrorURL").toString()));
+                    errorBuilder.append(
+                            httpHelper.doHttpGet(loadResult.get("ErrorURL").toString()));
                     errorBuilder.append('\n');
                 } catch (IOException e) {
                     LOG.warn("Get Error URL failed. {} ", loadResult.get("ErrorURL"), e);
@@ -104,9 +123,13 @@ public class StarRocksStreamLoadVisitor {
                 errorBuilder.append(JsonUtils.toJsonString(loadResult));
                 errorBuilder.append('\n');
             }
-            throw new StarRocksConnectorException(StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, errorBuilder.toString());
+            throw new StarRocksConnectorException(
+                    StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, errorBuilder.toString());
         } else if (RESULT_LABEL_EXISTED.equals(loadResult.get(keyStatus))) {
-            LOG.debug(new StringBuilder("StreamLoad response:\n").append(JsonUtils.toJsonString(loadResult)).toString());
+            LOG.debug(
+                    new StringBuilder("StreamLoad response:\n")
+                            .append(JsonUtils.toJsonString(loadResult))
+                            .toString());
             // has to block-checking the state to get the final result
             checkLabelState(host, flushData.getLabel());
         }
@@ -117,7 +140,10 @@ public class StarRocksStreamLoadVisitor {
         List<String> hostList = sinkConfig.getNodeUrls();
         long tmp = pos + hostList.size();
         for (; pos < tmp; pos++) {
-            String host = new StringBuilder("http://").append(hostList.get((int) (pos % hostList.size()))).toString();
+            String host =
+                    new StringBuilder("http://")
+                            .append(hostList.get((int) (pos % hostList.size())))
+                            .toString();
             if (httpHelper.tryHttpConnection(host)) {
                 return host;
             }
@@ -128,7 +154,9 @@ public class StarRocksStreamLoadVisitor {
     private byte[] joinRows(List<byte[]> rows, int totalBytes) {
         if (SinkConfig.StreamLoadFormat.CSV.equals(sinkConfig.getLoadFormat())) {
             Map<String, Object> props = sinkConfig.getStreamLoadProps();
-            byte[] lineDelimiter = StarRocksDelimiterParser.parse((String) props.get("row_delimiter"), "\n").getBytes(StandardCharsets.UTF_8);
+            byte[] lineDelimiter =
+                    StarRocksDelimiterParser.parse((String) props.get("row_delimiter"), "\n")
+                            .getBytes(StandardCharsets.UTF_8);
             ByteBuffer bos = ByteBuffer.allocate(totalBytes + rows.size() * lineDelimiter.length);
             for (byte[] row : rows) {
                 bos.put(row);
@@ -138,7 +166,8 @@ public class StarRocksStreamLoadVisitor {
         }
 
         if (SinkConfig.StreamLoadFormat.JSON.equals(sinkConfig.getLoadFormat())) {
-            ByteBuffer bos = ByteBuffer.allocate(totalBytes + (rows.isEmpty() ? 2 : rows.size() + 1));
+            ByteBuffer bos =
+                    ByteBuffer.allocate(totalBytes + (rows.isEmpty() ? 2 : rows.size() + 1));
             bos.put("[".getBytes(StandardCharsets.UTF_8));
             byte[] jsonDelimiter = ",".getBytes(StandardCharsets.UTF_8);
             boolean isFirstElement = true;
@@ -152,7 +181,9 @@ public class StarRocksStreamLoadVisitor {
             bos.put("]".getBytes(StandardCharsets.UTF_8));
             return bos.array();
         }
-        throw new StarRocksConnectorException(StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, "Failed to join rows data, unsupported `format` from stream load properties:");
+        throw new StarRocksConnectorException(
+                StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,
+                "Failed to join rows data, unsupported `format` from stream load properties:");
     }
 
     @SuppressWarnings("unchecked")
@@ -165,16 +196,33 @@ public class StarRocksStreamLoadVisitor {
                 break;
             }
             try {
-                String queryLoadStateUrl = new StringBuilder(host).append("/api/").append(sinkConfig.getDatabase()).append("/get_load_state?label=").append(label).toString();
-                Map<String, Object> result = httpHelper.doHttpGet(queryLoadStateUrl, getLoadStateHttpHeader(label));
+                String queryLoadStateUrl =
+                        new StringBuilder(host)
+                                .append("/api/")
+                                .append(sinkConfig.getDatabase())
+                                .append("/get_load_state?label=")
+                                .append(label)
+                                .toString();
+                Map<String, Object> result =
+                        httpHelper.doHttpGet(queryLoadStateUrl, getLoadStateHttpHeader(label));
                 if (result == null) {
-                    throw new StarRocksConnectorException(StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, String.format("Failed to flush data to StarRocks, Error " +
-                            "could not get the final state of label[%s].\n", label), null);
+                    throw new StarRocksConnectorException(
+                            StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,
+                            String.format(
+                                    "Failed to flush data to StarRocks, Error "
+                                            + "could not get the final state of label[%s].\n",
+                                    label),
+                            null);
                 }
                 String labelState = (String) result.get("state");
                 if (null == labelState) {
-                    throw new StarRocksConnectorException(StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, String.format("Failed to flush data to StarRocks, Error " +
-                            "could not get the final state of label[%s]. response[%s]\n", label, JsonUtils.toJsonString(result)), null);
+                    throw new StarRocksConnectorException(
+                            StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,
+                            String.format(
+                                    "Failed to flush data to StarRocks, Error "
+                                            + "could not get the final state of label[%s]. response[%s]\n",
+                                    label, JsonUtils.toJsonString(result)),
+                            null);
                 }
                 LOG.info(String.format("Checking label[%s] state[%s]\n", label, labelState));
                 switch (labelState) {
@@ -184,15 +232,25 @@ public class StarRocksStreamLoadVisitor {
                     case RESULT_LABEL_PREPARE:
                         continue;
                     case RESULT_LABEL_ABORTED:
-                        throw new StarRocksConnectorException(StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, String.format("Failed to flush data to StarRocks, Error " +
-                                "label[%s] state[%s]\n", label, labelState), true);
+                        throw new StarRocksConnectorException(
+                                StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,
+                                String.format(
+                                        "Failed to flush data to StarRocks, Error "
+                                                + "label[%s] state[%s]\n",
+                                        label, labelState),
+                                true);
                     case RESULT_LABEL_UNKNOWN:
                     default:
-                        throw new StarRocksConnectorException(StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, String.format("Failed to flush data to StarRocks, Error " +
-                                "label[%s] state[%s]\n", label, labelState));
+                        throw new StarRocksConnectorException(
+                                StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,
+                                String.format(
+                                        "Failed to flush data to StarRocks, Error "
+                                                + "label[%s] state[%s]\n",
+                                        label, labelState));
                 }
             } catch (IOException e) {
-                throw new StarRocksConnectorException(StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, e);
+                throw new StarRocksConnectorException(
+                        StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, e);
             }
         }
     }
@@ -205,8 +263,16 @@ public class StarRocksStreamLoadVisitor {
 
     private Map<String, String> getStreamLoadHttpHeader(String label) {
         Map<String, String> headerMap = new HashMap<>();
-        if (null != fieldNames && !fieldNames.isEmpty() && SinkConfig.StreamLoadFormat.CSV.equals(sinkConfig.getLoadFormat())) {
-            headerMap.put("columns", String.join(",", fieldNames.stream().map(f -> String.format("`%s`", f)).collect(Collectors.toList())));
+        if (null != fieldNames
+                && !fieldNames.isEmpty()
+                && SinkConfig.StreamLoadFormat.CSV.equals(sinkConfig.getLoadFormat())) {
+            headerMap.put(
+                    "columns",
+                    String.join(
+                            ",",
+                            fieldNames.stream()
+                                    .map(f -> String.format("`%s`", f))
+                                    .collect(Collectors.toList())));
         }
         if (null != sinkConfig.getStreamLoadProps()) {
             for (Map.Entry<String, Object> entry : sinkConfig.getStreamLoadProps().entrySet()) {
@@ -217,13 +283,17 @@ public class StarRocksStreamLoadVisitor {
         headerMap.put("Expect", "100-continue");
         headerMap.put("label", label);
         headerMap.put("Content-Type", "application/x-www-form-urlencoded");
-        headerMap.put("Authorization", getBasicAuthHeader(sinkConfig.getUsername(), sinkConfig.getPassword()));
+        headerMap.put(
+                "Authorization",
+                getBasicAuthHeader(sinkConfig.getUsername(), sinkConfig.getPassword()));
         return headerMap;
     }
 
     private Map<String, String> getLoadStateHttpHeader(String label) {
         Map<String, String> headerMap = new HashMap<>();
-        headerMap.put("Authorization", getBasicAuthHeader(sinkConfig.getUsername(), sinkConfig.getPassword()));
+        headerMap.put(
+                "Authorization",
+                getBasicAuthHeader(sinkConfig.getUsername(), sinkConfig.getPassword()));
         headerMap.put("Connection", "close");
         return headerMap;
     }

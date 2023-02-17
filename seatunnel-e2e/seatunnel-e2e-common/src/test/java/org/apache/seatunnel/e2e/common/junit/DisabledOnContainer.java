@@ -27,14 +27,12 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-@Target({ ElementType.TYPE, ElementType.METHOD })
+@Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 @Inherited
 public @interface DisabledOnContainer {
 
-    /**
-     * {@link TestContainer#identifier()}
-     */
+    /** {@link TestContainer#identifier()} */
     TestContainerId[] value();
 
     EngineType[] type() default {};
@@ -42,9 +40,8 @@ public @interface DisabledOnContainer {
     /**
      * Custom reason to provide if the test container is disabled.
      *
-     * <p>If a custom reason is supplied, it will be combined with the default
-     * reason for this annotation. If a custom reason is not supplied, the default
-     * reason will be used.
+     * <p>If a custom reason is supplied, it will be combined with the default reason for this
+     * annotation. If a custom reason is not supplied, the default reason will be used.
      */
     String disabledReason() default "";
 }

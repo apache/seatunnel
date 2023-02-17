@@ -19,6 +19,7 @@ package org.apache.seatunnel.e2e.flink.v2.jdbc;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+
 import org.junit.jupiter.api.Assertions;
 import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
 
@@ -37,28 +38,32 @@ import java.util.stream.Collectors;
 
 public class JdbcE2eUtil {
 
-    public static void compare(Connection conn, String sourceSql, String sinkSQL, String columns) throws SQLException, IOException {
+    public static void compare(Connection conn, String sourceSql, String sinkSQL, String columns)
+            throws SQLException, IOException {
         String[] split = StringUtils.split(columns, ",");
-        List<String> columnList = Arrays.stream(split)
-            .map(o -> StringUtils.remove(o, "\n"))
-            .map(String::trim)
-            .collect(Collectors.toList());
+        List<String> columnList =
+                Arrays.stream(split)
+                        .map(o -> StringUtils.remove(o, "\n"))
+                        .map(String::trim)
+                        .collect(Collectors.toList());
         compare(conn, sourceSql, sinkSQL, columnList);
     }
 
     @SuppressWarnings("magicnumber")
-    public static void compare(Connection conn, String sourceSql, String sinkSQL, List<String> columns) throws SQLException, IOException {
+    public static void compare(
+            Connection conn, String sourceSql, String sinkSQL, List<String> columns)
+            throws SQLException, IOException {
         Assertions.assertTrue(conn.isValid(10));
         try (Statement sourceState = conn.createStatement();
-             Statement sinkState = conn.createStatement()
-        ) {
+                Statement sinkState = conn.createStatement()) {
             ResultSet source = sourceState.executeQuery(sourceSql);
             ResultSet sink = sinkState.executeQuery(sinkSQL);
             compareResultSet(source, sink, columns);
         }
     }
 
-    private static void compareResultSet(ResultSet source, ResultSet sink, List<String> columns) throws SQLException, IOException {
+    private static void compareResultSet(ResultSet source, ResultSet sink, List<String> columns)
+            throws SQLException, IOException {
         Assertions.assertNotNull(source, "source can't be null");
         Assertions.assertNotNull(sink, "source can't be null");
         ResultSetMetaData sourceMetaData = source.getMetaData();
@@ -85,7 +90,9 @@ public class JdbcE2eUtil {
         }
     }
 
-    private static boolean compareColumn(ResultSet source, ResultSet sink, int sourceCnt, int sinkCnt) throws SQLException, IOException {
+    private static boolean compareColumn(
+            ResultSet source, ResultSet sink, int sourceCnt, int sinkCnt)
+            throws SQLException, IOException {
         Object sourceObject = source.getObject(sourceCnt);
         Object sinkObject = sink.getObject(sinkCnt);
         if (Objects.deepEquals(sourceObject, sinkObject)) {

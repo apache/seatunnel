@@ -23,9 +23,7 @@ import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Objects;
 
-/**
- * SeaTunnel row type.
- */
+/** SeaTunnel row type. */
 public final class SeaTunnelRow implements Serializable {
     private static final long serialVersionUID = -1L;
     /** Table identifier, used for the source connector that {@link SupportMultipleTable}. */
@@ -95,6 +93,10 @@ public final class SeaTunnelRow implements Serializable {
         return newRow;
     }
 
+    public boolean isNullAt(int pos) {
+        return this.fields[pos] == null;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -104,7 +106,9 @@ public final class SeaTunnelRow implements Serializable {
             return false;
         }
         SeaTunnelRow that = (SeaTunnelRow) o;
-        return tableId == that.tableId && kind == that.kind && Arrays.deepEquals(fields, that.fields);
+        return tableId == that.tableId
+                && kind == that.kind
+                && Arrays.deepEquals(fields, that.fields);
     }
 
     @Override
@@ -116,10 +120,13 @@ public final class SeaTunnelRow implements Serializable {
 
     @Override
     public String toString() {
-        return "SeaTunnelRow{" +
-            "tableId=" + tableId +
-            ", kind=" + kind.shortString() +
-            ", fields=" + Arrays.toString(fields) +
-            '}';
+        return "SeaTunnelRow{"
+                + "tableId="
+                + tableId
+                + ", kind="
+                + kind.shortString()
+                + ", fields="
+                + Arrays.toString(fields)
+                + '}';
     }
 }
