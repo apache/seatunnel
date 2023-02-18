@@ -151,7 +151,6 @@ public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
                                 "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
                                         + PG_DRIVER_JAR);
                 Assertions.assertEquals(0, extraCommands.getExitCode());
-
                 Thread.sleep(1000);
                 given().ignoreExceptions()
                         .await()
@@ -220,7 +219,6 @@ public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
     @BeforeAll
     @Override
     public void startUp() throws Exception {
-
         LOG.info("The first stage: Starting Kafka containers...");
         createKafkaContainer();
         Startables.deepStart(Stream.of(KAFKA_CONTAINER)).join();
@@ -263,6 +261,10 @@ public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
         if (producer != null) {
             producer.close();
         }
+        MYSQL_CONTAINER.close();
+        KAFKA_CONTAINER.close();
+        DEBEZIUM_CONTAINER.close();
+        POSTGRESQL_CONTAINER.close();
     }
 
     @TestTemplate
