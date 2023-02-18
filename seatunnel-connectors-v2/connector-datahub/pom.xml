@@ -25,6 +25,7 @@
     </parent>
 
     <artifactId>connector-datahub</artifactId>
+    <name>SeaTunnel : Connectors V2 : DataHub</name>
 
     <properties>
         <datahub.version>2.19.0-public</datahub.version>

@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>connector-iceberg-e2e</artifactId>
+    <name>SeaTunnel : E2E : Connector V2 : Iceberg</name>
 
     <dependencies>
         <dependency>

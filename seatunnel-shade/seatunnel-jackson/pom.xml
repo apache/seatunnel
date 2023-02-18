@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>seatunnel-jackson</artifactId>
+    <name>SeaTunnel : Shade : Jackson</name>
 
     <dependencies>
         <dependency>

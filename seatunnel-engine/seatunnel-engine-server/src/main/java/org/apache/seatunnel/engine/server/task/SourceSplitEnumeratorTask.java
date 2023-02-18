@@ -96,7 +96,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                 "starting seatunnel source split enumerator task, source name: "
                         + source.getName());
         enumeratorContext =
-                new SeaTunnelSplitEnumeratorContext<>(this.source.getParallelism(), this);
+                new SeaTunnelSplitEnumeratorContext<>(
+                        this.source.getParallelism(), this, getMetricsContext());
         enumeratorStateSerializer = this.source.getSource().getEnumeratorStateSerializer();
         taskMemberMapping = new ConcurrentHashMap<>();
         taskIDToTaskLocationMapping = new ConcurrentHashMap<>();

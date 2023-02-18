@@ -25,6 +25,7 @@
     </parent>
 
     <artifactId>connector-console</artifactId>
+    <name>SeaTunnel : Connectors V2 : Console</name>
 
     <dependencies>
         <dependency>

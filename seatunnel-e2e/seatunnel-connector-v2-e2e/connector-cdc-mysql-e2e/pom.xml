@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>connector-cdc-mysql-e2e</artifactId>
+    <name>SeaTunnel : E2E : Connector V2 : CDC MySql</name>
 
     <properties />
 

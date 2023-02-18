@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>connector-flink-e2e-base</artifactId>
+    <name>SeaTunnel : E2E : Flink Connector V2 : Base</name>
 
     <dependencies>
         <dependency>

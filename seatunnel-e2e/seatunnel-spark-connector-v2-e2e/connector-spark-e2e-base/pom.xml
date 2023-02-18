@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>connector-spark-e2e-base</artifactId>
+    <name>SeaTunnel : E2E : Spark Connector V2 : Base</name>
 
     <dependencies>
         <dependency>
