@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>connector-http-e2e</artifactId>
+    <name>SeaTunnel : E2E : Connector V2 : Http</name>
 
     <dependencies>
         <dependency>

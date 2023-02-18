@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-email</artifactId>
+    <name>SeaTunnel : Connectors V2 : Email</name>
 
     <properties>
         <email.version>1.5.6</email.version>

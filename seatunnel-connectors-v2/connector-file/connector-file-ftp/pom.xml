@@ -27,6 +27,7 @@
         <version>${revision}</version>
     </parent>
     <artifactId>connector-file-ftp</artifactId>
+    <name>SeaTunnel : Connectors V2 : File : Ftp</name>
 
     <dependencies>
         <dependency>

@@ -24,6 +24,7 @@
 
     <artifactId>seatunnel-e2e</artifactId>
     <packaging>pom</packaging>
+    <name>SeaTunnel : E2E :</name>
 
     <modules>
         <module>seatunnel-e2e-common</module>

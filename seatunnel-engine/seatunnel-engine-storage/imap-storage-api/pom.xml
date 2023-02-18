@@ -28,6 +28,7 @@
     </parent>
 
     <artifactId>imap-storage-api</artifactId>
+    <name>SeaTunnel : Engine : Storage : IMap Storage Api</name>
 
     <dependencies>
 
