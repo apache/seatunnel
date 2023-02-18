@@ -152,6 +152,7 @@ public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
                                         + PG_DRIVER_JAR);
                 Assertions.assertEquals(0, extraCommands.getExitCode());
 
+                Thread.sleep(1000);
                 given().ignoreExceptions()
                         .await()
                         .atLeast(100, TimeUnit.MILLISECONDS)
