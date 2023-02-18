@@ -124,14 +124,6 @@ public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
-                                        + PG_DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
-
                 Path jsonPath =
                         ContainerUtil.getResourcesFile("/debezium/register-mysql.json").toPath();
                 container.copyFileToContainer(
@@ -144,8 +136,15 @@ public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
                                 "cd /tmp/seatunnel/plugins/Jdbc && curl -i -X POST -H \"Accept:application/json\" -H  \"Content-Type:application/json\" http://"
                                         + getLinuxLocalIp()
                                         + ":8083/connectors/ -d @register-mysql.json");
-
                 Assertions.assertEquals(0, extraCommand.getExitCode());
+
+                Container.ExecResult extraCommands =
+                        container.execInContainer(
+                                "bash",
+                                "-c",
+                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
+                                        + PG_DRIVER_JAR);
+                Assertions.assertEquals(0, extraCommands.getExitCode());
 
                 given().ignoreExceptions()
                         .await()
