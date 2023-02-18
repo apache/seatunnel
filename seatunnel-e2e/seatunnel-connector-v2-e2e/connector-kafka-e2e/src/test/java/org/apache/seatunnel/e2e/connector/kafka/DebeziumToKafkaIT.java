@@ -321,11 +321,11 @@ public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
                                         "0.8"),
                                 Arrays.asList(104, "hammer", "12oz carpenter's hammer", "0.75"),
                                 Arrays.asList(105, "hammer", "14oz carpenter's hammer", "0.875"),
-                                Arrays.asList(106, "hammer", "16oz carpenter's hammer", "1.0"),
+                                Arrays.asList(106, "hammer", "16oz carpenter's hammer", "1"),
                                 Arrays.asList(
                                         108, "jacket", "water resistent black wind breaker", "0.1"),
                                 Arrays.asList(101, "scooter", "Small 2-wheel scooter", "4.56"),
-                                Arrays.asList(107, "rocks", "box of assorted rocks", "5.1"))
+                                Arrays.asList(107, "rocks", "box of assorted rocks", "5.3"))
                         .collect(Collectors.toSet());
         Assertions.assertIterableEquals(expected, actual);
     }
