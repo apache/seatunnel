@@ -60,15 +60,19 @@ import java.net.SocketException;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.given;
@@ -107,6 +111,8 @@ public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
     private static final String MYSQL_HOST = "mysql";
 
     private static final int MYSQL_PORT = 3306;
+
+    private static final int MYSQL_EXPOSE_PORT = 3307;
 
     private static GenericContainer<?> MYSQL_CONTAINER;
 
@@ -216,7 +222,7 @@ public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
         MYSQL_CONTAINER.setPortBindings(
                 com.google.common.collect.Lists.newArrayList(
-                        String.format("%s:%s", MYSQL_PORT, MYSQL_PORT)));
+                        String.format("%s:%s", MYSQL_EXPOSE_PORT, MYSQL_PORT)));
         Startables.deepStart(Stream.of(MYSQL_CONTAINER)).join();
         LOG.info("Mysql Containers are started");
 
@@ -280,6 +286,50 @@ public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(expectedResult, data);
     }
 
+    @TestTemplate
+    public void testDebeziumFormatKafakCdcToPgsql(TestContainer container)
+            throws IOException, InterruptedException, SQLException {
+        Container.ExecResult execResult =
+                container.executeJob("/kafkasource_debezium_cdc_to_pgsql.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        Set<List<Object>> actual = new HashSet<>();
+        try (Connection connection =
+                DriverManager.getConnection(
+                        POSTGRESQL_CONTAINER.getJdbcUrl(),
+                        POSTGRESQL_CONTAINER.getUsername(),
+                        POSTGRESQL_CONTAINER.getPassword())) {
+            try (Statement statement = connection.createStatement()) {
+                ResultSet resultSet = statement.executeQuery("select * from sink");
+                while (resultSet.next()) {
+                    List<Object> row =
+                            Arrays.asList(
+                                    resultSet.getInt("id"),
+                                    resultSet.getString("name"),
+                                    resultSet.getString("description"),
+                                    resultSet.getString("weight"));
+                    actual.add(row);
+                }
+            }
+        }
+        Set<List<Object>> expected =
+                Stream.<List<Object>>of(
+                                Arrays.asList(102, "car battery", "12V car battery", "8.1"),
+                                Arrays.asList(
+                                        103,
+                                        "12-pack drill bits",
+                                        "12-pack of drill bits with sizes ranging from #40 to #3",
+                                        "0.8"),
+                                Arrays.asList(104, "hammer", "12oz carpenter's hammer", "0.75"),
+                                Arrays.asList(105, "hammer", "14oz carpenter's hammer", "0.875"),
+                                Arrays.asList(106, "hammer", "16oz carpenter's hammer", "1.0"),
+                                Arrays.asList(
+                                        108, "jacket", "water resistent black wind breaker", "0.1"),
+                                Arrays.asList(101, "scooter", "Small 2-wheel scooter", "4.56"),
+                                Arrays.asList(107, "rocks", "box of assorted rocks", "5.1"))
+                        .collect(Collectors.toSet());
+        Assertions.assertIterableEquals(expected, actual);
+    }
+
     private void initKafkaProducer() {
         Properties props = new Properties();
         String bootstrapServers = KAFKA_CONTAINER.getBootstrapServers();
@@ -325,7 +375,7 @@ public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
 
         try (Connection connection =
                 DriverManager.getConnection(
-                        "jdbc:mysql://0.0.0.0:3306/inventory", "mysqluser", "mysqlpw")) {
+                        "jdbc:mysql://0.0.0.0:3307/inventory", "mysqluser", "mysqlpw")) {
             Statement stmt = connection.createStatement();
             stmt.execute("SET FOREIGN_KEY_CHECKS=0");
             stmt.execute("UPDATE products SET weight = '4.56' WHERE name = 'scooter'"); // update
