@@ -191,6 +191,22 @@ public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
                         String.format("%s:%s", KAFKA_PORT, KAFKA_PORT)));
     }
 
+    private void createMysqlContainer() throws ClassNotFoundException {
+        MYSQL_CONTAINER =
+                new GenericContainer<>(DockerImageName.parse(MYSQL_IMAGE))
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(MYSQL_HOST)
+                        .withExposedPorts(MYSQL_PORT)
+                        .withEnv("MYSQL_ROOT_PASSWORD", "debezium")
+                        .withEnv("MYSQL_USER", "mysqluser")
+                        .withEnv("MYSQL_PASSWORD", "mysqlpw")
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
+        MYSQL_CONTAINER.setPortBindings(
+                com.google.common.collect.Lists.newArrayList(
+                        String.format("%s:%s", MYSQL_EXPOSE_PORT, MYSQL_PORT)));
+    }
+
     private void createPostgreSQLContainer() throws ClassNotFoundException {
         POSTGRESQL_CONTAINER =
                 new PostgreSQLContainer<>(DockerImageName.parse(PG_IMAGE))
@@ -211,19 +227,7 @@ public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
         LOG.info("Kafka Containers are started");
 
         LOG.info("The second stage: Starting Mysql containers...");
-        MYSQL_CONTAINER =
-                new GenericContainer<>(DockerImageName.parse(MYSQL_IMAGE))
-                        .withNetwork(NETWORK)
-                        .withNetworkAliases(MYSQL_HOST)
-                        .withExposedPorts(MYSQL_PORT)
-                        .withEnv("MYSQL_ROOT_PASSWORD", "debezium")
-                        .withEnv("MYSQL_USER", "mysqluser")
-                        .withEnv("MYSQL_PASSWORD", "mysqlpw")
-                        .withLogConsumer(
-                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
-        MYSQL_CONTAINER.setPortBindings(
-                com.google.common.collect.Lists.newArrayList(
-                        String.format("%s:%s", MYSQL_EXPOSE_PORT, MYSQL_PORT)));
+        createMysqlContainer();
         Startables.deepStart(Stream.of(MYSQL_CONTAINER)).join();
         LOG.info("Mysql Containers are started");
 
@@ -234,10 +238,10 @@ public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
                 .atMost(180, TimeUnit.SECONDS)
                 .untilAsserted(() -> initKafkaProducer());
 
-        LOG.info("The third stage: Starting Canal containers...");
+        LOG.info("The third stage: Starting Debezium Connector containers...");
         createDebeziumContainer();
         Startables.deepStart(Stream.of(DEBEZIUM_CONTAINER)).join();
-        LOG.info("Canal Containers are started");
+        LOG.info("Debezium Connector Containers are started");
 
         LOG.info("The fourth stage: Starting PostgreSQL container...");
         createPostgreSQLContainer();
