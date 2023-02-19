@@ -66,6 +66,8 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
 
     private List<Integer> partitionFieldsIndexInRow;
 
+    private int maxRowsInMemory;
+
     public FileSinkConfig(@NonNull Config config, @NonNull SeaTunnelRowType seaTunnelRowTypeInfo) {
         super(config);
         checkArgument(
@@ -166,6 +168,10 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
                     this.partitionFieldList.stream()
                             .map(columnsMap::get)
                             .collect(Collectors.toList());
+        }
+
+        if (config.hasPath("max_rows_in_memory")) {
+            this.maxRowsInMemory = config.getInt("max_rows_in_memory");
         }
     }
 }

@@ -35,6 +35,8 @@
         <commons.collecton4.version>4.4</commons.collecton4.version>
         <commons.lang3.version>3.4</commons.lang3.version>
         <parquet-avro.version>1.12.3</parquet-avro.version>
+        <poi.version>4.1.2</poi.version>
+        <poi-ooxml.version>4.1.2</poi-ooxml.version>
     </properties>
 
     <dependencyManagement>
@@ -128,6 +130,18 @@
                     <artifactId>avro</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi</artifactId>
+            <version>${poi.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>${poi-ooxml.version}</version>
         </dependency>
     </dependencies>
 

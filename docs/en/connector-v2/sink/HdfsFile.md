@@ -26,34 +26,36 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] parquet
   - [x] orc
   - [x] json
-- [x] compress codec
+  - [x] compress codec
   - [x] lzo
+  - [x] excel
 
 ## Options
 
-|               name               |  type   | required |               default value                |                          remarks                          |
-|----------------------------------|---------|----------|--------------------------------------------|-----------------------------------------------------------|
-| fs.defaultFS                     | string  | yes      | -                                          |                                                           |
-| path                             | string  | yes      | -                                          |                                                           |
-| hdfs_site_path                   | string  | no       | -                                          |                                                           |
-| custom_filename                  | boolean | no       | false                                      | Whether you need custom the filename                      |
-| file_name_expression             | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                    |
-| filename_time_format             | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                    |
-| file_format                      | string  | no       | "csv"                                      |                                                           |
-| field_delimiter                  | string  | no       | '\001'                                     | Only used when file_format is text                        |
-| row_delimiter                    | string  | no       | "\n"                                       | Only used when file_format is text                        |
-| have_partition                   | boolean | no       | false                                      | Whether you need processing partitions.                   |
-| partition_by                     | array   | no       | -                                          | Only used then have_partition is true                     |
-| partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                     |
-| is_partition_field_write_in_file | boolean | no       | false                                      | Only used then have_partition is true                     |
-| sink_columns                     | array   | no       |                                            | When this parameter is empty, all fields are sink columns |
-| is_enable_transaction            | boolean | no       | true                                       |                                                           |
-| batch_size                       | int     | no       | 1000000                                    |                                                           |
-| compress_codec                   | string  | no       | none                                       |                                                           |
+|               name               |  type   | required |               default value                |                                                                       remarks                                                                       |
+|----------------------------------|---------|----------|--------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
+| fs.defaultFS                     | string  | yes      | -                                          |                                                                                                                                                     |
+| path                             | string  | yes      | -                                          |                                                                                                                                                     |
+| hdfs_site_path                   | string  | no       | -                                          |                                                                                                                                                     |
+| custom_filename                  | boolean | no       | false                                      | Whether you need custom the filename                                                                                                                |
+| file_name_expression             | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                                                                                                              |
+| filename_time_format             | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                                                                                                              |
+| file_format                      | string  | no       | "csv"                                      |                                                                                                                                                     |
+| field_delimiter                  | string  | no       | '\001'                                     | Only used when file_format is text                                                                                                                  |
+| row_delimiter                    | string  | no       | "\n"                                       | Only used when file_format is text                                                                                                                  |
+| have_partition                   | boolean | no       | false                                      | Whether you need processing partitions.                                                                                                             |
+| partition_by                     | array   | no       | -                                          | Only used then have_partition is true                                                                                                               |
+| partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                                                                                                               |
+| is_partition_field_write_in_file | boolean | no       | false                                      | Only used then have_partition is true                                                                                                               |
+| sink_columns                     | array   | no       |                                            | When this parameter is empty, all fields are sink columns                                                                                           |
+| is_enable_transaction            | boolean | no       | true                                       |                                                                                                                                                     |
+| batch_size                       | int     | no       | 1000000                                    |                                                                                                                                                     |
+| compress_codec                   | string  | no       | none                                       |                                                                                                                                                     |
 | kerberos_principal               | string  | no       | -                                          |
-| kerberos_keytab_path             | string  | no       | -                                          |                                                           |
-| compress_codec                   | string  | no       | none                                       |                                                           |
-| common-options                   | object  | no       | -                                          |                                                           |
+| kerberos_keytab_path             | string  | no       | -                                          |                                                                                                                                                     |
+| compress_codec                   | string  | no       | none                                       |                                                                                                                                                     |
+| common-options                   | object  | no       | -                                          |                                                                                                                                                     |
+| max_rows_in_memory               | int     | no       | -                                          | When File Format is Excel,The maximum number of data items that can be cached in the memory.Note that you need to install fonts when using openjdk. |
 
 ### fs.defaultFS [string]
 
@@ -99,7 +101,7 @@ When the format in the `file_name_expression` parameter is `xxxx-${now}` , `file
 
 We supported as the following file types:
 
-`text` `json` `csv` `orc` `parquet`
+`text` `json` `csv` `orc` `parquet` `excel`
 
 Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.
 
@@ -233,6 +235,24 @@ HdfsFile {
     is_enable_transaction = true
 }
 
+```
+
+For excel file format
+
+```bash
+HdfsFile {
+    fs.defaultFS="hdfs://hadoopcluster"
+    path="/tmp/hive/warehouse/test2"
+    partition_by=["age"]
+    partition_dir_expression="${k0}=${v0}"
+    is_partition_field_write_in_file=true
+    file_name_expression="${transactionId}_${now}"
+    file_format="excel"
+    max_rows_in_memory=10000
+    sink_columns=["name","age"]
+    filename_time_format="yyyy.MM.dd"
+    is_enable_transaction=true
+}
 ```
 
 ## Changelog

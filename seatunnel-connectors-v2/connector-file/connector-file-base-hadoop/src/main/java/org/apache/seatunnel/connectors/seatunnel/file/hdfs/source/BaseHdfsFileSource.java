@@ -99,6 +99,7 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
                     throw new FileConnectorException(
                             CommonErrorCode.UNSUPPORTED_OPERATION,
                             "SeaTunnel does not support user-defined schema for [parquet, orc] files");
+                case EXCEL:
                 default:
                     // never got in there
                     throw new FileConnectorException(
