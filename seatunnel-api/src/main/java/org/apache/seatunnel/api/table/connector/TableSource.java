@@ -22,6 +22,9 @@ import org.apache.seatunnel.api.source.SourceSplit;
 
 import java.io.Serializable;
 
+/**
+ * Used to support authentication and processing of {@link SupportReadingMetadata}
+ */
 public interface TableSource<T, SplitT extends SourceSplit, StateT extends Serializable> {
 
     SeaTunnelSource<T, SplitT, StateT> createSource();
