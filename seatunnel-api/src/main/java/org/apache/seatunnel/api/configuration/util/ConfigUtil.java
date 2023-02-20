@@ -21,6 +21,8 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingExcep
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.dataformat.javaprop.JavaPropsMapper;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -170,5 +172,13 @@ public class ConfigUtil {
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException(String.format("Could not parse json, value: %s", o));
         }
+    }
+
+    public static String convertToJsonString(Config config) {
+        return convertToJsonString(config.root().unwrapped());
+    }
+
+    public static Config convertToConfig(String configJson) {
+        return ConfigFactory.parseString(configJson);
     }
 }
