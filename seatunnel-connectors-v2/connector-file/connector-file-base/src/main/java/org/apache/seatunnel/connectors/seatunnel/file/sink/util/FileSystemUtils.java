@@ -21,12 +21,14 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.security.UserGroupInformation;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -49,12 +51,44 @@ public class FileSystemUtils implements Serializable {
         this.hadoopConf = hadoopConf;
     }
 
+    public static void doKerberosAuthentication(
+            Configuration configuration, String principal, String keytabPath) {
+        if (StringUtils.isBlank(principal) || StringUtils.isBlank(keytabPath)) {
+            log.warn(
+                    "Principal [{}] or keytabPath [{}] is empty, it will skip kerberos authentication",
+                    principal,
+                    keytabPath);
+        } else {
+            configuration.set("hadoop.security.authentication", "kerberos");
+            UserGroupInformation.setConfiguration(configuration);
+            try {
+                log.info(
+                        "Start Kerberos authentication using principal {} and keytab {}",
+                        principal,
+                        keytabPath);
+                UserGroupInformation.loginUserFromKeytab(principal, keytabPath);
+                log.info("Kerberos authentication successful");
+            } catch (IOException e) {
+                String errorMsg =
+                        String.format(
+                                "Kerberos authentication failed using this "
+                                        + "principal [%s] and keytab path [%s]",
+                                principal, keytabPath);
+                throw new FileConnectorException(
+                        CommonErrorCode.KERBEROS_AUTHORIZED_FAILED, errorMsg, e);
+            }
+        }
+    }
+
     public Configuration getConfiguration(HadoopConf hadoopConf) {
         Configuration configuration = new Configuration();
         configuration.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, hadoopConf.getHdfsNameKey());
         configuration.set(
                 String.format("fs.%s.impl", hadoopConf.getSchema()), hadoopConf.getFsHdfsImpl());
         hadoopConf.setExtraOptionsForConfiguration(configuration);
+        String principal = hadoopConf.getKerberosPrincipal();
+        String keytabPath = hadoopConf.getKerberosKeytabPath();
+        doKerberosAuthentication(configuration, principal, keytabPath);
         return configuration;
     }
 
