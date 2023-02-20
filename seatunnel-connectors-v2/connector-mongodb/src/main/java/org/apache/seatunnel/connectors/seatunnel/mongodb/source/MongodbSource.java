@@ -25,13 +25,13 @@ import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
@@ -63,11 +63,10 @@ public class MongodbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                     getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         this.params = MongodbConfig.buildWithConfig(config);
-        if (config.hasPath(SeaTunnelSchema.SCHEMA.key())) {
-            Config schema = config.getConfig(SeaTunnelSchema.SCHEMA.key());
-            this.rowType = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
+        if (config.hasPath(CatalogTableUtil.SCHEMA.key())) {
+            this.rowType = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
         } else {
-            this.rowType = SeaTunnelSchema.buildSimpleTextSchema();
+            this.rowType = CatalogTableUtil.buildSimpleTextSchema();
         }
     }
 
@@ -83,7 +82,7 @@ public class MongodbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext context) throws Exception {
-        boolean useSimpleTextSchema = SeaTunnelSchema.buildSimpleTextSchema().equals(rowType);
+        boolean useSimpleTextSchema = CatalogTableUtil.buildSimpleTextSchema().equals(rowType);
         return new MongodbSourceReader(context, this.params, rowType, useSimpleTextSchema);
     }
 }

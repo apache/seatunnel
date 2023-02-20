@@ -71,7 +71,7 @@ The iceberg table name in the backend catalog.
 
 If data columns where selected via fields(Collection), controls whether the match to the schema will be done with case sensitivity.
 
-### fields [array]
+### schema [config]
 
 Use projection to select data columns and columns order.
 
@@ -150,11 +150,13 @@ source {
     namespace = "your_iceberg_database"
     table = "your_iceberg_table"
 
-    fields {
-      f2 = "boolean"
-      f1 = "bigint"
-      f3 = "int"
-      f4 = "bigint"
+    schema {
+      fields {
+        f2 = "boolean"
+        f1 = "bigint"
+        f3 = "int"
+        f4 = "bigint"
+      }
     }
   }
 }
@@ -182,3 +184,4 @@ Some versions of the hive-exec package do not have libfb303-xxx.jar, so you also
 ### next version
 
 - [Feature] Support Hadoop3.x ([3046](https://github.com/apache/incubator-seatunnel/pull/3046))
+- [improve][api] Refactoring schema parse ([4157](https://github.com/apache/incubator-seatunnel/pull/4157))

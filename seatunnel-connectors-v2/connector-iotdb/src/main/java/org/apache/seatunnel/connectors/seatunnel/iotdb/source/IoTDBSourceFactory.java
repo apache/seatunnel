@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdb.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema.SCHEMA;
+import static org.apache.seatunnel.api.table.catalog.CatalogTableUtil.SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.CommonConfig.NODE_URLS;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.CommonConfig.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.CommonConfig.USERNAME;

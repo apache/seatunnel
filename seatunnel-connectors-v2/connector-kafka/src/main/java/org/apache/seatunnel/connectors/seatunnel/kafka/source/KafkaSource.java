@@ -43,6 +43,7 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
@@ -51,7 +52,6 @@ import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
@@ -195,7 +195,7 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
         if (config.hasPath(SCHEMA.key())) {
             Config schema = config.getConfig(SCHEMA.key());
             // todo: use KafkaDataTypeConvertor here?
-            typeInfo = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
+            typeInfo = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
             String format = DEFAULT_FORMAT;
             if (config.hasPath(FORMAT.key())) {
                 format = config.getString(FORMAT.key());
@@ -217,7 +217,7 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
                         "Unsupported format: " + format);
             }
         } else {
-            typeInfo = SeaTunnelSchema.buildSimpleTextSchema();
+            typeInfo = CatalogTableUtil.buildSimpleTextSchema();
             this.deserializationSchema = TextDeserializationSchema.builder()
                 .seaTunnelRowType(typeInfo)
                 .delimiter(String.valueOf('\002'))

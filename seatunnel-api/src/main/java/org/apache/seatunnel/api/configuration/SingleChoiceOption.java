@@ -23,7 +23,7 @@ import lombok.Getter;
 
 import java.util.List;
 
-public class SingleChoiceOption<T> extends Option{
+public class SingleChoiceOption<T> extends Option {
 
     @Getter
     private final List<T> optionValues;

@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.source;
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig.KEY_CASE_SENSITIVE;
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig.KEY_CATALOG_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig.KEY_CATALOG_TYPE;
-import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig.KEY_FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig.KEY_NAMESPACE;
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig.KEY_TABLE;
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig.KEY_URI;
@@ -35,6 +34,7 @@ import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceCon
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
@@ -60,7 +60,7 @@ public class IcebergSourceFactory implements TableSourceFactory {
             )
             .conditional(KEY_CATALOG_TYPE, HIVE, KEY_URI)
             .optional(
-                KEY_FIELDS,
+                CatalogTableUtil.SCHEMA,
                 KEY_CASE_SENSITIVE,
                 KEY_START_SNAPSHOT_TIMESTAMP,
                 KEY_START_SNAPSHOT_ID,

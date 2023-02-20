@@ -25,9 +25,9 @@ import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.Am
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 
 import com.google.auto.service.AutoService;
 
@@ -41,7 +41,7 @@ public class AmazonDynamoDBSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-            .required(URL, REGION, ACCESS_KEY_ID, SECRET_ACCESS_KEY, TABLE, SeaTunnelSchema.SCHEMA).build();
+            .required(URL, REGION, ACCESS_KEY_ID, SECRET_ACCESS_KEY, TABLE, CatalogTableUtil.SCHEMA).build();
     }
 
     @Override
