@@ -35,7 +35,6 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.data.IcebergTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.IcebergBatchSplitEnumerator;
@@ -100,7 +99,7 @@ public class IcebergSource implements SeaTunnelSource<SeaTunnelRow, IcebergFileS
             columnNames.toArray(new String[0]),
             columnDataTypes.toArray(new SeaTunnelDataType[0]));
 
-        CheckResult checkResult = CheckConfigUtil.checkAllExists(pluginConfig, CommonConfig.KEY_FIELDS.key());
+        CheckResult checkResult = CheckConfigUtil.checkAllExists(pluginConfig, CatalogTableUtil.SCHEMA.key());
         if (checkResult.isSuccess()) {
             SeaTunnelRowType projectedRowType = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
             for (int i = 0; i < projectedRowType.getFieldNames().length; i++) {
