@@ -40,6 +40,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ServiceConfigurationError;
@@ -63,15 +64,19 @@ public final class FactoryUtil {
             final TableSourceFactory factory = discoverFactory(classLoader, TableSourceFactory.class, factoryIdentifier);
             List<SeaTunnelSource<T, SplitT, StateT>> sources = new ArrayList<>(multipleTables.size());
             if (factory instanceof SupportMultipleTable) {
-                TableFactoryContext context = new TableFactoryContext(multipleTables, options, classLoader);
-                SupportMultipleTable multipleTableSourceFactory = (SupportMultipleTable) factory;
-                // TODO: create all source
-                SupportMultipleTable.Result result = multipleTableSourceFactory.applyTables(context);
-                TableSource<T, SplitT, StateT> multipleTableSource = factory.createSource(
-                    new TableFactoryContext(result.getAcceptedTables(), options, classLoader));
-                // TODO: handle reading metadata
-                SeaTunnelSource<T, SplitT, StateT> source = multipleTableSource.createSource();
-                sources.add(source);
+                List<CatalogTable> remainingTables = multipleTables;
+                while (!remainingTables.isEmpty()) {
+                    TableFactoryContext context = new TableFactoryContext(remainingTables, options, classLoader);
+                    SupportMultipleTable.Result result = ((SupportMultipleTable) factory).applyTables(context);
+                    List<CatalogTable> acceptedTables = result.getAcceptedTables();
+                    sources.add(createAndPrepareSource(factory, acceptedTables, options, classLoader));
+                    remainingTables = result.getRemainingTables();
+                }
+            } else {
+                for (CatalogTable catalogTable : multipleTables) {
+                    List<CatalogTable> acceptedTables = Collections.singletonList(catalogTable);
+                    sources.add(createAndPrepareSource(factory, acceptedTables, options, classLoader));
+                }
             }
             return sources;
         } catch (Throwable t) {
@@ -80,6 +85,21 @@ public final class FactoryUtil {
                     "Unable to create a source for identifier '%s'.", factoryIdentifier),
                 t);
         }
+    }
+
+    public static <T, SplitT extends SourceSplit, StateT extends Serializable> SeaTunnelSource<T, SplitT, StateT> createAndPrepareSource(
+        TableSourceFactory factory,
+        List<CatalogTable> acceptedTables,
+        ReadonlyConfig options,
+        ClassLoader classLoader) {
+        TableFactoryContext context = new TableFactoryContext(acceptedTables, options, classLoader);
+        TableSource<T, SplitT, StateT> tableSource = factory.createSource(context);
+        validateAndApplyMetadata(acceptedTables, tableSource);
+        return tableSource.createSource();
+    }
+
+    private static void validateAndApplyMetadata(List<CatalogTable> catalogTables, TableSource<?, ?, ?> tableSource) {
+        // TODO: handle reading metadata
     }
 
     public static <IN, StateT, CommitInfoT, AggregatedCommitInfoT> SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> createAndPrepareSink(
@@ -177,7 +197,9 @@ public final class FactoryUtil {
         }
 
         Class<? extends SeaTunnelSource> sourceClass = factory.getSourceClass();
-        if (SupportParallelism.class.isAssignableFrom(sourceClass)) {
+        if (factory instanceof SupportParallelism
+            // TODO: Implement SupportParallelism in the TableSourceFactory instead of the SeaTunnelSource
+            || SupportParallelism.class.isAssignableFrom(sourceClass)) {
             OptionRule sourceCommonOptionRule =
                 OptionRule.builder().optional(SourceCommonOptions.PARALLELISM).build();
             sourceOptionRule.getOptionalOptions().addAll(sourceCommonOptionRule.getOptionalOptions());
