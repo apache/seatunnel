@@ -19,9 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import org.apache.seatunnel.api.configuration.util.ConfigUtil;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
@@ -37,7 +41,10 @@ import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Elasticsearch catalog implementation.
@@ -118,12 +125,45 @@ public class ElasticSearchCatalog implements Catalog {
     @Override
     public CatalogTable getTable(TablePath tablePath) throws CatalogException, TableNotExistException {
         // Get the index mapping?
-        return null;
+        checkNotNull(tablePath, "tablePath cannot be null");
+        ElasticSearchDataTypeConvertor elasticSearchDataTypeConvertor = new ElasticSearchDataTypeConvertor();
+        TableSchema.Builder builder = TableSchema.builder();
+        Map<String, String> fieldTypeMapping = esRestClient.getFieldTypeMapping(tablePath.getTableName(), Collections.emptyList());
+        fieldTypeMapping.forEach((fieldName, fieldType) -> {
+            // todo: we need to add a new type TEXT or add length in STRING type
+            PhysicalColumn physicalColumn = PhysicalColumn.of(
+                fieldName,
+                elasticSearchDataTypeConvertor.toSeaTunnelType(fieldType),
+                null,
+                true,
+                null,
+                null
+            );
+            builder.column(physicalColumn);
+        });
+
+
+        return CatalogTable.of(
+            TableIdentifier.of(catalogName, tablePath.getDatabaseName(), tablePath.getTableName()),
+            builder.build(),
+            buildTableOptions(tablePath),
+            Collections.emptyList(),
+            ""
+        );
     }
 
     @Override
     public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists) throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         // Create the index
+        checkNotNull(tablePath, "tablePath cannot be null");
+        if (tableExists(tablePath)) {
+            if (ignoreIfExists) {
+                return;
+            } else {
+                throw new TableAlreadyExistException(catalogName, tablePath, null);
+            }
+        }
+        esRestClient.createIndex(tablePath.getTableName());
     }
 
     @Override
@@ -142,11 +182,19 @@ public class ElasticSearchCatalog implements Catalog {
 
     @Override
     public void createDatabase(TablePath tablePath, boolean ignoreIfExists) throws DatabaseAlreadyExistException, CatalogException {
-        throw new UnsupportedOperationException("Elasticsearch does not support create database");
+        createTable(tablePath, null, ignoreIfExists);
     }
 
     @Override
     public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists) throws DatabaseNotExistException, CatalogException {
         dropTable(tablePath, ignoreIfNotExists);
+    }
+
+    private Map<String, String> buildTableOptions(TablePath tablePath) {
+        Map<String, String> options = new HashMap<>();
+        options.put("connector", "elasticsearch");
+        // todo: Right now, we don't use the config in the plugin config, do we need to add bootstrapt servers here?
+        options.put("config", ConfigUtil.convertToJsonString(tablePath));
+        return options;
     }
 }

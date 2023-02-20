@@ -28,9 +28,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog.ElasticSearchDataTypeConvertor;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.constant.EsTypeMappingSeaTunnelType;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -59,6 +59,7 @@ public class ElasticsearchSource implements SeaTunnelSource<SeaTunnelRow, Elasti
     public void prepare(Config pluginConfig) throws PrepareFailException {
         this.pluginConfig = pluginConfig;
         if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA.key())) {
+            // todo: We need to remove the schema in ES.
             Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
             rowTypeInfo = SeaTunnelSchema.buildWithConfig(schemaConfig).getSeaTunnelRowType();
             source = Arrays.asList(rowTypeInfo.getFieldNames());
@@ -68,9 +69,10 @@ public class ElasticsearchSource implements SeaTunnelSource<SeaTunnelRow, Elasti
             Map<String, String> esFieldType = esRestClient.getFieldTypeMapping(pluginConfig.getString(SourceConfig.INDEX.key()), source);
             esRestClient.close();
             SeaTunnelDataType[] fieldTypes = new SeaTunnelDataType[source.size()];
+            ElasticSearchDataTypeConvertor elasticSearchDataTypeConvertor = new ElasticSearchDataTypeConvertor();
             for (int i = 0; i < source.size(); i++) {
                 String esType = esFieldType.get(source.get(i));
-                SeaTunnelDataType seaTunnelDataType = EsTypeMappingSeaTunnelType.getSeaTunnelDataType(esType);
+                SeaTunnelDataType seaTunnelDataType = elasticSearchDataTypeConvertor.toSeaTunnelType(esType);
                 fieldTypes[i] = seaTunnelDataType;
             }
             rowTypeInfo = new SeaTunnelRowType(source.toArray(new String[0]), fieldTypes);

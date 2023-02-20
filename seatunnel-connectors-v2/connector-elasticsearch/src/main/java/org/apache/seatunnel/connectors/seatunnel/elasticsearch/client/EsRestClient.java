@@ -34,6 +34,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpStatus;
 import org.apache.http.auth.AuthScope;
@@ -59,6 +60,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -370,6 +372,25 @@ public class EsRestClient {
         }
     }
 
+    // todo: We don't support set the index mapping now.
+    public void createIndex(String indexName) {
+        String endpoint = String.format("/%s", indexName);
+        Request request = new Request("PUT", endpoint);
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.CREATE_INDEX_FAILED,
+                    "PUT " + endpoint + " response null");
+            }
+            if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+                throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.CREATE_INDEX_FAILED,
+                    String.format("PUT %s response status code=%d", endpoint, response.getStatusLine().getStatusCode()));
+            }
+        } catch (IOException ex) {
+            throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.CREATE_INDEX_FAILED, ex);
+        }
+    }
+
     public void dropIndex(String tableName) {
         String endpoint = String.format("/%s", tableName);
         Request request = new Request("DELETE", endpoint);
@@ -437,21 +458,26 @@ public class EsRestClient {
 
     private static Map<String, String> getFieldTypeMappingFromProperties(JsonNode properties, List<String> source) {
         Map<String, String> mapping = new HashMap<>();
-        for (String field : source) {
-            JsonNode fieldProperty = properties.get(field);
-            if (fieldProperty == null) {
-                mapping.put(field, "text");
-            } else {
-                if (fieldProperty.has("type")) {
-                    String type = fieldProperty.get("type").asText();
-                    mapping.put(field, type);
-                } else {
-                    log.warn(String.format("fail to get elasticsearch field %s mapping type,so give a default type text", field));
-                    mapping.put(field, "text");
-                }
+        Map<String, String> allElasticSearchFieldTypeInfoMap = new HashMap<>();
+        properties.fields().forEachRemaining(entry -> {
+            String fieldName = entry.getKey();
+            JsonNode fieldProperty = entry.getValue();
+            if (fieldProperty.has("type")) {
+                allElasticSearchFieldTypeInfoMap.put(fieldName, fieldProperty.get("type").asText());
             }
+        });
+        if (CollectionUtils.isEmpty(source)) {
+            return allElasticSearchFieldTypeInfoMap;
         }
-        return mapping;
+
+        return source.stream().collect(Collectors.toMap(Function.identity(), fieldName -> {
+            String fieldType = allElasticSearchFieldTypeInfoMap.get(fieldName);
+            if (fieldType == null) {
+                log.warn("fail to get elasticsearch field {} mapping type,so give a default type text", fieldName);
+                return "text";
+            }
+            return fieldType;
+        }));
     }
 
 }
