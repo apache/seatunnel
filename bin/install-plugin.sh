@@ -50,13 +50,11 @@ if [ ! -d ${SEATUNNEL_HOME}/connectors/seatunnel ];
       echo "create seatunnel connectors directory"
 fi  
 
-path=seatunnel
-
 while read line; do
     if  [ ${line:0:1} != "-" ] && [ ${line:0:1} != "#" ]
       	then
       		echo "install connector : " $line
-      		${SEATUNNEL_HOME}/mvnw dependency:get -DgroupId=org.apache.seatunnel -DartifactId=${line} -Dversion=${version} -Ddest=${SEATUNNEL_HOME}/connectors/${path}
+      		${SEATUNNEL_HOME}/mvnw dependency:get -DgroupId=org.apache.seatunnel -DartifactId=${line} -Dversion=${version} -Ddest=${SEATUNNEL_HOME}/connectors
     fi
 
 done < ${SEATUNNEL_HOME}/config/plugin_config
