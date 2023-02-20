@@ -14,6 +14,7 @@
 ### Connectors
 - [Elasticsearch] Support https protocol & compatible with opensearch
 - [Hbase] Add hbase sink connector #4049
+- [Github] Add Github source connector #4155
 ### Formats
 - [Canal]Support read canal format message #3950
 
@@ -68,5 +69,4 @@
 ## Test
 ### E2E
 - [SqlServer CDC] fix SqlServerCDC IT failure #3807
-
 
