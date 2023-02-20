@@ -17,8 +17,12 @@
 
 package org.apache.seatunnel.api.table.catalog;
 
+import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.factory.FactoryException;
+import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -39,13 +43,16 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
 import lombok.Getter;
+import org.apache.commons.lang3.StringUtils;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 public class CatalogTableUtil implements Serializable {
     public static final Option<Map<String, String>> SCHEMA = Options.key("schema").mapType().noDefaultValue().withDescription("SeaTunnel Schema");
@@ -60,6 +67,60 @@ public class CatalogTableUtil implements Serializable {
 
     private CatalogTableUtil(CatalogTable catalogTable) {
         this.catalogTable = catalogTable;
+    }
+
+    private static List<CatalogTable> getCatalogTables(Config config, ClassLoader classLoader) {
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
+        Map<String, String> catalogOptions = readonlyConfig.getOptional(CatalogOptions.CATALOG_OPTIONS).orElse(new HashMap<>());
+        // TODO: fallback key
+        String factoryId = catalogOptions.getOrDefault(CommonOptions.FACTORY_ID.key(), readonlyConfig.get(CommonOptions.PLUGIN_NAME));
+        Map<String, Object> catalogAllOptions = new HashMap<>();
+        catalogAllOptions.putAll(readonlyConfig.toMap());
+        catalogAllOptions.putAll(catalogOptions);
+        ReadonlyConfig catalogConfig = ReadonlyConfig.fromMap(catalogAllOptions);
+
+        // Highest priority: specified schema
+        Map<String, String> schemaMap = readonlyConfig.get(CatalogTableUtil.SCHEMA);
+        if (schemaMap != null && schemaMap.size() > 0) {
+            CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(config).getCatalogTable();
+            return Collections.singletonList(catalogTable);
+        }
+
+        Catalog catalog = null;
+        try {
+            catalog = FactoryUtil.createCatalog(catalogConfig.get(CatalogOptions.NAME), catalogConfig, classLoader, factoryId);
+        } catch (FactoryException e) {
+            return Collections.emptyList();
+        }
+
+        // Get the list of specified tables
+        List<String> tableNames = catalogConfig.get(CatalogOptions.TABLE_NAMES);
+        List<CatalogTable> catalogTables = new ArrayList<>();
+        if (tableNames != null && tableNames.size() > 1) {
+            for (String tableName : tableNames) {
+                catalogTables.add(catalog.getTable(TablePath.of(tableName)));
+            }
+            return catalogTables;
+        }
+
+        // Get the list of table pattern
+        String tablePatternStr = catalogConfig.get(CatalogOptions.TABLE_PATTERN);
+        if (StringUtils.isBlank(tablePatternStr)) {
+            return Collections.emptyList();
+        }
+        Pattern databasePattern = Pattern.compile(catalogConfig.get(CatalogOptions.DATABASE_PATTERN));
+        Pattern tablePattern = Pattern.compile(catalogConfig.get(CatalogOptions.TABLE_PATTERN));
+        List<String> allDatabase = catalog.listDatabases();
+        allDatabase.removeIf(s -> !databasePattern.matcher(s).matches());
+        for (String databaseName : allDatabase) {
+            tableNames = catalog.listTables(databaseName);
+            for (String tableName : tableNames) {
+                if (tablePattern.matcher(databaseName + "." + tableName).matches()) {
+                    catalogTables.add(catalog.getTable(TablePath.of(databaseName, tableName)));
+                }
+            }
+        }
+        return catalogTables;
     }
 
     public static CatalogTableUtil buildWithConfig(Config config) {
