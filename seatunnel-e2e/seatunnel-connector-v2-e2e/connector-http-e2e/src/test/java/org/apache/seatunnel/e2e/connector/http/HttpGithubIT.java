@@ -26,6 +26,6 @@ public class HttpGithubIT extends HttpIT {
 
     @Override
     public String getMockServerConfig() {
-        return "/mockserver-gitlab-config.json";
+        return "/mockserver-github-config.json";
     }
 }
