@@ -19,11 +19,28 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
 
-public class JdbcCatalogOptions {
-    public static final Option<String> BASE_URL = Options.key("base-url")
+public interface JdbcCatalogOptions {
+    Option<String> BASE_URL = Options.key("base-url")
         .stringType()
         .noDefaultValue()
         .withDescription("URL has to be without database, like \"jdbc:mysql://localhost:5432/\" or" +
             "\"jdbc:mysql://localhost:5432\" rather than \"jdbc:mysql://localhost:5432/db\"");
+
+    Option<String> USERNAME =
+        Options.key("username")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("Name of the database to use when connecting to the database server.");
+
+    Option<String> PASSWORD =
+        Options.key("password")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("Password to use when connecting to the database server.");
+
+    OptionRule.Builder BASE_RULE = OptionRule.builder()
+        .required(BASE_URL)
+        .required(USERNAME, PASSWORD);
 }
