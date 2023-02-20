@@ -26,7 +26,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -43,6 +43,7 @@ public class ConfigUtil {
      * </pre>
      */
     public static Map<String, Object> treeMap(Object rawMap) {
+        // TODO: Keeping the order of the values in the map
         try {
             return PROPERTIES_MAPPER.readValue(PROPERTIES_MAPPER.writeValueAsString(rawMap), new TypeReference<Map<String, Object>>() {
             });
@@ -76,7 +77,7 @@ public class ConfigUtil {
             Map<String, Object> rawMap = (Map<String, Object>) rawValue;
             if (!nestedMap) {
                 keys = new ArrayList<>();
-                newMap = new HashMap<>(rawMap.size());
+                newMap = new LinkedHashMap<>(rawMap.size());
             }
             for (Map.Entry<String, Object> entry : rawMap.entrySet()) {
                 keys.add(entry.getKey());
