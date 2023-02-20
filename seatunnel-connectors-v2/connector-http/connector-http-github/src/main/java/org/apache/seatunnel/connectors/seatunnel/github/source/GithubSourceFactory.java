@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.github.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.connectors.seatunnel.github.GithubPlugin;
 import org.apache.seatunnel.connectors.seatunnel.github.config.GithubSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceFactory;
 
@@ -30,7 +29,7 @@ public class GithubSourceFactory extends HttpSourceFactory {
 
     @Override
     public String factoryIdentifier() {
-        return GithubPlugin.PLUGIN_NAME;
+        return GithubSource.PLUGIN_NAME;
     }
 
     @Override
