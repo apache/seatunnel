@@ -17,8 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
@@ -31,6 +33,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
+import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -44,10 +47,12 @@ import java.util.Map;
 
 public class TextReadStrategy extends AbstractReadStrategy {
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
-    private String fieldDelimiter = String.valueOf('\001');
-    private DateUtils.Formatter dateFormat = DateUtils.Formatter.YYYY_MM_DD;
-    private DateTimeUtils.Formatter datetimeFormat = DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
-    private TimeUtils.Formatter timeFormat = TimeUtils.Formatter.HH_MM_SS;
+    private String fieldDelimiter = BaseSourceConfig.DELIMITER.defaultValue();
+    private DateUtils.Formatter dateFormat = BaseSourceConfig.DATE_FORMAT.defaultValue();
+    private DateTimeUtils.Formatter datetimeFormat =
+            BaseSourceConfig.DATETIME_FORMAT.defaultValue();
+    private TimeUtils.Formatter timeFormat = BaseSourceConfig.TIME_FORMAT.defaultValue();
+    private int[] indexes;
 
     @Override
     public void read(String path, Collector<SeaTunnelRow> output)
@@ -66,6 +71,22 @@ public class TextReadStrategy extends AbstractReadStrategy {
                                 try {
                                     SeaTunnelRow seaTunnelRow =
                                             deserializationSchema.deserialize(line.getBytes());
+                                    if (!readColumns.isEmpty()) {
+                                        // need column projection
+                                        Object[] fields;
+                                        if (isMergePartition) {
+                                            fields =
+                                                    new Object
+                                                            [readColumns.size()
+                                                                    + partitionsMap.size()];
+                                        } else {
+                                            fields = new Object[readColumns.size()];
+                                        }
+                                        for (int i = 0; i < indexes.length; i++) {
+                                            fields[i] = seaTunnelRow.getField(indexes[i]);
+                                        }
+                                        seaTunnelRow = new SeaTunnelRow(fields);
+                                    }
                                     if (isMergePartition) {
                                         int index = seaTunnelRowType.getTotalFields();
                                         for (String value : partitionsMap.values()) {
@@ -89,29 +110,35 @@ public class TextReadStrategy extends AbstractReadStrategy {
 
     @Override
     public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path) {
-        SeaTunnelRowType simpleSeaTunnelType = SeaTunnelSchema.buildSimpleTextSchema();
-        this.seaTunnelRowType = simpleSeaTunnelType;
+        this.seaTunnelRowType = SeaTunnelSchema.buildSimpleTextSchema();
         this.seaTunnelRowTypeWithPartition =
-                mergePartitionTypes(fileNames.get(0), simpleSeaTunnelType);
+                mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
+        initFormatter();
+        if (pluginConfig.hasPath(BaseSourceConfig.READ_COLUMNS.key())) {
+            throw new FileConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    "When reading json/text/csv files, if user has not specified schema information, "
+                            + "SeaTunnel will not support column projection");
+        }
+        TextDeserializationSchema.Builder builder =
+                TextDeserializationSchema.builder()
+                        .delimiter(TextFormatConstant.PLACEHOLDER)
+                        .dateFormatter(dateFormat)
+                        .dateTimeFormatter(datetimeFormat)
+                        .timeFormatter(timeFormat);
         if (isMergePartition) {
             deserializationSchema =
-                    TextDeserializationSchema.builder()
-                            .seaTunnelRowType(this.seaTunnelRowTypeWithPartition)
-                            .delimiter(String.valueOf('\002'))
-                            .build();
+                    builder.seaTunnelRowType(this.seaTunnelRowTypeWithPartition).build();
         } else {
-            deserializationSchema =
-                    TextDeserializationSchema.builder()
-                            .seaTunnelRowType(this.seaTunnelRowType)
-                            .delimiter(String.valueOf('\002'))
-                            .build();
+            deserializationSchema = builder.seaTunnelRowType(this.seaTunnelRowType).build();
         }
         return getActualSeaTunnelRowTypeInfo();
     }
 
     @Override
     public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        super.setSeaTunnelRowTypeInfo(seaTunnelRowType);
+        SeaTunnelRowType userDefinedRowTypeWithPartition =
+                mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
         if (pluginConfig.hasPath(BaseSourceConfig.DELIMITER.key())) {
             fieldDelimiter = pluginConfig.getString(BaseSourceConfig.DELIMITER.key());
         } else {
@@ -122,6 +149,40 @@ public class TextReadStrategy extends AbstractReadStrategy {
                 fieldDelimiter = ",";
             }
         }
+        initFormatter();
+        TextDeserializationSchema.Builder builder =
+                TextDeserializationSchema.builder()
+                        .delimiter(fieldDelimiter)
+                        .dateFormatter(dateFormat)
+                        .dateTimeFormatter(datetimeFormat)
+                        .timeFormatter(timeFormat);
+        if (isMergePartition) {
+            deserializationSchema =
+                    builder.seaTunnelRowType(userDefinedRowTypeWithPartition).build();
+        } else {
+            deserializationSchema = builder.seaTunnelRowType(seaTunnelRowType).build();
+        }
+        // column projection
+        if (pluginConfig.hasPath(BaseSourceConfig.READ_COLUMNS.key())) {
+            // get the read column index from user-defined row type
+            indexes = new int[readColumns.size()];
+            String[] fields = new String[readColumns.size()];
+            SeaTunnelDataType<?>[] types = new SeaTunnelDataType[readColumns.size()];
+            for (int i = 0; i < indexes.length; i++) {
+                indexes[i] = seaTunnelRowType.indexOf(readColumns.get(i));
+                fields[i] = seaTunnelRowType.getFieldName(indexes[i]);
+                types[i] = seaTunnelRowType.getFieldType(indexes[i]);
+            }
+            this.seaTunnelRowType = new SeaTunnelRowType(fields, types);
+            this.seaTunnelRowTypeWithPartition =
+                    mergePartitionTypes(fileNames.get(0), this.seaTunnelRowType);
+        } else {
+            this.seaTunnelRowType = seaTunnelRowType;
+            this.seaTunnelRowTypeWithPartition = userDefinedRowTypeWithPartition;
+        }
+    }
+
+    private void initFormatter() {
         if (pluginConfig.hasPath(BaseSourceConfig.DATE_FORMAT.key())) {
             dateFormat =
                     DateUtils.Formatter.parse(
@@ -136,25 +197,6 @@ public class TextReadStrategy extends AbstractReadStrategy {
             timeFormat =
                     TimeUtils.Formatter.parse(
                             pluginConfig.getString(BaseSourceConfig.TIME_FORMAT.key()));
-        }
-        if (isMergePartition) {
-            deserializationSchema =
-                    TextDeserializationSchema.builder()
-                            .seaTunnelRowType(this.seaTunnelRowTypeWithPartition)
-                            .delimiter(fieldDelimiter)
-                            .dateFormatter(dateFormat)
-                            .dateTimeFormatter(datetimeFormat)
-                            .timeFormatter(timeFormat)
-                            .build();
-        } else {
-            deserializationSchema =
-                    TextDeserializationSchema.builder()
-                            .seaTunnelRowType(this.seaTunnelRowType)
-                            .delimiter(fieldDelimiter)
-                            .dateFormatter(dateFormat)
-                            .dateTimeFormatter(datetimeFormat)
-                            .timeFormatter(timeFormat)
-                            .build();
         }
     }
 }
