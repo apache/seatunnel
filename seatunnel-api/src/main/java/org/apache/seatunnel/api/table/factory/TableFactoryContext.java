@@ -54,4 +54,11 @@ public class TableFactoryContext {
     public List<CatalogTable> getCatalogTables() {
         return catalogTables;
     }
+
+    /**
+     * @return single table.
+     */
+    public CatalogTable getCatalogTable() {
+        return catalogTables.get(0);
+    }
 }

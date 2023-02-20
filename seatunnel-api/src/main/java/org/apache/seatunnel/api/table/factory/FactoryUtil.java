@@ -103,10 +103,17 @@ public final class FactoryUtil {
     }
 
     public static <IN, StateT, CommitInfoT, AggregatedCommitInfoT> SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> createAndPrepareSink(
-        ClassLoader classLoader, String factoryIdentifier) {
-        // todo: do we need to set table?
-        TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT> factory = discoverFactory(classLoader, TableSinkFactory.class, factoryIdentifier);
-        return factory.createSink(null).createSink();
+        CatalogTable catalogTable,
+        ClassLoader classLoader,
+        ReadonlyConfig options,
+        String factoryIdentifier) {
+        try {
+            TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT> factory = discoverFactory(classLoader, TableSinkFactory.class, factoryIdentifier);
+            TableFactoryContext context = new TableFactoryContext(Collections.singletonList(catalogTable), options, classLoader);
+            return factory.createSink(context).createSink();
+        } catch (Throwable t) {
+            throw new FactoryException(String.format("Unable to create a sink for identifier '%s'.", factoryIdentifier), t);
+        }
     }
 
     public static Catalog createCatalog(String catalogName,
