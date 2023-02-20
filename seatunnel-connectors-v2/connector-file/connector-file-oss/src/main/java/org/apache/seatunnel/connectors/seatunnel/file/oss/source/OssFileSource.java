@@ -20,12 +20,12 @@ package org.apache.seatunnel.connectors.seatunnel.file.oss.source;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
@@ -72,15 +72,14 @@ public class OssFileSource extends BaseFileSource {
         // support user-defined schema
         FileFormat fileFormat = FileFormat.valueOf(pluginConfig.getString(OssConfig.FILE_TYPE.key()).toUpperCase());
         // only json text csv type support user-defined schema now
-        if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA.key())) {
+        if (pluginConfig.hasPath(CatalogTableUtil.SCHEMA.key())) {
             switch (fileFormat) {
                 case CSV:
                 case TEXT:
                 case JSON:
-                    Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
-                    SeaTunnelRowType userDefinedSchema = SeaTunnelSchema
-                            .buildWithConfig(schemaConfig)
-                            .getSeaTunnelRowType();
+                    SeaTunnelRowType userDefinedSchema = CatalogTableUtil
+                        .buildWithConfig(pluginConfig)
+                        .getSeaTunnelRowType();
                     readStrategy.setSeaTunnelRowTypeInfo(userDefinedSchema);
                     rowType = readStrategy.getActualSeaTunnelRowTypeInfo();
                     break;

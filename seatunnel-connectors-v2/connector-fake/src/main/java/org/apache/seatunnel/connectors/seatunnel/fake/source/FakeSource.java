@@ -25,13 +25,13 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 import org.apache.seatunnel.connectors.seatunnel.fake.exception.FakeConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.fake.state.FakeSourceState;
@@ -47,7 +47,7 @@ public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit
     SupportColumnProjection {
 
     private JobContext jobContext;
-    private SeaTunnelSchema schema;
+    private SeaTunnelRowType rowType;
     private FakeConfig fakeConfig;
 
     @Override
@@ -57,7 +57,7 @@ public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit
 
     @Override
     public SeaTunnelRowType getProducedType() {
-        return schema.getSeaTunnelRowType();
+        return rowType;
     }
 
     @Override
@@ -72,7 +72,7 @@ public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit
 
     @Override
     public SourceReader<SeaTunnelRow, FakeSourceSplit> createReader(SourceReader.Context readerContext) throws Exception {
-        return new FakeSourceReader(readerContext, schema, fakeConfig);
+        return new FakeSourceReader(readerContext, rowType, fakeConfig);
     }
 
     @Override
@@ -82,13 +82,13 @@ public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit
 
     @Override
     public void prepare(Config pluginConfig) {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, SeaTunnelSchema.SCHEMA.key());
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, CatalogTableUtil.SCHEMA.key());
         if (!result.isSuccess()) {
             throw new FakeConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format("PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
-        this.schema = SeaTunnelSchema.buildWithConfig(pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key()));
+        this.rowType = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
         this.fakeConfig = FakeConfig.buildWithConfig(pluginConfig);
     }
 

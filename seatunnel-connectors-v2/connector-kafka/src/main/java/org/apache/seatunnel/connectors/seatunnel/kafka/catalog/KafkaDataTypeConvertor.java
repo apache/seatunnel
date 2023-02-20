@@ -19,10 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.kafka.catalog;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertException;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 
 import java.util.Map;
 
@@ -44,7 +44,7 @@ public class KafkaDataTypeConvertor implements DataTypeConvertor<SeaTunnelDataTy
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(String connectorDataType) {
         checkNotNull(connectorDataType, "connectorDataType can not be null");
-        return SeaTunnelSchema.parseTypeByString(connectorDataType);
+        return CatalogTableUtil.parseDataType(connectorDataType);
     }
 
     @Override

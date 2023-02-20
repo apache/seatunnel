@@ -26,7 +26,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 import org.apache.seatunnel.connectors.seatunnel.fake.exception.FakeConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.fake.utils.FakeDataRandomUtils;
@@ -39,18 +38,18 @@ import java.util.HashMap;
 import java.util.List;
 
 public class FakeDataGenerator {
-    private final SeaTunnelSchema schema;
+    private final SeaTunnelRowType rowType;
     private final FakeConfig fakeConfig;
     private final JsonDeserializationSchema jsonDeserializationSchema;
     private final FakeDataRandomUtils fakeDataRandomUtils;
 
-    public FakeDataGenerator(SeaTunnelSchema schema, FakeConfig fakeConfig) {
-        this.schema = schema;
+    public FakeDataGenerator(SeaTunnelRowType rowType, FakeConfig fakeConfig) {
+        this.rowType = rowType;
         this.fakeConfig = fakeConfig;
         this.jsonDeserializationSchema = fakeConfig.getFakeRows() == null ?
             null :
             new JsonDeserializationSchema(
-                false, false, schema.getSeaTunnelRowType());
+                false, false, rowType);
         this.fakeDataRandomUtils = new FakeDataRandomUtils(fakeConfig);
     }
 
@@ -67,9 +66,8 @@ public class FakeDataGenerator {
     }
 
     private SeaTunnelRow randomRow() {
-        SeaTunnelRowType seaTunnelRowType = schema.getSeaTunnelRowType();
-        String[] fieldNames = seaTunnelRowType.getFieldNames();
-        SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
+        String[] fieldNames = rowType.getFieldNames();
+        SeaTunnelDataType<?>[] fieldTypes = rowType.getFieldTypes();
         List<Object> randomRow = new ArrayList<>(fieldNames.length);
         for (SeaTunnelDataType<?> fieldType : fieldTypes) {
             randomRow.add(randomColumnValue(fieldType));

@@ -142,7 +142,6 @@ public class ElasticSearchCatalog implements Catalog {
             builder.column(physicalColumn);
         });
 
-
         return CatalogTable.of(
             TableIdentifier.of(catalogName, tablePath.getDatabaseName(), tablePath.getTableName()),
             builder.build(),
