@@ -42,7 +42,7 @@ public interface Task
     @NonNull Long getTaskID();
 
     default boolean isThreadsShare() {
-        return true;
+        return false;
     }
 
     default void close() throws IOException {}
