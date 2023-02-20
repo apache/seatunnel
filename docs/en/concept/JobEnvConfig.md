@@ -24,6 +24,6 @@ This parameter configures the parallelism of source and sink.
 
 ## shade.identifier
 
-Specify the method of profile encryption, if you didn't have the requirement for encrypting or decrypting config files, this option can be ignored.
+Specify the method of encryption, if you didn't have the requirement for encrypting or decrypting config files, this option can be ignored.
 
-For more details, you can refer to the documentation [config-encryption]()
+For more details, you can refer to the documentation [config-encryption-decryption](./Config-Encryption-Decrytion.md)
