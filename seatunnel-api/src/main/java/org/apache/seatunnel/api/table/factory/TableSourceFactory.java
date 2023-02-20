@@ -38,5 +38,8 @@ public interface TableSourceFactory extends Factory {
         throw new UnsupportedOperationException("unsupported now");
     }
 
+    /**
+     * TODO: Implement SupportParallelism in the TableSourceFactory instead of the SeaTunnelSource, Then deprecated the method
+     */
     Class<? extends SeaTunnelSource> getSourceClass();
 }
