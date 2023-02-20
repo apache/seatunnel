@@ -25,32 +25,17 @@ public class CassandraConfig {
     public static final Integer DEFAULT_BATCH_SIZE = 5000;
 
     public static final Option<String> HOST =
-            Options.key("host")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("");
+            Options.key("host").stringType().noDefaultValue().withDescription("");
 
     public static final Option<String> KEYSPACE =
-            Options.key("keyspace")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("");
+            Options.key("keyspace").stringType().noDefaultValue().withDescription("");
 
     public static final Option<String> USERNAME =
-            Options.key("username")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("");
+            Options.key("username").stringType().noDefaultValue().withDescription("");
     public static final Option<String> PASSWORD =
-            Options.key("password")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("");
+            Options.key("password").stringType().noDefaultValue().withDescription("");
     public static final Option<String> DATACENTER =
-            Options.key("datacenter")
-                    .stringType()
-                    .defaultValue("datacenter1")
-                    .withDescription("");
+            Options.key("datacenter").stringType().defaultValue("datacenter1").withDescription("");
 
     public static final Option<String> CONSISTENCY_LEVEL =
             Options.key("consistency_level")
@@ -59,16 +44,10 @@ public class CassandraConfig {
                     .withDescription("");
 
     public static final Option<String> TABLE =
-            Options.key("table")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("");
+            Options.key("table").stringType().noDefaultValue().withDescription("");
 
     public static final Option<String> FIELDS =
-            Options.key("fields")
-                    .stringType()
-                    .defaultValue("LOCAL_ONE")
-                    .withDescription("");
+            Options.key("fields").stringType().defaultValue("LOCAL_ONE").withDescription("");
 
     public static final Option<Integer> BATCH_SIZE =
             Options.key("batch_size")
@@ -77,22 +56,11 @@ public class CassandraConfig {
                     .withDescription("");
 
     public static final Option<String> BATCH_TYPE =
-            Options.key("batch_type")
-                    .stringType()
-                    .defaultValue("UNLOGGED")
-                    .withDescription("");
+            Options.key("batch_type").stringType().defaultValue("UNLOGGED").withDescription("");
 
     public static final Option<Boolean> ASYNC_WRITE =
-            Options.key("async_write")
-                    .booleanType()
-                    .defaultValue(true)
-                    .withDescription("");
+            Options.key("async_write").booleanType().defaultValue(true).withDescription("");
 
     public static final Option<String> CQL =
-            Options.key("cql")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("");
-
-
+            Options.key("cql").stringType().noDefaultValue().withDescription("");
 }

@@ -38,9 +38,11 @@ public class CassandraSinkFactory implements TableSinkFactory {
                 .bundled(CassandraConfig.USERNAME, CassandraConfig.PASSWORD)
                 .optional(
                         CassandraConfig.DATACENTER,
-                        CassandraConfig.CONSISTENCY_LEVEL, CassandraConfig.FIELDS, CassandraConfig.BATCH_SIZE,
-                        CassandraConfig.BATCH_TYPE, CassandraConfig.ASYNC_WRITE
-                )
+                        CassandraConfig.CONSISTENCY_LEVEL,
+                        CassandraConfig.FIELDS,
+                        CassandraConfig.BATCH_SIZE,
+                        CassandraConfig.BATCH_TYPE,
+                        CassandraConfig.ASYNC_WRITE)
                 .build();
     }
 }

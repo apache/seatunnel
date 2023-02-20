@@ -30,7 +30,7 @@ import java.util.List;
 
 @Setter
 @Getter
-public class CassandraParameters  implements Serializable {
+public class CassandraParameters implements Serializable {
     private String host;
     private String username;
     private String password;
@@ -69,9 +69,13 @@ public class CassandraParameters  implements Serializable {
             this.fields = config.getStringList(CassandraConfig.FIELDS.key());
         }
         if (config.hasPath(CassandraConfig.CONSISTENCY_LEVEL.key())) {
-            this.consistencyLevel = DefaultConsistencyLevel.valueOf(config.getString(CassandraConfig.CONSISTENCY_LEVEL.key()));
+            this.consistencyLevel =
+                    DefaultConsistencyLevel.valueOf(
+                            config.getString(CassandraConfig.CONSISTENCY_LEVEL.key()));
         } else {
-            this.consistencyLevel = DefaultConsistencyLevel.valueOf(CassandraConfig.CONSISTENCY_LEVEL.defaultValue());
+            this.consistencyLevel =
+                    DefaultConsistencyLevel.valueOf(
+                            CassandraConfig.CONSISTENCY_LEVEL.defaultValue());
         }
         if (config.hasPath(CassandraConfig.BATCH_SIZE.key())) {
             this.batchSize = config.getInt(CassandraConfig.BATCH_SIZE.key());
@@ -79,7 +83,8 @@ public class CassandraParameters  implements Serializable {
             this.batchSize = CassandraConfig.BATCH_SIZE.defaultValue();
         }
         if (config.hasPath(CassandraConfig.BATCH_TYPE.key())) {
-            this.batchType = DefaultBatchType.valueOf(config.getString(CassandraConfig.BATCH_TYPE.key()));
+            this.batchType =
+                    DefaultBatchType.valueOf(config.getString(CassandraConfig.BATCH_TYPE.key()));
         } else {
             this.batchType = DefaultBatchType.valueOf(CassandraConfig.BATCH_TYPE.defaultValue());
         }
