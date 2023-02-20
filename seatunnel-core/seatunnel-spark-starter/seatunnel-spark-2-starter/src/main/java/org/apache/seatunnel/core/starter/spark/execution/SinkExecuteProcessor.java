@@ -17,11 +17,10 @@
 
 package org.apache.seatunnel.core.starter.spark.execution;
 
+import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.sink.SupportDataSaveMode;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.core.starter.enums.PluginType;
@@ -82,13 +81,13 @@ public class SinkExecuteProcessor extends SparkAbstractPluginExecuteProcessor<Se
             SeaTunnelSink<?, ?, ?, ?> seaTunnelSink = plugins.get(i);
             Dataset<Row> dataset = fromSourceTable(sinkConfig, sparkRuntimeEnvironment).orElse(input);
             int parallelism;
-            if (sinkConfig.hasPath(SinkCommonOptions.PARALLELISM.key())) {
-                parallelism = sinkConfig.getInt(SinkCommonOptions.PARALLELISM.key());
+            if (sinkConfig.hasPath(CommonOptions.PARALLELISM.key())) {
+                parallelism = sinkConfig.getInt(CommonOptions.PARALLELISM.key());
             } else {
                 parallelism = sparkRuntimeEnvironment.getSparkConf()
-                    .getInt(EnvCommonOptions.PARALLELISM.key(), EnvCommonOptions.PARALLELISM.defaultValue());
+                    .getInt(CommonOptions.PARALLELISM.key(), CommonOptions.PARALLELISM.defaultValue());
             }
-            dataset.sparkSession().read().option(SinkCommonOptions.PARALLELISM.key(), parallelism);
+            dataset.sparkSession().read().option(CommonOptions.PARALLELISM.key(), parallelism);
             // TODO modify checkpoint location
             seaTunnelSink.setTypeInfo((SeaTunnelRowType) TypeConverterUtils.convert(dataset.schema()));
             if (SupportDataSaveMode.class.isAssignableFrom(seaTunnelSink.getClass())) {
