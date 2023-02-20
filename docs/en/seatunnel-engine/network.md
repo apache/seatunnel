@@ -54,7 +54,7 @@ member-server-socket-endpoint-config:
       port:
         auto-increment: true
         port-count: 100
-        port: 9000
+        port: 15801
     client-server-socket-endpoint-config:
       port:
         auto-increment: true
