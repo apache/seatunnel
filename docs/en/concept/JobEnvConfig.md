@@ -26,4 +26,4 @@ This parameter configures the parallelism of source and sink.
 
 Specify the method of encryption, if you didn't have the requirement for encrypting or decrypting config files, this option can be ignored.
 
-For more details, you can refer to the documentation [config-encryption-decryption](./Config-Encryption-Decrytion.md)
+For more details, you can refer to the documentation [config-encryption-decryption](./Config-Encryption-Decryption.md)
