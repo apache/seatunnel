@@ -155,6 +155,7 @@ problems encountered by users.
 | FILE-01 | File type is invalid        | When users encounter this error code, it means that the this file is not the format that user assigned, please check it                                          |
 | FILE-02 | Data deserialization failed | When users encounter this error code, it means that data from files not satisfied the schema that user assigned, please check data from files whether is correct |
 | FILE-03 | Get file list failed        | When users encounter this error code, it means that connector try to traverse the path and get file list failed, please check file system whether is work        |
+| FILE-04 | File list is empty          | When users encounter this error code, it means that the path user want to sync is empty, please check file path                                                  |
 
 ## Doris Connector Error Codes
 

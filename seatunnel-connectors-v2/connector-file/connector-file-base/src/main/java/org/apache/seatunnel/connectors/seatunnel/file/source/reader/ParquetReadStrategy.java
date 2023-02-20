@@ -78,6 +78,8 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
     private static final long MILLIS_PER_DAY = TimeUnit.DAYS.toMillis(1L);
     private static final long JULIAN_DAY_NUMBER_FOR_UNIX_EPOCH = 2440588;
 
+    private int[] indexes;
+
     @Override
     public void read(String path, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
@@ -113,7 +115,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                     fields = new Object[fieldsCount];
                 }
                 for (int i = 0; i < fieldsCount; i++) {
-                    Object data = record.get(i);
+                    Object data = record.get(indexes[i]);
                     fields[i] = resolveObject(data, seaTunnelRowType.getFieldType(i));
                 }
                 SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
@@ -236,15 +238,21 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
             throw new FileConnectorException(CommonErrorCode.READER_OPERATION_FAILED, errorMsg, e);
         }
         FileMetaData fileMetaData = metadata.getFileMetaData();
-        MessageType schema = fileMetaData.getSchema();
-        int fieldCount = schema.getFieldCount();
-        String[] fields = new String[fieldCount];
-        SeaTunnelDataType<?>[] types = new SeaTunnelDataType[fieldCount];
-        for (int i = 0; i < fieldCount; i++) {
-            fields[i] = schema.getFieldName(i);
-            Type type = schema.getType(i);
-            SeaTunnelDataType<?> fieldType = parquetType2SeaTunnelType(type);
-            types[i] = fieldType;
+        MessageType originalSchema = fileMetaData.getSchema();
+        if (readColumns.isEmpty()) {
+            for (int i = 0; i < originalSchema.getFieldCount(); i++) {
+                readColumns.add(originalSchema.getFieldName(i));
+            }
+        }
+        String[] fields = new String[readColumns.size()];
+        SeaTunnelDataType<?>[] types = new SeaTunnelDataType[readColumns.size()];
+        indexes = new int[readColumns.size()];
+        for (int i = 0; i < readColumns.size(); i++) {
+            fields[i] = readColumns.get(i);
+            Type type = originalSchema.getType(fields[i]);
+            int fieldIndex = originalSchema.getFieldIndex(fields[i]);
+            indexes[i] = fieldIndex;
+            types[i] = parquetType2SeaTunnelType(type);
         }
         seaTunnelRowType = new SeaTunnelRowType(fields, types);
         seaTunnelRowTypeWithPartition = mergePartitionTypes(path, seaTunnelRowType);
