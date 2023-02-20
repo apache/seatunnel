@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-http-github</artifactId>
+    <name>SeaTunnel : Connectors V2 : Http : Github</name>
 
     <dependencies>
         <dependency>
