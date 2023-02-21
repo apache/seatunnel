@@ -27,6 +27,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
+import java.io.Serializable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,7 +35,7 @@ import java.util.Map;
 @Setter
 @Getter
 @ToString
-public class SinkConfig {
+public class SinkConfig implements Serializable {
 
     private static final int DEFAULT_BATCH_MAX_SIZE = 1024;
     private static final long DEFAULT_BATCH_BYTES = 5 * 1024 * 1024;
@@ -78,6 +79,21 @@ public class SinkConfig {
         .noDefaultValue()
         .withDescription("The parameter of the stream load data_desc. " +
             "The way to specify the parameter is to add the original stream load parameter into map");
+
+    public static final Option<String> SAVE_MODE_CREATE_TEMPLATE = Options.key("save_mode_create_template")
+        .stringType()
+        .defaultValue("CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (\n" +
+            "${rowtype_fields}\n" +
+            ") ENGINE=OLAP\n" +
+            "DISTRIBUTED BY HASH (${rowtype_primary_key})" +
+            "PROPERTIES (\n" +
+            "    \"replication_num\" = \"1\" \n" +
+            ")").withDescription("Create table statement template, used to create StarRocks table");
+
+    public static final Option<String> QUERY_PORT = Options.key("query_port")
+        .stringType()
+        .defaultValue("9030")
+        .withDescription("FE MySQL server port");
 
     public static final Option<Integer> BATCH_MAX_SIZE = Options.key("batch_max_rows")
         .intType()
@@ -125,6 +141,7 @@ public class SinkConfig {
     }
 
     private List<String> nodeUrls;
+    private String jdbcUrl;
     private String username;
     private String password;
     private String database;
@@ -142,16 +159,21 @@ public class SinkConfig {
     private int maxRetryBackoffMs;
     private boolean enableUpsertDelete;
 
+    private String saveModeCreateTemplate = SAVE_MODE_CREATE_TEMPLATE.defaultValue();
+
     private final Map<String, Object> streamLoadProps = new HashMap<>();
 
     public static SinkConfig loadConfig(Config pluginConfig) {
         SinkConfig sinkConfig = new SinkConfig();
         sinkConfig.setNodeUrls(pluginConfig.getStringList(NODE_URLS.key()));
         sinkConfig.setDatabase(pluginConfig.getString(DATABASE.key()));
-        sinkConfig.setTable(pluginConfig.getString(TABLE.key()));
-
+        sinkConfig.setJdbcUrl("jdbc:mysql://" + sinkConfig.getNodeUrls().get(0).split(":")[0] +
+            ":" + pluginConfig.getString(QUERY_PORT.key()) + "/");
         if (pluginConfig.hasPath(USERNAME.key())) {
             sinkConfig.setUsername(pluginConfig.getString(USERNAME.key()));
+        }
+        if (pluginConfig.hasPath(TABLE.key())) {
+            sinkConfig.setTable(pluginConfig.getString(TABLE.key()));
         }
         if (pluginConfig.hasPath(PASSWORD.key())) {
             sinkConfig.setPassword(pluginConfig.getString(PASSWORD.key()));
@@ -179,6 +201,9 @@ public class SinkConfig {
         }
         if (pluginConfig.hasPath(ENABLE_UPSERT_DELETE.key())) {
             sinkConfig.setEnableUpsertDelete(pluginConfig.getBoolean(ENABLE_UPSERT_DELETE.key()));
+        }
+        if (pluginConfig.hasPath(SAVE_MODE_CREATE_TEMPLATE.key())) {
+            sinkConfig.setSaveModeCreateTemplate(pluginConfig.getString(SAVE_MODE_CREATE_TEMPLATE.key()));
         }
         parseSinkStreamLoadProperties(pluginConfig, sinkConfig);
         if (sinkConfig.streamLoadProps.containsKey(COLUMN_SEPARATOR)) {

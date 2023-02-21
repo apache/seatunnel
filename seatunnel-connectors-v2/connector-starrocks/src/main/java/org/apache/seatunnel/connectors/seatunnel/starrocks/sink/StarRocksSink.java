@@ -25,8 +25,12 @@ import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkCon
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportDataSaveMode;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -35,18 +39,24 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.catalog.StarRocksCatalog;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
+import org.apache.commons.lang3.StringUtils;
+
+import java.util.Collections;
+import java.util.List;
 
 @AutoService(SeaTunnelSink.class)
-public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
+public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void> implements SupportDataSaveMode {
 
-    private Config pluginConfig;
     private SeaTunnelRowType seaTunnelRowType;
-
+    private SinkConfig sinkConfig;
+    private DataSaveMode dataSaveMode;
     @Override
     public String getPluginName() {
         return "StarRocks";
@@ -54,12 +64,32 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        this.pluginConfig = pluginConfig;
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, NODE_URLS.key(), DATABASE.key(), TABLE.key(), USERNAME.key(), PASSWORD.key());
         if (!result.isSuccess()) {
             throw new StarRocksConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                 String.format("PluginName: %s, PluginType: %s, Message: %s",
                     getPluginName(), PluginType.SINK, result.getMsg()));
+        }
+        // TODO get catalog Table
+        CatalogTable catalogTable = null;
+        sinkConfig = SinkConfig.loadConfig(pluginConfig);
+        if (StringUtils.isEmpty(sinkConfig.getTable())) {
+            sinkConfig.setTable(catalogTable.getTableId().getTableName());
+        }
+        sinkConfig.setTable(catalogTable.getTableId().getTableName());
+        dataSaveMode = DataSaveMode.KEEP_SCHEMA_AND_DATA;
+    }
+
+    private void autoCreateTable(String template) {
+        StarRocksCatalog starRocksCatalog = new StarRocksCatalog("StarRocks", sinkConfig.getDatabase(),
+            sinkConfig.getUsername(), sinkConfig.getPassword(), sinkConfig.getJdbcUrl());
+        if (!starRocksCatalog.databaseExists(sinkConfig.getDatabase())) {
+            starRocksCatalog.createDatabase(TablePath.of(sinkConfig.getDatabase(), ""), true);
+        }
+        // TODO get catalog Table
+        CatalogTable catalogTable = null;
+        if (!starRocksCatalog.tableExists(TablePath.of(sinkConfig.getDatabase(), sinkConfig.getTable()))) {
+            starRocksCatalog.createTable(StarRocksSaveModeUtil.fillingCreateSql(template, sinkConfig.getDatabase(), sinkConfig.getTable(), catalogTable.getTableSchema()));
         }
     }
 
@@ -75,6 +105,21 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
-        return new StarRocksSinkWriter(pluginConfig, seaTunnelRowType);
+        return new StarRocksSinkWriter(sinkConfig, seaTunnelRowType);
+    }
+
+    @Override
+    public DataSaveMode getDataSaveMode() {
+        return dataSaveMode;
+    }
+
+    @Override
+    public List<DataSaveMode> supportedDataSaveModeValues() {
+        return Collections.singletonList(DataSaveMode.KEEP_SCHEMA_AND_DATA);
+    }
+
+    @Override
+    public void handleSaveMode(DataSaveMode saveMode) {
+        autoCreateTable(sinkConfig.getSaveModeCreateTemplate());
     }
 }
