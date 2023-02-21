@@ -23,33 +23,39 @@ import org.apache.seatunnel.common.constants.JobMode;
 
 import java.util.Map;
 
-public class EnvCommonOptions {
+public interface EnvCommonOptions {
 
-    public static final Option<String> JOB_NAME =
+    Option<String> JOB_NAME =
         Options.key("job.name")
             .stringType()
             .defaultValue("SeaTunnel_Job")
             .withDescription("The job name of this job");
 
-    public static final Option<JobMode> JOB_MODE =
+    Option<JobMode> JOB_MODE =
         Options.key("job.mode")
             .enumType(JobMode.class)
             .noDefaultValue()
             .withDescription("The job mode of this job, support Batch and Stream");
 
-    public static final Option<Long> CHECKPOINT_INTERVAL =
+    Option<Boolean> MULTIPLE_TABLE_ENABLE =
+        Options.key("multi-table.enable")
+            .booleanType()
+            .defaultValue(false)
+            .withDescription("Whether to enable parsing support for multi-table jobs");
+
+    Option<Long> CHECKPOINT_INTERVAL =
         Options.key("checkpoint.interval")
             .longType()
             .noDefaultValue()
             .withDescription("The interval (in milliseconds) between two consecutive checkpoints.");
 
-    public static final Option<String> JARS =
+    Option<String> JARS =
         Options.key("jars")
             .stringType()
             .noDefaultValue()
             .withDescription("third-party packages can be loaded via `jars`");
 
-    public static final Option<Map<String, String>> CUSTOM_PARAMETERS =
+    Option<Map<String, String>> CUSTOM_PARAMETERS =
         Options.key("custom_parameters")
             .mapType()
             .noDefaultValue()
