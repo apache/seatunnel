@@ -67,6 +67,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -77,6 +78,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -577,18 +579,22 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         private Thread myThread;
         public LinkedBlockingDeque<TaskTracker> taskqueue;
         private Future<?> thisTaskFuture;
+        private BlockingQueue<Future<?>> futureBlockingQueue;
 
         @SuppressWarnings("checkstyle:MagicNumber")
         public CooperativeTaskWorker(
-                LinkedBlockingDeque<TaskTracker> taskqueue, RunBusWorkSupplier runBusWorkSupplier) {
+                LinkedBlockingDeque<TaskTracker> taskqueue, RunBusWorkSupplier runBusWorkSupplier, BlockingQueue<Future<?>> futureBlockingQueue) {
             logger.info(String.format("Created new BusWork : %s", this.hashCode()));
             this.taskqueue = taskqueue;
             this.timer = new TaskCallTimer(50, keep, runBusWorkSupplier, this);
+            this.futureBlockingQueue = futureBlockingQueue;
         }
 
         @SneakyThrows
         @Override
         public void run() {
+            thisTaskFuture = futureBlockingQueue.take();
+            futureBlockingQueue = null;
             myThread = currentThread();
             while (keep.get() && isRunning) {
                 TaskTracker taskTracker =
@@ -647,7 +653,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                     // stop timer
                     timer.timerStop();
                     taskGroupExecutionTracker.currRunningTaskFuture.remove(
-                            taskTracker.task.getTaskID());
+                        taskTracker.task.getTaskID());
                 }
                 // task call finished
                 if (null != call) {
@@ -667,10 +673,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 }
             }
         }
-
-        public void setThisTaskFuture(Future<?> future) {
-            this.thisTaskFuture = future;
-        }
     }
 
     /** Used to create a new BusWork and run */
@@ -687,10 +689,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
         public boolean runNewBusWork(boolean checkTaskQueue) {
             if (!checkTaskQueue || taskQueue.size() > 0) {
+                BlockingQueue<Future<?>> futureBlockingQueue = new LinkedBlockingQueue<>();
                 CooperativeTaskWorker cooperativeTaskWorker =
-                        new CooperativeTaskWorker(taskQueue, this);
+                        new CooperativeTaskWorker(taskQueue, this, futureBlockingQueue);
                 Future<?> submit = executorService.submit(cooperativeTaskWorker);
-                cooperativeTaskWorker.setThisTaskFuture(submit);
+                futureBlockingQueue.add(submit);
                 return true;
             }
             return false;
