@@ -88,6 +88,7 @@ schema {
 The number of StarRocks Tablets corresponding to an Partition. The smaller this value is set, the more partitions will be generated. This will increase the parallelism on the engine side, but at the same time will cause greater pressure on StarRocks.
 
 The following is an example to explain how to use request_tablet_size to controls the generation of partitions
+
 ```
 the tablet distribution of StarRocks table in cluster as follower
 
