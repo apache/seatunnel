@@ -215,6 +215,11 @@ problems encountered by users.
 |--------------|-------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
 | STARROCKS-01 | Flush batch data to sink connector failed | When users encounter this error code, it means that flush batch data to sink connector failed, please check it                           |
 | STARROCKS-02 | Writing records to StarRocks failed       | When users encounter this error code, it means that writing records to StarRocks failed, please check data from files whether is correct |
+| STARROCKS-03 | Close StarRocks BE reader failed.         | it means that StarRocks has some problems, please check it whether is work                                                               |
+| STARROCKS-04 | Create StarRocks BE reader failed.        | it means that StarRocks has some problems, please check it whether is work                                                               |
+| STARROCKS-05 | Scan data from StarRocks BE failed.       | When users encounter this error code, it means that scan data from StarRocks failed, please check it                                     |
+| STARROCKS-06 | Request query Plan failed.                | When users encounter this error code, it means that scan data from StarRocks failed, please check it                                     |
+| STARROCKS-07 | Read Arrow data failed.                   | When users encounter this error code, it means that that job has some problems, please check it whether is work well                     |
 
 ## DingTalk Connector Error Codes
 
