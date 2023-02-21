@@ -583,7 +583,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
         @SuppressWarnings("checkstyle:MagicNumber")
         public CooperativeTaskWorker(
-                LinkedBlockingDeque<TaskTracker> taskqueue, RunBusWorkSupplier runBusWorkSupplier, BlockingQueue<Future<?>> futureBlockingQueue) {
+                LinkedBlockingDeque<TaskTracker> taskqueue,
+                RunBusWorkSupplier runBusWorkSupplier,
+                BlockingQueue<Future<?>> futureBlockingQueue) {
             logger.info(String.format("Created new BusWork : %s", this.hashCode()));
             this.taskqueue = taskqueue;
             this.timer = new TaskCallTimer(50, keep, runBusWorkSupplier, this);
@@ -653,7 +655,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                     // stop timer
                     timer.timerStop();
                     taskGroupExecutionTracker.currRunningTaskFuture.remove(
-                        taskTracker.task.getTaskID());
+                            taskTracker.task.getTaskID());
                 }
                 // task call finished
                 if (null != call) {
