@@ -93,29 +93,28 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
     @Test
     @Disabled(
-        "As we have more and more test cases the test the load of the test container will up, the test case may failed")
+            "As we have more and more test cases the test the load of the test container will up, the test case may failed")
     public void testCancelBlockTask() throws InterruptedException {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
-
 
         BlockTask testTask1 = new BlockTask();
         BlockTask testTask2 = new BlockTask();
 
         TaskGroupDefaultImpl ts =
-            new TaskGroupDefaultImpl(
-                new TaskGroupLocation(jobId, pipeLineId, FLAKE_ID_GENERATOR.newId()),
-                "ts",
-                Lists.newArrayList(testTask1, testTask2));
+                new TaskGroupDefaultImpl(
+                        new TaskGroupLocation(jobId, pipeLineId, FLAKE_ID_GENERATOR.newId()),
+                        "ts",
+                        Lists.newArrayList(testTask1, testTask2));
         CompletableFuture<TaskExecutionState> completableFuture =
-            taskExecutionService.deployLocalTask(ts, new CompletableFuture<>());
+                taskExecutionService.deployLocalTask(ts, new CompletableFuture<>());
 
         Thread.sleep(5000);
 
         taskExecutionService.cancelTaskGroup(ts.getTaskGroupLocation());
 
         await().atMost(10, TimeUnit.SECONDS)
-            .untilAsserted(
-                () -> assertEquals(CANCELED, completableFuture.get().getExecutionState()));
+                .untilAsserted(
+                        () -> assertEquals(CANCELED, completableFuture.get().getExecutionState()));
     }
 
     @Test

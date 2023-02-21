@@ -53,10 +53,11 @@ public class ServerConfigOptions {
                     .withDescription("The interval (in seconds) of job metrics backups");
 
     public static final Option<ThreadShareMode> TASK_EXECUTION_THREAD_SHARE_MODE =
-        Options.key("task_execution_thread_share_mode")
-            .type(new TypeReference<ThreadShareMode>() {})
-            .defaultValue(ThreadShareMode.ALL)
-            .withDescription("The thread sharing mode of TaskExecutionServer, including ALL, OFF, PART");
+            Options.key("task_execution_thread_share_mode")
+                    .type(new TypeReference<ThreadShareMode>() {})
+                    .defaultValue(ThreadShareMode.ALL)
+                    .withDescription(
+                            "The thread sharing mode of TaskExecutionServer, including ALL, OFF, PART");
 
     public static final Option<Boolean> DYNAMIC_SLOT =
             Options.key("dynamic-slot")
