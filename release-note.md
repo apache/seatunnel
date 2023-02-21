@@ -38,6 +38,7 @@
 - [API]Add parallelism and column projection interface #3829
 - [API]Add get source method to all source connector #3846
 - [Hive] Support read user-defined partitions #3842
+- [File] add file excel sink and source #4164
 ### Zeta Engine
 - [Chore] Remove unnecessary dependencies #3795
 - [Core] Improve job restart of all node down #3784
