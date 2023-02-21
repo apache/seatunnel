@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.table.factory;
 
+import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -26,7 +27,6 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.sink.SupportDataSaveMode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.source.SourceCommonOptions;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.Catalog;
@@ -47,6 +47,8 @@ import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
 
+import scala.Tuple2;
+
 /**
  * Use SPI to create {@link TableSourceFactory}, {@link TableSinkFactory} and {@link CatalogFactory}.
  */
@@ -54,7 +56,7 @@ public final class FactoryUtil {
 
     private static final Logger LOG = LoggerFactory.getLogger(FactoryUtil.class);
 
-    public static <T, SplitT extends SourceSplit, StateT extends Serializable> List<SeaTunnelSource<T, SplitT, StateT>> createAndPrepareSource(
+    public static <T, SplitT extends SourceSplit, StateT extends Serializable> List<Tuple2<SeaTunnelSource<T, SplitT, StateT>, List<CatalogTable>>> createAndPrepareSource(
         List<CatalogTable> multipleTables,
         ReadonlyConfig options,
         ClassLoader classLoader,
@@ -62,20 +64,20 @@ public final class FactoryUtil {
 
         try {
             final TableSourceFactory factory = discoverFactory(classLoader, TableSourceFactory.class, factoryIdentifier);
-            List<SeaTunnelSource<T, SplitT, StateT>> sources = new ArrayList<>(multipleTables.size());
+            List<Tuple2<SeaTunnelSource<T, SplitT, StateT>, List<CatalogTable>>> sources = new ArrayList<>(multipleTables.size());
             if (factory instanceof SupportMultipleTable) {
                 List<CatalogTable> remainingTables = multipleTables;
                 while (!remainingTables.isEmpty()) {
                     TableFactoryContext context = new TableFactoryContext(remainingTables, options, classLoader);
                     SupportMultipleTable.Result result = ((SupportMultipleTable) factory).applyTables(context);
                     List<CatalogTable> acceptedTables = result.getAcceptedTables();
-                    sources.add(createAndPrepareSource(factory, acceptedTables, options, classLoader));
+                    sources.add(new Tuple2<>(createAndPrepareSource(factory, acceptedTables, options, classLoader), acceptedTables));
                     remainingTables = result.getRemainingTables();
                 }
             } else {
                 for (CatalogTable catalogTable : multipleTables) {
                     List<CatalogTable> acceptedTables = Collections.singletonList(catalogTable);
-                    sources.add(createAndPrepareSource(factory, acceptedTables, options, classLoader));
+                    sources.add(new Tuple2<>(createAndPrepareSource(factory, acceptedTables, options, classLoader), acceptedTables));
                 }
             }
             return sources;
@@ -87,7 +89,7 @@ public final class FactoryUtil {
         }
     }
 
-    public static <T, SplitT extends SourceSplit, StateT extends Serializable> SeaTunnelSource<T, SplitT, StateT> createAndPrepareSource(
+    private static <T, SplitT extends SourceSplit, StateT extends Serializable> SeaTunnelSource<T, SplitT, StateT> createAndPrepareSource(
         TableSourceFactory factory,
         List<CatalogTable> acceptedTables,
         ReadonlyConfig options,
@@ -104,8 +106,8 @@ public final class FactoryUtil {
 
     public static <IN, StateT, CommitInfoT, AggregatedCommitInfoT> SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> createAndPrepareSink(
         CatalogTable catalogTable,
-        ClassLoader classLoader,
         ReadonlyConfig options,
+        ClassLoader classLoader,
         String factoryIdentifier) {
         try {
             TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT> factory = discoverFactory(classLoader, TableSinkFactory.class, factoryIdentifier);
@@ -208,7 +210,7 @@ public final class FactoryUtil {
             // TODO: Implement SupportParallelism in the TableSourceFactory instead of the SeaTunnelSource
             || SupportParallelism.class.isAssignableFrom(sourceClass)) {
             OptionRule sourceCommonOptionRule =
-                OptionRule.builder().optional(SourceCommonOptions.PARALLELISM).build();
+                OptionRule.builder().optional(CommonOptions.PARALLELISM).build();
             sourceOptionRule.getOptionalOptions().addAll(sourceCommonOptionRule.getOptionalOptions());
         }
 

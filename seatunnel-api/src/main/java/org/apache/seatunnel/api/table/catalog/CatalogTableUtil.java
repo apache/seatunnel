@@ -69,7 +69,7 @@ public class CatalogTableUtil implements Serializable {
         this.catalogTable = catalogTable;
     }
 
-    private static List<CatalogTable> getCatalogTables(Config config, ClassLoader classLoader) {
+    public static List<CatalogTable> getCatalogTables(Config config, ClassLoader classLoader) {
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
         Map<String, String> catalogOptions = readonlyConfig.getOptional(CatalogOptions.CATALOG_OPTIONS).orElse(new HashMap<>());
         // TODO: fallback key
