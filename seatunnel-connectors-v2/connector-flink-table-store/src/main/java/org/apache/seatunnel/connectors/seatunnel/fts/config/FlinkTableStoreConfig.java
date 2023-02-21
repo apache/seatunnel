@@ -35,4 +35,10 @@ public class FlinkTableStoreConfig {
                     .listType()
                     .noDefaultValue()
                     .withDescription("The read columns of the flink table store");
+
+    public static final Option<String> HDFS_SITE_PATH =
+            Options.key("hdfs_site_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The file path of hdfs-site.xml");
 }
