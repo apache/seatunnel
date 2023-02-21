@@ -88,6 +88,7 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
                 case CSV:
                 case TEXT:
                 case JSON:
+                case EXCEL:
                     Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
                     SeaTunnelRowType userDefinedSchema =
                             SeaTunnelSchema.buildWithConfig(schemaConfig).getSeaTunnelRowType();
@@ -99,7 +100,6 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
                     throw new FileConnectorException(
                             CommonErrorCode.UNSUPPORTED_OPERATION,
                             "SeaTunnel does not support user-defined schema for [parquet, orc] files");
-                case EXCEL:
                 default:
                     // never got in there
                     throw new FileConnectorException(

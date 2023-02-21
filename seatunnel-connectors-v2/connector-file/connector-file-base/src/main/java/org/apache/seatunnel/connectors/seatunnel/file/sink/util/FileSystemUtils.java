@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorExc
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
+import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -72,6 +73,12 @@ public class FileSystemUtils implements Serializable {
         FileSystem fileSystem = getFileSystem(outFilePath);
         Path path = new Path(outFilePath);
         return fileSystem.create(path, true, WRITE_BUFFER_SIZE);
+    }
+
+    public FSDataInputStream getInputStream(@NonNull String inFilePath) throws IOException {
+        FileSystem fileSystem = getFileSystem(inFilePath);
+        Path path = new Path(inFilePath);
+        return fileSystem.open(path);
     }
 
     public void createFile(@NonNull String filePath) throws IOException {

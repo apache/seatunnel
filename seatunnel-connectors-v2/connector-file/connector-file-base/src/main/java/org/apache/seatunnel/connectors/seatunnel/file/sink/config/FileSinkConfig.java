@@ -68,6 +68,8 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
 
     private int maxRowsInMemory;
 
+    private String sheetName;
+
     public FileSinkConfig(@NonNull Config config, @NonNull SeaTunnelRowType seaTunnelRowTypeInfo) {
         super(config);
         checkArgument(
@@ -172,6 +174,10 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
 
         if (config.hasPath("max_rows_in_memory")) {
             this.maxRowsInMemory = config.getInt("max_rows_in_memory");
+        }
+
+        if (config.hasPath("sheet_name")) {
+            this.sheetName = config.getString("sheet_name");
         }
     }
 }

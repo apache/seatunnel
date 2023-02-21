@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.seatunnel.connectors.seatunnel.file.sink.util;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -47,24 +64,24 @@ public class ExcelGenerator {
     public ExcelGenerator(
             List<Integer> sinkColumnsIndexInRow,
             SeaTunnelRowType seaTunnelRowType,
-            FileSinkConfig textFileSinkConfig) {
+            FileSinkConfig fileSinkConfig) {
         this.sinkColumnsIndexInRow = sinkColumnsIndexInRow;
         this.seaTunnelRowType = seaTunnelRowType;
-        if (textFileSinkConfig.getMaxRowsInMemory() > 0) {
-            wb = new SXSSFWorkbook(textFileSinkConfig.getMaxRowsInMemory());
+        if (fileSinkConfig.getMaxRowsInMemory() > 0) {
+            wb = new SXSSFWorkbook(fileSinkConfig.getMaxRowsInMemory());
         } else {
             wb = new XSSFWorkbook();
         }
-        this.st = wb.createSheet("Sheet1");
+        this.st = wb.createSheet(fileSinkConfig.getSheetName());
         Row row = st.createRow(this.row);
         for (Integer i : sinkColumnsIndexInRow) {
             String fieldName = seaTunnelRowType.getFieldName(i);
             row.createCell(i).setCellValue(fieldName);
         }
-        this.dateFormat = textFileSinkConfig.getDateFormat();
-        this.dateTimeFormat = textFileSinkConfig.getDatetimeFormat();
-        this.timeFormat = textFileSinkConfig.getTimeFormat();
-        this.fieldDelimiter = textFileSinkConfig.getFieldDelimiter();
+        this.dateFormat = fileSinkConfig.getDateFormat();
+        this.dateTimeFormat = fileSinkConfig.getDatetimeFormat();
+        this.timeFormat = fileSinkConfig.getTimeFormat();
+        this.fieldDelimiter = fileSinkConfig.getFieldDelimiter();
         wholeNumberCellStyle = createStyle(wb, "General");
         stringCellStyle = createStyle(wb, "@");
         dateCellStyle = createStyle(wb, dateFormat.getValue());

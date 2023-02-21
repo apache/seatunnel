@@ -49,6 +49,7 @@ public class LocalFileIT extends TestSuiteBase {
                 Path orcPath = ContainerUtil.getResourcesFile("/orc/e2e.orc").toPath();
                 Path parquetPath = ContainerUtil.getResourcesFile("/parquet/e2e.parquet").toPath();
                 Path textPath = ContainerUtil.getResourcesFile("/text/e2e.txt").toPath();
+                Path excelPath = ContainerUtil.getResourcesFile("/excel/e2e.txt").toPath();
                 container.copyFileToContainer(
                         MountableFile.forHostPath(jsonPath),
                         "/seatunnel/read/json/name=tyrantlucifer/hobby=coding/e2e.json");
@@ -60,15 +61,18 @@ public class LocalFileIT extends TestSuiteBase {
                         "/seatunnel/read/parquet/name=tyrantlucifer/hobby=coding/e2e.parquet");
                 container.copyFileToContainer(
                         MountableFile.forHostPath(textPath),
-                        "/seatunnel/read/text/name=tyrantlucifer/hobby=coding/e2e.txt");
+                        "/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xlsx");
             };
 
     @TestTemplate
     public void testLocalFileReadAndWrite(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult =
+        Container.ExecResult excelWriteResult =
                 container.executeJob("/excel/fakesource_to_local_excel.conf");
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        Assertions.assertEquals(0, excelWriteResult.getExitCode(), excelWriteResult.getStderr());
+        Container.ExecResult excelReadResult =
+                container.executeJob("/excel/local_excel_sink_to_console.conf");
+        Assertions.assertEquals(0, excelReadResult.getExitCode(), excelReadResult.getStderr());
         // test write local text file
         Container.ExecResult textWriteResult =
                 container.executeJob("/text/fake_to_local_file_text.conf");
