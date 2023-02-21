@@ -18,7 +18,7 @@ The internal implementation of StarRocks sink connector is cached and imported b
 | username                    | string  | yes      | -               |
 | password                    | string  | yes      | -               |
 | database                    | string  | yes      | -               |
-| table                       | string  | yes      | -               |
+| table                       | string  | no       | -               |
 | labelPrefix                 | string  | no       | -               |
 | batch_max_rows              | long    | no       | 1024            |
 | batch_max_bytes             | int     | no       | 5 * 1024 * 1024 |
@@ -27,6 +27,7 @@ The internal implementation of StarRocks sink connector is cached and imported b
 | retry_backoff_multiplier_ms | int     | no       | -               |
 | max_retry_backoff_ms        | int     | no       | -               |
 | enable_upsert_delete        | boolean | no       | false           |
+| save_mode_create_template   | string  | no       | see below       |
 | starrocks.config            | map     | no       | -               |
 
 ### node_urls [list]
@@ -47,7 +48,7 @@ The name of StarRocks database
 
 ### table [string]
 
-The name of StarRocks table
+The name of StarRocks table, If not set, the table name will be the name of the upstream table
 
 ### labelPrefix [string]
 
@@ -80,6 +81,31 @@ The amount of time to wait before attempting to retry a request to `StarRocks`
 ### enable_upsert_delete [boolean]
 
 Whether to enable upsert/delete, only supports PrimaryKey model.
+
+### save_mode_create_template [string]
+
+We use templates to automatically create starrocks tables,
+which will create corresponding table creation statements based on the type of upstream data and schema type,
+and the default template can be modified according to the situation
+
+```sql
+CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
+(
+    ${rowtype_fields}
+) ENGINE = OLAP DISTRIBUTED BY HASH (${rowtype_primary_key})
+    PROPERTIES
+(
+    "replication_num" = "1"
+);
+```
+
+You can use the following placeholders
+
+- database: Used to get the database in the upstream schema
+- table_name: Used to get the table name in the upstream schema
+- rowtype_fields: Used to get all the fields in the upstream schema, we will automatically map to the field
+  description of StarRocks
+- rowtype_primary_key: Used to get the primary key in the upstream schema (maybe a list)
 
 ### starrocks.config  [map]
 

@@ -24,6 +24,8 @@ import org.apache.seatunnel.api.table.catalog.DataTypeConvertException;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
+import com.google.auto.service.AutoService;
+
 import java.util.Map;
 
 /**
@@ -39,6 +41,7 @@ import java.util.Map;
  * </pre>
  * <p> Right now the data type of kafka is SeaTunnelType, so we don't need to convert the data type.
  */
+@AutoService(DataTypeConvertor.class)
 public class KafkaDataTypeConvertor implements DataTypeConvertor<SeaTunnelDataType<?>> {
 
     @Override

@@ -127,7 +127,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
             Optional<PrimaryKey> primaryKey = getPrimaryKey(metaData, tablePath.getDatabaseName(), tablePath.getTableName());
             List<ConstraintKey> constraintKeys = getConstraintKeys(metaData, tablePath.getDatabaseName(), tablePath.getTableName());
 
-            try (PreparedStatement ps = conn.prepareStatement(String.format("SELECT * FROM %s WHERE 1 = 0;", tablePath.getFullName()))) {
+            try (PreparedStatement ps = conn.prepareStatement(String.format("SELECT * FROM %s WHERE 1 = 0;", tablePath.getFullNameWithQuoted()))) {
                 ResultSetMetaData tableMetaData = ps.getMetaData();
                 TableSchema.Builder builder = TableSchema.builder();
                 // add column
