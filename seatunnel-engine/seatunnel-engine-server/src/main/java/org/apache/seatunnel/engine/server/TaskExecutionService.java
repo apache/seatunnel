@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server;
 import org.apache.seatunnel.api.common.metrics.MetricTags;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -78,6 +79,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -132,12 +134,17 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 registry.newMetricDescriptor()
                         .withTag(MetricTags.SERVICE, this.getClass().getSimpleName());
         registry.registerStaticMetrics(descriptor, this);
-        scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+        scheduledExecutorService = Executors.newScheduledThreadPool(2);
         scheduledExecutorService.scheduleAtFixedRate(
                 this::updateMetricsContextInImap,
                 0,
                 seaTunnelConfig.getEngineConfig().getJobMetricsBackupInterval(),
                 TimeUnit.SECONDS);
+        scheduledExecutorService.scheduleAtFixedRate(
+            this::printTaskExecutionRuntimeInfo,
+            0,
+            seaTunnelConfig.getEngineConfig().getJobMetricsBackupInterval(),
+            TimeUnit.SECONDS);
     }
 
     public void start() {
@@ -466,6 +473,25 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                     "The Imap acquisition failed due to the hazelcast node being offline or restarted, and will be retried next time",
                     e);
         }
+    }
+
+    public void printTaskExecutionRuntimeInfo() {
+        ThreadPoolExecutor threadPoolExecutor = (ThreadPoolExecutor) executorService;
+        int activeCount = threadPoolExecutor.getActiveCount();
+        int taskQueueSize = threadShareTaskQueue.size();
+        long completedTaskCount = threadPoolExecutor.getCompletedTaskCount();
+        long taskCount = threadPoolExecutor.getTaskCount();
+        logger.info(
+            StringFormatUtils.formatTable(
+                "TaskExecutionServer Thread Pool Status",
+                "activeCount",
+                activeCount,
+                "threadShareTaskQueueSize",
+                taskQueueSize,
+                "completedTaskCount",
+                completedTaskCount,
+                "taskCount",
+                taskCount));
     }
 
     private final class BlockingWorker implements Runnable {
