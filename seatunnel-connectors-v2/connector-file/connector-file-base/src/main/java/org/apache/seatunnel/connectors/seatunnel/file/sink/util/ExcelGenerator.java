@@ -20,10 +20,12 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink.util;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 
 import org.apache.poi.ss.usermodel.Cell;
@@ -179,8 +181,9 @@ public class ExcelGenerator {
                     setTimestampColumn(value, cell);
                     break;
                 default:
-                    String errorMsg = String.format("[%s] type not support ", type.getSqlType());
-                    throw new RuntimeException(errorMsg);
+                    throw new FileConnectorException(
+                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            String.format("[%s] type not support ", type.getSqlType()));
             }
         }
     }
@@ -221,7 +224,8 @@ public class ExcelGenerator {
                 }
                 return String.join(fieldDelimiter, strings);
             default:
-                throw new UnsupportedOperationException(
+                throw new FileConnectorException(
+                        CommonErrorCode.FILE_OPERATION_FAILED,
                         "SeaTunnel format text not supported for parsing this type");
         }
     }
@@ -241,7 +245,8 @@ public class ExcelGenerator {
                     Timestamp.valueOf(((LocalTime) value).atDate(LocalDate.ofEpochDay(0))));
             cell.setCellStyle(timeCellStyle);
         } else {
-            throw new RuntimeException("Time series type expected for field");
+            throw new FileConnectorException(
+                    CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Time series type expected for field");
         }
     }
 

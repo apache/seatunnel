@@ -117,8 +117,9 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
             case ERROR:
                 break;
             default:
-                String errorMsg = String.format("[%s] type not support ", cellType);
-                throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
+                throw new FileConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        String.format("[%s] type not support ", cellType));
         }
         return null;
     }
