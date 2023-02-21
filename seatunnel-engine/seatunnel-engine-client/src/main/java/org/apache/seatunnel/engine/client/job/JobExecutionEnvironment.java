@@ -29,7 +29,7 @@ import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDagGenerator;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
-import org.apache.seatunnel.engine.core.parse.JobConfigParser;
+import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
@@ -127,8 +127,8 @@ public class JobExecutionEnvironment {
         return Collections.emptySet();
     }
 
-    private JobConfigParser getJobConfigParser() {
-        return new JobConfigParser(jobFilePath, idGenerator, jobConfig, commonPluginJars);
+    private MultipleTableJobConfigParser getJobConfigParser() {
+        return new MultipleTableJobConfigParser(jobFilePath, idGenerator, jobConfig, commonPluginJars);
     }
 
     private LogicalDagGenerator getLogicalDagGenerator() {

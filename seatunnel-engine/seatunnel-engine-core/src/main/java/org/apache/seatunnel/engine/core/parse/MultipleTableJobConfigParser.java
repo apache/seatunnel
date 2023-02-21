@@ -61,11 +61,11 @@ import scala.Tuple2;
 public class MultipleTableJobConfigParser {
 
     private static final ILogger LOGGER = Logger.getLogger(JobConfigParser.class);
-    private final String jobDefineFilePath;
+
     private final IdGenerator idGenerator;
     private final JobConfig jobConfig;
 
-    private final List<URL> commonFactoryJars;
+    private final List<URL> commonPluginJars;
     private final Config seaTunnelJobConfig;
 
     private final ReadonlyConfig envOptions;
@@ -73,6 +73,8 @@ public class MultipleTableJobConfigParser {
     private final Map<String, List<Tuple2<CatalogTable, Action>>> graph;
 
     private final Set<URL> jarUrls;
+
+    private final JobConfigParser fallbackParser;
 
     public MultipleTableJobConfigParser(String jobDefineFilePath,
                                         IdGenerator idGenerator,
@@ -87,17 +89,20 @@ public class MultipleTableJobConfigParser {
                                         IdGenerator idGenerator,
                                         JobConfig jobConfig,
                                         List<URL> commonPluginJars) {
-        this.jobDefineFilePath = jobDefineFilePath;
         this.idGenerator = idGenerator;
         this.jobConfig = jobConfig;
-        this.commonFactoryJars = commonPluginJars;
+        this.commonPluginJars = commonPluginJars;
         this.seaTunnelJobConfig = ConfigBuilder.of(Paths.get(jobDefineFilePath));
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
         this.graph = new HashMap<>();
         this.jarUrls = new HashSet<>();
+        this.fallbackParser = new JobConfigParser(jobDefineFilePath, idGenerator, jobConfig, commonPluginJars);
     }
 
     public ImmutablePair<List<Action>, Set<URL>> parse() {
+        if (!envOptions.get(EnvCommonOptions.MULTIPLE_TABLE_ENABLE)) {
+            return fallbackParser.parse();
+        }
         ClassLoader classLoader = new SeaTunnelChildFirstClassLoader(new ArrayList<>());
         Thread.currentThread().setContextClassLoader(classLoader);
         // TODO: Support configuration transform
@@ -114,7 +119,16 @@ public class MultipleTableJobConfigParser {
         for (Config sinkConfig : sinkConfigs) {
             sinkActions.addAll(parserSink(sinkConfig, classLoader));
         }
+        sinkActions.forEach(this::addCommonPluginJarsToAction);
+        jarUrls.addAll(commonPluginJars);
         return new ImmutablePair<>(sinkActions, null);
+    }
+
+    void addCommonPluginJarsToAction(Action action) {
+        action.getJarUrls().addAll(commonPluginJars);
+        if (!action.getUpstream().isEmpty()) {
+            action.getUpstream().forEach(this::addCommonPluginJarsToAction);
+        }
     }
 
     private void fillJobConfig() {
