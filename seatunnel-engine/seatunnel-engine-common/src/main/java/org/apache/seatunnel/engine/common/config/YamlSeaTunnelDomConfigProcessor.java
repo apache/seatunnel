@@ -121,11 +121,12 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                                 getTextContent(node)));
             } else if (ServerConfigOptions.TASK_EXECUTION_THREAD_SHARE_MODE.key().equals(name)) {
                 String mode = getTextContent(node).toUpperCase(Locale.ROOT);
-                if (!Arrays.asList("ALL","OFF","PART").contains(mode)) {
-                    throw new IllegalArgumentException(ServerConfigOptions.TASK_EXECUTION_THREAD_SHARE_MODE + " must in [ALL, OFF, PART]");
+                if (!Arrays.asList("ALL", "OFF", "PART").contains(mode)) {
+                    throw new IllegalArgumentException(
+                            ServerConfigOptions.TASK_EXECUTION_THREAD_SHARE_MODE
+                                    + " must in [ALL, OFF, PART]");
                 }
-                engineConfig.setTaskExecutionThreadShareMode(
-                    ThreadShareMode.valueOf(mode));
+                engineConfig.setTaskExecutionThreadShareMode(ThreadShareMode.valueOf(mode));
             } else if (ServerConfigOptions.SLOT_SERVICE.key().equals(name)) {
                 engineConfig.setSlotServiceConfig(parseSlotServiceConfig(node));
             } else if (ServerConfigOptions.CHECKPOINT.key().equals(name)) {

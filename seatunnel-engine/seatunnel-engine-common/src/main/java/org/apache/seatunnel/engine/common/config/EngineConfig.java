@@ -43,7 +43,7 @@ public class EngineConfig {
             ServerConfigOptions.JOB_METRICS_BACKUP_INTERVAL.defaultValue();
 
     private ThreadShareMode taskExecutionThreadShareMode =
-        ServerConfigOptions.TASK_EXECUTION_THREAD_SHARE_MODE.defaultValue();
+            ServerConfigOptions.TASK_EXECUTION_THREAD_SHARE_MODE.defaultValue();
 
     private SlotServiceConfig slotServiceConfig = ServerConfigOptions.SLOT_SERVICE.defaultValue();
 

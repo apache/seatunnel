@@ -141,10 +141,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 seaTunnelConfig.getEngineConfig().getJobMetricsBackupInterval(),
                 TimeUnit.SECONDS);
         scheduledExecutorService.scheduleAtFixedRate(
-            this::printTaskExecutionRuntimeInfo,
-            0,
-            seaTunnelConfig.getEngineConfig().getJobMetricsBackupInterval(),
-            TimeUnit.SECONDS);
+                this::printTaskExecutionRuntimeInfo,
+                0,
+                seaTunnelConfig.getEngineConfig().getJobMetricsBackupInterval(),
+                TimeUnit.SECONDS);
     }
 
     public void start() {
@@ -308,14 +308,19 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                         taskExecutionContextMap.put(
                                                 task.getTaskID(), taskExecutionContext);
                                     })
-                            .collect(partitioningBy(t -> {
-                                ThreadShareMode mode =
-                                    seaTunnelConfig.getEngineConfig().getTaskExecutionThreadShareMode();
-                                if(mode.equals(ThreadShareMode.ALL)) return true;
-                                if(mode.equals(ThreadShareMode.OFF)) return false;
-                                if(mode.equals(ThreadShareMode.PART)) return t.isThreadsShare();
-                                return true;
-                            }));
+                            .collect(
+                                    partitioningBy(
+                                            t -> {
+                                                ThreadShareMode mode =
+                                                        seaTunnelConfig
+                                                                .getEngineConfig()
+                                                                .getTaskExecutionThreadShareMode();
+                                                if (mode.equals(ThreadShareMode.ALL)) return true;
+                                                if (mode.equals(ThreadShareMode.OFF)) return false;
+                                                if (mode.equals(ThreadShareMode.PART))
+                                                    return t.isThreadsShare();
+                                                return true;
+                                            }));
             executionContexts.put(
                     taskGroup.getTaskGroupLocation(), new TaskGroupContext(taskGroup, classLoader));
             cancellationFutures.put(taskGroup.getTaskGroupLocation(), cancellationFuture);
@@ -482,16 +487,16 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         long completedTaskCount = threadPoolExecutor.getCompletedTaskCount();
         long taskCount = threadPoolExecutor.getTaskCount();
         logger.info(
-            StringFormatUtils.formatTable(
-                "TaskExecutionServer Thread Pool Status",
-                "activeCount",
-                activeCount,
-                "threadShareTaskQueueSize",
-                taskQueueSize,
-                "completedTaskCount",
-                completedTaskCount,
-                "taskCount",
-                taskCount));
+                StringFormatUtils.formatTable(
+                        "TaskExecutionServer Thread Pool Status",
+                        "activeCount",
+                        activeCount,
+                        "threadShareTaskQueueSize",
+                        taskQueueSize,
+                        "completedTaskCount",
+                        completedTaskCount,
+                        "taskCount",
+                        taskCount));
     }
 
     private final class BlockingWorker implements Runnable {
