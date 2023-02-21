@@ -12,10 +12,10 @@ delivers the query plan as a parameter to BE nodes, and then obtains data result
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
-- [x] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [schema projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
-- [ ] [support user-defined split](../../concept/connector-v2-features.md)
+- [x] [support user-defined split](../../concept/connector-v2-features.md)
 
 ## Options
 
@@ -86,6 +86,30 @@ schema {
 ### request_tablet_size [int]
 
 The number of StarRocks Tablets corresponding to an Partition. The smaller this value is set, the more partitions will be generated. This will increase the parallelism on the engine side, but at the same time will cause greater pressure on StarRocks.
+
+The following is an example to explain how to use request_tablet_size to controls the generation of partitions
+```
+the tablet distribution of StarRocks table in cluster as follower
+
+be_node_1 tablet[1, 2, 3, 4, 5]
+be_node_2 tablet[6, 7, 8, 9, 10]
+be_node_3 tablet[11, 12, 13, 14, 15]
+
+1.If not set request_tablet_size, there will no limit on the number of tablets in a single partition. The partitions will be generated as follows  
+
+partition[0] read data of tablet[1, 2, 3, 4, 5] from be_node_1 
+partition[1] read data of tablet[6, 7, 8, 9, 10] from be_node_2 
+partition[2] read data of tablet[11, 12, 13, 14, 15] from be_node_3 
+
+2.if set request_tablet_size=3, the limit on the number of tablets in a single partition is 3. The partitions will be generated as follows
+
+partition[0] read data of tablet[1, 2, 3] from be_node_1 
+partition[1] read data of tablet[4, 5] from be_node_1 
+partition[2] read data of tablet[6, 7, 8] from be_node_2 
+partition[3] read data of tablet[9, 10] from be_node_2 
+partition[4] read data of tablet[11, 12, 13] from be_node_3 
+partition[5] read data of tablet[14, 15] from be_node_3 
+```
 
 ### scan_connect_timeout_ms [int]
 
