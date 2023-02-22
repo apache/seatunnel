@@ -17,6 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.source;
 
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+
+import com.google.auto.service.AutoService;
+
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig.KEY_CASE_SENSITIVE;
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig.KEY_CATALOG_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig.KEY_CATALOG_TYPE;
@@ -33,13 +40,6 @@ import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceCon
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig.KEY_USE_SNAPSHOT_ID;
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig.KEY_USE_SNAPSHOT_TIMESTAMP;
 
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-
-import com.google.auto.service.AutoService;
-
 @AutoService(Factory.class)
 public class IcebergSourceFactory implements TableSourceFactory {
 
@@ -51,25 +51,19 @@ public class IcebergSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-            .required(
-                KEY_CATALOG_NAME,
-                KEY_CATALOG_TYPE,
-                KEY_WAREHOUSE,
-                KEY_NAMESPACE,
-                KEY_TABLE
-            )
-            .conditional(KEY_CATALOG_TYPE, HIVE, KEY_URI)
-            .optional(
-                KEY_FIELDS,
-                KEY_CASE_SENSITIVE,
-                KEY_START_SNAPSHOT_TIMESTAMP,
-                KEY_START_SNAPSHOT_ID,
-                KEY_END_SNAPSHOT_ID,
-                KEY_USE_SNAPSHOT_ID,
-                KEY_USE_SNAPSHOT_TIMESTAMP,
-                KEY_STREAM_SCAN_STRATEGY
-            )
-            .build();
+                .required(
+                        KEY_CATALOG_NAME, KEY_CATALOG_TYPE, KEY_WAREHOUSE, KEY_NAMESPACE, KEY_TABLE)
+                .conditional(KEY_CATALOG_TYPE, HIVE, KEY_URI)
+                .optional(
+                        KEY_FIELDS,
+                        KEY_CASE_SENSITIVE,
+                        KEY_START_SNAPSHOT_TIMESTAMP,
+                        KEY_START_SNAPSHOT_ID,
+                        KEY_END_SNAPSHOT_ID,
+                        KEY_USE_SNAPSHOT_ID,
+                        KEY_USE_SNAPSHOT_TIMESTAMP,
+                        KEY_STREAM_SCAN_STRATEGY)
+                .build();
     }
 
     @Override

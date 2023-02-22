@@ -6,25 +6,25 @@ Some NoSQL databases or message queue are not strongly limited schema, so the sc
 
 ## What type supported at now
 
-| Data type | Description                                                  |
-| :-------- | :----------------------------------------------------------- |
-| string    | string                                                       |
-| boolean   | boolean                                                      |
-| tinyint   | -128 to 127 regular. 0 to 255 unsigned*. Specify the maximum number of digits in parentheses. |
-| smallint  | -32768 to 32767 General. 0 to 65535 unsigned*. Specify the maximum number of digits in parentheses. |
-| int       | All numbers from -2,147,483,648 to 2,147,483,647 are allowed. |
-| bigint    | All numbers between -9,223,372,036,854,775,808 and 9,223,372,036,854,775,807 are allowed. |
-| float     | Float-precision numeric data from -1.79E+308 to 1.79E+308.   |
-| double    | Double precision floating point. Handle most decimals.       |
-| decimal   | DOUBLE type stored as a string, allowing a fixed decimal point. |
-| null      | null                                                         |
-| bytes     | bytes.                                                       |
-| date      | Only the date is stored. From January 1, 0001 to December 31, 9999. |
-| time      | Only store time. Accuracy is 100 nanoseconds.                |
-| timestamp | Stores a unique number that is updated whenever a row is created or modified. timestamp is based on the internal clock and does not correspond to real time. There can only be one timestamp variable per table. |
-| row       | Row type,can be nested.                                      |
+| Data type | Description                                                                                                                                                                                                                                                                                                                                           |
+|:----------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| string    | string                                                                                                                                                                                                                                                                                                                                                |
+| boolean   | boolean                                                                                                                                                                                                                                                                                                                                               |
+| tinyint   | -128 to 127 regular. 0 to 255 unsigned*. Specify the maximum number of digits in parentheses.                                                                                                                                                                                                                                                         |
+| smallint  | -32768 to 32767 General. 0 to 65535 unsigned*. Specify the maximum number of digits in parentheses.                                                                                                                                                                                                                                                   |
+| int       | All numbers from -2,147,483,648 to 2,147,483,647 are allowed.                                                                                                                                                                                                                                                                                         |
+| bigint    | All numbers between -9,223,372,036,854,775,808 and 9,223,372,036,854,775,807 are allowed.                                                                                                                                                                                                                                                             |
+| float     | Float-precision numeric data from -1.79E+308 to 1.79E+308.                                                                                                                                                                                                                                                                                            |
+| double    | Double precision floating point. Handle most decimals.                                                                                                                                                                                                                                                                                                |
+| decimal   | DOUBLE type stored as a string, allowing a fixed decimal point.                                                                                                                                                                                                                                                                                       |
+| null      | null                                                                                                                                                                                                                                                                                                                                                  |
+| bytes     | bytes.                                                                                                                                                                                                                                                                                                                                                |
+| date      | Only the date is stored. From January 1, 0001 to December 31, 9999.                                                                                                                                                                                                                                                                                   |
+| time      | Only store time. Accuracy is 100 nanoseconds.                                                                                                                                                                                                                                                                                                         |
+| timestamp | Stores a unique number that is updated whenever a row is created or modified. timestamp is based on the internal clock and does not correspond to real time. There can only be one timestamp variable per table.                                                                                                                                      |
+| row       | Row type,can be nested.                                                                                                                                                                                                                                                                                                                               |
 | map       | A Map is an object that maps keys to values. The key type includes `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double` `decimal` `date` `time` `timestamp` `null` , and the value type includes `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double` `decimal` `date` `time` `timestamp` `null` `array` `map`. |
-| array     | A array is a data type that represents a collection of elements. The element type includes `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double` `array` `map`. |
+| array     | A array is a data type that represents a collection of elements. The element type includes `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double` `array` `map`.                                                                                                                                                                     |
 
 ## How to use schema
 
@@ -61,4 +61,4 @@ source {
 
 ## When we should use it or not
 
-If there is a `schema` configuration project in Options,the connector can then customize the schema. Like `Fake` `Pulsar` `Http` source connector etc. 
+If there is a `schema` configuration project in Options,the connector can then customize the schema. Like `Fake` `Pulsar` `Http` source connector etc.

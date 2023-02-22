@@ -42,7 +42,8 @@ public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSour
     private final Deque<FileSourceSplit> sourceSplits = new ConcurrentLinkedDeque<>();
     private volatile boolean noMoreSplit;
 
-    public BaseFileSourceReader(ReadStrategy readStrategy, HadoopConf hadoopConf, SourceReader.Context context) {
+    public BaseFileSourceReader(
+            ReadStrategy readStrategy, HadoopConf hadoopConf, SourceReader.Context context) {
         this.readStrategy = readStrategy;
         this.hadoopConf = hadoopConf;
         this.context = context;
@@ -54,9 +55,7 @@ public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSour
     }
 
     @Override
-    public void close() throws IOException {
-
-    }
+    public void close() throws IOException {}
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
@@ -66,8 +65,10 @@ public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSour
                 try {
                     readStrategy.read(split.splitId(), output);
                 } catch (Exception e) {
-                    String errorMsg = String.format("Read data from this file [%s] failed", split.splitId());
-                    throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED, errorMsg, e);
+                    String errorMsg =
+                            String.format("Read data from this file [%s] failed", split.splitId());
+                    throw new FileConnectorException(
+                            CommonErrorCode.FILE_OPERATION_FAILED, errorMsg, e);
                 }
             } else if (noMoreSplit && sourceSplits.isEmpty()) {
                 // signal to the source that we have reached the end of the data.
@@ -95,7 +96,5 @@ public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSour
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {
-
-    }
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
 }

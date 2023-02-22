@@ -27,10 +27,14 @@ import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
 public class WaitForJobCompleteTask extends AbstractSeaTunnelMessageTask<Long, Data> {
-    protected WaitForJobCompleteTask(ClientMessage clientMessage, Node node, Connection connection) {
-        super(clientMessage, node, connection,
-            SeaTunnelWaitForJobCompleteCodec::decodeRequest,
-            SeaTunnelWaitForJobCompleteCodec::encodeResponse);
+    protected WaitForJobCompleteTask(
+            ClientMessage clientMessage, Node node, Connection connection) {
+        super(
+                clientMessage,
+                node,
+                connection,
+                SeaTunnelWaitForJobCompleteCodec::decodeRequest,
+                SeaTunnelWaitForJobCompleteCodec::encodeResponse);
     }
 
     @Override

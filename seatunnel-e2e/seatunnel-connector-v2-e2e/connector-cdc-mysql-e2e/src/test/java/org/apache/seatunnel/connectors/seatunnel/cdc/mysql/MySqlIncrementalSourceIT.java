@@ -36,22 +36,25 @@ import org.testcontainers.lifecycle.Startables;
 
 import java.util.stream.Stream;
 
-@DisabledOnContainer(value = {}, type = {EngineType.SPARK, EngineType.FLINK}, disabledReason = "")
+@DisabledOnContainer(
+        value = {},
+        type = {EngineType.SPARK, EngineType.FLINK},
+        disabledReason = "")
 public class MySqlIncrementalSourceIT extends TestSuiteBase implements TestResource {
     private static final Logger LOG = LoggerFactory.getLogger(MySqlIncrementalSourceIT.class);
 
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
     private final UniqueDatabase inventoryDatabase =
-        new UniqueDatabase(MYSQL_CONTAINER, "inventory", "mysqluser", "mysqlpw");
+            new UniqueDatabase(MYSQL_CONTAINER, "inventory", "mysqluser", "mysqlpw");
 
     private static MySqlContainer createMySqlContainer(MySqlVersion version) {
         return new MySqlContainer(version)
-            .withConfigurationOverride("docker/server-gtids/my.cnf")
-            .withSetupSQL("docker/setup.sql")
-            .withDatabaseName("seatunnel-test")
-            .withUsername("st_user")
-            .withPassword("seatunnel")
-            .withLogConsumer(new Slf4jLogConsumer(LOG));
+                .withConfigurationOverride("docker/server-gtids/my.cnf")
+                .withSetupSQL("docker/setup.sql")
+                .withDatabaseName("seatunnel-test")
+                .withUsername("st_user")
+                .withPassword("seatunnel")
+                .withLogConsumer(new Slf4jLogConsumer(LOG));
     }
 
     @BeforeAll

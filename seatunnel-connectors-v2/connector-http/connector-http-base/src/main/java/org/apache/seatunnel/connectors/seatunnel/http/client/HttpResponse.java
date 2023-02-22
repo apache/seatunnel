@@ -26,18 +26,13 @@ public class HttpResponse implements Serializable {
     private static final long serialVersionUID = 2168152194164783950L;
 
     public static final int STATUS_OK = HttpStatus.SC_OK;
-    /**
-     * response status code
-     */
+    /** response status code */
     private int code;
 
-    /**
-     * response body
-     */
+    /** response body */
     private String content;
 
-    public HttpResponse() {
-    }
+    public HttpResponse() {}
 
     public HttpResponse(int code) {
         this.code = code;
@@ -72,5 +67,4 @@ public class HttpResponse implements Serializable {
     public String toString() {
         return "HttpClientResult [code=" + code + ", content=" + content + "]";
     }
-
 }

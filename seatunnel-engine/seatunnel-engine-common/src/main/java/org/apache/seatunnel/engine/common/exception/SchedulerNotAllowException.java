@@ -20,9 +20,9 @@ package org.apache.seatunnel.engine.common.exception;
 import com.hazelcast.client.impl.protocol.ClientExceptionFactory;
 import com.hazelcast.core.HazelcastException;
 
-public class SchedulerNotAllowException  extends HazelcastException implements ClientExceptionFactory.ExceptionFactory {
-    public SchedulerNotAllowException() {
-    }
+public class SchedulerNotAllowException extends HazelcastException
+        implements ClientExceptionFactory.ExceptionFactory {
+    public SchedulerNotAllowException() {}
 
     public SchedulerNotAllowException(String message) {
         super(message);

@@ -29,7 +29,8 @@ import java.nio.file.Paths;
 
 public class ExampleUtils {
 
-    public static void builder(String configurePath) throws FileNotFoundException, URISyntaxException, CommandException {
+    public static void builder(String configurePath)
+            throws FileNotFoundException, URISyntaxException, CommandException {
         String configFile = getTestConfigFile(configurePath);
         SparkCommandArgs sparkCommandArgs = new SparkCommandArgs();
         sparkCommandArgs.setConfigFile(configFile);
@@ -39,7 +40,8 @@ public class ExampleUtils {
         SeaTunnel.run(sparkCommandArgs.buildCommand());
     }
 
-    private static String getTestConfigFile(String configFile) throws FileNotFoundException, URISyntaxException {
+    private static String getTestConfigFile(String configFile)
+            throws FileNotFoundException, URISyntaxException {
         URL resource = SeaTunnelApiExample.class.getResource(configFile);
         if (resource == null) {
             throw new FileNotFoundException("Can't find config file: " + configFile);

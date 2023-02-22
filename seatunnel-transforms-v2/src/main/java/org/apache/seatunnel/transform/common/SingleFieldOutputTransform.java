@@ -30,7 +30,8 @@ import java.util.LinkedList;
 public abstract class SingleFieldOutputTransform extends AbstractSeaTunnelTransform {
 
     private static final String[] TYPE_ARRAY_STRING = new String[0];
-    private static final SeaTunnelDataType[] TYPE_ARRAY_SEATUNNEL_DATA_TYPE = new SeaTunnelDataType[0];
+    private static final SeaTunnelDataType[] TYPE_ARRAY_SEATUNNEL_DATA_TYPE =
+            new SeaTunnelDataType[0];
 
     private int fieldIndex;
     private SeaTunnelRowContainerGenerator rowContainerGenerator;
@@ -42,8 +43,10 @@ public abstract class SingleFieldOutputTransform extends AbstractSeaTunnelTransf
         String outputFieldName = getOutputFieldName();
         SeaTunnelDataType outputFieldDataType = getOutputFieldDataType();
 
-        LinkedList<String> fieldNames = new LinkedList<>(Arrays.asList(inputRowType.getFieldNames()));
-        LinkedList<SeaTunnelDataType> fieldDataTypes = new LinkedList<>(Arrays.asList(inputRowType.getFieldTypes()));
+        LinkedList<String> fieldNames =
+                new LinkedList<>(Arrays.asList(inputRowType.getFieldNames()));
+        LinkedList<SeaTunnelDataType> fieldDataTypes =
+                new LinkedList<>(Arrays.asList(inputRowType.getFieldTypes()));
 
         int index = fieldNames.indexOf(outputFieldName);
         if (index != -1) {
@@ -61,23 +64,31 @@ public abstract class SingleFieldOutputTransform extends AbstractSeaTunnelTransf
             int outputFieldLength = fieldNames.size();
 
             fieldIndex = fieldNames.indexOf(outputFieldName);
-            rowContainerGenerator = new SeaTunnelRowContainerGenerator() {
-                @Override
-                public SeaTunnelRow apply(SeaTunnelRow inputRow) {
-                    // todo reuse array container
-                    Object[] outputFieldValues = new Object[outputFieldLength];
-                    System.arraycopy(inputRow.getFields(), 0, outputFieldValues, 0, inputFieldLength);
+            rowContainerGenerator =
+                    new SeaTunnelRowContainerGenerator() {
+                        @Override
+                        public SeaTunnelRow apply(SeaTunnelRow inputRow) {
+                            // todo reuse array container
+                            Object[] outputFieldValues = new Object[outputFieldLength];
+                            System.arraycopy(
+                                    inputRow.getFields(),
+                                    0,
+                                    outputFieldValues,
+                                    0,
+                                    inputFieldLength);
 
-                    SeaTunnelRow outputRow = new SeaTunnelRow(outputFieldValues);
-                    outputRow.setTableId(inputRow.getTableId());
-                    outputRow.setRowKind(inputRow.getRowKind());
-                    return outputRow;
-                }
-            };
+                            SeaTunnelRow outputRow = new SeaTunnelRow(outputFieldValues);
+                            outputRow.setTableId(inputRow.getTableId());
+                            outputRow.setRowKind(inputRow.getRowKind());
+                            return outputRow;
+                        }
+                    };
         }
 
-        SeaTunnelRowType outputRowType = new SeaTunnelRowType(fieldNames.toArray(TYPE_ARRAY_STRING),
-            fieldDataTypes.toArray(TYPE_ARRAY_SEATUNNEL_DATA_TYPE));
+        SeaTunnelRowType outputRowType =
+                new SeaTunnelRowType(
+                        fieldNames.toArray(TYPE_ARRAY_STRING),
+                        fieldDataTypes.toArray(TYPE_ARRAY_SEATUNNEL_DATA_TYPE));
         log.info("Changed input row type: {} to output row type: {}", inputRowType, outputRowType);
 
         return outputRowType;

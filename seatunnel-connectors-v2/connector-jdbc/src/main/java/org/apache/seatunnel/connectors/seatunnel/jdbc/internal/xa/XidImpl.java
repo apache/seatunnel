@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
@@ -27,6 +25,8 @@ import javax.transaction.xa.Xid;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Objects;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 /**
  * A simple {@link Xid} implementation that stores branch and global transaction identifiers as byte
@@ -76,8 +76,8 @@ final class XidImpl implements Xid, Serializable {
         }
         XidImpl xid = (XidImpl) o;
         return formatId == xid.formatId
-            && Arrays.equals(globalTransactionId, xid.globalTransactionId)
-            && Arrays.equals(branchQualifier, xid.branchQualifier);
+                && Arrays.equals(globalTransactionId, xid.globalTransactionId)
+                && Arrays.equals(branchQualifier, xid.branchQualifier);
     }
 
     @Override
@@ -92,10 +92,10 @@ final class XidImpl implements Xid, Serializable {
     @Override
     public String toString() {
         return formatId
-            + ":"
-            + byteToHexString(globalTransactionId)
-            + ":"
-            + byteToHexString(branchQualifier);
+                + ":"
+                + byteToHexString(globalTransactionId)
+                + ":"
+                + byteToHexString(branchQualifier);
     }
 
     /**

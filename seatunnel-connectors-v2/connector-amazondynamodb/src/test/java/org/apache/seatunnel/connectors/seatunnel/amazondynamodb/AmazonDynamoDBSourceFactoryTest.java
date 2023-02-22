@@ -26,9 +26,7 @@ import org.junit.jupiter.api.Test;
 
 public class AmazonDynamoDBSourceFactoryTest {
 
-    /**
-     * Method: optionRule()
-     */
+    /** Method: optionRule() */
     @Test
     public void testOptionRule() throws Exception {
         AmazonDynamoDBSourceFactory amazonDynamoDBSourceFactory = new AmazonDynamoDBSourceFactory();

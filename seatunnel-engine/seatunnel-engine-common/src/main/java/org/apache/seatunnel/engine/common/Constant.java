@@ -25,8 +25,7 @@ public class Constant {
     public static final String DEFAULT_SEATUNNEL_CLUSTER_NAME = "seatunnel";
 
     /**
-     * The default port number for the cluster auto-discovery mechanism's
-     * multicast communication.
+     * The default port number for the cluster auto-discovery mechanism's multicast communication.
      */
     public static final int DEFAULT_SEATUNNEL_MULTICAST_PORT = 53326;
 

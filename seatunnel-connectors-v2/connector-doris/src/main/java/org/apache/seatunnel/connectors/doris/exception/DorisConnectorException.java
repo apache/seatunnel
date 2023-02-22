@@ -27,12 +27,14 @@ public class DorisConnectorException extends SeaTunnelRuntimeException {
         super(seaTunnelErrorCode, errorMessage);
     }
 
-    public DorisConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, boolean reCreateLabel) {
+    public DorisConnectorException(
+            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, boolean reCreateLabel) {
         super(seaTunnelErrorCode, errorMessage);
         this.reCreateLabel = reCreateLabel;
     }
 
-    public DorisConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+    public DorisConnectorException(
+            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
         super(seaTunnelErrorCode, errorMessage, cause);
     }
 

@@ -47,16 +47,29 @@ public class SqliteDialect implements JdbcDialect {
     }
 
     @Override
-    public Optional<String> getUpsertStatement(String tableName, String[] fieldNames, String[] uniqueKeyFields) {
-        String updateClause = Arrays.stream(fieldNames)
-                .map(fieldName -> quoteIdentifier(fieldName) + "=VALUES(" + quoteIdentifier(fieldName) + ")")
-                .collect(Collectors.joining(", "));
+    public Optional<String> getUpsertStatement(
+            String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+        String updateClause =
+                Arrays.stream(fieldNames)
+                        .map(
+                                fieldName ->
+                                        quoteIdentifier(fieldName)
+                                                + "=VALUES("
+                                                + quoteIdentifier(fieldName)
+                                                + ")")
+                        .collect(Collectors.joining(", "));
 
-        String conflictFields = Arrays.stream(uniqueKeyFields)
-                .map(this::quoteIdentifier)
-                .collect(Collectors.joining(","));
+        String conflictFields =
+                Arrays.stream(uniqueKeyFields)
+                        .map(this::quoteIdentifier)
+                        .collect(Collectors.joining(","));
 
-        String upsertSQL = getInsertIntoStatement(tableName, fieldNames) + " ON CONFLICT(" + conflictFields + ") DO UPDATE SET " + updateClause;
+        String upsertSQL =
+                getInsertIntoStatement(tableName, fieldNames)
+                        + " ON CONFLICT("
+                        + conflictFields
+                        + ") DO UPDATE SET "
+                        + updateClause;
         return Optional.of(upsertSQL);
     }
 }

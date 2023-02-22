@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.engine.server.master;
 
-import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
-
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
 import org.apache.seatunnel.api.env.EnvCommonOptions;
@@ -83,6 +81,8 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
+import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
+
 public class JobMaster {
     private static final ILogger LOGGER = Logger.getLogger(JobMaster.class);
 
@@ -114,7 +114,8 @@ public class JobMaster {
     private JobDAGInfo jobDAGInfo;
 
     /**
-     * we need store slot used by task in Hazelcast IMap and release or reuse it when a new master node active.
+     * we need store slot used by task in Hazelcast IMap and release or reuse it when a new master
+     * node active.
      */
     private final IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap;
 
@@ -137,21 +138,24 @@ public class JobMaster {
 
     private final IMap<Long, JobInfo> runningJobInfoIMap;
 
-    public JobMaster(@NonNull Data jobImmutableInformationData,
-                     @NonNull NodeEngine nodeEngine,
-                     @NonNull ExecutorService executorService,
-                     @NonNull ResourceManager resourceManager,
-                     @NonNull JobHistoryService jobHistoryService,
-                     @NonNull IMap runningJobStateIMap,
-                     @NonNull IMap runningJobStateTimestampsIMap,
-                     @NonNull IMap ownedSlotProfilesIMap,
-                     @NonNull IMap<Long, JobInfo> runningJobInfoIMap,
-                     EngineConfig engineConfig) {
+    public JobMaster(
+            @NonNull Data jobImmutableInformationData,
+            @NonNull NodeEngine nodeEngine,
+            @NonNull ExecutorService executorService,
+            @NonNull ResourceManager resourceManager,
+            @NonNull JobHistoryService jobHistoryService,
+            @NonNull IMap runningJobStateIMap,
+            @NonNull IMap runningJobStateTimestampsIMap,
+            @NonNull IMap ownedSlotProfilesIMap,
+            @NonNull IMap<Long, JobInfo> runningJobInfoIMap,
+            EngineConfig engineConfig) {
         this.jobImmutableInformationData = jobImmutableInformationData;
         this.nodeEngine = nodeEngine;
         this.executorService = executorService;
         flakeIdGenerator =
-            this.nodeEngine.getHazelcastInstance().getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME);
+                this.nodeEngine
+                        .getHazelcastInstance()
+                        .getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME);
         this.ownedSlotProfilesIMap = ownedSlotProfilesIMap;
         this.resourceManager = resourceManager;
         this.jobHistoryService = jobHistoryService;
@@ -161,27 +165,41 @@ public class JobMaster {
         this.engineConfig = engineConfig;
     }
 
-    public void init(long initializationTimestamp, boolean restart, boolean canRestoreAgain) throws Exception {
-        jobImmutableInformation = nodeEngine.getSerializationService().toObject(
-            jobImmutableInformationData);
-        LOGGER.info(String.format("Init JobMaster for Job %s (%s) ", jobImmutableInformation.getJobConfig().getName(),
-            jobImmutableInformation.getJobId()));
-        LOGGER.info(String.format("Job %s (%s) needed jar urls %s", jobImmutableInformation.getJobConfig().getName(),
-            jobImmutableInformation.getJobId(), jobImmutableInformation.getPluginJarsUrls()));
+    public void init(long initializationTimestamp, boolean restart, boolean canRestoreAgain)
+            throws Exception {
+        jobImmutableInformation =
+                nodeEngine.getSerializationService().toObject(jobImmutableInformationData);
+        LOGGER.info(
+                String.format(
+                        "Init JobMaster for Job %s (%s) ",
+                        jobImmutableInformation.getJobConfig().getName(),
+                        jobImmutableInformation.getJobId()));
+        LOGGER.info(
+                String.format(
+                        "Job %s (%s) needed jar urls %s",
+                        jobImmutableInformation.getJobConfig().getName(),
+                        jobImmutableInformation.getJobId(),
+                        jobImmutableInformation.getPluginJarsUrls()));
 
-        classLoader = new SeaTunnelChildFirstClassLoader(jobImmutableInformation.getPluginJarsUrls());
-        logicalDag = CustomClassLoadedObject.deserializeWithCustomClassLoader(nodeEngine.getSerializationService(),
-            classLoader, jobImmutableInformation.getLogicalDag());
+        classLoader =
+                new SeaTunnelChildFirstClassLoader(jobImmutableInformation.getPluginJarsUrls());
+        logicalDag =
+                CustomClassLoadedObject.deserializeWithCustomClassLoader(
+                        nodeEngine.getSerializationService(),
+                        classLoader,
+                        jobImmutableInformation.getLogicalDag());
 
-        final Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> planTuple = PlanUtils.fromLogicalDAG(logicalDag,
-            nodeEngine,
-            jobImmutableInformation,
-            initializationTimestamp,
-            executorService,
-            flakeIdGenerator,
-            runningJobStateIMap,
-            runningJobStateTimestampsIMap,
-            engineConfig.getQueueType());
+        final Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> planTuple =
+                PlanUtils.fromLogicalDAG(
+                        logicalDag,
+                        nodeEngine,
+                        jobImmutableInformation,
+                        initializationTimestamp,
+                        executorService,
+                        flakeIdGenerator,
+                        runningJobStateIMap,
+                        runningJobStateTimestampsIMap,
+                        engineConfig.getQueueType());
         this.physicalPlan = planTuple.f0();
         this.physicalPlan.setJobMaster(this);
         this.checkpointPlanMap = planTuple.f1();
@@ -204,22 +222,28 @@ public class JobMaster {
     }
 
     private void initCheckPointManager() throws CheckpointStorageException {
-        CheckpointConfig checkpointConfig = mergeEnvAndEngineConfig(engineConfig.getCheckpointConfig(),
-            jobImmutableInformation.getJobConfig().getEnvOptions());
-        this.checkpointManager = new CheckpointManager(
-            jobImmutableInformation.getJobId(),
-            jobImmutableInformation.isStartWithSavePoint(),
-            nodeEngine,
-            this,
-            checkpointPlanMap,
-            checkpointConfig);
+        CheckpointConfig checkpointConfig =
+                mergeEnvAndEngineConfig(
+                        engineConfig.getCheckpointConfig(),
+                        jobImmutableInformation.getJobConfig().getEnvOptions());
+        this.checkpointManager =
+                new CheckpointManager(
+                        jobImmutableInformation.getJobId(),
+                        jobImmutableInformation.isStartWithSavePoint(),
+                        nodeEngine,
+                        this,
+                        checkpointPlanMap,
+                        checkpointConfig);
     }
 
-    // TODO replace it after ReadableConfig Support parse yaml format, then use only one config to read engine and env config.
-    private CheckpointConfig mergeEnvAndEngineConfig(CheckpointConfig engine, Map<String, Object> env) {
+    // TODO replace it after ReadableConfig Support parse yaml format, then use only one config to
+    // read engine and env config.
+    private CheckpointConfig mergeEnvAndEngineConfig(
+            CheckpointConfig engine, Map<String, Object> env) {
         CheckpointConfig checkpointConfig = new CheckpointConfig();
         if (env.containsKey(EnvCommonOptions.CHECKPOINT_INTERVAL.key())) {
-            checkpointConfig.setCheckpointInterval((Integer) env.get(EnvCommonOptions.CHECKPOINT_INTERVAL.key()));
+            checkpointConfig.setCheckpointInterval(
+                    (Integer) env.get(EnvCommonOptions.CHECKPOINT_INTERVAL.key()));
         }
         checkpointConfig.setCheckpointTimeout(engine.getCheckpointTimeout());
         checkpointConfig.setTolerableFailureCheckpoints(engine.getTolerableFailureCheckpoints());
@@ -235,15 +259,19 @@ public class JobMaster {
     public void initStateFuture() {
         jobMasterCompleteFuture = new CompletableFuture<>();
         PassiveCompletableFuture<JobResult> jobStatusFuture = physicalPlan.initStateFuture();
-        jobStatusFuture.whenComplete(withTryCatch(LOGGER, (v, t) -> {
-            // We need not handle t, Because we will not return t from physicalPlan
-            if (JobStatus.FAILING.equals(v.getStatus())) {
-                physicalPlan.updateJobState(JobStatus.FAILING, JobStatus.FAILED);
-            }
-            JobResult jobResult = new JobResult(physicalPlan.getJobStatus(), v.getError());
-            cleanJob();
-            jobMasterCompleteFuture.complete(jobResult);
-        }));
+        jobStatusFuture.whenComplete(
+                withTryCatch(
+                        LOGGER,
+                        (v, t) -> {
+                            // We need not handle t, Because we will not return t from physicalPlan
+                            if (JobStatus.FAILING.equals(v.getStatus())) {
+                                physicalPlan.updateJobState(JobStatus.FAILING, JobStatus.FAILED);
+                            }
+                            JobResult jobResult =
+                                    new JobResult(physicalPlan.getJobStatus(), v.getError());
+                            cleanJob();
+                            jobMasterCompleteFuture.complete(jobResult);
+                        }));
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
@@ -251,16 +279,23 @@ public class JobMaster {
         try {
             if (!restore) {
                 jobScheduler = new PipelineBaseScheduler(physicalPlan, this);
-                scheduleFuture = CompletableFuture.runAsync(() -> jobScheduler.startScheduling(), executorService);
-                LOGGER.info(String.format("Job %s waiting for scheduler finished", physicalPlan.getJobFullName()));
+                scheduleFuture =
+                        CompletableFuture.runAsync(
+                                () -> jobScheduler.startScheduling(), executorService);
+                LOGGER.info(
+                        String.format(
+                                "Job %s waiting for scheduler finished",
+                                physicalPlan.getJobFullName()));
                 scheduleFuture.join();
                 LOGGER.info(String.format("%s scheduler finished", physicalPlan.getJobFullName()));
             }
         } catch (Throwable e) {
-            LOGGER.severe(String.format("Job %s (%s) run error with: %s",
-                physicalPlan.getJobImmutableInformation().getJobConfig().getName(),
-                physicalPlan.getJobImmutableInformation().getJobId(),
-                ExceptionUtils.getMessage(e)));
+            LOGGER.severe(
+                    String.format(
+                            "Job %s (%s) run error with: %s",
+                            physicalPlan.getJobImmutableInformation().getJobConfig().getName(),
+                            physicalPlan.getJobImmutableInformation().getJobId(),
+                            ExceptionUtils.getMessage(e)));
             // try to cancel job
             cancelJob();
         } finally {
@@ -269,32 +304,49 @@ public class JobMaster {
     }
 
     public void handleCheckpointError(long pipelineId, Throwable e) {
-        this.physicalPlan.getPipelineList().forEach(pipeline -> {
-            if (pipeline.getPipelineLocation().getPipelineId() == pipelineId) {
-                LOGGER.warning(
-                    String.format("%s checkpoint have error, cancel the pipeline", pipeline.getPipelineFullName()), e);
-                pipeline.cancelPipeline();
-            }
-        });
+        this.physicalPlan
+                .getPipelineList()
+                .forEach(
+                        pipeline -> {
+                            if (pipeline.getPipelineLocation().getPipelineId() == pipelineId) {
+                                LOGGER.warning(
+                                        String.format(
+                                                "%s checkpoint have error, cancel the pipeline",
+                                                pipeline.getPipelineFullName()),
+                                        e);
+                                pipeline.cancelPipeline();
+                            }
+                        });
     }
 
     private void removeJobIMap() {
         Long jobId = getJobImmutableInformation().getJobId();
         runningJobStateTimestampsIMap.remove(jobId);
 
-        getPhysicalPlan().getPipelineList().forEach(pipeline -> {
-            runningJobStateIMap.remove(pipeline.getPipelineLocation());
-            runningJobStateTimestampsIMap.remove(pipeline.getPipelineLocation());
-            pipeline.getCoordinatorVertexList().forEach(coordinator -> {
-                runningJobStateIMap.remove(coordinator.getTaskGroupLocation());
-                runningJobStateTimestampsIMap.remove(coordinator.getTaskGroupLocation());
-            });
+        getPhysicalPlan()
+                .getPipelineList()
+                .forEach(
+                        pipeline -> {
+                            runningJobStateIMap.remove(pipeline.getPipelineLocation());
+                            runningJobStateTimestampsIMap.remove(pipeline.getPipelineLocation());
+                            pipeline.getCoordinatorVertexList()
+                                    .forEach(
+                                            coordinator -> {
+                                                runningJobStateIMap.remove(
+                                                        coordinator.getTaskGroupLocation());
+                                                runningJobStateTimestampsIMap.remove(
+                                                        coordinator.getTaskGroupLocation());
+                                            });
 
-            pipeline.getPhysicalVertexList().forEach(task -> {
-                runningJobStateIMap.remove(task.getTaskGroupLocation());
-                runningJobStateTimestampsIMap.remove(task.getTaskGroupLocation());
-            });
-        });
+                            pipeline.getPhysicalVertexList()
+                                    .forEach(
+                                            task -> {
+                                                runningJobStateIMap.remove(
+                                                        task.getTaskGroupLocation());
+                                                runningJobStateTimestampsIMap.remove(
+                                                        task.getTaskGroupLocation());
+                                            });
+                        });
 
         runningJobStateIMap.remove(jobId);
         runningJobInfoIMap.remove(jobId);
@@ -302,7 +354,8 @@ public class JobMaster {
 
     public JobDAGInfo getJobDAGInfo() {
         if (jobDAGInfo == null) {
-            jobDAGInfo = DAGUtils.getJobDAGInfo(logicalDag, jobImmutableInformation, isPhysicalDAGIInfo);
+            jobDAGInfo =
+                    DAGUtils.getJobDAGInfo(logicalDag, jobImmutableInformation, isPhysicalDAGIInfo);
         }
         return jobDAGInfo;
     }
@@ -315,9 +368,14 @@ public class JobMaster {
     }
 
     public void releasePipelineResource(SubPlan subPlan) {
-        LOGGER.info(String.format("release the pipeline %s resource", subPlan.getPipelineFullName()));
-        resourceManager.releaseResources(jobImmutableInformation.getJobId(),
-            Lists.newArrayList(ownedSlotProfilesIMap.get(subPlan.getPipelineLocation()).values())).join();
+        LOGGER.info(
+                String.format("release the pipeline %s resource", subPlan.getPipelineFullName()));
+        resourceManager
+                .releaseResources(
+                        jobImmutableInformation.getJobId(),
+                        Lists.newArrayList(
+                                ownedSlotProfilesIMap.get(subPlan.getPipelineLocation()).values()))
+                .join();
         ownedSlotProfilesIMap.remove(subPlan.getPipelineLocation());
     }
 
@@ -329,14 +387,21 @@ public class JobMaster {
 
     public Address queryTaskGroupAddress(long taskGroupId) {
         for (PipelineLocation pipelineLocation : ownedSlotProfilesIMap.keySet()) {
-            Optional<TaskGroupLocation> currentVertex = ownedSlotProfilesIMap.get(pipelineLocation).keySet().stream()
-                .filter(taskGroupLocation -> taskGroupLocation.getTaskGroupId() == taskGroupId)
-                .findFirst();
+            Optional<TaskGroupLocation> currentVertex =
+                    ownedSlotProfilesIMap.get(pipelineLocation).keySet().stream()
+                            .filter(
+                                    taskGroupLocation ->
+                                            taskGroupLocation.getTaskGroupId() == taskGroupId)
+                            .findFirst();
             if (currentVertex.isPresent()) {
-                return ownedSlotProfilesIMap.get(pipelineLocation).get(currentVertex.get()).getWorker();
+                return ownedSlotProfilesIMap
+                        .get(pipelineLocation)
+                        .get(currentVertex.get())
+                        .getWorker();
             }
         }
-        throw new IllegalArgumentException("can't find task group address from task group id: " + taskGroupId);
+        throw new IllegalArgumentException(
+                "can't find task group address from task group id: " + taskGroupId);
     }
 
     public ClassLoader getClassLoader() {
@@ -372,73 +437,103 @@ public class JobMaster {
         return getCurrJobMetrics(ownedSlotProfilesIMap.values());
     }
 
-    public List<RawJobMetrics> getCurrJobMetrics(Collection<Map<TaskGroupLocation, SlotProfile>> groupLocations) {
+    public List<RawJobMetrics> getCurrJobMetrics(
+            Collection<Map<TaskGroupLocation, SlotProfile>> groupLocations) {
         List<RawJobMetrics> metrics = new ArrayList<>();
         for (Map<TaskGroupLocation, SlotProfile> groupLocation : groupLocations) {
-            groupLocation.forEach((taskGroupLocation, slotProfile) -> {
-                if (taskGroupLocation.getJobId() == this.getJobImmutableInformation().getJobId()) {
-                    try {
-                        if (nodeEngine.getClusterService().getMember(slotProfile.getWorker()) != null) {
-                            RawJobMetrics rawJobMetrics =
-                                (RawJobMetrics) NodeEngineUtil.sendOperationToMemberNode(nodeEngine,
-                                    new GetTaskGroupMetricsOperation(taskGroupLocation), slotProfile.getWorker()).get();
-                            metrics.add(rawJobMetrics);
+            groupLocation.forEach(
+                    (taskGroupLocation, slotProfile) -> {
+                        if (taskGroupLocation.getJobId()
+                                == this.getJobImmutableInformation().getJobId()) {
+                            try {
+                                if (nodeEngine
+                                                .getClusterService()
+                                                .getMember(slotProfile.getWorker())
+                                        != null) {
+                                    RawJobMetrics rawJobMetrics =
+                                            (RawJobMetrics)
+                                                    NodeEngineUtil.sendOperationToMemberNode(
+                                                                    nodeEngine,
+                                                                    new GetTaskGroupMetricsOperation(
+                                                                            taskGroupLocation),
+                                                                    slotProfile.getWorker())
+                                                            .get();
+                                    metrics.add(rawJobMetrics);
+                                }
+                            }
+                            // HazelcastInstanceNotActiveException. It means that the node is
+                            // offline, so waiting for the taskGroup to restore can be successful
+                            catch (HazelcastInstanceNotActiveException e) {
+                                LOGGER.warning(
+                                        String.format(
+                                                "%s get current job metrics with exception: %s.",
+                                                taskGroupLocation, ExceptionUtils.getMessage(e)));
+                            } catch (Exception e) {
+                                throw new SeaTunnelException(e.getMessage());
+                            }
                         }
-                    }
-                    // HazelcastInstanceNotActiveException. It means that the node is offline, so waiting for the taskGroup to restore can be successful
-                    catch (HazelcastInstanceNotActiveException e) {
-                        LOGGER.warning(
-                            String.format("%s get current job metrics with exception: %s.", taskGroupLocation,
-                                ExceptionUtils.getMessage(e)));
-                    }
-                    catch (Exception e) {
-                        throw new SeaTunnelException(e.getMessage());
-                    }
-                }
-            });
+                    });
         }
         return metrics;
     }
 
     public void savePipelineMetricsToHistory(PipelineLocation pipelineLocation) {
         List<RawJobMetrics> currJobMetrics =
-            this.getCurrJobMetrics(Collections.singleton(this.getOwnedSlotProfiles(pipelineLocation)));
+                this.getCurrJobMetrics(
+                        Collections.singleton(this.getOwnedSlotProfiles(pipelineLocation)));
         JobMetrics jobMetrics = JobMetricsUtil.toJobMetrics(currJobMetrics);
         long jobId = this.getJobImmutableInformation().getJobId();
         synchronized (this) {
             jobHistoryService.storeFinishedPipelineMetrics(jobId, jobMetrics);
         }
-        //Clean TaskGroupContext for TaskExecutionServer
+        // Clean TaskGroupContext for TaskExecutionServer
         this.cleanTaskGroupContext(pipelineLocation);
     }
 
-    public void removeMetricsContext(PipelineLocation pipelineLocation, PipelineStatus pipelineStatus) {
-        if (pipelineStatus.equals(PipelineStatus.FINISHED) && !checkpointManager.isSavePointEnd() ||
-            pipelineStatus.equals(PipelineStatus.CANCELED)) {
+    public void removeMetricsContext(
+            PipelineLocation pipelineLocation, PipelineStatus pipelineStatus) {
+        if (pipelineStatus.equals(PipelineStatus.FINISHED) && !checkpointManager.isSavePointEnd()
+                || pipelineStatus.equals(PipelineStatus.CANCELED)) {
             IMap<TaskLocation, MetricsContext> map =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
-            map.keySet().stream().filter(taskLocation -> {
-                return taskLocation.getTaskGroupLocation().getPipelineLocation().equals(pipelineLocation);
-            }).forEach(map::remove);
+                    nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
+            map.keySet().stream()
+                    .filter(
+                            taskLocation -> {
+                                return taskLocation
+                                        .getTaskGroupLocation()
+                                        .getPipelineLocation()
+                                        .equals(pipelineLocation);
+                            })
+                    .forEach(map::remove);
         }
     }
 
     private void cleanTaskGroupContext(PipelineLocation pipelineLocation) {
-        ownedSlotProfilesIMap.get(pipelineLocation).forEach((taskGroupLocation, slotProfile) -> {
-            try {
-                if (nodeEngine.getClusterService().getMember(slotProfile.getWorker()) != null) {
-                    NodeEngineUtil.sendOperationToMemberNode(nodeEngine,
-                        new CleanTaskGroupContextOperation(taskGroupLocation), slotProfile.getWorker()).get();
-                }
-            }
-            catch (HazelcastInstanceNotActiveException  e) {
-                LOGGER.warning(String.format("%s clean TaskGroupContext with exception: %s.", taskGroupLocation,
-                    ExceptionUtils.getMessage(e)));
-            }
-            catch (Exception e) {
-                throw new SeaTunnelException(e.getMessage());
-            }
-        });
+        ownedSlotProfilesIMap
+                .get(pipelineLocation)
+                .forEach(
+                        (taskGroupLocation, slotProfile) -> {
+                            try {
+                                if (nodeEngine
+                                                .getClusterService()
+                                                .getMember(slotProfile.getWorker())
+                                        != null) {
+                                    NodeEngineUtil.sendOperationToMemberNode(
+                                                    nodeEngine,
+                                                    new CleanTaskGroupContextOperation(
+                                                            taskGroupLocation),
+                                                    slotProfile.getWorker())
+                                            .get();
+                                }
+                            } catch (HazelcastInstanceNotActiveException e) {
+                                LOGGER.warning(
+                                        String.format(
+                                                "%s clean TaskGroupContext with exception: %s.",
+                                                taskGroupLocation, ExceptionUtils.getMessage(e)));
+                            } catch (Exception e) {
+                                throw new SeaTunnelException(e.getMessage());
+                            }
+                        });
     }
 
     public PhysicalPlan getPhysicalPlan() {
@@ -446,61 +541,82 @@ public class JobMaster {
     }
 
     public void updateTaskExecutionState(TaskExecutionState taskExecutionState) {
-        this.physicalPlan.getPipelineList().forEach(pipeline -> {
-            if (pipeline.getPipelineLocation().getPipelineId() !=
-                taskExecutionState.getTaskGroupLocation().getPipelineId()) {
-                return;
-            }
+        this.physicalPlan
+                .getPipelineList()
+                .forEach(
+                        pipeline -> {
+                            if (pipeline.getPipelineLocation().getPipelineId()
+                                    != taskExecutionState.getTaskGroupLocation().getPipelineId()) {
+                                return;
+                            }
 
-            pipeline.getCoordinatorVertexList().forEach(task -> {
-                if (!task.getTaskGroupLocation().equals(taskExecutionState.getTaskGroupLocation())) {
-                    return;
-                }
+                            pipeline.getCoordinatorVertexList()
+                                    .forEach(
+                                            task -> {
+                                                if (!task.getTaskGroupLocation()
+                                                        .equals(
+                                                                taskExecutionState
+                                                                        .getTaskGroupLocation())) {
+                                                    return;
+                                                }
 
-                task.updateTaskExecutionState(taskExecutionState);
-            });
+                                                task.updateTaskExecutionState(taskExecutionState);
+                                            });
 
-            pipeline.getPhysicalVertexList().forEach(task -> {
-                if (!task.getTaskGroupLocation().equals(taskExecutionState.getTaskGroupLocation())) {
-                    return;
-                }
+                            pipeline.getPhysicalVertexList()
+                                    .forEach(
+                                            task -> {
+                                                if (!task.getTaskGroupLocation()
+                                                        .equals(
+                                                                taskExecutionState
+                                                                        .getTaskGroupLocation())) {
+                                                    return;
+                                                }
 
-                task.updateTaskExecutionState(taskExecutionState);
-            });
-        });
+                                                task.updateTaskExecutionState(taskExecutionState);
+                                            });
+                        });
     }
 
-    /**
-     * Execute savePoint, which will cause the job to end.
-     */
+    /** Execute savePoint, which will cause the job to end. */
     public CompletableFuture<Void> savePoint() {
         PassiveCompletableFuture<CompletedCheckpoint>[] passiveCompletableFutures =
-            checkpointManager.triggerSavepoints();
+                checkpointManager.triggerSavepoints();
         return CompletableFuture.allOf(passiveCompletableFutures);
     }
 
-    public Map<TaskGroupLocation, SlotProfile> getOwnedSlotProfiles(PipelineLocation pipelineLocation) {
+    public Map<TaskGroupLocation, SlotProfile> getOwnedSlotProfiles(
+            PipelineLocation pipelineLocation) {
         return ownedSlotProfilesIMap.get(pipelineLocation);
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
-    public void setOwnedSlotProfiles(@NonNull PipelineLocation pipelineLocation,
-                                     @NonNull Map<TaskGroupLocation, SlotProfile> pipelineOwnedSlotProfiles) {
+    public void setOwnedSlotProfiles(
+            @NonNull PipelineLocation pipelineLocation,
+            @NonNull Map<TaskGroupLocation, SlotProfile> pipelineOwnedSlotProfiles) {
         ownedSlotProfilesIMap.put(pipelineLocation, pipelineOwnedSlotProfiles);
         try {
             RetryUtils.retryWithException(
-                () -> pipelineOwnedSlotProfiles.equals(ownedSlotProfilesIMap.get(pipelineLocation)),
-                new RetryUtils.RetryMaterial(20, true,
-                    exception -> exception instanceof NullPointerException && isRunning, 1000));
+                    () ->
+                            pipelineOwnedSlotProfiles.equals(
+                                    ownedSlotProfilesIMap.get(pipelineLocation)),
+                    new RetryUtils.RetryMaterial(
+                            20,
+                            true,
+                            exception -> exception instanceof NullPointerException && isRunning,
+                            1000));
         } catch (Exception e) {
-            throw new SeaTunnelEngineException("Can not sync pipeline owned slot profiles with IMap", e);
+            throw new SeaTunnelEngineException(
+                    "Can not sync pipeline owned slot profiles with IMap", e);
         }
     }
 
     public SlotProfile getOwnedSlotProfiles(@NonNull TaskGroupLocation taskGroupLocation) {
-        return ownedSlotProfilesIMap.get(
-                new PipelineLocation(taskGroupLocation.getJobId(), taskGroupLocation.getPipelineId()))
-            .get(taskGroupLocation);
+        return ownedSlotProfilesIMap
+                .get(
+                        new PipelineLocation(
+                                taskGroupLocation.getJobId(), taskGroupLocation.getPipelineId()))
+                .get(taskGroupLocation);
     }
 
     public CompletableFuture<Void> getScheduleFuture() {

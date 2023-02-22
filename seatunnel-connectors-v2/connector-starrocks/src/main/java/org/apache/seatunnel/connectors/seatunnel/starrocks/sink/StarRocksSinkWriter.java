@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
@@ -28,8 +30,6 @@ import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksCs
 import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksISerializer;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksJsonSerializer;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksSinkOP;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -46,10 +46,10 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
     private final StarRocksISerializer serializer;
     private final StarRocksSinkManager manager;
 
-    public StarRocksSinkWriter(Config pluginConfig,
-                               SeaTunnelRowType seaTunnelRowType) {
+    public StarRocksSinkWriter(Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
         SinkConfig sinkConfig = SinkConfig.loadConfig(pluginConfig);
-        List<String> fieldNames = Arrays.stream(seaTunnelRowType.getFieldNames()).collect(Collectors.toList());
+        List<String> fieldNames =
+                Arrays.stream(seaTunnelRowType.getFieldNames()).collect(Collectors.toList());
         if (sinkConfig.isEnableUpsertDelete()) {
             fieldNames.add(StarRocksSinkOP.COLUMN_KEY);
         }
@@ -83,14 +83,19 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
         }
     }
 
-    public static StarRocksISerializer createSerializer(SinkConfig sinkConfig, SeaTunnelRowType seaTunnelRowType) {
+    public static StarRocksISerializer createSerializer(
+            SinkConfig sinkConfig, SeaTunnelRowType seaTunnelRowType) {
         if (SinkConfig.StreamLoadFormat.CSV.equals(sinkConfig.getLoadFormat())) {
             return new StarRocksCsvSerializer(
-                sinkConfig.getColumnSeparator(), seaTunnelRowType, sinkConfig.isEnableUpsertDelete());
+                    sinkConfig.getColumnSeparator(),
+                    seaTunnelRowType,
+                    sinkConfig.isEnableUpsertDelete());
         }
         if (SinkConfig.StreamLoadFormat.JSON.equals(sinkConfig.getLoadFormat())) {
             return new StarRocksJsonSerializer(seaTunnelRowType, sinkConfig.isEnableUpsertDelete());
         }
-        throw new StarRocksConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, "Failed to create row serializer, unsupported `format` from stream load properties.");
+        throw new StarRocksConnectorException(
+                CommonErrorCode.ILLEGAL_ARGUMENT,
+                "Failed to create row serializer, unsupported `format` from stream load properties.");
     }
 }

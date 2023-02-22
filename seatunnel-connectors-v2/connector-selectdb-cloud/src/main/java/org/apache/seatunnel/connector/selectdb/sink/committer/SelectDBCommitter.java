@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.connector.selectdb.sink.committer;
 
-import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadStatus.FAIL;
-import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadStatus.SUCCESS;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.connector.selectdb.config.SelectDBConfig;
@@ -30,21 +29,23 @@ import org.apache.seatunnel.connector.selectdb.util.HttpPostBuilder;
 import org.apache.seatunnel.connector.selectdb.util.HttpUtil;
 import org.apache.seatunnel.connector.selectdb.util.ResponseUtil;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadStatus.FAIL;
+import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadStatus.SUCCESS;
 
 @Slf4j
 public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
@@ -56,17 +57,22 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
     int maxRetry;
 
     public SelectDBCommitter(Config pluginConfig) {
-        this(SelectDBConfig.loadConfig(pluginConfig), SelectDBConfig.loadConfig(pluginConfig).getMaxRetries(), new HttpUtil().getHttpClient());
+        this(
+                SelectDBConfig.loadConfig(pluginConfig),
+                SelectDBConfig.loadConfig(pluginConfig).getMaxRetries(),
+                new HttpUtil().getHttpClient());
     }
 
-    public SelectDBCommitter(SelectDBConfig selectdbConfig, int maxRetry, CloseableHttpClient client) {
+    public SelectDBCommitter(
+            SelectDBConfig selectdbConfig, int maxRetry, CloseableHttpClient client) {
         this.selectdbConfig = selectdbConfig;
         this.maxRetry = maxRetry;
         this.httpClient = client;
     }
 
     @Override
-    public List<SelectDBCommitInfo> commit(List<SelectDBCommitInfo> commitInfos) throws IOException {
+    public List<SelectDBCommitInfo> commit(List<SelectDBCommitInfo> commitInfos)
+            throws IOException {
         for (SelectDBCommitInfo committable : commitInfos) {
             commitTransaction(committable);
         }
@@ -74,8 +80,7 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
     }
 
     @Override
-    public void abort(List<SelectDBCommitInfo> commitInfos) throws IOException {
-    }
+    public void abort(List<SelectDBCommitInfo> commitInfos) throws IOException {}
 
     private void commitTransaction(SelectDBCommitInfo commitInfo) throws IOException {
         long start = System.currentTimeMillis();
@@ -95,7 +100,8 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
         String loadResult = "";
         while (retry++ <= maxRetry) {
             HttpPostBuilder postBuilder = new HttpPostBuilder();
-            postBuilder.setUrl(String.format(COMMIT_PATTERN, hostPort))
+            postBuilder
+                    .setUrl(String.format(COMMIT_PATTERN, hostPort))
                     .baseAuth(selectdbConfig.getUsername(), selectdbConfig.getPassword())
                     .setEntity(new StringEntity(objectMapper.writeValueAsString(params)));
             try {
@@ -107,12 +113,19 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
             statusCode = response.getStatusLine().getStatusCode();
             reasonPhrase = response.getStatusLine().getReasonPhrase();
             if (statusCode != HTTP_TEMPORARY_REDIRECT) {
-                log.warn("commit failed with status {} {}, reason {}", statusCode, hostPort, reasonPhrase);
+                log.warn(
+                        "commit failed with status {} {}, reason {}",
+                        statusCode,
+                        hostPort,
+                        reasonPhrase);
             } else if (response.getEntity() != null) {
                 loadResult = EntityUtils.toString(response.getEntity());
                 success = handleCommitResponse(loadResult);
                 if (success) {
-                    log.info("commit success cost {}ms, response is {}", System.currentTimeMillis() - start, loadResult);
+                    log.info(
+                            "commit success cost {}ms, response is {}",
+                            System.currentTimeMillis() - start,
+                            loadResult);
                     break;
                 } else {
                     log.warn("commit failed, retry again");
@@ -121,13 +134,23 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
         }
 
         if (!success) {
-            throw new SelectDBConnectorException(SelectDBConnectorErrorCode.COMMIT_FAILED, "commit failed with SQL: " + commitInfo.getCopySQL() + " Commit error with status: " + statusCode + ", Reason: " + reasonPhrase + ", Response: " + loadResult);
+            throw new SelectDBConnectorException(
+                    SelectDBConnectorErrorCode.COMMIT_FAILED,
+                    "commit failed with SQL: "
+                            + commitInfo.getCopySQL()
+                            + " Commit error with status: "
+                            + statusCode
+                            + ", Reason: "
+                            + reasonPhrase
+                            + ", Response: "
+                            + loadResult);
         }
     }
 
     public boolean handleCommitResponse(String loadResult) throws IOException {
-        BaseResponse<CopyIntoResp> baseResponse = objectMapper.readValue(loadResult, new TypeReference<BaseResponse<CopyIntoResp>>() {
-        });
+        BaseResponse<CopyIntoResp> baseResponse =
+                objectMapper.readValue(
+                        loadResult, new TypeReference<BaseResponse<CopyIntoResp>>() {});
         if (baseResponse.getCode() == SUCCESS) {
             CopyIntoResp dataResp = baseResponse.getData();
             if (FAIL.equals(dataResp.getDataCode())) {
@@ -135,7 +158,8 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
                 return false;
             } else {
                 Map<String, String> result = dataResp.getResult();
-                if (!result.get("state").equals("FINISHED") && !ResponseUtil.isCommitted(result.get("msg"))) {
+                if (!result.get("state").equals("FINISHED")
+                        && !ResponseUtil.isCommitted(result.get("msg"))) {
                     log.error("copy into load failed, reason:{}", loadResult);
                     return false;
                 } else {

@@ -19,8 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset;
 
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 
-import io.debezium.connector.mysql.GtidSet;
 import org.apache.commons.lang3.StringUtils;
+
+import io.debezium.connector.mysql.GtidSet;
 
 import java.util.HashMap;
 import java.util.Map;

@@ -31,5 +31,4 @@ import java.util.Map;
 public class CKFileAggCommitInfo implements Serializable {
 
     private Map<Shard, List<String>> detachedFiles;
-
 }

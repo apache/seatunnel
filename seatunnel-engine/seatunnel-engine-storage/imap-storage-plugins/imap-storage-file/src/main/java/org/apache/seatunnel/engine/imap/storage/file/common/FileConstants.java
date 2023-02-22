@@ -28,47 +28,41 @@ public class FileConstants {
 
     public static final String DEFAULT_IMAP_FILE_PATH_SPLIT = "/";
 
-    public static final byte FILE_DATA_DELIMITER =  28;
+    public static final byte FILE_DATA_DELIMITER = 28;
 
-    /**
-     * init file storage
-     */
+    /** init file storage */
     public interface FileInitProperties {
 
-        /****************** The following are required parameters for initialization **************/
-
+        /**
+         * **************** The following are required parameters for initialization *************
+         */
         String NAMESPACE_KEY = "namespace";
 
         /**
-         * like OSS bucket name
-         * It is used to distinguish data storage locations of different business.
-         * Type: String
+         * like OSS bucket name It is used to distinguish data storage locations of different
+         * business. Type: String
          */
         String BUSINESS_KEY = "businessName";
 
         /**
-         * This parameter is primarily used for cluster isolation
-         * we can use this to distinguish different cluster, like cluster1, cluster2
-         * and this is also used to distinguish different business
-         * <p>
-         * Type: String
+         * This parameter is primarily used for cluster isolation we can use this to distinguish
+         * different cluster, like cluster1, cluster2 and this is also used to distinguish different
+         * business
+         *
+         * <p>Type: String
          */
         String CLUSTER_NAME = "clusterName";
 
         /**
-         * We used hdfs api read/write file
-         * so, used this storage need provide hdfs configuratio
-         * <p>
-         * Type:
+         * We used hdfs api read/write file so, used this storage need provide hdfs configuratio
+         *
+         * <p>Type:
          *
          * @see Configuration
          */
         String HDFS_CONFIG_KEY = "hdfsConfig";
 
-        /**
-         * The maximum waiting time of write operations
-         */
+        /** The maximum waiting time of write operations */
         String WRITE_DATA_TIMEOUT_MILLISECONDS_KEY = "writeDataTimeoutMilliseconds";
-
     }
 }

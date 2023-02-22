@@ -18,7 +18,7 @@
 package org.apache.seatunnel.common.utils.function;
 
 @FunctionalInterface
-public interface ConsumerWithException<T>  {
+public interface ConsumerWithException<T> {
     /**
      * Performs this operation on the given argument.
      *

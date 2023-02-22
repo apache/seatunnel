@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.lemlist.source.config;
 
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
-
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
 import java.util.HashMap;
 

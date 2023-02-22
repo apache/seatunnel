@@ -81,7 +81,6 @@ it in IDEA](https://www.jetbrains.com/help/idea/run-debug-configuration.html) as
 Here we use `seatunnel-examples/seatunnel-flink-connector-v2-example/src/main/java/org/apache/seatunnel/example/flink/v2/SeaTunnelApiExample.java`
 as an example, when you run it successfully you could see the output as below:
 
-
 ```log
 +I[Ricky Huo, 71]
 +I[Gary, 12]
@@ -95,7 +94,7 @@ as an example, when you run it successfully you could see the output as below:
 
 All our examples use simple source and sink to make it less dependent and easy to run. You can change the example configuration
 in `resources/examples`. You could change your configuration as below, if you want to use PostgreSQL as the source and
-sink to console. 
+sink to console.
 
 ```conf
 env {
@@ -115,3 +114,4 @@ sink {
   ConsoleSink {}
 }
 ```
+

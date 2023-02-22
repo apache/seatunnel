@@ -47,7 +47,8 @@ public class JobMetricsCollector implements MetricsCollector {
 
     @Override
     public void collectLong(MetricDescriptor descriptor, long value) {
-        String taskGroupLocationStr = JobMetricsUtil.getTaskGroupLocationFromMetricsDescriptor(descriptor);
+        String taskGroupLocationStr =
+                JobMetricsUtil.getTaskGroupLocationFromMetricsDescriptor(descriptor);
         if (taskGroupLocation.toString().equals(taskGroupLocationStr)) {
             compressor.addLong(addPrefixFn.apply(descriptor), value);
         }
@@ -55,7 +56,8 @@ public class JobMetricsCollector implements MetricsCollector {
 
     @Override
     public void collectDouble(MetricDescriptor descriptor, double value) {
-        String taskGroupLocationStr = JobMetricsUtil.getTaskGroupLocationFromMetricsDescriptor(descriptor);
+        String taskGroupLocationStr =
+                JobMetricsUtil.getTaskGroupLocationFromMetricsDescriptor(descriptor);
         if (taskGroupLocation.toString().equals(taskGroupLocationStr)) {
             compressor.addDouble(addPrefixFn.apply(descriptor), value);
         }
@@ -63,16 +65,15 @@ public class JobMetricsCollector implements MetricsCollector {
 
     @Override
     public void collectException(MetricDescriptor descriptor, Exception e) {
-        String taskGroupLocationStr = JobMetricsUtil.getTaskGroupLocationFromMetricsDescriptor(descriptor);
+        String taskGroupLocationStr =
+                JobMetricsUtil.getTaskGroupLocationFromMetricsDescriptor(descriptor);
         if (taskGroupLocation.toString().equals(taskGroupLocationStr)) {
             logger.warning("Exception when rendering job metrics: " + e, e);
         }
     }
 
     @Override
-    public void collectNoValue(MetricDescriptor descriptor) {
-
-    }
+    public void collectNoValue(MetricDescriptor descriptor) {}
 
     public RawJobMetrics getMetrics() {
         return RawJobMetrics.of(compressor.getBlobAndReset());

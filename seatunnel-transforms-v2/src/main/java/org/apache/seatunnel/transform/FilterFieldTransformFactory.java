@@ -17,16 +17,16 @@
 
 package org.apache.seatunnel.transform;
 
-import static org.apache.seatunnel.transform.FilterFieldTransform.KEY_FIELDS;
-
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 
 import com.google.auto.service.AutoService;
 
+import static org.apache.seatunnel.transform.FilterFieldTransform.KEY_FIELDS;
+
 @AutoService(Factory.class)
-public class FilterFieldTransformFactory implements TableTransformFactory{
+public class FilterFieldTransformFactory implements TableTransformFactory {
     @Override
     public String factoryIdentifier() {
         return "Filter";
@@ -34,8 +34,6 @@ public class FilterFieldTransformFactory implements TableTransformFactory{
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder()
-                .required(KEY_FIELDS)
-                .build();
+        return OptionRule.builder().required(KEY_FIELDS).build();
     }
 }

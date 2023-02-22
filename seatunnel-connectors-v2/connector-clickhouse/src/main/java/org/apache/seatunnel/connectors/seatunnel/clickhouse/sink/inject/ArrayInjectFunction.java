@@ -31,7 +31,8 @@ public class ArrayInjectFunction implements ClickhouseFieldInjectFunction {
     private String fieldType;
 
     @Override
-    public void injectFields(PreparedStatement statement, int index, Object value) throws SQLException {
+    public void injectFields(PreparedStatement statement, int index, Object value)
+            throws SQLException {
         String sqlType;
         Object[] elements = (Object[]) value;
         String type = fieldType.substring(fieldType.indexOf("(") + 1, fieldType.indexOf(")"));
@@ -77,7 +78,9 @@ public class ArrayInjectFunction implements ClickhouseFieldInjectFunction {
                 elements = Arrays.copyOf(elements, elements.length, Boolean[].class);
                 break;
             default:
-                throw new ClickhouseConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, "array inject error, unsupported data type: " + type);
+                throw new ClickhouseConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "array inject error, unsupported data type: " + type);
         }
         statement.setArray(index, statement.getConnection().createArrayOf(sqlType, elements));
     }

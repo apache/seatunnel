@@ -19,10 +19,11 @@ package org.apache.seatunnel.core.starter.utils;
 
 import org.apache.seatunnel.api.configuration.ConfigAdapter;
 
-import lombok.NonNull;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
+
+import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -50,8 +51,9 @@ public final class ConfigAdapterUtils {
     public static Optional<ConfigAdapter> selectAdapter(@NonNull String filePath) {
         for (ConfigAdapter configAdapter : CONFIG_ADAPTERS) {
             String extension = FileUtils.getFileExtension(filePath);
-            for (String extensionIdentifier : ArrayUtils.nullToEmpty(configAdapter.extensionIdentifiers())) {
-                if (StringUtils.equalsIgnoreCase(extension, extensionIdentifier)){
+            for (String extensionIdentifier :
+                    ArrayUtils.nullToEmpty(configAdapter.extensionIdentifiers())) {
+                if (StringUtils.equalsIgnoreCase(extension, extensionIdentifier)) {
                     return Optional.of(configAdapter);
                 }
             }

@@ -20,9 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.curso
 
 import org.apache.pulsar.client.api.Message;
 
-/**
- * Stop consuming message at the given event time.
- */
+/** Stop consuming message at the given event time. */
 public class TimestampStopCursor implements StopCursor {
     private static final long serialVersionUID = 1L;
 

@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.engine.server.checkpoint.operation;
 
-import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow;
-
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
@@ -28,13 +26,14 @@ import org.apache.seatunnel.engine.server.serializable.CheckpointDataSerializerH
 import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
-import com.hazelcast.logging.ILogger;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+
+import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow;
 
 @NoArgsConstructor
 @Slf4j
@@ -72,19 +71,27 @@ public class CheckpointBarrierTriggerOperation extends TaskOperation {
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        RetryUtils.retryWithException(() -> {
-            Task task = server.getTaskExecutionService()
-                .getExecutionContext(taskLocation.getTaskGroupLocation()).getTaskGroup()
-                .getTask(taskLocation.getTaskID());
-            try {
-                log.debug("CheckpointBarrierTriggerOperation [{}]" + taskLocation);
-                task.triggerBarrier(barrier);
-            } catch (Exception e) {
-                sneakyThrow(e);
-            }
-            return null;
-        }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-            exception -> exception instanceof NullPointerException &&
-                !server.taskIsEnded(taskLocation.getTaskGroupLocation()), Constant.OPERATION_RETRY_SLEEP));
+        RetryUtils.retryWithException(
+                () -> {
+                    Task task =
+                            server.getTaskExecutionService()
+                                    .getExecutionContext(taskLocation.getTaskGroupLocation())
+                                    .getTaskGroup()
+                                    .getTask(taskLocation.getTaskID());
+                    try {
+                        log.debug("CheckpointBarrierTriggerOperation [{}]" + taskLocation);
+                        task.triggerBarrier(barrier);
+                    } catch (Exception e) {
+                        sneakyThrow(e);
+                    }
+                    return null;
+                },
+                new RetryUtils.RetryMaterial(
+                        Constant.OPERATION_RETRY_TIME,
+                        true,
+                        exception ->
+                                exception instanceof NullPointerException
+                                        && !server.taskIsEnded(taskLocation.getTaskGroupLocation()),
+                        Constant.OPERATION_RETRY_SLEEP));
     }
 }

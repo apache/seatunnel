@@ -13,8 +13,7 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
@@ -26,50 +25,12 @@
 
     <groupId>org.apache.seatunnel</groupId>
     <artifactId>seatunnel</artifactId>
-    <packaging>pom</packaging>
     <version>${revision}</version>
+    <packaging>pom</packaging>
 
     <name>SeaTunnel</name>
 
-    <description>
-        Production ready big data processing product based on Apache Spark and Apache Flink.
-    </description>
-
-    <url>https://github.com/apache/incubator-seatunnel</url>
-
-    <licenses>
-        <license>
-            <name>The Apache License, Version 2.0</name>
-            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
-        </license>
-    </licenses>
-
-    <scm>
-        <connection>scm:git:https://github.com/apache/incubator-seatunnel.git</connection>
-        <developerConnection>scm:git:https://github.com/apache/incubator-seatunnel.git</developerConnection>
-        <url>https://github.com/apache/incubator-seatunnel</url>
-        <tag>HEAD</tag>
-    </scm>
-
-    <issueManagement>
-        <system>GitHub</system>
-        <url>https://github.com/apache/incubator-seatunnel/issues</url>
-    </issueManagement>
-
-    <mailingLists>
-        <mailingList>
-            <name>SeaTunnel Developer List</name>
-            <post>dev@seatunnel.apache.org</post>
-            <subscribe>dev-subscribe@seatunnel.apache.org</subscribe>
-            <unsubscribe>dev-unsubscribe@seatunnel.apache.org</unsubscribe>
-        </mailingList>
-        <mailingList>
-            <name>SeaTunnel Commits List</name>
-            <post>commits@seatunnel.apache.org</post>
-            <subscribe>commits-subscribe@seatunnel.apache.org</subscribe>
-            <unsubscribe>commits-unsubscribe@seatunnel.apache.org</unsubscribe>
-        </mailingList>
-    </mailingLists>
+    <description>Production ready big data processing product based on Apache Spark and Apache Flink.</description>
 
     <modules>
         <!--
@@ -90,25 +51,6 @@
         <module>seatunnel-e2e</module>
         <module>seatunnel-shade</module>
     </modules>
-
-    <profiles>
-        <profile>
-            <id>release</id>
-            <activation>
-                <activeByDefault>true</activeByDefault>
-            </activation>
-            <modules>
-                <module>seatunnel-dist</module>
-            </modules>
-        </profile>
-        <!-- The ci need build without seatunnel-dist modules, so we need add a no_dist profile -->
-        <profile>
-            <id>ci</id>
-            <activation>
-                <activeByDefault>false</activeByDefault>
-            </activation>
-        </profile>
-    </profiles>
 
     <properties>
         <!--todo The classification is too confusing, reclassify by type-->
@@ -185,6 +127,7 @@
         <p3c-pmd.version>1.3.0</p3c-pmd.version>
         <maven-scm-provider-jgit.version>1.9.5</maven-scm-provider-jgit.version>
         <testcontainer.version>1.17.3</testcontainer.version>
+        <spotless.version>2.29.0</spotless.version>
         <!-- Option args -->
         <skipUT>false</skipUT>
         <skipIT>true</skipIT>
@@ -433,8 +376,8 @@
                         <artifactId>slf4j-api</artifactId>
                     </exclusion>
                     <exclusion>
-                        <artifactId>junit</artifactId>
                         <groupId>junit</groupId>
+                        <artifactId>junit</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -585,8 +528,7 @@
                     <configuration>
                         <skip>${skipUT}</skip>
                         <systemPropertyVariables>
-                            <jacoco-agent.destfile>${project.build.directory}/jacoco.exec
-                            </jacoco-agent.destfile>
+                            <jacoco-agent.destfile>${project.build.directory}/jacoco.exec</jacoco-agent.destfile>
                         </systemPropertyVariables>
                         <excludes>
                             <exclude>**/*IT.java</exclude>
@@ -666,14 +608,14 @@
 
                     <executions>
                         <execution>
-                            <phase>package</phase>
                             <goals>
                                 <goal>shade</goal>
                             </goals>
+                            <phase>package</phase>
                             <configuration>
                                 <transformers combine.children="append">
                                     <!-- The service transformer is needed to merge META-INF/services files -->
-                                    <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                                    <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
                                 </transformers>
                             </configuration>
                         </execution>
@@ -694,8 +636,7 @@
                     <version>${maven-checkstyle-plugin.version}</version>
                     <configuration>
                         <!--suppress UnresolvedMavenProperty -->
-                        <configLocation>${maven.multiModuleProjectDirectory}/tools/checkstyle/checkStyle.xml
-                        </configLocation>
+                        <configLocation>${maven.multiModuleProjectDirectory}/tools/checkstyle/checkStyle.xml</configLocation>
                         <encoding>UTF-8</encoding>
                         <consoleOutput>true</consoleOutput>
                         <includeTestSourceDirectory>true</includeTestSourceDirectory>
@@ -704,32 +645,27 @@
                             <sourceDirectory>${project.build.sourceDirectory}</sourceDirectory>
                             <sourceDirectory>${project.build.testSourceDirectory}</sourceDirectory>
                         </sourceDirectories>
-                        <resourceIncludes>
-                            **/*.properties,
+                        <resourceIncludes>**/*.properties,
                             **/*.sh,
                             **/*.bat,
                             **/*.yml,
                             **/*.yaml,
-                            **/*.xml
-                        </resourceIncludes>
-                        <resourceExcludes>
-                            **/.asf.yaml,
-                            **/.github/**
-                        </resourceExcludes>
-                        <excludes>
-                        </excludes>
+                            **/*.xml</resourceIncludes>
+                        <resourceExcludes>**/.asf.yaml,
+                            **/.github/**</resourceExcludes>
+                        <excludes />
                     </configuration>
                     <executions>
                         <execution>
                             <id>validate</id>
-                            <phase>process-sources</phase>
                             <goals>
                                 <goal>check</goal>
                             </goals>
+                            <phase>process-sources</phase>
                         </execution>
                     </executions>
                 </plugin>
-                
+
                 <!-- checkstyle (End) -->
 
                 <plugin>
@@ -767,7 +703,6 @@
                     </executions>
                 </plugin>
 
-
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>build-helper-maven-plugin</artifactId>
@@ -803,17 +738,17 @@
                     <executions>
                         <execution>
                             <id>flatten</id>
-                            <phase>process-resources</phase>
                             <goals>
                                 <goal>flatten</goal>
                             </goals>
+                            <phase>process-resources</phase>
                         </execution>
                         <execution>
                             <id>flatten.clean</id>
-                            <phase>clean</phase>
                             <goals>
                                 <goal>clean</goal>
                             </goals>
+                            <phase>clean</phase>
                         </execution>
                     </executions>
                 </plugin>
@@ -871,7 +806,135 @@
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>flatten-maven-plugin</artifactId>
             </plugin>
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <version>${spotless.version}</version>
+                <configuration>
+                    <java>
+                        <googleJavaFormat>
+                            <version>1.7</version>
+                            <style>AOSP</style>
+                        </googleJavaFormat>
+                        <removeUnusedImports />
+                        <formatAnnotations />
+                        <importOrder>
+                            <order>org.apache.seatunnel.shade,org.apache.seatunnel,org.apache,org,,javax,java,\#</order>
+                        </importOrder>
+                        <replaceRegex>
+                            <name>Remove wildcard imports</name>
+                            <searchRegex>import\s+(static)*\s*[^\*\s]+\*;(\r\n|\r|\n)</searchRegex>
+                            <replacement>$1</replacement>
+                        </replaceRegex>
+                        <replaceRegex>
+                            <name>Block powermock</name>
+                            <searchRegex>import\s+org\.powermock\.[^\*\s]*(|\*);(\r\n|\r|\n)</searchRegex>
+                            <replacement>$1</replacement>
+                        </replaceRegex>
+                        <replaceRegex>
+                            <name>Block jUnit4 imports</name>
+                            <searchRegex>import\s+org\.junit\.[^jupiter][^\*\s]*(|\*);(\r\n|\r|\n)</searchRegex>
+                            <replacement>$1</replacement>
+                        </replaceRegex>
+                    </java>
+                    <pom>
+                        <sortPom>
+                            <encoding>UTF-8</encoding>
+                            <nrOfIndentSpace>4</nrOfIndentSpace>
+                            <keepBlankLines>true</keepBlankLines>
+                            <indentBlankLines>false</indentBlankLines>
+                            <indentSchemaLocation>true</indentSchemaLocation>
+                            <spaceBeforeCloseEmptyElement>true</spaceBeforeCloseEmptyElement>
+                            <sortModules>false</sortModules>
+                            <sortExecutions>false</sortExecutions>
+                            <predefinedSortOrder>custom_1</predefinedSortOrder>
+                            <expandEmptyElements>false</expandEmptyElements>
+                            <sortProperties>false</sortProperties>
+                        </sortPom>
+                        <replace>
+                            <name>Leading blank line</name>
+                            <search>project</search>
+                            <replacement>project</replacement>
+                        </replace>
+                    </pom>
+                    <markdown>
+                        <includes>
+                            <include>docs/**/*.md</include>
+                        </includes>
+                        <excludes>
+                            <exclude>**/.github/**/*.md</exclude>
+                        </excludes>
+                        <flexmark />
+                    </markdown>
+                    <upToDateChecking>
+                        <enabled>true</enabled>
+                    </upToDateChecking>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <phase>compile</phase>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
+
+    <url>https://github.com/apache/incubator-seatunnel</url>
+
+    <licenses>
+        <license>
+            <name>The Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+
+    <mailingLists>
+        <mailingList>
+            <name>SeaTunnel Developer List</name>
+            <subscribe>dev-subscribe@seatunnel.apache.org</subscribe>
+            <unsubscribe>dev-unsubscribe@seatunnel.apache.org</unsubscribe>
+            <post>dev@seatunnel.apache.org</post>
+        </mailingList>
+        <mailingList>
+            <name>SeaTunnel Commits List</name>
+            <subscribe>commits-subscribe@seatunnel.apache.org</subscribe>
+            <unsubscribe>commits-unsubscribe@seatunnel.apache.org</unsubscribe>
+            <post>commits@seatunnel.apache.org</post>
+        </mailingList>
+    </mailingLists>
+
+    <scm>
+        <connection>scm:git:https://github.com/apache/incubator-seatunnel.git</connection>
+        <developerConnection>scm:git:https://github.com/apache/incubator-seatunnel.git</developerConnection>
+        <url>https://github.com/apache/incubator-seatunnel</url>
+        <tag>HEAD</tag>
+    </scm>
+
+    <issueManagement>
+        <system>GitHub</system>
+        <url>https://github.com/apache/incubator-seatunnel/issues</url>
+    </issueManagement>
+
+    <profiles>
+        <profile>
+            <id>release</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <modules>
+                <module>seatunnel-dist</module>
+            </modules>
+        </profile>
+        <!-- The ci need build without seatunnel-dist modules, so we need add a no_dist profile -->
+        <profile>
+            <id>ci</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+        </profile>
+    </profiles>
 
 </project>

@@ -22,7 +22,6 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import com.hazelcast.instance.impl.DefaultNodeContext;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.instance.impl.NodeExtension;
-import com.hazelcast.internal.diagnostics.HealthMonitor;
 import lombok.NonNull;
 
 public class SeaTunnelNodeContext extends DefaultNodeContext {

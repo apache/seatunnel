@@ -29,14 +29,10 @@ public abstract class Column implements Serializable {
 
     private static final long serialVersionUID = -1L;
 
-    /**
-     * column name.
-     */
+    /** column name. */
     protected final String name;
 
-    /**
-     * Data type of the column.
-     */
+    /** Data type of the column. */
     protected final SeaTunnelDataType<?> dataType;
 
     protected final String comment;
@@ -47,9 +43,7 @@ public abstract class Column implements Serializable {
         this.comment = comment;
     }
 
-    /**
-     * Creates a regular table column that represents physical data.
-     */
+    /** Creates a regular table column that represents physical data. */
     public static PhysicalColumn physical(String name, SeaTunnelDataType<?> dataType) {
         return new PhysicalColumn(name, dataType);
     }
@@ -61,13 +55,11 @@ public abstract class Column implements Serializable {
      * <p>Allows to specify whether the column is virtual or not.
      */
     public static MetadataColumn metadata(
-        String name, SeaTunnelDataType<?> dataType, String metadataKey) {
+            String name, SeaTunnelDataType<?> dataType, String metadataKey) {
         return new MetadataColumn(name, dataType, metadataKey);
     }
 
-    /**
-     * Add the comment to the column and return the new object.
-     */
+    /** Add the comment to the column and return the new object. */
     public abstract Column withComment(String comment);
 
     /**
@@ -76,30 +68,22 @@ public abstract class Column implements Serializable {
      */
     public abstract boolean isPhysical();
 
-    /**
-     * Returns the data type of this column.
-     */
+    /** Returns the data type of this column. */
     public SeaTunnelDataType<?> getDataType() {
         return this.dataType;
     }
 
-    /**
-     * Returns the name of this column.
-     */
+    /** Returns the name of this column. */
     public String getName() {
         return name;
     }
 
-    /**
-     * Returns the comment of this column.
-     */
+    /** Returns the comment of this column. */
     public Optional<String> getComment() {
         return Optional.ofNullable(comment);
     }
 
-    /**
-     * Returns a copy of the column with a replaced {@link SeaTunnelDataType}.
-     */
+    /** Returns a copy of the column with a replaced {@link SeaTunnelDataType}. */
     public abstract Column copy(SeaTunnelDataType<?> newType);
 
     @Override
@@ -125,9 +109,7 @@ public abstract class Column implements Serializable {
     // Specific kinds of columns
     // --------------------------------------------------------------------------------------------
 
-    /**
-     * Representation of a physical column.
-     */
+    /** Representation of a physical column. */
     public static final class PhysicalColumn extends Column {
 
         private PhysicalColumn(String name, SeaTunnelDataType<?> dataType) {
@@ -157,23 +139,17 @@ public abstract class Column implements Serializable {
         }
     }
 
-    /**
-     * Representation of a metadata column.
-     */
+    /** Representation of a metadata column. */
     public static final class MetadataColumn extends Column {
 
         private final String metadataKey;
 
-        private MetadataColumn(
-            String name, SeaTunnelDataType<?> dataType, String metadataKey) {
+        private MetadataColumn(String name, SeaTunnelDataType<?> dataType, String metadataKey) {
             this(name, dataType, metadataKey, null);
         }
 
         private MetadataColumn(
-                String name,
-                SeaTunnelDataType<?> dataType,
-                String metadataKey,
-                String comment) {
+                String name, SeaTunnelDataType<?> dataType, String metadataKey, String comment) {
             super(name, dataType, comment);
             this.metadataKey = metadataKey;
         }

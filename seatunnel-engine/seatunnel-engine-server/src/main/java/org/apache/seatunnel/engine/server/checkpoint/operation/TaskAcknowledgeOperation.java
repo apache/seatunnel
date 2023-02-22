@@ -23,7 +23,6 @@ import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.CheckpointDataSerializerHook;
 
-import com.hazelcast.logging.ILogger;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
@@ -46,8 +45,7 @@ public class TaskAcknowledgeOperation extends Operation implements IdentifiedDat
 
     private List<ActionSubtaskState> states;
 
-    public TaskAcknowledgeOperation() {
-    }
+    public TaskAcknowledgeOperation() {}
 
     @Override
     public int getFactoryId() {
@@ -77,9 +75,10 @@ public class TaskAcknowledgeOperation extends Operation implements IdentifiedDat
     public void run() {
         log.debug("TaskAcknowledgeOperation {}", taskLocation);
         ((SeaTunnelServer) getService())
-            .getCoordinatorService().getJobMaster(taskLocation.getJobId())
-            .getCheckpointManager()
-            .acknowledgeTask(this);
+                .getCoordinatorService()
+                .getJobMaster(taskLocation.getJobId())
+                .getCheckpointManager()
+                .acknowledgeTask(this);
         log.info("task ack finished {}", taskLocation);
     }
 }

@@ -33,9 +33,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * the implements of consuming multiple topics.
- */
+/** the implements of consuming multiple topics. */
 public class TopicListDiscoverer implements PulsarDiscoverer {
 
     private final List<String> topics;
@@ -47,19 +45,25 @@ public class TopicListDiscoverer implements PulsarDiscoverer {
     @Override
     public Set<TopicPartition> getSubscribedTopicPartitions(PulsarAdmin pulsarAdmin) {
         return topics.parallelStream()
-            .map(topicName -> {
-                String completeTopicName = TopicName.get(topicName).getPartitionedTopicName();
-                try {
-                    PartitionedTopicMetadata metadata =
-                        pulsarAdmin.topics().getPartitionedTopicMetadata(completeTopicName);
-                    return PulsarDiscoverer.toTopicPartitions(topicName, metadata.partitions);
-                } catch (PulsarAdminException e) {
-                    // This method would cause the failure for subscriber.
-                    throw new PulsarConnectorException(PulsarConnectorErrorCode.SUBSCRIBE_TOPIC_FAILED, e);
-                }
-            })
-            .filter(Objects::nonNull)
-            .flatMap(Collection::stream)
-            .collect(Collectors.toSet());
+                .map(
+                        topicName -> {
+                            String completeTopicName =
+                                    TopicName.get(topicName).getPartitionedTopicName();
+                            try {
+                                PartitionedTopicMetadata metadata =
+                                        pulsarAdmin
+                                                .topics()
+                                                .getPartitionedTopicMetadata(completeTopicName);
+                                return PulsarDiscoverer.toTopicPartitions(
+                                        topicName, metadata.partitions);
+                            } catch (PulsarAdminException e) {
+                                // This method would cause the failure for subscriber.
+                                throw new PulsarConnectorException(
+                                        PulsarConnectorErrorCode.SUBSCRIBE_TOPIC_FAILED, e);
+                            }
+                        })
+                .filter(Objects::nonNull)
+                .flatMap(Collection::stream)
+                .collect(Collectors.toSet());
     }
 }

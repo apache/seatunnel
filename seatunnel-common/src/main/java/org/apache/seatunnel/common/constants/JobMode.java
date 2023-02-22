@@ -18,5 +18,6 @@
 package org.apache.seatunnel.common.constants;
 
 public enum JobMode {
-    BATCH, STREAMING
+    BATCH,
+    STREAMING
 }
