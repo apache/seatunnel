@@ -23,10 +23,16 @@ import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
@@ -44,6 +50,7 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.net.URL;
 import java.nio.file.Paths;
@@ -53,6 +60,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -71,8 +79,6 @@ public class MultipleTableJobConfigParser {
     private final ReadonlyConfig envOptions;
 
     private final Map<String, List<Tuple2<CatalogTable, Action>>> graph;
-
-    private final Set<URL> jarUrls;
 
     private final JobConfigParser fallbackParser;
 
@@ -95,7 +101,6 @@ public class MultipleTableJobConfigParser {
         this.seaTunnelJobConfig = ConfigBuilder.of(Paths.get(jobDefineFilePath));
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
         this.graph = new HashMap<>();
-        this.jarUrls = new HashSet<>();
         this.fallbackParser = new JobConfigParser(jobDefineFilePath, idGenerator, jobConfig, commonPluginJars);
     }
 
@@ -103,7 +108,13 @@ public class MultipleTableJobConfigParser {
         if (!envOptions.get(EnvCommonOptions.MULTIPLE_TABLE_ENABLE)) {
             return fallbackParser.parse();
         }
-        ClassLoader classLoader = new SeaTunnelChildFirstClassLoader(new ArrayList<>());
+        List<URL> connectorJars = null;
+        try {
+            connectorJars = FileUtils.searchJarFiles(Common.connectorJarDir("seatunnel"));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        ClassLoader classLoader = new SeaTunnelChildFirstClassLoader(connectorJars);
         Thread.currentThread().setContextClassLoader(classLoader);
         // TODO: Support configuration transform
         List<? extends Config> sourceConfigs = seaTunnelJobConfig.getConfigList("source");
@@ -119,9 +130,25 @@ public class MultipleTableJobConfigParser {
         for (Config sinkConfig : sinkConfigs) {
             sinkActions.addAll(parserSink(sinkConfig, classLoader));
         }
+        Set<URL> factoryUrls = getUsedFactoryUrls(sinkActions);
+        factoryUrls.addAll(commonPluginJars);
         sinkActions.forEach(this::addCommonPluginJarsToAction);
-        jarUrls.addAll(commonPluginJars);
-        return new ImmutablePair<>(sinkActions, null);
+        return new ImmutablePair<>(sinkActions, factoryUrls);
+    }
+
+    public Set<URL> getUsedFactoryUrls(List<Action> sinkActions) {
+        Set<URL> urls = new HashSet<>();
+        fillUsedFactoryUrls(sinkActions, urls);
+        return urls;
+    }
+
+    private void fillUsedFactoryUrls(List<Action> actions, Set<URL> result) {
+        actions.forEach(action -> {
+            result.addAll(action.getJarUrls());
+            if (!action.getUpstream().isEmpty()) {
+                fillUsedFactoryUrls(action.getUpstream(), result);
+            }
+        });
     }
 
     void addCommonPluginJarsToAction(Action action) {
@@ -144,13 +171,18 @@ public class MultipleTableJobConfigParser {
     public void parserSource(Config sourceConfig, ClassLoader classLoader) {
         List<CatalogTable> catalogTables = CatalogTableUtil.getCatalogTables(sourceConfig, classLoader);
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(sourceConfig);
-        String factoryId = readonlyConfig.getOptional(CommonOptions.FACTORY_ID).orElse(readonlyConfig.get(CommonOptions.PLUGIN_NAME));
+        String factoryId = getFactoryId(readonlyConfig);
         String tableId = readonlyConfig.getOptional(CommonOptions.RESULT_TABLE_NAME).orElse("default");
 
         List<Tuple2<SeaTunnelSource<Object, SourceSplit, Serializable>, List<CatalogTable>>> sources =
             FactoryUtil.createAndPrepareSource(catalogTables, readonlyConfig, classLoader, factoryId);
-        // TODO: get factory jar
+
+        // get factory urls
         Set<URL> factoryUrls = new HashSet<>();
+        URL factoryUrl = FactoryUtil.getFactoryUrl(FactoryUtil.discoverFactory(classLoader, TableSourceFactory.class, factoryId));
+        factoryUrls.add(factoryUrl);
+        getCatalogFactoryUrl(sourceConfig, classLoader).ifPresent(factoryUrls::add);
+
         List<Tuple2<CatalogTable, Action>> actions = new ArrayList<>();
         int parallelism = getParallelism(readonlyConfig);
         for (Tuple2<SeaTunnelSource<Object, SourceSplit, Serializable>, List<CatalogTable>> tuple2 : sources) {
@@ -164,6 +196,16 @@ public class MultipleTableJobConfigParser {
         graph.put(tableId, actions);
     }
 
+    public static Optional<URL> getCatalogFactoryUrl(Config config, ClassLoader classLoader) {
+        // catalog url
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
+        Map<String, String> catalogOptions = readonlyConfig.getOptional(CatalogOptions.CATALOG_OPTIONS).orElse(new HashMap<>());
+        // TODO: fallback key
+        String factoryId = catalogOptions.getOrDefault(CommonOptions.FACTORY_ID.key(), readonlyConfig.get(CommonOptions.PLUGIN_NAME));
+        Optional<CatalogFactory> optionalFactory = FactoryUtil.discoverOptionalFactory(classLoader, CatalogFactory.class, factoryId);
+        return optionalFactory.map(FactoryUtil::getFactoryUrl);
+    }
+
     private int getParallelism(ReadonlyConfig config) {
         return Math.max(1,
             config.getOptional(CommonOptions.PARALLELISM)
@@ -175,11 +217,16 @@ public class MultipleTableJobConfigParser {
             .stream()
             .collect(Collectors.toMap(catalogTable -> catalogTable.getTableId().toTablePath(), catalogTable -> catalogTable));
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(sinkConfig);
-        String factoryId = readonlyConfig.getOptional(CommonOptions.FACTORY_ID).orElse(readonlyConfig.get(CommonOptions.PLUGIN_NAME));
+        String factoryId = getFactoryId(readonlyConfig);
         String leftTableId = readonlyConfig.getOptional(CommonOptions.SOURCE_TABLE_NAME).orElse("default");
         List<Tuple2<CatalogTable, Action>> tableTuples = graph.get(leftTableId);
-        // TODO: get factory jar
+
+        // get factory urls
         Set<URL> factoryUrls = new HashSet<>();
+        URL factoryUrl = FactoryUtil.getFactoryUrl(FactoryUtil.discoverFactory(classLoader, TableSinkFactory.class, factoryId));
+        factoryUrls.add(factoryUrl);
+        getCatalogFactoryUrl(sinkConfig, classLoader).ifPresent(factoryUrls::add);
+
         List<SinkAction<?, ?, ?, ?>> sinkActions = new ArrayList<>();
         for (Tuple2<CatalogTable, Action> tableTuple : tableTuples) {
             CatalogTable catalogTable = tableTuple._1();
@@ -196,5 +243,9 @@ public class MultipleTableJobConfigParser {
             sinkActions.add(sinkAction);
         }
         return sinkActions;
+    }
+
+    private static String getFactoryId(ReadonlyConfig readonlyConfig) {
+        return readonlyConfig.getOptional(CommonOptions.FACTORY_ID).orElse(readonlyConfig.get(CommonOptions.PLUGIN_NAME));
     }
 }

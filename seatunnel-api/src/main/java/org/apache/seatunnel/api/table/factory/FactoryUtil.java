@@ -39,10 +39,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
@@ -118,12 +120,34 @@ public final class FactoryUtil {
         }
     }
 
-    public static Catalog createCatalog(String catalogName,
+    public static Optional<Catalog> createOptionalCatalog(String catalogName,
                                         ReadonlyConfig options,
                                         ClassLoader classLoader,
                                         String factoryIdentifier) {
-        CatalogFactory catalogFactory = discoverFactory(classLoader, CatalogFactory.class, factoryIdentifier);
-        return catalogFactory.createCatalog(catalogName, options);
+        Optional<CatalogFactory> optionalFactory = discoverOptionalFactory(classLoader, CatalogFactory.class, factoryIdentifier);
+        return optionalFactory.map(catalogFactory -> catalogFactory.createCatalog(catalogName, options));
+    }
+
+    public static <T extends Factory> URL getFactoryUrl(T factory) {
+        URL jarUrl = factory.getClass().getProtectionDomain().getCodeSource().getLocation();
+        return jarUrl;
+    }
+
+    public static <T extends Factory> Optional<T> discoverOptionalFactory(
+        ClassLoader classLoader, Class<T> factoryClass, String factoryIdentifier) {
+        final List<T> foundFactories = discoverFactories(classLoader, factoryClass);
+        if (foundFactories.isEmpty()) {
+            return Optional.empty();
+        }
+        final List<T> matchingFactories =
+                foundFactories.stream()
+                        .filter(f -> f.factoryIdentifier().equals(factoryIdentifier))
+                        .collect(Collectors.toList());
+        if (matchingFactories.isEmpty()) {
+            return Optional.empty();
+        }
+        checkMultipleMatchingFactories(factoryIdentifier, factoryClass, matchingFactories);
+        return Optional.of(matchingFactories.get(0));
     }
 
     public static <T extends Factory> T discoverFactory(
@@ -157,6 +181,15 @@ public final class FactoryUtil {
                                     .collect(Collectors.joining("\n"))));
         }
 
+        checkMultipleMatchingFactories(factoryIdentifier, factoryClass, matchingFactories);
+
+        return matchingFactories.get(0);
+    }
+
+    private static <T extends Factory> void checkMultipleMatchingFactories(
+            String factoryIdentifier,
+            Class<T> factoryClass,
+            List<T> matchingFactories) {
         if (matchingFactories.size() > 1) {
             throw new FactoryException(
                     String.format(
@@ -170,8 +203,6 @@ public final class FactoryUtil {
                                     .sorted()
                                     .collect(Collectors.joining("\n"))));
         }
-
-        return matchingFactories.get(0);
     }
 
     @SuppressWarnings("unchecked")
