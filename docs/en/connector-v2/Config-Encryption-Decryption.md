@@ -8,6 +8,11 @@ In most production environments, sensitive configuration items such as passwords
 
 SeaTunnel comes with the function of base64 encryption and decryption, but it is not recommended for production use, it is recommended that users implement custom encryption and decryption logic. You can refer to this chapter [How to implement user-defined encryption and decryption](#How to implement user-defined encryption and decryption) get more details about it.
 
+Base64 encryption support encrypt the following parameters:
+- username
+- password
+- auth
+
 Next, I'll show how to quickly use SeaTunnel's own `base64` encryption:
 
 1. And a new option `shade.identifier` in env block of config file, this option indicate what the encryption method that you want to use, in this example, we should add `shade.identifier = base64` in config as the following shown:
@@ -37,13 +42,6 @@ Next, I'll show how to quickly use SeaTunnel's own `base64` encryption:
 
    source {
      MySQL-CDC {
-       schema {
-         fields {
-           name = string
-           age = int
-           sex = boolean
-         }
-       }
        result_table_name = "fake"
        parallelism = 1
        server-id = 5656
@@ -92,13 +90,6 @@ Next, I'll show how to quickly use SeaTunnel's own `base64` encryption:
        },
        "source" : [
            {
-               "schema" : {
-                   "fields" : {
-                       "name" : "string",
-                       "age" : "int",
-                       "sex" : "boolean"
-                   }
-               },
                "base-url" : "jdbc:mysql://localhost:56725",
                "hostname" : "127.0.0.1",
                "password" : "c2VhdHVubmVsX3Bhc3N3b3Jk",
