@@ -161,7 +161,6 @@ public class PhysicalPlan {
                         LOGGER.info(String.format("cancel job %s because makeJobEndWhenPipelineEnded is true", jobFullName));
                         cancelJob();
                     }
-                    LOGGER.info(String.format("release the pipeline %s resource", subPlan.getPipelineFullName()));
                 } else if (PipelineStatus.FAILED.equals(pipelineState.getPipelineStatus())) {
                     if (canRestorePipeline(subPlan)) {
                         LOGGER.info(String.format("Can restore pipeline %s", subPlan.getPipelineFullName()));
@@ -189,7 +188,7 @@ public class PhysicalPlan {
                 }
             } catch (Throwable e) {
                 // Because only cancelJob or releasePipelineResource can throw exception, so we only output log here
-                LOGGER.severe("Never come here ", e);
+                LOGGER.severe(ExceptionUtils.getMessage(e));
             }
         });
     }

@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.checkpoint;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.fake.state.FakeSourceState;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
@@ -36,7 +37,7 @@ public class CheckpointSerializeTest {
 
     @Test
     public void testPipelineStateDeserialize() throws IOException {
-        File file = new File("/tmp/seatunnel/checkpoint_snapshot/677746604228214786/1676352192787-122-2-1.ser");
+        File file = new File("/private/tmp/seatunnel/checkpoint_snapshot/679984510862884865/1676885754364-316-1-2.ser");
         FileInputStream fileInputStream = null;
         byte[] bFile = new byte[(int) file.length()];
         //convert file into array of bytes
@@ -47,7 +48,7 @@ public class CheckpointSerializeTest {
         PipelineState pipelineState = protoStuffSerializer.deserialize(bFile, PipelineState.class);
         CompletedCheckpoint latestCompletedCheckpoint =
             protoStuffSerializer.deserialize(pipelineState.getStates(), CompletedCheckpoint.class);
-        ActionState actionState = latestCompletedCheckpoint.getTaskStates().get(3L);
+        ActionState actionState = latestCompletedCheckpoint.getTaskStates().get(1L);
         List<ActionSubtaskState> subtaskStates = actionState.getSubtaskStates();
         List<byte[]> coordinatorBytes = actionState.getCoordinatorState().getState();
         DefaultSerializer<FakeSourceState> fakeSourceSerializer = new DefaultSerializer<FakeSourceState>();
@@ -63,7 +64,10 @@ public class CheckpointSerializeTest {
             }
         }
 
-        actionState = latestCompletedCheckpoint.getTaskStates().get(4L);
+        actionState = latestCompletedCheckpoint.getTaskStates().get(2L);
+        List<byte[]> sinkCommitStateSeri = actionState.getCoordinatorState().getState();
+        DefaultSerializer<FileAggregatedCommitInfo> fileSinkStateDefaultSerializer = new DefaultSerializer<FileAggregatedCommitInfo>();
+        FileAggregatedCommitInfo fileAggregatedCommitInfo = fileSinkStateDefaultSerializer.deserialize(sinkCommitStateSeri.get(0));
         subtaskStates = actionState.getSubtaskStates();
         for (ActionSubtaskState state : subtaskStates) {
             List<byte[]> bList = state.getState();

@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcInputFormat;
 
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,15 +31,14 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
+@Slf4j
 public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSplit> {
-
-    protected static final Logger LOG = LoggerFactory.getLogger(JdbcSource.class);
-
     SourceReader.Context context;
-    Deque<JdbcSourceSplit> splits = new LinkedList<>();
+    Deque<JdbcSourceSplit> splits = new ConcurrentLinkedDeque<>();
     JdbcInputFormat inputFormat;
-    boolean noMoreSplit;
+    private volatile boolean noMoreSplit;
 
     public JdbcSourceReader(JdbcInputFormat inputFormat, SourceReader.Context context) {
         this.inputFormat = inputFormat;
@@ -67,9 +67,9 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
                     output.collect(seaTunnelRow);
                 }
                 inputFormat.close();
-            } else if (noMoreSplit) {
+            } else if (noMoreSplit && splits.isEmpty()) {
                 // signal to the source that we have reached the end of the data.
-                LOG.info("Closed the bounded jdbc source");
+                log.info("Closed the bounded jdbc source");
                 context.signalNoMoreElement();
             } else {
                 Thread.sleep(1000L);

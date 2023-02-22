@@ -315,6 +315,7 @@ public class JobMaster {
     }
 
     public void releasePipelineResource(SubPlan subPlan) {
+        LOGGER.info(String.format("release the pipeline %s resource", subPlan.getPipelineFullName()));
         resourceManager.releaseResources(jobImmutableInformation.getJobId(),
             Lists.newArrayList(ownedSlotProfilesIMap.get(subPlan.getPipelineLocation()).values())).join();
         ownedSlotProfilesIMap.remove(subPlan.getPipelineLocation());

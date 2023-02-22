@@ -484,15 +484,6 @@ public class CheckpointCoordinator {
         final PendingCheckpoint pendingCheckpoint = pendingCheckpoints.get(checkpointId);
         TaskLocation location = ackOperation.getTaskLocation();
         LOG.info("task[{}]({}/{}) ack. {}", location.getTaskID(), location.getPipelineId(), location.getJobId(), ackOperation.getBarrier().toString());
-        if (ackOperation.getBarrier().getCheckpointType() == COMPLETED_POINT_TYPE) {
-            pendingCheckpoints.values().parallelStream()
-                .forEach(cp -> cp.acknowledgeTask(ackOperation.getTaskLocation(), ackOperation.getStates(), SubtaskStatus.AUTO_PREPARE_CLOSE));
-            return;
-        } else if (pendingCheckpoint == null) {
-            LOG.info("job: {}, pipeline: {}, the checkpoint({}) don't exist.", jobId, pipelineId, checkpointId);
-            return;
-        }
-
         pendingCheckpoint.acknowledgeTask(location, ackOperation.getStates(),
             SAVEPOINT_TYPE == pendingCheckpoint.getCheckpointType() ?
                 SubtaskStatus.SAVEPOINT_PREPARE_CLOSE :

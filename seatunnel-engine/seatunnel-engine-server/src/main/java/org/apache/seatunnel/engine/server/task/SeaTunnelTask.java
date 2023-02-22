@@ -67,6 +67,7 @@ import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 import com.hazelcast.internal.metrics.MetricDescriptor;
 import com.hazelcast.internal.metrics.MetricsCollectionContext;
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -82,9 +83,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
-
+@Slf4j
 public abstract class SeaTunnelTask extends AbstractTask {
-    private static final Logger LOG = LoggerFactory.getLogger(SeaTunnelTask.class);
     private static final long serialVersionUID = 2604309561613784425L;
 
     protected volatile SeaTunnelTaskState currState;
@@ -275,7 +275,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
     }
 
     public void ack(Barrier barrier) {
-        LOG.info("5555555555555555-------seatunnel task ----------" + this.taskLocation);
+        log.debug("seatunnel task ack barrier[{}]", this.taskLocation);
         Integer ackSize = cycleAcks.compute(barrier.getId(), (id, count) -> count == null ? 1 : ++count);
         if (ackSize == allCycles.size()) {
             if (barrier.prepareClose()) {
@@ -315,6 +315,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
+        log.debug("restoreState for SeaTunnelTask[{}]", actionStateList);
         Map<Long, List<ActionSubtaskState>> stateMap = actionStateList.stream()
             .collect(Collectors.groupingBy(ActionSubtaskState::getActionId, Collectors.toList()));
         allCycles.stream().filter(cycle -> cycle instanceof ActionFlowLifeCycle)
@@ -327,6 +328,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
                 }
             });
         restoreComplete.complete(null);
+        log.debug("restoreState.SeaTunnelTask finished========" + actionStateList);
     }
 
     @Override

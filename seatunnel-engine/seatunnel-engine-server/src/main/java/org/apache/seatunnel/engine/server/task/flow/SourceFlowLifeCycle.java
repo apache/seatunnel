@@ -44,6 +44,7 @@ import org.apache.seatunnel.engine.server.task.record.Barrier;
 import com.hazelcast.cluster.Address;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -52,10 +53,8 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
-
+@Slf4j
 public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFlowLifeCycle implements InternalCheckpointListener {
-
-    private static final ILogger LOGGER = Logger.getLogger(SourceFlowLifeCycle.class);
 
     private final SourceAction<T, SplitT, ?> sourceAction;
     private final TaskLocation enumeratorTaskLocation;
@@ -124,7 +123,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             runningTask.getExecutionContext().sendToMember(new SourceNoMoreElementOperation(currentTaskLocation,
                 enumeratorTaskLocation), enumeratorTaskAddress).get();
         } catch (Exception e) {
-            LOGGER.warning("source close failed ", e);
+            log.warn("source close failed {}", e);
             throw new RuntimeException(e);
         }
     }
@@ -134,7 +133,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             runningTask.getExecutionContext().sendToMember(new SourceRegisterOperation(currentTaskLocation,
                 enumeratorTaskLocation), enumeratorTaskAddress).get();
         } catch (InterruptedException | ExecutionException e) {
-            LOGGER.warning("source register failed ", e);
+            log.warn("source register failed {}", e);
             throw new RuntimeException(e);
         }
     }
@@ -144,7 +143,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             runningTask.getExecutionContext().sendToMember(new RequestSplitOperation(currentTaskLocation,
                 enumeratorTaskLocation), enumeratorTaskAddress).get();
         } catch (InterruptedException | ExecutionException e) {
-            LOGGER.warning("source request split failed", e);
+            log.warn("source request split failed [{}]", e);
             throw new RuntimeException(e);
         }
     }
@@ -155,7 +154,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                 new SourceReaderEventOperation(enumeratorTaskLocation, currentTaskLocation, sourceEvent),
                 enumeratorTaskAddress).get();
         } catch (InterruptedException | ExecutionException e) {
-            LOGGER.warning("source request split failed", e);
+            log.warn("source request split failed {}", e);
             throw new RuntimeException(e);
         }
     }
@@ -169,7 +168,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
     }
 
     public void triggerBarrier(Barrier barrier) throws Exception {
-        LOGGER.info("-------------------666666666666----------source----" + barrier);
+        log.debug("source trigger barrier [{}]", barrier);
         // Block the reader from adding barrier to the collector.
         synchronized (collector.getCheckpointLock()) {
             if (barrier.prepareClose()) {
@@ -181,9 +180,9 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             }
             // ack after #addState
             runningTask.ack(barrier);
-            LOGGER.info("==============ack barrier finished============" + runningTask.getTaskID());
+            log.debug("source ack barrier finished, taskId: [{}]", runningTask.getTaskID());
             collector.sendRecordToNext(new Record<>(barrier));
-            LOGGER.info("================send record to next finished================" + runningTask.getTaskID());
+            log.debug("send record to next finished, taskId: [{}]", runningTask.getTaskID());
         }
     }
 
@@ -212,7 +211,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                 .sendToMember(new RestoredSplitOperation(enumeratorTaskLocation, SerializationUtils.serialize(splits.toArray()), indexID),
                     enumeratorTaskAddress).get();
         } catch (InterruptedException | ExecutionException e) {
-            LOGGER.warning("source request split failed", e);
+            log.warn("source request split failed {}", e);
             throw new RuntimeException(e);
         }
     }

@@ -219,7 +219,7 @@ public class CheckpointManager {
      * <br> used for the ack of the checkpoint, including the state snapshot of all {@link Action} within the {@link Task}.
      */
     public void acknowledgeTask(TaskAcknowledgeOperation ackOperation) {
-        log.info("111111111111 {}", ackOperation.getTaskLocation());
+        log.debug("checkpoint manager received ack {}", ackOperation.getTaskLocation());
         CheckpointCoordinator coordinator = getCheckpointCoordinator(ackOperation.getTaskLocation());
         if (coordinator.isCompleted()) {
             log.info("The checkpoint coordinator({}) is completed", ackOperation.getTaskLocation().getPipelineId());

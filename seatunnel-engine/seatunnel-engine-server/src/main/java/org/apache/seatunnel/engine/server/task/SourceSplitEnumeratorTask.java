@@ -126,7 +126,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     @Override
     public void triggerBarrier(Barrier barrier) throws Exception {
-        log.info("333333333333333333333-------split enumer----------" + barrier);
+        log.debug("split enumer trigger barrier [{}]",  barrier);
         if (barrier.prepareClose()) {
             this.currState = PREPARE_CLOSE;
             this.prepareCloseBarrierId.set(barrier.getId());
@@ -140,6 +140,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             sendToAllReader(location -> new BarrierFlowOperation(barrier, location));
         }
         if (barrier.snapshot()) {
+            log.debug("source split enumerator send state [{}] to master", snapshotState);
             byte[] serialize = enumeratorStateSerializer.serialize(snapshotState);
             this.getExecutionContext().sendToMaster(new TaskAcknowledgeOperation(this.taskLocation, (CheckpointBarrier) barrier,
                 Collections.singletonList(new ActionSubtaskState(source.getId(), -1, Collections.singletonList(serialize)))));
@@ -148,6 +149,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
+        log.debug("restoreState for split enumerator [{}]", actionStateList);
         Optional<Serializable> state = actionStateList.stream()
             .map(ActionSubtaskState::getState)
             .flatMap(Collection::stream).filter(Objects::nonNull)
@@ -161,6 +163,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                 .createEnumerator(enumeratorContext);
         }
         restoreComplete.complete(null);
+        log.debug("restoreState split enumerator [{}] finished", actionStateList);
     }
 
     public void addSplitsBack(List<SplitT> splits, int subtaskId) throws ExecutionException, InterruptedException {

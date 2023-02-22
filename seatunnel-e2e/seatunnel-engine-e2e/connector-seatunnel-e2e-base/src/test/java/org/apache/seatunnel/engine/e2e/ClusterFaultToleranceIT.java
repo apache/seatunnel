@@ -564,6 +564,14 @@ public class ClusterFaultToleranceIT {
         }
     }
 
+    @Test
+    @Disabled
+    public void testFor() throws ExecutionException, InterruptedException {
+        for (int i = 0 ;i < 200; i++) {
+            testStreamJobRestoreInAllNodeDown();
+        }
+    }
+
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     public void testStreamJobRestoreInAllNodeDown() throws ExecutionException, InterruptedException {

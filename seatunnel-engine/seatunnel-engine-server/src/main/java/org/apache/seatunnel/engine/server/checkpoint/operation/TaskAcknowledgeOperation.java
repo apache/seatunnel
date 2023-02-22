@@ -30,12 +30,14 @@ import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.List;
 
 @Getter
 @AllArgsConstructor
+@Slf4j
 public class TaskAcknowledgeOperation extends Operation implements IdentifiedDataSerializable {
 
     private TaskLocation taskLocation;
@@ -73,12 +75,11 @@ public class TaskAcknowledgeOperation extends Operation implements IdentifiedDat
 
     @Override
     public void run() {
-        ILogger logger = getLogger();
-        logger.info("2222222222222222222222222" + taskLocation);
+        log.debug("TaskAcknowledgeOperation {}", taskLocation);
         ((SeaTunnelServer) getService())
             .getCoordinatorService().getJobMaster(taskLocation.getJobId())
             .getCheckpointManager()
             .acknowledgeTask(this);
-        logger.info("task ack finished " + taskLocation);
+        log.info("task ack finished {}", taskLocation);
     }
 }

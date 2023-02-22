@@ -42,6 +42,7 @@ import com.hazelcast.cluster.Address;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.net.URL;
@@ -58,9 +59,9 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT> extends CoordinatorTask {
 
-    private static final ILogger LOGGER = Logger.getLogger(SinkAggregatedCommitterTask.class);
     private static final long serialVersionUID = 5906594537520393503L;
 
     private SeaTunnelTaskState currState;
@@ -100,7 +101,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT> ex
         this.checkpointCommitInfoMap = new ConcurrentHashMap<>();
         this.completableFuture = new CompletableFuture<>();
         this.aggregatedCommitInfoSerializer = sink.getSink().getAggregatedCommitInfoSerializer().get();
-        LOGGER.info("starting seatunnel sink aggregated committer task, sink name: " + sink.getName());
+        log.debug("starting seatunnel sink aggregated committer task, sink name[{}] ", sink.getName());
     }
 
     public void receivedWriterRegister(TaskLocation writerID, Address address) {
@@ -176,7 +177,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT> ex
 
     @Override
     public void triggerBarrier(Barrier barrier) throws Exception {
-        LOGGER.info("44444444444444444-------sink agg commit ----------" + barrier);
+        log.debug("trigger barrier for sink agg commit [{}]", barrier);
         Integer count = checkpointBarrierCounter.compute(barrier.getId(), (id, num) -> num == null ? 1 : ++num);
         if (count != maxWriterSize) {
             return;
@@ -187,9 +188,15 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT> ex
         }
         if (barrier.snapshot()) {
             if (commitInfoCache.containsKey(barrier.getId())) {
+                log.debug("commitInfoCache contains Key [{}]", barrier.getId());
                 AggregatedCommitInfoT aggregatedCommitInfoT = aggregatedCommitter.combine(commitInfoCache.get(barrier.getId()));
+                log.debug("get the aggregatedCommitInfoT [{}]", aggregatedCommitInfoT);
                 checkpointCommitInfoMap.put(barrier.getId(), Collections.singletonList(aggregatedCommitInfoT));
             }
+            List<AggregatedCommitInfoT> orDefault =
+                checkpointCommitInfoMap.getOrDefault(barrier.getId(), Collections.emptyList());
+            log.debug("final store commit info size [{}]", orDefault.size());
+            log.debug("final store commit info [{}]", orDefault);
             List<byte[]> states = serializeStates(aggregatedCommitInfoSerializer, checkpointCommitInfoMap.getOrDefault(barrier.getId(), Collections.emptyList()));
             this.getExecutionContext().sendToMaster(new TaskAcknowledgeOperation(this.taskLocation, (CheckpointBarrier) barrier,
                 Collections.singletonList(new ActionSubtaskState(sink.getId(), -1, states))));
@@ -198,6 +205,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT> ex
 
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
+        log.debug("restoreState for sink agg committer [{}]", actionStateList);
         List<AggregatedCommitInfoT> aggregatedCommitInfos = actionStateList.stream()
             .map(ActionSubtaskState::getState)
             .flatMap(Collection::stream)
@@ -205,10 +213,12 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT> ex
             .collect(Collectors.toList());
         aggregatedCommitter.commit(aggregatedCommitInfos);
         restoreComplete.complete(null);
+        log.debug("restoreState for sink agg committer [{}] finished", actionStateList);
     }
 
     public void receivedWriterCommitInfo(long checkpointID,
                                          CommandInfoT commitInfos) {
+        log.debug("received writer commit infos checkpoint id [{}], commitInfos [{}]", checkpointID, commitInfos);
         commitInfoCache.computeIfAbsent(checkpointID, id -> new CopyOnWriteArrayList<>());
         commitInfoCache.get(checkpointID).add(commitInfos);
     }

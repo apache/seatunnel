@@ -31,12 +31,13 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
 @Slf4j
 public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSplit> {
 
     private final SourceReader.Context context;
-    private final Deque<FakeSourceSplit> splits = new LinkedList<>();
+    private final Deque<FakeSourceSplit> splits = new ConcurrentLinkedDeque<>();
 
     private final FakeConfig config;
     private final FakeDataGenerator fakeDataGenerator;
@@ -79,7 +80,7 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
                 }
             }
         }
-        if (splits.isEmpty() && noMoreSplit && Boundedness.BOUNDED.equals(context.getBoundedness())) {
+        if (noMoreSplit && splits.isEmpty() && Boundedness.BOUNDED.equals(context.getBoundedness())) {
             // signal to the source that we have reached the end of the data.
             log.info("Closed the bounded fake source");
             context.signalNoMoreElement();
@@ -94,6 +95,7 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
 
     @Override
     public void addSplits(List<FakeSourceSplit> splits) {
+        log.debug("reader {} add splits {}", context.getIndexOfSubtask(), splits);
         this.splits.addAll(splits);
     }
 

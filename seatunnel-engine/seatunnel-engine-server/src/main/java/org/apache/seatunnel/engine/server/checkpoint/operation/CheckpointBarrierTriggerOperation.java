@@ -32,10 +32,12 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 
 @NoArgsConstructor
+@Slf4j
 public class CheckpointBarrierTriggerOperation extends TaskOperation {
     protected Barrier barrier;
 
@@ -69,14 +71,13 @@ public class CheckpointBarrierTriggerOperation extends TaskOperation {
 
     @Override
     public void run() throws Exception {
-        ILogger logger = getLogger();
         SeaTunnelServer server = getService();
         RetryUtils.retryWithException(() -> {
             Task task = server.getTaskExecutionService()
                 .getExecutionContext(taskLocation.getTaskGroupLocation()).getTaskGroup()
                 .getTask(taskLocation.getTaskID());
             try {
-                logger.info("=============CheckpointBarrierTriggerOperation============" + taskLocation);
+                log.debug("CheckpointBarrierTriggerOperation [{}]" + taskLocation);
                 task.triggerBarrier(barrier);
             } catch (Exception e) {
                 sneakyThrow(e);
