@@ -85,6 +85,7 @@ public class SinkConfig implements Serializable {
         .defaultValue("CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (\n" +
             "${rowtype_fields}\n" +
             ") ENGINE=OLAP\n" +
+            " PRIMARY KEY (${rowtype_primary_key})\n" +
             "DISTRIBUTED BY HASH (${rowtype_primary_key})" +
             "PROPERTIES (\n" +
             "    \"replication_num\" = \"1\" \n" +
