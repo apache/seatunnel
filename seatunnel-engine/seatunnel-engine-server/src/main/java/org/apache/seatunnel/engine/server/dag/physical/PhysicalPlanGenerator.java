@@ -20,11 +20,15 @@ package org.apache.seatunnel.engine.server.dag.physical;
 import static org.apache.seatunnel.engine.common.config.server.QueueType.BLOCKINGQUEUE;
 
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
+import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.ShuffleAction;
+import org.apache.seatunnel.engine.core.dag.actions.ShuffleConfig;
+import org.apache.seatunnel.engine.core.dag.actions.ShuffleMultipleRowStrategy;
+import org.apache.seatunnel.engine.core.dag.actions.ShuffleStrategy;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.internal.IntermediateQueue;
@@ -36,7 +40,6 @@ import org.apache.seatunnel.engine.server.dag.execution.ExecutionPlan;
 import org.apache.seatunnel.engine.server.dag.execution.Pipeline;
 import org.apache.seatunnel.engine.server.dag.physical.config.FlowConfig;
 import org.apache.seatunnel.engine.server.dag.physical.config.IntermediateQueueConfig;
-import org.apache.seatunnel.engine.server.dag.physical.config.PartitionConfig;
 import org.apache.seatunnel.engine.server.dag.physical.config.SinkConfig;
 import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
 import org.apache.seatunnel.engine.server.dag.physical.flow.Flow;
@@ -65,6 +68,7 @@ import lombok.NonNull;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -270,41 +274,102 @@ public class PhysicalPlanGenerator {
     private List<PhysicalVertex> getShuffleTask(List<ExecutionEdge> edges,
                                                 int pipelineIndex,
                                                 int totalPipelineNum) {
-        return edges.stream().filter(s -> s.getLeftVertex().getAction() instanceof ShuffleAction)
+        return edges.stream()
+            .filter(s -> s.getLeftVertex().getAction() instanceof ShuffleAction)
             .map(q -> (ShuffleAction) q.getLeftVertex().getAction())
+            .collect(Collectors.toSet())
+            .stream()
             .map(q -> new PhysicalExecutionFlow(q, getNextWrapper(edges, q)))
             .flatMap(flow -> {
-                List<PhysicalVertex> t = new ArrayList<>();
-                long taskIDPrefix = idGenerator.getNextId();
-                long taskGroupIDPrefix = idGenerator.getNextId();
-                for (int i = 0; i < flow.getAction().getParallelism(); i++) {
-                    long taskGroupID = mixIDPrefixAndIndex(taskGroupIDPrefix, i);
-                    TaskGroupLocation taskGroupLocation =
-                        new TaskGroupLocation(jobImmutableInformation.getJobId(), pipelineIndex, taskGroupID);
-                    TaskLocation taskLocation = new TaskLocation(taskGroupLocation, taskIDPrefix, i);
-                    setFlowConfig(flow, i);
-                    SeaTunnelTask seaTunnelTask =
-                        new TransformSeaTunnelTask(jobImmutableInformation.getJobId(), taskLocation, i, flow);
-                    // checkpoint
-                    fillCheckpointPlan(seaTunnelTask);
-                    t.add(new PhysicalVertex(
-                        i,
-                        executorService,
-                        flow.getAction().getParallelism(),
-                        new TaskGroupDefaultImpl(taskGroupLocation, flow.getAction().getName() +
-                            "-ShuffleTask",
-                            Lists.newArrayList(seaTunnelTask)),
-                        flakeIdGenerator,
-                        pipelineIndex,
-                        totalPipelineNum,
-                        seaTunnelTask.getJarsUrl(),
-                        jobImmutableInformation,
-                        initializationTimestamp,
-                        nodeEngine,
-                        runningJobStateIMap,
-                        runningJobStateTimestampsIMap));
+                List<PhysicalVertex> physicalVertices = new ArrayList<>();
+
+                ShuffleAction shuffleAction = (ShuffleAction) flow.getAction();
+                ShuffleConfig shuffleConfig = shuffleAction.getConfig();
+                ShuffleStrategy shuffleStrategy = shuffleConfig.getShuffleStrategy();
+                if (shuffleStrategy instanceof ShuffleMultipleRowStrategy) {
+                    ShuffleMultipleRowStrategy shuffleMultipleRowStrategy = (ShuffleMultipleRowStrategy) shuffleStrategy;
+                    for (Flow nextFlow : flow.getNext()) {
+                        PhysicalExecutionFlow sinkFlow = (PhysicalExecutionFlow) nextFlow;
+                        SinkAction sinkAction = (SinkAction) sinkFlow.getAction();
+                        String sinkTableId = sinkAction.getConfig().getMultipleRowTableId();
+                        MultipleRowType multipleRowType = shuffleMultipleRowStrategy.getInputRowType();
+                        int sinkTableIndex = Arrays.asList(multipleRowType.getTableIds()).indexOf(sinkTableId);
+
+                        long taskIDPrefix = idGenerator.getNextId();
+                        long taskGroupIDPrefix = idGenerator.getNextId();
+                        for (int parallelismIndex = 0; parallelismIndex < flow.getAction().getParallelism(); parallelismIndex++) {
+                            ShuffleStrategy shuffleStrategyOfSinkFlow = shuffleMultipleRowStrategy.toBuilder()
+                                .targetTableId(sinkTableId)
+                                .build();
+                            ShuffleConfig shuffleConfigOfSinkFlow = shuffleConfig.toBuilder()
+                                .shuffleStrategy(shuffleStrategyOfSinkFlow)
+                                .build();
+                            long shuffleActionId = idGenerator.getNextId();
+                            String shuffleActionName = String.format("Shuffle [table[%s] -> %s]", sinkTableIndex, sinkAction.getName());
+                            ShuffleAction shuffleActionOfSinkFlow = new ShuffleAction(shuffleActionId, shuffleActionName, shuffleConfigOfSinkFlow);
+                            shuffleActionOfSinkFlow.setParallelism(1);
+                            PhysicalExecutionFlow shuffleFlow = new PhysicalExecutionFlow(shuffleActionOfSinkFlow, Collections.singletonList(sinkFlow));
+                            setFlowConfig(shuffleFlow, parallelismIndex);
+
+                            long taskGroupID = mixIDPrefixAndIndex(taskGroupIDPrefix, parallelismIndex);
+                            TaskGroupLocation taskGroupLocation = new TaskGroupLocation(
+                                jobImmutableInformation.getJobId(), pipelineIndex, taskGroupID);
+                            TaskLocation taskLocation = new TaskLocation(taskGroupLocation, taskIDPrefix, parallelismIndex);
+                            SeaTunnelTask seaTunnelTask = new TransformSeaTunnelTask(
+                                jobImmutableInformation.getJobId(), taskLocation, parallelismIndex, shuffleFlow);
+
+                            // checkpoint
+                            fillCheckpointPlan(seaTunnelTask);
+                            physicalVertices.add(new PhysicalVertex(
+                                parallelismIndex,
+                                executorService,
+                                shuffleFlow.getAction().getParallelism(),
+                                new TaskGroupDefaultImpl(taskGroupLocation, shuffleFlow.getAction().getName() +
+                                    "-ShuffleTask",
+                                    Collections.singletonList(seaTunnelTask)),
+                                flakeIdGenerator,
+                                pipelineIndex,
+                                totalPipelineNum,
+                                seaTunnelTask.getJarsUrl(),
+                                jobImmutableInformation,
+                                initializationTimestamp,
+                                nodeEngine,
+                                runningJobStateIMap,
+                                runningJobStateTimestampsIMap));
+                        }
+                    }
+                } else {
+                    long taskIDPrefix = idGenerator.getNextId();
+                    long taskGroupIDPrefix = idGenerator.getNextId();
+                    for (int i = 0; i < flow.getAction().getParallelism(); i++) {
+                        long taskGroupID = mixIDPrefixAndIndex(taskGroupIDPrefix, i);
+                        TaskGroupLocation taskGroupLocation =
+                            new TaskGroupLocation(jobImmutableInformation.getJobId(), pipelineIndex, taskGroupID);
+                        TaskLocation taskLocation = new TaskLocation(taskGroupLocation, taskIDPrefix, i);
+                        setFlowConfig(flow, i);
+                        SeaTunnelTask seaTunnelTask =
+                            new TransformSeaTunnelTask(jobImmutableInformation.getJobId(), taskLocation, i, flow);
+                        // checkpoint
+                        fillCheckpointPlan(seaTunnelTask);
+                        physicalVertices.add(new PhysicalVertex(
+                            i,
+                            executorService,
+                            flow.getAction().getParallelism(),
+                            new TaskGroupDefaultImpl(taskGroupLocation, flow.getAction().getName() +
+                                "-ShuffleTask",
+                                Lists.newArrayList(seaTunnelTask)),
+                            flakeIdGenerator,
+                            pipelineIndex,
+                            totalPipelineNum,
+                            seaTunnelTask.getJarsUrl(),
+                            jobImmutableInformation,
+                            initializationTimestamp,
+                            nodeEngine,
+                            runningJobStateIMap,
+                            runningJobStateTimestampsIMap));
+                    }
                 }
-                return t.stream();
+                return physicalVertices.stream();
             }).collect(Collectors.toList());
     }
 
@@ -462,13 +527,6 @@ public class PhysicalPlanGenerator {
                     config.setContainCommitter(true);
                     config.setCommitterTask(committerTaskIDMap.get((SinkAction<?, ?, ?, ?>) flow.getAction()));
                 }
-                flow.setConfig(config);
-            } else if (flow.getAction() instanceof ShuffleAction) {
-                PartitionConfig config =
-                    new PartitionConfig(
-                        ((ShuffleAction) flow.getAction()).getPartitionTransformation().getPartitionCount(),
-                        ((ShuffleAction) flow.getAction()).getPartitionTransformation().getTargetCount(),
-                        parallelismIndex);
                 flow.setConfig(config);
             }
         } else if (f instanceof IntermediateExecutionFlow) {

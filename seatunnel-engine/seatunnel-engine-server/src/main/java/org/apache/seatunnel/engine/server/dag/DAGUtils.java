@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.dag;
 
+import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.core.dag.actions.ActionUtils;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
@@ -35,8 +36,12 @@ import java.util.stream.Collectors;
 
 public class DAGUtils {
 
-    public static JobDAGInfo getJobDAGInfo(LogicalDag logicalDag, JobImmutableInformation jobImmutableInformation, boolean isPhysicalDAGIInfo) {
-        List<Pipeline> pipelines = new ExecutionPlanGenerator(logicalDag, jobImmutableInformation).generate().getPipelines();
+    public static JobDAGInfo getJobDAGInfo(LogicalDag logicalDag,
+                                           JobImmutableInformation jobImmutableInformation,
+                                           CheckpointConfig checkpointConfig,
+                                           boolean isPhysicalDAGIInfo) {
+        List<Pipeline> pipelines = new ExecutionPlanGenerator(
+            logicalDag, jobImmutableInformation, checkpointConfig).generate().getPipelines();
         if (isPhysicalDAGIInfo) {
             // Generate ExecutePlan DAG
             Map<Integer, List<Edge>> pipelineWithEdges = new HashMap<>();

@@ -17,21 +17,29 @@
 
 package org.apache.seatunnel.engine.core.dag.actions;
 
-import lombok.NonNull;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
+import lombok.experimental.Tolerate;
 
-import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.concurrent.TimeUnit;
 
-public class ShuffleAction extends AbstractAction {
+@Getter
+@Setter
+@ToString
+@Builder(toBuilder = true)
+public class ShuffleConfig implements Config {
+    public static final int DEFAULT_BATCH_SIZE = 1024;
+    public static final long DEFAULT_BATCH_FLUSH_INTERVAL = TimeUnit.SECONDS.toMillis(3);
 
-    public ShuffleAction(long id,
-                         @NonNull String name,
-                         @NonNull ShuffleConfig shuffleConfig) {
-        super(id, name, new ArrayList<>(), new HashSet<>(), shuffleConfig);
-    }
+    @Builder.Default
+    private int batchSize = DEFAULT_BATCH_SIZE;
+    @Builder.Default
+    private long batchFlushInterval = DEFAULT_BATCH_FLUSH_INTERVAL;
+    private ShuffleStrategy shuffleStrategy;
 
-    @Override
-    public ShuffleConfig getConfig() {
-        return (ShuffleConfig) super.getConfig();
+    @Tolerate
+    public ShuffleConfig() {
     }
 }
