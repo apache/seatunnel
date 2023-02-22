@@ -49,6 +49,8 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -117,7 +119,7 @@ public class ExecutionPlanGenerator {
     }
 
     private Set<ExecutionEdge> generateExecutionEdges(Set<LogicalEdge> logicalEdges) {
-        Set<ExecutionEdge> executionEdges = new HashSet<>();
+        Set<ExecutionEdge> executionEdges = new LinkedHashSet<>();
 
         Map<Long, ExecutionVertex> logicalVertexIdToExecutionVertexMap = new HashMap();
 
@@ -153,7 +155,7 @@ public class ExecutionPlanGenerator {
 
     @SuppressWarnings("MagicNumber")
     private Set<ExecutionEdge> generateShuffleEdges(Set<ExecutionEdge> executionEdges) {
-        Map<Long, List<ExecutionVertex>> targetVerticesMap = new HashMap<>();
+        Map<Long, List<ExecutionVertex>> targetVerticesMap = new LinkedHashMap<>();
         Set<ExecutionVertex> sourceExecutionVertices = new HashSet<>();
         executionEdges.forEach(edge -> {
             ExecutionVertex leftVertex = edge.getLeftVertex();
@@ -180,7 +182,7 @@ public class ExecutionPlanGenerator {
             .findFirst();
         checkArgument(!hasOtherAction.isPresent());
 
-        Set<ExecutionEdge> newExecutionEdges = new HashSet<>();
+        Set<ExecutionEdge> newExecutionEdges = new LinkedHashSet<>();
         ShuffleStrategy shuffleStrategy = ShuffleMultipleRowStrategy.builder()
             .jobId(jobImmutableInformation.getJobId())
             .inputPartitions(sourceAction.getParallelism())
@@ -243,7 +245,7 @@ public class ExecutionPlanGenerator {
             }
         }
 
-        Set<ExecutionEdge> transformChainEdges = new HashSet<>();
+        Set<ExecutionEdge> transformChainEdges = new LinkedHashSet<>();
         for (ExecutionEdge executionEdge : executionEdges) {
             ExecutionVertex leftVertex = executionEdge.getLeftVertex();
             ExecutionVertex rightVertex = executionEdge.getRightVertex();
@@ -332,7 +334,7 @@ public class ExecutionPlanGenerator {
     }
 
     private List<Pipeline> generatePipelines(Set<ExecutionEdge> executionEdges) {
-        Set<ExecutionVertex> executionVertices = new HashSet<>();
+        Set<ExecutionVertex> executionVertices = new LinkedHashSet<>();
         for (ExecutionEdge edge : executionEdges) {
             executionVertices.add(edge.getLeftVertex());
             executionVertices.add(edge.getRightVertex());
