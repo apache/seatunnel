@@ -64,8 +64,9 @@ public class EngineConfig {
         this.jobMetricsBackupInterval = jobMetricsBackupInterval;
     }
 
-    public void setQueueType(QueueType queueType) {
+    public EngineConfig setQueueType(QueueType queueType) {
         checkNotNull(queueType);
         this.queueType = queueType;
+        return this;
     }
 }

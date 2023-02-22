@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.cdc.debezium.row;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static io.debezium.connector.AbstractSourceInfo.DATABASE_NAME_KEY;
 
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.MultipleRowType;
@@ -114,34 +113,32 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
         Schema valueSchema = record.valueSchema();
 
         Struct sourceStruct = messageStruct.getStruct(Envelope.FieldName.SOURCE);
-        String database = sourceStruct.getString(DATABASE_NAME_KEY);
         String tableName = sourceStruct.getString(AbstractSourceInfo.TABLE_NAME_KEY);
-        String tableId = database + ":" + tableName;
-        SeaTunnelRowDebeziumDeserializationConverters converters = multipleRowConverters.getOrDefault(tableId, singleRowConverter);
+        SeaTunnelRowDebeziumDeserializationConverters converters = multipleRowConverters.getOrDefault(tableName, singleRowConverter);
 
         if (operation == Envelope.Operation.CREATE || operation == Envelope.Operation.READ) {
             SeaTunnelRow insert = extractAfterRow(converters, record, messageStruct, valueSchema);
             insert.setRowKind(RowKind.INSERT);
-            insert.setTableId(tableId);
+            insert.setTableId(tableName);
             validator.validate(insert, RowKind.INSERT);
             collector.collect(insert);
         } else if (operation == Envelope.Operation.DELETE) {
             SeaTunnelRow delete = extractBeforeRow(converters, record, messageStruct, valueSchema);
             validator.validate(delete, RowKind.DELETE);
             delete.setRowKind(RowKind.DELETE);
-            delete.setTableId(tableId);
+            delete.setTableId(tableName);
             collector.collect(delete);
         } else {
             SeaTunnelRow before = extractBeforeRow(converters, record, messageStruct, valueSchema);
             validator.validate(before, RowKind.UPDATE_BEFORE);
             before.setRowKind(RowKind.UPDATE_BEFORE);
-            before.setTableId(tableId);
+            before.setTableId(tableName);
             collector.collect(before);
 
             SeaTunnelRow after = extractAfterRow(converters, record, messageStruct, valueSchema);
             validator.validate(after, RowKind.UPDATE_AFTER);
             after.setRowKind(RowKind.UPDATE_AFTER);
-            after.setTableId(tableId);
+            after.setTableId(tableName);
             collector.collect(after);
         }
     }

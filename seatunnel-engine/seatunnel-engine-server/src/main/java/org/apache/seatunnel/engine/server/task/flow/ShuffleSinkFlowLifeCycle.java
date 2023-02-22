@@ -17,20 +17,15 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
-import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.api.table.type.Record;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.engine.core.dag.actions.ShuffleConfig;
+import org.apache.seatunnel.engine.core.dag.actions.ShuffleStrategy;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
 import com.hazelcast.collection.IQueue;
-import com.hazelcast.config.QueueConfig;
 import com.hazelcast.core.HazelcastInstance;
-import lombok.AllArgsConstructor;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.RandomStringUtils;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -44,20 +39,29 @@ import java.util.concurrent.TimeUnit;
 @SuppressWarnings("MagicNumber")
 @Slf4j
 public class ShuffleSinkFlowLifeCycle extends AbstractFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>> {
-    private Map<String, IQueue<Record<?>>> shuffles;
-    private long shuffleBufferTimesMillis = 1000;
-    private int shuffleBufferSize = 1024;
-    private int shuffleBatchSize = 1024;
-    private Map<String, Queue<Record<?>>> shuffleBuffer;
-    private ShuffleStrategy shuffleStrategy;
+    private final int pipelineId;
+    private final int taskIndex;
+    private final Map<String, IQueue<Record<?>>> shuffles;
+    private final int shuffleBatchSize;
+    private final long shuffleBatchFlushInterval;
+    private final Map<String, Queue<Record<?>>> shuffleBuffer;
+    private final ShuffleStrategy shuffleStrategy;
+    private int shuffleBufferSize;
     private long lastModify;
 
     public ShuffleSinkFlowLifeCycle(SeaTunnelTask runningTask,
+                                    int taskIndex,
+                                    ShuffleConfig shuffleConfig,
+                                    HazelcastInstance hazelcastInstance,
                                     CompletableFuture<Void> completableFuture) {
         super(runningTask, completableFuture);
-        // todo initialize shuffleStrategy
-        this.shuffleStrategy = null;
-        this.shuffles = shuffleStrategy.createShuffles();
+        this.pipelineId = runningTask.getTaskLocation().getTaskGroupLocation().getPipelineId();
+        this.taskIndex = taskIndex;
+        this.shuffleStrategy = shuffleConfig.getShuffleStrategy();
+        this.shuffles = shuffleStrategy.createShuffles(hazelcastInstance, pipelineId, taskIndex);
+        this.shuffleBatchSize = shuffleConfig.getBatchSize();
+        this.shuffleBatchFlushInterval = shuffleConfig.getBatchFlushInterval();
+        this.shuffleBuffer = new HashMap<>();
     }
 
     @Override
@@ -92,8 +96,9 @@ public class ShuffleSinkFlowLifeCycle extends AbstractFlowLifeCycle implements O
     @Override
     public void close() throws IOException {
         super.close();
-        for (Map.Entry<String, IQueue<Record<?>>> shuffleBatch : shuffles.entrySet()) {
-            shuffleBatch.getValue().destroy();
+        for (Map.Entry<String, IQueue<Record<?>>> shuffleItem : shuffles.entrySet()) {
+            log.info("destroy shuffle queue[{}]", shuffleItem.getKey());
+            shuffleItem.getValue().destroy();
         }
     }
 
@@ -105,7 +110,7 @@ public class ShuffleSinkFlowLifeCycle extends AbstractFlowLifeCycle implements O
             public void run() {
                 if (!prepareClose
                     && shuffleBufferSize > 0
-                    && System.currentTimeMillis() - lastModify > shuffleBufferTimesMillis) {
+                    && System.currentTimeMillis() - lastModify > shuffleBatchFlushInterval) {
 
                     try {
                         shuffleFlush();
@@ -117,24 +122,24 @@ public class ShuffleSinkFlowLifeCycle extends AbstractFlowLifeCycle implements O
                 // submit next task
                 if (!prepareClose) {
                     Runnable nextScheduleFlushTask = this;
-                    scheduledExecutorService.schedule(nextScheduleFlushTask, shuffleBufferTimesMillis, TimeUnit.MILLISECONDS);
+                    scheduledExecutorService.schedule(nextScheduleFlushTask, shuffleBatchFlushInterval, TimeUnit.MILLISECONDS);
                 } else {
                     completedFuture.complete(true);
                 }
             }
         };
-        scheduledExecutorService.schedule(scheduleFlushTask, shuffleBufferTimesMillis, TimeUnit.MILLISECONDS);
+        scheduledExecutorService.schedule(scheduleFlushTask, shuffleBatchFlushInterval, TimeUnit.MILLISECONDS);
         return completedFuture;
     }
 
     private synchronized void shuffleItem(Record<?> record) {
-        String shuffleKey = shuffleStrategy.extractShuffleKey(record);
-        shuffleBuffer.compute(shuffleKey, (key, records) -> new LinkedList<>())
+        String shuffleKey = shuffleStrategy.createShuffleKey(record, pipelineId, taskIndex);
+        shuffleBuffer.computeIfAbsent(shuffleKey, key -> new LinkedList<>())
             .add(record);
         shuffleBufferSize++;
 
         if (shuffleBufferSize >= shuffleBatchSize
-            || (shuffleBufferSize > 1 && System.currentTimeMillis() - lastModify > shuffleBufferTimesMillis)) {
+            || (shuffleBufferSize > 1 && System.currentTimeMillis() - lastModify > shuffleBatchFlushInterval)) {
             shuffleFlush();
         }
 
@@ -143,7 +148,7 @@ public class ShuffleSinkFlowLifeCycle extends AbstractFlowLifeCycle implements O
 
     private synchronized void shuffleFlush() {
         for (Map.Entry<String, Queue<Record<?>>> shuffleBatch : shuffleBuffer.entrySet()) {
-            IQueue<Record<?>> shuffleQueue = shuffleQueue(shuffleBatch.getKey());
+            IQueue<Record<?>> shuffleQueue = shuffles.get(shuffleBatch.getKey());
             Queue<Record<?>> shuffleQueueBatch = shuffleBatch.getValue();
             if (!shuffleQueue.addAll(shuffleBatch.getValue())) {
                 for (; ;) {
@@ -161,74 +166,5 @@ public class ShuffleSinkFlowLifeCycle extends AbstractFlowLifeCycle implements O
             shuffleQueueBatch.clear();
         }
         shuffleBufferSize = 0;
-    }
-
-    private IQueue<Record<?>> shuffleQueue(String shuffleKey) {
-        return shuffles.get(shuffleKey);
-    }
-
-    interface ShuffleStrategy {
-        Map<String, IQueue<Record<?>>> createShuffles();
-
-        String extractShuffleKey(Record<?> record);
-    }
-
-    @RequiredArgsConstructor
-    @AllArgsConstructor
-    public static class PartitionShuffle implements ShuffleStrategy {
-        private final HazelcastInstance hazelcast;
-        private final String jobId;
-        private final int partitionNumber;
-        private QueueConfig queueConfig;
-
-        @Override
-        public Map<String, IQueue<Record<?>>> createShuffles() {
-            Map<String, IQueue<Record<?>>> shuffleMap = new HashMap<>();
-            for (int i = 0; i < partitionNumber; i++) {
-                String queueName = String.format("PartitionShuffle[%s-%s]", jobId, i);
-                QueueConfig queueConfig = hazelcast.getConfig().getQueueConfig(queueName);
-                queueConfig.setMaxSize(queueConfig.getMaxSize())
-                    .setBackupCount(queueConfig.getBackupCount())
-                    .setAsyncBackupCount(queueConfig.getAsyncBackupCount())
-                    .setEmptyQueueTtl(queueConfig.getEmptyQueueTtl());
-                shuffleMap.put(String.valueOf(i), hazelcast.getQueue(queueName));
-            }
-            return shuffleMap;
-        }
-
-        @Override
-        public String extractShuffleKey(Record<?> record) {
-            return RandomStringUtils.random(partitionNumber);
-        }
-    }
-
-    @RequiredArgsConstructor
-    @AllArgsConstructor
-    public static class MultipleRowShuffle implements ShuffleStrategy {
-        private final HazelcastInstance hazelcast;
-        private final String jobId;
-        private final int parallelismIndex;
-        private final MultipleRowType multipleRowType;
-        private QueueConfig queueConfig;
-
-        @Override
-        public Map<String, IQueue<Record<?>>> createShuffles() {
-            Map<String, IQueue<Record<?>>> shuffleMap = new HashMap<>();
-            for (Map.Entry<String, SeaTunnelRowType> entry : multipleRowType) {
-                String queueName = String.format("MultipleRowShuffle[%s-%s-%s]", jobId, parallelismIndex, entry.getKey());
-                QueueConfig queueConfig = hazelcast.getConfig().getQueueConfig(queueName);
-                queueConfig.setMaxSize(queueConfig.getMaxSize())
-                    .setBackupCount(queueConfig.getBackupCount())
-                    .setAsyncBackupCount(queueConfig.getAsyncBackupCount())
-                    .setEmptyQueueTtl(queueConfig.getEmptyQueueTtl());
-                shuffleMap.put(entry.getKey(), hazelcast.getQueue(queueName));
-            }
-            return shuffleMap;
-        }
-
-        @Override
-        public String extractShuffleKey(Record<?> record) {
-            return ((SeaTunnelRow) record.getData()).getTableId();
-        }
     }
 }

@@ -19,10 +19,12 @@ package org.apache.seatunnel.engine.server.task.flow;
 
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
+import org.apache.seatunnel.engine.core.dag.actions.ShuffleConfig;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
 import com.hazelcast.collection.IQueue;
+import com.hazelcast.core.HazelcastInstance;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -33,17 +35,22 @@ import java.util.concurrent.CompletableFuture;
 
 @SuppressWarnings("MagicNumber")
 public class ShuffleSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle implements OneOutputFlowLifeCycle<Record<?>> {
-    private int shuffleBatchSize = 1024;
-    private IQueue<Record<?>>[] shuffles;
+    private final int shuffleBatchSize;
+    private final IQueue<Record<?>>[] shuffles;
     private List<Record<?>> unsentBuffer;
     private final Map<Integer, Barrier> alignedBarriers = new HashMap<>();
     private long currentCheckpointId = Long.MAX_VALUE;
     private int alignedBarriersCounter = 0;
 
     public ShuffleSourceFlowLifeCycle(SeaTunnelTask runningTask,
+                                      int taskIndex,
+                                      ShuffleConfig shuffleConfig,
+                                      HazelcastInstance hazelcastInstance,
                                       CompletableFuture<Void> completableFuture) {
         super(runningTask, completableFuture);
-        // todo initialize shuffles
+        int pipelineId = runningTask.getTaskLocation().getPipelineId();
+        this.shuffles = shuffleConfig.getShuffleStrategy().getShuffles(hazelcastInstance, pipelineId, taskIndex);
+        this.shuffleBatchSize = shuffleConfig.getBatchSize();
     }
 
     @Override

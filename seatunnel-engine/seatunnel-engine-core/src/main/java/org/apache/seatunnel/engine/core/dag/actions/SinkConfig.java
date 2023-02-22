@@ -15,31 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.dag.physical.config;
+package org.apache.seatunnel.engine.core.dag.actions;
 
-public class PartitionConfig implements FlowConfig {
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
-    private final int partitionCount;
-
-    private final int targetCount;
-
-    private final int parallelismIndex;
-
-    public PartitionConfig(int partitionCount, int targetCount, int parallelismIndex) {
-        this.partitionCount = partitionCount;
-        this.targetCount = targetCount;
-        this.parallelismIndex = parallelismIndex;
-    }
-
-    public int getPartitionCount() {
-        return partitionCount;
-    }
-
-    public int getTargetCount() {
-        return targetCount;
-    }
-
-    public int getParallelismIndex() {
-        return parallelismIndex;
-    }
+@Getter
+@NoArgsConstructor
+@AllArgsConstructor
+public class SinkConfig implements Config {
+    private String multipleRowTableId;
 }

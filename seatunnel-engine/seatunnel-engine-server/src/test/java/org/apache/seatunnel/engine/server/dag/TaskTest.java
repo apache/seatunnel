@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -38,6 +39,10 @@ import org.apache.seatunnel.engine.server.TestUtils;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.hazelcast.map.IMap;
 import org.junit.jupiter.api.Assertions;
@@ -74,11 +79,11 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
 
         IdGenerator idGenerator = new IdGenerator();
 
-        Action fake = new SourceAction<>(idGenerator.getNextId(), "fake", new FakeSource(),
+        Action fake = new SourceAction<>(idGenerator.getNextId(), "fake", createFakeSource(),
             Sets.newHashSet(new URL("file:///fake.jar")));
         LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, 2);
 
-        Action fake2 = new SourceAction<>(idGenerator.getNextId(), "fake", new FakeSource(),
+        Action fake2 = new SourceAction<>(idGenerator.getNextId(), "fake", createFakeSource(),
             Sets.newHashSet(new URL("file:///fake.jar")));
         LogicalVertex fake2Vertex = new LogicalVertex(fake2.getId(), fake2, 2);
 
@@ -110,10 +115,21 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
             instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME),
             runningJobState,
             runningJobStateTimestamp,
-            QueueType.BLOCKINGQUEUE).f0();
+            QueueType.BLOCKINGQUEUE,
+            new CheckpointConfig()).f0();
 
         Assertions.assertEquals(physicalPlan.getPipelineList().size(), 1);
         Assertions.assertEquals(physicalPlan.getPipelineList().get(0).getCoordinatorVertexList().size(), 1);
         Assertions.assertEquals(physicalPlan.getPipelineList().get(0).getPhysicalVertexList().size(), 2);
+    }
+
+    private static FakeSource createFakeSource() {
+        FakeSource fakeSource = new FakeSource();
+        Config fakeSourceConfig = ConfigFactory.parseMap(
+            Collections.singletonMap("schema",
+                Collections.singletonMap("fields",
+                    ImmutableMap.of("id", "int", "name", "string"))));
+        fakeSource.prepare(fakeSourceConfig);
+        return fakeSource;
     }
 }

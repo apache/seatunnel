@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -35,6 +36,10 @@ import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
+import com.google.common.collect.ImmutableMap;
 import com.hazelcast.map.IMap;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -69,7 +74,8 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
             instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME),
             runningJobState,
             runningJobStateTimestamp,
-            QueueType.BLOCKINGQUEUE).f1();
+            QueueType.BLOCKINGQUEUE,
+            new CheckpointConfig()).f1();
         Assertions.assertNotNull(checkpointPlans);
         Assertions.assertEquals(2, checkpointPlans.size());
         // enum(1) + reader(2) + writer(2)
@@ -90,6 +96,11 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
         JobContext jobContext = new JobContext();
         jobContext.setJobMode(JobMode.BATCH);
         FakeSource fakeSource = new FakeSource();
+        Config fakeSourceConfig = ConfigFactory.parseMap(
+            Collections.singletonMap("schema",
+                Collections.singletonMap("fields",
+                    ImmutableMap.of("id", "int", "name", "string"))));
+        fakeSource.prepare(fakeSourceConfig);
         fakeSource.setJobContext(jobContext);
 
         Action fake = new SourceAction<>(idGenerator.getNextId(), "fake", fakeSource, Collections.emptySet());
