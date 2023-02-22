@@ -34,10 +34,10 @@ public class StarRocksSaveModeUtil {
         String primaryKey = tableSchema.getPrimaryKey().getColumnNames().stream().map(r -> "`" + r + "`").collect(Collectors.joining(","));
         String rowTypeFields = tableSchema.getColumns().stream().map(StarRocksSaveModeUtil::columnToStarrocksType)
             .collect(Collectors.joining(",\n"));
-        return template.replace(String.format("${%s}", SaveModeConstants.DATABASE), database)
-            .replace(String.format("${%s}", SaveModeConstants.TABLE_NAME), table)
-            .replace(String.format("${%s}", SaveModeConstants.ROWTYPE_FIELDS), rowTypeFields)
-            .replace(String.format("${%s}", SaveModeConstants.ROWTYPE_PRIMARY_KEY), primaryKey);
+        return template.replaceAll(String.format("${%s}", SaveModeConstants.DATABASE), database)
+            .replaceAll(String.format("${%s}", SaveModeConstants.TABLE_NAME), table)
+            .replaceAll(String.format("${%s}", SaveModeConstants.ROWTYPE_FIELDS), rowTypeFields)
+            .replaceAll(String.format("${%s}", SaveModeConstants.ROWTYPE_PRIMARY_KEY), primaryKey);
     }
 
     static String columnToStarrocksType(Column column) {
