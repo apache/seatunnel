@@ -152,7 +152,7 @@ public class SeaTunnelSchema implements Serializable {
         } catch (IllegalArgumentException e) {
             String errorMsg =
                     String.format(
-                            "Field type not support [%s], currently only support [array, map, string, boolean, tinyint, smallint, int, bigint, float, double, decimal, null, bytes, date, time, timestamp]",
+                            "Field type not support [%s], currently only support [array, map, string, boolean, tinyint, smallint, int, bigint, float, double, decimal, null, bytes, date, time, timestamp, row]",
                             type.toUpperCase());
             throw new RuntimeException(errorMsg);
         }
