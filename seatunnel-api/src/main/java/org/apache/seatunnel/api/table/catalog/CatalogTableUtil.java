@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.factory.FactoryException;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -52,6 +51,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 public class CatalogTableUtil implements Serializable {
@@ -86,13 +86,12 @@ public class CatalogTableUtil implements Serializable {
             return Collections.singletonList(catalogTable);
         }
 
-        Catalog catalog = null;
-        try {
-            catalog = FactoryUtil.createCatalog(catalogConfig.get(CatalogOptions.NAME), catalogConfig, classLoader, factoryId);
-        } catch (FactoryException e) {
+        Optional<Catalog> optionalCatalog = FactoryUtil.createOptionalCatalog(catalogConfig.get(CatalogOptions.NAME), catalogConfig, classLoader, factoryId);
+        if (!optionalCatalog.isPresent()) {
             return Collections.emptyList();
         }
 
+        Catalog catalog = optionalCatalog.get();
         // Get the list of specified tables
         List<String> tableNames = catalogConfig.get(CatalogOptions.TABLE_NAMES);
         List<CatalogTable> catalogTables = new ArrayList<>();
