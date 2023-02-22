@@ -18,7 +18,7 @@ Change `FLINK_HOME` to the Flink deployment dir.
 
 ## Step 3: Add Job Config File to define a job
 
-Edit `config/seatunnel.streaming.conf.template`, which determines the way and logic of data input, processing, and output after seatunnel is started.
+Edit `config/v2.streaming.conf.template`, which determines the way and logic of data input, processing, and output after seatunnel is started.
 The following is an example of the configuration file, which is the same as the example application mentioned above.
 
 ```hocon
@@ -56,14 +56,14 @@ flink version between `1.12.x` and `1.14.x`
 
 ```shell
 cd "apache-seatunnel-incubating-${version}"
-./bin/start-seatunnel-flink-13-connector-v2.sh --config ./config/seatunnel.streaming.conf.template
+./bin/start-seatunnel-flink-13-connector-v2.sh --config ./config/v2.streaming.conf.template
 ```
 
 flink version between `1.15.x` and `1.16.x`
 
 ```shell
 cd "apache-seatunnel-incubating-${version}"
-./bin/start-seatunnel-flink-15-connector-v2.sh --config ./config/seatunnel.streaming.conf.template
+./bin/start-seatunnel-flink-15-connector-v2.sh --config ./config/v2.streaming.conf.template
 ```
 
 **See The Output**: When you run the command, you could see its output in your console. You can think this
