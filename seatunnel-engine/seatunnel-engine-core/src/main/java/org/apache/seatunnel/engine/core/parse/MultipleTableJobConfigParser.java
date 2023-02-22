@@ -40,6 +40,7 @@ import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.core.dag.actions.SinkConfig;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -238,7 +239,13 @@ public class MultipleTableJobConfigParser {
             }
             SeaTunnelSink<?, ?, ?, ?> sink = FactoryUtil.createAndPrepareSink(catalogTable, readonlyConfig, classLoader, factoryId);
             long id = idGenerator.getNextId();
-            SinkAction<?, ?, ?, ?> sinkAction = new SinkAction<>(id, factoryId, Collections.singletonList(leftAction), sink, factoryUrls);
+            SinkAction<?, ?, ?, ?> sinkAction = new SinkAction<>(id,
+                factoryId,
+                Collections.singletonList(leftAction),
+                sink,
+                factoryUrls,
+                new SinkConfig(catalogTable.getTableId().getTableName()));
+
             sinkAction.setParallelism(leftAction.getParallelism());
             sinkActions.add(sinkAction);
         }
