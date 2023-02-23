@@ -116,7 +116,8 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
         }
         ObjectNode jsonNode = (ObjectNode) convertBytes(message);
         assert jsonNode != null;
-        if (database != null && !databasePattern.matcher(jsonNode.get(FIELD_DATABASE).asText()).matches()) {
+        if (database != null
+                && !databasePattern.matcher(jsonNode.get(FIELD_DATABASE).asText()).matches()) {
             return;
         }
         if (table != null && !tablePattern.matcher(jsonNode.get(FIELD_TABLE).asText()).matches()) {
