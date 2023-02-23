@@ -49,7 +49,7 @@ public class PostgresDialect implements JdbcDialect {
     }
 
     @Override
-    public Optional<String> getUpsertStatement(String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+    public Optional<String> getUpsertStatement(String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
         String uniqueColumns = Arrays.stream(uniqueKeyFields)
             .map(this::quoteIdentifier)
             .collect(Collectors.joining(", "));
@@ -57,7 +57,7 @@ public class PostgresDialect implements JdbcDialect {
             .map(fieldName -> quoteIdentifier(fieldName) + "=EXCLUDED." + quoteIdentifier(fieldName))
             .collect(Collectors.joining(", "));
         String upsertSQL = String.format("%s ON CONFLICT (%s) DO UPDATE SET %s",
-            getInsertIntoStatement(tableName, fieldNames), uniqueColumns, updateClause);
+            getInsertIntoStatement(database, tableName, fieldNames), uniqueColumns, updateClause);
         return Optional.of(upsertSQL);
     }
 

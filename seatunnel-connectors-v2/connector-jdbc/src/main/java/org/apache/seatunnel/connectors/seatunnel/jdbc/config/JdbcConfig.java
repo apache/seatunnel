@@ -56,11 +56,15 @@ public class JdbcConfig implements Serializable {
 
     public static final Option<Boolean> IS_EXACTLY_ONCE = Options.key("is_exactly_once").booleanType().defaultValue(true).withDescription("exactly once");
 
+    public static final Option<Boolean> GENERATE_SINK_SQL = Options.key("generate_sink_sql").booleanType().defaultValue(true).withDescription("generate sql using the database table");
+
     public static final Option<String> XA_DATA_SOURCE_CLASS_NAME = Options.key("xa_data_source_class_name").stringType().noDefaultValue().withDescription("data source class name");
 
     public static final Option<Integer> MAX_COMMIT_ATTEMPTS = Options.key("max_commit_attempts").intType().defaultValue(3).withDescription("max commit attempts");
 
     public static final Option<Integer> TRANSACTION_TIMEOUT_SEC = Options.key("transaction_timeout_sec").intType().defaultValue(-1).withDescription("transaction timeout (second)");
+
+    public static final Option<String> DATABASE = Options.key("database").stringType().noDefaultValue().withDescription("database");
 
     public static final Option<String> TABLE = Options.key("table").stringType().noDefaultValue().withDescription("table");
 

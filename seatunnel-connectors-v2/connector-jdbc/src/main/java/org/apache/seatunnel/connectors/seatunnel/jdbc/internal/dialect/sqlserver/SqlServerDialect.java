@@ -43,7 +43,7 @@ public class SqlServerDialect implements JdbcDialect {
     }
 
     @Override
-    public Optional<String> getUpsertStatement(String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+    public Optional<String> getUpsertStatement(String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
         List<String> nonUniqueKeyFields = Arrays.stream(fieldNames)
             .filter(fieldName -> !Arrays.asList(uniqueKeyFields).contains(fieldName))
             .collect(Collectors.toList());
@@ -67,13 +67,14 @@ public class SqlServerDialect implements JdbcDialect {
             .map(fieldName -> "[SOURCE]." + quoteIdentifier(fieldName))
             .collect(Collectors.joining(", "));
         String upsertSQL = String.format(
-            "MERGE INTO %s AS [TARGET]"
+            "MERGE INTO %s.%s AS [TARGET]"
                 + " USING (%s) AS [SOURCE]"
                 + " ON (%s)"
                 + " WHEN MATCHED THEN"
                 + " UPDATE SET %s"
                 + " WHEN NOT MATCHED THEN"
                 + " INSERT (%s) VALUES (%s);",
+            database,
             tableName,
             usingClause,
             onConditions,

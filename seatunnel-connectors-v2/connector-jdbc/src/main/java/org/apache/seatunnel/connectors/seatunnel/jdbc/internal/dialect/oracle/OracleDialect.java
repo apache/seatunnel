@@ -50,7 +50,7 @@ public class OracleDialect implements JdbcDialect {
     }
 
     @Override
-    public Optional<String> getUpsertStatement(String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+    public Optional<String> getUpsertStatement(String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
         List<String> nonUniqueKeyFields = Arrays.stream(fieldNames)
             .filter(fieldName -> !Arrays.asList(uniqueKeyFields).contains(fieldName))
             .collect(Collectors.toList());
@@ -75,13 +75,14 @@ public class OracleDialect implements JdbcDialect {
             .collect(Collectors.joining(", "));
 
         String upsertSQL = String.format(
-            " MERGE INTO %s TARGET"
+            " MERGE INTO %s.%s TARGET"
                 + " USING (%s) SOURCE"
                 + " ON (%s) "
                 + " WHEN MATCHED THEN"
                 + " UPDATE SET %s"
                 + " WHEN NOT MATCHED THEN"
                 + " INSERT (%s) VALUES (%s)",
+            database,
             tableName,
             usingClause,
             onConditions,
