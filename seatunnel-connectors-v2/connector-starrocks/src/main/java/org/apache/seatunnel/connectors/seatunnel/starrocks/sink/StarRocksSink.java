@@ -17,14 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.sink;
 
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.NODE_URLS;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.TABLE;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.USERNAME;
-
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -34,14 +29,11 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.catalog.StarRocksCatalog;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.catalog.StarRocksCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -57,26 +49,30 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void> implem
     private SeaTunnelRowType seaTunnelRowType;
     private SinkConfig sinkConfig;
     private DataSaveMode dataSaveMode;
+
+    public StarRocksSink(DataSaveMode dataSaveMode,
+                         SinkConfig sinkConfig,
+                         SeaTunnelRowType seaTunnelRowType) {
+        this.dataSaveMode = dataSaveMode;
+        this.sinkConfig = sinkConfig;
+        this.seaTunnelRowType = seaTunnelRowType;
+    }
+
     @Override
     public String getPluginName() {
-        return "StarRocks";
+        return StarRocksCatalogFactory.IDENTIFIER;
     }
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, NODE_URLS.key(), DATABASE.key(), TABLE.key(), USERNAME.key(), PASSWORD.key());
-        if (!result.isSuccess()) {
-            throw new StarRocksConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                String.format("PluginName: %s, PluginType: %s, Message: %s",
-                    getPluginName(), PluginType.SINK, result.getMsg()));
-        }
+        ConfigValidator.of(ReadonlyConfig.fromConfig(pluginConfig))
+            .validate(new StarRocksCatalogFactory().optionRule());
         // TODO get catalog Table
         CatalogTable catalogTable = null;
-        sinkConfig = SinkConfig.loadConfig(pluginConfig);
+        sinkConfig = SinkConfig.of(ReadonlyConfig.fromConfig(pluginConfig));
         if (StringUtils.isEmpty(sinkConfig.getTable())) {
             sinkConfig.setTable(catalogTable.getTableId().getTableName());
         }
-        sinkConfig.setTable(catalogTable.getTableId().getTableName());
         dataSaveMode = DataSaveMode.KEEP_SCHEMA_AND_DATA;
     }
 
