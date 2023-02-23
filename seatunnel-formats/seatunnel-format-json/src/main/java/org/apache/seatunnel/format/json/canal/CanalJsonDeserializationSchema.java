@@ -125,7 +125,12 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
         }
         JsonNode dataNode = jsonNode.get(FIELD_DATA);
         String type = jsonNode.get(FIELD_TYPE).asText();
-        assert dataNode != null;
+        // When a null value is encountered, an exception needs to be thrown for easy sensing
+        if (dataNode == null || dataNode.isNull()) {
+            throw new SeaTunnelJsonFormatException(
+                    CommonErrorCode.JSON_OPERATION_FAILED,
+                    format("Null data value \"%s\" Cannot send downstream", new String(message)));
+        }
         if (OP_INSERT.equals(type)) {
             for (int i = 0; i < dataNode.size(); i++) {
                 SeaTunnelRow row = convertJsonNode(dataNode.get(i));
