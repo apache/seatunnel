@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>seatunnel-translation-spark-3.3</artifactId>
+    <name>SeaTunnel : Translation : Spark : 3.3</name>
 
     <properties>
         <scala.binary.version>2.12</scala.binary.version>

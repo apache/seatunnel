@@ -64,13 +64,15 @@ See [install plugins for IDEA](https://www.jetbrains.com/help/idea/managing-plug
 Before running the following example, you should also install JetBrains IntelliJ IDEA's [Lombok plugin](https://plugins.jetbrains.com/plugin/6317-lombok).
 See [install plugins for IDEA](https://www.jetbrains.com/help/idea/managing-plugins.html#install-plugins) if you want to.
 
-### Install JetBrains IDEA CheckStyle-IDEA Plugin
+### Code Style
 
-Before coding, you should also install JetBrains IntelliJ IDEA's [CheckStyle-IDEA plugin](https://plugins.jetbrains.com/plugin/1065-checkstyle-idea).
-See [install plugins for IDEA](https://www.jetbrains.com/help/idea/managing-plugins.html#install-plugins) if you want to.
-Next, you should go to `Preferences -> Editor -> Code style -> Scheme -> Import Scheme -> CheckStyle Configration` and import `tools/checkstyle/checkStyle.xml`
-![checkstyle.png](../images/checkstyle.png)
-If you want to change to automatically formatting, these configurations are also required.
+Apache SeaTunnel uses `Spotless` for code style and formatting checks. You could run the following command and `Spotless` will automatically fix the code style and formatting errors for you:
+
+```shell
+./mvnw spotless:apply
+```
+
+You could copy the `pre-commit hook` file `/tools/spotless_check/pre-commit.sh` to your `.git/hooks/` directory so that every time you commit your code with `git commit`, `Spotless` will automatically fix things for you.
 
 ## Run Simple Example
 

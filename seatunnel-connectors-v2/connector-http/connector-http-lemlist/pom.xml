@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-http-lemlist</artifactId>
+    <name>SeaTunnel : Connectors V2 : Http : Lemlist</name>
 
     <dependencies>
         <dependency>

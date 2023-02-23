@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>seatunnel-spark-2-starter</artifactId>
+    <name>SeaTunnel : Core : Spark Starter : 2.4</name>
 
     <dependencies>
 

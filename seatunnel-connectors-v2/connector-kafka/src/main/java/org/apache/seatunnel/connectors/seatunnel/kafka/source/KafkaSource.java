@@ -46,6 +46,7 @@ import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
+import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
 import org.apache.kafka.common.TopicPartition;
 
@@ -259,7 +260,11 @@ public class KafkaSource
             this.deserializationSchema =
                     TextDeserializationSchema.builder()
                             .seaTunnelRowType(typeInfo)
+<<<<<<< HEAD
                             .delimiter(String.valueOf('\002'))
+=======
+                            .delimiter(TextFormatConstant.PLACEHOLDER)
+>>>>>>> apache/dev
                             .build();
         }
     }

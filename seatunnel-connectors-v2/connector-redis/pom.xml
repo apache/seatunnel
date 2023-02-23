@@ -27,6 +27,10 @@
     </parent>
 
     <artifactId>connector-redis</artifactId>
+<<<<<<< HEAD
+=======
+    <name>SeaTunnel : Connectors V2 : Redis</name>
+>>>>>>> apache/dev
 
     <properties>
         <jedis.version>4.2.2</jedis.version>

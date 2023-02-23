@@ -78,7 +78,11 @@ public class JobExecutionIT {
                         });
 
         Awaitility.await()
+<<<<<<< HEAD
                 .atMost(600000, TimeUnit.MILLISECONDS)
+=======
+                .atMost(20000, TimeUnit.MILLISECONDS)
+>>>>>>> apache/dev
                 .untilAsserted(
                         () ->
                                 Assertions.assertTrue(

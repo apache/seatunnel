@@ -205,6 +205,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
                     checkpointCommitInfoMap.getOrDefault(barrier.getId(), Collections.emptyList());
             log.debug("final store commit info size [{}]", orDefault.size());
             log.debug("final store commit info [{}]", orDefault);
+
             List<byte[]> states =
                     serializeStates(
                             aggregatedCommitInfoSerializer,

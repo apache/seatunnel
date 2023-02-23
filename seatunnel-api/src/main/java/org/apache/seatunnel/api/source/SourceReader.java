@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.source;
 
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.state.CheckpointListener;
 
 import java.io.IOException;
@@ -107,5 +108,8 @@ public interface SourceReader<T, SplitT extends SourceSplit>
          * @param sourceEvent the source event to coordinator.
          */
         void sendSourceEventToEnumerator(SourceEvent sourceEvent);
+
+        /** @return metricsContext of this reader. */
+        MetricsContext getMetricsContext();
     }
 }

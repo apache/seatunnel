@@ -26,6 +26,10 @@
 
     <artifactId>seatunnel-engine-e2e</artifactId>
     <packaging>pom</packaging>
+<<<<<<< HEAD
+=======
+    <name>SeaTunnel : E2E : Engine :</name>
+>>>>>>> apache/dev
 
     <modules>
         <module>connector-seatunnel-e2e-base</module>

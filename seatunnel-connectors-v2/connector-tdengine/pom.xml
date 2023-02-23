@@ -27,6 +27,10 @@
     </parent>
 
     <artifactId>connector-tdengine</artifactId>
+<<<<<<< HEAD
+=======
+    <name>SeaTunnel : Connectors V2 : TDengine</name>
+>>>>>>> apache/dev
 
     <dependencies>
         <dependency>

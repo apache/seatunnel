@@ -4,6 +4,7 @@
 ### Zeta Engine
 - [Script]Add support close engine instance shell
 - [Client]Add Zeta Client ShutdownHook To Cancel Job
+- [Script]Add a jvm.properties file to define the SeaTunnel Zeta JVM Options
 ### Core
 - [Starter][Flink]Support transform-v2 for flink #3396
 - [Flink] Support flink 1.14.x #3963
@@ -13,6 +14,7 @@
 ### Connectors
 - [Elasticsearch] Support https protocol & compatible with opensearch
 - [Hbase] Add hbase sink connector #4049
+- [Github] Add Github source connector #4155
 ### Formats
 - [Canal]Support read canal format message #3950
 
@@ -37,6 +39,9 @@
 - [API]Add parallelism and column projection interface #3829
 - [API]Add get source method to all source connector #3846
 - [Hive] Support read user-defined partitions #3842
+- [Hive] Support read text table & Column projection #4105
+- [File] Support column projection #4105
+- [Github] Add github source connector #4155
 ### Zeta Engine
 - [Chore] Remove unnecessary dependencies #3795
 - [Core] Improve job restart of all node down #3784
@@ -64,5 +69,4 @@
 ## Test
 ### E2E
 - [SqlServer CDC] fix SqlServerCDC IT failure #3807
-
 

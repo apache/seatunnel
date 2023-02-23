@@ -41,8 +41,6 @@ import java.util.stream.Collectors;
 public class PhysicalPlan {
 
     private static final ILogger LOGGER = Logger.getLogger(PhysicalPlan.class);
-    /** The max num pipeline can restore. */
-    public static final int PIPELINE_MAX_RESTORE_NUM = 5; // TODO should set by config
 
     private final List<SubPlan> pipelineList;
 
@@ -79,9 +77,6 @@ public class PhysicalPlan {
     private final long jobId;
 
     private JobMaster jobMaster;
-
-    /** If the job or pipeline cancel by user, needRestore will be false */
-    private volatile boolean needRestore = true;
 
     /** Whether we make the job end when pipeline turn to end state. */
     private boolean makeJobEndWhenPipelineEnded = true;
@@ -160,8 +155,7 @@ public class PhysicalPlan {
                                     .join();
                         }
                         if (PipelineStatus.CANCELED.equals(pipelineState.getPipelineStatus())) {
-                            LOGGER.info("******************************************");
-                            if (canRestorePipeline(subPlan)) {
+                            if (subPlan.canRestorePipeline()) {
                                 subPlan.restorePipeline();
                                 return;
                             }
@@ -175,7 +169,7 @@ public class PhysicalPlan {
                             }
                         } else if (PipelineStatus.FAILED.equals(
                                 pipelineState.getPipelineStatus())) {
-                            if (canRestorePipeline(subPlan)) {
+                            if (subPlan.canRestorePipeline()) {
                                 LOGGER.info(
                                         String.format(
                                                 "Can restore pipeline %s",
@@ -191,7 +185,6 @@ public class PhysicalPlan {
                             LOGGER.severe(
                                     "Pipeline Failed, Begin to cancel other pipelines in this job.");
                         }
-                        subPlanDone(subPlan, pipelineState.getPipelineStatus());
 
                         if (finishedPipelineNum.incrementAndGet() == this.pipelineList.size()) {
                             if (failedPipelineNum.get() > 0) {
@@ -212,33 +205,6 @@ public class PhysicalPlan {
                         LOGGER.severe(ExceptionUtils.getMessage(e));
                     }
                 });
-    }
-
-    private void subPlanDone(SubPlan subPlan, PipelineStatus pipelineStatus) {
-        jobMaster.savePipelineMetricsToHistory(subPlan.getPipelineLocation());
-        jobMaster.removeMetricsContext(subPlan.getPipelineLocation(), pipelineStatus);
-        jobMaster.releasePipelineResource(subPlan);
-        notifyCheckpointManagerPipelineEnd(subPlan);
-    }
-
-    /**
-     * only call when the pipeline will never restart
-     *
-     * @param subPlan subPlan
-     */
-    private void notifyCheckpointManagerPipelineEnd(@NonNull SubPlan subPlan) {
-        if (jobMaster.getCheckpointManager() == null) {
-            return;
-        }
-        jobMaster
-                .getCheckpointManager()
-                .listenPipeline(
-                        subPlan.getPipelineLocation().getPipelineId(), subPlan.getPipelineState())
-                .join();
-    }
-
-    private boolean canRestorePipeline(SubPlan subPlan) {
-        return needRestore && subPlan.getPipelineRestoreNum() < PIPELINE_MAX_RESTORE_NUM;
     }
 
     public void cancelJob() {
@@ -366,9 +332,5 @@ public class PhysicalPlan {
 
     public String getJobFullName() {
         return jobFullName;
-    }
-
-    public void neverNeedRestore() {
-        this.needRestore = false;
     }
 }

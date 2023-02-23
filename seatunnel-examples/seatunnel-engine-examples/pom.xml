@@ -25,6 +25,8 @@
     </parent>
 
     <artifactId>seatunnel-engine-examples</artifactId>
+    <name>SeaTunnel : Examples : Engine</name>
+
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>

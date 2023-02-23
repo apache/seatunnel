@@ -44,6 +44,9 @@ import java.util.stream.Collectors;
 public class SubPlan {
     private static final ILogger LOGGER = Logger.getLogger(SubPlan.class);
 
+    /** The max num pipeline can restore. */
+    public static final int PIPELINE_MAX_RESTORE_NUM = 5; // TODO should set by config
+
     private final List<PhysicalVertex> physicalVertexList;
 
     private final List<PhysicalVertex> coordinatorVertexList;
@@ -172,17 +175,20 @@ public class SubPlan {
                         if (finishedTaskNum.incrementAndGet()
                                 == (physicalVertexList.size() + coordinatorVertexList.size())) {
                             if (failedTaskNum.get() > 0) {
+                                checkAndCleanPipeline(PipelineStatus.FAILED);
                                 turnToEndState(PipelineStatus.FAILED);
                                 LOGGER.info(
                                         String.format(
                                                 "%s end with state FAILED", this.pipelineFullName));
                             } else if (canceledTaskNum.get() > 0) {
+                                checkAndCleanPipeline(PipelineStatus.CANCELED);
                                 turnToEndState(PipelineStatus.CANCELED);
                                 LOGGER.info(
                                         String.format(
                                                 "%s end with state CANCELED",
                                                 this.pipelineFullName));
                             } else {
+                                checkAndCleanPipeline(PipelineStatus.FINISHED);
                                 turnToEndState(PipelineStatus.FINISHED);
                                 LOGGER.info(
                                         String.format(
@@ -205,6 +211,39 @@ public class SubPlan {
                                 e);
                     }
                 });
+    }
+
+    private void checkAndCleanPipeline(PipelineStatus pipelineStatus) {
+        if (!canRestorePipeline()) {
+            subPlanDone(pipelineStatus);
+        }
+    }
+
+    /**
+     * only call when the pipeline will never restart
+     *
+     * @param subPlan subPlan
+     */
+    private void notifyCheckpointManagerPipelineEnd(PipelineStatus pipelineStatus) {
+        if (jobMaster.getCheckpointManager() == null) {
+            return;
+        }
+        jobMaster
+            .getCheckpointManager()
+            .listenPipeline(
+                getPipelineLocation().getPipelineId(), pipelineStatus)
+            .join();
+    }
+
+    private void subPlanDone(PipelineStatus pipelineStatus) {
+        jobMaster.savePipelineMetricsToHistory(getPipelineLocation());
+        jobMaster.removeMetricsContext(getPipelineLocation(), pipelineStatus);
+        jobMaster.releasePipelineResource(this);
+        notifyCheckpointManagerPipelineEnd(pipelineStatus);
+    }
+
+    public boolean canRestorePipeline() {
+        return jobMaster.isNeedRestore() && getPipelineRestoreNum() < PIPELINE_MAX_RESTORE_NUM;
     }
 
     private void turnToEndState(@NonNull PipelineStatus endState) {

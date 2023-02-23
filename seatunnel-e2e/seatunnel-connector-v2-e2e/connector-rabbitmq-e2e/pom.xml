@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>connector-rabbitmq-e2e</artifactId>
+    <name>SeaTunnel : E2E : Connector V2 : Rabbitmq</name>
 
     <dependencies>
         <!-- SeaTunnel connectors -->

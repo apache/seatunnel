@@ -50,7 +50,7 @@ import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
-import org.apache.seatunnel.engine.server.metrics.MetricsContext;
+import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.scheduler.JobScheduler;
@@ -70,6 +70,7 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
+import lombok.Getter;
 import lombok.NonNull;
 
 import java.util.ArrayList;
@@ -137,6 +138,10 @@ public class JobMaster {
     private Map<Integer, CheckpointPlan> checkpointPlanMap;
 
     private final IMap<Long, JobInfo> runningJobInfoIMap;
+
+    /** If the job or pipeline cancel by user, needRestore will be false */
+    @Getter
+    private volatile boolean needRestore = true;
 
     public JobMaster(
             @NonNull Data jobImmutableInformationData,
@@ -494,7 +499,7 @@ public class JobMaster {
             PipelineLocation pipelineLocation, PipelineStatus pipelineStatus) {
         if (pipelineStatus.equals(PipelineStatus.FINISHED) && !checkpointManager.isSavePointEnd()
                 || pipelineStatus.equals(PipelineStatus.CANCELED)) {
-            IMap<TaskLocation, MetricsContext> map =
+            IMap<TaskLocation, SeaTunnelMetricsContext> map =
                     nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
             map.keySet().stream()
                     .filter(
@@ -634,5 +639,10 @@ public class JobMaster {
 
     public void markRestore() {
         restore = true;
+    }
+
+
+    public void neverNeedRestore() {
+        this.needRestore = false;
     }
 }

@@ -96,7 +96,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                 "starting seatunnel source split enumerator task, source name: "
                         + source.getName());
         enumeratorContext =
-                new SeaTunnelSplitEnumeratorContext<>(this.source.getParallelism(), this);
+                new SeaTunnelSplitEnumeratorContext<>(
+                        this.source.getParallelism(), this, getMetricsContext());
         enumeratorStateSerializer = this.source.getSource().getEnumeratorStateSerializer();
         taskMemberMapping = new ConcurrentHashMap<>();
         taskIDToTaskLocationMapping = new ConcurrentHashMap<>();
@@ -312,13 +313,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         List<InvocationFuture<?>> futures = new ArrayList<>();
         taskMemberMapping.forEach(
                 (location, address) -> {
-                    log.info(
-                            "----------------7777777777777--------------send to read--size: "
-                                    + taskMemberMapping.size()
-                                    + "---location:"
-                                    + location
-                                    + ", address:"
-                                    + address.toString());
+                    log.debug(
+                            "split enumerator send to read--size: {}, location: {}, address: {}", taskMemberMapping.size(), location, address.toString());
                     futures.add(
                             this.getExecutionContext()
                                     .sendToMember(function.apply(location), address));

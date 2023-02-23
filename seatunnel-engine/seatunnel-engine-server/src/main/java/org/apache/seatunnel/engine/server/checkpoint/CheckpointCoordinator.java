@@ -566,6 +566,7 @@ public class CheckpointCoordinator {
                 location.getPipelineId(),
                 location.getJobId(),
                 ackOperation.getBarrier().toString());
+
         pendingCheckpoint.acknowledgeTask(
                 location,
                 ackOperation.getStates(),
@@ -606,10 +607,10 @@ public class CheckpointCoordinator {
             if (completedCheckpoints.size()
                     > coordinatorConfig.getStorage().getMaxRetainedCheckpoints()) {
                 CompletedCheckpoint superfluous = completedCheckpoints.removeFirst();
-                //                checkpointStorage.deleteCheckpoint(
-                //                    String.valueOf(superfluous.getJobId()),
-                //                    String.valueOf(superfluous.getPipelineId()),
-                //                    String.valueOf(superfluous.getCheckpointId()));
+                checkpointStorage.deleteCheckpoint(
+                        String.valueOf(superfluous.getJobId()),
+                        String.valueOf(superfluous.getPipelineId()),
+                        String.valueOf(superfluous.getCheckpointId()));
             }
         } catch (Throwable e) {
             LOG.error("store checkpoint states failed.", e);

@@ -28,6 +28,10 @@
 
     <artifactId>seatunnel-dist</artifactId>
     <packaging>pom</packaging>
+<<<<<<< HEAD
+=======
+    <name>SeaTunnel : Dist</name>
+>>>>>>> apache/dev
 
     <properties>
         <!-- disable mvn deploy to central maven repo by default -->
@@ -403,6 +407,12 @@
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-http-gitlab</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-http-github</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>

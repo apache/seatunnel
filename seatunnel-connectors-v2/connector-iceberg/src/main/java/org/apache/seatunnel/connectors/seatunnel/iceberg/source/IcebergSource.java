@@ -103,11 +103,23 @@ public class IcebergSource
                 new SeaTunnelRowType(
                         columnNames.toArray(new String[0]),
                         columnDataTypes.toArray(new SeaTunnelDataType[0]));
+<<<<<<< HEAD
 
         CheckResult checkResult =
                 CheckConfigUtil.checkAllExists(pluginConfig, CommonConfig.KEY_FIELDS.key());
+=======
+
+        CheckResult checkResult =
+                CheckConfigUtil.checkAtLeastOneExists(
+                        pluginConfig, CommonConfig.KEY_FIELDS.key(), SeaTunnelSchema.SCHEMA.key());
+
+>>>>>>> apache/dev
         if (checkResult.isSuccess()) {
-            SeaTunnelSchema configSchema = SeaTunnelSchema.buildWithConfig(pluginConfig);
+            Config config =
+                    pluginConfig.hasPath(SeaTunnelSchema.SCHEMA.key())
+                            ? pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key())
+                            : pluginConfig;
+            SeaTunnelSchema configSchema = SeaTunnelSchema.buildWithConfig(config);
             SeaTunnelRowType projectedRowType = configSchema.getSeaTunnelRowType();
             for (int i = 0; i < projectedRowType.getFieldNames().length; i++) {
                 String fieldName = projectedRowType.getFieldName(i);

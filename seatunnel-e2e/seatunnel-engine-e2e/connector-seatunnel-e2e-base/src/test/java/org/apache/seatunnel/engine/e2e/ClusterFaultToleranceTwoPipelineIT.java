@@ -124,7 +124,11 @@ public class ClusterFaultToleranceTwoPipelineIT {
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
             Awaitility.await()
+<<<<<<< HEAD
                     .atMost(600000, TimeUnit.MILLISECONDS)
+=======
+                    .atMost(200000, TimeUnit.MILLISECONDS)
+>>>>>>> apache/dev
                     .untilAsserted(
                             () -> {
                                 Thread.sleep(2000);
@@ -268,7 +272,11 @@ public class ClusterFaultToleranceTwoPipelineIT {
             clientJobProxy.cancelJob();
 
             Awaitility.await()
+<<<<<<< HEAD
                     .atMost(600000, TimeUnit.MILLISECONDS)
+=======
+                    .atMost(200000, TimeUnit.MILLISECONDS)
+>>>>>>> apache/dev
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
@@ -367,6 +375,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
             node2.shutdown();
 
             Awaitility.await()
+<<<<<<< HEAD
                     .atMost(600000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
@@ -380,6 +389,15 @@ public class ClusterFaultToleranceTwoPipelineIT {
                                                 && JobStatus.FINISHED.equals(
                                                         objectCompletableFuture.get()));
                             });
+=======
+                    .atMost(400000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            objectCompletableFuture.isDone()
+                                                    && JobStatus.FINISHED.equals(
+                                                            objectCompletableFuture.get())));
+>>>>>>> apache/dev
 
             Long fileLineNumberFromDir =
                     FileUtils.getFileLineNumberFromDir(testResources.getLeft());
@@ -504,7 +522,11 @@ public class ClusterFaultToleranceTwoPipelineIT {
             clientJobProxy.cancelJob();
 
             Awaitility.await()
+<<<<<<< HEAD
                     .atMost(600000, TimeUnit.MILLISECONDS)
+=======
+                    .atMost(200000, TimeUnit.MILLISECONDS)
+>>>>>>> apache/dev
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
@@ -604,6 +626,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
             node1.shutdown();
 
             Awaitility.await()
+<<<<<<< HEAD
                     .atMost(600000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
@@ -617,6 +640,15 @@ public class ClusterFaultToleranceTwoPipelineIT {
                                                 && JobStatus.FINISHED.equals(
                                                         objectCompletableFuture.get()));
                             });
+=======
+                    .atMost(360000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            objectCompletableFuture.isDone()
+                                                    && JobStatus.FINISHED.equals(
+                                                            objectCompletableFuture.get())));
+>>>>>>> apache/dev
 
             Long fileLineNumberFromDir =
                     FileUtils.getFileLineNumberFromDir(testResources.getLeft());

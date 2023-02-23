@@ -27,6 +27,8 @@
     </parent>
 
     <artifactId>connector-iotdb</artifactId>
+    <name>SeaTunnel : Connectors V2 : IotDB</name>
+
     <properties>
         <iotdb.version>0.13.1</iotdb.version>
     </properties>

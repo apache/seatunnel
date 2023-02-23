@@ -92,8 +92,12 @@ if [ -e "${CONF_DIR}/log4j2_client.properties" ]; then
   fi
 fi
 
-echo "JAVA_OPTS: ${JAVA_OPTS}"
-
 CLASS_PATH=${APP_DIR}/lib/*:${APP_JAR}
+
+ST_TMPDIR=`java -cp ${CLASS_PATH} org.apache.seatunnel.core.starter.seatunnel.jvm.TempDirectory`
+# The JVM options parser produces the final JVM options to start seatunnel-engine.
+JVM_OPTIONS=`java -cp ${CLASS_PATH} org.apache.seatunnel.core.starter.seatunnel.jvm.JvmOptionsParser ${CONF_DIR}`
+JAVA_OPTS="${JAVA_OPTS} ${JVM_OPTIONS//\$\{loggc\}/${ST_TMPDIR}}"
+echo "JAVA_OPTS:" ${JAVA_OPTS}
 
 java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}

@@ -24,6 +24,10 @@
 
     <artifactId>seatunnel-spark-connector-v2-e2e</artifactId>
     <packaging>pom</packaging>
+<<<<<<< HEAD
+=======
+    <name>SeaTunnel : E2E : Spark Connector V2 :</name>
+>>>>>>> apache/dev
 
     <modules>
         <module>connector-spark-e2e-base</module>

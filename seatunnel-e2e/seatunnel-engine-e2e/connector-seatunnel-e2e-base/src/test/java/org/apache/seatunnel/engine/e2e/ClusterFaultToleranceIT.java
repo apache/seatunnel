@@ -116,7 +116,11 @@ public class ClusterFaultToleranceIT {
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
             Awaitility.await()
+<<<<<<< HEAD
                     .atMost(600000, TimeUnit.MILLISECONDS)
+=======
+                    .atMost(200000, TimeUnit.MILLISECONDS)
+>>>>>>> apache/dev
                     .untilAsserted(
                             () -> {
                                 Thread.sleep(2000);
@@ -254,7 +258,11 @@ public class ClusterFaultToleranceIT {
             clientJobProxy.cancelJob();
 
             Awaitility.await()
+<<<<<<< HEAD
                     .atMost(600000, TimeUnit.MILLISECONDS)
+=======
+                    .atMost(200000, TimeUnit.MILLISECONDS)
+>>>>>>> apache/dev
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
@@ -311,8 +319,11 @@ public class ClusterFaultToleranceIT {
                                     Assertions.assertEquals(
                                             2, finalNode.getCluster().getMembers().size()));
 
+<<<<<<< HEAD
             System.out.println(
                     "===================================All node is running==========================");
+=======
+>>>>>>> apache/dev
             Common.setDeployMode(DeployMode.CLIENT);
             ImmutablePair<String, String> testResources =
                     createTestResources(
@@ -331,7 +342,11 @@ public class ClusterFaultToleranceIT {
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
             Awaitility.await()
+<<<<<<< HEAD
                     .atMost(180000, TimeUnit.MILLISECONDS)
+=======
+                    .atMost(60000, TimeUnit.MILLISECONDS)
+>>>>>>> apache/dev
                     .untilAsserted(
                             () -> {
                                 // Wait some tasks commit finished
@@ -352,7 +367,11 @@ public class ClusterFaultToleranceIT {
             node2.shutdown();
 
             Awaitility.await()
+<<<<<<< HEAD
                     .atMost(600000, TimeUnit.MILLISECONDS)
+=======
+                    .atMost(200000, TimeUnit.MILLISECONDS)
+>>>>>>> apache/dev
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
@@ -381,7 +400,10 @@ public class ClusterFaultToleranceIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
+<<<<<<< HEAD
     @Disabled
+=======
+>>>>>>> apache/dev
     public void testStreamJobRestoreIn2NodeWorkerDown()
             throws ExecutionException, InterruptedException {
         String testCaseName = "testStreamJobRestoreIn2NodeWorkerDown";
@@ -449,7 +471,11 @@ public class ClusterFaultToleranceIT {
             node2.shutdown();
 
             Awaitility.await()
+<<<<<<< HEAD
                     .atMost(600000, TimeUnit.MILLISECONDS)
+=======
+                    .atMost(360000, TimeUnit.MILLISECONDS)
+>>>>>>> apache/dev
                     .untilAsserted(
                             () -> {
                                 // Wait job write all rows in file
@@ -469,7 +495,11 @@ public class ClusterFaultToleranceIT {
             clientJobProxy.cancelJob();
 
             Awaitility.await()
+<<<<<<< HEAD
                     .atMost(600000, TimeUnit.MILLISECONDS)
+=======
+                    .atMost(200000, TimeUnit.MILLISECONDS)
+>>>>>>> apache/dev
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
@@ -564,6 +594,7 @@ public class ClusterFaultToleranceIT {
             node1.shutdown();
 
             Awaitility.await()
+<<<<<<< HEAD
                     .atMost(600000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
@@ -576,6 +607,15 @@ public class ClusterFaultToleranceIT {
                                                 && JobStatus.FINISHED.equals(
                                                         objectCompletableFuture.get()));
                             });
+=======
+                    .atMost(200000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            objectCompletableFuture.isDone()
+                                                    && JobStatus.FINISHED.equals(
+                                                            objectCompletableFuture.get())));
+>>>>>>> apache/dev
 
             Long fileLineNumberFromDir =
                     FileUtils.getFileLineNumberFromDir(testResources.getLeft());
@@ -684,7 +724,11 @@ public class ClusterFaultToleranceIT {
             clientJobProxy.cancelJob();
 
             Awaitility.await()
+<<<<<<< HEAD
                     .atMost(600000, TimeUnit.MILLISECONDS)
+=======
+                    .atMost(200000, TimeUnit.MILLISECONDS)
+>>>>>>> apache/dev
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
@@ -804,11 +848,20 @@ public class ClusterFaultToleranceIT {
             JobExecutionEnvironment jobExecutionEnv =
                     engineClient.createExecutionContext(testResources.getRight(), jobConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+<<<<<<< HEAD
             Long jobId = clientJobProxy.getJobId();
 
             ClientJobProxy finalClientJobProxy = clientJobProxy;
             Awaitility.await()
                     .atMost(600000, TimeUnit.MILLISECONDS)
+=======
+
+            CompletableFuture<JobStatus> objectCompletableFuture =
+                    CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
+
+            Awaitility.await()
+                    .atMost(60000, TimeUnit.MILLISECONDS)
+>>>>>>> apache/dev
                     .untilAsserted(
                             () -> {
                                 // Wait some tasks commit finished, and we can get rows from the
@@ -818,7 +871,11 @@ public class ClusterFaultToleranceIT {
                                         FileUtils.getFileLineNumberFromDir(
                                                 testResources.getLeft()));
                                 Assertions.assertTrue(
+<<<<<<< HEAD
                                         JobStatus.RUNNING.equals(finalClientJobProxy.getJobStatus())
+=======
+                                        JobStatus.RUNNING.equals(clientJobProxy.getJobStatus())
+>>>>>>> apache/dev
                                                 && FileUtils.getFileLineNumberFromDir(
                                                                 testResources.getLeft())
                                                         > 1);
@@ -842,12 +899,17 @@ public class ClusterFaultToleranceIT {
             // waiting all node added to cluster
             HazelcastInstanceImpl restoreFinalNode = node1;
             Awaitility.await()
+<<<<<<< HEAD
                     .atMost(60000, TimeUnit.MILLISECONDS)
+=======
+                    .atMost(10000, TimeUnit.MILLISECONDS)
+>>>>>>> apache/dev
                     .untilAsserted(
                             () ->
                                     Assertions.assertEquals(
                                             2, restoreFinalNode.getCluster().getMembers().size()));
 
+<<<<<<< HEAD
             System.out.println(
                     "==========================================All node is running========================================");
             engineClient = new SeaTunnelClient(clientConfig);
@@ -857,6 +919,10 @@ public class ClusterFaultToleranceIT {
 
             Awaitility.await()
                     .atMost(600000, TimeUnit.MILLISECONDS)
+=======
+            Awaitility.await()
+                    .atMost(360000, TimeUnit.MILLISECONDS)
+>>>>>>> apache/dev
                     .untilAsserted(
                             () -> {
                                 // Wait job write all rows in file
@@ -864,6 +930,7 @@ public class ClusterFaultToleranceIT {
                                 System.out.println(
                                         FileUtils.getFileLineNumberFromDir(
                                                 testResources.getLeft()));
+<<<<<<< HEAD
                                 JobStatus jobStatus = null;
                                 try {
                                     jobStatus = newClientJobProxy.getJobStatus();
@@ -873,6 +940,10 @@ public class ClusterFaultToleranceIT {
 
                                 Assertions.assertTrue(
                                         JobStatus.RUNNING.equals(jobStatus)
+=======
+                                Assertions.assertTrue(
+                                        JobStatus.RUNNING.equals(clientJobProxy.getJobStatus())
+>>>>>>> apache/dev
                                                 && testRowNumber * testParallelism
                                                         == FileUtils.getFileLineNumberFromDir(
                                                                 testResources.getLeft()));
@@ -880,6 +951,7 @@ public class ClusterFaultToleranceIT {
 
             // sleep 10s and expect the job don't write more rows.
             Thread.sleep(10000);
+<<<<<<< HEAD
             System.out.println(
                     "==========================================Cancel Job========================================");
             newClientJobProxy.cancelJob();
@@ -892,6 +964,18 @@ public class ClusterFaultToleranceIT {
                                             waitForJobCompleteFuture.isDone()
                                                     && JobStatus.CANCELED.equals(
                                                             waitForJobCompleteFuture.get())));
+=======
+            clientJobProxy.cancelJob();
+
+            Awaitility.await()
+                    .atMost(360000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            objectCompletableFuture.isDone()
+                                                    && JobStatus.CANCELED.equals(
+                                                            objectCompletableFuture.get())));
+>>>>>>> apache/dev
 
             // prove that the task was restarted
             Long fileLineNumberFromDir =

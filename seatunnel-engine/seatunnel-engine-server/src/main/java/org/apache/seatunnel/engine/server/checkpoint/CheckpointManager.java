@@ -107,7 +107,6 @@ public class CheckpointManager {
                                                     plan.getPipelineId(), checkpointIdMap);
                                     try {
                                         idCounter.start();
-                                        idCounter.start();
                                         PipelineState pipelineState =
                                                 checkpointStorage
                                                         .getLatestCheckpointByJobIdAndPipelineId(
@@ -117,6 +116,7 @@ public class CheckpointManager {
                                         if (pipelineState != null) {
                                             long checkpointId = pipelineState.getCheckpointId();
                                             idCounter.setCount(checkpointId + 1);
+
                                             log.info(
                                                     "pipeline({}) start with savePoint on checkPointId({})",
                                                     plan.getPipelineId(),
@@ -235,7 +235,7 @@ public class CheckpointManager {
     public CompletableFuture<Void> shutdown(JobStatus jobStatus) {
         if ((jobStatus == JobStatus.FINISHED || jobStatus == JobStatus.CANCELED)
                 && !isSavePointEnd()) {
-            // checkpointStorage.deleteCheckpoint(jobId + "");
+            checkpointStorage.deleteCheckpoint(jobId + "");
         }
         return CompletableFuture.completedFuture(null);
     }

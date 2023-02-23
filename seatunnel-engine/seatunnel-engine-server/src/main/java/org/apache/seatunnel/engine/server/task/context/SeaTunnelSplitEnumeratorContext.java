@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task.context;
 
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -36,10 +37,15 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
 
     private final SourceSplitEnumeratorTask<SplitT> task;
 
+    private final MetricsContext metricsContext;
+
     public SeaTunnelSplitEnumeratorContext(
-            int parallelism, SourceSplitEnumeratorTask<SplitT> task) {
+            int parallelism,
+            SourceSplitEnumeratorTask<SplitT> task,
+            MetricsContext metricsContext) {
         this.parallelism = parallelism;
         this.task = task;
+        this.metricsContext = metricsContext;
     }
 
     @Override
@@ -59,8 +65,7 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
                         new AssignSplitOperation<>(
                                 task.getTaskMemberLocationByIndex(subtaskIndex),
                                 SerializationUtils.serialize(splits.toArray())),
-                        task.getTaskMemberAddressByIndex(subtaskIndex))
-                .join();
+                        task.getTaskMemberAddressByIndex(subtaskIndex)).join();
     }
 
     @Override
@@ -70,10 +75,14 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
                         new AssignSplitOperation<>(
                                 task.getTaskMemberLocationByIndex(subtaskIndex),
                                 SerializationUtils.serialize(Collections.emptyList().toArray())),
-                        task.getTaskMemberAddressByIndex(subtaskIndex))
-                .join();
+                        task.getTaskMemberAddressByIndex(subtaskIndex)).join();
     }
 
     @Override
     public void sendEventToSourceReader(int subtaskId, SourceEvent event) {}
+
+    @Override
+    public MetricsContext getMetricsContext() {
+        return metricsContext;
+    }
 }

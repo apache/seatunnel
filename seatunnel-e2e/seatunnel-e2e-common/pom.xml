@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>seatunnel-e2e-common</artifactId>
+    <name>SeaTunnel : E2E : Common</name>
 
     <dependencies>
         <dependency>

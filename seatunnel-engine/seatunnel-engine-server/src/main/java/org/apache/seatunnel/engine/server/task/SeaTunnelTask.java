@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.api.common.metrics.MetricTags;
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.function.ConsumerWithException;
@@ -40,7 +41,7 @@ import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlo
 import org.apache.seatunnel.engine.server.dag.physical.flow.UnknownFlowException;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
-import org.apache.seatunnel.engine.server.metrics.MetricsContext;
+import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.task.flow.ActionFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.FlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.IntermediateQueueFlowLifeCycle;
@@ -53,6 +54,9 @@ import org.apache.seatunnel.engine.server.task.flow.TransformFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.group.AbstractTaskGroupWithIntermediateQueue;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.hazelcast.internal.metrics.MetricDescriptor;
 import com.hazelcast.internal.metrics.MetricsCollectionContext;
@@ -106,7 +110,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     private TaskGroup taskBelongGroup;
 
-    private MetricsContext metricsContext;
+    private SeaTunnelMetricsContext metricsContext;
 
     public SeaTunnelTask(long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
         super(jobID, taskID);
@@ -206,7 +210,8 @@ public abstract class SeaTunnelTask extends AbstractTask {
                         createSourceFlowLifeCycle(
                                 (SourceAction<?, ?, ?>) f.getAction(),
                                 (SourceConfig) f.getConfig(),
-                                completableFuture);
+                                completableFuture,
+                                this.getMetricsContext());
                 outputs = flowLifeCycles;
             } else if (f.getAction() instanceof SinkAction) {
                 lifeCycle =
@@ -256,7 +261,8 @@ public abstract class SeaTunnelTask extends AbstractTask {
     protected abstract SourceFlowLifeCycle<?, ?> createSourceFlowLifeCycle(
             SourceAction<?, ?, ?> sourceAction,
             SourceConfig config,
-            CompletableFuture<Void> completableFuture);
+            CompletableFuture<Void> completableFuture,
+            MetricsContext metricsContext);
 
     protected abstract void collect() throws Exception;
 
@@ -361,11 +367,11 @@ public abstract class SeaTunnelTask extends AbstractTask {
                             }
                         });
         restoreComplete.complete(null);
-        log.debug("restoreState.SeaTunnelTask finished========" + actionStateList);
+        log.debug("restoreState for SeaTunnelTask finished, actionStateList: {}", actionStateList);
     }
 
     @Override
-    public MetricsContext getMetricsContext() {
+    public SeaTunnelMetricsContext getMetricsContext() {
         return metricsContext;
     }
 

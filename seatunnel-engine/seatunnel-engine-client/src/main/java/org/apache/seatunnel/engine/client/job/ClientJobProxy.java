@@ -42,9 +42,15 @@ import lombok.NonNull;
 public class ClientJobProxy implements Job {
     private static final ILogger LOGGER = Logger.getLogger(ClientJobProxy.class);
     private final SeaTunnelHazelcastClient seaTunnelHazelcastClient;
+<<<<<<< HEAD
 
     private final Long jobId;
 
+=======
+    private final JobImmutableInformation jobImmutableInformation;
+    private JobResult jobResult;
+
+>>>>>>> apache/dev
     public ClientJobProxy(
             @NonNull SeaTunnelHazelcastClient seaTunnelHazelcastClient,
             @NonNull JobImmutableInformation jobImmutableInformation) {
@@ -63,7 +69,11 @@ public class ClientJobProxy implements Job {
         return jobId;
     }
 
+<<<<<<< HEAD
     private void submitJob(JobImmutableInformation jobImmutableInformation) {
+=======
+    private void submitJob() {
+>>>>>>> apache/dev
         LOGGER.info(
                 String.format(
                         "start submit job, job id: %s, with plugin jar %s",
@@ -87,7 +97,6 @@ public class ClientJobProxy implements Job {
      */
     @Override
     public JobStatus waitForJobComplete() {
-        JobResult jobResult;
         try {
             jobResult =
                     RetryUtils.retryWithException(
@@ -107,15 +116,36 @@ public class ClientJobProxy implements Job {
         } catch (Exception e) {
             LOGGER.info(
                     String.format(
+<<<<<<< HEAD
                             "Job (%s) end with unknown state, and throw Exception: %s",
                             jobId, ExceptionUtils.getMessage(e)));
             throw new RuntimeException(e);
         }
         LOGGER.info(String.format("Job (%s) end with state %s", jobId, jobResult.getStatus()));
         if (StringUtils.isNotEmpty(jobResult.getError())) {
+=======
+                            "Job %s (%s) end with unknown state, and throw Exception: %s",
+                            jobImmutableInformation.getJobId(),
+                            jobImmutableInformation.getJobConfig().getName(),
+                            ExceptionUtils.getMessage(e)));
+            throw new RuntimeException(e);
+        }
+        LOGGER.info(
+                String.format(
+                        "Job %s (%s) end with state %s",
+                        jobImmutableInformation.getJobConfig().getName(),
+                        jobImmutableInformation.getJobId(),
+                        jobResult.getStatus()));
+        if (StringUtils.isNotEmpty(jobResult.getError())
+                || jobResult.getStatus().equals(JobStatus.FAILED)) {
+>>>>>>> apache/dev
             throw new SeaTunnelEngineException(jobResult.getError());
         }
         return jobResult.getStatus();
+    }
+
+    public JobResult getJobResultCache() {
+        return jobResult;
     }
 
     @Override
@@ -123,7 +153,12 @@ public class ClientJobProxy implements Job {
         return new PassiveCompletableFuture<>(
                 seaTunnelHazelcastClient
                         .requestOnMasterAndGetCompletableFuture(
+<<<<<<< HEAD
                                 SeaTunnelWaitForJobCompleteCodec.encodeRequest(jobId),
+=======
+                                SeaTunnelWaitForJobCompleteCodec.encodeRequest(
+                                        jobImmutableInformation.getJobId()),
+>>>>>>> apache/dev
                                 SeaTunnelWaitForJobCompleteCodec::decodeResponse)
                         .thenApply(
                                 jobResult ->
@@ -136,7 +171,11 @@ public class ClientJobProxy implements Job {
     public void cancelJob() {
         PassiveCompletableFuture<Void> cancelFuture =
                 seaTunnelHazelcastClient.requestOnMasterAndGetCompletableFuture(
+<<<<<<< HEAD
                         SeaTunnelCancelJobCodec.encodeRequest(jobId));
+=======
+                        SeaTunnelCancelJobCodec.encodeRequest(jobImmutableInformation.getJobId()));
+>>>>>>> apache/dev
 
         cancelFuture.join();
     }
@@ -145,7 +184,12 @@ public class ClientJobProxy implements Job {
     public JobStatus getJobStatus() {
         int jobStatusOrdinal =
                 seaTunnelHazelcastClient.requestOnMasterAndDecodeResponse(
+<<<<<<< HEAD
                         SeaTunnelGetJobStatusCodec.encodeRequest(jobId),
+=======
+                        SeaTunnelGetJobStatusCodec.encodeRequest(
+                                jobImmutableInformation.getJobId()),
+>>>>>>> apache/dev
                         SeaTunnelGetJobStatusCodec::decodeResponse);
         return JobStatus.values()[jobStatusOrdinal];
     }

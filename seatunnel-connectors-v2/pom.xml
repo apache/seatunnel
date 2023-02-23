@@ -27,6 +27,10 @@
     </parent>
     <artifactId>seatunnel-connectors-v2</artifactId>
     <packaging>pom</packaging>
+<<<<<<< HEAD
+=======
+    <name>SeaTunnel : Connectors V2 :</name>
+>>>>>>> apache/dev
 
     <modules>
         <module>connector-common</module>

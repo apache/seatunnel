@@ -29,6 +29,7 @@
 
     <artifactId>checkpoint-storage-plugins</artifactId>
     <packaging>pom</packaging>
+    <name>SeaTunnel : Engine : Storage : Checkpoint Storage Plugins :</name>
 
     <modules>
         <module>checkpoint-storage-local-file</module>
