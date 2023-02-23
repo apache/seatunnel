@@ -21,8 +21,12 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
+import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksOptions;
 
+import com.google.auto.service.AutoService;
+
+@AutoService(Factory.class)
 public class StarRocksCatalogFactory implements CatalogFactory {
     public static final String IDENTIFIER = "StarRocks";
     @Override

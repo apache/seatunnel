@@ -212,7 +212,7 @@ public class JobMaster {
         jobCheckpointConfig.setStorage(jobCheckpointStorageConfig);
 
         if (jobEnv.containsKey(EnvCommonOptions.CHECKPOINT_INTERVAL.key())) {
-            jobCheckpointConfig.setCheckpointInterval((Integer) jobEnv.get(EnvCommonOptions.CHECKPOINT_INTERVAL.key()));
+            jobCheckpointConfig.setCheckpointInterval((Long) jobEnv.get(EnvCommonOptions.CHECKPOINT_INTERVAL.key()));
         }
         return jobCheckpointConfig;
     }

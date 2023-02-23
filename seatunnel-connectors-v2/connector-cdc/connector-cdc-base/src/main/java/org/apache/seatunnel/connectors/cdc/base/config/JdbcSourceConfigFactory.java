@@ -192,7 +192,7 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         // TODO: support multi-table
         this.databaseList = Collections.singletonList(config.get(JdbcSourceOptions.DATABASE_NAME));
         this.tableList = Collections.singletonList(config.get(JdbcSourceOptions.DATABASE_NAME)
-            + "." + config.get(JdbcSourceOptions.TABLE_NAME));
+            + "\\." + config.get(JdbcSourceOptions.TABLE_NAME));
         this.distributionFactorUpper = config.get(JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND);
         this.distributionFactorLower = config.get(JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND);
         this.splitSize = config.get(SourceOptions.SNAPSHOT_SPLIT_SIZE);

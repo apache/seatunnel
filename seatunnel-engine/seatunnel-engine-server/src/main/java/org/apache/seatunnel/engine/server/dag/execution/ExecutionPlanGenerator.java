@@ -31,6 +31,7 @@ import org.apache.seatunnel.engine.core.dag.actions.ShuffleConfig;
 import org.apache.seatunnel.engine.core.dag.actions.ShuffleMultipleRowStrategy;
 import org.apache.seatunnel.engine.core.dag.actions.ShuffleStrategy;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.core.dag.actions.SinkConfig;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.actions.TransformAction;
 import org.apache.seatunnel.engine.core.dag.actions.TransformChainAction;
@@ -101,7 +102,10 @@ public class ExecutionPlanGenerator {
                 ((ShuffleAction) action).getConfig());
         } else if (action instanceof SinkAction) {
             newAction = new SinkAction<>(id, action.getName(),
-                ((SinkAction<?, ?, ?, ?>) action).getSink(), action.getJarUrls());
+                new ArrayList<>(),
+                ((SinkAction<?, ?, ?, ?>) action).getSink(),
+                action.getJarUrls(),
+                (SinkConfig) action.getConfig());
         } else if (action instanceof SourceAction) {
             newAction = new SourceAction<>(id, action.getName(),
                 ((SourceAction<?, ?, ?>) action).getSource(), action.getJarUrls());
