@@ -70,6 +70,7 @@ import lombok.NonNull;
 import lombok.SneakyThrows;
 import org.apache.commons.collections4.CollectionUtils;
 
+import java.io.IOException;
 import java.net.URL;
 import java.util.Collection;
 import java.util.HashMap;
@@ -410,6 +411,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 taskGroupExecutionTracker.exception(e);
             } finally {
                 taskGroupExecutionTracker.taskDone(t);
+                try {
+                    tracker.task.close();
+                } catch (IOException e) {
+                    logger.severe("Close task error", e);
+                }
             }
             Thread.currentThread().setContextClassLoader(oldClassLoader);
         }
