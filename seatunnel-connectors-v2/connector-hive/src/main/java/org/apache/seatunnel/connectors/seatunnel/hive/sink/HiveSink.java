@@ -52,22 +52,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-<<<<<<< HEAD
-=======
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
->>>>>>> apache/dev
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FILE_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FILE_NAME_EXPRESSION;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FILE_PATH;
-<<<<<<< HEAD
-import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.IS_PARTITION_FIELD_WRITE_IN_FILE;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.PARTITION_BY;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.ROW_DELIMITER;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.SINK_COLUMNS;
-import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.ORC_OUTPUT_FORMAT_CLASSNAME;
-import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.PARQUET_OUTPUT_FORMAT_CLASSNAME;
-=======
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.HAVE_PARTITION;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.IS_PARTITION_FIELD_WRITE_IN_FILE;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.PARTITION_BY;
@@ -78,7 +67,6 @@ import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.M
 import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.ORC_OUTPUT_FORMAT_CLASSNAME;
 import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.PARQUET_OUTPUT_FORMAT_CLASSNAME;
 import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.TABLE_NAME;
->>>>>>> apache/dev
 import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.TEXT_OUTPUT_FORMAT_CLASSNAME;
 
 @AutoService(SeaTunnelSink.class)
@@ -95,12 +83,7 @@ public class HiveSink extends BaseHdfsFileSink {
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result =
-<<<<<<< HEAD
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig, HiveConfig.METASTORE_URI.key(), HiveConfig.TABLE_NAME.key());
-=======
                 CheckConfigUtil.checkAllExists(pluginConfig, METASTORE_URI.key(), TABLE_NAME.key());
->>>>>>> apache/dev
         if (!result.isSuccess()) {
             throw new HiveConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -108,14 +91,7 @@ public class HiveSink extends BaseHdfsFileSink {
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SINK, result.getMsg()));
         }
-<<<<<<< HEAD
-        if (pluginConfig.hasPath(BaseSinkConfig.PARTITION_DIR_EXPRESSION.key())) {
-            throw new HiveConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "Hive sink connector does not support setting %s",
-                            BaseSinkConfig.PARTITION_DIR_EXPRESSION.key()));
-=======
+
         result =
                 CheckConfigUtil.checkAtLeastOneExists(
                         pluginConfig,
@@ -144,7 +120,6 @@ public class HiveSink extends BaseHdfsFileSink {
                                     HAVE_PARTITION.key(),
                                     SINK_COLUMNS.key(),
                                     PARTITION_BY.key())));
->>>>>>> apache/dev
         }
         Pair<String[], Table> tableInfo = HiveConfig.getTableInfo(pluginConfig);
         dbName = tableInfo.getLeft()[0];
@@ -208,11 +183,6 @@ public class HiveSink extends BaseHdfsFileSink {
         try {
             URI uri = new URI(hdfsLocation);
             String path = uri.getPath();
-<<<<<<< HEAD
-            pluginConfig =
-                    pluginConfig.withValue(FILE_PATH.key(), ConfigValueFactory.fromAnyRef(path));
-=======
->>>>>>> apache/dev
             hadoopConf = new HadoopConf(hdfsLocation.replace(path, ""));
             pluginConfig =
                     pluginConfig

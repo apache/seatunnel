@@ -27,10 +27,7 @@
     </parent>
     <artifactId>connector-file</artifactId>
     <packaging>pom</packaging>
-<<<<<<< HEAD
-=======
     <name>SeaTunnel : Connectors V2 : File :</name>
->>>>>>> apache/dev
 
     <modules>
         <module>connector-file-base</module>

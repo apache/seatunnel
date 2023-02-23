@@ -219,18 +219,15 @@ public class SubPlan {
         }
     }
 
-    /**
-     * only call when the pipeline will never restart
-     */
+    /** only call when the pipeline will never restart */
     private void notifyCheckpointManagerPipelineEnd(PipelineStatus pipelineStatus) {
         if (jobMaster.getCheckpointManager() == null) {
             return;
         }
         jobMaster
-            .getCheckpointManager()
-            .listenPipeline(
-                getPipelineLocation().getPipelineId(), pipelineStatus)
-            .join();
+                .getCheckpointManager()
+                .listenPipeline(getPipelineLocation().getPipelineId(), pipelineStatus)
+                .join();
     }
 
     private void subPlanDone(PipelineStatus pipelineStatus) {

@@ -21,9 +21,6 @@ import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.serializable.JobDataSerializerHook;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.nio.ObjectDataInput;

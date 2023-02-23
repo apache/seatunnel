@@ -260,11 +260,7 @@ public class KafkaSource
             this.deserializationSchema =
                     TextDeserializationSchema.builder()
                             .seaTunnelRowType(typeInfo)
-<<<<<<< HEAD
-                            .delimiter(String.valueOf('\002'))
-=======
                             .delimiter(TextFormatConstant.PLACEHOLDER)
->>>>>>> apache/dev
                             .build();
         }
     }

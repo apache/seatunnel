@@ -55,9 +55,6 @@ import org.apache.seatunnel.engine.server.task.group.AbstractTaskGroupWithInterm
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.hazelcast.internal.metrics.MetricDescriptor;
 import com.hazelcast.internal.metrics.MetricsCollectionContext;
 import lombok.NonNull;

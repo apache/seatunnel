@@ -103,17 +103,11 @@ public class IcebergSource
                 new SeaTunnelRowType(
                         columnNames.toArray(new String[0]),
                         columnDataTypes.toArray(new SeaTunnelDataType[0]));
-<<<<<<< HEAD
-
-        CheckResult checkResult =
-                CheckConfigUtil.checkAllExists(pluginConfig, CommonConfig.KEY_FIELDS.key());
-=======
 
         CheckResult checkResult =
                 CheckConfigUtil.checkAtLeastOneExists(
                         pluginConfig, CommonConfig.KEY_FIELDS.key(), SeaTunnelSchema.SCHEMA.key());
 
->>>>>>> apache/dev
         if (checkResult.isSuccess()) {
             Config config =
                     pluginConfig.hasPath(SeaTunnelSchema.SCHEMA.key())

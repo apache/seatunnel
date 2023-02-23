@@ -314,7 +314,10 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         taskMemberMapping.forEach(
                 (location, address) -> {
                     log.debug(
-                            "split enumerator send to read--size: {}, location: {}, address: {}", taskMemberMapping.size(), location, address.toString());
+                            "split enumerator send to read--size: {}, location: {}, address: {}",
+                            taskMemberMapping.size(),
+                            location,
+                            address.toString());
                     futures.add(
                             this.getExecutionContext()
                                     .sendToMember(function.apply(location), address));

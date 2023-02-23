@@ -27,10 +27,7 @@
     </parent>
 
     <artifactId>connector-kudu</artifactId>
-<<<<<<< HEAD
-=======
     <name>SeaTunnel : Connectors V2 : Kudu</name>
->>>>>>> apache/dev
 
     <properties>
         <kudu.version>1.11.1</kudu.version>

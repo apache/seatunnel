@@ -17,14 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.source;
 
-<<<<<<< HEAD
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-=======
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
->>>>>>> apache/dev
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
@@ -59,11 +55,6 @@ import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME
 import static org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema.SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig.FILE_PATH;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig.FILE_TYPE;
-import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.ORC_INPUT_FORMAT_CLASSNAME;
-import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.PARQUET_INPUT_FORMAT_CLASSNAME;
-import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.TEXT_INPUT_FORMAT_CLASSNAME;
-
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.ORC_INPUT_FORMAT_CLASSNAME;
 import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.PARQUET_INPUT_FORMAT_CLASSNAME;
 import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.TEXT_INPUT_FORMAT_CLASSNAME;
@@ -135,14 +126,6 @@ public class HiveSource extends BaseHdfsFileSource {
         if (TEXT_INPUT_FORMAT_CLASSNAME.equals(inputFormat)) {
             pluginConfig =
                     pluginConfig.withValue(
-<<<<<<< HEAD
-                            BaseSourceConfig.FILE_TYPE.key(),
-                            ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()));
-        } else if (PARQUET_INPUT_FORMAT_CLASSNAME.equals(inputFormat)) {
-            pluginConfig =
-                    pluginConfig.withValue(
-                            BaseSourceConfig.FILE_TYPE.key(),
-=======
                             FILE_TYPE.key(),
                             ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()));
             // Build schema from hive table information
@@ -158,16 +141,11 @@ public class HiveSource extends BaseHdfsFileSource {
             pluginConfig =
                     pluginConfig.withValue(
                             FILE_TYPE.key(),
->>>>>>> apache/dev
                             ConfigValueFactory.fromAnyRef(FileFormat.PARQUET.toString()));
         } else if (ORC_INPUT_FORMAT_CLASSNAME.equals(inputFormat)) {
             pluginConfig =
                     pluginConfig.withValue(
-<<<<<<< HEAD
-                            BaseSourceConfig.FILE_TYPE.key(),
-=======
                             FILE_TYPE.key(),
->>>>>>> apache/dev
                             ConfigValueFactory.fromAnyRef(FileFormat.ORC.toString()));
         } else {
             throw new HiveConnectorException(

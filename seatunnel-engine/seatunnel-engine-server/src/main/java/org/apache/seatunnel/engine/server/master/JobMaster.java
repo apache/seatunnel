@@ -140,8 +140,7 @@ public class JobMaster {
     private final IMap<Long, JobInfo> runningJobInfoIMap;
 
     /** If the job or pipeline cancel by user, needRestore will be false */
-    @Getter
-    private volatile boolean needRestore = true;
+    @Getter private volatile boolean needRestore = true;
 
     public JobMaster(
             @NonNull Data jobImmutableInformationData,
@@ -640,7 +639,6 @@ public class JobMaster {
     public void markRestore() {
         restore = true;
     }
-
 
     public void neverNeedRestore() {
         this.needRestore = false;

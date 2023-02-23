@@ -201,7 +201,8 @@ connector will generate data as the following:
 The schema information of upstream data.
 
 <<<<<<< HEAD
-=======
+============
+
 ### read_columns [list]
 
 The read column list of the data source, user can use it to implement field projection.
@@ -217,7 +218,8 @@ The file type supported column projection as the following shown:
 **Tips: If the user wants to use this feature when reading `text` `json` `csv` files, the schema option must be configured**
 
 >>>>>>> apache/dev
-### common options
+>>>>>>>
+        ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
