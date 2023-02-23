@@ -214,17 +214,12 @@ public class CoordinatorService {
                                                             String.format(
                                                                     "begin restore job (%s) from master active switch",
                                                                     entry.getKey()));
-<<<<<<< HEAD
                                                     try {
                                                         restoreJobFromMasterActiveSwitch(
                                                                 entry.getKey(), entry.getValue());
                                                     } catch (Exception e) {
                                                         logger.severe(e);
                                                     }
-=======
-                                                    restoreJobFromMasterActiveSwitch(
-                                                            entry.getKey(), entry.getValue());
->>>>>>> apache/dev
                                                     logger.info(
                                                             String.format(
                                                                     "restore job (%s) from master active switch finished",
@@ -262,10 +257,7 @@ public class CoordinatorService {
                         runningJobInfoIMap,
                         engineConfig);
 
-<<<<<<< HEAD
         // If Job Status is CANCELLING , set needRestore to false
-=======
->>>>>>> apache/dev
         try {
             jobMaster.init(
                     runningJobInfoIMap.get(jobId).getInitializationTimestamp(),
@@ -421,13 +413,9 @@ public class CoordinatorService {
                                 new JobInfo(System.currentTimeMillis(), jobImmutableInformation));
                         runningJobMasterMap.put(jobId, jobMaster);
                         jobMaster.init(
-<<<<<<< HEAD
                                 runningJobInfoIMap.get(jobId).getInitializationTimestamp(),
                                 false,
                                 true);
-=======
-                                runningJobInfoIMap.get(jobId).getInitializationTimestamp(), false);
->>>>>>> apache/dev
                         // We specify that when init is complete, the submitJob is complete
                         jobSubmitFuture.complete(null);
                     } catch (Throwable e) {

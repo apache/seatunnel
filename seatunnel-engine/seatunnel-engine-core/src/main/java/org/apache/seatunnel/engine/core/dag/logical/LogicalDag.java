@@ -31,10 +31,7 @@ import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import lombok.Getter;
 import lombok.NonNull;
-<<<<<<< HEAD
-=======
 import lombok.extern.slf4j.Slf4j;
->>>>>>> apache/dev
 
 import java.io.IOException;
 import java.util.LinkedHashMap;
@@ -63,10 +60,6 @@ import java.util.Set;
 @Slf4j
 public class LogicalDag implements IdentifiedDataSerializable {
 
-<<<<<<< HEAD
-    private static final Logger LOG = LoggerFactory.getLogger(LogicalDag.class);
-=======
->>>>>>> apache/dev
     @Getter private JobConfig jobConfig;
     private final Set<LogicalEdge> edges = new LinkedHashSet<>();
     private final Map<Long, LogicalVertex> logicalVertexMap = new LinkedHashMap<>();

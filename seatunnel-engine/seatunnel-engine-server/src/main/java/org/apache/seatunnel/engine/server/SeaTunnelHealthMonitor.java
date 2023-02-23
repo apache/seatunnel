@@ -87,11 +87,7 @@ public class SeaTunnelHealthMonitor {
         return Long.toString(number);
     }
 
-<<<<<<< HEAD
-    class SeaTunnelHealthMetrics {
-=======
     public class SeaTunnelHealthMetrics {
->>>>>>> apache/dev
         final LongGauge clientEndpointCount = metricRegistry.newLongGauge("client.endpoint.count");
         final LongGauge clusterTimeDiff =
                 metricRegistry.newLongGauge("cluster.clock.clusterTimeDiff");

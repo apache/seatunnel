@@ -214,15 +214,13 @@ public class SubPlan {
     }
 
     private void checkAndCleanPipeline(PipelineStatus pipelineStatus) {
-        if (!canRestorePipeline()) {
+        if (!canRestorePipeline() || PipelineStatus.FINISHED.equals(pipelineStatus)) {
             subPlanDone(pipelineStatus);
         }
     }
 
     /**
      * only call when the pipeline will never restart
-     *
-     * @param subPlan subPlan
      */
     private void notifyCheckpointManagerPipelineEnd(PipelineStatus pipelineStatus) {
         if (jobMaster.getCheckpointManager() == null) {

@@ -17,16 +17,9 @@
 
 package org.apache.seatunnel.engine.client;
 
-<<<<<<< HEAD
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
-
-=======
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
->>>>>>> apache/dev
 import org.apache.seatunnel.engine.client.job.JobClient;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.JobMetricsRunner.JobMetricsSummary;
@@ -34,10 +27,6 @@ import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetClusterHealthMetricsCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
-<<<<<<< HEAD
-import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelSavePointJobCodec;
-=======
->>>>>>> apache/dev
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.cluster.Member;
@@ -104,18 +93,6 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
      */
     @Deprecated
     public String getJobDetailStatus(Long jobId) {
-<<<<<<< HEAD
-        return hazelcastClient.requestOnMasterAndDecodeResponse(
-                SeaTunnelGetJobDetailStatusCodec.encodeRequest(jobId),
-                SeaTunnelGetJobDetailStatusCodec::decodeResponse);
-    }
-
-    /** list all jobId and job status */
-    public String listJobStatus() {
-        return hazelcastClient.requestOnMasterAndDecodeResponse(
-                SeaTunnelListJobStatusCodec.encodeRequest(),
-                SeaTunnelListJobStatusCodec::decodeResponse);
-=======
         return jobClient.getJobDetailStatus(jobId);
     }
 
@@ -123,7 +100,6 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
     @Deprecated
     public String listJobStatus() {
         return jobClient.listJobStatus();
->>>>>>> apache/dev
     }
 
     /**
@@ -133,65 +109,26 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
      */
     @Deprecated
     public String getJobStatus(Long jobId) {
-<<<<<<< HEAD
-        int jobStatusOrdinal =
-                hazelcastClient.requestOnMasterAndDecodeResponse(
-                        SeaTunnelGetJobStatusCodec.encodeRequest(jobId),
-                        SeaTunnelGetJobStatusCodec::decodeResponse);
-        return JobStatus.values()[jobStatusOrdinal].toString();
-=======
         return jobClient.getJobStatus(jobId);
->>>>>>> apache/dev
     }
 
     @Deprecated
     public String getJobMetrics(Long jobId) {
-<<<<<<< HEAD
-        return hazelcastClient.requestOnMasterAndDecodeResponse(
-                SeaTunnelGetJobMetricsCodec.encodeRequest(jobId),
-                SeaTunnelGetJobMetricsCodec::decodeResponse);
-    }
-
-    public void savePointJob(Long jobId) {
-        PassiveCompletableFuture<Void> cancelFuture =
-                hazelcastClient.requestOnMasterAndGetCompletableFuture(
-                        SeaTunnelSavePointJobCodec.encodeRequest(jobId));
-
-        cancelFuture.join();
-=======
         return jobClient.getJobMetrics(jobId);
     }
 
     @Deprecated
     public void savePointJob(Long jobId) {
         jobClient.savePointJob(jobId);
->>>>>>> apache/dev
     }
 
     @Deprecated
     public void cancelJob(Long jobId) {
-<<<<<<< HEAD
-        PassiveCompletableFuture<Void> cancelFuture =
-                hazelcastClient.requestOnMasterAndGetCompletableFuture(
-                        SeaTunnelCancelJobCodec.encodeRequest(jobId));
-
-        cancelFuture.join();
-    }
-
-    public JobDAGInfo getJobInfo(Long jobId) {
-        return hazelcastClient
-                .getSerializationService()
-                .toObject(
-                        hazelcastClient.requestOnMasterAndDecodeResponse(
-                                SeaTunnelGetJobInfoCodec.encodeRequest(jobId),
-                                SeaTunnelGetJobInfoCodec::decodeResponse));
-=======
         jobClient.cancelJob(jobId);
     }
 
     public JobDAGInfo getJobInfo(Long jobId) {
         return jobClient.getJobInfo(jobId);
->>>>>>> apache/dev
     }
 
     public JobMetricsSummary getJobMetricsSummary(Long jobId) {

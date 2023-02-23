@@ -56,10 +56,10 @@ public class JobClient {
         return new ClientJobProxy(hazelcastClient, jobImmutableInformation);
     }
 
-<<<<<<< HEAD
-    public ClientJobProxy getJobProxy(Long jobId) {
+    public ClientJobProxy getJobProxy(@NonNull Long jobId) {
         return new ClientJobProxy(hazelcastClient, jobId);
-=======
+    }
+
     public String getJobDetailStatus(Long jobId) {
         return hazelcastClient.requestOnMasterAndDecodeResponse(
                 SeaTunnelGetJobDetailStatusCodec.encodeRequest(jobId),
@@ -136,6 +136,5 @@ public class JobClient {
         } catch (JsonProcessingException | NullPointerException e) {
             return new JobMetricsRunner.JobMetricsSummary(sourceReadCount, sinkWriteCount);
         }
->>>>>>> apache/dev
     }
 }

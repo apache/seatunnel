@@ -222,13 +222,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
     public PassiveCompletableFuture<TaskExecutionState> deployTask(
             @NonNull TaskGroupImmutableInformation taskImmutableInfo) {
-<<<<<<< HEAD
         logger.info(
                 String.format(
                         "received deploying task executionId [%s]",
                         taskImmutableInfo.getExecutionId()));
-=======
->>>>>>> apache/dev
         CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
         TaskGroup taskGroup = null;
         try {
@@ -442,11 +439,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         contextMap.putAll(executionContexts);
         contextMap.putAll(finishedExecutionContexts);
         try {
-<<<<<<< HEAD
-            IMap<TaskLocation, MetricsContext> map =
-=======
             IMap<TaskLocation, SeaTunnelMetricsContext> map =
->>>>>>> apache/dev
                     nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
             contextMap.forEach(
                     (taskGroupLocation, taskGroupContext) -> {

@@ -137,7 +137,6 @@ public class FakeSourceSplitEnumerator
 
             if (pendingAssignmentForReader != null && !pendingAssignmentForReader.isEmpty()) {
                 // Mark pending splits as already assigned
-<<<<<<< HEAD
                 synchronized (lock) {
                     assignedSplits.addAll(pendingAssignmentForReader);
                     // Assign pending splits to reader
@@ -149,17 +148,6 @@ public class FakeSourceSplitEnumerator
                             pendingReader, new ArrayList<>(pendingAssignmentForReader));
                     enumeratorContext.signalNoMoreSplits(pendingReader);
                 }
-=======
-                assignedSplits.addAll(pendingAssignmentForReader);
-                // Assign pending splits to reader
-                log.info(
-                        "Assigning splits to readers {} {}",
-                        pendingReader,
-                        pendingAssignmentForReader);
-                enumeratorContext.assignSplit(
-                        pendingReader, new ArrayList<>(pendingAssignmentForReader));
-                enumeratorContext.signalNoMoreSplits(pendingReader);
->>>>>>> apache/dev
             }
         }
     }

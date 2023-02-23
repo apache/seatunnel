@@ -108,11 +108,8 @@ public class SeaTunnelServer
                 0,
                 seaTunnelConfig.getEngineConfig().getPrintExecutionInfoInterval(),
                 TimeUnit.SECONDS);
-<<<<<<< HEAD
-=======
 
         seaTunnelHealthMonitor = new SeaTunnelHealthMonitor(((NodeEngineImpl) engine).getNode());
->>>>>>> apache/dev
     }
 
     @Override
@@ -185,13 +182,9 @@ public class SeaTunnelServer
             int retryPause =
                     hazelcastRetryPause == null ? 500 : Integer.parseInt(hazelcastRetryPause);
 
-<<<<<<< HEAD
-            while (!coordinatorService.isCoordinatorActive() && isRunning) {
-=======
-            while (!coordinatorService.isCoordinatorActive()
+            while (isMasterNode() && !coordinatorService.isCoordinatorActive()
                     && retryCount < maxRetry
                     && isRunning) {
->>>>>>> apache/dev
                 try {
                     LOGGER.warning(
                             "This is master node, waiting the coordinator service init finished");
@@ -203,6 +196,11 @@ public class SeaTunnelServer
             }
             if (coordinatorService.isCoordinatorActive()) {
                 return coordinatorService;
+            }
+
+            if (!isMasterNode()) {
+                throw new SeaTunnelEngineException(
+                    "This is not a master node now.");
             }
 
             throw new SeaTunnelEngineException(

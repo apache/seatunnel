@@ -209,7 +209,7 @@ public class JobMaster {
         this.physicalPlan.setJobMaster(this);
         this.checkpointPlanMap = planTuple.f1();
         if (!canRestoreAgain) {
-            this.physicalPlan.neverNeedRestore();
+            this.neverNeedRestore();
         }
         Exception initException = null;
         try {
@@ -414,7 +414,7 @@ public class JobMaster {
     }
 
     public void cancelJob() {
-        physicalPlan.neverNeedRestore();
+        neverNeedRestore();
         physicalPlan.cancelJob();
     }
 
