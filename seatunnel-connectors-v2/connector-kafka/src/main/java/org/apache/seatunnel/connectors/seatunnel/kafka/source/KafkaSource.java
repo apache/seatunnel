@@ -45,6 +45,7 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
+import org.apache.seatunnel.format.json.ogg.OggJsonDeserializationSchema;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
@@ -66,6 +67,7 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FIEL
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.OGG_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PATTERN;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE;
@@ -248,6 +250,12 @@ public class KafkaSource
                 case CANNAL_FORMAT:
                     deserializationSchema =
                             CanalJsonDeserializationSchema.builder(typeInfo)
+                                    .setIgnoreParseErrors(true)
+                                    .build();
+                    break;
+                case OGG_FORMAT:
+                    deserializationSchema =
+                            OggJsonDeserializationSchema.builder(typeInfo)
                                     .setIgnoreParseErrors(true)
                                     .build();
                     break;
