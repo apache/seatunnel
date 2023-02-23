@@ -271,7 +271,7 @@ public final class FactoryUtil {
                     OptionRule.builder().required(saveMode).build();
                 sinkOptionRule.getOptionalOptions().addAll(sinkCommonOptionRule.getOptionalOptions());
             }
-        } catch (UnsupportedOperationException e) {
+        } catch (Exception e) {
             LOG.warn("Add save mode option need sink connector support create sink by TableSinkFactory");
         }
 
