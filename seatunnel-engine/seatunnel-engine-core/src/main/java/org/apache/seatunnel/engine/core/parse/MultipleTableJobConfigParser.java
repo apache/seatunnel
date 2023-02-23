@@ -109,11 +109,11 @@ public class MultipleTableJobConfigParser {
         if (!envOptions.get(EnvCommonOptions.MULTIPLE_TABLE_ENABLE)) {
             return fallbackParser.parse();
         }
-        List<URL> connectorJars = null;
+        List<URL> connectorJars = new ArrayList<>();
         try {
             connectorJars = FileUtils.searchJarFiles(Common.connectorJarDir("seatunnel"));
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            LOGGER.info(e);
         }
         ClassLoader classLoader = new SeaTunnelChildFirstClassLoader(connectorJars);
         Thread.currentThread().setContextClassLoader(classLoader);

@@ -158,7 +158,7 @@ public class JobConfigParser {
         if (envConfigs.hasPath(EnvCommonOptions.CHECKPOINT_INTERVAL.key())) {
             jobConfig.getEnvOptions()
                 .put(EnvCommonOptions.CHECKPOINT_INTERVAL.key(),
-                    envConfigs.getInt(EnvCommonOptions.CHECKPOINT_INTERVAL.key()));
+                    envConfigs.getLong(EnvCommonOptions.CHECKPOINT_INTERVAL.key()));
         }
     }
 
