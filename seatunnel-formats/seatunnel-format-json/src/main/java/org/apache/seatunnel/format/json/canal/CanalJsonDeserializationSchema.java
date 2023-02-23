@@ -109,24 +109,22 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
         return this.physicalRowType;
     }
 
+    @Override
     public void deserialize(byte[] message, Collector<SeaTunnelRow> out) {
         if (message == null) {
             return;
         }
         ObjectNode jsonNode = (ObjectNode) convertBytes(message);
         assert jsonNode != null;
-        if (database != null) {
-            if (!databasePattern.matcher(jsonNode.get(FIELD_DATABASE).asText()).matches()) {
-                return;
-            }
+        if (database != null && !databasePattern.matcher(jsonNode.get(FIELD_DATABASE).asText()).matches()) {
+            return;
         }
-        if (table != null) {
-            if (!tablePattern.matcher(jsonNode.get(FIELD_TABLE).asText()).matches()) {
-                return;
-            }
+        if (table != null && !tablePattern.matcher(jsonNode.get(FIELD_TABLE).asText()).matches()) {
+            return;
         }
         JsonNode dataNode = jsonNode.get(FIELD_DATA);
         String type = jsonNode.get(FIELD_TYPE).asText();
+        assert dataNode != null;
         if (OP_INSERT.equals(type)) {
             for (int i = 0; i < dataNode.size(); i++) {
                 SeaTunnelRow row = convertJsonNode(dataNode.get(i));
@@ -178,7 +176,7 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
     private JsonNode convertBytes(byte[] message) {
         try {
             return jsonDeserializer.deserializeToJsonNode(message);
-        } catch (Throwable t) {
+        } catch (Exception t) {
             if (ignoreParseErrors) {
                 return null;
             }
