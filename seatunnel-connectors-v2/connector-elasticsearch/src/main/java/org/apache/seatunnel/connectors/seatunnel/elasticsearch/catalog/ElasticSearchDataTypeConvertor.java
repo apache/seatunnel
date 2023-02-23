@@ -80,7 +80,7 @@ public class ElasticSearchDataTypeConvertor implements DataTypeConvertor<String>
             case DATE:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             default:
-                throw new DataTypeConvertException("unsupported connectorDataType: " + connectorDataType);
+                return BasicType.STRING_TYPE;
         }
     }
 
