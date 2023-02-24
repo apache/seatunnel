@@ -54,12 +54,13 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
+import static org.apache.seatunnel.common.utils.DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
+
 public class ExcelReadStrategy extends AbstractReadStrategy {
 
     private final DateUtils.Formatter dateFormat = DateUtils.Formatter.YYYY_MM_DD;
 
-    private final DateTimeUtils.Formatter datetimeFormat =
-            DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
+    private final DateTimeUtils.Formatter datetimeFormat = YYYY_MM_DD_HH_MM_SS;
     private final TimeUtils.Formatter timeFormat = TimeUtils.Formatter.HH_MM_SS;
 
     @SneakyThrows
@@ -139,44 +140,46 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
         switch (sqlType) {
             case MAP:
             case ARRAY:
-                return objectMapper.readValue(field.toString(), fieldType.getTypeClass());
+                return objectMapper.readValue((String) field, fieldType.getTypeClass());
             case STRING:
                 return field;
+            case DOUBLE:
+                return Double.parseDouble(field.toString());
             case BOOLEAN:
                 return Boolean.parseBoolean(field.toString());
             case FLOAT:
-                return Float.valueOf(field.toString());
-            case DOUBLE:
-                return Double.valueOf(field.toString());
+                return (float) Double.parseDouble(field.toString());
             case BIGINT:
+                return (long) Double.parseDouble(field.toString());
             case INT:
+                return (int) Double.parseDouble(field.toString());
             case TINYINT:
+                return (byte) Double.parseDouble(field.toString());
             case SMALLINT:
+                return (short) Double.parseDouble(field.toString());
             case DECIMAL:
                 return BigDecimal.valueOf(Double.parseDouble(field.toString()));
             case DATE:
-                return DateUtils.toString(LocalDate.parse(field.toString()), dateFormat);
+                return LocalDate.parse(
+                        (String) field, DateTimeFormatter.ofPattern(dateFormat.getValue()));
             case TIME:
-                return TimeUtils.toString(LocalTime.parse(field.toString()), timeFormat);
+                return LocalTime.parse(
+                        (String) field, DateTimeFormatter.ofPattern(timeFormat.getValue()));
             case TIMESTAMP:
-                return DateTimeUtils.toString(
-                        LocalDateTime.parse(
-                                field.toString(),
-                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),
-                        datetimeFormat);
+                return LocalDateTime.parse(
+                        (String) field, DateTimeFormatter.ofPattern(datetimeFormat.getValue()));
             case NULL:
                 return "";
             case BYTES:
-                String s = field.toString();
-                return s.getBytes(StandardCharsets.UTF_8);
+                return field.toString().getBytes(StandardCharsets.UTF_8);
             case ROW:
                 String delimiter = pluginConfig.getString(BaseSourceConfig.DELIMITER.key());
                 String[] context = field.toString().split(delimiter);
                 SeaTunnelRowType ft = (SeaTunnelRowType) fieldType;
                 int length = context.length;
                 SeaTunnelRow seaTunnelRow = new SeaTunnelRow(length);
-                for (int i = 0; i < length; i++) {
-                    seaTunnelRow.setField(i, convert(context[i], ft.getFieldType(i)));
+                for (int j = 0; j < length; j++) {
+                    seaTunnelRow.setField(j, convert(context[j], ft.getFieldType(j)));
                 }
                 return seaTunnelRow;
             default:
