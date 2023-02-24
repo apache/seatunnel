@@ -93,7 +93,7 @@ public class FakeSourceSplitEnumerator
     public FakeSourceState snapshotState(long checkpointId) throws Exception {
         log.debug("get lock, begin snapshot fakesource split enumerator...");
         synchronized (lock) {
-            log.debug("begin snapshot fakesource split enumerator...");
+            log.debug("Begin snapshot fakesource split enumerator...");
             return new FakeSourceState(assignedSplits);
         }
     }
