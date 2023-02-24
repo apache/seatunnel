@@ -72,7 +72,7 @@ public class FakeSourceSplitEnumerator
 
     @Override
     public void addSplitsBack(List<FakeSourceSplit> splits, int subtaskId) {
-        log.debug("Fake source add splits back========{}, subtaskId:{}", splits, subtaskId);
+        log.debug("Fake source add splits back {}, subtaskId:{}", splits, subtaskId);
         addSplitChangeToPendingAssignments(splits);
     }
 
