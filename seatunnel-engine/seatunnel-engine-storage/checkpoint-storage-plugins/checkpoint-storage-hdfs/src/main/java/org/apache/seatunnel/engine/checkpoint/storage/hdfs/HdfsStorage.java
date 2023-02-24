@@ -226,7 +226,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
     }
 
     @Override
-    public void deleteCheckpoint(String jobId, String pipelineId, String checkpointId) throws CheckpointStorageException {
+    public synchronized void deleteCheckpoint(String jobId, String pipelineId, String checkpointId) throws CheckpointStorageException {
         String path = getStorageParentDirectory() + jobId;
         List<String> fileNames = getFileNames(path);
         if (fileNames.isEmpty()) {
