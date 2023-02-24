@@ -830,7 +830,7 @@ public class ClusterFaultToleranceIT {
             node1.shutdown();
             node2.shutdown();
 
-            System.out.println(
+            log.info(
                     "==========================================All node is done========================================");
             Thread.sleep(10000);
 
