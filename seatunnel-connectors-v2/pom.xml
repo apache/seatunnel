@@ -70,6 +70,7 @@
         <module>connector-tdengine</module>
         <module>connector-selectdb-cloud</module>
         <module>connector-hbase</module>
+        <module>connector-adb-postgresql</module>
     </modules>
 
     <dependencyManagement>
