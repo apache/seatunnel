@@ -172,12 +172,12 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
                             .collect(Collectors.toList());
         }
 
-        if (config.hasPath("max_rows_in_memory")) {
-            this.maxRowsInMemory = config.getInt("max_rows_in_memory");
+        if (config.hasPath(BaseSinkConfig.MAX_ROWS_IN_MEMORY.key())) {
+            this.maxRowsInMemory = config.getInt(BaseSinkConfig.MAX_ROWS_IN_MEMORY.key());
         }
 
-        if (config.hasPath("sheet_name")) {
-            this.sheetName = config.getString("sheet_name");
+        if (config.hasPath(BaseSinkConfig.SHEET_NAME.key())) {
+            this.sheetName = config.getString(BaseSinkConfig.SHEET_NAME.key());
         }
     }
 }

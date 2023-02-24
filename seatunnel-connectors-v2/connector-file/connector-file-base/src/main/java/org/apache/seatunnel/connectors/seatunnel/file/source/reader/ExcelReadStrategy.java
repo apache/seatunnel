@@ -28,6 +28,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
@@ -52,6 +53,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Optional;
 
 public class ExcelReadStrategy extends AbstractReadStrategy {
 
@@ -69,7 +71,12 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
         Path filePath = new Path(path);
         FSDataInputStream file = fs.open(filePath);
         Workbook workbook = new XSSFWorkbook(file);
-        Sheet sheet = workbook.getSheetAt(0);
+        Optional<String> sheet_name =
+                Optional.ofNullable(pluginConfig.getString(BaseSourceConfig.SHEET_NAME.key()));
+        Sheet sheet =
+                sheet_name.isPresent()
+                        ? workbook.getSheet(sheet_name.get())
+                        : workbook.getSheetAt(0);
         Row rowTitle = sheet.getRow(0);
         int cellCount = rowTitle.getPhysicalNumberOfCells();
         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(cellCount);
@@ -165,7 +172,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                 String s = field.toString();
                 return s.getBytes(StandardCharsets.UTF_8);
             case ROW:
-                String delimiter = pluginConfig.getString("excel_field_delimiter");
+                String delimiter = pluginConfig.getString("delimiter");
                 String[] context = field.toString().split(delimiter);
                 SeaTunnelRowType ft = (SeaTunnelRowType) fieldType;
                 int length = context.length;

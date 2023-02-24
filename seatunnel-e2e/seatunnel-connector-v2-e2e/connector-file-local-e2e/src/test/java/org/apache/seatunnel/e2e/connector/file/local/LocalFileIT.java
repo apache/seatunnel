@@ -19,9 +19,7 @@ package org.apache.seatunnel.e2e.connector.file.local;
 
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
@@ -30,15 +28,9 @@ import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.utility.MountableFile;
 
-import lombok.extern.slf4j.Slf4j;
-
 import java.io.IOException;
 import java.nio.file.Path;
 
-@Slf4j
-@DisabledOnContainer(
-        value = {},
-        type = {EngineType.FLINK, EngineType.SPARK})
 public class LocalFileIT extends TestSuiteBase {
 
     /** Copy data files to container */
@@ -49,7 +41,7 @@ public class LocalFileIT extends TestSuiteBase {
                 Path orcPath = ContainerUtil.getResourcesFile("/orc/e2e.orc").toPath();
                 Path parquetPath = ContainerUtil.getResourcesFile("/parquet/e2e.parquet").toPath();
                 Path textPath = ContainerUtil.getResourcesFile("/text/e2e.txt").toPath();
-                Path excelPath = ContainerUtil.getResourcesFile("/excel/e2e.txt").toPath();
+                Path excelPath = ContainerUtil.getResourcesFile("/excel/e2e.xlsx").toPath();
                 container.copyFileToContainer(
                         MountableFile.forHostPath(jsonPath),
                         "/seatunnel/read/json/name=tyrantlucifer/hobby=coding/e2e.json");
@@ -61,6 +53,9 @@ public class LocalFileIT extends TestSuiteBase {
                         "/seatunnel/read/parquet/name=tyrantlucifer/hobby=coding/e2e.parquet");
                 container.copyFileToContainer(
                         MountableFile.forHostPath(textPath),
+                        "/seatunnel/read/text/name=tyrantlucifer/hobby=coding/e2e.txt");
+                container.copyFileToContainer(
+                        MountableFile.forHostPath(excelPath),
                         "/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xlsx");
             };
 
