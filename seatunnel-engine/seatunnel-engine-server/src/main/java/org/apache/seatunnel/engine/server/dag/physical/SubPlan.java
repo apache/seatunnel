@@ -210,7 +210,8 @@ public class SubPlan {
                                         executionState.getExecutionState()),
                                 e);
                     }
-                });
+                },
+                executorService);
     }
 
     private void checkAndCleanPipeline(PipelineStatus pipelineStatus) {
