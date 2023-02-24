@@ -881,7 +881,7 @@ public class ClusterFaultToleranceIT {
 
             // sleep 10s and expect the job don't write more rows.
             Thread.sleep(10000);
-            System.out.println(
+            log.info(
                     "==========================================Cancel Job========================================");
             newClientJobProxy.cancelJob();
 
