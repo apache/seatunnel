@@ -172,7 +172,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                 String s = field.toString();
                 return s.getBytes(StandardCharsets.UTF_8);
             case ROW:
-                String delimiter = pluginConfig.getString("delimiter");
+                String delimiter = pluginConfig.getString(BaseSourceConfig.DELIMITER.key());
                 String[] context = field.toString().split(delimiter);
                 SeaTunnelRowType ft = (SeaTunnelRowType) fieldType;
                 int length = context.length;
