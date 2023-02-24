@@ -849,7 +849,7 @@ public class ClusterFaultToleranceIT {
                                     Assertions.assertEquals(
                                             2, restoreFinalNode.getCluster().getMembers().size()));
 
-            System.out.println(
+            log.info(
                     "==========================================All node is running========================================");
             engineClient = new SeaTunnelClient(clientConfig);
             ClientJobProxy newClientJobProxy = engineClient.createJobClient().getJobProxy(jobId);
