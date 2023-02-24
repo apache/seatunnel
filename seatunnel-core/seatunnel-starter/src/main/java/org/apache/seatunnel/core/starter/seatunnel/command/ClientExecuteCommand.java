@@ -148,10 +148,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                         seaTunnelConfig.getEngineConfig().getPrintJobMetricsInfoInterval(),
                         TimeUnit.SECONDS);
                 // wait for job complete
-                try {
-                    jobStatus = clientJobProxy.waitForJobComplete();
-                } catch ()
-
+                jobStatus = clientJobProxy.waitForJobComplete();
                 // get job end time
                 endTime = LocalDateTime.now();
                 // get job statistic information when job finished
