@@ -171,6 +171,9 @@ public class MultipleTableJobConfigParser {
 
     public void parserSource(Config sourceConfig, ClassLoader classLoader) {
         List<CatalogTable> catalogTables = CatalogTableUtil.getCatalogTables(sourceConfig, classLoader);
+        if (catalogTables.isEmpty()) {
+            throw new JobDefineCheckException("The source needs catalog table, please configure `catalog` or `schema` options.");
+        }
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(sourceConfig);
         String factoryId = getFactoryId(readonlyConfig);
         String tableId = readonlyConfig.getOptional(CommonOptions.RESULT_TABLE_NAME).orElse("default");
