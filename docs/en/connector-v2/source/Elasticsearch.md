@@ -63,7 +63,7 @@ If you don't config source, you must config `schema`.
 ### query [json]
 
 Elasticsearch DSL.
-You can control the range of data read
+You can control the range of data read.
 
 ### scroll_time [String]
 
