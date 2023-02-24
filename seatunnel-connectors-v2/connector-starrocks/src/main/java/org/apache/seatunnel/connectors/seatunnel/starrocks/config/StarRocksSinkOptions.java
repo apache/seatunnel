@@ -29,7 +29,7 @@ public interface StarRocksSinkOptions {
     Option<List<String>> NODE_URLS = Options.key("nodeUrls")
         .listType()
         .noDefaultValue()
-        .withDescription("StarRocks cluster address, the format is [\"fe_ip:fe_http_port\", ...]");
+        .withDescription("StarRocks cluster http address, the format is [\"fe_ip:fe_http_port\", ...]");
 
     Option<String> LABEL_PREFIX = Options.key("labelPrefix")
         .stringType()
@@ -57,11 +57,6 @@ public interface StarRocksSinkOptions {
             "PROPERTIES (\n" +
             "    \"replication_num\" = \"1\" \n" +
             ")").withDescription("Create table statement template, used to create StarRocks table");
-
-    Option<Integer> QUERY_PORT = Options.key("query_port")
-        .intType()
-        .defaultValue(9030)
-        .withDescription("FE MySQL server port");
 
     Option<Integer> BATCH_MAX_SIZE = Options.key("batch_max_rows")
         .intType()
