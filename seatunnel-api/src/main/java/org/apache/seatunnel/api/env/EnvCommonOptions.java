@@ -37,10 +37,10 @@ public interface EnvCommonOptions {
             .noDefaultValue()
             .withDescription("The job mode of this job, support Batch and Stream");
 
-    Option<Boolean> MULTIPLE_TABLE_ENABLE =
-        Options.key("multi-table.enable")
-            .booleanType()
-            .defaultValue(false)
+    Option<ParsingMode> DAG_PARSING_MODE =
+        Options.key("dag-parsing.mode")
+            .enumType(ParsingMode.class)
+            .defaultValue(ParsingMode.SINGLENESS)
             .withDescription("Whether to enable parsing support for multi-table jobs");
 
     Option<Long> CHECKPOINT_INTERVAL =
