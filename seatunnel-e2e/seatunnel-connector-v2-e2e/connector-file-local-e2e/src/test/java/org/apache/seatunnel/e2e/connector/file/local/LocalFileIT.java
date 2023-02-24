@@ -33,9 +33,6 @@ import org.testcontainers.utility.MountableFile;
 import java.io.IOException;
 import java.nio.file.Path;
 
-@DisabledOnContainer(
-        value = {},
-        type = {EngineType.FLINK, EngineType.SPARK})
 public class LocalFileIT extends TestSuiteBase {
 
     /** Copy data files to container */
