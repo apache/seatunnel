@@ -83,6 +83,10 @@
                                     <shadedPattern>shade.org.apache.commons.io</shadedPattern>
                                 </relocation>
                                 <relocation>
+                                    <pattern>org.apache.commons.lang3</pattern>
+                                    <shadedPattern>shade.org.apache.commons.lang3</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>com.google.common</pattern>
                                     <shadedPattern>${seatunnel.shade.package}.hadoop.com.google.common</shadedPattern>
                                     <includes>
