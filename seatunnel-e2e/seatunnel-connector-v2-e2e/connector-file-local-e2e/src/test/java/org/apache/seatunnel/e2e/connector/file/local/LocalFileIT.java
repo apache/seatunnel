@@ -56,7 +56,7 @@ public class LocalFileIT extends TestSuiteBase {
                         "/seatunnel/read/text/name=tyrantlucifer/hobby=coding/e2e.txt");
                 container.copyFileToContainer(
                         MountableFile.forHostPath(excelPath),
-                        "/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xlsx");
+                        "/seatunnel/read/excel/e2e.xlsx");
             };
 
     @TestTemplate
