@@ -214,8 +214,12 @@ public class CoordinatorService {
                                                             String.format(
                                                                     "begin restore job (%s) from master active switch",
                                                                     entry.getKey()));
-                                                    restoreJobFromMasterActiveSwitch(
-                                                            entry.getKey(), entry.getValue());
+                                                    try {
+                                                        restoreJobFromMasterActiveSwitch(
+                                                                entry.getKey(), entry.getValue());
+                                                    } catch (Exception e) {
+                                                        logger.severe(e);
+                                                    }
                                                     logger.info(
                                                             String.format(
                                                                     "restore job (%s) from master active switch finished",
@@ -253,8 +257,12 @@ public class CoordinatorService {
                         runningJobInfoIMap,
                         engineConfig);
 
+        // If Job Status is CANCELLING , set needRestore to false
         try {
-            jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp(), true);
+            jobMaster.init(
+                    runningJobInfoIMap.get(jobId).getInitializationTimestamp(),
+                    true,
+                    !JobStatus.CANCELLING.equals(jobStatus));
         } catch (Exception e) {
             throw new SeaTunnelEngineException(String.format("Job id %s init failed", jobId), e);
         }
@@ -405,7 +413,9 @@ public class CoordinatorService {
                                 new JobInfo(System.currentTimeMillis(), jobImmutableInformation));
                         runningJobMasterMap.put(jobId, jobMaster);
                         jobMaster.init(
-                                runningJobInfoIMap.get(jobId).getInitializationTimestamp(), false);
+                                runningJobInfoIMap.get(jobId).getInitializationTimestamp(),
+                                false,
+                                true);
                         // We specify that when init is complete, the submitJob is complete
                         jobSubmitFuture.complete(null);
                     } catch (Throwable e) {
@@ -574,7 +584,9 @@ public class CoordinatorService {
     }
 
     public void memberRemoved(MembershipServiceEvent event) {
-        this.getResourceManager().memberRemoved(event);
+        if (isCoordinatorActive()) {
+            this.getResourceManager().memberRemoved(event);
+        }
         this.failedTaskOnMemberRemoved(event);
     }
 

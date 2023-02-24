@@ -478,6 +478,8 @@ public class PhysicalVertex {
             }
             updateStateTimestamps(ExecutionState.CREATED);
             runningJobStateIMap.set(taskGroupLocation, ExecutionState.CREATED);
+            LOGGER.info(
+                    String.format("%s turn to state %s.", taskFullName, ExecutionState.CREATED));
         }
     }
 

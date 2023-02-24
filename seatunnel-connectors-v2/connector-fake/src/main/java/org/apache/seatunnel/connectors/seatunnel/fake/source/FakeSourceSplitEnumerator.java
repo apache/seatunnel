@@ -42,6 +42,8 @@ public class FakeSourceSplitEnumerator
     /** Partitions that have been assigned to readers. */
     private final Set<FakeSourceSplit> assignedSplits;
 
+    private final Object lock = new Object();
+
     public FakeSourceSplitEnumerator(
             SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext,
             FakeConfig config,
@@ -70,6 +72,7 @@ public class FakeSourceSplitEnumerator
 
     @Override
     public void addSplitsBack(List<FakeSourceSplit> splits, int subtaskId) {
+        log.debug("Fake source add splits back {}, subtaskId:{}", splits, subtaskId);
         addSplitChangeToPendingAssignments(splits);
     }
 
@@ -88,7 +91,11 @@ public class FakeSourceSplitEnumerator
 
     @Override
     public FakeSourceState snapshotState(long checkpointId) throws Exception {
-        return new FakeSourceState(assignedSplits);
+        log.debug("Get lock, begin snapshot fakesource split enumerator...");
+        synchronized (lock) {
+            log.debug("Begin snapshot fakesource split enumerator...");
+            return new FakeSourceState(assignedSplits);
+        }
     }
 
     @Override
@@ -110,7 +117,7 @@ public class FakeSourceSplitEnumerator
 
         assignedSplits.forEach(allSplit::remove);
         addSplitChangeToPendingAssignments(allSplit);
-        log.debug("Assigned {} to {} readers.", allSplit, numReaders);
+        log.info("Assigned {} to {} readers.", allSplit, numReaders);
         log.info("Calculated splits successfully, the size of splits is {}.", allSplit.size());
     }
 
@@ -130,15 +137,17 @@ public class FakeSourceSplitEnumerator
 
             if (pendingAssignmentForReader != null && !pendingAssignmentForReader.isEmpty()) {
                 // Mark pending splits as already assigned
-                assignedSplits.addAll(pendingAssignmentForReader);
-                // Assign pending splits to reader
-                log.info(
-                        "Assigning splits to readers {} {}",
-                        pendingReader,
-                        pendingAssignmentForReader);
-                enumeratorContext.assignSplit(
-                        pendingReader, new ArrayList<>(pendingAssignmentForReader));
-                enumeratorContext.signalNoMoreSplits(pendingReader);
+                synchronized (lock) {
+                    assignedSplits.addAll(pendingAssignmentForReader);
+                    // Assign pending splits to reader
+                    log.info(
+                            "Assigning splits to readers {} {}",
+                            pendingReader,
+                            pendingAssignmentForReader);
+                    enumeratorContext.assignSplit(
+                            pendingReader, new ArrayList<>(pendingAssignmentForReader));
+                    enumeratorContext.signalNoMoreSplits(pendingReader);
+                }
             }
         }
     }

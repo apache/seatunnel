@@ -7,7 +7,11 @@
 # (the "License"); you may not use this file except in compliance with
 # the License.  You may obtain a copy of the License at
 #
+<<<<<<< HEAD
+#    http://www.apache.org/licenses/LICENSE-2.0
+=======
 #     http://www.apache.org/licenses/LICENSE-2.0
+>>>>>>> apache/dev
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,4 +25,8 @@ if ./mvnw spotless:check; then
   exit 0
 fi
 ./mvnw spotless:apply
+<<<<<<< HEAD
 exit 1
+=======
+exit 1
+>>>>>>> apache/dev

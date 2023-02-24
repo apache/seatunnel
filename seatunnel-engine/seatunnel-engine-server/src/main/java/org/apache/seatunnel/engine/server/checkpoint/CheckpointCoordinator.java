@@ -566,37 +566,6 @@ public class CheckpointCoordinator {
                 location.getPipelineId(),
                 location.getJobId(),
                 ackOperation.getBarrier().toString());
-        if (ackOperation.getBarrier().getCheckpointType() == COMPLETED_POINT_TYPE) {
-            synchronized (lock) {
-                if (pendingCheckpoints.get(Barrier.PREPARE_CLOSE_BARRIER_ID) == null) {
-                    CompletableFuture<PendingCheckpoint> future =
-                            triggerPendingCheckpoint(
-                                    Instant.now().toEpochMilli(),
-                                    CompletableFuture.completedFuture(
-                                            Barrier.PREPARE_CLOSE_BARRIER_ID),
-                                    COMPLETED_POINT_TYPE);
-                    startTriggerPendingCheckpoint(future);
-                    future.join();
-                }
-            }
-            pendingCheckpoints
-                    .values()
-                    .parallelStream()
-                    .forEach(
-                            cp ->
-                                    cp.acknowledgeTask(
-                                            ackOperation.getTaskLocation(),
-                                            ackOperation.getStates(),
-                                            SubtaskStatus.AUTO_PREPARE_CLOSE));
-            return;
-        } else if (pendingCheckpoint == null) {
-            LOG.info(
-                    "job: {}, pipeline: {}, the checkpoint({}) don't exist.",
-                    jobId,
-                    pipelineId,
-                    checkpointId);
-            return;
-        }
 
         pendingCheckpoint.acknowledgeTask(
                 location,

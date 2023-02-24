@@ -31,12 +31,14 @@ import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 @NoArgsConstructor
+@Slf4j
 public class NotifyTaskRestoreOperation extends TaskOperation {
 
     private List<ActionSubtaskState> restoredState;
@@ -81,6 +83,7 @@ public class NotifyTaskRestoreOperation extends TaskOperation {
         SeaTunnelServer server = getService();
         RetryUtils.retryWithException(
                 () -> {
+                    log.debug("NotifyTaskRestoreOperation " + taskLocation);
                     TaskGroupContext groupContext =
                             server.getTaskExecutionService()
                                     .getExecutionContext(taskLocation.getTaskGroupLocation());
@@ -88,7 +91,9 @@ public class NotifyTaskRestoreOperation extends TaskOperation {
                     try {
                         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
                         Thread.currentThread().setContextClassLoader(groupContext.getClassLoader());
+                        log.debug("NotifyTaskRestoreOperation.restoreState " + restoredState);
                         task.restoreState(restoredState);
+                        log.debug("NotifyTaskRestoreOperation.finished " + restoredState);
                         Thread.currentThread().setContextClassLoader(classLoader);
                     } catch (Exception e) {
                         throw new SeaTunnelException(e);

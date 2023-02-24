@@ -182,7 +182,8 @@ public class SeaTunnelServer
             int retryPause =
                     hazelcastRetryPause == null ? 500 : Integer.parseInt(hazelcastRetryPause);
 
-            while (!coordinatorService.isCoordinatorActive()
+            while (isMasterNode()
+                    && !coordinatorService.isCoordinatorActive()
                     && retryCount < maxRetry
                     && isRunning) {
                 try {
@@ -196,6 +197,10 @@ public class SeaTunnelServer
             }
             if (coordinatorService.isCoordinatorActive()) {
                 return coordinatorService;
+            }
+
+            if (!isMasterNode()) {
+                throw new SeaTunnelEngineException("This is not a master node now.");
             }
 
             throw new SeaTunnelEngineException(

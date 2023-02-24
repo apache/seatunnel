@@ -107,27 +107,20 @@ public class CheckpointManager {
                                                     plan.getPipelineId(), checkpointIdMap);
                                     try {
                                         idCounter.start();
-                                        PipelineState pipelineState = null;
-                                        if (isStartWithSavePoint) {
-                                            pipelineState =
-                                                    checkpointStorage
-                                                            .getLatestCheckpointByJobIdAndPipelineId(
-                                                                    String.valueOf(jobId),
-                                                                    String.valueOf(
-                                                                            plan.getPipelineId()));
+                                        PipelineState pipelineState =
+                                                checkpointStorage
+                                                        .getLatestCheckpointByJobIdAndPipelineId(
+                                                                String.valueOf(jobId),
+                                                                String.valueOf(
+                                                                        plan.getPipelineId()));
+                                        if (pipelineState != null) {
                                             long checkpointId = pipelineState.getCheckpointId();
-                                            idCounter.setCount(checkpointId);
+                                            idCounter.setCount(checkpointId + 1);
+
                                             log.info(
                                                     "pipeline({}) start with savePoint on checkPointId({})",
                                                     plan.getPipelineId(),
                                                     checkpointId);
-                                        } else if (idCounter.get()
-                                                != CheckpointIDCounter.INITIAL_CHECKPOINT_ID) {
-                                            pipelineState =
-                                                    checkpointStorage.getCheckpoint(
-                                                            String.valueOf(jobId),
-                                                            String.valueOf(plan.getPipelineId()),
-                                                            String.valueOf(idCounter.get() - 1));
                                         }
                                         return new CheckpointCoordinator(
                                                 this,
@@ -262,6 +255,7 @@ public class CheckpointManager {
      * the {@link Task}.
      */
     public void acknowledgeTask(TaskAcknowledgeOperation ackOperation) {
+        log.debug("checkpoint manager received ack {}", ackOperation.getTaskLocation());
         CheckpointCoordinator coordinator =
                 getCheckpointCoordinator(ackOperation.getTaskLocation());
         if (coordinator.isCompleted()) {

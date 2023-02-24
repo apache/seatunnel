@@ -44,6 +44,9 @@ import java.util.stream.Collectors;
 public class SubPlan {
     private static final ILogger LOGGER = Logger.getLogger(SubPlan.class);
 
+    /** The max num pipeline can restore. */
+    public static final int PIPELINE_MAX_RESTORE_NUM = 5; // TODO should set by config
+
     private final List<PhysicalVertex> physicalVertexList;
 
     private final List<PhysicalVertex> coordinatorVertexList;
@@ -86,6 +89,8 @@ public class SubPlan {
     private PassiveCompletableFuture<Void> reSchedulerPipelineFuture;
 
     private Integer pipelineRestoreNum;
+
+    private final Object restoreLock = new Object();
 
     public SubPlan(
             int pipelineId,
@@ -132,7 +137,7 @@ public class SubPlan {
         this.executorService = executorService;
     }
 
-    public PassiveCompletableFuture<PipelineExecutionState> initStateFuture() {
+    public synchronized PassiveCompletableFuture<PipelineExecutionState> initStateFuture() {
         physicalVertexList.forEach(
                 physicalVertex -> {
                     addPhysicalVertexCallBack(physicalVertex.initStateFuture());
@@ -170,17 +175,20 @@ public class SubPlan {
                         if (finishedTaskNum.incrementAndGet()
                                 == (physicalVertexList.size() + coordinatorVertexList.size())) {
                             if (failedTaskNum.get() > 0) {
+                                checkAndCleanPipeline(PipelineStatus.FAILED);
                                 turnToEndState(PipelineStatus.FAILED);
                                 LOGGER.info(
                                         String.format(
                                                 "%s end with state FAILED", this.pipelineFullName));
                             } else if (canceledTaskNum.get() > 0) {
+                                checkAndCleanPipeline(PipelineStatus.CANCELED);
                                 turnToEndState(PipelineStatus.CANCELED);
                                 LOGGER.info(
                                         String.format(
                                                 "%s end with state CANCELED",
                                                 this.pipelineFullName));
                             } else {
+                                checkAndCleanPipeline(PipelineStatus.FINISHED);
                                 turnToEndState(PipelineStatus.FINISHED);
                                 LOGGER.info(
                                         String.format(
@@ -205,11 +213,39 @@ public class SubPlan {
                 });
     }
 
+    private void checkAndCleanPipeline(PipelineStatus pipelineStatus) {
+        if (!canRestorePipeline() || PipelineStatus.FINISHED.equals(pipelineStatus)) {
+            subPlanDone(pipelineStatus);
+        }
+    }
+
+    /** only call when the pipeline will never restart */
+    private void notifyCheckpointManagerPipelineEnd(PipelineStatus pipelineStatus) {
+        if (jobMaster.getCheckpointManager() == null) {
+            return;
+        }
+        jobMaster
+                .getCheckpointManager()
+                .listenPipeline(getPipelineLocation().getPipelineId(), pipelineStatus)
+                .join();
+    }
+
+    private void subPlanDone(PipelineStatus pipelineStatus) {
+        jobMaster.savePipelineMetricsToHistory(getPipelineLocation());
+        jobMaster.removeMetricsContext(getPipelineLocation(), pipelineStatus);
+        jobMaster.releasePipelineResource(this);
+        notifyCheckpointManagerPipelineEnd(pipelineStatus);
+    }
+
+    public boolean canRestorePipeline() {
+        return jobMaster.isNeedRestore() && getPipelineRestoreNum() < PIPELINE_MAX_RESTORE_NUM;
+    }
+
     private void turnToEndState(@NonNull PipelineStatus endState) {
         synchronized (this) {
             // consistency check
             PipelineStatus current = (PipelineStatus) runningJobStateIMap.get(pipelineLocation);
-            if (current.isEndState()) {
+            if (current.isEndState() && !endState.isEndState()) {
                 String message = "Pipeline is trying to leave terminal state " + current;
                 LOGGER.severe(message);
                 throw new IllegalStateException(message);
@@ -278,7 +314,7 @@ public class SubPlan {
         }
     }
 
-    public void cancelPipeline() {
+    public synchronized void cancelPipeline() {
         if (getPipelineState().isEndState()) {
             LOGGER.warning(
                     String.format(
@@ -347,7 +383,7 @@ public class SubPlan {
     }
 
     /** Before restore a pipeline, the pipeline must do reset */
-    private void reset() {
+    private synchronized void reset() {
         resetPipelineState();
         finishedTaskNum.set(0);
         canceledTaskNum.set(0);
@@ -383,7 +419,7 @@ public class SubPlan {
 
     /** restore the pipeline when pipeline failed or canceled by error. */
     public void restorePipeline() {
-        synchronized (pipelineRestoreNum) {
+        synchronized (restoreLock) {
             try {
                 pipelineRestoreNum++;
                 LOGGER.info(String.format("Restore pipeline %s", pipelineFullName));
@@ -435,8 +471,10 @@ public class SubPlan {
     }
 
     /** restore the pipeline state after new Master Node active */
-    public void restorePipelineState() {
-        // only need restore from RUNNING or CANCELING state
+    public synchronized void restorePipelineState() {
+        // if PipelineStatus is less than RUNNING or equals CANCELING, may some task is in state
+        // CREATED, we can not schedule this tasks because have no PipelineBaseScheduler instance.
+        // So, we need cancel the pipeline and restore it.
         if (getPipelineState().ordinal() < PipelineStatus.RUNNING.ordinal()) {
             cancelPipelineTasks();
         } else if (PipelineStatus.CANCELING.equals(getPipelineState())) {

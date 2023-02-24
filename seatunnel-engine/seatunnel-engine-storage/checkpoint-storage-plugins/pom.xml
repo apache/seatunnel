@@ -35,7 +35,6 @@
         <module>checkpoint-storage-local-file</module>
         <module>checkpoint-storage-hdfs</module>
     </modules>
-
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>

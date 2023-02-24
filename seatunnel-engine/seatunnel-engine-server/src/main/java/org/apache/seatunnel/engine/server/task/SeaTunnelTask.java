@@ -55,12 +55,10 @@ import org.apache.seatunnel.engine.server.task.group.AbstractTaskGroupWithInterm
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.hazelcast.internal.metrics.MetricDescriptor;
 import com.hazelcast.internal.metrics.MetricsCollectionContext;
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.net.URL;
@@ -85,8 +83,8 @@ import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTask
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.STARTING;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.WAITING_RESTORE;
 
+@Slf4j
 public abstract class SeaTunnelTask extends AbstractTask {
-    private static final Logger LOG = LoggerFactory.getLogger(SeaTunnelTask.class);
     private static final long serialVersionUID = 2604309561613784425L;
 
     protected volatile SeaTunnelTaskState currState;
@@ -299,6 +297,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
     }
 
     public void ack(Barrier barrier) {
+        log.debug("seatunnel task ack barrier[{}]", this.taskLocation);
         Integer ackSize =
                 cycleAcks.compute(barrier.getId(), (id, count) -> count == null ? 1 : ++count);
         if (ackSize == allCycles.size()) {
@@ -344,6 +343,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
+        log.debug("restoreState for SeaTunnelTask[{}]", actionStateList);
         Map<Long, List<ActionSubtaskState>> stateMap =
                 actionStateList.stream()
                         .collect(
@@ -364,6 +364,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
                             }
                         });
         restoreComplete.complete(null);
+        log.debug("restoreState for SeaTunnelTask finished, actionStateList: {}", actionStateList);
     }
 
     @Override

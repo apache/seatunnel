@@ -91,6 +91,7 @@ public class HiveSink extends BaseHdfsFileSink {
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SINK, result.getMsg()));
         }
+
         result =
                 CheckConfigUtil.checkAtLeastOneExists(
                         pluginConfig,

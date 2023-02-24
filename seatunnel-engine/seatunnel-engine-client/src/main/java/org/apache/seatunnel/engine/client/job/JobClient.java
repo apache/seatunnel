@@ -56,6 +56,10 @@ public class JobClient {
         return new ClientJobProxy(hazelcastClient, jobImmutableInformation);
     }
 
+    public ClientJobProxy getJobProxy(@NonNull Long jobId) {
+        return new ClientJobProxy(hazelcastClient, jobId);
+    }
+
     public String getJobDetailStatus(Long jobId) {
         return hazelcastClient.requestOnMasterAndDecodeResponse(
                 SeaTunnelGetJobDetailStatusCodec.encodeRequest(jobId),

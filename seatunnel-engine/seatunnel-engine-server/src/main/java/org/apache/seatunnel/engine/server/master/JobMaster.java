@@ -70,6 +70,7 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
+import lombok.Getter;
 import lombok.NonNull;
 
 import java.util.ArrayList;
@@ -138,6 +139,9 @@ public class JobMaster {
 
     private final IMap<Long, JobInfo> runningJobInfoIMap;
 
+    /** If the job or pipeline cancel by user, needRestore will be false */
+    @Getter private volatile boolean needRestore = true;
+
     public JobMaster(
             @NonNull Data jobImmutableInformationData,
             @NonNull NodeEngine nodeEngine,
@@ -165,7 +169,8 @@ public class JobMaster {
         this.engineConfig = engineConfig;
     }
 
-    public void init(long initializationTimestamp, boolean restart) throws Exception {
+    public void init(long initializationTimestamp, boolean restart, boolean canRestoreAgain)
+            throws Exception {
         jobImmutableInformation =
                 nodeEngine.getSerializationService().toObject(jobImmutableInformationData);
         LOGGER.info(
@@ -202,6 +207,9 @@ public class JobMaster {
         this.physicalPlan = planTuple.f0();
         this.physicalPlan.setJobMaster(this);
         this.checkpointPlanMap = planTuple.f1();
+        if (!canRestoreAgain) {
+            this.neverNeedRestore();
+        }
         Exception initException = null;
         try {
             this.initCheckPointManager();
@@ -364,6 +372,8 @@ public class JobMaster {
     }
 
     public void releasePipelineResource(SubPlan subPlan) {
+        LOGGER.info(
+                String.format("release the pipeline %s resource", subPlan.getPipelineFullName()));
         resourceManager
                 .releaseResources(
                         jobImmutableInformation.getJobId(),
@@ -403,7 +413,7 @@ public class JobMaster {
     }
 
     public void cancelJob() {
-        physicalPlan.neverNeedRestore();
+        neverNeedRestore();
         physicalPlan.cancelJob();
     }
 
@@ -628,5 +638,9 @@ public class JobMaster {
 
     public void markRestore() {
         restore = true;
+    }
+
+    public void neverNeedRestore() {
+        this.needRestore = false;
     }
 }

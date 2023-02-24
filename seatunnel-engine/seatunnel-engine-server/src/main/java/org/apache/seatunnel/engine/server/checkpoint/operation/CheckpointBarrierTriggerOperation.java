@@ -29,12 +29,14 @@ import org.apache.seatunnel.engine.server.task.record.Barrier;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 
 import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow;
 
 @NoArgsConstructor
+@Slf4j
 public class CheckpointBarrierTriggerOperation extends TaskOperation {
     protected Barrier barrier;
 
@@ -77,6 +79,7 @@ public class CheckpointBarrierTriggerOperation extends TaskOperation {
                                     .getTaskGroup()
                                     .getTask(taskLocation.getTaskID());
                     try {
+                        log.debug("CheckpointBarrierTriggerOperation [{}]" + taskLocation);
                         task.triggerBarrier(barrier);
                     } catch (Exception e) {
                         sneakyThrow(e);

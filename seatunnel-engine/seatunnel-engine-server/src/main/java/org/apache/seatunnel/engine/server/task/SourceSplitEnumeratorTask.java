@@ -130,6 +130,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     @Override
     public void triggerBarrier(Barrier barrier) throws Exception {
+        log.debug("split enumer trigger barrier [{}]", barrier);
         if (barrier.prepareClose()) {
             this.currState = PREPARE_CLOSE;
             this.prepareCloseBarrierId.set(barrier.getId());
@@ -143,6 +144,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             sendToAllReader(location -> new BarrierFlowOperation(barrier, location));
         }
         if (barrier.snapshot()) {
+            log.debug("source split enumerator send state [{}] to master", snapshotState);
             byte[] serialize = enumeratorStateSerializer.serialize(snapshotState);
             this.getExecutionContext()
                     .sendToMaster(
@@ -159,6 +161,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
+        log.debug("restoreState for split enumerator [{}]", actionStateList);
         Optional<Serializable> state =
                 actionStateList.stream()
                         .map(ActionSubtaskState::getState)
@@ -173,6 +176,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             this.enumerator = this.source.getSource().createEnumerator(enumeratorContext);
         }
         restoreComplete.complete(null);
+        log.debug("restoreState split enumerator [{}] finished", actionStateList);
     }
 
     public void addSplitsBack(List<SplitT> splits, int subtaskId)
@@ -308,10 +312,16 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     private void sendToAllReader(Function<TaskLocation, Operation> function) {
         List<InvocationFuture<?>> futures = new ArrayList<>();
         taskMemberMapping.forEach(
-                (location, address) ->
-                        futures.add(
-                                this.getExecutionContext()
-                                        .sendToMember(function.apply(location), address)));
+                (location, address) -> {
+                    log.debug(
+                            "split enumerator send to read--size: {}, location: {}, address: {}",
+                            taskMemberMapping.size(),
+                            location,
+                            address.toString());
+                    futures.add(
+                            this.getExecutionContext()
+                                    .sendToMember(function.apply(location), address));
+                });
         futures.forEach(InvocationFuture::join);
     }
 

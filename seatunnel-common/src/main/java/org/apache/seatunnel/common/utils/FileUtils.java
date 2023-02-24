@@ -115,8 +115,8 @@ public class FileUtils {
      * @return The file line number
      */
     public static Long getFileLineNumber(@NonNull String filePath) {
-        try {
-            return Files.lines(Paths.get(filePath)).count();
+        try (Stream<String> lines = Files.lines(Paths.get(filePath))) {
+            return lines.count();
         } catch (IOException e) {
             throw new SeaTunnelRuntimeException(
                     CommonErrorCode.FILE_OPERATION_FAILED,

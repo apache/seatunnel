@@ -53,9 +53,7 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
-
     <dependencies>
-
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-cdc-base</artifactId>
