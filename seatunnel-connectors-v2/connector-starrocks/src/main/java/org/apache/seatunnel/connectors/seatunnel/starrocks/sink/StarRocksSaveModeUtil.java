@@ -25,28 +25,68 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.util.CreateTableParser;
 
+import org.apache.commons.lang3.StringUtils;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class StarRocksSaveModeUtil {
 
+    private static final List<SqlType> UNSUPPORTED_DEFAULT_VALUE_TYPES = Arrays.asList(SqlType.ARRAY,
+        SqlType.MAP, SqlType.ROW, SqlType.MULTIPLE_ROW, SqlType.BOOLEAN);
+
     public static String fillingCreateSql(String template, String database, String table, TableSchema tableSchema) {
         String primaryKey = tableSchema.getPrimaryKey().getColumnNames().stream().map(r -> "`" + r + "`").collect(Collectors.joining(","));
-        String rowTypeFields = tableSchema.getColumns().stream().map(StarRocksSaveModeUtil::columnToStarrocksType)
+
+        Map<String, CreateTableParser.ColumnInfo> columnInTemplate = CreateTableParser.getColumnList(template);
+        template = mergeColumnInTemplate(columnInTemplate, tableSchema, template);
+
+        String rowTypeFields = tableSchema.getColumns().stream().filter(column -> !columnInTemplate.containsKey(column.getName())).map(StarRocksSaveModeUtil::columnToStarrocksType)
             .collect(Collectors.joining(",\n"));
-        return template.replaceAll(String.format("${%s}", SaveModeConstants.DATABASE), database)
-            .replaceAll(String.format("${%s}", SaveModeConstants.TABLE_NAME), table)
-            .replaceAll(String.format("${%s}", SaveModeConstants.ROWTYPE_FIELDS), rowTypeFields)
-            .replaceAll(String.format("${%s}", SaveModeConstants.ROWTYPE_PRIMARY_KEY), primaryKey);
+        return template.replaceAll(String.format("\\$\\{%s\\}", SaveModeConstants.DATABASE), database)
+            .replaceAll(String.format("\\$\\{%s\\}", SaveModeConstants.TABLE_NAME), table)
+            .replaceAll(String.format("\\$\\{%s\\}", SaveModeConstants.ROWTYPE_FIELDS), rowTypeFields)
+            .replaceAll(String.format("\\$\\{%s\\}", SaveModeConstants.ROWTYPE_PRIMARY_KEY), primaryKey);
     }
 
-    static String columnToStarrocksType(Column column) {
+    private static String columnToStarrocksType(Column column) {
         checkNotNull(column, "The column is required.");
         return String.format("`%s` %s %s %s", column.getName(), dataTypeToStarrocksType(column.getDataType()),
-            column.isNullable() ? "NULL" : "NOT NULL", column.getDefaultValue() == null ? "" : column.getDefaultValue().toString());
+            column.isNullable() ? "NULL" : "NOT NULL", getDefaultValue(column));
     }
 
-    static String dataTypeToStarrocksType(SeaTunnelDataType<?> dataType) {
+    private static String mergeColumnInTemplate(Map<String, CreateTableParser.ColumnInfo> columnInTemplate, TableSchema tableSchema, String template) {
+        int offset = 0;
+        Map<String, Column> columnMap = tableSchema.getColumns().stream().collect(Collectors.toMap(Column::getName, Function.identity()));
+        for (String col : columnInTemplate.keySet()) {
+            CreateTableParser.ColumnInfo columnInfo = columnInTemplate.get(col);
+            if (StringUtils.isEmpty(columnInfo.getInfo())) {
+                if (columnMap.containsKey(col)) {
+                    Column column = columnMap.get(col);
+                    String newCol = columnToStarrocksType(column);
+                    template = template.substring(0, columnInfo.getIndex() + offset - columnInfo.getName().length()) +
+                        newCol + template.substring(offset + columnInfo.getIndex());
+                    offset += newCol.length() - columnInfo.getName().length();
+                }
+            }
+        }
+        return template;
+    }
+
+    private static String getDefaultValue(Column column) {
+        if (column.getDefaultValue() != null || UNSUPPORTED_DEFAULT_VALUE_TYPES.contains(column.getDataType().getSqlType())) {
+            return "DEFAULT '" + column.getDefaultValue().toString() + "'";
+        }
+        return "";
+    }
+
+    private static String dataTypeToStarrocksType(SeaTunnelDataType<?> dataType) {
         checkNotNull(dataType, "The SeaTunnel's data type is required.");
         switch (dataType.getSqlType()) {
             case NULL:
