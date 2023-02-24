@@ -141,7 +141,7 @@ public final class FactoryUtil {
         }
         final List<T> matchingFactories =
                 foundFactories.stream()
-                        .filter(f -> f.factoryIdentifier().equals(factoryIdentifier))
+                        .filter(f -> f.factoryIdentifier().equalsIgnoreCase(factoryIdentifier))
                         .collect(Collectors.toList());
         if (matchingFactories.isEmpty()) {
             return Optional.empty();
@@ -163,7 +163,7 @@ public final class FactoryUtil {
 
         final List<T> matchingFactories =
                 foundFactories.stream()
-                        .filter(f -> f.factoryIdentifier().equals(factoryIdentifier))
+                        .filter(f -> f.factoryIdentifier().equalsIgnoreCase(factoryIdentifier))
                         .collect(Collectors.toList());
 
         if (matchingFactories.isEmpty()) {
