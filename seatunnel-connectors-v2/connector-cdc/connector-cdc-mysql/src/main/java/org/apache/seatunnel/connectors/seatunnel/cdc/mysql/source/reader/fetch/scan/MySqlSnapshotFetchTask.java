@@ -75,8 +75,12 @@ public class MySqlSnapshotFetchTask implements FetchTask<SourceSplitBase> {
 
         // optimization that skip the binlog read when the low watermark equals high
         // watermark
-        final boolean binlogBackfillRequired =
-                backfillBinlogSplit.getStopOffset().isAfter(backfillBinlogSplit.getStartupOffset());
+
+        // TODO make binlogBackfillRequired configable.
+        // TODO we need store the data in disk to ensure no memory overflow
+        // final boolean binlogBackfillRequired =
+        //        backfillBinlogSplit.getStopOffset().isAfter(backfillBinlogSplit.getStartupOffset());
+        final boolean binlogBackfillRequired = false;
         if (!binlogBackfillRequired) {
             dispatchBinlogEndEvent(
                     backfillBinlogSplit,
