@@ -24,8 +24,8 @@ describes how to setup the MySQL CDC connector to run SQL queries against MySQL 
 | port                                           | Integer  | No       | 3306          |
 | username                                       | String   | Yes      | -             |
 | password                                       | String   | Yes      | -             |
-| database-name                                  | String   | Yes      | -             |
-| table-name                                     | String   | Yes      | -             |
+| database-names                                 | List     | Yes      | -             |
+| table-names                                    | List     | Yes      | -             |
 | base-url                                       | String   | Yes      | -             |
 | startup.mode                                   | Enum     | No       | INITIAL       |
 | startup.timestamp                              | Long     | No       | -             |
@@ -64,11 +64,11 @@ Name of the database to use when connecting to the database server.
 
 Password to use when connecting to the database server.
 
-### database-name [String]
+### database-names [List]
 
 Database name of the database to monitor.
 
-### table-name [String]
+### table-names [List]
 
 Table name of the database to monitor.
 
@@ -196,8 +196,7 @@ source {
     hostname = "127.0.0.1"
     username = "mysqluser"
     password = "mysqlpw"
-    database-name = "inventory_vwyw0n"
-    table-name = "products"
+    table-names = ["inventory_vwyw0n.products"]
     base-url = "jdbc:mysql://localhost:56725"
   }
 }

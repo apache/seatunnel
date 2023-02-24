@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -54,10 +55,10 @@ public class MySqlIncrementalSourceFactory implements TableSourceFactory, Suppor
                 JdbcSourceOptions.HOSTNAME,
                 JdbcSourceOptions.USERNAME,
                 JdbcSourceOptions.PASSWORD,
-                JdbcSourceOptions.DATABASE_NAME,
-                JdbcSourceOptions.TABLE_NAME,
+                CatalogOptions.TABLE_NAMES,
                 JdbcCatalogOptions.BASE_URL)
             .optional(
+                JdbcSourceOptions.DATABASE_NAMES,
                 JdbcSourceOptions.PORT,
                 JdbcSourceOptions.SERVER_ID,
                 JdbcSourceOptions.SERVER_TIME_ZONE,
