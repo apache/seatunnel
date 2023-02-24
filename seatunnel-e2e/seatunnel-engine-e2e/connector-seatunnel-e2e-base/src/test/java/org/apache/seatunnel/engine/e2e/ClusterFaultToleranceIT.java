@@ -899,7 +899,7 @@ public class ClusterFaultToleranceIT {
             Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
 
         } finally {
-            System.out.println(
+            log.info(
                     "==========================================Clean test resource ========================================");
             if (engineClient != null) {
                 engineClient.shutdown();
