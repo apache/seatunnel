@@ -60,6 +60,6 @@ public class StarRocksSinkFactory implements TableSinkFactory {
         }
         return () -> new StarRocksSink(DataSaveMode.KEEP_SCHEMA_AND_DATA,
             sinkConfig,
-            catalogTable.getTableSchema().toPhysicalRowDataType());
+            catalogTable);
     }
 }

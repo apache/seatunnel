@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.core.parse;
 import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.env.EnvCommonOptions;
+import org.apache.seatunnel.api.env.ParsingMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -79,9 +80,9 @@ public class MultipleTableJobConfigParser {
 
     private final ReadonlyConfig envOptions;
 
-    private final Map<String, List<Tuple2<CatalogTable, Action>>> graph;
-
     private final JobConfigParser fallbackParser;
+
+    private final ParsingMode parsingMode;
 
     public MultipleTableJobConfigParser(String jobDefineFilePath,
                                         IdGenerator idGenerator,
@@ -101,12 +102,12 @@ public class MultipleTableJobConfigParser {
         this.commonPluginJars = commonPluginJars;
         this.seaTunnelJobConfig = ConfigBuilder.of(Paths.get(jobDefineFilePath));
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
-        this.graph = new HashMap<>();
         this.fallbackParser = new JobConfigParser(jobDefineFilePath, idGenerator, jobConfig, commonPluginJars);
+        this.parsingMode = envOptions.get(EnvCommonOptions.DAG_PARSING_MODE);
     }
 
     public ImmutablePair<List<Action>, Set<URL>> parse() {
-        if (!envOptions.get(EnvCommonOptions.MULTIPLE_TABLE_ENABLE)) {
+        if (parsingMode == ParsingMode.SINGLENESS) {
             return fallbackParser.parse();
         }
         List<URL> connectorJars = new ArrayList<>();
@@ -124,12 +125,14 @@ public class MultipleTableJobConfigParser {
             throw new JobDefineCheckException("Source And Sink can not be null");
         }
         this.fillJobConfig();
+        Map<String, List<Tuple2<CatalogTable, Action>>> tableWithActionMap = new HashMap<>();
         for (Config sourceConfig : sourceConfigs) {
-            parserSource(sourceConfig, classLoader);
+            Tuple2<String, List<Tuple2<CatalogTable, Action>>> tuple2 = parserSource(sourceConfig, classLoader);
+            tableWithActionMap.put(tuple2._1(), tuple2._2());
         }
         List<Action> sinkActions = new ArrayList<>();
         for (Config sinkConfig : sinkConfigs) {
-            sinkActions.addAll(parserSink(sinkConfig, classLoader));
+            sinkActions.addAll(parserSink(sinkConfig, classLoader, tableWithActionMap));
         }
         Set<URL> factoryUrls = getUsedFactoryUrls(sinkActions);
         factoryUrls.addAll(commonPluginJars);
@@ -169,12 +172,18 @@ public class MultipleTableJobConfigParser {
                 .put(EnvCommonOptions.CHECKPOINT_INTERVAL.key(), interval));
     }
 
-    public void parserSource(Config sourceConfig, ClassLoader classLoader) {
+    public Tuple2<String, List<Tuple2<CatalogTable, Action>>> parserSource(Config sourceConfig, ClassLoader classLoader) {
         List<CatalogTable> catalogTables = CatalogTableUtil.getCatalogTables(sourceConfig, classLoader);
+        if (catalogTables.isEmpty()) {
+            throw new JobDefineCheckException("The source needs catalog table, please configure `catalog` or `schema` options.");
+        }
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(sourceConfig);
         String factoryId = getFactoryId(readonlyConfig);
         String tableId = readonlyConfig.getOptional(CommonOptions.RESULT_TABLE_NAME).orElse("default");
 
+        if (parsingMode == ParsingMode.SHARDING) {
+            catalogTables = Collections.singletonList(catalogTables.get(0));
+        }
         List<Tuple2<SeaTunnelSource<Object, SourceSplit, Serializable>, List<CatalogTable>>> sources =
             FactoryUtil.createAndPrepareSource(catalogTables, readonlyConfig, classLoader, factoryId);
 
@@ -194,7 +203,7 @@ public class MultipleTableJobConfigParser {
                 actions.add(new Tuple2<>(catalogTable, action));
             }
         }
-        graph.put(tableId, actions);
+        return new Tuple2<>(tableId, actions);
     }
 
     public static Optional<URL> getCatalogFactoryUrl(Config config, ClassLoader classLoader) {
@@ -213,14 +222,16 @@ public class MultipleTableJobConfigParser {
                 .orElse(envOptions.get(CommonOptions.PARALLELISM)));
     }
 
-    public List<SinkAction<?, ?, ?, ?>> parserSink(Config sinkConfig, ClassLoader classLoader) {
+    public List<SinkAction<?, ?, ?, ?>> parserSink(Config sinkConfig,
+                                                   ClassLoader classLoader,
+                                                   Map<String, List<Tuple2<CatalogTable, Action>>> tableWithActionMap) {
         Map<TablePath, CatalogTable> tableMap = CatalogTableUtil.getCatalogTables(sinkConfig, classLoader)
             .stream()
             .collect(Collectors.toMap(catalogTable -> catalogTable.getTableId().toTablePath(), catalogTable -> catalogTable));
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(sinkConfig);
         String factoryId = getFactoryId(readonlyConfig);
         String leftTableId = readonlyConfig.getOptional(CommonOptions.SOURCE_TABLE_NAME).orElse("default");
-        List<Tuple2<CatalogTable, Action>> tableTuples = graph.get(leftTableId);
+        List<Tuple2<CatalogTable, Action>> tableTuples = tableWithActionMap.get(leftTableId);
 
         // get factory urls
         Set<URL> factoryUrls = new HashSet<>();
@@ -232,10 +243,15 @@ public class MultipleTableJobConfigParser {
         for (Tuple2<CatalogTable, Action> tableTuple : tableTuples) {
             CatalogTable catalogTable = tableTuple._1();
             Action leftAction = tableTuple._2();
-            // TODO: another table full name map
-            CatalogTable insteadTable = tableMap.get(catalogTable.getTableId().toTablePath());
-            if (insteadTable != null) {
-                catalogTable = insteadTable;
+            Optional<CatalogTable> insteadTable;
+            if (parsingMode == ParsingMode.SHARDING) {
+                insteadTable = tableMap.values().stream().findFirst();
+            } else {
+                // TODO: another table full name map
+                insteadTable = Optional.ofNullable(tableMap.get(catalogTable.getTableId().toTablePath()));
+            }
+            if (insteadTable.isPresent()) {
+                catalogTable = insteadTable.get();
             }
             SeaTunnelSink<?, ?, ?, ?> sink = FactoryUtil.createAndPrepareSink(catalogTable, readonlyConfig, classLoader, factoryId);
             long id = idGenerator.getNextId();

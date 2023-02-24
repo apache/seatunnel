@@ -35,8 +35,8 @@ import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -118,7 +118,7 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
             boolean reachChangeLogEnd = false;
             SourceRecord lowWatermark = null;
             SourceRecord highWatermark = null;
-            Map<Struct, SourceRecord> outputBuffer = new HashMap<>();
+            Map<Struct, SourceRecord> outputBuffer = new LinkedHashMap<>();
             while (!reachChangeLogEnd) {
                 checkReadException();
                 List<DataChangeEvent> batch = queue.poll();
