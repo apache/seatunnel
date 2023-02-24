@@ -46,6 +46,8 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.Random;
 
 public class ExcelGenerator {
     private final List<Integer> sinkColumnsIndexInRow;
@@ -74,7 +76,11 @@ public class ExcelGenerator {
         } else {
             wb = new XSSFWorkbook();
         }
-        this.st = wb.createSheet(fileSinkConfig.getSheetName());
+        Optional<String> sheetName = Optional.ofNullable(fileSinkConfig.getSheetName());
+        Random random = new Random();
+        this.st =
+                wb.createSheet(
+                        sheetName.orElseGet(() -> String.format("Sheet%d", random.nextInt())));
         Row row = st.createRow(this.row);
         for (Integer i : sinkColumnsIndexInRow) {
             String fieldName = seaTunnelRowType.getFieldName(i);

@@ -19,7 +19,9 @@ package org.apache.seatunnel.e2e.connector.file.local;
 
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
@@ -31,6 +33,9 @@ import org.testcontainers.utility.MountableFile;
 import java.io.IOException;
 import java.nio.file.Path;
 
+@DisabledOnContainer(
+        value = {},
+        type = {EngineType.FLINK, EngineType.SPARK})
 public class LocalFileIT extends TestSuiteBase {
 
     /** Copy data files to container */
@@ -55,8 +60,7 @@ public class LocalFileIT extends TestSuiteBase {
                         MountableFile.forHostPath(textPath),
                         "/seatunnel/read/text/name=tyrantlucifer/hobby=coding/e2e.txt");
                 container.copyFileToContainer(
-                        MountableFile.forHostPath(excelPath),
-                        "/seatunnel/read/excel/e2e.xlsx");
+                        MountableFile.forHostPath(excelPath), "/seatunnel/read/excel/e2e.xlsx");
             };
 
     @TestTemplate

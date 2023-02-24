@@ -48,6 +48,9 @@ By default, we use 2PC commit to ensure `exactly-once`
 | batch_size                       | int     | no       | 1000000                                    |                                                           |
 | compress_codec                   | string  | no       | none                                       |                                                           |
 | common-options                   | object  | no       | -                                          |                                                           |
+| common-options                   | object  | no       | -                                          |                                                           |
+| max_rows_in_memory               | int     | no       | -                                          | Only used when file_format is excel.                      |
+| sheet_name                       | string  | no       | "Sheet${Random number}"                    | Only used when file_format is excel.                      |
 
 ### path [string]
 
@@ -154,6 +157,14 @@ The compress codec of files and the details that supported as the following show
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
 
+### max_rows_in_memory
+
+When File Format is Excel,The maximum number of data items that can be cached in the memory.
+
+### sheet_name
+
+Writer the sheet of the workbook
+
 ## Example
 
 For orc file format simple config
@@ -198,6 +209,24 @@ LocalFile {
     sink_columns = ["name","age"]
     is_enable_transaction = true
 }
+
+```
+
+For text file format with `sheet_name` and `max_rows_in_memory`
+
+```bash
+
+LocalFile {
+    path="/tmp/seatunnel/excel"
+    sheet_name = "Sheet1"
+    max_rows_in_memory = 1024
+    partition_dir_expression="${k0}=${v0}"
+    is_partition_field_write_in_file=true
+    file_name_expression="${transactionId}_${now}"
+    file_format="excel"
+    filename_time_format="yyyy.MM.dd"
+    is_enable_transaction=true
+  }
 
 ```
 

@@ -32,31 +32,31 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-|               name               |  type   | required |               default value                |                                           remarks                                            |
-|----------------------------------|---------|----------|--------------------------------------------|----------------------------------------------------------------------------------------------|
-| fs.defaultFS                     | string  | yes      | -                                          |                                                                                              |
-| path                             | string  | yes      | -                                          |                                                                                              |
-| hdfs_site_path                   | string  | no       | -                                          |                                                                                              |
-| custom_filename                  | boolean | no       | false                                      | Whether you need custom the filename                                                         |
-| file_name_expression             | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                                                       |
-| filename_time_format             | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                                                       |
-| file_format                      | string  | no       | "csv"                                      |                                                                                              |
-| field_delimiter                  | string  | no       | '\001'                                     | Only used when file_format is text                                                           |
-| row_delimiter                    | string  | no       | "\n"                                       | Only used when file_format is text                                                           |
-| have_partition                   | boolean | no       | false                                      | Whether you need processing partitions.                                                      |
-| partition_by                     | array   | no       | -                                          | Only used then have_partition is true                                                        |
-| partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                                                        |
-| is_partition_field_write_in_file | boolean | no       | false                                      | Only used then have_partition is true                                                        |
-| sink_columns                     | array   | no       |                                            | When this parameter is empty, all fields are sink columns                                    |
-| is_enable_transaction            | boolean | no       | true                                       |                                                                                              |
-| batch_size                       | int     | no       | 1000000                                    |                                                                                              |
-| compress_codec                   | string  | no       | none                                       |                                                                                              |
-| kerberos_principal               | string  | no       | -                                          |                                                                                              |
-| kerberos_keytab_path             | string  | no       | -                                          |                                                                                              |
-| compress_codec                   | string  | no       | none                                       |                                                                                              |
-| common-options                   | object  | no       | -                                          |                                                                                              |
-| max_rows_in_memory               | int     | no       | -                                          | When File Format is Excel,The maximum number of data items that can be cached in the memory. |
-| sheet_name                       | string  | no       | -                                          | Writer the sheet of the workbook,Only used when file_format is excel.                        |
+|               name               |  type   | required |               default value                |                          remarks                          |
+|----------------------------------|---------|----------|--------------------------------------------|-----------------------------------------------------------|
+| fs.defaultFS                     | string  | yes      | -                                          |                                                           |
+| path                             | string  | yes      | -                                          |                                                           |
+| hdfs_site_path                   | string  | no       | -                                          |                                                           |
+| custom_filename                  | boolean | no       | false                                      | Whether you need custom the filename                      |
+| file_name_expression             | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                    |
+| filename_time_format             | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                    |
+| file_format                      | string  | no       | "csv"                                      |                                                           |
+| field_delimiter                  | string  | no       | '\001'                                     | Only used when file_format is text                        |
+| row_delimiter                    | string  | no       | "\n"                                       | Only used when file_format is text                        |
+| have_partition                   | boolean | no       | false                                      | Whether you need processing partitions.                   |
+| partition_by                     | array   | no       | -                                          | Only used then have_partition is true                     |
+| partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                     |
+| is_partition_field_write_in_file | boolean | no       | false                                      | Only used then have_partition is true                     |
+| sink_columns                     | array   | no       |                                            | When this parameter is empty, all fields are sink columns |
+| is_enable_transaction            | boolean | no       | true                                       |                                                           |
+| batch_size                       | int     | no       | 1000000                                    |                                                           |
+| compress_codec                   | string  | no       | none                                       |                                                           |
+| kerberos_principal               | string  | no       | -                                          |                                                           |
+| kerberos_keytab_path             | string  | no       | -                                          |                                                           |
+| compress_codec                   | string  | no       | none                                       |                                                           |
+| common-options                   | object  | no       | -                                          |                                                           |
+| max_rows_in_memory               | int     | no       | -                                          | Only used when file_format is excel.                      |
+| sheet_name                       | string  | no       | "Sheet${Random number}"                    | Only used when file_format is excel.                      |
 
 ### fs.defaultFS [string]
 
@@ -180,6 +180,14 @@ The keytab path of kerberos
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
+### max_rows_in_memory
+
+When File Format is Excel,The maximum number of data items that can be cached in the memory.
+
+### sheet_name
+
+Writer the sheet of the workbook
+
 ## Example
 
 For orc file format simple config
@@ -238,22 +246,23 @@ HdfsFile {
 
 ```
 
-For excel file format
+For text file format with `sheet_name` and `max_rows_in_memory`
 
 ```bash
 HdfsFile {
     fs.defaultFS="hdfs://hadoopcluster"
     path="/tmp/hive/warehouse/test2"
     partition_by=["age"]
+    sheet_name = "Sheet1"
+    max_rows_in_memory = 1024
     partition_dir_expression="${k0}=${v0}"
     is_partition_field_write_in_file=true
     file_name_expression="${transactionId}_${now}"
     file_format="excel"
-    max_rows_in_memory=10000
-    sink_columns=["name","age"]
     filename_time_format="yyyy.MM.dd"
     is_enable_transaction=true
-}
+  }
+
 ```
 
 ## Changelog

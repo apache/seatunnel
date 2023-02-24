@@ -53,7 +53,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Optional;
 
 public class ExcelReadStrategy extends AbstractReadStrategy {
 
@@ -71,11 +70,10 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
         Path filePath = new Path(path);
         FSDataInputStream file = fs.open(filePath);
         Workbook workbook = new XSSFWorkbook(file);
-        Optional<String> sheet_name =
-                Optional.ofNullable(pluginConfig.getString(BaseSourceConfig.SHEET_NAME.key()));
         Sheet sheet =
-                sheet_name.isPresent()
-                        ? workbook.getSheet(sheet_name.get())
+                pluginConfig.hasPath(BaseSourceConfig.SHEET_NAME.key())
+                        ? workbook.getSheet(
+                                pluginConfig.getString(BaseSourceConfig.SHEET_NAME.key()))
                         : workbook.getSheetAt(0);
         Row rowTitle = sheet.getRow(0);
         int cellCount = rowTitle.getPhysicalNumberOfCells();
