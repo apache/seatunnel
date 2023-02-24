@@ -79,7 +79,8 @@ public class MySqlSnapshotFetchTask implements FetchTask<SourceSplitBase> {
         // TODO make binlogBackfillRequired configable.
         // TODO we need store the data in disk to ensure no memory overflow
         // final boolean binlogBackfillRequired =
-        //        backfillBinlogSplit.getStopOffset().isAfter(backfillBinlogSplit.getStartupOffset());
+        //
+        // backfillBinlogSplit.getStopOffset().isAfter(backfillBinlogSplit.getStartupOffset());
         final boolean binlogBackfillRequired = false;
         if (!binlogBackfillRequired) {
             dispatchBinlogEndEvent(
