@@ -52,12 +52,15 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void> implem
     private SinkConfig sinkConfig;
     private DataSaveMode dataSaveMode;
 
+    private CatalogTable catalogTable;
+
     public StarRocksSink(DataSaveMode dataSaveMode,
                          SinkConfig sinkConfig,
-                         SeaTunnelRowType seaTunnelRowType) {
+                         CatalogTable catalogTable) {
         this.dataSaveMode = dataSaveMode;
         this.sinkConfig = sinkConfig;
-        this.seaTunnelRowType = seaTunnelRowType;
+        this.seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
+        this.catalogTable = catalogTable;
     }
 
     @Override
@@ -69,8 +72,6 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void> implem
     public void prepare(Config pluginConfig) throws PrepareFailException {
         ConfigValidator.of(ReadonlyConfig.fromConfig(pluginConfig))
             .validate(new StarRocksCatalogFactory().optionRule());
-        // TODO get catalog Table
-        CatalogTable catalogTable = null;
         sinkConfig = SinkConfig.of(ReadonlyConfig.fromConfig(pluginConfig));
         if (StringUtils.isEmpty(sinkConfig.getTable())) {
             sinkConfig.setTable(catalogTable.getTableId().getTableName());
@@ -84,8 +85,6 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void> implem
         if (!starRocksCatalog.databaseExists(sinkConfig.getDatabase())) {
             starRocksCatalog.createDatabase(TablePath.of(sinkConfig.getDatabase(), ""), true);
         }
-        // TODO get catalog Table
-        CatalogTable catalogTable = null;
         if (!starRocksCatalog.tableExists(TablePath.of(sinkConfig.getDatabase(), sinkConfig.getTable()))) {
             starRocksCatalog.createTable(StarRocksSaveModeUtil.fillingCreateSql(template, sinkConfig.getDatabase(), sinkConfig.getTable(), catalogTable.getTableSchema()));
         }
