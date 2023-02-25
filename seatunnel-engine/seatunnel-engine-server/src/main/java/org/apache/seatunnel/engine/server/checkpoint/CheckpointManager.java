@@ -49,6 +49,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -77,14 +78,18 @@ public class CheckpointManager {
 
     private final JobMaster jobMaster;
 
+    private final ExecutorService executorService;
+
     public CheckpointManager(
-            long jobId,
-            boolean isStartWithSavePoint,
-            NodeEngine nodeEngine,
-            JobMaster jobMaster,
-            Map<Integer, CheckpointPlan> checkpointPlanMap,
-            CheckpointConfig checkpointConfig)
+        long jobId,
+        boolean isStartWithSavePoint,
+        NodeEngine nodeEngine,
+        JobMaster jobMaster,
+        Map<Integer, CheckpointPlan> checkpointPlanMap,
+        CheckpointConfig checkpointConfig,
+        ExecutorService executorService)
             throws CheckpointStorageException {
+        this.executorService = executorService;
         this.jobId = jobId;
         this.nodeEngine = nodeEngine;
         this.jobMaster = jobMaster;

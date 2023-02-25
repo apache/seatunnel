@@ -247,7 +247,7 @@ public class PipelineBaseScheduler implements JobScheduler {
             return CompletableFuture.runAsync(
                     () -> {
                         task.deploy(slotProfile);
-                    });
+                    }, jobMaster.getExecutorService());
         } else if (ExecutionState.CANCELING.equals(task.getExecutionState())
                 || ExecutionState.CANCELED.equals(task.getExecutionState())) {
             log.info(

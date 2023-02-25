@@ -151,7 +151,7 @@ public class PhysicalPlan {
                                     .getCheckpointManager()
                                     .listenPipelineRetry(
                                             subPlan.getPipelineLocation().getPipelineId(),
-                                            subPlan.getPipelineState())
+                                        pipelineState.getPipelineStatus())
                                     .join();
                         }
                         if (PipelineStatus.CANCELED.equals(pipelineState.getPipelineStatus())) {
@@ -187,16 +187,20 @@ public class PhysicalPlan {
                         }
 
                         if (finishedPipelineNum.incrementAndGet() == this.pipelineList.size()) {
+                            JobStatus jobStatus = JobStatus.FAILING;
                             if (failedPipelineNum.get() > 0) {
-                                updateJobState(JobStatus.FAILING);
+                                jobStatus = JobStatus.FAILING;
+                                updateJobState(jobStatus);
                             } else if (canceledPipelineNum.get() > 0) {
-                                turnToEndState(JobStatus.CANCELED);
+                                jobStatus = JobStatus.CANCELED;
+                                turnToEndState(jobStatus);
                             } else {
-                                turnToEndState(JobStatus.FINISHED);
+                                jobStatus = JobStatus.FINISHED;
+                                turnToEndState(jobStatus);
                             }
                             jobEndFuture.complete(
                                     new JobResult(
-                                            (JobStatus) runningJobStateIMap.get(jobId),
+                                        jobStatus,
                                             errorBySubPlan.get()));
                         }
                     } catch (Throwable e) {
@@ -204,7 +208,7 @@ public class PhysicalPlan {
                         // we only output log here
                         LOGGER.severe(ExceptionUtils.getMessage(e));
                     }
-                });
+                }, jobMaster.getExecutorService());
     }
 
     public void cancelJob() {
@@ -230,7 +234,8 @@ public class PhysicalPlan {
     private void cancelJobPipelines() {
         List<CompletableFuture<Void>> collect =
                 pipelineList.stream()
-                        .map(pipeline -> CompletableFuture.runAsync(pipeline::cancelPipeline))
+                        .map(pipeline -> CompletableFuture.runAsync(pipeline::cancelPipeline,
+                            jobMaster.getExecutorService()))
                         .collect(Collectors.toList());
 
         try {

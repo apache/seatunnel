@@ -174,32 +174,26 @@ public class SubPlan {
 
                         if (finishedTaskNum.incrementAndGet()
                                 == (physicalVertexList.size() + coordinatorVertexList.size())) {
+                            PipelineStatus pipelineStatus = null;
                             if (failedTaskNum.get() > 0) {
-                                checkAndCleanPipeline(PipelineStatus.FAILED);
-                                turnToEndState(PipelineStatus.FAILED);
-                                LOGGER.info(
-                                        String.format(
-                                                "%s end with state FAILED", this.pipelineFullName));
+                                pipelineStatus = PipelineStatus.FAILED;
                             } else if (canceledTaskNum.get() > 0) {
-                                checkAndCleanPipeline(PipelineStatus.CANCELED);
-                                turnToEndState(PipelineStatus.CANCELED);
-                                LOGGER.info(
-                                        String.format(
-                                                "%s end with state CANCELED",
-                                                this.pipelineFullName));
+                                pipelineStatus = PipelineStatus.CANCELED;
                             } else {
-                                checkAndCleanPipeline(PipelineStatus.FINISHED);
-                                turnToEndState(PipelineStatus.FINISHED);
-                                LOGGER.info(
-                                        String.format(
-                                                "%s end with state FINISHED",
-                                                this.pipelineFullName));
+                                pipelineStatus = PipelineStatus.FINISHED;
                             }
+
+                            checkAndCleanPipeline(pipelineStatus);
+                            turnToEndState(pipelineStatus);
+                            LOGGER.info(
+                                String.format(
+                                    "%s end with state %s",
+                                    this.pipelineFullName, pipelineStatus));
+
                             pipelineFuture.complete(
                                     new PipelineExecutionState(
                                             pipelineId,
-                                            (PipelineStatus)
-                                                    runningJobStateIMap.get(pipelineLocation),
+                                            pipelineStatus,
                                             errorByPhysicalVertex.get()));
                         }
                     } catch (Throwable e) {

@@ -55,6 +55,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -123,16 +124,20 @@ public class CheckpointCoordinator {
 
     private volatile boolean isAllTaskReady = false;
 
+    private final ExecutorService executorService;
+
     @SneakyThrows
     public CheckpointCoordinator(
-            CheckpointManager manager,
-            CheckpointStorage checkpointStorage,
-            CheckpointConfig checkpointConfig,
-            long jobId,
-            CheckpointPlan plan,
-            CheckpointIDCounter checkpointIdCounter,
-            PipelineState pipelineState) {
+        CheckpointManager manager,
+        CheckpointStorage checkpointStorage,
+        CheckpointConfig checkpointConfig,
+        long jobId,
+        CheckpointPlan plan,
+        CheckpointIDCounter checkpointIdCounter,
+        PipelineState pipelineState,
+        ExecutorService executorService) {
 
+        this.executorService = executorService;
         this.checkpointManager = manager;
         this.checkpointStorage = checkpointStorage;
         this.jobId = jobId;
@@ -187,7 +192,7 @@ public class CheckpointCoordinator {
                                 default:
                                     break;
                             }
-                        })
+                        }, executorService)
                 .exceptionally(
                         error -> {
                             handleCoordinatorError(
@@ -409,7 +414,7 @@ public class CheckpointCoordinator {
                                                             pendingCheckpoint.getCheckpointId(),
                                                             pendingCheckpoint
                                                                     .getCheckpointTimestamp(),
-                                                            pendingCheckpoint.getCheckpointType()))
+                                                            pendingCheckpoint.getCheckpointType()), executorService)
                                     .thenApplyAsync(this::triggerCheckpoint);
 
                     try {
@@ -455,9 +460,9 @@ public class CheckpointCoordinator {
                                     } catch (Throwable e) {
                                         throw new CompletionException(e);
                                     }
-                                });
+                                }, executorService);
             } else {
-                idFuture = CompletableFuture.supplyAsync(() -> Barrier.PREPARE_CLOSE_BARRIER_ID);
+                idFuture = CompletableFuture.supplyAsync(() -> Barrier.PREPARE_CLOSE_BARRIER_ID, executorService);
             }
             return triggerPendingCheckpoint(triggerTimestamp, idFuture, checkpointType);
         }
@@ -479,13 +484,13 @@ public class CheckpointCoordinator {
                                         checkpointType,
                                         getNotYetAcknowledgedTasks(),
                                         getTaskStatistics(),
-                                        getActionStates()))
+                                        getActionStates()), executorService)
                 .thenApplyAsync(
                         pendingCheckpoint -> {
                             pendingCheckpoints.put(
                                     pendingCheckpoint.getCheckpointId(), pendingCheckpoint);
                             return pendingCheckpoint;
-                        });
+                        }, executorService);
     }
 
     private Set<Long> getNotYetAcknowledgedTasks() {

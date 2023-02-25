@@ -237,7 +237,8 @@ public class JobMaster {
                         nodeEngine,
                         this,
                         checkpointPlanMap,
-                        checkpointConfig);
+                        checkpointConfig,
+                    executorService);
     }
 
     // TODO replace it after ReadableConfig Support parse yaml format, then use only one config to
