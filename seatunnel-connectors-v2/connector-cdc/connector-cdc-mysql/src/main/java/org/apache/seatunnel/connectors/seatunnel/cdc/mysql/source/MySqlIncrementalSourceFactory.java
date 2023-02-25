@@ -52,14 +52,12 @@ public class MySqlIncrementalSourceFactory implements TableSourceFactory, Suppor
     public OptionRule optionRule() {
         return JdbcSourceOptions.getBaseRule()
             .required(
-                JdbcSourceOptions.HOSTNAME,
                 JdbcSourceOptions.USERNAME,
                 JdbcSourceOptions.PASSWORD,
                 CatalogOptions.TABLE_NAMES,
                 JdbcCatalogOptions.BASE_URL)
             .optional(
                 JdbcSourceOptions.DATABASE_NAMES,
-                JdbcSourceOptions.PORT,
                 JdbcSourceOptions.SERVER_ID,
                 JdbcSourceOptions.SERVER_TIME_ZONE,
                 JdbcSourceOptions.CONNECT_TIMEOUT_MS,
