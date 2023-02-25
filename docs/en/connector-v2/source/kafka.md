@@ -72,8 +72,7 @@ The structure of the data, including field names and field types.
 
 ## format
 
-Data format. The default format is json. Optional text format. The default field separator is ", ".
-If you customize the delimiter, add the "field_delimiter" option.
+If you use ogg format, please refer to [ogg-json](../formats/ogg-json.md) for details.
 
 ## field_delimiter
 
@@ -214,4 +213,4 @@ source {
 - [Improve] Support for dynamic discover topic & partition in streaming mode ([3125](https://github.com/apache/incubator-seatunnel/pull/3125))
 - [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/incubator-seatunnel/pull/3719)
 - [Bug] Fixed the problem that parsing the offset format failed when the startup mode was offset([3810](https://github.com/apache/incubator-seatunnel/pull/3810))
-
+- [Improve] Support read ogg format message [4201](https://github.com/apache/incubator-seatunnel/pull/4225)
