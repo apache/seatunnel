@@ -132,15 +132,16 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             this.prepareCloseBarrierId.set(barrier.getId());
         }
         final long barrierId = barrier.getId();
-        Serializable snapshotState = null;
+        Serializable snapshotState;
+        byte[] serialize = null;
         synchronized (enumeratorContext) {
             if (barrier.snapshot()) {
                 snapshotState = enumerator.snapshotState(barrierId);
+                serialize = enumeratorStateSerializer.serialize(snapshotState);
             }
             sendToAllReader(location -> new BarrierFlowOperation(barrier, location));
         }
         if (barrier.snapshot()) {
-            byte[] serialize = enumeratorStateSerializer.serialize(snapshotState);
             this.getExecutionContext().sendToMaster(new TaskAcknowledgeOperation(this.taskLocation, (CheckpointBarrier) barrier,
                 Collections.singletonList(new ActionSubtaskState(source.getId(), -1, Collections.singletonList(serialize)))));
         }

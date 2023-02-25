@@ -21,7 +21,9 @@ import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.api.env.ParsingMode;
+import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SupportDataSaveMode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogOptions;
@@ -261,11 +263,19 @@ public class MultipleTableJobConfigParser {
                 sink,
                 factoryUrls,
                 new SinkConfig(catalogTable.getTableId().getTableName()));
-
+            handleSaveMode(sink);
             sinkAction.setParallelism(leftAction.getParallelism());
             sinkActions.add(sinkAction);
         }
         return sinkActions;
+    }
+
+    private static void handleSaveMode(SeaTunnelSink<?, ?, ?, ?> sink) {
+        if (SupportDataSaveMode.class.isAssignableFrom(sink.getClass())) {
+            SupportDataSaveMode saveModeSink = (SupportDataSaveMode) sink;
+            DataSaveMode dataSaveMode = saveModeSink.getDataSaveMode();
+            saveModeSink.handleSaveMode(dataSaveMode);
+        }
     }
 
     private static String getFactoryId(ReadonlyConfig readonlyConfig) {

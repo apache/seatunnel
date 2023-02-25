@@ -442,9 +442,13 @@ public class EsRestClient {
                     JsonNode properties = mappingsProperty.get("properties");
                     mapping = getFieldTypeMappingFromProperties(properties, source);
                 } else {
-                    for (Iterator<JsonNode> iter = mappingsProperty.iterator(); iter.hasNext(); ) {
-                        JsonNode typeNode = iter.next();
-                        JsonNode properties = typeNode.get("properties");
+                    for (JsonNode typeNode : mappingsProperty) {
+                        JsonNode properties;
+                        if (typeNode.has("properties")) {
+                            properties = typeNode.get("properties");
+                        } else {
+                            properties = typeNode;
+                        }
                         mapping.putAll(getFieldTypeMappingFromProperties(properties, source));
                     }
                 }
@@ -457,7 +461,6 @@ public class EsRestClient {
     }
 
     private static Map<String, String> getFieldTypeMappingFromProperties(JsonNode properties, List<String> source) {
-        Map<String, String> mapping = new HashMap<>();
         Map<String, String> allElasticSearchFieldTypeInfoMap = new HashMap<>();
         properties.fields().forEachRemaining(entry -> {
             String fieldName = entry.getKey();
