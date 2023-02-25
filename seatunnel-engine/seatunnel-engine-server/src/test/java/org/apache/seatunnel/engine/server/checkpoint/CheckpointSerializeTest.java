@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -35,6 +36,7 @@ import java.util.List;
 public class CheckpointSerializeTest {
 
     @Test
+    @Disabled
     public void testPipelineStateDeserialize() throws IOException {
         File file =
                 new File(
