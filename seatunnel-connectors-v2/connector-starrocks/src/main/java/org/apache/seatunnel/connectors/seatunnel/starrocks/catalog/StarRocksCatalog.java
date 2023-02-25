@@ -62,11 +62,11 @@ import java.util.Set;
 public class StarRocksCatalog implements Catalog {
 
     protected final String catalogName;
-    protected final String defaultDatabase;
+    protected String defaultDatabase = "default";
     protected final String username;
     protected final String pwd;
     protected final String baseUrl;
-    protected final String defaultUrl;
+    protected String defaultUrl;
 
     private static final Set<String> SYS_DATABASES = new HashSet<>();
     private static final Logger LOG = LoggerFactory.getLogger(StarRocksCatalog.class);
@@ -87,14 +87,17 @@ public class StarRocksCatalog implements Catalog {
         checkArgument(StringUtils.isNotBlank(defaultUrl));
 
         defaultUrl = defaultUrl.trim();
-        validateJdbcUrlWithDatabase(defaultUrl);
+        if (validateJdbcUrlWithDatabase(defaultUrl)) {
+            String[] strings = splitDefaultUrl(defaultUrl);
+            this.baseUrl = strings[0];
+            this.defaultDatabase = strings[1];
+        } else {
+            this.baseUrl = defaultUrl;
+        }
         this.catalogName = catalogName;
         this.username = username;
         this.pwd = pwd;
         this.defaultUrl = defaultUrl;
-        String[] strings = splitDefaultUrl(defaultUrl);
-        this.baseUrl = strings[0];
-        this.defaultDatabase = strings[1];
     }
 
     public StarRocksCatalog(
@@ -109,13 +112,18 @@ public class StarRocksCatalog implements Catalog {
         checkArgument(StringUtils.isNotBlank(baseUrl));
 
         baseUrl = baseUrl.trim();
-        validateJdbcUrlWithoutDatabase(baseUrl);
+        if (validateJdbcUrlWithoutDatabase(baseUrl)) {
+            this.baseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+            this.defaultUrl = this.baseUrl + defaultDatabase;
+        } else {
+            String[] strings = splitDefaultUrl(baseUrl);
+            this.baseUrl = strings[0];
+        }
         this.catalogName = catalogName;
         this.defaultDatabase = defaultDatabase;
         this.username = username;
         this.pwd = pwd;
-        this.baseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
-        this.defaultUrl = this.baseUrl + defaultDatabase;
+
     }
 
     @Override
@@ -326,19 +334,19 @@ public class StarRocksCatalog implements Catalog {
      * URL has to be without database, like "jdbc:mysql://localhost:5432/" or
      * "jdbc:mysql://localhost:5432" rather than "jdbc:mysql://localhost:5432/db".
      */
-    public static void validateJdbcUrlWithoutDatabase(String url) {
+    public static boolean validateJdbcUrlWithoutDatabase(String url) {
         String[] parts = url.trim().split("\\/+");
 
-        checkArgument(parts.length == 2);
+        return parts.length == 2;
     }
 
     /**
      * URL has to be with database, like "jdbc:mysql://localhost:5432/db" rather than "jdbc:mysql://localhost:5432/".
      */
     @SuppressWarnings("MagicNumber")
-    public static void validateJdbcUrlWithDatabase(String url) {
+    public static boolean validateJdbcUrlWithDatabase(String url) {
         String[] parts = url.trim().split("\\/+");
-        checkArgument(parts.length == 3);
+        return parts.length == 3;
     }
 
     /**
