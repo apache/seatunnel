@@ -19,7 +19,7 @@ package org.apache.seatunnel.engine.server.task.flow;
 
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
-import org.apache.seatunnel.engine.core.dag.actions.ShuffleConfig;
+import org.apache.seatunnel.engine.core.dag.actions.ShuffleAction;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
@@ -27,6 +27,7 @@ import com.hazelcast.collection.IQueue;
 import com.hazelcast.core.HazelcastInstance;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -35,6 +36,7 @@ import java.util.concurrent.CompletableFuture;
 
 @SuppressWarnings("MagicNumber")
 public class ShuffleSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle implements OneOutputFlowLifeCycle<Record<?>> {
+    private final ShuffleAction shuffleAction;
     private final int shuffleBatchSize;
     private final IQueue<Record<?>>[] shuffles;
     private List<Record<?>> unsentBuffer;
@@ -44,13 +46,15 @@ public class ShuffleSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle impleme
 
     public ShuffleSourceFlowLifeCycle(SeaTunnelTask runningTask,
                                       int taskIndex,
-                                      ShuffleConfig shuffleConfig,
+                                      ShuffleAction shuffleAction,
                                       HazelcastInstance hazelcastInstance,
                                       CompletableFuture<Void> completableFuture) {
         super(runningTask, completableFuture);
         int pipelineId = runningTask.getTaskLocation().getPipelineId();
-        this.shuffles = shuffleConfig.getShuffleStrategy().getShuffles(hazelcastInstance, pipelineId, taskIndex);
-        this.shuffleBatchSize = shuffleConfig.getBatchSize();
+        this.shuffleAction = shuffleAction;
+        this.shuffles = shuffleAction.getConfig()
+            .getShuffleStrategy().getShuffles(hazelcastInstance, pipelineId, taskIndex);
+        this.shuffleBatchSize = shuffleAction.getConfig().getBatchSize();
     }
 
     @Override
@@ -87,11 +91,16 @@ public class ShuffleSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle impleme
 
                     // publish barrier
                     if (alignedBarriersCounter == shuffles.length) {
-                        runningTask.ack(barrier);
                         if (barrier.prepareClose()) {
                             prepareClose = true;
                         }
+                        if (barrier.snapshot()) {
+                            runningTask.addState(barrier, shuffleAction.getId(), Collections.emptyList());
+                        }
+                        runningTask.ack(barrier);
+
                         collector.collect(record);
+
                         alignedBarriersCounter = 0;
                         alignedBarriers.clear();
                     }

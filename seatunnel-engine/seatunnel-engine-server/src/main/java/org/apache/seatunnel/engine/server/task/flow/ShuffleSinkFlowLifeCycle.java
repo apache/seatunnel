@@ -18,7 +18,7 @@
 package org.apache.seatunnel.engine.server.task.flow;
 
 import org.apache.seatunnel.api.table.type.Record;
-import org.apache.seatunnel.engine.core.dag.actions.ShuffleConfig;
+import org.apache.seatunnel.engine.core.dag.actions.ShuffleAction;
 import org.apache.seatunnel.engine.core.dag.actions.ShuffleStrategy;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
@@ -28,6 +28,7 @@ import com.hazelcast.core.HazelcastInstance;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
@@ -41,6 +42,7 @@ import java.util.concurrent.TimeUnit;
 public class ShuffleSinkFlowLifeCycle extends AbstractFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>> {
     private final int pipelineId;
     private final int taskIndex;
+    private final ShuffleAction shuffleAction;
     private final Map<String, IQueue<Record<?>>> shuffles;
     private final int shuffleBatchSize;
     private final long shuffleBatchFlushInterval;
@@ -51,16 +53,17 @@ public class ShuffleSinkFlowLifeCycle extends AbstractFlowLifeCycle implements O
 
     public ShuffleSinkFlowLifeCycle(SeaTunnelTask runningTask,
                                     int taskIndex,
-                                    ShuffleConfig shuffleConfig,
+                                    ShuffleAction shuffleAction,
                                     HazelcastInstance hazelcastInstance,
                                     CompletableFuture<Void> completableFuture) {
         super(runningTask, completableFuture);
         this.pipelineId = runningTask.getTaskLocation().getTaskGroupLocation().getPipelineId();
         this.taskIndex = taskIndex;
-        this.shuffleStrategy = shuffleConfig.getShuffleStrategy();
+        this.shuffleAction = shuffleAction;
+        this.shuffleStrategy = shuffleAction.getConfig().getShuffleStrategy();
         this.shuffles = shuffleStrategy.createShuffles(hazelcastInstance, pipelineId, taskIndex);
-        this.shuffleBatchSize = shuffleConfig.getBatchSize();
-        this.shuffleBatchFlushInterval = shuffleConfig.getBatchFlushInterval();
+        this.shuffleBatchSize = shuffleAction.getConfig().getBatchSize();
+        this.shuffleBatchFlushInterval = shuffleAction.getConfig().getBatchFlushInterval();
         this.shuffleBuffer = new HashMap<>();
     }
 
@@ -71,10 +74,14 @@ public class ShuffleSinkFlowLifeCycle extends AbstractFlowLifeCycle implements O
             shuffleFlush();
 
             Barrier barrier = (Barrier) record.getData();
-            runningTask.ack(barrier);
             if (barrier.prepareClose()) {
                 prepareClose = true;
             }
+            if (barrier.snapshot()) {
+                runningTask.addState(barrier, shuffleAction.getId(), Collections.emptyList());
+            }
+            runningTask.ack(barrier);
+
             // The barrier needs to be replicated to all channels
             for (Map.Entry<String, IQueue<Record<?>>> shuffle : shuffles.entrySet()) {
                 IQueue<Record<?>> shuffleQueue = shuffle.getValue();

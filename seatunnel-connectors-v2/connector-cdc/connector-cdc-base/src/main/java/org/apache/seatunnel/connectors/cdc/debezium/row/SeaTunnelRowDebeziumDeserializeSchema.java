@@ -31,6 +31,7 @@ import org.apache.seatunnel.connectors.cdc.debezium.MetadataConverter;
 
 import io.debezium.connector.AbstractSourceInfo;
 import io.debezium.data.Envelope;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
@@ -44,6 +45,7 @@ import java.util.Map;
 /**
  * Deserialization schema from Debezium object to {@link SeaTunnelRow}.
  */
+@Slf4j
 public final class SeaTunnelRowDebeziumDeserializeSchema
     implements DebeziumDeserializationSchema<SeaTunnelRow> {
     private static final long serialVersionUID = 1L;
@@ -56,9 +58,9 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
     /**
      * Runtime converter that converts Kafka {@link SourceRecord}s into {@link SeaTunnelRow} consisted of
      */
-    private final SeaTunnelRowDebeziumDeserializationConverters singleRowConverter;
+    private final SeaTunnelRowDebeziumDeserializationConverters singleTableRowConverter;
 
-    private final Map<String, SeaTunnelRowDebeziumDeserializationConverters> multipleRowConverters;
+    private final Map<String, SeaTunnelRowDebeziumDeserializationConverters> multipleTableRowConverters;
 
     /**
      * Validator to validate the row value.
@@ -80,28 +82,28 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
         ZoneId serverTimeZone,
         DebeziumDeserializationConverterFactory userDefinedConverterFactory) {
 
-        SeaTunnelRowDebeziumDeserializationConverters singleRowConverter = null;
-        Map<String, SeaTunnelRowDebeziumDeserializationConverters> multipleRowConverters = Collections.emptyMap();
+        SeaTunnelRowDebeziumDeserializationConverters singleTableRowConverter = null;
+        Map<String, SeaTunnelRowDebeziumDeserializationConverters> multipleTableRowConverters = Collections.emptyMap();
         if (physicalDataType instanceof MultipleRowType) {
-            multipleRowConverters = new HashMap<>();
+            multipleTableRowConverters = new HashMap<>();
             for (Map.Entry<String, SeaTunnelRowType> item : (MultipleRowType) physicalDataType) {
                 SeaTunnelRowDebeziumDeserializationConverters itemRowConverter = new SeaTunnelRowDebeziumDeserializationConverters(
                     item.getValue(),
                     metadataConverters,
                     serverTimeZone,
                     userDefinedConverterFactory);
-                multipleRowConverters.put(item.getKey(), itemRowConverter);
+                multipleTableRowConverters.put(item.getKey(), itemRowConverter);
             }
         } else {
-            singleRowConverter = new SeaTunnelRowDebeziumDeserializationConverters(
+            singleTableRowConverter = new SeaTunnelRowDebeziumDeserializationConverters(
                 (SeaTunnelRowType) physicalDataType,
                 metadataConverters,
                 serverTimeZone,
                 userDefinedConverterFactory
             );
         }
-        this.singleRowConverter = singleRowConverter;
-        this.multipleRowConverters = multipleRowConverters;
+        this.singleTableRowConverter = singleTableRowConverter;
+        this.multipleTableRowConverters = multipleTableRowConverters;
         this.resultTypeInfo = checkNotNull(resultType);
         this.validator = checkNotNull(validator);
     }
@@ -114,7 +116,16 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
 
         Struct sourceStruct = messageStruct.getStruct(Envelope.FieldName.SOURCE);
         String tableName = sourceStruct.getString(AbstractSourceInfo.TABLE_NAME_KEY);
-        SeaTunnelRowDebeziumDeserializationConverters converters = multipleRowConverters.getOrDefault(tableName, singleRowConverter);
+        SeaTunnelRowDebeziumDeserializationConverters converters;
+        if (!multipleTableRowConverters.isEmpty()) {
+            converters = multipleTableRowConverters.get(tableName);
+            if (converters == null) {
+                log.debug("Ignore newly added table {}", tableName);
+                return;
+            }
+        } else {
+            converters = singleTableRowConverter;
+        }
 
         if (operation == Envelope.Operation.CREATE || operation == Envelope.Operation.READ) {
             SeaTunnelRow insert = extractAfterRow(converters, record, messageStruct, valueSchema);
