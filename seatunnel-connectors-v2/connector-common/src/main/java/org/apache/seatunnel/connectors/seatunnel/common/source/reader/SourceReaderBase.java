@@ -158,7 +158,12 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
         splitFetcherManager.checkErrors();
         RecordsWithSplitIds<E> recordsWithSplitId = elementsQueue.poll();
         if (recordsWithSplitId == null || !moveToNextSplit(recordsWithSplitId, output)) {
-            log.trace("Current fetch is finished.");
+            try {
+                log.trace("Current fetch is finished.");
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
             return null;
         }
 
