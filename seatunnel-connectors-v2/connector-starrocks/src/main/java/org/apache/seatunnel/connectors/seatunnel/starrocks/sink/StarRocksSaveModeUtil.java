@@ -25,21 +25,15 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.util.CreateTableParser;
 
 import org.apache.commons.lang3.StringUtils;
 
-import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class StarRocksSaveModeUtil {
-
-    private static final List<SqlType> UNSUPPORTED_DEFAULT_VALUE_TYPES = Arrays.asList(SqlType.ARRAY,
-        SqlType.MAP, SqlType.ROW, SqlType.MULTIPLE_ROW, SqlType.BOOLEAN);
 
     public static String fillingCreateSql(String template, String database, String table, TableSchema tableSchema) {
         String primaryKey = tableSchema.getPrimaryKey().getColumnNames().stream().map(r -> "`" + r + "`").collect(Collectors.joining(","));
@@ -57,8 +51,8 @@ public class StarRocksSaveModeUtil {
 
     private static String columnToStarrocksType(Column column) {
         checkNotNull(column, "The column is required.");
-        return String.format("`%s` %s %s %s", column.getName(), dataTypeToStarrocksType(column.getDataType()),
-            column.isNullable() ? "NULL" : "NOT NULL", getDefaultValue(column));
+        return String.format("`%s` %s %s ", column.getName(), dataTypeToStarrocksType(column.getDataType()),
+            column.isNullable() ? "NULL" : "NOT NULL");
     }
 
     private static String mergeColumnInTemplate(Map<String, CreateTableParser.ColumnInfo> columnInTemplate, TableSchema tableSchema, String template) {
@@ -77,13 +71,6 @@ public class StarRocksSaveModeUtil {
             }
         }
         return template;
-    }
-
-    private static String getDefaultValue(Column column) {
-        if (column.getDefaultValue() != null || UNSUPPORTED_DEFAULT_VALUE_TYPES.contains(column.getDataType().getSqlType())) {
-            return "DEFAULT '" + column.getDefaultValue().toString() + "'";
-        }
-        return "";
     }
 
     private static String dataTypeToStarrocksType(SeaTunnelDataType<?> dataType) {
