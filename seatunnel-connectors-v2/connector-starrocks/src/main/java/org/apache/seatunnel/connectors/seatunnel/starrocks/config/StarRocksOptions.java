@@ -24,8 +24,7 @@ public interface StarRocksOptions {
     Option<String> BASE_URL = Options.key("base-url")
         .stringType()
         .noDefaultValue()
-        .withDescription("URL has to be without database, like \"jdbc:mysql://localhost:5432/\" or" +
-            "\"jdbc:mysql://localhost:5432\" rather than \"jdbc:mysql://localhost:5432/db\"");
+        .withDescription("The JDBC URL, like `jdbc:mysql://localhost:9030/` or `jdbc:mysql://localhost:9030/test`");
 
     Option<String> USERNAME = Options.key("username")
         .stringType()

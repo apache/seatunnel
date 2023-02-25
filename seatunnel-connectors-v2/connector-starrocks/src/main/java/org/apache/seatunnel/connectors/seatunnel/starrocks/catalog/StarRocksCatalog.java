@@ -323,6 +323,7 @@ public class StarRocksCatalog implements Catalog {
 
     public void createTable(String sql) throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         try (Connection conn = DriverManager.getConnection(baseUrl + getDefaultDatabase(), username, pwd)) {
+            LOG.info("create table with sql: " + sql);
             conn.createStatement().execute(sql);
         } catch (Exception e) {
             throw new CatalogException(

@@ -15,6 +15,7 @@ The internal implementation of StarRocks sink connector is cached and imported b
 | name                        | type    | required | default value   |
 |-----------------------------|---------|----------|-----------------|
 | node_urls                   | list    | yes      | -               |
+| base_url                    | string  | yes      | -               |
 | username                    | string  | yes      | -               |
 | password                    | string  | yes      | -               |
 | database                    | string  | yes      | -               |
@@ -33,6 +34,10 @@ The internal implementation of StarRocks sink connector is cached and imported b
 ### node_urls [list]
 
 `StarRocks` cluster address, the format is `["fe_ip:fe_http_port", ...]`
+
+### base_url [string]
+
+The JDBC URL, like `jdbc:mysql://localhost:9030/` or `jdbc:mysql://localhost:9030/test`
 
 ### username [string]
 
@@ -123,6 +128,7 @@ Use JSON format to import data
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
+    base_url = "e2e_starRocksdb:9030"
     username = root
     password = ""
     database = "test"
@@ -143,6 +149,7 @@ Use CSV format to import data
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
+    base_url = "e2e_starRocksdb:9030"
     username = root
     password = ""
     database = "test"
@@ -163,6 +170,7 @@ Support write cdc changelog event(INSERT/UPDATE/DELETE)
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
+    base_url = "e2e_starRocksdb:9030"
     username = root
     password = ""
     database = "test"
