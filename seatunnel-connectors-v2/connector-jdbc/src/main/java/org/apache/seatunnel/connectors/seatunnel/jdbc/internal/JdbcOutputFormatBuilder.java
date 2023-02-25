@@ -80,7 +80,7 @@ public class JdbcOutputFormatBuilder {
                                                                                          String database,
                                                                                          String table,
                                                                                          SeaTunnelRowType rowType) {
-        String insertSQL = dialect.getInsertIntoStatement(table, database, rowType.getFieldNames());
+        String insertSQL = dialect.getInsertIntoStatement(database, table, rowType.getFieldNames());
         return createSimpleBufferedExecutor(insertSQL, rowType, dialect.getRowConverter());
     }
 
