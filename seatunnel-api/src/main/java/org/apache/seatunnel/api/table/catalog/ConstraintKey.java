@@ -53,7 +53,7 @@ public class ConstraintKey implements Serializable {
 
     @Data
     @AllArgsConstructor
-    public static class ConstraintKeyColumn {
+    public static class ConstraintKeyColumn implements Serializable{
         private final String columnName;
         private final ColumnSortType sortType;
 
