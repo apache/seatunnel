@@ -213,4 +213,5 @@ source {
 - [Improve] Support for dynamic discover topic & partition in streaming mode ([3125](https://github.com/apache/incubator-seatunnel/pull/3125))
 - [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/incubator-seatunnel/pull/3719)
 - [Bug] Fixed the problem that parsing the offset format failed when the startup mode was offset([3810](https://github.com/apache/incubator-seatunnel/pull/3810))
-- [Improve] Support read ogg format message [4201](https://github.com/apache/incubator-seatunnel/pull/4225)
+- [Improve] Support read ogg format message [4225](https://github.com/apache/incubator-seatunnel/pull/4225)
+

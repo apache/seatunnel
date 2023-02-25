@@ -45,7 +45,7 @@ Currently two formats are supported:
 / | Jack | 16  | data-example1 |
 / | Mary | 23  | data-example2 |
 
-   If `${name}` is set as the topic. So the first row is sent to Jack topic, and the second row is sent to Mary topic.
+If `${name}` is set as the topic. So the first row is sent to Jack topic, and the second row is sent to Mary topic.
 
 ### bootstrap.servers [string]
 
@@ -206,5 +206,5 @@ sink {
 - [Improve] Add text format for kafka sink connector [3711](https://github.com/apache/incubator-seatunnel/pull/3711)
 - [Improve] Support extract topic from SeaTunnelRow fields [3742](https://github.com/apache/incubator-seatunnel/pull/3742)
 - [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/incubator-seatunnel/pull/3719)
-- [Improve] Support read ogg format message [4201](https://github.com/apache/incubator-seatunnel/pull/4225)
+- [Improve] Support sink ogg format message [4225](https://github.com/apache/incubator-seatunnel/pull/4225)
 
