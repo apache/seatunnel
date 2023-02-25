@@ -25,8 +25,8 @@ public interface JdbcCatalogOptions {
     Option<String> BASE_URL = Options.key("base-url")
         .stringType()
         .noDefaultValue()
-        .withDescription("URL has to be without database, like \"jdbc:mysql://localhost:5432/\" or" +
-            "\"jdbc:mysql://localhost:5432\" rather than \"jdbc:mysql://localhost:5432/db\"");
+        .withDescription("URL has to be with database, like \"jdbc:mysql://localhost:5432/db\" or" +
+            "\"jdbc:mysql://localhost:5432/db?useSSL=true\".");
 
     Option<String> USERNAME =
         Options.key("username")

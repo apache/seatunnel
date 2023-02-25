@@ -19,11 +19,15 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 
 import com.google.auto.service.AutoService;
+
+import java.util.Optional;
 
 @AutoService(Factory.class)
 public class MySqlCatalogFactory implements CatalogFactory {
@@ -35,10 +39,18 @@ public class MySqlCatalogFactory implements CatalogFactory {
 
     @Override
     public Catalog createCatalog(String catalogName, ReadonlyConfig options) {
+        String urlWithDatabase = options.get(JdbcCatalogOptions.BASE_URL);
+        JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(urlWithDatabase);
+        Optional<String> defaultDatabase = urlInfo.getDefaultDatabase();
+        if (!defaultDatabase.isPresent()) {
+            throw new OptionValidationException(JdbcCatalogOptions.BASE_URL);
+        }
         return new MySqlCatalog(catalogName,
             options.get(JdbcCatalogOptions.USERNAME),
             options.get(JdbcCatalogOptions.PASSWORD),
-            options.get(JdbcCatalogOptions.BASE_URL));
+            defaultDatabase.get(),
+            urlInfo.getUrlWithoutDatabase(),
+            urlInfo.getUrlWithDatabase().get());
     }
 
     @Override
