@@ -61,12 +61,8 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         SYS_DATABASES.add("sys");
     }
 
-    public MySqlCatalog(String catalogName, String defaultDatabase, String username, String pwd, String baseUrl) {
-        super(catalogName, defaultDatabase, username, pwd, baseUrl);
-    }
-
-    public MySqlCatalog(String catalogName, String username, String pwd, String defaultUrl) {
-        super(catalogName, username, pwd, defaultUrl);
+    public MySqlCatalog(String catalogName, String username, String pwd, String defaultDatabase, String baseUrl, String defaultUrl) {
+        super(catalogName, username, pwd, defaultDatabase, baseUrl, defaultUrl);
     }
 
     @Override
