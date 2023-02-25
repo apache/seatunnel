@@ -201,13 +201,14 @@ public class ExecutionPlanGenerator {
         String shuffleActionName = String.format("Shuffle [%s -> table[0~%s]]",
             sourceAction.getName(), ((MultipleRowType) sourceProducedType).getTableIds().length - 1);
         ShuffleAction shuffleAction = new ShuffleAction(shuffleVertexId, shuffleActionName, shuffleConfig);
-        // multiple-row shuffle default parallelism is 1
-        shuffleAction.setParallelism(1);
+        shuffleAction.setParallelism(sourceAction.getParallelism());
         ExecutionVertex shuffleVertex = new ExecutionVertex(shuffleVertexId, shuffleAction, shuffleAction.getParallelism());
         ExecutionEdge sourceToShuffleEdge = new ExecutionEdge(sourceExecutionVertex, shuffleVertex);
         newExecutionEdges.add(sourceToShuffleEdge);
 
         for (ExecutionVertex sinkVertex : sinkVertices) {
+            sinkVertex.setParallelism(1);
+            sinkVertex.getAction().setParallelism(1);
             ExecutionEdge shuffleToSinkEdge = new ExecutionEdge(shuffleVertex, sinkVertex);
             newExecutionEdges.add(shuffleToSinkEdge);
         }
