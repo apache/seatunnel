@@ -326,7 +326,7 @@ public class StarRocksCatalog implements Catalog {
             conn.createStatement().execute(sql);
         } catch (Exception e) {
             throw new CatalogException(
-                String.format("Failed listing database in catalog %s", catalogName), e);
+                String.format("Failed create table in catalog %s, sql :[%s]", catalogName, sql), e);
         }
     }
 
