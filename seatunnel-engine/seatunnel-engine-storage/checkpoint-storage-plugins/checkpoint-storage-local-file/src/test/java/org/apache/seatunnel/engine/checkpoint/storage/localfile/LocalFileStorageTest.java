@@ -26,6 +26,7 @@ import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorag
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 
@@ -35,6 +36,7 @@ import static org.junit.jupiter.api.condition.OS.LINUX;
 import static org.junit.jupiter.api.condition.OS.MAC;
 
 @EnabledOnOs({LINUX, MAC})
+@Disabled("local file storage is abandoned")
 public class LocalFileStorageTest {
 
     private static LocalFileStorage STORAGE = new LocalFileStorage(null);
