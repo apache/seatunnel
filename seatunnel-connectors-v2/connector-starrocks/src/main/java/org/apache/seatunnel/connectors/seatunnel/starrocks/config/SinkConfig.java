@@ -64,9 +64,7 @@ public class SinkConfig implements Serializable {
         SinkConfig sinkConfig = new SinkConfig();
         sinkConfig.setNodeUrls(config.get(StarRocksSinkOptions.NODE_URLS));
         sinkConfig.setDatabase(config.get(StarRocksSinkOptions.DATABASE));
-        sinkConfig.setJdbcUrl(String.format("jdbc:mysql://%s:%d",
-            sinkConfig.getNodeUrls().get(0).split(":")[0],
-            config.get(StarRocksSinkOptions.QUERY_PORT)));
+        sinkConfig.setJdbcUrl(config.get(StarRocksOptions.BASE_URL));
         config.getOptional(StarRocksOptions.USERNAME).ifPresent(sinkConfig::setUsername);
         config.getOptional(StarRocksOptions.PASSWORD).ifPresent(sinkConfig::setPassword);
         config.getOptional(StarRocksSinkOptions.TABLE).ifPresent(sinkConfig::setTable);
