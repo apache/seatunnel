@@ -36,6 +36,7 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
@@ -126,7 +127,10 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 // get job id
                 long jobId = clientJobProxy.getJobId();
                 JobMetricsRunner jobMetricsRunner = new JobMetricsRunner(engineClient, jobId);
-                executorService = Executors.newSingleThreadScheduledExecutor();
+                executorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder()
+                    .setNameFormat("job-metrics-runner-%d")
+                    .setDaemon(true)
+                    .build());
                 executorService.scheduleAtFixedRate(jobMetricsRunner, 0,
                     seaTunnelConfig.getEngineConfig().getPrintJobMetricsInfoInterval(), TimeUnit.SECONDS);
                 // wait for job complete
@@ -141,12 +145,15 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         } finally {
             if (engineClient != null) {
                 engineClient.close();
+                log.info("Closed SeaTunnel client......");
             }
             if (instance != null) {
                 instance.shutdown();
+                log.info("Closed HazelcastInstance ......");
             }
             if (executorService != null) {
                 executorService.shutdown();
+                log.info("Closed metrics executor service ......");
             }
             if (jobMetricsSummary != null) {
                 // print job statistics information when job finished
