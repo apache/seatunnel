@@ -79,6 +79,6 @@ public class TaskAcknowledgeOperation extends Operation implements IdentifiedDat
                 .getJobMaster(taskLocation.getJobId())
                 .getCheckpointManager()
                 .acknowledgeTask(this);
-        log.info("task ack finished {}", taskLocation);
+        log.debug("task ack finished {}", taskLocation);
     }
 }

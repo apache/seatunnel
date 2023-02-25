@@ -35,6 +35,7 @@ import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelWaitForJobComple
 import org.apache.commons.lang3.StringUtils;
 
 import com.hazelcast.client.impl.protocol.ClientMessage;
+import com.hazelcast.core.OperationTimeoutException;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import lombok.NonNull;
@@ -98,7 +99,9 @@ public class ClientJobProxy implements Job {
                             new RetryUtils.RetryMaterial(
                                     100000,
                                     true,
-                                    exception -> exception instanceof RuntimeException,
+                                    exception ->
+                                            exception.getCause()
+                                                    instanceof OperationTimeoutException,
                                     Constant.OPERATION_RETRY_SLEEP));
             if (jobResult == null) {
                 throw new SeaTunnelEngineException("failed to fetch job result");

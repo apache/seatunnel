@@ -242,7 +242,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 taskGroup =
                         nodeEngine.getSerializationService().toObject(taskImmutableInfo.getGroup());
             }
-            logger.info(
+            logger.fine(
                     String.format(
                             "deploying task %s, executionId [%s]",
                             taskGroup.getTaskGroupLocation(), taskImmutableInfo.getExecutionId()));

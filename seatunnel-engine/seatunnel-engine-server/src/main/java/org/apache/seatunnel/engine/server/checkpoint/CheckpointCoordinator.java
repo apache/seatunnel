@@ -421,7 +421,7 @@ public class CheckpointCoordinator {
                         return;
                     }
 
-                    LOG.info("Start a scheduled task to prevent checkpoint timeouts");
+                    LOG.debug("Start a scheduled task to prevent checkpoint timeouts");
                     scheduler.schedule(
                             () -> {
                                 // If any task is not acked within the checkpoint timeout
@@ -560,7 +560,7 @@ public class CheckpointCoordinator {
         final long checkpointId = ackOperation.getBarrier().getId();
         final PendingCheckpoint pendingCheckpoint = pendingCheckpoints.get(checkpointId);
         TaskLocation location = ackOperation.getTaskLocation();
-        LOG.info(
+        LOG.debug(
                 "task[{}]({}/{}) ack. {}",
                 location.getTaskID(),
                 location.getPipelineId(),

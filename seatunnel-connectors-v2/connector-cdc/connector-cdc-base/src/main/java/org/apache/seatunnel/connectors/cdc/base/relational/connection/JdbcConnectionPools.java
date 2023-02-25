@@ -52,7 +52,7 @@ public class JdbcConnectionPools implements ConnectionPools<HikariDataSource, Jd
             ConnectionPoolId poolId, JdbcSourceConfig sourceConfig) {
         synchronized (pools) {
             if (!pools.containsKey(poolId)) {
-                LOG.info("Create and register connection pool {}", poolId);
+                LOG.debug("Create and register connection pool {}", poolId);
                 pools.put(poolId, JDBCCONNECTIONPOOLFACTORY.createPooledDataSource(sourceConfig));
             }
             return pools.get(poolId);
