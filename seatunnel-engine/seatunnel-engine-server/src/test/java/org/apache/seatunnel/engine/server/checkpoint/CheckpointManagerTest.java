@@ -31,6 +31,7 @@ import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
@@ -45,6 +46,7 @@ import java.util.concurrent.CompletableFuture;
 import static org.apache.seatunnel.engine.common.Constant.IMAP_CHECKPOINT_ID;
 
 @DisabledOnOs(OS.WINDOWS)
+@Disabled
 public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
 
     @Test

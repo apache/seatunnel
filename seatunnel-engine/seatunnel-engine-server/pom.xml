@@ -25,7 +25,6 @@
     </parent>
 
     <artifactId>seatunnel-engine-server</artifactId>
-    <name>SeaTunnel : Engine : Server</name>
 
     <dependencies>
         <dependency>
