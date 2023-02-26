@@ -151,7 +151,7 @@ public class PhysicalPlan {
                                     .getCheckpointManager()
                                     .listenPipelineRetry(
                                             subPlan.getPipelineLocation().getPipelineId(),
-                                        pipelineState.getPipelineStatus())
+                                            pipelineState.getPipelineStatus())
                                     .join();
                         }
                         if (PipelineStatus.CANCELED.equals(pipelineState.getPipelineStatus())) {
@@ -198,17 +198,15 @@ public class PhysicalPlan {
                                 jobStatus = JobStatus.FINISHED;
                                 turnToEndState(jobStatus);
                             }
-                            jobEndFuture.complete(
-                                    new JobResult(
-                                        jobStatus,
-                                            errorBySubPlan.get()));
+                            jobEndFuture.complete(new JobResult(jobStatus, errorBySubPlan.get()));
                         }
                     } catch (Throwable e) {
                         // Because only cancelJob or releasePipelineResource can throw exception, so
                         // we only output log here
                         LOGGER.severe(ExceptionUtils.getMessage(e));
                     }
-                }, jobMaster.getExecutorService());
+                },
+                jobMaster.getExecutorService());
     }
 
     public void cancelJob() {
@@ -234,8 +232,11 @@ public class PhysicalPlan {
     private void cancelJobPipelines() {
         List<CompletableFuture<Void>> collect =
                 pipelineList.stream()
-                        .map(pipeline -> CompletableFuture.runAsync(pipeline::cancelPipeline,
-                            jobMaster.getExecutorService()))
+                        .map(
+                                pipeline ->
+                                        CompletableFuture.runAsync(
+                                                pipeline::cancelPipeline,
+                                                jobMaster.getExecutorService()))
                         .collect(Collectors.toList());
 
         try {

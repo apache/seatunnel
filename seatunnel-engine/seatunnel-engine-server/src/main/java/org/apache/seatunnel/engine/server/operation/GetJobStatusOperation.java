@@ -72,7 +72,10 @@ public class GetJobStatusOperation extends Operation
                 CompletableFuture.supplyAsync(
                         () -> {
                             return service.getCoordinatorService().getJobStatus(jobId);
-                        }, getNodeEngine().getExecutionService().getExecutor("get_job_status_operation"));
+                        },
+                        getNodeEngine()
+                                .getExecutionService()
+                                .getExecutor("get_job_status_operation"));
 
         try {
             response = future.get().ordinal();

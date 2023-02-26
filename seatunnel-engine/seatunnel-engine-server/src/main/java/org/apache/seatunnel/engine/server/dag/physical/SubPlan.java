@@ -186,9 +186,9 @@ public class SubPlan {
                             checkAndCleanPipeline(pipelineStatus);
                             turnToEndState(pipelineStatus);
                             LOGGER.info(
-                                String.format(
-                                    "%s end with state %s",
-                                    this.pipelineFullName, pipelineStatus));
+                                    String.format(
+                                            "%s end with state %s",
+                                            this.pipelineFullName, pipelineStatus));
 
                             pipelineFuture.complete(
                                     new PipelineExecutionState(

@@ -106,7 +106,7 @@ public class ServerConfigOptions {
     public static final Option<Integer> CHECKPOINT_STORAGE_MAX_RETAINED =
             Options.key("max-retained")
                     .intType()
-                    .defaultValue(1)
+                    .defaultValue(20)
                     .withDescription("The maximum number of retained checkpoints.");
 
     public static final Option<QueueType> QUEUE_TYPE =

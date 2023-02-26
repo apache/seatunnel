@@ -25,7 +25,6 @@ import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.AllowedDuringPassiveState;
-import com.hazelcast.spi.impl.executionservice.ExecutionService;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
@@ -75,7 +74,10 @@ public class GetJobDetailStatusOperation extends Operation
                             return service.getCoordinatorService()
                                     .getJobHistoryService()
                                     .getJobDetailStateAsString(jobId);
-                        }, getNodeEngine().getExecutionService().getExecutor("get_job_detail_status_operation"));
+                        },
+                        getNodeEngine()
+                                .getExecutionService()
+                                .getExecutor("get_job_detail_status_operation"));
 
         try {
             response = future.get();

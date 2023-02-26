@@ -128,14 +128,14 @@ public class CheckpointCoordinator {
 
     @SneakyThrows
     public CheckpointCoordinator(
-        CheckpointManager manager,
-        CheckpointStorage checkpointStorage,
-        CheckpointConfig checkpointConfig,
-        long jobId,
-        CheckpointPlan plan,
-        CheckpointIDCounter checkpointIdCounter,
-        PipelineState pipelineState,
-        ExecutorService executorService) {
+            CheckpointManager manager,
+            CheckpointStorage checkpointStorage,
+            CheckpointConfig checkpointConfig,
+            long jobId,
+            CheckpointPlan plan,
+            CheckpointIDCounter checkpointIdCounter,
+            PipelineState pipelineState,
+            ExecutorService executorService) {
 
         this.executorService = executorService;
         this.checkpointManager = manager;
@@ -192,7 +192,8 @@ public class CheckpointCoordinator {
                                 default:
                                     break;
                             }
-                        }, executorService)
+                        },
+                        executorService)
                 .exceptionally(
                         error -> {
                             handleCoordinatorError(
@@ -414,7 +415,8 @@ public class CheckpointCoordinator {
                                                             pendingCheckpoint.getCheckpointId(),
                                                             pendingCheckpoint
                                                                     .getCheckpointTimestamp(),
-                                                            pendingCheckpoint.getCheckpointType()), executorService)
+                                                            pendingCheckpoint.getCheckpointType()),
+                                            executorService)
                                     .thenApplyAsync(this::triggerCheckpoint);
 
                     try {
@@ -460,9 +462,12 @@ public class CheckpointCoordinator {
                                     } catch (Throwable e) {
                                         throw new CompletionException(e);
                                     }
-                                }, executorService);
+                                },
+                                executorService);
             } else {
-                idFuture = CompletableFuture.supplyAsync(() -> Barrier.PREPARE_CLOSE_BARRIER_ID, executorService);
+                idFuture =
+                        CompletableFuture.supplyAsync(
+                                () -> Barrier.PREPARE_CLOSE_BARRIER_ID, executorService);
             }
             return triggerPendingCheckpoint(triggerTimestamp, idFuture, checkpointType);
         }
@@ -484,13 +489,15 @@ public class CheckpointCoordinator {
                                         checkpointType,
                                         getNotYetAcknowledgedTasks(),
                                         getTaskStatistics(),
-                                        getActionStates()), executorService)
+                                        getActionStates()),
+                        executorService)
                 .thenApplyAsync(
                         pendingCheckpoint -> {
                             pendingCheckpoints.put(
                                     pendingCheckpoint.getCheckpointId(), pendingCheckpoint);
                             return pendingCheckpoint;
-                        }, executorService);
+                        },
+                        executorService);
     }
 
     private Set<Long> getNotYetAcknowledgedTasks() {
@@ -610,12 +617,19 @@ public class CheckpointCoordinator {
                             .states(states)
                             .build());
             if (completedCheckpoints.size()
-                    > coordinatorConfig.getStorage().getMaxRetainedCheckpoints()) {
-                CompletedCheckpoint superfluous = completedCheckpoints.removeFirst();
+                            % coordinatorConfig.getStorage().getMaxRetainedCheckpoints()
+                    == 0) {
+                List<String> needDeleteCheckpointId = new ArrayList<>();
+                for (int i = 0;
+                        i < coordinatorConfig.getStorage().getMaxRetainedCheckpoints();
+                        i++) {
+                    needDeleteCheckpointId.add(
+                            completedCheckpoints.removeFirst().getCheckpointId() + "");
+                }
                 checkpointStorage.deleteCheckpoint(
-                        String.valueOf(superfluous.getJobId()),
-                        String.valueOf(superfluous.getPipelineId()),
-                        String.valueOf(superfluous.getCheckpointId()));
+                        String.valueOf(completedCheckpoint.getJobId()),
+                        String.valueOf(completedCheckpoint.getPipelineId()),
+                        needDeleteCheckpointId);
             }
         } catch (Throwable e) {
             LOG.error("store checkpoint states failed.", e);

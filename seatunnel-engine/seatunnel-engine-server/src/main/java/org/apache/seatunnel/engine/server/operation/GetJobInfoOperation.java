@@ -52,7 +52,10 @@ public class GetJobInfoOperation extends Operation
                 CompletableFuture.supplyAsync(
                         () ->
                                 this.getNodeEngine()
-                                        .toData(service.getCoordinatorService().getJobInfo(jobId)), getNodeEngine().getExecutionService().getExecutor("get_job_info_operation"));
+                                        .toData(service.getCoordinatorService().getJobInfo(jobId)),
+                        getNodeEngine()
+                                .getExecutionService()
+                                .getExecutor("get_job_info_operation"));
 
         try {
             response = future.get();

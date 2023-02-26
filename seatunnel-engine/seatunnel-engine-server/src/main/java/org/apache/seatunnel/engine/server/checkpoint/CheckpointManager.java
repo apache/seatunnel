@@ -81,13 +81,13 @@ public class CheckpointManager {
     private final ExecutorService executorService;
 
     public CheckpointManager(
-        long jobId,
-        boolean isStartWithSavePoint,
-        NodeEngine nodeEngine,
-        JobMaster jobMaster,
-        Map<Integer, CheckpointPlan> checkpointPlanMap,
-        CheckpointConfig checkpointConfig,
-        ExecutorService executorService)
+            long jobId,
+            boolean isStartWithSavePoint,
+            NodeEngine nodeEngine,
+            JobMaster jobMaster,
+            Map<Integer, CheckpointPlan> checkpointPlanMap,
+            CheckpointConfig checkpointConfig,
+            ExecutorService executorService)
             throws CheckpointStorageException {
         this.executorService = executorService;
         this.jobId = jobId;
@@ -134,7 +134,8 @@ public class CheckpointManager {
                                                 jobId,
                                                 plan,
                                                 idCounter,
-                                                pipelineState);
+                                                pipelineState,
+                                                executorService);
                                     } catch (Exception e) {
                                         ExceptionUtil.sneakyThrow(e);
                                     }

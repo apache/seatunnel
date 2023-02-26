@@ -309,7 +309,8 @@ public class CoordinatorService {
                                 runningJobMasterMap.remove(jobId);
                             }
                         }
-                    }, executorService);
+                    },
+                    executorService);
             return;
         }
 
@@ -334,7 +335,8 @@ public class CoordinatorService {
                                 runningJobMasterMap.remove(jobId);
                             }
                         }
-                    }, executorService);
+                    },
+                    executorService);
         }
     }
 
