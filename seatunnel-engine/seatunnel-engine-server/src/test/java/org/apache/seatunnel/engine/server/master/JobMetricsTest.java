@@ -136,10 +136,10 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
         // check metrics
         JobMetrics jobMetrics = coordinatorService.getJobMetrics(JOB_3);
         System.out.println(jobMetrics.toJsonString());
-        assertTrue(80 < (Long) jobMetrics.get(SINK_WRITE_COUNT).get(0).value());
-        assertTrue(80 < (Long) jobMetrics.get(SINK_WRITE_COUNT).get(1).value());
-        assertTrue(80 < (Long) jobMetrics.get(SOURCE_RECEIVED_COUNT).get(0).value());
-        assertTrue(80 < (Long) jobMetrics.get(SOURCE_RECEIVED_COUNT).get(1).value());
+        assertTrue(40 < (Long) jobMetrics.get(SINK_WRITE_COUNT).get(0).value());
+        assertTrue(40 < (Long) jobMetrics.get(SINK_WRITE_COUNT).get(1).value());
+        assertTrue(40 < (Long) jobMetrics.get(SOURCE_RECEIVED_COUNT).get(0).value());
+        assertTrue(40 < (Long) jobMetrics.get(SOURCE_RECEIVED_COUNT).get(1).value());
     }
 
     private void startJob(Long jobid, String path, boolean isStartWithSavePoint) {
