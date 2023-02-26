@@ -27,17 +27,12 @@ import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
 import org.apache.seatunnel.translation.spark.serialization.InternalRowConverter;
-import org.apache.seatunnel.translation.spark.utils.InstantConverterUtils;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema;
-import org.apache.spark.sql.catalyst.expressions.MutableValue;
-import org.apache.spark.sql.catalyst.expressions.SpecificInternalRow;
-import org.apache.spark.sql.types.DataType;
-import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
 
 import com.google.common.collect.Lists;
@@ -45,11 +40,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.net.URL;
-import java.sql.Date;
-import java.sql.Timestamp;
-import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -146,20 +137,7 @@ public class TransformExecuteProcessor
             }
             InternalRow internalRow = outputRowConverter.convert(seaTunnelRow);
 
-            Object[] fields =
-                    Arrays.stream(((SpecificInternalRow) internalRow).values())
-                            .map(MutableValue::boxed)
-                            .toArray();
-            for (int i = 0; i < structType.fields().length; i++) {
-                DataType dataType = structType.fields()[i].dataType();
-                Object field = fields[i];
-                if (dataType == DataTypes.TimestampType && field instanceof Long) {
-                    fields[i] = Timestamp.from(InstantConverterUtils.ofEpochMicro((long) field));
-                }
-                if (dataType == DataTypes.DateType && field instanceof Integer) {
-                    fields[i] = Date.valueOf(LocalDate.ofEpochDay((int) field));
-                }
-            }
+            Object[] fields = inputRowConverter.convertDateTime(internalRow, structType);
 
             outputRows.add(new GenericRowWithSchema(fields, structType));
         }
