@@ -162,7 +162,13 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
             }
             // Gets the data for the DELETE BEFORE operation
             SeaTunnelRow before = convertJsonNode(dataBefore);
-            assert before != null;
+            if (before == null) {
+                throw new SeaTunnelJsonFormatException(
+                        CommonErrorCode.JSON_OPERATION_FAILED,
+                        format(
+                                "The data %s the %s cannot be null \"%s\" ",
+                                "BEFORE", "DELETE", new String(message)));
+            }
             before.setRowKind(RowKind.DELETE);
             out.collect(before);
         } else {
