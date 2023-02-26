@@ -82,7 +82,13 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
         planMap.put(1, CheckpointPlan.builder().pipelineId(1).build());
         CheckpointManager checkpointManager =
                 new CheckpointManager(
-                        jobId, false, nodeEngine, null, planMap, new CheckpointConfig(), instance.getExecutorService("test"));
+                        jobId,
+                        false,
+                        nodeEngine,
+                        null,
+                        planMap,
+                        new CheckpointConfig(),
+                        instance.getExecutorService("test"));
         Assertions.assertTrue(checkpointManager.isCompletedPipeline(1));
         checkpointManager.listenPipeline(1, PipelineStatus.FINISHED);
         Assertions.assertNull(checkpointIdMap.get(1));
