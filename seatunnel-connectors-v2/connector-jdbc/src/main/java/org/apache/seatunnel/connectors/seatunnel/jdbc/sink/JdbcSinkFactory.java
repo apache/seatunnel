@@ -17,25 +17,25 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.AUTO_COMMIT;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.BATCH_INTERVAL_MS;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.BATCH_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.CONNECTION_CHECK_TIMEOUT_SEC;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.DRIVER;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.GENERATE_SINK_SQL;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.IS_EXACTLY_ONCE;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.MAX_COMMIT_ATTEMPTS;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.MAX_RETRIES;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.PRIMARY_KEYS;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.QUERY;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.TABLE;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.TRANSACTION_TIMEOUT_SEC;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.URL;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.USER;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.XA_DATA_SOURCE_CLASS_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.AUTO_COMMIT;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.BATCH_INTERVAL_MS;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.BATCH_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.CONNECTION_CHECK_TIMEOUT_SEC;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.DRIVER;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.GENERATE_SINK_SQL;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.IS_EXACTLY_ONCE;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.MAX_COMMIT_ATTEMPTS;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.MAX_RETRIES;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.PRIMARY_KEYS;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.QUERY;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.TRANSACTION_TIMEOUT_SEC;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.URL;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.USER;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.XA_DATA_SOURCE_CLASS_NAME;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;

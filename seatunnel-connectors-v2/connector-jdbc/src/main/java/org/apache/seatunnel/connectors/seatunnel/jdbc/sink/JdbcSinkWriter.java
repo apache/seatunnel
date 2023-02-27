@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormat;
@@ -51,11 +51,11 @@ public class JdbcSinkWriter implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSin
     public JdbcSinkWriter(
         SinkWriter.Context context,
         JdbcDialect dialect,
-        JdbcSinkOptions jdbcSinkOptions,
+        JdbcSinkConfig jdbcSinkConfig,
         SeaTunnelRowType rowType) {
         this.context = context;
-        this.connectionProvider = new SimpleJdbcConnectionProvider(jdbcSinkOptions.getJdbcConnectionOptions());
-        this.outputFormat = new JdbcOutputFormatBuilder(dialect, connectionProvider, jdbcSinkOptions, rowType).build();
+        this.connectionProvider = new SimpleJdbcConnectionProvider(jdbcSinkConfig.getJdbcConnectionConfig());
+        this.outputFormat = new JdbcOutputFormatBuilder(dialect, connectionProvider, jdbcSinkConfig, rowType).build();
     }
 
     private void tryOpen() throws IOException {
