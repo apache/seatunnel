@@ -17,51 +17,41 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.config;
 
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.buildJdbcConnectionOptions;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options.JdbcConnectionOptions;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 
 import java.io.Serializable;
 import java.util.Optional;
 
 @Data
-@AllArgsConstructor
-public class JdbcSourceOptions implements Serializable {
-    private JdbcConnectionOptions jdbcConnectionOptions;
+@Builder(builderClassName = "Builder")
+public class JdbcSourceConfig implements Serializable {
+    private static final long serialVersionUID = 2L;
+
+    private JdbcConnectionConfig jdbcConnectionConfig;
     public String query;
     private String partitionColumn;
     private Long partitionUpperBound;
     private Long partitionLowerBound;
-    private int fetchSize = JdbcConfig.FETCH_SIZE.defaultValue();
+    private int fetchSize;
     private Integer partitionNumber;
 
-    public JdbcSourceOptions(Config config) {
-        this.jdbcConnectionOptions = buildJdbcConnectionOptions(config);
-        this.query = config.getString(JdbcConfig.QUERY.key());
-        if (config.hasPath(JdbcConfig.PARTITION_COLUMN.key())) {
-            this.partitionColumn = config.getString(JdbcConfig.PARTITION_COLUMN.key());
-        }
-        if (config.hasPath(JdbcConfig.PARTITION_UPPER_BOUND.key())) {
-            this.partitionUpperBound = config.getLong(JdbcConfig.PARTITION_UPPER_BOUND.key());
-        }
-        if (config.hasPath(JdbcConfig.PARTITION_LOWER_BOUND.key())) {
-            this.partitionLowerBound = config.getLong(JdbcConfig.PARTITION_LOWER_BOUND.key());
-        }
-        if (config.hasPath(JdbcConfig.PARTITION_NUM.key())) {
-            this.partitionNumber = config.getInt(JdbcConfig.PARTITION_NUM.key());
-        }
-        if (config.hasPath(JdbcConfig.FETCH_SIZE.key())) {
-            this.fetchSize = config.getInt(JdbcConfig.FETCH_SIZE.key());
-        }
+    public static JdbcSourceConfig of(ReadonlyConfig config) {
+        JdbcSourceConfig.Builder builder = JdbcSourceConfig.builder();
+        builder.jdbcConnectionConfig(JdbcConnectionConfig.of(config));
+        builder.query(config.get(JdbcOptions.QUERY));
+        builder.fetchSize(config.get(JdbcOptions.FETCH_SIZE));
+        config.getOptional(JdbcOptions.PARTITION_COLUMN).ifPresent(builder::partitionColumn);
+        config.getOptional(JdbcOptions.PARTITION_UPPER_BOUND).ifPresent(builder::partitionUpperBound);
+        config.getOptional(JdbcOptions.PARTITION_LOWER_BOUND).ifPresent(builder::partitionLowerBound);
+        config.getOptional(JdbcOptions.PARTITION_NUM).ifPresent(builder::partitionNumber);
+        return builder.build();
     }
 
-    public JdbcConnectionOptions getJdbcConnectionOptions() {
-        return jdbcConnectionOptions;
+    public JdbcConnectionConfig getJdbcConnectionConfig() {
+        return jdbcConnectionConfig;
     }
 
     public Optional<String> getPartitionColumn() {

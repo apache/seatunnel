@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -27,7 +28,7 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcAggregatedCommitInfo;
@@ -53,7 +54,7 @@ public class JdbcSink
 
     private JobContext jobContext;
 
-    private JdbcSinkOptions jdbcSinkOptions;
+    private JdbcSinkConfig jdbcSinkConfig;
 
     private JdbcDialect dialect;
 
@@ -65,21 +66,22 @@ public class JdbcSink
     @Override
     public void prepare(Config pluginConfig)
         throws PrepareFailException {
+        ReadonlyConfig config = ReadonlyConfig.fromConfig(pluginConfig);
+        this.jdbcSinkConfig = JdbcSinkConfig.of(config);
         this.pluginConfig = pluginConfig;
-        this.jdbcSinkOptions = new JdbcSinkOptions(this.pluginConfig);
-        this.dialect = JdbcDialectLoader.load(jdbcSinkOptions.getJdbcConnectionOptions().getUrl());
+        this.dialect = JdbcDialectLoader.load(jdbcSinkConfig.getJdbcConnectionConfig().getUrl());
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> createWriter(SinkWriter.Context context)
         throws IOException {
         SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> sinkWriter;
-        if (jdbcSinkOptions.isExactlyOnce()) {
+        if (jdbcSinkConfig.isExactlyOnce()) {
             sinkWriter = new JdbcExactlyOnceSinkWriter(
                 context,
                 jobContext,
                 dialect,
-                jdbcSinkOptions,
+                jdbcSinkConfig,
                 seaTunnelRowType,
                 new ArrayList<>()
             );
@@ -87,7 +89,7 @@ public class JdbcSink
             sinkWriter = new JdbcSinkWriter(
                 context,
                 dialect,
-                jdbcSinkOptions,
+                jdbcSinkConfig,
                 seaTunnelRowType);
         }
 
@@ -97,12 +99,12 @@ public class JdbcSink
     @Override
     public SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> restoreWriter(SinkWriter.Context context, List<JdbcSinkState> states)
         throws IOException {
-        if (jdbcSinkOptions.isExactlyOnce()) {
+        if (jdbcSinkConfig.isExactlyOnce()) {
             return new JdbcExactlyOnceSinkWriter(
                 context,
                 jobContext,
                 dialect,
-                jdbcSinkOptions,
+                jdbcSinkConfig,
                 seaTunnelRowType,
                 states
             );
@@ -112,8 +114,8 @@ public class JdbcSink
 
     @Override
     public Optional<SinkAggregatedCommitter<XidInfo, JdbcAggregatedCommitInfo>> createAggregatedCommitter() {
-        if (jdbcSinkOptions.isExactlyOnce()) {
-            return Optional.of(new JdbcSinkAggregatedCommitter(jdbcSinkOptions));
+        if (jdbcSinkConfig.isExactlyOnce()) {
+            return Optional.of(new JdbcSinkAggregatedCommitter(jdbcSinkConfig));
         }
         return Optional.empty();
     }
@@ -130,7 +132,7 @@ public class JdbcSink
 
     @Override
     public Optional<Serializer<JdbcAggregatedCommitInfo>> getAggregatedCommitInfoSerializer() {
-        if (jdbcSinkOptions.isExactlyOnce()) {
+        if (jdbcSinkConfig.isExactlyOnce()) {
             return Optional.of(new DefaultSerializer<>());
         }
         return Optional.empty();
@@ -144,7 +146,7 @@ public class JdbcSink
 
     @Override
     public Optional<Serializer<XidInfo>> getCommitInfoSerializer() {
-        if (jdbcSinkOptions.isExactlyOnce()) {
+        if (jdbcSinkConfig.isExactlyOnce()) {
             return Optional.of(new DefaultSerializer<>());
         }
         return Optional.empty();

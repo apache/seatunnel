@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
 import static java.lang.String.format;
 
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 
 import java.io.Serializable;
@@ -178,8 +178,8 @@ public interface JdbcDialect extends Serializable {
         return statement;
     }
 
-    default ResultSetMetaData getResultSetMetaData(Connection conn, JdbcSourceOptions jdbcSourceOptions) throws SQLException {
-        PreparedStatement ps = conn.prepareStatement(jdbcSourceOptions.getQuery());
+    default ResultSetMetaData getResultSetMetaData(Connection conn, JdbcSourceConfig jdbcSourceConfig) throws SQLException {
+        PreparedStatement ps = conn.prepareStatement(jdbcSourceConfig.getQuery());
         return ps.getMetaData();
     }
 
