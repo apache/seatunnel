@@ -193,7 +193,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                 getLatestCheckpointFileNameByJobIdAndPipelineId(fileNames, pipelineId);
         if (latestFileName == null) {
             log.info(
-                    "No checkpoint found for job, job id is: "
+                    "No checkpoint found for this job, the job id is: "
                             + jobId
                             + ", pipeline id is: "
                             + pipelineId);
