@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -49,19 +49,19 @@ public class JdbcOutputFormatBuilder {
     @NonNull
     private final JdbcConnectionProvider connectionProvider;
     @NonNull
-    private final JdbcSinkOptions jdbcSinkOptions;
+    private final JdbcSinkConfig jdbcSinkConfig;
     @NonNull
     private final SeaTunnelRowType seaTunnelRowType;
 
     public JdbcOutputFormat build() {
         JdbcOutputFormat.StatementExecutorFactory statementExecutorFactory;
 
-        final String database = jdbcSinkOptions.getDatabase();
-        final String table = jdbcSinkOptions.getTable();
-        final List<String> primaryKeys = jdbcSinkOptions.getPrimaryKeys();
+        final String database = jdbcSinkConfig.getDatabase();
+        final String table = jdbcSinkConfig.getTable();
+        final List<String> primaryKeys = jdbcSinkConfig.getPrimaryKeys();
         if (Strings.isNullOrEmpty(table) && Strings.isNullOrEmpty(database)) {
             statementExecutorFactory = () -> createSimpleBufferedExecutor(
-                jdbcSinkOptions.getSimpleSQL(), seaTunnelRowType, dialect.getRowConverter());
+                jdbcSinkConfig.getSimpleSql(), seaTunnelRowType, dialect.getRowConverter());
         } else if (primaryKeys == null || primaryKeys.isEmpty()) {
             statementExecutorFactory = () -> createSimpleBufferedExecutor(
                 dialect, database, table, seaTunnelRowType);
@@ -69,11 +69,11 @@ public class JdbcOutputFormatBuilder {
             statementExecutorFactory = () -> createUpsertBufferedExecutor(
                 dialect, database, table, seaTunnelRowType,
                 primaryKeys.toArray(new String[0]),
-                jdbcSinkOptions.isSupportUpsertByQueryPrimaryKeyExist());
+                jdbcSinkConfig.isSupportUpsertByQueryPrimaryKeyExist());
         }
 
         return new JdbcOutputFormat(connectionProvider,
-            jdbcSinkOptions.getJdbcConnectionOptions(), statementExecutorFactory);
+            jdbcSinkConfig.getJdbcConnectionConfig(), statementExecutorFactory);
     }
 
     private static JdbcBatchStatementExecutor<SeaTunnelRow> createSimpleBufferedExecutor(JdbcDialect dialect,

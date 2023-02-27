@@ -23,8 +23,8 @@ import static javax.transaction.xa.XAResource.TMSTARTRSCAN;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.DataSourceUtils;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options.JdbcConnectionOptions;
 
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterEach;
@@ -54,7 +54,7 @@ class XaGroupOpsImplIT {
     private MySQLContainer<?> mc;
     private XaGroupOps xaGroupOps;
     private SemanticXidGenerator xidGenerator;
-    private JdbcConnectionOptions jdbcConnectionOptions;
+    private JdbcConnectionConfig jdbcConnectionConfig;
     private XaFacade xaFacade;
     private XAResource xaResource;
 
@@ -66,20 +66,20 @@ class XaGroupOpsImplIT {
             .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_DOCKER_IMAGE)));
         Startables.deepStart(Stream.of(mc)).join();
 
-        jdbcConnectionOptions = JdbcConnectionOptions.builder()
-            .withUrl(mc.getJdbcUrl())
-            .withUsername(mc.getUsername())
-            .withPassword(mc.getPassword())
-            .withXaDataSourceClassName("com.mysql.cj.jdbc.MysqlXADataSource")
+        jdbcConnectionConfig = JdbcConnectionConfig.builder()
+            .url(mc.getJdbcUrl())
+            .username(mc.getUsername())
+            .password(mc.getPassword())
+            .xaDataSourceClassName("com.mysql.cj.jdbc.MysqlXADataSource")
             .build();
 
         xidGenerator = new SemanticXidGenerator();
         xidGenerator.open();
-        xaFacade = new XaFacadeImplAutoLoad(jdbcConnectionOptions);
+        xaFacade = new XaFacadeImplAutoLoad(jdbcConnectionConfig);
         xaFacade.open();
         xaGroupOps = new XaGroupOpsImpl(xaFacade);
 
-        XADataSource xaDataSource = (XADataSource) DataSourceUtils.buildCommonDataSource(jdbcConnectionOptions);
+        XADataSource xaDataSource = (XADataSource) DataSourceUtils.buildCommonDataSource(jdbcConnectionConfig);
         xaResource = xaDataSource.getXAConnection().getXAResource();
 
     }

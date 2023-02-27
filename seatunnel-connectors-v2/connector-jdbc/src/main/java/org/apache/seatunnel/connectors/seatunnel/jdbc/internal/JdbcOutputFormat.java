@@ -20,11 +20,11 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options.JdbcConnectionOptions;
 
 import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
@@ -53,7 +53,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>>
 
     private static final Logger LOG = LoggerFactory.getLogger(JdbcOutputFormat.class);
 
-    private final JdbcConnectionOptions jdbcConnectionOptions;
+    private final JdbcConnectionConfig jdbcConnectionConfig;
     private final StatementExecutorFactory<E> statementExecutorFactory;
 
     private transient E jdbcStatementExecutor;
@@ -66,10 +66,10 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>>
 
     public JdbcOutputFormat(
         JdbcConnectionProvider connectionProvider,
-        JdbcConnectionOptions jdbcConnectionOptions,
+        JdbcConnectionConfig jdbcConnectionConfig,
         StatementExecutorFactory<E> statementExecutorFactory) {
         this.connectionProvider = checkNotNull(connectionProvider);
-        this.jdbcConnectionOptions = checkNotNull(jdbcConnectionOptions);
+        this.jdbcConnectionConfig = checkNotNull(jdbcConnectionConfig);
         this.statementExecutorFactory = checkNotNull(statementExecutorFactory);
     }
 
@@ -86,7 +86,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>>
         }
         jdbcStatementExecutor = createAndOpenStatementExecutor(statementExecutorFactory);
 
-        if (jdbcConnectionOptions.getBatchIntervalMs() != 0 && jdbcConnectionOptions.getBatchSize() != 1) {
+        if (jdbcConnectionConfig.getBatchIntervalMs() != 0 && jdbcConnectionConfig.getBatchSize() != 1) {
             this.scheduler =
                 Executors.newScheduledThreadPool(
                     1, runnable -> {
@@ -109,8 +109,8 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>>
                             }
                         }
                     },
-                    jdbcConnectionOptions.getBatchIntervalMs(),
-                    jdbcConnectionOptions.getBatchIntervalMs(),
+                    jdbcConnectionConfig.getBatchIntervalMs(),
+                    jdbcConnectionConfig.getBatchIntervalMs(),
                     TimeUnit.MILLISECONDS);
         }
     }
@@ -137,8 +137,8 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>>
         try {
             addToBatch(record);
             batchCount++;
-            if (jdbcConnectionOptions.getBatchSize() > 0
-                && batchCount >= jdbcConnectionOptions.getBatchSize()) {
+            if (jdbcConnectionConfig.getBatchSize() > 0
+                && batchCount >= jdbcConnectionConfig.getBatchSize()) {
                 flush();
             }
         } catch (Exception e) {
@@ -155,14 +155,14 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>>
         throws IOException {
         checkFlushException();
         final int sleepMs = 1000;
-        for (int i = 0; i <= jdbcConnectionOptions.getMaxRetries(); i++) {
+        for (int i = 0; i <= jdbcConnectionConfig.getMaxRetries(); i++) {
             try {
                 attemptFlush();
                 batchCount = 0;
                 break;
             } catch (SQLException e) {
                 LOG.error("JDBC executeBatch error, retry times = {}", i, e);
-                if (i >= jdbcConnectionOptions.getMaxRetries()) {
+                if (i >= jdbcConnectionConfig.getMaxRetries()) {
                     throw new JdbcConnectorException(CommonErrorCode.FLUSH_DATA_FAILED, e);
                 }
                 try {
