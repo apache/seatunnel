@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.api.table.catalog;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
+
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -24,10 +28,6 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -42,11 +42,14 @@ public class CatalogTableUtilTest {
     @Test
     public void testSimpleSchemaParse() throws FileNotFoundException, URISyntaxException {
         String path = getTestConfigFile("/conf/simple.schema.conf");
-        Config config = ConfigFactory
-            .parseFile(new File(path))
-            .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-            .resolveWith(ConfigFactory.systemProperties(), ConfigResolveOptions.defaults().setAllowUnresolved(true));
-        SeaTunnelRowType seaTunnelRowType = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
+        Config config =
+                ConfigFactory.parseFile(new File(path))
+                        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
+                        .resolveWith(
+                                ConfigFactory.systemProperties(),
+                                ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        SeaTunnelRowType seaTunnelRowType =
+                CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
         Assertions.assertNotNull(seaTunnelRowType);
         Assertions.assertEquals(seaTunnelRowType.getFieldType(1), ArrayType.BYTE_ARRAY_TYPE);
         Assertions.assertEquals(seaTunnelRowType.getFieldType(2), BasicType.STRING_TYPE);
@@ -58,20 +61,30 @@ public class CatalogTableUtilTest {
     @Test
     public void testComplexSchemaParse() throws FileNotFoundException, URISyntaxException {
         String path = getTestConfigFile("/conf/complex.schema.conf");
-        Config config = ConfigFactory
-            .parseFile(new File(path))
-            .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-            .resolveWith(ConfigFactory.systemProperties(), ConfigResolveOptions.defaults().setAllowUnresolved(true));
-        SeaTunnelRowType seaTunnelRowType = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
+        Config config =
+                ConfigFactory.parseFile(new File(path))
+                        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
+                        .resolveWith(
+                                ConfigFactory.systemProperties(),
+                                ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        SeaTunnelRowType seaTunnelRowType =
+                CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
         Assertions.assertNotNull(seaTunnelRowType);
-        Assertions.assertEquals(seaTunnelRowType.getFieldType(0),
-            new MapType<>(BasicType.STRING_TYPE, new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE)));
-        Assertions.assertEquals(seaTunnelRowType.getFieldType(1),
-            new MapType<>(BasicType.STRING_TYPE, new MapType<>(BasicType.STRING_TYPE, ArrayType.INT_ARRAY_TYPE)));
+        Assertions.assertEquals(
+                seaTunnelRowType.getFieldType(0),
+                new MapType<>(
+                        BasicType.STRING_TYPE,
+                        new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE)));
+        Assertions.assertEquals(
+                seaTunnelRowType.getFieldType(1),
+                new MapType<>(
+                        BasicType.STRING_TYPE,
+                        new MapType<>(BasicType.STRING_TYPE, ArrayType.INT_ARRAY_TYPE)));
         Assertions.assertEquals(seaTunnelRowType.getFieldType(17).getSqlType(), SqlType.ROW);
     }
 
-    public static String getTestConfigFile(String configFile) throws FileNotFoundException, URISyntaxException {
+    public static String getTestConfigFile(String configFile)
+            throws FileNotFoundException, URISyntaxException {
         URL resource = CatalogTableUtilTest.class.getResource(configFile);
         if (resource == null) {
             throw new FileNotFoundException("Can't find config file: " + configFile);

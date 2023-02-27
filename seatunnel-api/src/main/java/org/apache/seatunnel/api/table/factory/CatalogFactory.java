@@ -22,8 +22,6 @@ import org.apache.seatunnel.api.table.catalog.Catalog;
 
 public interface CatalogFactory extends Factory {
 
-    /**
-     * Creates a {@link Catalog} using the options.
-     */
+    /** Creates a {@link Catalog} using the options. */
     Catalog createCatalog(String catalogName, ReadonlyConfig options);
 }

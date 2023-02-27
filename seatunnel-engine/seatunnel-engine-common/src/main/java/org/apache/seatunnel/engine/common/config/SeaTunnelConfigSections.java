@@ -16,10 +16,7 @@
 
 package org.apache.seatunnel.engine.common.config;
 
-/**
- * Configuration sections for Hazelcast SeaTunnel shared by YAML based
- * configurations
- */
+/** Configuration sections for Hazelcast SeaTunnel shared by YAML based configurations */
 enum SeaTunnelConfigSections {
     SEATUNNEL("seatunnel", false),
     ENGINE("engine", false);
@@ -30,7 +27,6 @@ enum SeaTunnelConfigSections {
     SeaTunnelConfigSections(String name, boolean multipleOccurrence) {
         this.name = name;
         this.multipleOccurrence = multipleOccurrence;
-
     }
 
     static boolean canOccurMultipleTimes(String name) {
@@ -45,5 +41,4 @@ enum SeaTunnelConfigSections {
     boolean isEqual(String name) {
         return this.name.equals(name);
     }
-
 }

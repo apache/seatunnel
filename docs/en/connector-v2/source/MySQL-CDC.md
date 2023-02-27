@@ -18,7 +18,7 @@ describes how to setup the MySQL CDC connector to run SQL queries against MySQL 
 
 ## Options
 
-| name                                           | type     | required | default value |
+|                      name                      |   type   | required | default value |
 |------------------------------------------------|----------|----------|---------------|
 | username                                       | String   | Yes      | -             |
 | password                                       | String   | Yes      | -             |
@@ -194,3 +194,4 @@ source {
 ### next version
 
 - Add MySQL CDC Source Connector
+

@@ -37,9 +37,10 @@ public class SeaTunnelScan implements Scan {
 
     private final CaseInsensitiveStringMap caseInsensitiveStringMap;
 
-    public SeaTunnelScan(SeaTunnelSource<SeaTunnelRow, ?, ?> source,
-                         int parallelism,
-                         CaseInsensitiveStringMap caseInsensitiveStringMap) {
+    public SeaTunnelScan(
+            SeaTunnelSource<SeaTunnelRow, ?, ?> source,
+            int parallelism,
+            CaseInsensitiveStringMap caseInsensitiveStringMap) {
         this.source = source;
         this.parallelism = parallelism;
         this.caseInsensitiveStringMap = caseInsensitiveStringMap;
@@ -57,6 +58,7 @@ public class SeaTunnelScan implements Scan {
 
     @Override
     public MicroBatchStream toMicroBatchStream(String checkpointLocation) {
-        return new SeaTunnelMicroBatch(source, parallelism, checkpointLocation, caseInsensitiveStringMap);
+        return new SeaTunnelMicroBatch(
+                source, parallelism, checkpointLocation, caseInsensitiveStringMap);
     }
 }

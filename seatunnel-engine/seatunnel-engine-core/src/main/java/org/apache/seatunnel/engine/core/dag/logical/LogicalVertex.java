@@ -36,13 +36,10 @@ public class LogicalVertex implements IdentifiedDataSerializable {
     private Long vertexId;
     private Action action;
 
-    /**
-     * Number of subtasks to split this task into at runtime.
-     */
+    /** Number of subtasks to split this task into at runtime. */
     private int parallelism;
 
-    public LogicalVertex() {
-    }
+    public LogicalVertex() {}
 
     public LogicalVertex(Long vertexId, Action action, int parallelism) {
         this.vertexId = vertexId;
@@ -59,17 +56,19 @@ public class LogicalVertex implements IdentifiedDataSerializable {
             return false;
         }
         LogicalVertex that = (LogicalVertex) o;
-        return Objects.equals(vertexId, that.vertexId)
-            && Objects.equals(action, that.action);
+        return Objects.equals(vertexId, that.vertexId) && Objects.equals(action, that.action);
     }
 
     @Override
     public String toString() {
-        return "LogicalVertex{" +
-            "jobVertexId=" + vertexId +
-            ", action=" + action +
-            ", parallelism=" + parallelism +
-            '}';
+        return "LogicalVertex{"
+                + "jobVertexId="
+                + vertexId
+                + ", action="
+                + action
+                + ", parallelism="
+                + parallelism
+                + '}';
     }
 
     @Override

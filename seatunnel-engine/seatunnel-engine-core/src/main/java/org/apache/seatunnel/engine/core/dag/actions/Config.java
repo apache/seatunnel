@@ -19,5 +19,4 @@ package org.apache.seatunnel.engine.core.dag.actions;
 
 import java.io.Serializable;
 
-public interface Config extends Serializable {
-}
+public interface Config extends Serializable {}

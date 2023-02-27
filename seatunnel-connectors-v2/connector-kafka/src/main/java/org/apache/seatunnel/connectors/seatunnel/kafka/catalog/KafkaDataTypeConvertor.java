@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.catalog;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertException;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
@@ -28,9 +26,11 @@ import com.google.auto.service.AutoService;
 
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 /**
- * The data type convertor of Kafka, only fields defined in schema has the type.
- * e.g.
+ * The data type convertor of Kafka, only fields defined in schema has the type. e.g.
+ *
  * <pre>
  * schema = {
  *    fields {
@@ -39,7 +39,8 @@ import java.util.Map;
  *    }
  * }
  * </pre>
- * <p> Right now the data type of kafka is SeaTunnelType, so we don't need to convert the data type.
+ *
+ * <p>Right now the data type of kafka is SeaTunnelType, so we don't need to convert the data type.
  */
 @AutoService(DataTypeConvertor.class)
 public class KafkaDataTypeConvertor implements DataTypeConvertor<SeaTunnelDataType<?>> {
@@ -51,12 +52,16 @@ public class KafkaDataTypeConvertor implements DataTypeConvertor<SeaTunnelDataTy
     }
 
     @Override
-    public SeaTunnelDataType<?> toSeaTunnelType(SeaTunnelDataType<?> connectorDataType, Map<String, Object> dataTypeProperties) throws DataTypeConvertException {
+    public SeaTunnelDataType<?> toSeaTunnelType(
+            SeaTunnelDataType<?> connectorDataType, Map<String, Object> dataTypeProperties)
+            throws DataTypeConvertException {
         return connectorDataType;
     }
 
     @Override
-    public SeaTunnelDataType<?> toConnectorType(SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties) throws DataTypeConvertException {
+    public SeaTunnelDataType<?> toConnectorType(
+            SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties)
+            throws DataTypeConvertException {
         return seaTunnelDataType;
     }
 
@@ -64,5 +69,4 @@ public class KafkaDataTypeConvertor implements DataTypeConvertor<SeaTunnelDataTy
     public String getIdentity() {
         return "Kafka";
     }
-
 }

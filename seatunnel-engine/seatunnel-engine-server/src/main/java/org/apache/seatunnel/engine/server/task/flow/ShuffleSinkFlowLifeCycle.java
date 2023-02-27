@@ -39,7 +39,8 @@ import java.util.concurrent.TimeUnit;
 
 @SuppressWarnings("MagicNumber")
 @Slf4j
-public class ShuffleSinkFlowLifeCycle extends AbstractFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>> {
+public class ShuffleSinkFlowLifeCycle extends AbstractFlowLifeCycle
+        implements OneInputFlowLifeCycle<Record<?>> {
     private final int pipelineId;
     private final int taskIndex;
     private final ShuffleAction shuffleAction;
@@ -51,11 +52,12 @@ public class ShuffleSinkFlowLifeCycle extends AbstractFlowLifeCycle implements O
     private int shuffleBufferSize;
     private long lastModify;
 
-    public ShuffleSinkFlowLifeCycle(SeaTunnelTask runningTask,
-                                    int taskIndex,
-                                    ShuffleAction shuffleAction,
-                                    HazelcastInstance hazelcastInstance,
-                                    CompletableFuture<Void> completableFuture) {
+    public ShuffleSinkFlowLifeCycle(
+            SeaTunnelTask runningTask,
+            int taskIndex,
+            ShuffleAction shuffleAction,
+            HazelcastInstance hazelcastInstance,
+            CompletableFuture<Void> completableFuture) {
         super(runningTask, completableFuture);
         this.pipelineId = runningTask.getTaskLocation().getTaskGroupLocation().getPipelineId();
         this.taskIndex = taskIndex;
@@ -109,44 +111,51 @@ public class ShuffleSinkFlowLifeCycle extends AbstractFlowLifeCycle implements O
         }
     }
 
-    public CompletableFuture<Boolean> registryScheduleFlushTask(ScheduledExecutorService scheduledExecutorService) {
+    public CompletableFuture<Boolean> registryScheduleFlushTask(
+            ScheduledExecutorService scheduledExecutorService) {
         // todo Register when the job started, Unload at the end(pause/cancel/crash) of the job
         CompletableFuture<Boolean> completedFuture = new CompletableFuture();
-        Runnable scheduleFlushTask = new Runnable() {
-            @Override
-            public void run() {
-                if (!prepareClose
-                    && shuffleBufferSize > 0
-                    && System.currentTimeMillis() - lastModify > shuffleBatchFlushInterval) {
+        Runnable scheduleFlushTask =
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        if (!prepareClose
+                                && shuffleBufferSize > 0
+                                && System.currentTimeMillis() - lastModify
+                                        > shuffleBatchFlushInterval) {
 
-                    try {
-                        shuffleFlush();
-                    } catch (Exception e) {
-                        log.error("Execute schedule task error.", e);
+                            try {
+                                shuffleFlush();
+                            } catch (Exception e) {
+                                log.error("Execute schedule task error.", e);
+                            }
+                        }
+
+                        // submit next task
+                        if (!prepareClose) {
+                            Runnable nextScheduleFlushTask = this;
+                            scheduledExecutorService.schedule(
+                                    nextScheduleFlushTask,
+                                    shuffleBatchFlushInterval,
+                                    TimeUnit.MILLISECONDS);
+                        } else {
+                            completedFuture.complete(true);
+                        }
                     }
-                }
-
-                // submit next task
-                if (!prepareClose) {
-                    Runnable nextScheduleFlushTask = this;
-                    scheduledExecutorService.schedule(nextScheduleFlushTask, shuffleBatchFlushInterval, TimeUnit.MILLISECONDS);
-                } else {
-                    completedFuture.complete(true);
-                }
-            }
-        };
-        scheduledExecutorService.schedule(scheduleFlushTask, shuffleBatchFlushInterval, TimeUnit.MILLISECONDS);
+                };
+        scheduledExecutorService.schedule(
+                scheduleFlushTask, shuffleBatchFlushInterval, TimeUnit.MILLISECONDS);
         return completedFuture;
     }
 
     private synchronized void shuffleItem(Record<?> record) {
         String shuffleKey = shuffleStrategy.createShuffleKey(record, pipelineId, taskIndex);
-        shuffleBuffer.computeIfAbsent(shuffleKey, key -> new LinkedList<>())
-            .add(record);
+        shuffleBuffer.computeIfAbsent(shuffleKey, key -> new LinkedList<>()).add(record);
         shuffleBufferSize++;
 
         if (shuffleBufferSize >= shuffleBatchSize
-            || (shuffleBufferSize > 1 && System.currentTimeMillis() - lastModify > shuffleBatchFlushInterval)) {
+                || (shuffleBufferSize > 1
+                        && System.currentTimeMillis() - lastModify > shuffleBatchFlushInterval)) {
             shuffleFlush();
         }
 
@@ -158,7 +167,7 @@ public class ShuffleSinkFlowLifeCycle extends AbstractFlowLifeCycle implements O
             IQueue<Record<?>> shuffleQueue = shuffles.get(shuffleBatch.getKey());
             Queue<Record<?>> shuffleQueueBatch = shuffleBatch.getValue();
             if (!shuffleQueue.addAll(shuffleBatch.getValue())) {
-                for (; ;) {
+                for (; ; ) {
                     Record<?> shuffleItem = shuffleQueueBatch.poll();
                     if (shuffleItem == null) {
                         break;

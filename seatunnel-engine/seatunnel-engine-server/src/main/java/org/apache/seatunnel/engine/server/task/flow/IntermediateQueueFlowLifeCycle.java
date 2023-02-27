@@ -25,14 +25,16 @@ import org.apache.seatunnel.engine.server.task.group.queue.AbstractIntermediateQ
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
-public class IntermediateQueueFlowLifeCycle<T extends AbstractIntermediateQueue<?>> extends AbstractFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>>,
-    OneOutputFlowLifeCycle<Record<?>> {
+public class IntermediateQueueFlowLifeCycle<T extends AbstractIntermediateQueue<?>>
+        extends AbstractFlowLifeCycle
+        implements OneInputFlowLifeCycle<Record<?>>, OneOutputFlowLifeCycle<Record<?>> {
 
     private final AbstractIntermediateQueue<?> queue;
 
-    public IntermediateQueueFlowLifeCycle(SeaTunnelTask runningTask,
-                                          CompletableFuture<Void> completableFuture,
-                                          AbstractIntermediateQueue<?> queue) {
+    public IntermediateQueueFlowLifeCycle(
+            SeaTunnelTask runningTask,
+            CompletableFuture<Void> completableFuture,
+            AbstractIntermediateQueue<?> queue) {
         super(runningTask, completableFuture);
         this.queue = queue;
         queue.setIntermediateQueueFlowLifeCycle(this);

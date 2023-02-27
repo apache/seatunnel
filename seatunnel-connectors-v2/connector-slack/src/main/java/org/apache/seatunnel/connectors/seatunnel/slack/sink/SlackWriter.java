@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.slack.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
@@ -24,8 +26,6 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.slack.client.SlackClient;
 import org.apache.seatunnel.connectors.seatunnel.slack.exception.SlackConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.slack.exception.SlackConnectorException;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -60,11 +60,11 @@ public class SlackWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             Thread.sleep(POST_MSG_WAITING_TIME);
         } catch (Exception e) {
             log.error("Write to Slack Fail.", ExceptionUtils.getMessage(e));
-            throw new SlackConnectorException(SlackConnectorErrorCode.WRITE_TO_SLACK_CHANNEL_FAILED, e);
+            throw new SlackConnectorException(
+                    SlackConnectorErrorCode.WRITE_TO_SLACK_CHANNEL_FAILED, e);
         }
     }
 
     @Override
-    public void close() throws IOException {
-    }
+    public void close() throws IOException {}
 }

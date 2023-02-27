@@ -29,6 +29,9 @@ public class TableAlreadyExistException extends SeaTunnelRuntimeException {
     }
 
     public TableAlreadyExistException(String catalogName, TablePath tablePath, Throwable cause) {
-        super(SeaTunnelAPIErrorCode.TABLE_ALREADY_EXISTED, String.format(MSG, tablePath.getFullName(), catalogName), cause);
+        super(
+                SeaTunnelAPIErrorCode.TABLE_ALREADY_EXISTED,
+                String.format(MSG, tablePath.getFullName(), catalogName),
+                cause);
     }
 }

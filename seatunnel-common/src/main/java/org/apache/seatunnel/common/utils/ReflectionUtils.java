@@ -24,7 +24,8 @@ import java.util.Optional;
 
 public class ReflectionUtils {
 
-    public static Optional<Method> getDeclaredMethod(Class<?> clazz, String methodName, Class<?>... parameterTypes) {
+    public static Optional<Method> getDeclaredMethod(
+            Class<?> clazz, String methodName, Class<?>... parameterTypes) {
 
         Optional<Method> method = Optional.empty();
         Method m;
@@ -85,12 +86,13 @@ public class ReflectionUtils {
                 method.get().setAccessible(true);
                 return method.get().invoke(object, args);
             } else {
-                throw new NoSuchMethodException(String.format("method invoke failed, no such method '%s' in '%s'",
-                        methodName, object.getClass()));
+                throw new NoSuchMethodException(
+                        String.format(
+                                "method invoke failed, no such method '%s' in '%s'",
+                                methodName, object.getClass()));
             }
         } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
             throw new RuntimeException("method invoke failed", e);
         }
     }
-
 }

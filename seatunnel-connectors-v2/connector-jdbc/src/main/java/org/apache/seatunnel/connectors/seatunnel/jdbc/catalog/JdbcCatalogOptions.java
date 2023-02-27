@@ -22,25 +22,27 @@ import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 
 public interface JdbcCatalogOptions {
-    Option<String> BASE_URL = Options.key("base-url")
-        .stringType()
-        .noDefaultValue()
-        .withDescription("URL has to be with database, like \"jdbc:mysql://localhost:5432/db\" or" +
-            "\"jdbc:mysql://localhost:5432/db?useSSL=true\".");
+    Option<String> BASE_URL =
+            Options.key("base-url")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "URL has to be with database, like \"jdbc:mysql://localhost:5432/db\" or"
+                                    + "\"jdbc:mysql://localhost:5432/db?useSSL=true\".");
 
     Option<String> USERNAME =
-        Options.key("username")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("Name of the database to use when connecting to the database server.");
+            Options.key("username")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Name of the database to use when connecting to the database server.");
 
     Option<String> PASSWORD =
-        Options.key("password")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("Password to use when connecting to the database server.");
+            Options.key("password")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Password to use when connecting to the database server.");
 
-    OptionRule.Builder BASE_RULE = OptionRule.builder()
-        .required(BASE_URL)
-        .required(USERNAME, PASSWORD);
+    OptionRule.Builder BASE_RULE =
+            OptionRule.builder().required(BASE_URL).required(USERNAME, PASSWORD);
 }

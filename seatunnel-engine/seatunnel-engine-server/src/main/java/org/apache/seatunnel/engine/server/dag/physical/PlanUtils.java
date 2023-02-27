@@ -35,25 +35,29 @@ import java.util.concurrent.ExecutorService;
 
 public class PlanUtils {
 
-    public static Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> fromLogicalDAG(@NonNull LogicalDag logicalDag,
-                                                                                    @NonNull NodeEngine nodeEngine,
-                                                                                    @NonNull JobImmutableInformation jobImmutableInformation,
-                                                                                    long initializationTimestamp,
-                                                                                    @NonNull ExecutorService executorService,
-                                                                                    @NonNull FlakeIdGenerator flakeIdGenerator,
-                                                                                    @NonNull IMap runningJobStateIMap,
-                                                                                    @NonNull IMap runningJobStateTimestampsIMap,
-                                                                                    @NonNull QueueType queueType,
-                                                                                    @NonNull CheckpointConfig checkpointConfig) {
+    public static Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> fromLogicalDAG(
+            @NonNull LogicalDag logicalDag,
+            @NonNull NodeEngine nodeEngine,
+            @NonNull JobImmutableInformation jobImmutableInformation,
+            long initializationTimestamp,
+            @NonNull ExecutorService executorService,
+            @NonNull FlakeIdGenerator flakeIdGenerator,
+            @NonNull IMap runningJobStateIMap,
+            @NonNull IMap runningJobStateTimestampsIMap,
+            @NonNull QueueType queueType,
+            @NonNull CheckpointConfig checkpointConfig) {
         return new PhysicalPlanGenerator(
-            new ExecutionPlanGenerator(logicalDag, jobImmutableInformation, checkpointConfig).generate(),
-            nodeEngine,
-            jobImmutableInformation,
-            initializationTimestamp,
-            executorService,
-            flakeIdGenerator,
-            runningJobStateIMap,
-            runningJobStateTimestampsIMap,
-            queueType).generate();
+                        new ExecutionPlanGenerator(
+                                        logicalDag, jobImmutableInformation, checkpointConfig)
+                                .generate(),
+                        nodeEngine,
+                        jobImmutableInformation,
+                        initializationTimestamp,
+                        executorService,
+                        flakeIdGenerator,
+                        runningJobStateIMap,
+                        runningJobStateTimestampsIMap,
+                        queueType)
+                .generate();
     }
 }

@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.BOOTSTRAP_SERVERS;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TOPIC;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
@@ -38,31 +37,37 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaAggregatedComm
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSinkState;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import com.google.auto.service.AutoService;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.BOOTSTRAP_SERVERS;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TOPIC;
+
 /**
- * Kafka Sink implementation by using SeaTunnel sink API.
- * This class contains the method to create {@link KafkaSinkWriter} and {@link KafkaSinkCommitter}.
+ * Kafka Sink implementation by using SeaTunnel sink API. This class contains the method to create
+ * {@link KafkaSinkWriter} and {@link KafkaSinkCommitter}.
  */
 @AutoService(SeaTunnelSink.class)
-public class KafkaSink implements SeaTunnelSink<SeaTunnelRow, KafkaSinkState, KafkaCommitInfo, KafkaAggregatedCommitInfo> {
+public class KafkaSink
+        implements SeaTunnelSink<
+                SeaTunnelRow, KafkaSinkState, KafkaCommitInfo, KafkaAggregatedCommitInfo> {
 
     private Config pluginConfig;
     private SeaTunnelRowType seaTunnelRowType;
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, TOPIC.key(), BOOTSTRAP_SERVERS.key());
+        CheckResult result =
+                CheckConfigUtil.checkAllExists(pluginConfig, TOPIC.key(), BOOTSTRAP_SERVERS.key());
         if (!result.isSuccess()) {
-            throw new KafkaConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format("PluginName: %s, PluginType: %s, Message: %s", getPluginName(), PluginType.SINK, result.getMsg())
-            );
+            throw new KafkaConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SINK, result.getMsg()));
         }
         this.pluginConfig = pluginConfig;
     }
@@ -78,12 +83,15 @@ public class KafkaSink implements SeaTunnelSink<SeaTunnelRow, KafkaSinkState, Ka
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState> createWriter(SinkWriter.Context context) {
-        return new KafkaSinkWriter(context, seaTunnelRowType, pluginConfig, Collections.emptyList());
+    public SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState> createWriter(
+            SinkWriter.Context context) {
+        return new KafkaSinkWriter(
+                context, seaTunnelRowType, pluginConfig, Collections.emptyList());
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState> restoreWriter(SinkWriter.Context context, List<KafkaSinkState> states) {
+    public SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState> restoreWriter(
+            SinkWriter.Context context, List<KafkaSinkState> states) {
         return new KafkaSinkWriter(context, seaTunnelRowType, pluginConfig, states);
     }
 

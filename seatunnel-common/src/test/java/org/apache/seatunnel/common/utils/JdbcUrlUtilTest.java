@@ -17,24 +17,28 @@
 
 package org.apache.seatunnel.common.utils;
 
-import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class JdbcUrlUtilTest {
 
     @Test
     public void testMySQLUrlWithDatabase() {
-        JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo("jdbc:mysql://192.168.1.1:5310/seatunnel?useSSL=true");
+        JdbcUrlUtil.UrlInfo urlInfo =
+                JdbcUrlUtil.getUrlInfo("jdbc:mysql://192.168.1.1:5310/seatunnel?useSSL=true");
         Assertions.assertTrue(urlInfo.getUrlWithDatabase().isPresent());
         Assertions.assertTrue(urlInfo.getDefaultDatabase().isPresent());
         Assertions.assertEquals("seatunnel", urlInfo.getDefaultDatabase().get());
-        Assertions.assertEquals("jdbc:mysql://192.168.1.1:5310/seatunnel", urlInfo.getUrlWithDatabase().get());
+        Assertions.assertEquals(
+                "jdbc:mysql://192.168.1.1:5310/seatunnel", urlInfo.getUrlWithDatabase().get());
         Assertions.assertEquals("jdbc:mysql://192.168.1.1:5310", urlInfo.getUrlWithoutDatabase());
         Assertions.assertEquals("192.168.1.1", urlInfo.getHost());
         Assertions.assertEquals(5310, urlInfo.getPort());
-        Assertions.assertEquals(urlInfo, JdbcUrlUtil.getUrlInfo("jdbc:mysql://192.168.1.1:5310/seatunnel"));
+        Assertions.assertEquals(
+                urlInfo, JdbcUrlUtil.getUrlInfo("jdbc:mysql://192.168.1.1:5310/seatunnel"));
     }
 
     @Test

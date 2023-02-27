@@ -17,25 +17,26 @@
 
 package org.apache.seatunnel.connectors.cdc.base.utils;
 
-import static io.debezium.connector.AbstractSourceInfo.DATABASE_NAME_KEY;
-import static io.debezium.connector.AbstractSourceInfo.SCHEMA_NAME_KEY;
-import static io.debezium.connector.AbstractSourceInfo.TABLE_NAME_KEY;
-
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.source.SourceRecord;
 
 import io.debezium.data.Envelope;
 import io.debezium.document.DocumentReader;
 import io.debezium.relational.TableId;
 import io.debezium.util.SchemaNameAdjuster;
-import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.data.Struct;
-import org.apache.kafka.connect.source.SourceRecord;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
+
+import static io.debezium.connector.AbstractSourceInfo.DATABASE_NAME_KEY;
+import static io.debezium.connector.AbstractSourceInfo.SCHEMA_NAME_KEY;
+import static io.debezium.connector.AbstractSourceInfo.TABLE_NAME_KEY;
 
 /** Utility class to deal record. */
 public class SourceRecordUtils {
@@ -120,7 +121,9 @@ public class SourceRecordUtils {
     }
 
     public static Object[] getSplitKey(
-        SeaTunnelRowType splitBoundaryType, SourceRecord dataRecord, SchemaNameAdjuster nameAdjuster) {
+            SeaTunnelRowType splitBoundaryType,
+            SourceRecord dataRecord,
+            SchemaNameAdjuster nameAdjuster) {
         // the split key field contains single field now
         String splitFieldName = nameAdjuster.adjust(splitBoundaryType.getFieldNames()[0]);
         Struct key = (Struct) dataRecord.key();
@@ -161,7 +164,7 @@ public class SourceRecordUtils {
             }
             return Arrays.stream(lowerBoundRes).anyMatch(value -> value >= 0)
                     && Arrays.stream(upperBoundRes).anyMatch(value -> value < 0)
-                            && Arrays.stream(upperBoundRes).allMatch(value -> value <= 0);
+                    && Arrays.stream(upperBoundRes).allMatch(value -> value <= 0);
         }
     }
 

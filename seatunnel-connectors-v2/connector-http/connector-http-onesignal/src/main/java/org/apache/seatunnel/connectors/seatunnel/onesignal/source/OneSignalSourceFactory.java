@@ -33,8 +33,6 @@ public class OneSignalSourceFactory extends HttpSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return getHttpBuilder()
-                .required(OneSignalSourceConfig.PASSWORD)
-                .build();
+        return getHttpBuilder().required(OneSignalSourceConfig.PASSWORD).build();
     }
 }

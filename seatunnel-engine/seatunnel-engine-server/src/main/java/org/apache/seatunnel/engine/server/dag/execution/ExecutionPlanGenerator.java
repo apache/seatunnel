@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.engine.server.dag.execution;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SqlType;
@@ -57,6 +55,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 @Slf4j
 public class ExecutionPlanGenerator {
     private final LogicalDag logicalPlan;
@@ -64,11 +64,12 @@ public class ExecutionPlanGenerator {
     private final CheckpointConfig checkpointConfig;
     private final IdGenerator idGenerator = new IdGenerator();
 
-    public ExecutionPlanGenerator(@NonNull LogicalDag logicalPlan,
-                                  @NonNull JobImmutableInformation jobImmutableInformation,
-                                  @NonNull CheckpointConfig checkpointConfig) {
-        checkArgument(logicalPlan.getEdges().size() > 0,
-            "ExecutionPlan Builder must have LogicalPlan.");
+    public ExecutionPlanGenerator(
+            @NonNull LogicalDag logicalPlan,
+            @NonNull JobImmutableInformation jobImmutableInformation,
+            @NonNull CheckpointConfig checkpointConfig) {
+        checkArgument(
+                logicalPlan.getEdges().size() > 0, "ExecutionPlan Builder must have LogicalPlan.");
         this.logicalPlan = logicalPlan;
         this.jobImmutableInformation = jobImmutableInformation;
         this.checkpointConfig = checkpointConfig;
@@ -98,23 +99,38 @@ public class ExecutionPlanGenerator {
     public static Action recreateAction(Action action, Long id, int parallelism) {
         Action newAction;
         if (action instanceof ShuffleAction) {
-            newAction = new ShuffleAction(id, action.getName(),
-                ((ShuffleAction) action).getConfig());
+            newAction =
+                    new ShuffleAction(id, action.getName(), ((ShuffleAction) action).getConfig());
         } else if (action instanceof SinkAction) {
-            newAction = new SinkAction<>(id, action.getName(),
-                new ArrayList<>(),
-                ((SinkAction<?, ?, ?, ?>) action).getSink(),
-                action.getJarUrls(),
-                (SinkConfig) action.getConfig());
+            newAction =
+                    new SinkAction<>(
+                            id,
+                            action.getName(),
+                            new ArrayList<>(),
+                            ((SinkAction<?, ?, ?, ?>) action).getSink(),
+                            action.getJarUrls(),
+                            (SinkConfig) action.getConfig());
         } else if (action instanceof SourceAction) {
-            newAction = new SourceAction<>(id, action.getName(),
-                ((SourceAction<?, ?, ?>) action).getSource(), action.getJarUrls());
+            newAction =
+                    new SourceAction<>(
+                            id,
+                            action.getName(),
+                            ((SourceAction<?, ?, ?>) action).getSource(),
+                            action.getJarUrls());
         } else if (action instanceof TransformAction) {
-            newAction = new TransformAction(id, action.getName(),
-                ((TransformAction) action).getTransform(), action.getJarUrls());
+            newAction =
+                    new TransformAction(
+                            id,
+                            action.getName(),
+                            ((TransformAction) action).getTransform(),
+                            action.getJarUrls());
         } else if (action instanceof TransformChainAction) {
-            newAction = new TransformChainAction(id, action.getName(),
-                action.getJarUrls(), ((TransformChainAction<?>) action).getTransforms());
+            newAction =
+                    new TransformChainAction(
+                            id,
+                            action.getName(),
+                            action.getJarUrls(),
+                            ((TransformChainAction<?>) action).getTransforms());
         } else {
             throw new UnknownActionException(action);
         }
@@ -128,30 +144,45 @@ public class ExecutionPlanGenerator {
         Map<Long, ExecutionVertex> logicalVertexIdToExecutionVertexMap = new HashMap();
 
         List<LogicalEdge> sortedLogicalEdges = new ArrayList<>(logicalEdges);
-        Collections.sort(sortedLogicalEdges, Comparator.comparingLong(LogicalEdge::getInputVertexId));
+        Collections.sort(
+                sortedLogicalEdges, Comparator.comparingLong(LogicalEdge::getInputVertexId));
         for (LogicalEdge logicalEdge : sortedLogicalEdges) {
             LogicalVertex logicalInputVertex = logicalEdge.getInputVertex();
-            ExecutionVertex executionInputVertex = logicalVertexIdToExecutionVertexMap.computeIfAbsent(
-                logicalInputVertex.getVertexId(),
-                vertexId -> {
-                    long newId = idGenerator.getNextId();
-                    Action newLogicalInputAction = recreateAction(
-                        logicalInputVertex.getAction(), newId, logicalInputVertex.getParallelism());
-                    return new ExecutionVertex(newId, newLogicalInputAction, logicalInputVertex.getParallelism());
-                });
+            ExecutionVertex executionInputVertex =
+                    logicalVertexIdToExecutionVertexMap.computeIfAbsent(
+                            logicalInputVertex.getVertexId(),
+                            vertexId -> {
+                                long newId = idGenerator.getNextId();
+                                Action newLogicalInputAction =
+                                        recreateAction(
+                                                logicalInputVertex.getAction(),
+                                                newId,
+                                                logicalInputVertex.getParallelism());
+                                return new ExecutionVertex(
+                                        newId,
+                                        newLogicalInputAction,
+                                        logicalInputVertex.getParallelism());
+                            });
 
             LogicalVertex logicalTargetVertex = logicalEdge.getTargetVertex();
-            ExecutionVertex executionTargetVertex = logicalVertexIdToExecutionVertexMap.computeIfAbsent(
-                logicalTargetVertex.getVertexId(),
-                vertexId -> {
-                    long newId = idGenerator.getNextId();
-                    Action newLogicalTargetAction = recreateAction(
-                        logicalTargetVertex.getAction(), newId, logicalTargetVertex.getParallelism());
-                    return new ExecutionVertex(newId, newLogicalTargetAction, logicalTargetVertex.getParallelism());
-                }
-            );
+            ExecutionVertex executionTargetVertex =
+                    logicalVertexIdToExecutionVertexMap.computeIfAbsent(
+                            logicalTargetVertex.getVertexId(),
+                            vertexId -> {
+                                long newId = idGenerator.getNextId();
+                                Action newLogicalTargetAction =
+                                        recreateAction(
+                                                logicalTargetVertex.getAction(),
+                                                newId,
+                                                logicalTargetVertex.getParallelism());
+                                return new ExecutionVertex(
+                                        newId,
+                                        newLogicalTargetAction,
+                                        logicalTargetVertex.getParallelism());
+                            });
 
-            ExecutionEdge executionEdge = new ExecutionEdge(executionInputVertex, executionTargetVertex);
+            ExecutionEdge executionEdge =
+                    new ExecutionEdge(executionInputVertex, executionTargetVertex);
             executionEdges.add(executionEdge);
         }
         return executionEdges;
@@ -161,15 +192,17 @@ public class ExecutionPlanGenerator {
     private Set<ExecutionEdge> generateShuffleEdges(Set<ExecutionEdge> executionEdges) {
         Map<Long, List<ExecutionVertex>> targetVerticesMap = new LinkedHashMap<>();
         Set<ExecutionVertex> sourceExecutionVertices = new HashSet<>();
-        executionEdges.forEach(edge -> {
-            ExecutionVertex leftVertex = edge.getLeftVertex();
-            ExecutionVertex rightVertex = edge.getRightVertex();
-            if (leftVertex.getAction() instanceof SourceAction) {
-                sourceExecutionVertices.add(leftVertex);
-            }
-            targetVerticesMap.computeIfAbsent(leftVertex.getVertexId(), id -> new ArrayList<>())
-                .add(rightVertex);
-        });
+        executionEdges.forEach(
+                edge -> {
+                    ExecutionVertex leftVertex = edge.getLeftVertex();
+                    ExecutionVertex rightVertex = edge.getRightVertex();
+                    if (leftVertex.getAction() instanceof SourceAction) {
+                        sourceExecutionVertices.add(leftVertex);
+                    }
+                    targetVerticesMap
+                            .computeIfAbsent(leftVertex.getVertexId(), id -> new ArrayList<>())
+                            .add(rightVertex);
+                });
         if (sourceExecutionVertices.size() != 1) {
             return executionEdges;
         }
@@ -180,29 +213,36 @@ public class ExecutionPlanGenerator {
             return executionEdges;
         }
 
-        List<ExecutionVertex> sinkVertices = targetVerticesMap.get(sourceExecutionVertex.getVertexId());
-        Optional<ExecutionVertex> hasOtherAction = sinkVertices.stream()
-            .filter(vertex -> !(vertex.getAction() instanceof SinkAction))
-            .findFirst();
+        List<ExecutionVertex> sinkVertices =
+                targetVerticesMap.get(sourceExecutionVertex.getVertexId());
+        Optional<ExecutionVertex> hasOtherAction =
+                sinkVertices.stream()
+                        .filter(vertex -> !(vertex.getAction() instanceof SinkAction))
+                        .findFirst();
         checkArgument(!hasOtherAction.isPresent());
 
         Set<ExecutionEdge> newExecutionEdges = new LinkedHashSet<>();
-        ShuffleStrategy shuffleStrategy = ShuffleMultipleRowStrategy.builder()
-            .jobId(jobImmutableInformation.getJobId())
-            .inputPartitions(sourceAction.getParallelism())
-            .inputRowType(MultipleRowType.class.cast(sourceProducedType))
-            .queueEmptyQueueTtl((int) (checkpointConfig.getCheckpointInterval() * 3))
-            .build();
-        ShuffleConfig shuffleConfig = ShuffleConfig.builder()
-            .shuffleStrategy(shuffleStrategy)
-            .build();
+        ShuffleStrategy shuffleStrategy =
+                ShuffleMultipleRowStrategy.builder()
+                        .jobId(jobImmutableInformation.getJobId())
+                        .inputPartitions(sourceAction.getParallelism())
+                        .inputRowType(MultipleRowType.class.cast(sourceProducedType))
+                        .queueEmptyQueueTtl((int) (checkpointConfig.getCheckpointInterval() * 3))
+                        .build();
+        ShuffleConfig shuffleConfig =
+                ShuffleConfig.builder().shuffleStrategy(shuffleStrategy).build();
 
         long shuffleVertexId = idGenerator.getNextId();
-        String shuffleActionName = String.format("Shuffle [%s -> table[0~%s]]",
-            sourceAction.getName(), ((MultipleRowType) sourceProducedType).getTableIds().length - 1);
-        ShuffleAction shuffleAction = new ShuffleAction(shuffleVertexId, shuffleActionName, shuffleConfig);
+        String shuffleActionName =
+                String.format(
+                        "Shuffle [%s -> table[0~%s]]",
+                        sourceAction.getName(),
+                        ((MultipleRowType) sourceProducedType).getTableIds().length - 1);
+        ShuffleAction shuffleAction =
+                new ShuffleAction(shuffleVertexId, shuffleActionName, shuffleConfig);
         shuffleAction.setParallelism(sourceAction.getParallelism());
-        ExecutionVertex shuffleVertex = new ExecutionVertex(shuffleVertexId, shuffleAction, shuffleAction.getParallelism());
+        ExecutionVertex shuffleVertex =
+                new ExecutionVertex(shuffleVertexId, shuffleAction, shuffleAction.getParallelism());
         ExecutionEdge sourceToShuffleEdge = new ExecutionEdge(sourceExecutionVertex, shuffleVertex);
         newExecutionEdges.add(sourceToShuffleEdge);
 
@@ -219,17 +259,20 @@ public class ExecutionPlanGenerator {
         Map<Long, List<ExecutionVertex>> inputVerticesMap = new HashMap<>();
         Map<Long, List<ExecutionVertex>> targetVerticesMap = new HashMap<>();
         Set<ExecutionVertex> sourceExecutionVertices = new HashSet<>();
-        executionEdges.forEach(edge -> {
-            ExecutionVertex leftVertex = edge.getLeftVertex();
-            ExecutionVertex rightVertex = edge.getRightVertex();
-            if (leftVertex.getAction() instanceof SourceAction) {
-                sourceExecutionVertices.add(leftVertex);
-            }
-            inputVerticesMap.computeIfAbsent(rightVertex.getVertexId(), id -> new ArrayList<>())
-                .add(leftVertex);
-            targetVerticesMap.computeIfAbsent(leftVertex.getVertexId(), id -> new ArrayList<>())
-                .add(rightVertex);
-        });
+        executionEdges.forEach(
+                edge -> {
+                    ExecutionVertex leftVertex = edge.getLeftVertex();
+                    ExecutionVertex rightVertex = edge.getRightVertex();
+                    if (leftVertex.getAction() instanceof SourceAction) {
+                        sourceExecutionVertices.add(leftVertex);
+                    }
+                    inputVerticesMap
+                            .computeIfAbsent(rightVertex.getVertexId(), id -> new ArrayList<>())
+                            .add(leftVertex);
+                    targetVerticesMap
+                            .computeIfAbsent(leftVertex.getVertexId(), id -> new ArrayList<>())
+                            .add(rightVertex);
+                });
 
         Map<Long, ExecutionVertex> transformChainVertexMap = new HashMap<>();
         Map<Long, Long> chainedTransformVerticesMapping = new HashMap<>();
@@ -239,10 +282,13 @@ public class ExecutionPlanGenerator {
             for (int index = 0; index < vertices.size(); index++) {
                 ExecutionVertex vertex = vertices.get(index);
 
-                fillChainedTransformExecutionVertex(vertex,
-                    chainedTransformVerticesMapping, transformChainVertexMap, executionEdges,
-                    Collections.unmodifiableMap(inputVerticesMap),
-                    Collections.unmodifiableMap(targetVerticesMap));
+                fillChainedTransformExecutionVertex(
+                        vertex,
+                        chainedTransformVerticesMapping,
+                        transformChainVertexMap,
+                        executionEdges,
+                        Collections.unmodifiableMap(inputVerticesMap),
+                        Collections.unmodifiableMap(targetVerticesMap));
 
                 if (targetVerticesMap.containsKey(vertex.getVertexId())) {
                     vertices.addAll(targetVerticesMap.get(vertex.getVertexId()));
@@ -257,11 +303,15 @@ public class ExecutionPlanGenerator {
             boolean needRebuild = false;
             if (chainedTransformVerticesMapping.containsKey(leftVertex.getVertexId())) {
                 needRebuild = true;
-                leftVertex = transformChainVertexMap.get(chainedTransformVerticesMapping.get(leftVertex.getVertexId()));
+                leftVertex =
+                        transformChainVertexMap.get(
+                                chainedTransformVerticesMapping.get(leftVertex.getVertexId()));
             }
             if (chainedTransformVerticesMapping.containsKey(rightVertex.getVertexId())) {
                 needRebuild = true;
-                rightVertex = transformChainVertexMap.get(chainedTransformVerticesMapping.get(rightVertex.getVertexId()));
+                rightVertex =
+                        transformChainVertexMap.get(
+                                chainedTransformVerticesMapping.get(rightVertex.getVertexId()));
             }
             if (needRebuild) {
                 executionEdge = new ExecutionEdge(leftVertex, rightVertex);
@@ -271,18 +321,24 @@ public class ExecutionPlanGenerator {
         return transformChainEdges;
     }
 
-    private void fillChainedTransformExecutionVertex(ExecutionVertex currentVertex,
-                                                     Map<Long, Long> chainedTransformVerticesMapping,
-                                                     Map<Long, ExecutionVertex> transformChainVertexMap,
-                                                     Set<ExecutionEdge> executionEdges,
-                                                     Map<Long, List<ExecutionVertex>> inputVerticesMap,
-                                                     Map<Long, List<ExecutionVertex>> targetVerticesMap) {
+    private void fillChainedTransformExecutionVertex(
+            ExecutionVertex currentVertex,
+            Map<Long, Long> chainedTransformVerticesMapping,
+            Map<Long, ExecutionVertex> transformChainVertexMap,
+            Set<ExecutionEdge> executionEdges,
+            Map<Long, List<ExecutionVertex>> inputVerticesMap,
+            Map<Long, List<ExecutionVertex>> targetVerticesMap) {
         if (chainedTransformVerticesMapping.containsKey(currentVertex.getVertexId())) {
             return;
         }
 
         List<ExecutionVertex> transformChainedVertices = new ArrayList<>();
-        collectChainedVertices(currentVertex, transformChainedVertices, executionEdges, inputVerticesMap, targetVerticesMap);
+        collectChainedVertices(
+                currentVertex,
+                transformChainedVertices,
+                executionEdges,
+                inputVerticesMap,
+                targetVerticesMap);
         if (transformChainedVertices.size() > 0) {
             long newVertexId = idGenerator.getNextId();
             List<SeaTunnelTransform> transforms = new ArrayList<>(transformChainedVertices.size());
@@ -290,31 +346,38 @@ public class ExecutionPlanGenerator {
             Set<URL> jars = new HashSet<>();
 
             transformChainedVertices.stream()
-                .peek(vertex -> chainedTransformVerticesMapping.put(vertex.getVertexId(), newVertexId))
-                .map(ExecutionVertex::getAction)
-                .map(action -> (TransformAction) action)
-                .forEach(action -> {
-                    transforms.add(action.getTransform());
-                    jars.addAll(action.getJarUrls());
-                    names.add(action.getName());
-                });
-            TransformChainAction transformChainAction = new TransformChainAction(newVertexId,
-                String.join("->", names),
-                jars,
-                transforms);
+                    .peek(
+                            vertex ->
+                                    chainedTransformVerticesMapping.put(
+                                            vertex.getVertexId(), newVertexId))
+                    .map(ExecutionVertex::getAction)
+                    .map(action -> (TransformAction) action)
+                    .forEach(
+                            action -> {
+                                transforms.add(action.getTransform());
+                                jars.addAll(action.getJarUrls());
+                                names.add(action.getName());
+                            });
+            TransformChainAction transformChainAction =
+                    new TransformChainAction(
+                            newVertexId, String.join("->", names), jars, transforms);
             transformChainAction.setParallelism(currentVertex.getAction().getParallelism());
 
-            ExecutionVertex executionVertex = new ExecutionVertex(newVertexId, transformChainAction, currentVertex.getParallelism());
+            ExecutionVertex executionVertex =
+                    new ExecutionVertex(
+                            newVertexId, transformChainAction, currentVertex.getParallelism());
             transformChainVertexMap.put(newVertexId, executionVertex);
-            chainedTransformVerticesMapping.put(currentVertex.getVertexId(), executionVertex.getVertexId());
+            chainedTransformVerticesMapping.put(
+                    currentVertex.getVertexId(), executionVertex.getVertexId());
         }
     }
 
-    private void collectChainedVertices(ExecutionVertex currentVertex,
-                                        List<ExecutionVertex> chainedVertices,
-                                        Set<ExecutionEdge> executionEdges,
-                                        Map<Long, List<ExecutionVertex>> inputVerticesMap,
-                                        Map<Long, List<ExecutionVertex>> targetVerticesMap) {
+    private void collectChainedVertices(
+            ExecutionVertex currentVertex,
+            List<ExecutionVertex> chainedVertices,
+            Set<ExecutionEdge> executionEdges,
+            Map<Long, List<ExecutionVertex>> inputVerticesMap,
+            Map<Long, List<ExecutionVertex>> targetVerticesMap) {
         Action action = currentVertex.getAction();
         // Currently only support Transform action chaining.
         if (action instanceof TransformAction) {
@@ -322,7 +385,9 @@ public class ExecutionPlanGenerator {
                 chainedVertices.add(currentVertex);
             } else if (inputVerticesMap.get(currentVertex.getVertexId()).size() == 1) {
                 // It cannot be chained to any input vertex if it has multiple input vertices.
-                executionEdges.remove(new ExecutionEdge(chainedVertices.get(chainedVertices.size() - 1), currentVertex));
+                executionEdges.remove(
+                        new ExecutionEdge(
+                                chainedVertices.get(chainedVertices.size() - 1), currentVertex));
                 chainedVertices.add(currentVertex);
             } else {
                 return;
@@ -333,8 +398,12 @@ public class ExecutionPlanGenerator {
 
         // It cannot chain to any target vertex if it has multiple target vertices.
         if (targetVerticesMap.get(currentVertex.getVertexId()).size() == 1) {
-            collectChainedVertices(targetVerticesMap.get(currentVertex.getVertexId()).get(0),
-                chainedVertices, executionEdges, inputVerticesMap, targetVerticesMap);
+            collectChainedVertices(
+                    targetVerticesMap.get(currentVertex.getVertexId()).get(0),
+                    chainedVertices,
+                    executionEdges,
+                    inputVerticesMap,
+                    targetVerticesMap);
         }
     }
 
@@ -345,6 +414,6 @@ public class ExecutionPlanGenerator {
             executionVertices.add(edge.getRightVertex());
         }
         return new PipelineGenerator(executionVertices, new ArrayList<>(executionEdges))
-            .generatePipelines();
+                .generatePipelines();
     }
 }

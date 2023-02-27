@@ -89,8 +89,7 @@ public interface Catalog {
     // --------------------------------------------------------------------------------------------
 
     /**
-     * Get names of all tables under this database. An empty list is returned if none
-     * exists.
+     * Get names of all tables under this database. An empty list is returned if none exists.
      *
      * @return a list of the names of all tables in this database
      * @throws CatalogException in case of any runtime exception
@@ -107,8 +106,8 @@ public interface Catalog {
     boolean tableExists(TablePath tablePath) throws CatalogException;
 
     /**
-     * Return a {@link CatalogTable}  identified by the given {@link
-     * TablePath}. The framework will resolve the metadata objects when necessary.
+     * Return a {@link CatalogTable} identified by the given {@link TablePath}. The framework will
+     * resolve the metadata objects when necessary.
      *
      * @param tablePath Path of the table
      * @return The requested table
@@ -119,30 +118,36 @@ public interface Catalog {
     /**
      * Create a new table in this catalog.
      *
-     * @param tablePath      Path of the table
-     * @param table          The table definition
+     * @param tablePath Path of the table
+     * @param table The table definition
      * @param ignoreIfExists Flag to specify behavior when a table with the given name already exist
-     * @throws TableAlreadyExistException thrown if the table already exists in the catalog and ignoreIfExists is false
-     * @throws DatabaseNotExistException  thrown if the database in tablePath doesn't exist in the catalog
-     * @throws CatalogException           in case of any runtime exception
+     * @throws TableAlreadyExistException thrown if the table already exists in the catalog and
+     *     ignoreIfExists is false
+     * @throws DatabaseNotExistException thrown if the database in tablePath doesn't exist in the
+     *     catalog
+     * @throws CatalogException in case of any runtime exception
      */
     void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
-        throws TableAlreadyExistException, DatabaseNotExistException, CatalogException;
+            throws TableAlreadyExistException, DatabaseNotExistException, CatalogException;
 
     /**
      * Drop an existing table in this catalog.
      *
-     * @param tablePath         Path of the table
-     * @param ignoreIfNotExists Flag to specify behavior when a table with the given name doesn't exist
-     * @throws TableNotExistException thrown if the table doesn't exist in the catalog and ignoreIfNotExists is false
-     * @throws CatalogException       in case of any runtime exception
+     * @param tablePath Path of the table
+     * @param ignoreIfNotExists Flag to specify behavior when a table with the given name doesn't
+     *     exist
+     * @throws TableNotExistException thrown if the table doesn't exist in the catalog and
+     *     ignoreIfNotExists is false
+     * @throws CatalogException in case of any runtime exception
      */
     void dropTable(TablePath tablePath, boolean ignoreIfNotExists)
-        throws TableNotExistException, CatalogException;
+            throws TableNotExistException, CatalogException;
 
-    void createDatabase(TablePath tablePath, boolean ignoreIfExists) throws DatabaseAlreadyExistException, CatalogException;
+    void createDatabase(TablePath tablePath, boolean ignoreIfExists)
+            throws DatabaseAlreadyExistException, CatalogException;
 
-    void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists) throws DatabaseNotExistException, CatalogException;
+    void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
+            throws DatabaseNotExistException, CatalogException;
 
     // todo: Support for update table metadata
 

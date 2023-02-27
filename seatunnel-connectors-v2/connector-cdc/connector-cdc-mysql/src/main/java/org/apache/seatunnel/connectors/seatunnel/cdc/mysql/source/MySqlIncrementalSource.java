@@ -48,10 +48,12 @@ import java.time.ZoneId;
 
 @NoArgsConstructor
 @AutoService(SeaTunnelSource.class)
-public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig> implements SupportParallelism {
+public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig>
+        implements SupportParallelism {
     static final String IDENTIFIER = "MySQL-CDC";
 
-    public MySqlIncrementalSource(ReadonlyConfig options, SeaTunnelDataType<SeaTunnelRow> dataType) {
+    public MySqlIncrementalSource(
+            ReadonlyConfig options, SeaTunnelDataType<SeaTunnelRow> dataType) {
         super(options, dataType);
     }
 
@@ -65,7 +67,8 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
         MySqlSourceConfigFactory configFactory = new MySqlSourceConfigFactory();
         configFactory.serverId(config.get(JdbcSourceOptions.SERVER_ID));
         configFactory.fromReadonlyConfig(readonlyConfig);
-        JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(config.get(JdbcCatalogOptions.BASE_URL));
+        JdbcUrlUtil.UrlInfo urlInfo =
+                JdbcUrlUtil.getUrlInfo(config.get(JdbcCatalogOptions.BASE_URL));
         configFactory.hostname(urlInfo.getHost());
         configFactory.port(urlInfo.getPort());
         configFactory.startupOptions(startupConfig);
@@ -75,22 +78,26 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
 
     @SuppressWarnings("unchecked")
     @Override
-    public DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(ReadonlyConfig config) {
+    public DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(
+            ReadonlyConfig config) {
         SeaTunnelDataType<SeaTunnelRow> physicalRowType;
         if (dataType == null) {
             // TODO: support metadata keys
             Catalog mySqlCatalog = new MySqlCatalogFactory().createCatalog("mysql", config);
-            CatalogTable table = mySqlCatalog.getTable(TablePath.of(config.get(CatalogOptions.TABLE_NAMES).get(0)));
+            CatalogTable table =
+                    mySqlCatalog.getTable(
+                            TablePath.of(config.get(CatalogOptions.TABLE_NAMES).get(0)));
             physicalRowType = table.getTableSchema().toPhysicalRowDataType();
         } else {
             physicalRowType = dataType;
         }
         String zoneId = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
-        return (DebeziumDeserializationSchema<T>) SeaTunnelRowDebeziumDeserializeSchema.builder()
-            .setPhysicalRowType(physicalRowType)
-            .setResultTypeInfo(physicalRowType)
-            .setServerTimeZone(ZoneId.of(zoneId))
-            .build();
+        return (DebeziumDeserializationSchema<T>)
+                SeaTunnelRowDebeziumDeserializeSchema.builder()
+                        .setPhysicalRowType(physicalRowType)
+                        .setResultTypeInfo(physicalRowType)
+                        .setServerTimeZone(ZoneId.of(zoneId))
+                        .build();
     }
 
     @Override
@@ -100,6 +107,8 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
 
     @Override
     public OffsetFactory createOffsetFactory(ReadonlyConfig config) {
-        return new BinlogOffsetFactory((MySqlSourceConfigFactory) configFactory, (JdbcDataSourceDialect) dataSourceDialect);
+        return new BinlogOffsetFactory(
+                (MySqlSourceConfigFactory) configFactory,
+                (JdbcDataSourceDialect) dataSourceDialect);
     }
 }

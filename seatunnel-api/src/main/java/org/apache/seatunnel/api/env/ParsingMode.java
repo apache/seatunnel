@@ -21,11 +21,13 @@ import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 
 /**
- * Multiple parsing modes for converting multi-{@link CatalogTable} retrieved through the {@link Catalog} into DAG.
+ * Multiple parsing modes for converting multi-{@link CatalogTable} retrieved through the {@link
+ * Catalog} into DAG.
  */
 public enum ParsingMode {
     /**
      * Each table is processed using a separate Source and Sink.
+     *
      * <pre>
      * customer -> source(customer) -> sink(customer)
      * product  -> source(product)  -> sink(product)
@@ -35,6 +37,7 @@ public enum ParsingMode {
     SINGLENESS,
     /**
      * Use a Source and Sink to process sharding-table.
+     *
      * <pre>
      * customer1
      * customer2 --> customer\\d+ --> source(customer\\d+) -> sink(customer)
@@ -44,6 +47,7 @@ public enum ParsingMode {
     SHARDING,
     /**
      * Multiple tables are processed using a single source, each table using a separate sink.
+     *
      * <pre>
      * customer                   -> sink(customer)
      * product   --> source(.*)   -> sink(product)

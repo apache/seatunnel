@@ -31,39 +31,33 @@ import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.annotation.PrivateApi;
 
 /**
- * A Java Service Provider hook for Hazelcast's Identified Data Serializable
- * mechanism. This is private API.
- * All about the Job's data serializable define in this class.
+ * A Java Service Provider hook for Hazelcast's Identified Data Serializable mechanism. This is
+ * private API. All about the Job's data serializable define in this class.
  */
 @PrivateApi
 public final class JobDataSerializerHook implements DataSerializerHook {
 
-    /**
-     * Serialization ID of the {@link LogicalDag} class.
-     */
+    /** Serialization ID of the {@link LogicalDag} class. */
     public static final int LOGICAL_DAG = 0;
 
-    /**
-     * Serialization ID of the {@link LogicalVertex} class.
-     */
+    /** Serialization ID of the {@link LogicalVertex} class. */
     public static final int LOGICAL_VERTEX = 1;
 
-    /**
-     * Serialization ID of the {@link LogicalEdge} class.
-     */
+    /** Serialization ID of the {@link LogicalEdge} class. */
     public static final int LOGICAL_EDGE = 2;
 
     /**
-     * Serialization ID of the {@link org.apache.seatunnel.engine.core.job.JobImmutableInformation} class.
+     * Serialization ID of the {@link org.apache.seatunnel.engine.core.job.JobImmutableInformation}
+     * class.
      */
     public static final int JOB_IMMUTABLE_INFORMATION = 3;
 
     public static final int JOB_INFO = 4;
 
-    public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
-        SeaTunnelFactoryIdConstant.SEATUNNEL_JOB_DATA_SERIALIZER_FACTORY,
-        SeaTunnelFactoryIdConstant.SEATUNNEL_JOB_DATA_SERIALIZER_FACTORY_ID
-    );
+    public static final int FACTORY_ID =
+            FactoryIdHelper.getFactoryId(
+                    SeaTunnelFactoryIdConstant.SEATUNNEL_JOB_DATA_SERIALIZER_FACTORY,
+                    SeaTunnelFactoryIdConstant.SEATUNNEL_JOB_DATA_SERIALIZER_FACTORY_ID);
 
     @Override
     public int getFactoryId() {

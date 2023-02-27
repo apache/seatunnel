@@ -10,23 +10,23 @@ Used to write data to Rabbitmq.
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 
-##  Options
+## Options
 
-| name                       | type    | required  | default value |
-|----------------------------|---------|-----------|---------------|
-| host                       | string  | yes       | -             |
-| port                       | int     | yes       | -             |
-| virtual_host               | string  | yes       | -             |
-| username                   | string  | yes       | -             |
-| password                   | string  | yes       | -             |
-| queue_name                 | string  | yes       | -             |
-| url                        | string  | no        | -             |
-| network_recovery_interval  | int     | no        | -             |
-| topology_recovery_enabled  | boolean | no        | -             |
-| automatic_recovery_enabled | boolean | no        | -             |
-| connection_timeout         | int     | no        | -             |
-| rabbitmq.config            | map     | no        | -             |
-| common-options             |         | no        | -             |
+|            name            |  type   | required | default value |
+|----------------------------|---------|----------|---------------|
+| host                       | string  | yes      | -             |
+| port                       | int     | yes      | -             |
+| virtual_host               | string  | yes      | -             |
+| username                   | string  | yes      | -             |
+| password                   | string  | yes      | -             |
+| queue_name                 | string  | yes      | -             |
+| url                        | string  | no       | -             |
+| network_recovery_interval  | int     | no       | -             |
+| topology_recovery_enabled  | boolean | no       | -             |
+| automatic_recovery_enabled | boolean | no       | -             |
+| connection_timeout         | int     | no       | -             |
+| rabbitmq.config            | map     | no       | -             |
+| common-options             |         | no       | -             |
 
 ### host [string]
 
@@ -113,3 +113,4 @@ sink {
 
 - Add Rabbitmq Sink Connector
 - [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/incubator-seatunnel/pull/3719)
+

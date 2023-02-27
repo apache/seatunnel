@@ -30,27 +30,30 @@ import java.util.Set;
 public class SinkAction<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends AbstractAction {
     private final SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
 
-    public SinkAction(long id,
-                      @NonNull String name,
-                      @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
-                      @NonNull Set<URL> jarUrls) {
+    public SinkAction(
+            long id,
+            @NonNull String name,
+            @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
+            @NonNull Set<URL> jarUrls) {
         this(id, name, new ArrayList<>(), sink, jarUrls);
     }
 
-    public SinkAction(long id,
-                      @NonNull String name,
-                      @NonNull List<Action> upstreams,
-                      @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
-                      @NonNull Set<URL> jarUrls) {
+    public SinkAction(
+            long id,
+            @NonNull String name,
+            @NonNull List<Action> upstreams,
+            @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
+            @NonNull Set<URL> jarUrls) {
         this(id, name, upstreams, sink, jarUrls, null);
     }
 
-    public SinkAction(long id,
-                      @NonNull String name,
-                      @NonNull List<Action> upstreams,
-                      @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
-                      @NonNull Set<URL> jarUrls,
-                      SinkConfig config) {
+    public SinkAction(
+            long id,
+            @NonNull String name,
+            @NonNull List<Action> upstreams,
+            @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
+            @NonNull Set<URL> jarUrls,
+            SinkConfig config) {
         super(id, name, upstreams, jarUrls, config);
         this.sink = sink;
     }

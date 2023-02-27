@@ -44,9 +44,9 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
     private final StarRocksISerializer serializer;
     private final StarRocksSinkManager manager;
 
-    public StarRocksSinkWriter(SinkConfig sinkConfig,
-                               SeaTunnelRowType seaTunnelRowType) {
-        List<String> fieldNames = Arrays.stream(seaTunnelRowType.getFieldNames()).collect(Collectors.toList());
+    public StarRocksSinkWriter(SinkConfig sinkConfig, SeaTunnelRowType seaTunnelRowType) {
+        List<String> fieldNames =
+                Arrays.stream(seaTunnelRowType.getFieldNames()).collect(Collectors.toList());
         if (sinkConfig.isEnableUpsertDelete()) {
             fieldNames.add(StarRocksSinkOP.COLUMN_KEY);
         }
@@ -80,14 +80,19 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
         }
     }
 
-    public static StarRocksISerializer createSerializer(SinkConfig sinkConfig, SeaTunnelRowType seaTunnelRowType) {
+    public static StarRocksISerializer createSerializer(
+            SinkConfig sinkConfig, SeaTunnelRowType seaTunnelRowType) {
         if (SinkConfig.StreamLoadFormat.CSV.equals(sinkConfig.getLoadFormat())) {
             return new StarRocksCsvSerializer(
-                sinkConfig.getColumnSeparator(), seaTunnelRowType, sinkConfig.isEnableUpsertDelete());
+                    sinkConfig.getColumnSeparator(),
+                    seaTunnelRowType,
+                    sinkConfig.isEnableUpsertDelete());
         }
         if (SinkConfig.StreamLoadFormat.JSON.equals(sinkConfig.getLoadFormat())) {
             return new StarRocksJsonSerializer(seaTunnelRowType, sinkConfig.isEnableUpsertDelete());
         }
-        throw new StarRocksConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, "Failed to create row serializer, unsupported `format` from stream load properties.");
+        throw new StarRocksConnectorException(
+                CommonErrorCode.ILLEGAL_ARGUMENT,
+                "Failed to create row serializer, unsupported `format` from stream load properties.");
     }
 }

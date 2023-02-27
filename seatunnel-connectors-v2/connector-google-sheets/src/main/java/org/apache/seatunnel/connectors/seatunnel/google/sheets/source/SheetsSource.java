@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.google.sheets.source;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
@@ -37,8 +39,6 @@ import org.apache.seatunnel.connectors.seatunnel.google.sheets.config.SheetsPara
 import org.apache.seatunnel.connectors.seatunnel.google.sheets.exception.GoogleSheetsConnectorException;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import com.google.auto.service.AutoService;
 
 @AutoService(SeaTunnelSource.class)
@@ -57,15 +57,25 @@ public class SheetsSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult checkResult = CheckConfigUtil.checkAllExists(pluginConfig, SheetsConfig.SERVICE_ACCOUNT_KEY.key(), SheetsConfig.SHEET_ID.key(), SheetsConfig.SHEET_NAME.key(), SheetsConfig.RANGE.key(), CatalogTableUtil.SCHEMA.key());
+        CheckResult checkResult =
+                CheckConfigUtil.checkAllExists(
+                        pluginConfig,
+                        SheetsConfig.SERVICE_ACCOUNT_KEY.key(),
+                        SheetsConfig.SHEET_ID.key(),
+                        SheetsConfig.SHEET_NAME.key(),
+                        SheetsConfig.RANGE.key(),
+                        CatalogTableUtil.SCHEMA.key());
         if (!checkResult.isSuccess()) {
-            throw new GoogleSheetsConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                String.format("PluginName: %s, PluginType: %s, Message: %s",
-                    getPluginName(), PluginType.SOURCE, checkResult.getMsg()));
+            throw new GoogleSheetsConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SOURCE, checkResult.getMsg()));
         }
         this.sheetsParameters = new SheetsParameters().buildWithConfig(pluginConfig);
         if (pluginConfig.hasPath(CatalogTableUtil.SCHEMA.key())) {
-            this.seaTunnelRowType = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
+            this.seaTunnelRowType =
+                    CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
         } else {
             this.seaTunnelRowType = CatalogTableUtil.buildSimpleTextSchema();
         }
@@ -83,7 +93,9 @@ public class SheetsSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     }
 
     @Override
-    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new SheetsSourceReader(sheetsParameters, readerContext, deserializationSchema, this.seaTunnelRowType);
+    public AbstractSingleSplitReader<SeaTunnelRow> createReader(
+            SingleSplitReaderContext readerContext) throws Exception {
+        return new SheetsSourceReader(
+                sheetsParameters, readerContext, deserializationSchema, this.seaTunnelRowType);
     }
 }

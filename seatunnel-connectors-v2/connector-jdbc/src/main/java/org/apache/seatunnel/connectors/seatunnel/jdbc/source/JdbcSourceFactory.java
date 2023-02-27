@@ -17,6 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+
+import com.google.auto.service.AutoService;
+
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.CONNECTION_CHECK_TIMEOUT_SEC;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.DRIVER;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.FETCH_SIZE;
@@ -29,13 +36,6 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.URL;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.USER;
 
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-
-import com.google.auto.service.AutoService;
-
 @AutoService(Factory.class)
 public class JdbcSourceFactory implements TableSourceFactory {
     @Override
@@ -46,20 +46,17 @@ public class JdbcSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-            .required(
-                URL,
-                DRIVER,
-                QUERY)
-            .optional(
-                USER,
-                PASSWORD,
-                CONNECTION_CHECK_TIMEOUT_SEC,
-                FETCH_SIZE,
-                PARTITION_COLUMN,
-                PARTITION_UPPER_BOUND,
-                PARTITION_LOWER_BOUND,
-                PARTITION_NUM)
-            .build();
+                .required(URL, DRIVER, QUERY)
+                .optional(
+                        USER,
+                        PASSWORD,
+                        CONNECTION_CHECK_TIMEOUT_SEC,
+                        FETCH_SIZE,
+                        PARTITION_COLUMN,
+                        PARTITION_UPPER_BOUND,
+                        PARTITION_LOWER_BOUND,
+                        PARTITION_NUM)
+                .build();
     }
 
     @Override

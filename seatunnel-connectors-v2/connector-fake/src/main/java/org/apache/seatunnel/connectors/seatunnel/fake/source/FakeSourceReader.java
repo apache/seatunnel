@@ -43,7 +43,8 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
     private volatile boolean noMoreSplit;
     private volatile long latestTimestamp = 0;
 
-    public FakeSourceReader(SourceReader.Context context, SeaTunnelRowType rowType, FakeConfig fakeConfig) {
+    public FakeSourceReader(
+            SourceReader.Context context, SeaTunnelRowType rowType, FakeConfig fakeConfig) {
         this.context = context;
         this.config = fakeConfig;
         this.fakeDataGenerator = new FakeDataGenerator(rowType, fakeConfig);
@@ -71,18 +72,25 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
             FakeSourceSplit split = splits.poll();
             if (null != split) {
                 // Generate a random number of rows to emit.
-                List<SeaTunnelRow> seaTunnelRows = fakeDataGenerator.generateFakedRows(split.getRowNum());
+                List<SeaTunnelRow> seaTunnelRows =
+                        fakeDataGenerator.generateFakedRows(split.getRowNum());
                 for (SeaTunnelRow seaTunnelRow : seaTunnelRows) {
                     output.collect(seaTunnelRow);
                 }
-                log.info("{} rows of data have been generated in split({}). Generation time: {}", split.getRowNum(), split.splitId(), latestTimestamp);
+                log.info(
+                        "{} rows of data have been generated in split({}). Generation time: {}",
+                        split.getRowNum(),
+                        split.splitId(),
+                        latestTimestamp);
             } else {
                 if (!noMoreSplit) {
                     log.info("wait split!");
                 }
             }
         }
-        if (splits.isEmpty() && noMoreSplit && Boundedness.BOUNDED.equals(context.getBoundedness())) {
+        if (splits.isEmpty()
+                && noMoreSplit
+                && Boundedness.BOUNDED.equals(context.getBoundedness())) {
             // signal to the source that we have reached the end of the data.
             log.info("Closed the bounded fake source");
             context.signalNoMoreElement();
@@ -106,7 +114,5 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {
-
-    }
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
 }

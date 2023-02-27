@@ -27,9 +27,10 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 
-import com.google.common.collect.Lists;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import com.google.common.collect.Lists;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -45,34 +46,59 @@ public class MysqlCreateTableSqlBuilderTest {
         String dataBaseName = "test_database";
         String tableName = "test_table";
         TablePath tablePath = TablePath.of(dataBaseName, tableName);
-        TableSchema tableSchema = TableSchema.builder()
-            .column(PhysicalColumn.of("id", BasicType.LONG_TYPE, 22, false, null, "id"))
-            .column(PhysicalColumn.of("name", BasicType.STRING_TYPE, 128, false, null, "name"))
-            .column(PhysicalColumn.of("age", BasicType.INT_TYPE, null, true, null, "age"))
-            .column(PhysicalColumn.of("createTime", LocalTimeType.LOCAL_DATE_TIME_TYPE, 3, true, null, "createTime"))
-            .column(PhysicalColumn.of("lastUpdateTime", LocalTimeType.LOCAL_DATE_TIME_TYPE, 3, true, null, "lastUpdateTime"))
-            .primaryKey(PrimaryKey.of("id", Lists.newArrayList("id")))
-            .constraintKey(ConstraintKey.of(ConstraintKey.ConstraintType.KEY, "name", Lists.newArrayList(ConstraintKey.ConstraintKeyColumn.of("name", null))))
-            .build();
-        CatalogTable catalogTable = CatalogTable.of(
-            TableIdentifier.of("test_catalog", dataBaseName, tableName),
-            tableSchema,
-            new HashMap<>(),
-            new ArrayList<>(),
-            "User table"
-        );
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.LONG_TYPE, 22, false, null, "id"))
+                        .column(
+                                PhysicalColumn.of(
+                                        "name", BasicType.STRING_TYPE, 128, false, null, "name"))
+                        .column(
+                                PhysicalColumn.of(
+                                        "age", BasicType.INT_TYPE, null, true, null, "age"))
+                        .column(
+                                PhysicalColumn.of(
+                                        "createTime",
+                                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                        3,
+                                        true,
+                                        null,
+                                        "createTime"))
+                        .column(
+                                PhysicalColumn.of(
+                                        "lastUpdateTime",
+                                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                        3,
+                                        true,
+                                        null,
+                                        "lastUpdateTime"))
+                        .primaryKey(PrimaryKey.of("id", Lists.newArrayList("id")))
+                        .constraintKey(
+                                ConstraintKey.of(
+                                        ConstraintKey.ConstraintType.KEY,
+                                        "name",
+                                        Lists.newArrayList(
+                                                ConstraintKey.ConstraintKeyColumn.of(
+                                                        "name", null))))
+                        .build();
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test_catalog", dataBaseName, tableName),
+                        tableSchema,
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "User table");
 
-        String createTableSql = MysqlCreateTableSqlBuilder.builder(tablePath, catalogTable)
-            .build();
-        String expect = "CREATE TABLE IF NOT EXISTS test_table (\n" +
-            "\tid BIGINT (22) NOT NULL COMMENT 'id', \n" +
-            "\tname VARCHAR (128) NOT NULL COMMENT 'name', \n" +
-            "\tage INT NULL COMMENT 'age', \n" +
-            "\tcreateTime TIMESTAMP (3) NULL COMMENT 'createTime', \n" +
-            "\tlastUpdateTime TIMESTAMP (3) NULL COMMENT 'lastUpdateTime', \n" +
-            "\tPRIMARY KEY (`id`), \n" +
-            "\tKEY `name` (`name`)\n" +
-            ") COMMENT = 'User table';";
+        String createTableSql = MysqlCreateTableSqlBuilder.builder(tablePath, catalogTable).build();
+        String expect =
+                "CREATE TABLE IF NOT EXISTS test_table (\n"
+                        + "\tid BIGINT (22) NOT NULL COMMENT 'id', \n"
+                        + "\tname VARCHAR (128) NOT NULL COMMENT 'name', \n"
+                        + "\tage INT NULL COMMENT 'age', \n"
+                        + "\tcreateTime TIMESTAMP (3) NULL COMMENT 'createTime', \n"
+                        + "\tlastUpdateTime TIMESTAMP (3) NULL COMMENT 'lastUpdateTime', \n"
+                        + "\tPRIMARY KEY (`id`), \n"
+                        + "\tKEY `name` (`name`)\n"
+                        + ") COMMENT = 'User table';";
         CONSOLE.println(expect);
         Assertions.assertEquals(expect, createTableSql);
     }

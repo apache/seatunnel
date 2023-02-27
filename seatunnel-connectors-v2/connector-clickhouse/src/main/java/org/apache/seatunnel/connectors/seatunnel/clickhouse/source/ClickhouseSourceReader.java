@@ -46,8 +46,11 @@ public class ClickhouseSourceReader implements SourceReader<SeaTunnelRow, Clickh
 
     private final List<ClickhouseSourceSplit> splits;
 
-    ClickhouseSourceReader(List<ClickHouseNode> servers, SourceReader.Context readerContext,
-                           SeaTunnelRowType rowTypeInfo, String sql) {
+    ClickhouseSourceReader(
+            List<ClickHouseNode> servers,
+            SourceReader.Context readerContext,
+            SeaTunnelRowType rowTypeInfo,
+            String sql) {
         this.servers = servers;
         this.readerContext = readerContext;
         this.rowTypeInfo = rowTypeInfo;
@@ -74,14 +77,19 @@ public class ClickhouseSourceReader implements SourceReader<SeaTunnelRow, Clickh
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         if (!splits.isEmpty()) {
             try (ClickHouseResponse response = this.request.query(sql).executeAndWait()) {
-                response.stream().forEach(record -> {
-                    Object[] values = new Object[this.rowTypeInfo.getFieldNames().length];
-                    for (int i = 0; i < record.size(); i++) {
-                        values[i] = TypeConvertUtil.valueUnwrap(
-                                this.rowTypeInfo.getFieldType(i), record.getValue(i));
-                    }
-                    output.collect(new SeaTunnelRow(values));
-                });
+                response.stream()
+                        .forEach(
+                                record -> {
+                                    Object[] values =
+                                            new Object[this.rowTypeInfo.getFieldNames().length];
+                                    for (int i = 0; i < record.size(); i++) {
+                                        values[i] =
+                                                TypeConvertUtil.valueUnwrap(
+                                                        this.rowTypeInfo.getFieldType(i),
+                                                        record.getValue(i));
+                                    }
+                                    output.collect(new SeaTunnelRow(values));
+                                });
             }
             this.readerContext.signalNoMoreElement();
         }
@@ -98,12 +106,8 @@ public class ClickhouseSourceReader implements SourceReader<SeaTunnelRow, Clickh
     }
 
     @Override
-    public void handleNoMoreSplits() {
-
-    }
+    public void handleNoMoreSplits() {}
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {
-
-    }
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
 }

@@ -29,6 +29,9 @@ public class DatabaseAlreadyExistException extends SeaTunnelRuntimeException {
     }
 
     public DatabaseAlreadyExistException(String catalogName, String databaseName, Throwable cause) {
-        super(SeaTunnelAPIErrorCode.DATABASE_ALREADY_EXISTED, String.format(MSG, databaseName, catalogName), cause);
+        super(
+                SeaTunnelAPIErrorCode.DATABASE_ALREADY_EXISTED,
+                String.format(MSG, databaseName, catalogName),
+                cause);
     }
 }

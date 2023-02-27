@@ -41,21 +41,14 @@ public class PulsarClientConfig extends BasePulsarConfig {
     }
 
     public static final class Builder {
-        /**
-         * Name of the authentication plugin.
-         */
+        /** Name of the authentication plugin. */
         private String authPluginClassName = "";
-        /**
-         * Parameters for the authentication plugin.
-         */
+        /** Parameters for the authentication plugin. */
         private String authParams = "";
-        /**
-         * Service URL provider for Pulsar service.
-         */
+        /** Service URL provider for Pulsar service. */
         private String serviceUrl;
 
-        private Builder() {
-        }
+        private Builder() {}
 
         public Builder authPluginClassName(String authPluginClassName) {
             this.authPluginClassName = authPluginClassName;
@@ -73,7 +66,8 @@ public class PulsarClientConfig extends BasePulsarConfig {
         }
 
         public PulsarClientConfig build() {
-            Preconditions.checkArgument(StringUtils.isNotBlank(serviceUrl), "Pulsar service URL is required.");
+            Preconditions.checkArgument(
+                    StringUtils.isNotBlank(serviceUrl), "Pulsar service URL is required.");
             return new PulsarClientConfig(authPluginClassName, authParams, serviceUrl);
         }
     }

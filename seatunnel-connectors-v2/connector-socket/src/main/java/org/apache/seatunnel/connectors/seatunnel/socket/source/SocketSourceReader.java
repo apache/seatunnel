@@ -47,8 +47,12 @@ public class SocketSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
     @Override
     public void open() throws Exception {
         socket = new Socket();
-        log.info("connect socket server, host:[{}], port:[{}] ", this.parameter.getHost(), this.parameter.getPort());
-        socket.connect(new InetSocketAddress(this.parameter.getHost(), this.parameter.getPort()), 0);
+        log.info(
+                "connect socket server, host:[{}], port:[{}] ",
+                this.parameter.getHost(),
+                this.parameter.getPort());
+        socket.connect(
+                new InetSocketAddress(this.parameter.getHost(), this.parameter.getPort()), 0);
     }
 
     @Override
@@ -61,14 +65,16 @@ public class SocketSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         StringBuilder buffer = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+        try (BufferedReader reader =
+                new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
             char[] buf = new char[CHAR_BUFFER_SIZE];
             int bytesRead;
             while ((bytesRead = reader.read(buf)) != -1) {
                 buffer.append(buf, 0, bytesRead);
 
                 int delimPos;
-                while (buffer.length() >= this.delimiter.length() && (delimPos = buffer.indexOf(this.delimiter)) != -1) {
+                while (buffer.length() >= this.delimiter.length()
+                        && (delimPos = buffer.indexOf(this.delimiter)) != -1) {
                     String record = buffer.substring(0, delimPos);
                     if (record.endsWith("\r")) {
                         record = record.substring(0, record.length() - 1);

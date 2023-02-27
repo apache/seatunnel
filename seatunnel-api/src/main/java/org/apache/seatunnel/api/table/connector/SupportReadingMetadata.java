@@ -23,12 +23,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Used for {@link TableSource} to support metadata columns.
- */
+/** Used for {@link TableSource} to support metadata columns. */
 public interface SupportReadingMetadata {
 
     Map<String, SeaTunnelDataType<?>> listReadableMetadata(CatalogTable catalogTable);
 
-    void applyReadableMetadata(CatalogTable catalogTable, List<String> metadataKeys, SeaTunnelDataType<?> dataType);
+    void applyReadableMetadata(
+            CatalogTable catalogTable, List<String> metadataKeys, SeaTunnelDataType<?> dataType);
 }

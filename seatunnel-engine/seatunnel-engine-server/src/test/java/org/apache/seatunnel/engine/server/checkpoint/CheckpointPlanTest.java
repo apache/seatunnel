@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
@@ -36,13 +39,11 @@ import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import com.google.common.collect.ImmutableMap;
 import com.hazelcast.map.IMap;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.Map;
@@ -60,22 +61,31 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
         JobConfig config = new JobConfig();
         config.setName("test");
 
-        JobImmutableInformation jobInfo = new JobImmutableInformation(1,
-            nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
+        JobImmutableInformation jobInfo =
+                new JobImmutableInformation(
+                        1,
+                        nodeEngine.getSerializationService().toData(logicalDag),
+                        config,
+                        Collections.emptyList());
 
-        IMap<Object, Object> runningJobState = nodeEngine.getHazelcastInstance().getMap("testRunningJobState");
+        IMap<Object, Object> runningJobState =
+                nodeEngine.getHazelcastInstance().getMap("testRunningJobState");
         IMap<Object, Long[]> runningJobStateTimestamp =
-            nodeEngine.getHazelcastInstance().getMap("testRunningJobStateTimestamp");
+                nodeEngine.getHazelcastInstance().getMap("testRunningJobStateTimestamp");
 
-        Map<Integer, CheckpointPlan> checkpointPlans = PlanUtils.fromLogicalDAG(logicalDag, nodeEngine,
-            jobInfo,
-            System.currentTimeMillis(),
-            Executors.newCachedThreadPool(),
-            instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME),
-            runningJobState,
-            runningJobStateTimestamp,
-            QueueType.BLOCKINGQUEUE,
-            new CheckpointConfig()).f1();
+        Map<Integer, CheckpointPlan> checkpointPlans =
+                PlanUtils.fromLogicalDAG(
+                                logicalDag,
+                                nodeEngine,
+                                jobInfo,
+                                System.currentTimeMillis(),
+                                Executors.newCachedThreadPool(),
+                                instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME),
+                                runningJobState,
+                                runningJobStateTimestamp,
+                                QueueType.BLOCKINGQUEUE,
+                                new CheckpointConfig())
+                        .f1();
         Assertions.assertNotNull(checkpointPlans);
         Assertions.assertEquals(2, checkpointPlans.size());
         // enum(1) + reader(2) + writer(2)
@@ -92,24 +102,31 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
         Assertions.assertEquals(2, checkpointPlans.get(2).getPipelineActions().size());
     }
 
-    private static void fillVirtualVertex(IdGenerator idGenerator, LogicalDag logicalDag, int parallelism) {
+    private static void fillVirtualVertex(
+            IdGenerator idGenerator, LogicalDag logicalDag, int parallelism) {
         JobContext jobContext = new JobContext();
         jobContext.setJobMode(JobMode.BATCH);
         FakeSource fakeSource = new FakeSource();
-        Config fakeSourceConfig = ConfigFactory.parseMap(
-            Collections.singletonMap("schema",
-                Collections.singletonMap("fields",
-                    ImmutableMap.of("id", "int", "name", "string"))));
+        Config fakeSourceConfig =
+                ConfigFactory.parseMap(
+                        Collections.singletonMap(
+                                "schema",
+                                Collections.singletonMap(
+                                        "fields", ImmutableMap.of("id", "int", "name", "string"))));
         fakeSource.prepare(fakeSourceConfig);
         fakeSource.setJobContext(jobContext);
 
-        Action fake = new SourceAction<>(idGenerator.getNextId(), "fake", fakeSource, Collections.emptySet());
+        Action fake =
+                new SourceAction<>(
+                        idGenerator.getNextId(), "fake", fakeSource, Collections.emptySet());
         fake.setParallelism(parallelism);
         LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, parallelism);
 
         ConsoleSink consoleSink = new ConsoleSink();
         consoleSink.setJobContext(jobContext);
-        Action console = new SinkAction<>(idGenerator.getNextId(), "console", consoleSink, Collections.emptySet());
+        Action console =
+                new SinkAction<>(
+                        idGenerator.getNextId(), "console", consoleSink, Collections.emptySet());
         console.setParallelism(parallelism);
         LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, parallelism);
 

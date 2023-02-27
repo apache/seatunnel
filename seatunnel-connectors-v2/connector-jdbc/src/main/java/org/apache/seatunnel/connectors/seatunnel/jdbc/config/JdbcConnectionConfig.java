@@ -27,7 +27,8 @@ public class JdbcConnectionConfig implements Serializable {
 
     public String url;
     public String driverName;
-    public int connectionCheckTimeoutSeconds = JdbcOptions.CONNECTION_CHECK_TIMEOUT_SEC.defaultValue();
+    public int connectionCheckTimeoutSeconds =
+            JdbcOptions.CONNECTION_CHECK_TIMEOUT_SEC.defaultValue();
     public int maxRetries = JdbcOptions.MAX_RETRIES.defaultValue();
     public String username;
     public String password;
@@ -119,7 +120,8 @@ public class JdbcConnectionConfig implements Serializable {
     public static final class Builder {
         private String url;
         private String driverName;
-        private int connectionCheckTimeoutSeconds = JdbcOptions.CONNECTION_CHECK_TIMEOUT_SEC.defaultValue();
+        private int connectionCheckTimeoutSeconds =
+                JdbcOptions.CONNECTION_CHECK_TIMEOUT_SEC.defaultValue();
         private int maxRetries = JdbcOptions.MAX_RETRIES.defaultValue();
         private String username;
         private String password;
@@ -131,8 +133,7 @@ public class JdbcConnectionConfig implements Serializable {
         private int maxCommitAttempts = JdbcOptions.MAX_COMMIT_ATTEMPTS.defaultValue();
         private int transactionTimeoutSec = JdbcOptions.TRANSACTION_TIMEOUT_SEC.defaultValue();
 
-        private Builder() {
-        }
+        private Builder() {}
 
         public Builder url(String url) {
             this.url = url;

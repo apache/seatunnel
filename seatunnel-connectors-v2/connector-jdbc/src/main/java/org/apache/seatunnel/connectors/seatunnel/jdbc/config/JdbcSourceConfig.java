@@ -44,8 +44,10 @@ public class JdbcSourceConfig implements Serializable {
         builder.query(config.get(JdbcOptions.QUERY));
         builder.fetchSize(config.get(JdbcOptions.FETCH_SIZE));
         config.getOptional(JdbcOptions.PARTITION_COLUMN).ifPresent(builder::partitionColumn);
-        config.getOptional(JdbcOptions.PARTITION_UPPER_BOUND).ifPresent(builder::partitionUpperBound);
-        config.getOptional(JdbcOptions.PARTITION_LOWER_BOUND).ifPresent(builder::partitionLowerBound);
+        config.getOptional(JdbcOptions.PARTITION_UPPER_BOUND)
+                .ifPresent(builder::partitionUpperBound);
+        config.getOptional(JdbcOptions.PARTITION_LOWER_BOUND)
+                .ifPresent(builder::partitionLowerBound);
         config.getOptional(JdbcOptions.PARTITION_NUM).ifPresent(builder::partitionNumber);
         return builder.build();
     }

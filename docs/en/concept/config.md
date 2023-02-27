@@ -1,6 +1,7 @@
 ---
+
 sidebar_position: 2
----
+-------------------
 
 # Intro to config file
 

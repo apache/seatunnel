@@ -46,16 +46,17 @@ public class FakeDataGenerator {
     public FakeDataGenerator(SeaTunnelRowType rowType, FakeConfig fakeConfig) {
         this.rowType = rowType;
         this.fakeConfig = fakeConfig;
-        this.jsonDeserializationSchema = fakeConfig.getFakeRows() == null ?
-            null :
-            new JsonDeserializationSchema(
-                false, false, rowType);
+        this.jsonDeserializationSchema =
+                fakeConfig.getFakeRows() == null
+                        ? null
+                        : new JsonDeserializationSchema(false, false, rowType);
         this.fakeDataRandomUtils = new FakeDataRandomUtils(fakeConfig);
     }
 
     private SeaTunnelRow convertRow(FakeConfig.RowData rowData) {
         try {
-            SeaTunnelRow seaTunnelRow = jsonDeserializationSchema.deserialize(rowData.getFieldsJson());
+            SeaTunnelRow seaTunnelRow =
+                    jsonDeserializationSchema.deserialize(rowData.getFieldsJson());
             if (rowData.getKind() != null) {
                 seaTunnelRow.setRowKind(RowKind.valueOf(rowData.getKind()));
             }
@@ -133,7 +134,8 @@ public class FakeDataGenerator {
                 return fakeDataRandomUtils.randomDouble();
             case DECIMAL:
                 DecimalType decimalType = (DecimalType) fieldType;
-                return fakeDataRandomUtils.randomBigDecimal(decimalType.getPrecision(), decimalType.getScale());
+                return fakeDataRandomUtils.randomBigDecimal(
+                        decimalType.getPrecision(), decimalType.getScale());
             case NULL:
                 return null;
             case BYTES:
@@ -154,7 +156,8 @@ public class FakeDataGenerator {
                 return new SeaTunnelRow(objects);
             default:
                 // never got in there
-                throw new FakeConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                throw new FakeConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
                         "SeaTunnel Fake source connector not support this data type");
         }
     }

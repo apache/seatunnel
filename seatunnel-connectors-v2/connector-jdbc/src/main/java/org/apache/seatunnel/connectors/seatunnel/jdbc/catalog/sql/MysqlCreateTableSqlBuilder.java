@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sql;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -34,8 +31,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class MysqlCreateTableSqlBuilder {
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
+public class MysqlCreateTableSqlBuilder {
 
     private final String tableName;
     private List<Column> columns;
@@ -58,7 +57,8 @@ public class MysqlCreateTableSqlBuilder {
         this.mysqlDataTypeConvertor = new MysqlDataTypeConvertor();
     }
 
-    public static MysqlCreateTableSqlBuilder builder(TablePath tablePath, CatalogTable catalogTable) {
+    public static MysqlCreateTableSqlBuilder builder(
+            TablePath tablePath, CatalogTable catalogTable) {
         checkNotNull(tablePath, "tablePath must not be null");
         checkNotNull(catalogTable, "catalogTable must not be null");
 
@@ -66,13 +66,13 @@ public class MysqlCreateTableSqlBuilder {
         checkNotNull(tableSchema, "tableSchema must not be null");
 
         return new MysqlCreateTableSqlBuilder(tablePath.getTableName())
-            .comment(catalogTable.getComment())
-            // todo: set charset and collate
-            .engine(null)
-            .charset(null)
-            .primaryKey(tableSchema.getPrimaryKey())
-            .constraintKeys(tableSchema.getConstraintKeys())
-            .addColumn(tableSchema.getColumns());
+                .comment(catalogTable.getComment())
+                // todo: set charset and collate
+                .engine(null)
+                .charset(null)
+                .primaryKey(tableSchema.getPrimaryKey())
+                .constraintKeys(tableSchema.getConstraintKeys())
+                .addColumn(tableSchema.getColumns());
     }
 
     public MysqlCreateTableSqlBuilder addColumn(List<Column> columns) {
@@ -113,7 +113,10 @@ public class MysqlCreateTableSqlBuilder {
 
     public String build() {
         List<String> sqls = new ArrayList<>();
-        sqls.add(String.format("CREATE TABLE IF NOT EXISTS %s (\n%s\n)", tableName, buildColumnsIdentifySql()));
+        sqls.add(
+                String.format(
+                        "CREATE TABLE IF NOT EXISTS %s (\n%s\n)",
+                        tableName, buildColumnsIdentifySql()));
         if (engine != null) {
             sqls.add("ENGINE = " + engine);
         }
@@ -150,7 +153,8 @@ public class MysqlCreateTableSqlBuilder {
         // Column name
         columnSqls.add(column.getName());
         // Column type
-        columnSqls.add(mysqlDataTypeConvertor.toConnectorType(column.getDataType(), null).getName());
+        columnSqls.add(
+                mysqlDataTypeConvertor.toConnectorType(column.getDataType(), null).getName());
         // Column length
         if (column.getColumnLength() != null) {
             columnSqls.add("(" + column.getColumnLength() + ")");
@@ -173,24 +177,30 @@ public class MysqlCreateTableSqlBuilder {
     }
 
     private String buildPrimaryKeySql() {
-        String key = primaryKey.getColumnNames()
-            .stream()
-            .map(columnName -> "`" + columnName + "`")
-            .collect(Collectors.joining(", "));
+        String key =
+                primaryKey.getColumnNames().stream()
+                        .map(columnName -> "`" + columnName + "`")
+                        .collect(Collectors.joining(", "));
         // add sort type
         return String.format("PRIMARY KEY (%s)", key);
     }
 
     private String buildConstraintKeySql(ConstraintKey constraintKey) {
         ConstraintKey.ConstraintType constraintType = constraintKey.getConstraintType();
-        String indexColumns = constraintKey.getColumnNames()
-            .stream()
-            .map(constraintKeyColumn -> {
-                if (constraintKeyColumn.getSortType() == null) {
-                    return String.format("`%s`", constraintKeyColumn.getColumnName());
-                }
-                return String.format("`%s` %s", constraintKeyColumn.getColumnName(), constraintKeyColumn.getSortType().name());
-            }).collect(Collectors.joining(", "));
+        String indexColumns =
+                constraintKey.getColumnNames().stream()
+                        .map(
+                                constraintKeyColumn -> {
+                                    if (constraintKeyColumn.getSortType() == null) {
+                                        return String.format(
+                                                "`%s`", constraintKeyColumn.getColumnName());
+                                    }
+                                    return String.format(
+                                            "`%s` %s",
+                                            constraintKeyColumn.getColumnName(),
+                                            constraintKeyColumn.getSortType().name());
+                                })
+                        .collect(Collectors.joining(", "));
         String keyName = null;
         switch (constraintType) {
             case KEY:
@@ -204,9 +214,10 @@ public class MysqlCreateTableSqlBuilder {
                 // todo:
                 break;
             default:
-                throw new UnsupportedOperationException("Unsupported constraint type: " + constraintType);
+                throw new UnsupportedOperationException(
+                        "Unsupported constraint type: " + constraintType);
         }
-        return String.format("%s `%s` (%s)", keyName, constraintKey.getConstraintName(), indexColumns);
+        return String.format(
+                "%s `%s` (%s)", keyName, constraintKey.getConstraintName(), indexColumns);
     }
-
 }

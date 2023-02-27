@@ -25,5 +25,4 @@ public class SaveModeConstants {
     public static final String TABLE_NAME = "table_name";
 
     public static final String DATABASE = "database";
-
 }

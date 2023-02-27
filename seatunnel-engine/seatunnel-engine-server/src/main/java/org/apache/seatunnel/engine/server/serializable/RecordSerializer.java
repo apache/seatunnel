@@ -55,7 +55,8 @@ public class RecordSerializer implements StreamSerializer<Record> {
                 out.writeObject(field);
             }
         } else {
-            throw new UnsupportedEncodingException("Unsupported serialize class: " + data.getClass());
+            throw new UnsupportedEncodingException(
+                    "Unsupported serialize class: " + data.getClass());
         }
     }
 
@@ -64,7 +65,9 @@ public class RecordSerializer implements StreamSerializer<Record> {
         Object data;
         byte dataType = in.readByte();
         if (dataType == RecordDataType.CHECKPOINT_BARRIER.ordinal()) {
-            data = new CheckpointBarrier(in.readLong(), in.readLong(), CheckpointType.valueOf(in.readString()));
+            data =
+                    new CheckpointBarrier(
+                            in.readLong(), in.readLong(), CheckpointType.valueOf(in.readString()));
         } else if (dataType == RecordDataType.SEATUNNEL_ROW.ordinal()) {
             String tableId = in.readString();
             byte rowKind = in.readByte();
@@ -77,7 +80,8 @@ public class RecordSerializer implements StreamSerializer<Record> {
             }
             data = row;
         } else {
-            throw new UnsupportedEncodingException("Unsupported deserialize data type: " + dataType);
+            throw new UnsupportedEncodingException(
+                    "Unsupported deserialize data type: " + dataType);
         }
         return new Record(data);
     }

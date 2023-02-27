@@ -19,11 +19,12 @@ package org.apache.seatunnel.engine.server.execution;
 
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 
+import org.apache.commons.lang3.builder.EqualsBuilder;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
+
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
-import org.apache.commons.lang3.builder.EqualsBuilder;
-import org.apache.commons.lang3.builder.HashCodeBuilder;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -34,8 +35,7 @@ public class TaskLocation implements IdentifiedDataSerializable, Serializable {
     private long taskID;
     private int index;
 
-    public TaskLocation() {
-    }
+    public TaskLocation() {}
 
     public TaskLocation(TaskGroupLocation taskGroupLocation, long idPrefix, int index) {
         this.taskGroupLocation = taskGroupLocation;
@@ -107,11 +107,14 @@ public class TaskLocation implements IdentifiedDataSerializable, Serializable {
 
     @Override
     public String toString() {
-        return "TaskLocation{" +
-            "taskGroupLocation=" + taskGroupLocation +
-            ", taskID=" + taskID +
-            ", index=" + index +
-            '}';
+        return "TaskLocation{"
+                + "taskGroupLocation="
+                + taskGroupLocation
+                + ", taskID="
+                + taskID
+                + ", index="
+                + index
+                + '}';
     }
 
     @Override
@@ -123,7 +126,10 @@ public class TaskLocation implements IdentifiedDataSerializable, Serializable {
             return false;
         }
         TaskLocation that = (TaskLocation) o;
-        return new EqualsBuilder().append(taskID, that.taskID).append(taskGroupLocation, that.taskGroupLocation).isEquals();
+        return new EqualsBuilder()
+                .append(taskID, that.taskID)
+                .append(taskGroupLocation, that.taskGroupLocation)
+                .isEquals();
     }
 
     @Override

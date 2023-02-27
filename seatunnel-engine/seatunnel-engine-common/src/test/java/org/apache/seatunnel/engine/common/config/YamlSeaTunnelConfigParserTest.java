@@ -17,10 +17,11 @@
 
 package org.apache.seatunnel.engine.common.config;
 
-import com.hazelcast.client.config.ClientConfig;
-import com.hazelcast.client.config.YamlClientConfigBuilder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.client.config.YamlClientConfigBuilder;
 
 import java.io.IOException;
 
@@ -46,27 +47,42 @@ public class YamlSeaTunnelConfigParserTest {
 
         Assertions.assertEquals(5, config.getEngineConfig().getSlotServiceConfig().getSlotNum());
 
-        Assertions.assertEquals(6000, config.getEngineConfig().getCheckpointConfig().getCheckpointInterval());
+        Assertions.assertEquals(
+                6000, config.getEngineConfig().getCheckpointConfig().getCheckpointInterval());
 
-        Assertions.assertEquals(7000, config.getEngineConfig().getCheckpointConfig().getCheckpointTimeout());
+        Assertions.assertEquals(
+                7000, config.getEngineConfig().getCheckpointConfig().getCheckpointTimeout());
 
-        Assertions.assertEquals(5, config.getEngineConfig().getCheckpointConfig().getMaxConcurrentCheckpoints());
+        Assertions.assertEquals(
+                5, config.getEngineConfig().getCheckpointConfig().getMaxConcurrentCheckpoints());
 
-        Assertions.assertEquals(2, config.getEngineConfig().getCheckpointConfig().getTolerableFailureCheckpoints());
+        Assertions.assertEquals(
+                2, config.getEngineConfig().getCheckpointConfig().getTolerableFailureCheckpoints());
 
-        Assertions.assertEquals("hdfs", config.getEngineConfig().getCheckpointConfig().getStorage().getStorage());
+        Assertions.assertEquals(
+                "hdfs", config.getEngineConfig().getCheckpointConfig().getStorage().getStorage());
 
-        Assertions.assertEquals(3, config.getEngineConfig().getCheckpointConfig().getStorage().getMaxRetainedCheckpoints());
-        Assertions.assertEquals("secret-key", config.getEngineConfig().getCheckpointConfig().getStorage().getStoragePluginConfig().get("s3.secret-key"));
-
+        Assertions.assertEquals(
+                3,
+                config.getEngineConfig()
+                        .getCheckpointConfig()
+                        .getStorage()
+                        .getMaxRetainedCheckpoints());
+        Assertions.assertEquals(
+                "secret-key",
+                config.getEngineConfig()
+                        .getCheckpointConfig()
+                        .getStorage()
+                        .getStoragePluginConfig()
+                        .get("s3.secret-key"));
     }
 
     @Test
     public void testCustomizeClientConfig() throws IOException {
-        YamlClientConfigBuilder yamlClientConfigBuilder = new YamlClientConfigBuilder("custmoize-client.yaml");
+        YamlClientConfigBuilder yamlClientConfigBuilder =
+                new YamlClientConfigBuilder("custmoize-client.yaml");
         ClientConfig clientConfig = yamlClientConfigBuilder.build();
 
         Assertions.assertEquals("custmoize", clientConfig.getClusterName());
-
     }
 }

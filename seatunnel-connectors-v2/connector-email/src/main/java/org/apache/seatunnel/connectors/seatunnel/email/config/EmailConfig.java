@@ -22,23 +22,48 @@ import org.apache.seatunnel.api.configuration.Options;
 
 public class EmailConfig {
 
-    public static final Option<String> EMAIL_FROM_ADDRESS = Options.key("email_from_address").stringType().noDefaultValue()
-        .withDescription("Sender Email Address");
+    public static final Option<String> EMAIL_FROM_ADDRESS =
+            Options.key("email_from_address")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Sender Email Address");
 
-    public static final Option<String> EMAIL_TO_ADDRESS = Options.key("email_to_address").stringType().noDefaultValue()
-        .withDescription("Address to receive mail");
+    public static final Option<String> EMAIL_TO_ADDRESS =
+            Options.key("email_to_address")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Address to receive mail");
 
-    public static final Option<String> EMAIL_AUTHORIZATION_CODE = Options.key("email_authorization_code").stringType()
-        .noDefaultValue().withDescription("Authorization code,You can obtain the authorization code from the mailbox Settings");
-    public static final Option<String> EMAIL_MESSAGE_HEADLINE = Options.key("email_message_headline").stringType()
-        .noDefaultValue().withDescription("The subject line of the entire message");
+    public static final Option<String> EMAIL_AUTHORIZATION_CODE =
+            Options.key("email_authorization_code")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Authorization code,You can obtain the authorization code from the mailbox Settings");
+    public static final Option<String> EMAIL_MESSAGE_HEADLINE =
+            Options.key("email_message_headline")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The subject line of the entire message");
 
-    public static final Option<String> EMAIL_MESSAGE_CONTENT = Options.key("email_message_content").stringType()
-        .noDefaultValue().withDescription("The body of the entire message");
-    public static final Option<String> EMAIL_HOST = Options.key("email_host").stringType().noDefaultValue()
-        .withDescription("SMTP server to connect to");
-    public static final Option<String> EMAIL_TRANSPORT_PROTOCOL = Options.key("email_transport_protocol").stringType()
-        .noDefaultValue().withDescription("The protocol used to send the message");
-    public static final Option<String> EMAIL_SMTP_AUTH = Options.key("email_smtp_auth").stringType().noDefaultValue()
-        .withDescription("Whether to use SMTP authentication");
+    public static final Option<String> EMAIL_MESSAGE_CONTENT =
+            Options.key("email_message_content")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The body of the entire message");
+    public static final Option<String> EMAIL_HOST =
+            Options.key("email_host")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("SMTP server to connect to");
+    public static final Option<String> EMAIL_TRANSPORT_PROTOCOL =
+            Options.key("email_transport_protocol")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The protocol used to send the message");
+    public static final Option<String> EMAIL_SMTP_AUTH =
+            Options.key("email_smtp_auth")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Whether to use SMTP authentication");
 }

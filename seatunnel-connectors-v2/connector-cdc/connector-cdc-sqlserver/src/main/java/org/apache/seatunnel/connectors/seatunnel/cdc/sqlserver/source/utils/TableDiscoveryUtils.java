@@ -17,24 +17,24 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.RelationalTableFilters;
 import io.debezium.relational.TableId;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Utilities to discovery matched tables.
- */
+/** Utilities to discovery matched tables. */
 public class TableDiscoveryUtils {
     private static final Logger LOG = LoggerFactory.getLogger(TableDiscoveryUtils.class);
+
     @SuppressWarnings("MagicNumber")
     public static List<TableId> listTables(JdbcConnection jdbc, RelationalTableFilters tableFilters)
-        throws SQLException {
+            throws SQLException {
         final List<TableId> capturedTableIds = new ArrayList<>();
         // -------------------
         // READ DATABASE NAMES
@@ -44,12 +44,12 @@ public class TableDiscoveryUtils {
         final List<String> databaseNames = new ArrayList<>();
 
         jdbc.query(
-            "SELECT name, database_id, create_date  \n" + "FROM sys.databases;  ",
-            rs -> {
-                while (rs.next()) {
-                    databaseNames.add(rs.getString(1));
-                }
-            });
+                "SELECT name, database_id, create_date  \n" + "FROM sys.databases;  ",
+                rs -> {
+                    while (rs.next()) {
+                        databaseNames.add(rs.getString(1));
+                    }
+                });
         LOG.info("\t list of available databases is: {}", databaseNames);
 
         // ----------------
@@ -63,28 +63,28 @@ public class TableDiscoveryUtils {
         for (String dbName : databaseNames) {
             try {
                 jdbc.query(
-                    "SELECT * FROM "
-                        + dbName
-                        + ".INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE';",
-                    rs -> {
-                        while (rs.next()) {
-                            TableId tableId =
-                                new TableId(
-                                    rs.getString(1), rs.getString(2), rs.getString(3));
-                            if (tableFilters.dataCollectionFilter().isIncluded(tableId)) {
-                                capturedTableIds.add(tableId);
-                                LOG.info("\t including '{}' for further processing", tableId);
-                            } else {
-                                LOG.info("\t '{}' is filtered out of capturing", tableId);
+                        "SELECT * FROM "
+                                + dbName
+                                + ".INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE';",
+                        rs -> {
+                            while (rs.next()) {
+                                TableId tableId =
+                                        new TableId(
+                                                rs.getString(1), rs.getString(2), rs.getString(3));
+                                if (tableFilters.dataCollectionFilter().isIncluded(tableId)) {
+                                    capturedTableIds.add(tableId);
+                                    LOG.info("\t including '{}' for further processing", tableId);
+                                } else {
+                                    LOG.info("\t '{}' is filtered out of capturing", tableId);
+                                }
                             }
-                        }
-                    });
+                        });
             } catch (SQLException e) {
                 // We were unable to execute the query or process the results, so skip this ...
                 LOG.warn(
-                    "\t skipping database '{}' due to error reading tables: {}",
-                    dbName,
-                    e.getMessage());
+                        "\t skipping database '{}' due to error reading tables: {}",
+                        dbName,
+                        e.getMessage());
             }
         }
         return capturedTableIds;

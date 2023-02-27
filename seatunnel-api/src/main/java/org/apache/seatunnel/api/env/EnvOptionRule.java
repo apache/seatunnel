@@ -24,12 +24,13 @@ public class EnvOptionRule {
 
     public static OptionRule getEnvOptionRules() {
         return OptionRule.builder()
-            .required(EnvCommonOptions.JOB_MODE)
-            .optional(EnvCommonOptions.JOB_NAME,
-                CommonOptions.PARALLELISM,
-                EnvCommonOptions.JARS,
-                EnvCommonOptions.CHECKPOINT_INTERVAL,
-                EnvCommonOptions.CUSTOM_PARAMETERS)
-            .build();
+                .required(EnvCommonOptions.JOB_MODE)
+                .optional(
+                        EnvCommonOptions.JOB_NAME,
+                        CommonOptions.PARALLELISM,
+                        EnvCommonOptions.JARS,
+                        EnvCommonOptions.CHECKPOINT_INTERVAL,
+                        EnvCommonOptions.CUSTOM_PARAMETERS)
+                .build();
     }
 }

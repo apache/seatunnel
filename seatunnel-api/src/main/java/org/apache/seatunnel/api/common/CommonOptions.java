@@ -22,44 +22,45 @@ import org.apache.seatunnel.api.configuration.Options;
 
 public interface CommonOptions {
     Option<String> FACTORY_ID =
-        Options.key("factory")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("Identifier of the SPI factory class.");
+            Options.key("factory")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Identifier of the SPI factory class.");
 
     Option<String> PLUGIN_NAME =
-        Options.key("plugin_name")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("Name of the SPI plugin class.");
+            Options.key("plugin_name")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Name of the SPI plugin class.");
 
     Option<String> RESULT_TABLE_NAME =
-        Options.key("result_table_name")
-            .stringType()
-            .noDefaultValue()
-            .withDescription(
-                "When result_table_name is not specified, " +
-                    "the data processed by this plugin will not be registered as a data set (dataStream/dataset) " +
-                    "that can be directly accessed by other plugins, or called a temporary table (table)" +
-                    "When result_table_name is specified, " +
-                    "the data processed by this plugin will be registered as a data set (dataStream/dataset) " +
-                    "that can be directly accessed by other plugins, or called a temporary table (table) . " +
-                    "The data set (dataStream/dataset) registered here can be directly accessed by other plugins " +
-                    "by specifying source_table_name .");
+            Options.key("result_table_name")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "When result_table_name is not specified, "
+                                    + "the data processed by this plugin will not be registered as a data set (dataStream/dataset) "
+                                    + "that can be directly accessed by other plugins, or called a temporary table (table)"
+                                    + "When result_table_name is specified, "
+                                    + "the data processed by this plugin will be registered as a data set (dataStream/dataset) "
+                                    + "that can be directly accessed by other plugins, or called a temporary table (table) . "
+                                    + "The data set (dataStream/dataset) registered here can be directly accessed by other plugins "
+                                    + "by specifying source_table_name .");
 
     Option<String> SOURCE_TABLE_NAME =
-        Options.key("source_table_name")
-            .stringType()
-            .noDefaultValue()
-            .withDescription(
-                "When source_table_name is not specified, " +
-                    "the current plug-in processes the data set dataset output by the previous plugin in the configuration file. " +
-                    "When source_table_name is specified, the current plug-in is processing the data set corresponding to this parameter.");
+            Options.key("source_table_name")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "When source_table_name is not specified, "
+                                    + "the current plug-in processes the data set dataset output by the previous plugin in the configuration file. "
+                                    + "When source_table_name is specified, the current plug-in is processing the data set corresponding to this parameter.");
 
     Option<Integer> PARALLELISM =
-        Options.key("parallelism")
-            .intType()
-            .defaultValue(1)
-            .withDescription("When parallelism is not specified, the parallelism in env is used by default. " +
-                "When parallelism is specified, it will override the parallelism in env.");
+            Options.key("parallelism")
+                    .intType()
+                    .defaultValue(1)
+                    .withDescription(
+                            "When parallelism is not specified, the parallelism in env is used by default. "
+                                    + "When parallelism is specified, it will override the parallelism in env.");
 }

@@ -61,14 +61,20 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         SYS_DATABASES.add("sys");
     }
 
-    public MySqlCatalog(String catalogName, String username, String pwd, String defaultDatabase, String baseUrl, String defaultUrl) {
+    public MySqlCatalog(
+            String catalogName,
+            String username,
+            String pwd,
+            String defaultDatabase,
+            String baseUrl,
+            String defaultUrl) {
         super(catalogName, username, pwd, defaultDatabase, baseUrl, defaultUrl);
     }
 
     @Override
     public List<String> listDatabases() throws CatalogException {
         try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd);
-             PreparedStatement ps = conn.prepareStatement("SHOW DATABASES;")) {
+                PreparedStatement ps = conn.prepareStatement("SHOW DATABASES;")) {
 
             List<String> databases = new ArrayList<>();
             ResultSet rs = ps.executeQuery();
@@ -83,18 +89,19 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
             return databases;
         } catch (Exception e) {
             throw new CatalogException(
-                String.format("Failed listing database in catalog %s", this.catalogName), e);
+                    String.format("Failed listing database in catalog %s", this.catalogName), e);
         }
     }
 
     @Override
-    public List<String> listTables(String databaseName) throws CatalogException, DatabaseNotExistException {
+    public List<String> listTables(String databaseName)
+            throws CatalogException, DatabaseNotExistException {
         if (!databaseExists(databaseName)) {
             throw new DatabaseNotExistException(this.catalogName, databaseName);
         }
 
         try (Connection conn = DriverManager.getConnection(baseUrl + databaseName, username, pwd);
-             PreparedStatement ps = conn.prepareStatement("SHOW TABLES;")) {
+                PreparedStatement ps = conn.prepareStatement("SHOW TABLES;")) {
 
             ResultSet rs = ps.executeQuery();
 
@@ -107,12 +114,13 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
             return tables;
         } catch (Exception e) {
             throw new CatalogException(
-                String.format("Failed listing database in catalog %s", catalogName), e);
+                    String.format("Failed listing database in catalog %s", catalogName), e);
         }
     }
 
     @Override
-    public CatalogTable getTable(TablePath tablePath) throws CatalogException, TableNotExistException {
+    public CatalogTable getTable(TablePath tablePath)
+            throws CatalogException, TableNotExistException {
         if (!tableExists(tablePath)) {
             throw new TableNotExistException(catalogName, tablePath);
         }
@@ -120,10 +128,17 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         String dbUrl = baseUrl + tablePath.getDatabaseName();
         try (Connection conn = DriverManager.getConnection(dbUrl, username, pwd)) {
             DatabaseMetaData metaData = conn.getMetaData();
-            Optional<PrimaryKey> primaryKey = getPrimaryKey(metaData, tablePath.getDatabaseName(), tablePath.getTableName());
-            List<ConstraintKey> constraintKeys = getConstraintKeys(metaData, tablePath.getDatabaseName(), tablePath.getTableName());
+            Optional<PrimaryKey> primaryKey =
+                    getPrimaryKey(metaData, tablePath.getDatabaseName(), tablePath.getTableName());
+            List<ConstraintKey> constraintKeys =
+                    getConstraintKeys(
+                            metaData, tablePath.getDatabaseName(), tablePath.getTableName());
 
-            try (PreparedStatement ps = conn.prepareStatement(String.format("SELECT * FROM %s WHERE 1 = 0;", tablePath.getFullNameWithQuoted()))) {
+            try (PreparedStatement ps =
+                    conn.prepareStatement(
+                            String.format(
+                                    "SELECT * FROM %s WHERE 1 = 0;",
+                                    tablePath.getFullNameWithQuoted()))) {
                 ResultSetMetaData tableMetaData = ps.getMetaData();
                 TableSchema.Builder builder = TableSchema.builder();
                 // add column
@@ -132,36 +147,56 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
                     SeaTunnelDataType<?> type = fromJdbcType(tableMetaData, i);
                     int columnDisplaySize = tableMetaData.getColumnDisplaySize(i);
                     String comment = tableMetaData.getColumnLabel(i);
-                    boolean isNullable = tableMetaData.isNullable(i) == ResultSetMetaData.columnNullable;
-                    Object defaultValue = getColumnDefaultValue(metaData, tablePath.getTableName(), columnName).orElse(null);
+                    boolean isNullable =
+                            tableMetaData.isNullable(i) == ResultSetMetaData.columnNullable;
+                    Object defaultValue =
+                            getColumnDefaultValue(metaData, tablePath.getTableName(), columnName)
+                                    .orElse(null);
 
-                    PhysicalColumn physicalColumn = PhysicalColumn.of(columnName, type, columnDisplaySize, isNullable, defaultValue, comment);
+                    PhysicalColumn physicalColumn =
+                            PhysicalColumn.of(
+                                    columnName,
+                                    type,
+                                    columnDisplaySize,
+                                    isNullable,
+                                    defaultValue,
+                                    comment);
                     builder.column(physicalColumn);
                 }
                 // add primary key
                 primaryKey.ifPresent(builder::primaryKey);
                 // add constraint key
                 constraintKeys.forEach(builder::constraintKey);
-                TableIdentifier tableIdentifier = TableIdentifier.of(catalogName, tablePath.getDatabaseName(), tablePath.getTableName());
-                return CatalogTable.of(tableIdentifier, builder.build(), buildConnectorOptions(tablePath), Collections.emptyList(), "");
+                TableIdentifier tableIdentifier =
+                        TableIdentifier.of(
+                                catalogName, tablePath.getDatabaseName(), tablePath.getTableName());
+                return CatalogTable.of(
+                        tableIdentifier,
+                        builder.build(),
+                        buildConnectorOptions(tablePath),
+                        Collections.emptyList(),
+                        "");
             }
 
         } catch (Exception e) {
-            throw new CatalogException(String.format("Failed getting table %s", tablePath.getFullName()), e);
+            throw new CatalogException(
+                    String.format("Failed getting table %s", tablePath.getFullName()), e);
         }
     }
 
-    // todo: If the origin source is mysql, we can directly use create table like to create the target table?
+    // todo: If the origin source is mysql, we can directly use create table like to create the
+    // target table?
     @Override
-    protected boolean createTableInternal(TablePath tablePath, CatalogTable table) throws CatalogException {
+    protected boolean createTableInternal(TablePath tablePath, CatalogTable table)
+            throws CatalogException {
         String dbUrl = baseUrl + tablePath.getDatabaseName();
-        String createTableSql = MysqlCreateTableSqlBuilder.builder(tablePath, table)
-            .build();
+        String createTableSql = MysqlCreateTableSqlBuilder.builder(tablePath, table).build();
         try (Connection conn = DriverManager.getConnection(dbUrl, username, pwd);
-             PreparedStatement ps = conn.prepareStatement(createTableSql)) {
+                PreparedStatement ps = conn.prepareStatement(createTableSql)) {
             return ps.execute();
         } catch (Exception e) {
-            throw new CatalogException(String.format("Failed creating table %s", tablePath.getFullName()), e);
+            throw new CatalogException(
+                    String.format("Failed creating table %s", tablePath.getFullName()), e);
         }
     }
 
@@ -169,33 +204,46 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
     protected boolean dropTableInternal(TablePath tablePath) throws CatalogException {
         String dbUrl = baseUrl + tablePath.getDatabaseName();
         try (Connection conn = DriverManager.getConnection(dbUrl, username, pwd);
-             PreparedStatement ps = conn.prepareStatement(String.format("DROP TABLE %s IF EXIST;", tablePath.getFullName()))) {
+                PreparedStatement ps =
+                        conn.prepareStatement(
+                                String.format(
+                                        "DROP TABLE %s IF EXIST;", tablePath.getFullName()))) {
             // Will there exist concurrent drop for one table?
             return ps.execute();
         } catch (SQLException e) {
-            throw new CatalogException(String.format("Failed dropping table %s", tablePath.getFullName()), e);
+            throw new CatalogException(
+                    String.format("Failed dropping table %s", tablePath.getFullName()), e);
         }
     }
 
     @Override
     protected boolean createDatabaseInternal(String databaseName) throws CatalogException {
         try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd);
-             PreparedStatement ps = conn.prepareStatement(String.format("CREATE DATABASE `%s`;", databaseName))) {
+                PreparedStatement ps =
+                        conn.prepareStatement(
+                                String.format("CREATE DATABASE `%s`;", databaseName))) {
             return ps.execute();
         } catch (Exception e) {
             throw new CatalogException(
-                String.format("Failed creating database %s in catalog %s", databaseName, this.catalogName), e);
+                    String.format(
+                            "Failed creating database %s in catalog %s",
+                            databaseName, this.catalogName),
+                    e);
         }
     }
 
     @Override
     protected boolean dropDatabaseInternal(String databaseName) throws CatalogException {
         try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd);
-             PreparedStatement ps = conn.prepareStatement(String.format("DROP DATABASE `%s`;", databaseName))) {
+                PreparedStatement ps =
+                        conn.prepareStatement(String.format("DROP DATABASE `%s`;", databaseName))) {
             return ps.execute();
         } catch (Exception e) {
             throw new CatalogException(
-                String.format("Failed dropping database %s in catalog %s", databaseName, this.catalogName), e);
+                    String.format(
+                            "Failed dropping database %s in catalog %s",
+                            databaseName, this.catalogName),
+                    e);
         }
     }
 
@@ -204,7 +252,8 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
      * @see ResultSetImpl#getObjectStoredProc(int, int)
      */
     @SuppressWarnings("unchecked")
-    private SeaTunnelDataType<?> fromJdbcType(ResultSetMetaData metadata, int colIndex) throws SQLException {
+    private SeaTunnelDataType<?> fromJdbcType(ResultSetMetaData metadata, int colIndex)
+            throws SQLException {
         MysqlType mysqlType = MysqlType.getByName(metadata.getColumnTypeName(colIndex));
         Map<String, Object> dataTypeProperties = new HashMap<>();
         dataTypeProperties.put(MysqlDataTypeConvertor.PRECISION, metadata.getPrecision(colIndex));

@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertException;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -30,13 +28,16 @@ import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
+import org.apache.commons.collections4.MapUtils;
+
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableMap;
 import com.mysql.cj.MysqlType;
-import org.apache.commons.collections4.MapUtils;
 
 import java.util.Collections;
 import java.util.Map;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 @AutoService(DataTypeConvertor.class)
 public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
@@ -63,7 +64,8 @@ public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
                 int precision = DEFAULT_PRECISION;
                 int scale = DEFAULT_SCALE;
                 if (left != -1 && right != -1) {
-                    String[] precisionAndScale = connectorDataType.substring(left + 1, right).split(",");
+                    String[] precisionAndScale =
+                            connectorDataType.substring(left + 1, right).split(",");
                     if (precisionAndScale.length == 2) {
                         precision = Integer.parseInt(precisionAndScale[0]);
                         scale = Integer.parseInt(precisionAndScale[1]);
@@ -80,9 +82,12 @@ public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
         return toSeaTunnelType(mysqlType, dataTypeProperties);
     }
 
-    // todo: It's better to wrapper MysqlType to a pojo in ST, since MysqlType doesn't contains properties.
+    // todo: It's better to wrapper MysqlType to a pojo in ST, since MysqlType doesn't contains
+    // properties.
     @Override
-    public SeaTunnelDataType<?> toSeaTunnelType(MysqlType mysqlType, Map<String, Object> dataTypeProperties) throws DataTypeConvertException {
+    public SeaTunnelDataType<?> toSeaTunnelType(
+            MysqlType mysqlType, Map<String, Object> dataTypeProperties)
+            throws DataTypeConvertException {
         checkNotNull(mysqlType, "mysqlType can not be null");
 
         switch (mysqlType) {
@@ -117,7 +122,7 @@ public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
             case TIMESTAMP:
             case DATETIME:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
-            // TODO: to confirm
+                // TODO: to confirm
             case CHAR:
             case VARCHAR:
             case TINYTEXT:
@@ -138,17 +143,20 @@ public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
             case BIGINT_UNSIGNED:
             case DECIMAL:
             case DECIMAL_UNSIGNED:
-                Integer precision = MapUtils.getInteger(dataTypeProperties, PRECISION, DEFAULT_PRECISION);
+                Integer precision =
+                        MapUtils.getInteger(dataTypeProperties, PRECISION, DEFAULT_PRECISION);
                 Integer scale = MapUtils.getInteger(dataTypeProperties, SCALE, DEFAULT_SCALE);
                 return new DecimalType(precision, scale);
-            // TODO: support 'SET' & 'YEAR' type
+                // TODO: support 'SET' & 'YEAR' type
             default:
                 throw DataTypeConvertException.convertToSeaTunnelDataTypeException(mysqlType);
         }
     }
 
     @Override
-    public MysqlType toConnectorType(SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties) throws DataTypeConvertException {
+    public MysqlType toConnectorType(
+            SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties)
+            throws DataTypeConvertException {
         SqlType sqlType = seaTunnelDataType.getSqlType();
         // todo: verify
         switch (sqlType) {
@@ -184,8 +192,9 @@ public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
             case TIMESTAMP:
                 return MysqlType.TIMESTAMP;
             default:
-                throw new JdbcConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, String.format("Doesn't support MySQL type '%s' yet", sqlType));
-
+                throw new JdbcConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        String.format("Doesn't support MySQL type '%s' yet", sqlType));
         }
     }
 
@@ -193,5 +202,4 @@ public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
     public String getIdentity() {
         return "Mysql";
     }
-
 }

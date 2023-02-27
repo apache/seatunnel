@@ -34,7 +34,8 @@ import java.util.Map;
 public class SinkConfig implements Serializable {
 
     public enum StreamLoadFormat {
-        CSV, JSON;
+        CSV,
+        JSON;
     }
 
     private List<String> nodeUrls;
@@ -57,8 +58,7 @@ public class SinkConfig implements Serializable {
 
     private String saveModeCreateTemplate;
 
-    @Getter
-    private final Map<String, Object> streamLoadProps = new HashMap<>();
+    @Getter private final Map<String, Object> streamLoadProps = new HashMap<>();
 
     public static SinkConfig of(ReadonlyConfig config) {
         SinkConfig sinkConfig = new SinkConfig();
@@ -71,15 +71,23 @@ public class SinkConfig implements Serializable {
         config.getOptional(StarRocksSinkOptions.LABEL_PREFIX).ifPresent(sinkConfig::setLabelPrefix);
         sinkConfig.setBatchMaxSize(config.get(StarRocksSinkOptions.BATCH_MAX_SIZE));
         sinkConfig.setBatchMaxBytes(config.get(StarRocksSinkOptions.BATCH_MAX_BYTES));
-        config.getOptional(StarRocksSinkOptions.BATCH_INTERVAL_MS).ifPresent(sinkConfig::setBatchIntervalMs);
+        config.getOptional(StarRocksSinkOptions.BATCH_INTERVAL_MS)
+                .ifPresent(sinkConfig::setBatchIntervalMs);
         config.getOptional(StarRocksSinkOptions.MAX_RETRIES).ifPresent(sinkConfig::setMaxRetries);
-        config.getOptional(StarRocksSinkOptions.RETRY_BACKOFF_MULTIPLIER_MS).ifPresent(sinkConfig::setRetryBackoffMultiplierMs);
-        config.getOptional(StarRocksSinkOptions.MAX_RETRY_BACKOFF_MS).ifPresent(sinkConfig::setMaxRetryBackoffMs);
-        config.getOptional(StarRocksSinkOptions.ENABLE_UPSERT_DELETE).ifPresent(sinkConfig::setEnableUpsertDelete);
-        sinkConfig.setSaveModeCreateTemplate(config.get(StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE));
-        config.getOptional(StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE).ifPresent(sinkConfig::setSaveModeCreateTemplate);
-        config.getOptional(StarRocksSinkOptions.STARROCKS_CONFIG).ifPresent(options -> sinkConfig.getStreamLoadProps().putAll(options));
-        config.getOptional(StarRocksSinkOptions.COLUMN_SEPARATOR).ifPresent(sinkConfig::setColumnSeparator);
+        config.getOptional(StarRocksSinkOptions.RETRY_BACKOFF_MULTIPLIER_MS)
+                .ifPresent(sinkConfig::setRetryBackoffMultiplierMs);
+        config.getOptional(StarRocksSinkOptions.MAX_RETRY_BACKOFF_MS)
+                .ifPresent(sinkConfig::setMaxRetryBackoffMs);
+        config.getOptional(StarRocksSinkOptions.ENABLE_UPSERT_DELETE)
+                .ifPresent(sinkConfig::setEnableUpsertDelete);
+        sinkConfig.setSaveModeCreateTemplate(
+                config.get(StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE));
+        config.getOptional(StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE)
+                .ifPresent(sinkConfig::setSaveModeCreateTemplate);
+        config.getOptional(StarRocksSinkOptions.STARROCKS_CONFIG)
+                .ifPresent(options -> sinkConfig.getStreamLoadProps().putAll(options));
+        config.getOptional(StarRocksSinkOptions.COLUMN_SEPARATOR)
+                .ifPresent(sinkConfig::setColumnSeparator);
         sinkConfig.setLoadFormat(config.get(StarRocksSinkOptions.LOAD_FORMAT));
         return sinkConfig;
     }

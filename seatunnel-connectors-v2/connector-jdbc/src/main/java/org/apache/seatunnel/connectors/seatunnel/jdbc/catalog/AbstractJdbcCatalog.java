@@ -18,9 +18,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -35,6 +32,7 @@ import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,6 +49,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public abstract class AbstractJdbcCatalog implements Catalog {
     private static final Logger LOG = LoggerFactory.getLogger(AbstractJdbcCatalog.class);
 
@@ -62,12 +63,12 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     protected final String defaultUrl;
 
     public AbstractJdbcCatalog(
-        String catalogName,
-        String username,
-        String pwd,
-        String defaultDatabase,
-        String baseUrl,
-        String defaultUrl) {
+            String catalogName,
+            String username,
+            String pwd,
+            String defaultDatabase,
+            String baseUrl,
+            String defaultUrl) {
 
         checkArgument(StringUtils.isNotBlank(username));
         checkArgument(StringUtils.isNotBlank(pwd));
@@ -108,7 +109,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             // test connection, fail early if we cannot connect to database
         } catch (SQLException e) {
             throw new CatalogException(
-                String.format("Failed connecting to %s via JDBC.", defaultUrl), e);
+                    String.format("Failed connecting to %s via JDBC.", defaultUrl), e);
         }
 
         LOG.info("Catalog {} established connection to {}", catalogName, defaultUrl);
@@ -119,7 +120,8 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         LOG.info("Catalog {} closing", catalogName);
     }
 
-    protected Optional<PrimaryKey> getPrimaryKey(DatabaseMetaData metaData, String database, String table) throws SQLException {
+    protected Optional<PrimaryKey> getPrimaryKey(
+            DatabaseMetaData metaData, String database, String table) throws SQLException {
 
         // According to the Javadoc of java.sql.DatabaseMetaData#getPrimaryKeys,
         // the returned primary key columns are ordered by COLUMN_NAME, not by KEY_SEQ.
@@ -138,18 +140,19 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             primaryKeyColumns.add(Pair.of(keySeq, columnName));
         }
         // initialize size
-        List<String> pkFields = primaryKeyColumns
-            .stream()
-            .sorted(Comparator.comparingInt(Pair::getKey))
-            .map(Pair::getValue)
-            .collect(Collectors.toList());
+        List<String> pkFields =
+                primaryKeyColumns.stream()
+                        .sorted(Comparator.comparingInt(Pair::getKey))
+                        .map(Pair::getValue)
+                        .collect(Collectors.toList());
         if (CollectionUtils.isEmpty(pkFields)) {
             return Optional.empty();
         }
         return Optional.of(PrimaryKey.of(pkName, pkFields));
     }
 
-    protected List<ConstraintKey> getConstraintKeys(DatabaseMetaData metaData, String database, String table) throws SQLException {
+    protected List<ConstraintKey> getConstraintKeys(
+            DatabaseMetaData metaData, String database, String table) throws SQLException {
         ResultSet resultSet = metaData.getIndexInfo(database, table, table, false, false);
         // index name -> index
         Map<String, ConstraintKey> constraintKeyMap = new HashMap<>();
@@ -158,24 +161,33 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             String columnName = resultSet.getString("COLUMN_NAME");
             String unique = resultSet.getString("NON_UNIQUE");
 
-            ConstraintKey constraintKey = constraintKeyMap.computeIfAbsent(indexName, s -> {
-                ConstraintKey.ConstraintType constraintType = ConstraintKey.ConstraintType.KEY;
-                // 0 is unique.
-                if ("0".equals(unique)) {
-                    constraintType = ConstraintKey.ConstraintType.UNIQUE_KEY;
-                }
-                return ConstraintKey.of(constraintType, indexName, new ArrayList<>());
-            });
+            ConstraintKey constraintKey =
+                    constraintKeyMap.computeIfAbsent(
+                            indexName,
+                            s -> {
+                                ConstraintKey.ConstraintType constraintType =
+                                        ConstraintKey.ConstraintType.KEY;
+                                // 0 is unique.
+                                if ("0".equals(unique)) {
+                                    constraintType = ConstraintKey.ConstraintType.UNIQUE_KEY;
+                                }
+                                return ConstraintKey.of(
+                                        constraintType, indexName, new ArrayList<>());
+                            });
 
-            ConstraintKey.ColumnSortType sortType = "A".equals(resultSet.getString("ASC_OR_DESC")) ?
-                ConstraintKey.ColumnSortType.ASC : ConstraintKey.ColumnSortType.DESC;
-            ConstraintKey.ConstraintKeyColumn constraintKeyColumn = new ConstraintKey.ConstraintKeyColumn(columnName, sortType);
+            ConstraintKey.ColumnSortType sortType =
+                    "A".equals(resultSet.getString("ASC_OR_DESC"))
+                            ? ConstraintKey.ColumnSortType.ASC
+                            : ConstraintKey.ColumnSortType.DESC;
+            ConstraintKey.ConstraintKeyColumn constraintKeyColumn =
+                    new ConstraintKey.ConstraintKeyColumn(columnName, sortType);
             constraintKey.getColumnNames().add(constraintKeyColumn);
         }
         return new ArrayList<>(constraintKeyMap.values());
     }
 
-    protected Optional<String> getColumnDefaultValue(DatabaseMetaData metaData, String table, String column) throws SQLException {
+    protected Optional<String> getColumnDefaultValue(
+            DatabaseMetaData metaData, String table, String column) throws SQLException {
         try (ResultSet resultSet = metaData.getColumns(null, null, table, column)) {
             while (resultSet.next()) {
                 String defaultValue = resultSet.getString("COLUMN_DEF");
@@ -196,7 +208,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     public boolean tableExists(TablePath tablePath) throws CatalogException {
         try {
             return databaseExists(tablePath.getDatabaseName())
-                && listTables(tablePath.getDatabaseName()).contains(tablePath.getTableName());
+                    && listTables(tablePath.getDatabaseName()).contains(tablePath.getTableName());
         } catch (DatabaseNotExistException e) {
             return false;
         }
@@ -204,7 +216,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     @Override
     public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
-        throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
+            throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         checkNotNull(tablePath, "Table path cannot be null");
 
         if (!databaseExists(tablePath.getDatabaseName())) {
@@ -215,10 +227,12 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         }
     }
 
-    protected abstract boolean createTableInternal(TablePath tablePath, CatalogTable table) throws CatalogException;
+    protected abstract boolean createTableInternal(TablePath tablePath, CatalogTable table)
+            throws CatalogException;
 
     @Override
-    public void dropTable(TablePath tablePath, boolean ignoreIfNotExists) throws TableNotExistException, CatalogException {
+    public void dropTable(TablePath tablePath, boolean ignoreIfNotExists)
+            throws TableNotExistException, CatalogException {
         checkNotNull(tablePath, "Table path cannot be null");
         if (!dropTableInternal(tablePath) && !ignoreIfNotExists) {
             throw new TableNotExistException(catalogName, tablePath);
@@ -228,7 +242,8 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     protected abstract boolean dropTableInternal(TablePath tablePath) throws CatalogException;
 
     @Override
-    public void createDatabase(TablePath tablePath, boolean ignoreIfExists) throws DatabaseAlreadyExistException, CatalogException {
+    public void createDatabase(TablePath tablePath, boolean ignoreIfExists)
+            throws DatabaseAlreadyExistException, CatalogException {
         checkNotNull(tablePath, "Table path cannot be null");
         checkNotNull(tablePath.getDatabaseName(), "Database name cannot be null");
 
@@ -243,7 +258,8 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     protected abstract boolean createDatabaseInternal(String databaseName);
 
     @Override
-    public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists) throws DatabaseNotExistException, CatalogException {
+    public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
+            throws DatabaseNotExistException, CatalogException {
         checkNotNull(tablePath, "Table path cannot be null");
         checkNotNull(tablePath.getDatabaseName(), "Database name cannot be null");
 
@@ -253,5 +269,4 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     }
 
     protected abstract boolean dropDatabaseInternal(String databaseName) throws CatalogException;
-
 }

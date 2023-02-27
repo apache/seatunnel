@@ -1,6 +1,7 @@
 ---
+
 sidebar_position: 3
----
+-------------------
 
 # Quick Start With Flink
 
@@ -14,7 +15,6 @@ Please [download Flink](https://flink.apache.org/downloads.html) first(**require
 
 **Configure SeaTunnel**: Change the setting in `config/seatunnel-env.sh`, it is base on the path your engine install at [deployment](deployment.md).
 Change `FLINK_HOME` to the Flink deployment dir.
-
 
 ## Step 3: Add Job Config File to define a job
 

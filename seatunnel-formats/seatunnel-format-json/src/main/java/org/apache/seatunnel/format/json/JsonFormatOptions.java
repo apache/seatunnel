@@ -27,10 +27,12 @@ public class JsonFormatOptions {
     public static final String IGNORE_PARSE_ERRORS = "ignore_parse_errors";
 
     public static boolean getFailOnMissingField(Map<String, String> options) {
-        return Boolean.parseBoolean(options.getOrDefault(FAIL_ON_MISSING_FIELD, Boolean.FALSE.toString()));
+        return Boolean.parseBoolean(
+                options.getOrDefault(FAIL_ON_MISSING_FIELD, Boolean.FALSE.toString()));
     }
 
     public static boolean getIgnoreParseErrors(Map<String, String> options) {
-        return Boolean.parseBoolean(options.getOrDefault(IGNORE_PARSE_ERRORS, Boolean.FALSE.toString()));
+        return Boolean.parseBoolean(
+                options.getOrDefault(IGNORE_PARSE_ERRORS, Boolean.FALSE.toString()));
     }
 }

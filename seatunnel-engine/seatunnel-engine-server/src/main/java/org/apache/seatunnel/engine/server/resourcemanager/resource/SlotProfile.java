@@ -26,9 +26,7 @@ import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 
 import java.io.IOException;
 
-/**
- * Used to describe the status of the current slot, including resource size and assign status
- */
+/** Used to describe the status of the current slot, including resource size and assign status */
 public class SlotProfile implements IdentifiedDataSerializable {
 
     private Address worker;
@@ -82,13 +80,18 @@ public class SlotProfile implements IdentifiedDataSerializable {
 
     @Override
     public String toString() {
-        return "SlotProfile{" +
-            "worker=" + worker +
-            ", slotID=" + slotID +
-            ", ownerJobID=" + ownerJobID +
-            ", assigned=" + assigned +
-            ", resourceProfile=" + resourceProfile +
-            '}';
+        return "SlotProfile{"
+                + "worker="
+                + worker
+                + ", slotID="
+                + slotID
+                + ", ownerJobID="
+                + ownerJobID
+                + ", assigned="
+                + assigned
+                + ", resourceProfile="
+                + resourceProfile
+                + '}';
     }
 
     @Override

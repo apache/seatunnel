@@ -32,12 +32,12 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 public class StarRocksBaseSerializer {
-    @Builder.Default
-    private DateUtils.Formatter dateFormatter = DateUtils.Formatter.YYYY_MM_DD;
+    @Builder.Default private DateUtils.Formatter dateFormatter = DateUtils.Formatter.YYYY_MM_DD;
+
     @Builder.Default
     private DateTimeUtils.Formatter dateTimeFormatter = DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
-    @Builder.Default
-    private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
+
+    @Builder.Default private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
 
     protected Object convert(SeaTunnelDataType dataType, Object val) {
         if (val == null) {
@@ -66,7 +66,8 @@ public class StarRocksBaseSerializer {
             case BYTES:
                 return new String((byte[]) val);
             default:
-                throw new StarRocksConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, dataType + " is not supported ");
+                throw new StarRocksConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE, dataType + " is not supported ");
         }
     }
 }

@@ -43,11 +43,11 @@ public class ShuffleMultipleRowStrategy extends ShuffleStrategy {
     private String targetTableId;
 
     @Tolerate
-    public ShuffleMultipleRowStrategy() {
-    }
+    public ShuffleMultipleRowStrategy() {}
 
     @Override
-    public Map<String, IQueue<Record<?>>> createShuffles(HazelcastInstance hazelcast, int pipelineId, int inputIndex) {
+    public Map<String, IQueue<Record<?>>> createShuffles(
+            HazelcastInstance hazelcast, int pipelineId, int inputIndex) {
         Map<String, IQueue<Record<?>>> shuffleMap = new HashMap<>();
         for (Map.Entry<String, SeaTunnelRowType> entry : inputRowType) {
             String tableId = entry.getKey();
@@ -67,7 +67,8 @@ public class ShuffleMultipleRowStrategy extends ShuffleStrategy {
     }
 
     @Override
-    public IQueue<Record<?>>[] getShuffles(HazelcastInstance hazelcast, int pipelineId, int targetIndex) {
+    public IQueue<Record<?>>[] getShuffles(
+            HazelcastInstance hazelcast, int pipelineId, int targetIndex) {
         IQueue<Record<?>>[] queues = new IQueue[getInputPartitions()];
         for (int inputIndex = 0; inputIndex < getInputPartitions(); inputIndex++) {
             Objects.requireNonNull(targetTableId);
@@ -78,6 +79,14 @@ public class ShuffleMultipleRowStrategy extends ShuffleStrategy {
     }
 
     private String generateQueueName(int pipelineId, int inputIndex, String tableId) {
-        return "ShuffleMultipleRow-Queue[" + getJobId() + "-" + pipelineId + "-" + inputIndex + "-" + tableId + "]";
+        return "ShuffleMultipleRow-Queue["
+                + getJobId()
+                + "-"
+                + pipelineId
+                + "-"
+                + inputIndex
+                + "-"
+                + tableId
+                + "]";
     }
 }

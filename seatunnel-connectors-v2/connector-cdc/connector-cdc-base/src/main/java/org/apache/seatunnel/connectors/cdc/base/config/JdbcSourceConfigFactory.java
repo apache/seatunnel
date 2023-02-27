@@ -191,8 +191,10 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         this.password = config.get(JdbcSourceOptions.PASSWORD);
         this.databaseList = config.get(JdbcSourceOptions.DATABASE_NAMES);
         this.tableList = config.get(CatalogOptions.TABLE_NAMES);
-        this.distributionFactorUpper = config.get(JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND);
-        this.distributionFactorLower = config.get(JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND);
+        this.distributionFactorUpper =
+                config.get(JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND);
+        this.distributionFactorLower =
+                config.get(JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND);
         this.splitSize = config.get(SourceOptions.SNAPSHOT_SPLIT_SIZE);
         this.fetchSize = config.get(SourceOptions.SNAPSHOT_FETCH_SIZE);
         this.serverTimeZone = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
@@ -200,7 +202,8 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         this.connectMaxRetries = config.get(JdbcSourceOptions.CONNECT_MAX_RETRIES);
         this.connectionPoolSize = config.get(JdbcSourceOptions.CONNECTION_POOL_SIZE);
         this.dbzProperties = new Properties();
-        config.getOptional(SourceOptions.DEBEZIUM_PROPERTIES).ifPresent(map -> dbzProperties.putAll(map));
+        config.getOptional(SourceOptions.DEBEZIUM_PROPERTIES)
+                .ifPresent(map -> dbzProperties.putAll(map));
         return this;
     }
 
