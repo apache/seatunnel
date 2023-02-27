@@ -180,10 +180,12 @@ public class PhysicalPlan {
                             failedPipelineNum.incrementAndGet();
                             errorBySubPlan.compareAndSet(null, pipelineState.getThrowableMsg());
                             if (makeJobEndWhenPipelineEnded) {
+                                LOGGER.info(
+                                    String.format(
+                                        "cancel job %s because makeJobEndWhenPipelineEnded is true",
+                                        jobFullName));
                                 cancelJob();
                             }
-                            LOGGER.severe(
-                                    "Pipeline Failed, Begin to cancel other pipelines in this job.");
                         }
 
                         if (finishedPipelineNum.incrementAndGet() == this.pipelineList.size()) {
@@ -210,6 +212,7 @@ public class PhysicalPlan {
     }
 
     public void cancelJob() {
+        jobMaster.neverNeedRestore();
         if (getJobStatus().isEndState()) {
             LOGGER.warning(
                     String.format(

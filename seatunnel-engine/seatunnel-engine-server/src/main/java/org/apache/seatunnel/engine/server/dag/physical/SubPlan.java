@@ -45,7 +45,7 @@ public class SubPlan {
     private static final ILogger LOGGER = Logger.getLogger(SubPlan.class);
 
     /** The max num pipeline can restore. */
-    public static final int PIPELINE_MAX_RESTORE_NUM = 5; // TODO should set by config
+    public static final int PIPELINE_MAX_RESTORE_NUM = 2; // TODO should set by config
 
     private final List<PhysicalVertex> physicalVertexList;
 
@@ -183,7 +183,10 @@ public class SubPlan {
                                 pipelineStatus = PipelineStatus.FINISHED;
                             }
 
-                            checkAndCleanPipeline(pipelineStatus);
+                            if (checkAndCleanPipeline(pipelineStatus)) {
+                                subPlanDone(pipelineStatus);
+                            }
+
                             turnToEndState(pipelineStatus);
                             LOGGER.info(
                                     String.format(
@@ -208,10 +211,8 @@ public class SubPlan {
                 executorService);
     }
 
-    private void checkAndCleanPipeline(PipelineStatus pipelineStatus) {
-        if (!canRestorePipeline() || PipelineStatus.FINISHED.equals(pipelineStatus)) {
-            subPlanDone(pipelineStatus);
-        }
+    private boolean checkAndCleanPipeline(PipelineStatus pipelineStatus) {
+        return canRestorePipeline() || PipelineStatus.FINISHED.equals(pipelineStatus);
     }
 
     /** only call when the pipeline will never restart */
@@ -417,7 +418,7 @@ public class SubPlan {
         synchronized (restoreLock) {
             try {
                 pipelineRestoreNum++;
-                LOGGER.info(String.format("Restore pipeline %s", pipelineFullName));
+                LOGGER.info(String.format("Restore time %s, pipeline %s", pipelineRestoreNum + "", pipelineFullName));
                 // We must ensure the scheduler complete and then can handle pipeline state change.
                 if (jobMaster.getScheduleFuture() != null) {
                     jobMaster.getScheduleFuture().join();

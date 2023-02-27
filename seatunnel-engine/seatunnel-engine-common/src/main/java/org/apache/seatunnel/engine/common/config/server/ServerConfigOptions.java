@@ -55,9 +55,9 @@ public class ServerConfigOptions {
     public static final Option<ThreadShareMode> TASK_EXECUTION_THREAD_SHARE_MODE =
             Options.key("task_execution_thread_share_mode")
                     .type(new TypeReference<ThreadShareMode>() {})
-                    .defaultValue(ThreadShareMode.ALL)
+                    .defaultValue(ThreadShareMode.OFF)
                     .withDescription(
-                            "The thread sharing mode of TaskExecutionServer, including ALL, OFF, PART");
+                            "The thread sharing mode of TaskExecutionServer, including ALL, OFF, PART. Default is OFF");
 
     public static final Option<Boolean> DYNAMIC_SLOT =
             Options.key("dynamic-slot")
