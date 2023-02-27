@@ -105,4 +105,4 @@
 8:-XX:GCLogFileSize=64m
 
 -XX:+HeapDumpOnOutOfMemoryError
--XX:HeapDumpPath=/data/whaletunnel/
+-XX:HeapDumpPath=/data/seatunnel/
