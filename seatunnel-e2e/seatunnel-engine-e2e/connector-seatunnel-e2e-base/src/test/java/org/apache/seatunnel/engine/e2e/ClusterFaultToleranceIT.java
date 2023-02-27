@@ -838,7 +838,7 @@ public class ClusterFaultToleranceIT {
 
             node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
-            System.out.println(
+            log.info(
                     "==========================================All node is start, begin check node size ========================================");
             // waiting all node added to cluster
             HazelcastInstanceImpl restoreFinalNode = node1;
