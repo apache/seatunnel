@@ -33,13 +33,10 @@ public class ShuffleConfig implements Config {
     public static final int DEFAULT_BATCH_SIZE = 1024;
     public static final long DEFAULT_BATCH_FLUSH_INTERVAL = TimeUnit.SECONDS.toMillis(3);
 
-    @Builder.Default
-    private int batchSize = DEFAULT_BATCH_SIZE;
-    @Builder.Default
-    private long batchFlushInterval = DEFAULT_BATCH_FLUSH_INTERVAL;
+    @Builder.Default private int batchSize = DEFAULT_BATCH_SIZE;
+    @Builder.Default private long batchFlushInterval = DEFAULT_BATCH_FLUSH_INTERVAL;
     private ShuffleStrategy shuffleStrategy;
 
     @Tolerate
-    public ShuffleConfig() {
-    }
+    public ShuffleConfig() {}
 }

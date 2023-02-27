@@ -27,16 +27,14 @@ import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 
 /**
- * For {@link org.apache.seatunnel.api.source.SourceReader} send event to
- * the {@link org.apache.seatunnel.api.source.SourceSplitEnumerator}
+ * For {@link org.apache.seatunnel.api.source.SourceReader} send event to the {@link
+ * org.apache.seatunnel.api.source.SourceSplitEnumerator}
  */
 public class SourceReaderEventOperation extends SourceEventOperation {
-    public SourceReaderEventOperation() {
-    }
+    public SourceReaderEventOperation() {}
 
-    public SourceReaderEventOperation(TaskLocation targetTaskLocation,
-                                      TaskLocation currentTaskLocation,
-                                      SourceEvent event) {
+    public SourceReaderEventOperation(
+            TaskLocation targetTaskLocation, TaskLocation currentTaskLocation, SourceEvent event) {
         super(targetTaskLocation, currentTaskLocation, event);
     }
 
@@ -48,16 +46,25 @@ public class SourceReaderEventOperation extends SourceEventOperation {
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        RetryUtils.retryWithException(() -> {
-            SourceSplitEnumeratorTask<?> task =
-                server.getTaskExecutionService().getTask(taskLocation);
-            ClassLoader classLoader =
-                server.getTaskExecutionService().getExecutionContext(taskLocation.getTaskGroupLocation())
-                    .getClassLoader();
-            task.handleSourceEvent(currentTaskLocation.getTaskIndex(), SerializationUtils.deserialize(sourceEvent, classLoader));
-            return null;
-        }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-            exception -> exception instanceof NullPointerException &&
-                !server.taskIsEnded(taskLocation.getTaskGroupLocation()), Constant.OPERATION_RETRY_SLEEP));
+        RetryUtils.retryWithException(
+                () -> {
+                    SourceSplitEnumeratorTask<?> task =
+                            server.getTaskExecutionService().getTask(taskLocation);
+                    ClassLoader classLoader =
+                            server.getTaskExecutionService()
+                                    .getExecutionContext(taskLocation.getTaskGroupLocation())
+                                    .getClassLoader();
+                    task.handleSourceEvent(
+                            currentTaskLocation.getTaskIndex(),
+                            SerializationUtils.deserialize(sourceEvent, classLoader));
+                    return null;
+                },
+                new RetryUtils.RetryMaterial(
+                        Constant.OPERATION_RETRY_TIME,
+                        true,
+                        exception ->
+                                exception instanceof NullPointerException
+                                        && !server.taskIsEnded(taskLocation.getTaskGroupLocation()),
+                        Constant.OPERATION_RETRY_SLEEP));
     }
 }

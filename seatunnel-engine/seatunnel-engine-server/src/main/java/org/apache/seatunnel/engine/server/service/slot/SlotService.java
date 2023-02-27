@@ -33,5 +33,4 @@ public interface SlotService {
     void releaseSlot(long jobId, SlotProfile slotProfile);
 
     void close();
-
 }

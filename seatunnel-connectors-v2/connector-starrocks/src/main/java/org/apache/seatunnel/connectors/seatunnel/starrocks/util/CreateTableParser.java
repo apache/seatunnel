@@ -53,14 +53,16 @@ public class CreateTableParser {
         return columns;
     }
 
-    private static void parseColumn(String columnString, Map<String, ColumnInfo> columnList, int index) {
+    private static void parseColumn(
+            String columnString, Map<String, ColumnInfo> columnList, int index) {
         Matcher matcher = COLUMN_PATTERN.matcher(columnString.trim());
         if (matcher.matches()) {
             String columnName = matcher.group(1);
             String otherInfo = matcher.group(2).trim();
-            StringBuilder columnBuilder = new StringBuilder(columnName).append(" ").append(otherInfo);
-            if (columnBuilder.toString().toUpperCase().contains("PRIMARY KEY") ||
-                columnBuilder.toString().toUpperCase().contains("CREATE TABLE")) {
+            StringBuilder columnBuilder =
+                    new StringBuilder(columnName).append(" ").append(otherInfo);
+            if (columnBuilder.toString().toUpperCase().contains("PRIMARY KEY")
+                    || columnBuilder.toString().toUpperCase().contains("CREATE TABLE")) {
                 return;
             }
             columnList.put(columnName, new ColumnInfo(columnName, otherInfo, index));
@@ -80,5 +82,4 @@ public class CreateTableParser {
         String info;
         int index;
     }
-
 }

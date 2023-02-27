@@ -22,9 +22,11 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 public class DataTypeConvertException extends SeaTunnelRuntimeException {
-    private static final String CONVERT_TO_SEA_TUNNEL_ERROR_MSG = "Convert type: %s to SeaTunnel data type error.";
+    private static final String CONVERT_TO_SEA_TUNNEL_ERROR_MSG =
+            "Convert type: %s to SeaTunnel data type error.";
 
-    private static final String CONVERT_TO_CONNECTOR_DATA_TYPE_ERROR_MSG = "Convert SeaTunnel data type: %s to connector data type error.";
+    private static final String CONVERT_TO_CONNECTOR_DATA_TYPE_ERROR_MSG =
+            "Convert SeaTunnel data type: %s to connector data type error.";
 
     public DataTypeConvertException(String message) {
         this(message, null);
@@ -35,18 +37,25 @@ public class DataTypeConvertException extends SeaTunnelRuntimeException {
     }
 
     public static DataTypeConvertException convertToSeaTunnelDataTypeException(Object dataType) {
-        return new DataTypeConvertException(String.format(CONVERT_TO_SEA_TUNNEL_ERROR_MSG, dataType));
+        return new DataTypeConvertException(
+                String.format(CONVERT_TO_SEA_TUNNEL_ERROR_MSG, dataType));
     }
 
-    public static DataTypeConvertException convertToSeaTunnelDataTypeException(Object dataType, Throwable cause) {
-        return new DataTypeConvertException(String.format(CONVERT_TO_SEA_TUNNEL_ERROR_MSG, dataType), cause);
+    public static DataTypeConvertException convertToSeaTunnelDataTypeException(
+            Object dataType, Throwable cause) {
+        return new DataTypeConvertException(
+                String.format(CONVERT_TO_SEA_TUNNEL_ERROR_MSG, dataType), cause);
     }
 
-    public static DataTypeConvertException convertToConnectorDataTypeException(SeaTunnelDataType<?> seaTunnelDataType) {
-        return new DataTypeConvertException(String.format(CONVERT_TO_CONNECTOR_DATA_TYPE_ERROR_MSG, seaTunnelDataType));
+    public static DataTypeConvertException convertToConnectorDataTypeException(
+            SeaTunnelDataType<?> seaTunnelDataType) {
+        return new DataTypeConvertException(
+                String.format(CONVERT_TO_CONNECTOR_DATA_TYPE_ERROR_MSG, seaTunnelDataType));
     }
 
-    public static DataTypeConvertException convertToConnectorDataTypeException(SeaTunnelDataType<?> seaTunnelDataType, Throwable cause) {
-        return new DataTypeConvertException(String.format(CONVERT_TO_CONNECTOR_DATA_TYPE_ERROR_MSG, seaTunnelDataType), cause);
+    public static DataTypeConvertException convertToConnectorDataTypeException(
+            SeaTunnelDataType<?> seaTunnelDataType, Throwable cause) {
+        return new DataTypeConvertException(
+                String.format(CONVERT_TO_CONNECTOR_DATA_TYPE_ERROR_MSG, seaTunnelDataType), cause);
     }
 }

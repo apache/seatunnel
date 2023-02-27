@@ -33,7 +33,6 @@ import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 
 public class ResourceDataSerializerHook implements DataSerializerHook {
 
-
     public static final int WORKER_HEARTBEAT_TYPE = 1;
 
     public static final int REQUEST_SLOT_TYPE = 2;
@@ -48,10 +47,10 @@ public class ResourceDataSerializerHook implements DataSerializerHook {
 
     public static final int SLOT_AND_WORKER_PROFILE = 7;
 
-    public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
-        SeaTunnelFactoryIdConstant.SEATUNNEL_RESOURCE_DATA_SERIALIZER_FACTORY,
-        SeaTunnelFactoryIdConstant.SEATUNNEL_RESOURCE_DATA_SERIALIZER_FACTORY_ID
-    );
+    public static final int FACTORY_ID =
+            FactoryIdHelper.getFactoryId(
+                    SeaTunnelFactoryIdConstant.SEATUNNEL_RESOURCE_DATA_SERIALIZER_FACTORY,
+                    SeaTunnelFactoryIdConstant.SEATUNNEL_RESOURCE_DATA_SERIALIZER_FACTORY_ID);
 
     @Override
     public int getFactoryId() {

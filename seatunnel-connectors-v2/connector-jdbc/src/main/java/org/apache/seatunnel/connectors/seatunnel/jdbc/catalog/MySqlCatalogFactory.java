@@ -45,12 +45,13 @@ public class MySqlCatalogFactory implements CatalogFactory {
         if (!defaultDatabase.isPresent()) {
             throw new OptionValidationException(JdbcCatalogOptions.BASE_URL);
         }
-        return new MySqlCatalog(catalogName,
-            options.get(JdbcCatalogOptions.USERNAME),
-            options.get(JdbcCatalogOptions.PASSWORD),
-            defaultDatabase.get(),
-            urlInfo.getUrlWithoutDatabase(),
-            urlInfo.getUrlWithDatabase().get());
+        return new MySqlCatalog(
+                catalogName,
+                options.get(JdbcCatalogOptions.USERNAME),
+                options.get(JdbcCatalogOptions.PASSWORD),
+                defaultDatabase.get(),
+                urlInfo.getUrlWithoutDatabase(),
+                urlInfo.getUrlWithDatabase().get());
     }
 
     @Override

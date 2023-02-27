@@ -25,5 +25,4 @@ public class TablestoreJdbcRowConverter extends AbstractJdbcRowConverter {
     public String converterName() {
         return "Tablestore";
     }
-
 }

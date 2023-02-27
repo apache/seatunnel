@@ -29,12 +29,14 @@ import com.google.auto.service.AutoService;
 @AutoService(Factory.class)
 public class StarRocksCatalogFactory implements CatalogFactory {
     public static final String IDENTIFIER = "StarRocks";
+
     @Override
     public Catalog createCatalog(String catalogName, ReadonlyConfig options) {
-        return new StarRocksCatalog(catalogName,
-            options.get(StarRocksOptions.USERNAME),
-            options.get(StarRocksOptions.PASSWORD),
-            options.get(StarRocksOptions.BASE_URL));
+        return new StarRocksCatalog(
+                catalogName,
+                options.get(StarRocksOptions.USERNAME),
+                options.get(StarRocksOptions.PASSWORD),
+                options.get(StarRocksOptions.BASE_URL));
     }
 
     @Override
@@ -45,9 +47,9 @@ public class StarRocksCatalogFactory implements CatalogFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-            .required(StarRocksOptions.BASE_URL)
-            .required(StarRocksOptions.USERNAME)
-            .required(StarRocksOptions.PASSWORD)
-            .build();
+                .required(StarRocksOptions.BASE_URL)
+                .required(StarRocksOptions.USERNAME)
+                .required(StarRocksOptions.PASSWORD)
+                .build();
     }
 }

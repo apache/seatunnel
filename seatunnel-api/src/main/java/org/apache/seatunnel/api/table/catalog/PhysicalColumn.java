@@ -23,28 +23,28 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 
-/**
- * Representation of a physical column.
- */
+/** Representation of a physical column. */
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
 public class PhysicalColumn extends Column {
 
-    protected PhysicalColumn(String name,
-                             SeaTunnelDataType<?> dataType,
-                             Integer columnLength,
-                             boolean nullable,
-                             Object defaultValue,
-                             String comment) {
+    protected PhysicalColumn(
+            String name,
+            SeaTunnelDataType<?> dataType,
+            Integer columnLength,
+            boolean nullable,
+            Object defaultValue,
+            String comment) {
         super(name, dataType, columnLength, nullable, defaultValue, comment);
     }
 
-    public static PhysicalColumn of(String name,
-                                    SeaTunnelDataType<?> dataType,
-                                    Integer columnLength,
-                                    boolean nullable,
-                                    Object defaultValue,
-                                    String comment) {
+    public static PhysicalColumn of(
+            String name,
+            SeaTunnelDataType<?> dataType,
+            Integer columnLength,
+            boolean nullable,
+            Object defaultValue,
+            String comment) {
         return new PhysicalColumn(name, dataType, columnLength, nullable, defaultValue, comment);
     }
 

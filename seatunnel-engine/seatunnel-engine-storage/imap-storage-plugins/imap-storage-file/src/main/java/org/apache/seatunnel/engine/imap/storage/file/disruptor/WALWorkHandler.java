@@ -26,17 +26,15 @@ import org.apache.seatunnel.engine.imap.storage.file.common.WALWriter;
 import org.apache.seatunnel.engine.imap.storage.file.future.RequestFutureCache;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 
-import com.lmax.disruptor.WorkHandler;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
+import com.lmax.disruptor.WorkHandler;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 
-/**
- * NOTICE:
- * Single thread to write data to orc file.
- */
+/** NOTICE: Single thread to write data to orc file. */
 @Slf4j
 public class WALWorkHandler implements WorkHandler<FileWALEvent> {
 
@@ -46,7 +44,8 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
         try {
             writer = new WALWriter(fs, new Path(parentPath), serializer);
         } catch (IOException e) {
-            throw new IMapStorageException(e, "create new current writer failed, parent path is %s", parentPath);
+            throw new IMapStorageException(
+                    e, "create new current writer failed, parent path is %s", parentPath);
         }
     }
 
@@ -56,7 +55,8 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
         walEvent(fileWALEvent.getData(), fileWALEvent.getType(), fileWALEvent.getRequestId());
     }
 
-    private void walEvent(IMapFileData iMapFileData, WALEventType type, long requestId) throws Exception {
+    private void walEvent(IMapFileData iMapFileData, WALEventType type, long requestId)
+            throws Exception {
         if (type == WALEventType.APPEND) {
             boolean writeSuccess = true;
             // write to current writer
@@ -72,7 +72,7 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
         }
 
         if (type == WALEventType.CLOSED) {
-            //close writer and archive
+            // close writer and archive
             writer.close();
         }
     }
@@ -84,5 +84,4 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
             log.error("response error, requestId is {} ", requestId, e);
         }
     }
-
 }

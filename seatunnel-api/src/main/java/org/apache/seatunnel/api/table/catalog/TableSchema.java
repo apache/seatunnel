@@ -27,9 +27,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Represent a physical table schema.
- */
+/** Represent a physical table schema. */
 @Data
 @AllArgsConstructor
 public final class TableSchema implements Serializable {
@@ -45,14 +43,16 @@ public final class TableSchema implements Serializable {
     }
 
     public SeaTunnelRowType toPhysicalRowDataType() {
-        SeaTunnelDataType<?>[] fieldTypes = columns.stream()
-            .filter(Column::isPhysical)
-            .map(Column::getDataType)
-            .toArray(SeaTunnelDataType[]::new);
-        String[] fields = columns.stream()
-            .filter(Column::isPhysical)
-            .map(Column::getName)
-            .toArray(String[]::new);
+        SeaTunnelDataType<?>[] fieldTypes =
+                columns.stream()
+                        .filter(Column::isPhysical)
+                        .map(Column::getDataType)
+                        .toArray(SeaTunnelDataType[]::new);
+        String[] fields =
+                columns.stream()
+                        .filter(Column::isPhysical)
+                        .map(Column::getName)
+                        .toArray(String[]::new);
         return new SeaTunnelRowType(fields, fieldTypes);
     }
 

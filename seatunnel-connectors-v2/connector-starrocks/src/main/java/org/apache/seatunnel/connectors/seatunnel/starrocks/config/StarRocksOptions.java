@@ -21,20 +21,23 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
 public interface StarRocksOptions {
-    Option<String> BASE_URL = Options.key("base-url")
-        .stringType()
-        .noDefaultValue()
-        .withDescription("URL has to be without database, like \"jdbc:mysql://localhost:5432/\" or" +
-            "\"jdbc:mysql://localhost:5432\" rather than \"jdbc:mysql://localhost:5432/db\"");
+    Option<String> BASE_URL =
+            Options.key("base-url")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "URL has to be without database, like \"jdbc:mysql://localhost:5432/\" or"
+                                    + "\"jdbc:mysql://localhost:5432\" rather than \"jdbc:mysql://localhost:5432/db\"");
 
-    Option<String> USERNAME = Options.key("username")
-        .stringType()
-        .noDefaultValue()
-        .withDescription("StarRocks user username");
+    Option<String> USERNAME =
+            Options.key("username")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("StarRocks user username");
 
-    Option<String> PASSWORD = Options.key("password")
-        .stringType()
-        .noDefaultValue()
-        .withDescription("StarRocks user password");
-
+    Option<String> PASSWORD =
+            Options.key("password")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("StarRocks user password");
 }

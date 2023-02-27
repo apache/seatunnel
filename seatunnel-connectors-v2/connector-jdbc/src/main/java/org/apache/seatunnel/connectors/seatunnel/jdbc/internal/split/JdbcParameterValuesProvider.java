@@ -20,9 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.split;
 import java.io.Serializable;
 
 /**
- * This interface is used by the {@link org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSource} to compute the list of parallel query to
- * run (i.e. splits). Each query will be parameterized using a row of the matrix provided by each
- * {@link JdbcParameterValuesProvider} implementation.
+ * This interface is used by the {@link
+ * org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSource} to compute the list of parallel
+ * query to run (i.e. splits). Each query will be parameterized using a row of the matrix provided
+ * by each {@link JdbcParameterValuesProvider} implementation.
  */
 public interface JdbcParameterValuesProvider {
 

@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertException;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -29,6 +27,8 @@ import org.apache.seatunnel.api.table.type.SqlType;
 import com.google.auto.service.AutoService;
 
 import java.util.Map;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 @AutoService(DataTypeConvertor.class)
 public class ElasticSearchDataTypeConvertor implements DataTypeConvertor<String> {
@@ -52,7 +52,9 @@ public class ElasticSearchDataTypeConvertor implements DataTypeConvertor<String>
     }
 
     @Override
-    public SeaTunnelDataType<?> toSeaTunnelType(String connectorDataType, Map<String, Object> dataTypeProperties) throws DataTypeConvertException {
+    public SeaTunnelDataType<?> toSeaTunnelType(
+            String connectorDataType, Map<String, Object> dataTypeProperties)
+            throws DataTypeConvertException {
         checkNotNull(connectorDataType, "connectorDataType can not be null");
         switch (connectorDataType) {
             case STRING:
@@ -85,7 +87,9 @@ public class ElasticSearchDataTypeConvertor implements DataTypeConvertor<String>
     }
 
     @Override
-    public String toConnectorType(SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties) throws DataTypeConvertException {
+    public String toConnectorType(
+            SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties)
+            throws DataTypeConvertException {
         checkNotNull(seaTunnelDataType, "seaTunnelDataType can not be null");
         SqlType sqlType = seaTunnelDataType.getSqlType();
         switch (sqlType) {

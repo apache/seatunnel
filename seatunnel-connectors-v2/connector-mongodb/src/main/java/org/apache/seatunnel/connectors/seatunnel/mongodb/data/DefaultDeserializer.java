@@ -20,12 +20,13 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.data;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
-import lombok.NonNull;
 import org.bson.BsonWriter;
 import org.bson.Document;
 import org.bson.codecs.DocumentCodec;
 import org.bson.codecs.Encoder;
 import org.bson.codecs.EncoderContext;
+
+import lombok.NonNull;
 
 public class DefaultDeserializer implements Deserializer {
 

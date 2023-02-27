@@ -43,22 +43,21 @@ public abstract class ShuffleStrategy implements Serializable {
 
     protected long jobId;
     protected int inputPartitions;
-    @Builder.Default
-    protected int queueMaxSize = DEFAULT_QUEUE_SIZE;
-    @Builder.Default
-    protected int queueBackupCount = DEFAULT_QUEUE_BACKUP_COUNT;
-    @Builder.Default
-    protected int queueAsyncBackupCount = DEFAULT_QUEUE_ASYNC_BACKUP_COUNT;
+    @Builder.Default protected int queueMaxSize = DEFAULT_QUEUE_SIZE;
+    @Builder.Default protected int queueBackupCount = DEFAULT_QUEUE_BACKUP_COUNT;
+    @Builder.Default protected int queueAsyncBackupCount = DEFAULT_QUEUE_ASYNC_BACKUP_COUNT;
     protected int queueEmptyQueueTtl;
 
     @Tolerate
-    public ShuffleStrategy(){}
+    public ShuffleStrategy() {}
 
-    public abstract Map<String, IQueue<Record<?>>> createShuffles(HazelcastInstance hazelcast, int pipelineId, int inputIndex);
+    public abstract Map<String, IQueue<Record<?>>> createShuffles(
+            HazelcastInstance hazelcast, int pipelineId, int inputIndex);
 
     public abstract String createShuffleKey(Record<?> record, int pipelineId, int inputIndex);
 
-    public abstract IQueue<Record<?>>[] getShuffles(HazelcastInstance hazelcast, int pipelineId, int targetIndex);
+    public abstract IQueue<Record<?>>[] getShuffles(
+            HazelcastInstance hazelcast, int pipelineId, int targetIndex);
 
     protected IQueue<Record<?>> getIQueue(HazelcastInstance hazelcast, String queueName) {
         QueueConfig targetQueueConfig = hazelcast.getConfig().getQueueConfig(queueName);

@@ -39,6 +39,7 @@ public class ConsoleSinkFactory implements TableSinkFactory {
 
     @Override
     public TableSink createSink(TableFactoryContext context) {
-        return () -> new ConsoleSink(context.getCatalogTable().getTableSchema().toPhysicalRowDataType());
+        return () ->
+                new ConsoleSink(context.getCatalogTable().getTableSchema().toPhysicalRowDataType());
     }
 }

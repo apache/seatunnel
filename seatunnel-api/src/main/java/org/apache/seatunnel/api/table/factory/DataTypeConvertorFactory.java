@@ -17,13 +17,13 @@
 
 package org.apache.seatunnel.api.table.factory;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.ServiceLoader;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class DataTypeConvertorFactory {
 
@@ -34,9 +34,13 @@ public class DataTypeConvertorFactory {
     }
 
     public DataTypeConvertorFactory(ClassLoader classLoader) {
-        ServiceLoader.load(DataTypeConvertor.class, classLoader).forEach(dataTypeConvertor -> {
-            dataTypeConvertorMap.put(dataTypeConvertor.getIdentity().toUpperCase(), dataTypeConvertor);
-        });
+        ServiceLoader.load(DataTypeConvertor.class, classLoader)
+                .forEach(
+                        dataTypeConvertor -> {
+                            dataTypeConvertorMap.put(
+                                    dataTypeConvertor.getIdentity().toUpperCase(),
+                                    dataTypeConvertor);
+                        });
     }
 
     public DataTypeConvertor<?> getDataTypeConvertor(String convertorIdentify) {
@@ -44,6 +48,7 @@ public class DataTypeConvertorFactory {
         if (dataTypeConvertorMap.containsKey(convertorIdentify.toUpperCase())) {
             return dataTypeConvertorMap.get(convertorIdentify.toUpperCase());
         }
-        throw new IllegalArgumentException("connectorIdentify " + convertorIdentify + " is not supported");
+        throw new IllegalArgumentException(
+                "connectorIdentify " + convertorIdentify + " is not supported");
     }
 }

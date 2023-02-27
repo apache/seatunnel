@@ -31,7 +31,7 @@ public class SimpleTextDeserializationSchema implements DeserializationSchema<Se
 
     @Override
     public SeaTunnelRow deserialize(byte[] message) {
-        return new SeaTunnelRow(new Object[]{new String(message)});
+        return new SeaTunnelRow(new Object[] {new String(message)});
     }
 
     @Override

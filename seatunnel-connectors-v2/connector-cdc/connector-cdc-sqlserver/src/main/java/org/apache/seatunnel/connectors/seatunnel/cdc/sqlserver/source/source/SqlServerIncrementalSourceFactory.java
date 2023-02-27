@@ -33,19 +33,19 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return JdbcSourceOptions.getBaseRule()
-            .required(
-                JdbcSourceOptions.HOSTNAME,
-                JdbcSourceOptions.USERNAME,
-                JdbcSourceOptions.PASSWORD,
-                CatalogOptions.TABLE_NAMES)
-            .optional(
-                JdbcSourceOptions.DATABASE_NAMES,
-                JdbcSourceOptions.PORT,
-                JdbcSourceOptions.SERVER_TIME_ZONE,
-                JdbcSourceOptions.CONNECT_TIMEOUT_MS,
-                JdbcSourceOptions.CONNECT_MAX_RETRIES,
-                JdbcSourceOptions.CONNECTION_POOL_SIZE)
-            .build();
+                .required(
+                        JdbcSourceOptions.HOSTNAME,
+                        JdbcSourceOptions.USERNAME,
+                        JdbcSourceOptions.PASSWORD,
+                        CatalogOptions.TABLE_NAMES)
+                .optional(
+                        JdbcSourceOptions.DATABASE_NAMES,
+                        JdbcSourceOptions.PORT,
+                        JdbcSourceOptions.SERVER_TIME_ZONE,
+                        JdbcSourceOptions.CONNECT_TIMEOUT_MS,
+                        JdbcSourceOptions.CONNECT_MAX_RETRIES,
+                        JdbcSourceOptions.CONNECTION_POOL_SIZE)
+                .build();
     }
 
     @Override

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
@@ -35,18 +37,18 @@ import org.apache.seatunnel.connectors.seatunnel.starrocks.catalog.StarRocksCata
 import org.apache.seatunnel.connectors.seatunnel.starrocks.catalog.StarRocksCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.commons.lang3.StringUtils;
 
 import com.google.auto.service.AutoService;
 import lombok.NoArgsConstructor;
-import org.apache.commons.lang3.StringUtils;
 
 import java.util.Collections;
 import java.util.List;
 
 @NoArgsConstructor
 @AutoService(SeaTunnelSink.class)
-public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void> implements SupportDataSaveMode {
+public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
+        implements SupportDataSaveMode {
 
     private SeaTunnelRowType seaTunnelRowType;
     private SinkConfig sinkConfig;
@@ -54,9 +56,8 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void> implem
 
     private CatalogTable catalogTable;
 
-    public StarRocksSink(DataSaveMode dataSaveMode,
-                         SinkConfig sinkConfig,
-                         CatalogTable catalogTable) {
+    public StarRocksSink(
+            DataSaveMode dataSaveMode, SinkConfig sinkConfig, CatalogTable catalogTable) {
         this.dataSaveMode = dataSaveMode;
         this.sinkConfig = sinkConfig;
         this.seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
@@ -71,7 +72,7 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void> implem
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         ConfigValidator.of(ReadonlyConfig.fromConfig(pluginConfig))
-            .validate(new StarRocksCatalogFactory().optionRule());
+                .validate(new StarRocksCatalogFactory().optionRule());
         sinkConfig = SinkConfig.of(ReadonlyConfig.fromConfig(pluginConfig));
         if (StringUtils.isEmpty(sinkConfig.getTable())) {
             sinkConfig.setTable(catalogTable.getTableId().getTableName());
@@ -80,13 +81,24 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void> implem
     }
 
     private void autoCreateTable(String template) {
-        StarRocksCatalog starRocksCatalog = new StarRocksCatalog("StarRocks", sinkConfig.getDatabase(),
-            sinkConfig.getUsername(), sinkConfig.getPassword(), sinkConfig.getJdbcUrl());
+        StarRocksCatalog starRocksCatalog =
+                new StarRocksCatalog(
+                        "StarRocks",
+                        sinkConfig.getDatabase(),
+                        sinkConfig.getUsername(),
+                        sinkConfig.getPassword(),
+                        sinkConfig.getJdbcUrl());
         if (!starRocksCatalog.databaseExists(sinkConfig.getDatabase())) {
             starRocksCatalog.createDatabase(TablePath.of(sinkConfig.getDatabase(), ""), true);
         }
-        if (!starRocksCatalog.tableExists(TablePath.of(sinkConfig.getDatabase(), sinkConfig.getTable()))) {
-            starRocksCatalog.createTable(StarRocksSaveModeUtil.fillingCreateSql(template, sinkConfig.getDatabase(), sinkConfig.getTable(), catalogTable.getTableSchema()));
+        if (!starRocksCatalog.tableExists(
+                TablePath.of(sinkConfig.getDatabase(), sinkConfig.getTable()))) {
+            starRocksCatalog.createTable(
+                    StarRocksSaveModeUtil.fillingCreateSql(
+                            template,
+                            sinkConfig.getDatabase(),
+                            sinkConfig.getTable(),
+                            catalogTable.getTableSchema()));
         }
     }
 

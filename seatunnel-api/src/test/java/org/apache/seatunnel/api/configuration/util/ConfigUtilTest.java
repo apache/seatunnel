@@ -31,10 +31,17 @@ public class ConfigUtilTest {
 
     @Test
     public void convertToJsonString() throws URISyntaxException {
-        Config config = ConfigFactory
-            .parseFile(Paths.get(ConfigUtilTest.class.getResource("/conf/option-test.conf").toURI()).toFile())
-            .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-            .resolveWith(ConfigFactory.systemProperties(), ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        Config config =
+                ConfigFactory.parseFile(
+                                Paths.get(
+                                                ConfigUtilTest.class
+                                                        .getResource("/conf/option-test.conf")
+                                                        .toURI())
+                                        .toFile())
+                        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
+                        .resolveWith(
+                                ConfigFactory.systemProperties(),
+                                ConfigResolveOptions.defaults().setAllowUnresolved(true));
         String configJson = ConfigUtil.convertToJsonString(config);
         Config parsedConfig = ConfigUtil.convertToConfig(configJson);
         Assertions.assertEquals(config.getConfig("env"), parsedConfig.getConfig("env"));

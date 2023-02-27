@@ -26,8 +26,9 @@ import lombok.NoArgsConstructor;
 import java.io.File;
 
 /**
- * This class is the base class of SparkEnvironment test. The before method will create a Spark master, and after method will close the Spark master.
- * You can use {@link Spark3Container#executeJob} to submit a seatunnel conf and a seatunnel spark job.
+ * This class is the base class of SparkEnvironment test. The before method will create a Spark
+ * master, and after method will close the Spark master. You can use {@link
+ * Spark3Container#executeJob} to submit a seatunnel conf and a seatunnel spark job.
  */
 @NoArgsConstructor
 @AutoService(TestContainer.class)

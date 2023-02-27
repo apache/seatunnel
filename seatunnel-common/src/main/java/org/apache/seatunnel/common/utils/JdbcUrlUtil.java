@@ -17,8 +17,9 @@
 
 package org.apache.seatunnel.common.utils;
 
-import lombok.Data;
 import org.apache.commons.lang3.StringUtils;
+
+import lombok.Data;
 
 import java.io.Serializable;
 import java.util.Optional;
@@ -26,7 +27,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class JdbcUrlUtil {
-    private static final Pattern URL_PATTERN = Pattern.compile("^(?<url>jdbc:.+?//(?<host>.+?):(?<port>\\d+?))(/(?<database>.*?))*(\\?.*)*$");
+    private static final Pattern URL_PATTERN =
+            Pattern.compile(
+                    "^(?<url>jdbc:.+?//(?<host>.+?):(?<port>\\d+?))(/(?<database>.*?))*(\\?.*)*$");
 
     private JdbcUrlUtil() {}
 
@@ -39,8 +42,7 @@ public final class JdbcUrlUtil {
                     urlWithoutDatabase,
                     matcher.group("host"),
                     Integer.valueOf(matcher.group("port")),
-                    database
-            );
+                    database);
         }
         throw new IllegalArgumentException("The jdbc url format is incorrect: " + url);
     }
@@ -53,10 +55,8 @@ public final class JdbcUrlUtil {
         private final Integer port;
         private final String defaultDatabase;
 
-        public UrlInfo(String urlWithoutDatabase,
-                       String host,
-                       Integer port,
-                       String defaultDatabase) {
+        public UrlInfo(
+                String urlWithoutDatabase, String host, Integer port, String defaultDatabase) {
             this.urlWithoutDatabase = urlWithoutDatabase;
             this.host = host;
             this.port = port;
@@ -64,12 +64,15 @@ public final class JdbcUrlUtil {
         }
 
         public Optional<String> getUrlWithDatabase() {
-            return StringUtils.isBlank(defaultDatabase) ? Optional.empty() :
-                    Optional.of(urlWithoutDatabase + "/" + defaultDatabase);
+            return StringUtils.isBlank(defaultDatabase)
+                    ? Optional.empty()
+                    : Optional.of(urlWithoutDatabase + "/" + defaultDatabase);
         }
 
         public Optional<String> getDefaultDatabase() {
-            return StringUtils.isBlank(defaultDatabase) ? Optional.empty() : Optional.of(defaultDatabase);
+            return StringUtils.isBlank(defaultDatabase)
+                    ? Optional.empty()
+                    : Optional.of(defaultDatabase);
         }
     }
 }

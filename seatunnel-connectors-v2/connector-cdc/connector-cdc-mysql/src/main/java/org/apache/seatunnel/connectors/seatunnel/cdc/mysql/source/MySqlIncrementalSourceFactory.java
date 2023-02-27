@@ -51,19 +51,19 @@ public class MySqlIncrementalSourceFactory implements TableSourceFactory, Suppor
     @Override
     public OptionRule optionRule() {
         return JdbcSourceOptions.getBaseRule()
-            .required(
-                JdbcSourceOptions.USERNAME,
-                JdbcSourceOptions.PASSWORD,
-                CatalogOptions.TABLE_NAMES,
-                JdbcCatalogOptions.BASE_URL)
-            .optional(
-                JdbcSourceOptions.DATABASE_NAMES,
-                JdbcSourceOptions.SERVER_ID,
-                JdbcSourceOptions.SERVER_TIME_ZONE,
-                JdbcSourceOptions.CONNECT_TIMEOUT_MS,
-                JdbcSourceOptions.CONNECT_MAX_RETRIES,
-                JdbcSourceOptions.CONNECTION_POOL_SIZE)
-            .build();
+                .required(
+                        JdbcSourceOptions.USERNAME,
+                        JdbcSourceOptions.PASSWORD,
+                        CatalogOptions.TABLE_NAMES,
+                        JdbcCatalogOptions.BASE_URL)
+                .optional(
+                        JdbcSourceOptions.DATABASE_NAMES,
+                        JdbcSourceOptions.SERVER_ID,
+                        JdbcSourceOptions.SERVER_TIME_ZONE,
+                        JdbcSourceOptions.CONNECT_TIMEOUT_MS,
+                        JdbcSourceOptions.CONNECT_MAX_RETRIES,
+                        JdbcSourceOptions.CONNECTION_POOL_SIZE)
+                .build();
     }
 
     @Override
@@ -72,14 +72,13 @@ public class MySqlIncrementalSourceFactory implements TableSourceFactory, Suppor
     }
 
     @Override
-    public <T, SplitT extends SourceSplit, StateT extends Serializable> TableSource<T, SplitT, StateT> createSource(TableFactoryContext context) {
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableFactoryContext context) {
         return () -> {
             SeaTunnelDataType<SeaTunnelRow> dataType;
             if (context.getCatalogTables().size() == 1) {
-                dataType = context.getCatalogTables()
-                    .get(0)
-                    .getTableSchema()
-                    .toPhysicalRowDataType();
+                dataType =
+                        context.getCatalogTables().get(0).getTableSchema().toPhysicalRowDataType();
             } else {
                 Map<String, SeaTunnelRowType> rowTypeMap = new HashMap<>();
                 for (CatalogTable catalogTable : context.getCatalogTables()) {
@@ -88,7 +87,8 @@ public class MySqlIncrementalSourceFactory implements TableSourceFactory, Suppor
                 }
                 dataType = new MultipleRowType(rowTypeMap);
             }
-            return (SeaTunnelSource<T, SplitT, StateT>) new MySqlIncrementalSource<>(context.getOptions(), dataType);
+            return (SeaTunnelSource<T, SplitT, StateT>)
+                    new MySqlIncrementalSource<>(context.getOptions(), dataType);
         };
     }
 

@@ -36,38 +36,31 @@ public abstract class Column implements Serializable {
 
     private static final long serialVersionUID = -1L;
 
-    /**
-     * column name.
-     */
+    /** column name. */
     protected final String name;
 
-    /**
-     * Data type of the column.
-     */
+    /** Data type of the column. */
     // todo: use generic type
     protected final SeaTunnelDataType<?> dataType;
 
     protected final Integer columnLength;
 
-    /**
-     * Does the column can be null
-     */
+    /** Does the column can be null */
     protected final boolean nullable;
 
     // todo: use generic type
-    /**
-     * The default value of the column.
-     */
+    /** The default value of the column. */
     protected final Object defaultValue;
 
     protected final String comment;
 
-    protected Column(String name,
-                     SeaTunnelDataType<?> dataType,
-                     Integer columnLength,
-                     boolean nullable,
-                     Object defaultValue,
-                     String comment) {
+    protected Column(
+            String name,
+            SeaTunnelDataType<?> dataType,
+            Integer columnLength,
+            boolean nullable,
+            Object defaultValue,
+            String comment) {
         this.name = name;
         this.dataType = dataType;
         this.columnLength = columnLength;
@@ -82,9 +75,6 @@ public abstract class Column implements Serializable {
      */
     public abstract boolean isPhysical();
 
-    /**
-     * Returns a copy of the column with a replaced {@link SeaTunnelDataType}.
-     */
+    /** Returns a copy of the column with a replaced {@link SeaTunnelDataType}. */
     public abstract Column copy(SeaTunnelDataType<?> newType);
-
 }

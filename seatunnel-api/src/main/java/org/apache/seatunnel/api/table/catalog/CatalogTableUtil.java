@@ -17,6 +17,12 @@
 
 package org.apache.seatunnel.api.table.catalog;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.JsonNodeType;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
+
 import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
@@ -35,14 +41,9 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.utils.JsonUtils;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.JsonNodeType;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
+import org.apache.commons.lang3.StringUtils;
 
 import lombok.Getter;
-import org.apache.commons.lang3.StringUtils;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -55,15 +56,21 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 public class CatalogTableUtil implements Serializable {
-    public static final Option<Map<String, String>> SCHEMA = Options.key("schema").mapType().noDefaultValue().withDescription("SeaTunnel Schema");
+    public static final Option<Map<String, String>> SCHEMA =
+            Options.key("schema").mapType().noDefaultValue().withDescription("SeaTunnel Schema");
 
-    public static final Option<String> FIELDS = Options.key("schema.fields").stringType().noDefaultValue().withDescription("SeaTunnel Schema Fields");
+    public static final Option<String> FIELDS =
+            Options.key("schema.fields")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("SeaTunnel Schema Fields");
     private static final String FIELD_KEY = "fields";
 
-    private static final SeaTunnelRowType SIMPLE_SCHEMA = new SeaTunnelRowType(new String[]{"content"}, new SeaTunnelDataType<?>[]{BasicType.STRING_TYPE});
+    private static final SeaTunnelRowType SIMPLE_SCHEMA =
+            new SeaTunnelRowType(
+                    new String[] {"content"}, new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
 
-    @Getter
-    private final CatalogTable catalogTable;
+    @Getter private final CatalogTable catalogTable;
 
     private CatalogTableUtil(CatalogTable catalogTable) {
         this.catalogTable = catalogTable;
@@ -71,9 +78,13 @@ public class CatalogTableUtil implements Serializable {
 
     public static List<CatalogTable> getCatalogTables(Config config, ClassLoader classLoader) {
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
-        Map<String, String> catalogOptions = readonlyConfig.getOptional(CatalogOptions.CATALOG_OPTIONS).orElse(new HashMap<>());
+        Map<String, String> catalogOptions =
+                readonlyConfig.getOptional(CatalogOptions.CATALOG_OPTIONS).orElse(new HashMap<>());
         // TODO: fallback key
-        String factoryId = catalogOptions.getOrDefault(CommonOptions.FACTORY_ID.key(), readonlyConfig.get(CommonOptions.PLUGIN_NAME));
+        String factoryId =
+                catalogOptions.getOrDefault(
+                        CommonOptions.FACTORY_ID.key(),
+                        readonlyConfig.get(CommonOptions.PLUGIN_NAME));
         Map<String, Object> catalogAllOptions = new HashMap<>();
         catalogAllOptions.putAll(readonlyConfig.toMap());
         catalogAllOptions.putAll(catalogOptions);
@@ -86,7 +97,12 @@ public class CatalogTableUtil implements Serializable {
             return Collections.singletonList(catalogTable);
         }
 
-        Optional<Catalog> optionalCatalog = FactoryUtil.createOptionalCatalog(catalogConfig.get(CatalogOptions.NAME), catalogConfig, classLoader, factoryId);
+        Optional<Catalog> optionalCatalog =
+                FactoryUtil.createOptionalCatalog(
+                        catalogConfig.get(CatalogOptions.NAME),
+                        catalogConfig,
+                        classLoader,
+                        factoryId);
         if (!optionalCatalog.isPresent()) {
             return Collections.emptyList();
         }
@@ -107,7 +123,8 @@ public class CatalogTableUtil implements Serializable {
         if (StringUtils.isBlank(tablePatternStr)) {
             return Collections.emptyList();
         }
-        Pattern databasePattern = Pattern.compile(catalogConfig.get(CatalogOptions.DATABASE_PATTERN));
+        Pattern databasePattern =
+                Pattern.compile(catalogConfig.get(CatalogOptions.DATABASE_PATTERN));
         Pattern tablePattern = Pattern.compile(catalogConfig.get(CatalogOptions.TABLE_PATTERN));
         List<String> allDatabase = catalog.listDatabases();
         allDatabase.removeIf(s -> !databasePattern.matcher(s).matches());
@@ -125,12 +142,18 @@ public class CatalogTableUtil implements Serializable {
     public static CatalogTableUtil buildWithConfig(Config config) {
         CheckResult checkResult = CheckConfigUtil.checkAllExists(config, "schema");
         if (!checkResult.isSuccess()) {
-            throw new RuntimeException("Schema config need option [schema], please correct your config first");
+            throw new RuntimeException(
+                    "Schema config need option [schema], please correct your config first");
         }
         TableSchema tableSchema = parseTableSchema(config.getConfig("schema"));
-        return new CatalogTableUtil(CatalogTable.of(
-            // TODO: other table info
-            TableIdentifier.of("", "", ""), tableSchema, new HashMap<>(), new ArrayList<>(), ""));
+        return new CatalogTableUtil(
+                CatalogTable.of(
+                        // TODO: other table info
+                        TableIdentifier.of("", "", ""),
+                        tableSchema,
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        ""));
     }
 
     public static SeaTunnelRowType buildSimpleTextSchema() {
@@ -180,7 +203,8 @@ public class CatalogTableUtil implements Serializable {
             case TIMESTAMP:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             default:
-                throw new UnsupportedOperationException(String.format("the type[%s] is not support", columnStr));
+                throw new UnsupportedOperationException(
+                        String.format("the type[%s] is not support", columnStr));
         }
     }
 
@@ -212,11 +236,14 @@ public class CatalogTableUtil implements Serializable {
 
     private static SeaTunnelDataType<?> parseMapType(String columnStr) {
         String genericType = getGenericType(columnStr);
-        int index = genericType.startsWith(SqlType.DECIMAL.name()) ?
-            // if map key is decimal, we should find the index of second ','
-            genericType.indexOf(",", genericType.indexOf(",") + 1) :
-            // if map key is not decimal, we should find the index of first ','
-            genericType.indexOf(",");
+        int index =
+                genericType.startsWith(SqlType.DECIMAL.name())
+                        ?
+                        // if map key is decimal, we should find the index of second ','
+                        genericType.indexOf(",", genericType.indexOf(",") + 1)
+                        :
+                        // if map key is not decimal, we should find the index of first ','
+                        genericType.indexOf(",");
         String keyGenericType = genericType.substring(0, index);
         String valueGenericType = genericType.substring(index + 1);
         return new MapType<>(parseDataType(keyGenericType), parseDataType(valueGenericType));
@@ -248,7 +275,8 @@ public class CatalogTableUtil implements Serializable {
             case DOUBLE:
                 return ArrayType.DOUBLE_ARRAY_TYPE;
             default:
-                String errorMsg = String.format("Array type not support this genericType [%s]", genericType);
+                String errorMsg =
+                        String.format("Array type not support this genericType [%s]", genericType);
                 throw new UnsupportedOperationException(errorMsg);
         }
     }
@@ -256,7 +284,8 @@ public class CatalogTableUtil implements Serializable {
     private static SeaTunnelDataType<?> parseDecimalType(String columnStr) {
         String[] decimalInfos = columnStr.split(",");
         if (decimalInfos.length < 2) {
-            throw new RuntimeException("Decimal type should assign precision and scale information");
+            throw new RuntimeException(
+                    "Decimal type should assign precision and scale information");
         }
         int precision = Integer.parseInt(decimalInfos[0].replaceAll("\\D", ""));
         int scale = Integer.parseInt(decimalInfos[1].replaceAll("\\D", ""));
@@ -274,15 +303,18 @@ public class CatalogTableUtil implements Serializable {
     private static Map<String, String> convertJsonToMap(String json) {
         ObjectNode jsonNodes = JsonUtils.parseObject(json);
         LinkedHashMap<String, String> fieldsMap = new LinkedHashMap<>();
-        jsonNodes.fields().forEachRemaining(field -> {
-            String key = field.getKey();
-            JsonNode value = field.getValue();
-            if (value.getNodeType() == JsonNodeType.OBJECT) {
-                fieldsMap.put(key, value.toString());
-            } else {
-                fieldsMap.put(key, value.textValue());
-            }
-        });
+        jsonNodes
+                .fields()
+                .forEachRemaining(
+                        field -> {
+                            String key = field.getKey();
+                            JsonNode value = field.getValue();
+                            if (value.getNodeType() == JsonNodeType.OBJECT) {
+                                fieldsMap.put(key, value.toString());
+                            } else {
+                                fieldsMap.put(key, value.textValue());
+                            }
+                        });
         return fieldsMap;
     }
 

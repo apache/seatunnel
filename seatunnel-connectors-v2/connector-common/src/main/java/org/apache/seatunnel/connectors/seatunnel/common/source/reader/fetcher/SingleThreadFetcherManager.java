@@ -27,24 +27,25 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
- * A Fetcher Manager with a single fetching thread (I/O thread) that handles all splits concurrently.
+ * A Fetcher Manager with a single fetching thread (I/O thread) that handles all splits
+ * concurrently.
  *
  * @param <E>
- *
  * @param <SplitT>
- *
  */
 public class SingleThreadFetcherManager<E, SplitT extends SourceSplit>
         extends SplitFetcherManager<E, SplitT> {
 
-    public SingleThreadFetcherManager(BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
-                                      Supplier<SplitReader<E, SplitT>> splitReaderSupplier) {
+    public SingleThreadFetcherManager(
+            BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
+            Supplier<SplitReader<E, SplitT>> splitReaderSupplier) {
         super(elementsQueue, splitReaderSupplier);
     }
 
-    public SingleThreadFetcherManager(BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
-                                      Supplier<SplitReader<E, SplitT>> splitReaderSupplier,
-                                      Consumer<Collection<String>> splitFinishedHook) {
+    public SingleThreadFetcherManager(
+            BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
+            Supplier<SplitReader<E, SplitT>> splitReaderSupplier,
+            Consumer<Collection<String>> splitFinishedHook) {
         super(elementsQueue, splitReaderSupplier, splitFinishedHook);
     }
 

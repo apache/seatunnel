@@ -30,11 +30,17 @@ class KafkaDataTypeConvertorTest {
 
     @Test
     void toSeaTunnelType() {
-        Assertions.assertEquals(BasicType.STRING_TYPE, kafkaDataTypeConvertor.toConnectorType(BasicType.STRING_TYPE, Collections.emptyMap()));
+        Assertions.assertEquals(
+                BasicType.STRING_TYPE,
+                kafkaDataTypeConvertor.toConnectorType(
+                        BasicType.STRING_TYPE, Collections.emptyMap()));
     }
 
     @Test
     void toConnectorType() {
-        Assertions.assertEquals(BasicType.STRING_TYPE, kafkaDataTypeConvertor.toConnectorType(BasicType.STRING_TYPE, Collections.emptyMap()));
+        Assertions.assertEquals(
+                BasicType.STRING_TYPE,
+                kafkaDataTypeConvertor.toConnectorType(
+                        BasicType.STRING_TYPE, Collections.emptyMap()));
     }
 }

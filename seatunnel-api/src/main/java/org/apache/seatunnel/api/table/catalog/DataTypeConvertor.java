@@ -22,9 +22,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import java.util.Map;
 
-/**
- * DataTypeConvertor is used to convert the data type between connector and SeaTunnel.
- */
+/** DataTypeConvertor is used to convert the data type between connector and SeaTunnel. */
 public interface DataTypeConvertor<T> {
 
     /**
@@ -38,23 +36,27 @@ public interface DataTypeConvertor<T> {
     /**
      * Transfer the data type from connector to SeaTunnel.
      *
-     * @param connectorDataType  origin data type
+     * @param connectorDataType origin data type
      * @param dataTypeProperties origin data type properties, e.g. precision, scale, length
      * @return SeaTunnel data type
      */
     // todo: If the origin data type contains the properties, we can remove the dataTypeProperties.
-    SeaTunnelDataType<?> toSeaTunnelType(T connectorDataType, Map<String, Object> dataTypeProperties) throws DataTypeConvertException;
+    SeaTunnelDataType<?> toSeaTunnelType(
+            T connectorDataType, Map<String, Object> dataTypeProperties)
+            throws DataTypeConvertException;
 
     /**
      * Transfer the data type from SeaTunnel to connector.
      *
-     * @param seaTunnelDataType  seaTunnel data type
+     * @param seaTunnelDataType seaTunnel data type
      * @param dataTypeProperties seaTunnel data type properties, e.g. precision, scale, length
      * @return origin data type
      */
-    // todo: If the SeaTunnel data type contains the properties, we can remove the dataTypeProperties.
-    T toConnectorType(SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties) throws DataTypeConvertException;
+    // todo: If the SeaTunnel data type contains the properties, we can remove the
+    // dataTypeProperties.
+    T toConnectorType(
+            SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties)
+            throws DataTypeConvertException;
 
     String getIdentity();
-
 }

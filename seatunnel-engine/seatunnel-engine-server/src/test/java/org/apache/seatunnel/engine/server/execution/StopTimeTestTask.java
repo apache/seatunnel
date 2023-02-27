@@ -29,8 +29,7 @@ public class StopTimeTestTask implements Task {
     CopyOnWriteArrayList<Long> stopList;
     AtomicBoolean stop;
 
-    @NonNull
-    @Override
+    @NonNull @Override
     public ProgressState call() {
         try {
             Thread.sleep(callTime);
@@ -44,8 +43,7 @@ public class StopTimeTestTask implements Task {
         return ProgressState.MADE_PROGRESS;
     }
 
-    @NonNull
-    @Override
+    @NonNull @Override
     public Long getTaskID() {
         return (long) this.hashCode();
     }

@@ -23,34 +23,35 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 
-/**
- * Representation of a metadata column.
- */
+/** Representation of a metadata column. */
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
 public class MetadataColumn extends Column {
 
     private final String metadataKey;
 
-    protected MetadataColumn(String name,
-                             SeaTunnelDataType<?> dataType,
-                             Integer columnLength,
-                             String metadataKey,
-                             boolean nullable,
-                             Object defaultValue,
-                             String comment) {
+    protected MetadataColumn(
+            String name,
+            SeaTunnelDataType<?> dataType,
+            Integer columnLength,
+            String metadataKey,
+            boolean nullable,
+            Object defaultValue,
+            String comment) {
         super(name, dataType, columnLength, nullable, defaultValue, comment);
         this.metadataKey = metadataKey;
     }
 
-    public static MetadataColumn of(String name,
-                                    SeaTunnelDataType<?> dataType,
-                                    Integer columnLength,
-                                    String metadataKey,
-                                    boolean nullable,
-                                    Object defaultValue,
-                                    String comment) {
-        return new MetadataColumn(name, dataType, columnLength, metadataKey, nullable, defaultValue, comment);
+    public static MetadataColumn of(
+            String name,
+            SeaTunnelDataType<?> dataType,
+            Integer columnLength,
+            String metadataKey,
+            boolean nullable,
+            Object defaultValue,
+            String comment) {
+        return new MetadataColumn(
+                name, dataType, columnLength, metadataKey, nullable, defaultValue, comment);
     }
 
     @Override
@@ -60,6 +61,7 @@ public class MetadataColumn extends Column {
 
     @Override
     public Column copy(SeaTunnelDataType<?> newType) {
-        return MetadataColumn.of(name, newType, columnLength, metadataKey, nullable, defaultValue, comment);
+        return MetadataColumn.of(
+                name, newType, columnLength, metadataKey, nullable, defaultValue, comment);
     }
 }

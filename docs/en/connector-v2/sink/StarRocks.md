@@ -3,8 +3,10 @@
 > StarRocks sink connector
 
 ## Description
+
 Used to send data to StarRocks. Both support streaming and batch mode.
 The internal implementation of StarRocks sink connector is cached and imported by stream load in batches.
+
 ## Key features
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
@@ -12,7 +14,7 @@ The internal implementation of StarRocks sink connector is cached and imported b
 
 ## Options
 
-| name                        | type    | required | default value   |
+|            name             |  type   | required |  default value  |
 |-----------------------------|---------|----------|-----------------|
 | node_urls                   | list    | yes      | -               |
 | username                    | string  | yes      | -               |
@@ -182,3 +184,4 @@ sink {
 - Add StarRocks Sink Connector
 - [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/incubator-seatunnel/pull/3719)
 - [Feature] Support write cdc changelog event(INSERT/UPDATE/DELETE) [3865](https://github.com/apache/incubator-seatunnel/pull/3865)
+

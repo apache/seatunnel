@@ -30,10 +30,10 @@ public class ConfigDataSerializerHook implements DataSerializerHook {
      */
     public static final int JOB_CONFIG = 0;
 
-    public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
-        SeaTunnelFactoryIdConstant.SEATUNNEL_CONFIG_DATA_SERIALIZER_FACTORY,
-        SeaTunnelFactoryIdConstant.SEATUNNEL_CONFIG_DATA_SERIALIZER_FACTORY_ID
-    );
+    public static final int FACTORY_ID =
+            FactoryIdHelper.getFactoryId(
+                    SeaTunnelFactoryIdConstant.SEATUNNEL_CONFIG_DATA_SERIALIZER_FACTORY,
+                    SeaTunnelFactoryIdConstant.SEATUNNEL_CONFIG_DATA_SERIALIZER_FACTORY_ID);
 
     @Override
     public int getFactoryId() {

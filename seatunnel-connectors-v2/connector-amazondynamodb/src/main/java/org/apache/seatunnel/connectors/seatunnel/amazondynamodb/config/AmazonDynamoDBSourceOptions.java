@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config;
 
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

@@ -64,19 +64,23 @@ public class StarRocksSinkManager {
         initialize = true;
 
         if (batchIntervalMs != null) {
-            scheduler = Executors.newSingleThreadScheduledExecutor(
-                    new ThreadFactoryBuilder().setNameFormat("StarRocks-sink-output-%s").build());
-            scheduledFuture = scheduler.scheduleAtFixedRate(
-                () -> {
-                    try {
-                        flush();
-                    } catch (IOException e) {
-                        flushException = e;
-                    }
-                },
-                    batchIntervalMs,
-                    batchIntervalMs,
-                    TimeUnit.MILLISECONDS);
+            scheduler =
+                    Executors.newSingleThreadScheduledExecutor(
+                            new ThreadFactoryBuilder()
+                                    .setNameFormat("StarRocks-sink-output-%s")
+                                    .build());
+            scheduledFuture =
+                    scheduler.scheduleAtFixedRate(
+                            () -> {
+                                try {
+                                    flush();
+                                } catch (IOException e) {
+                                    flushException = e;
+                                }
+                            },
+                            batchIntervalMs,
+                            batchIntervalMs,
+                            TimeUnit.MILLISECONDS);
         }
     }
 
@@ -87,7 +91,8 @@ public class StarRocksSinkManager {
         batchList.add(bts);
         batchRowCount++;
         batchBytesSize += bts.length;
-        if (batchRowCount >= sinkConfig.getBatchMaxSize() || batchBytesSize >= sinkConfig.getBatchMaxBytes()) {
+        if (batchRowCount >= sinkConfig.getBatchMaxSize()
+                || batchBytesSize >= sinkConfig.getBatchMaxBytes()) {
             flush();
         }
     }
@@ -107,7 +112,8 @@ public class StarRocksSinkManager {
             return;
         }
         String label = createBatchLabel();
-        StarRocksFlushTuple tuple = new StarRocksFlushTuple(label, batchBytesSize, new ArrayList<>(batchList));
+        StarRocksFlushTuple tuple =
+                new StarRocksFlushTuple(label, batchBytesSize, new ArrayList<>(batchList));
         for (int i = 0; i <= sinkConfig.getMaxRetries(); i++) {
             try {
                 Boolean successFlag = starrocksStreamLoadVisitor.doStreamLoad(tuple);
@@ -117,22 +123,32 @@ public class StarRocksSinkManager {
             } catch (Exception e) {
                 log.warn("Writing records to StarRocks failed, retry times = {}", i, e);
                 if (i >= sinkConfig.getMaxRetries()) {
-                    throw new StarRocksConnectorException(StarRocksConnectorErrorCode.WRITE_RECORDS_FAILED, "The number of retries was exceeded, writing records to StarRocks failed.", e);
+                    throw new StarRocksConnectorException(
+                            StarRocksConnectorErrorCode.WRITE_RECORDS_FAILED,
+                            "The number of retries was exceeded, writing records to StarRocks failed.",
+                            e);
                 }
 
-                if (e instanceof StarRocksConnectorException && ((StarRocksConnectorException) e).needReCreateLabel()) {
+                if (e instanceof StarRocksConnectorException
+                        && ((StarRocksConnectorException) e).needReCreateLabel()) {
                     String newLabel = createBatchLabel();
-                    log.warn(String.format("Batch label changed from [%s] to [%s]", tuple.getLabel(), newLabel));
+                    log.warn(
+                            String.format(
+                                    "Batch label changed from [%s] to [%s]",
+                                    tuple.getLabel(), newLabel));
                     tuple.setLabel(newLabel);
                 }
 
                 try {
-                    long backoff = Math.min(sinkConfig.getRetryBackoffMultiplierMs() * i,
-                            sinkConfig.getMaxRetryBackoffMs());
+                    long backoff =
+                            Math.min(
+                                    sinkConfig.getRetryBackoffMultiplierMs() * i,
+                                    sinkConfig.getMaxRetryBackoffMs());
                     Thread.sleep(backoff);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
-                    throw new StarRocksConnectorException(StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, e);
+                    throw new StarRocksConnectorException(
+                            StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, e);
                 }
             }
         }
@@ -143,7 +159,8 @@ public class StarRocksSinkManager {
 
     private void checkFlushException() {
         if (flushException != null) {
-            throw new StarRocksConnectorException(StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, flushException);
+            throw new StarRocksConnectorException(
+                    StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, flushException);
         }
     }
 
@@ -152,7 +169,6 @@ public class StarRocksSinkManager {
         if (!Strings.isNullOrEmpty(sinkConfig.getLabelPrefix())) {
             sb.append(sinkConfig.getLabelPrefix());
         }
-        return sb.append(UUID.randomUUID().toString())
-                .toString();
+        return sb.append(UUID.randomUUID().toString()).toString();
     }
 }

@@ -53,7 +53,7 @@ public class TaskExecutionContext {
 
     public MetricsContext getOrCreateMetricsContext(TaskLocation taskLocation) {
         IMap<TaskLocation, MetricsContext> map =
-            nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
         return map.computeIfAbsent(taskLocation, k -> new MetricsContext());
     }
 

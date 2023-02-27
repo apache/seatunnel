@@ -28,12 +28,14 @@ public class HttpConnectorException extends SeaTunnelRuntimeException {
         super(seaTunnelErrorCode, errorMessage);
     }
 
-    public HttpConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, boolean reCreateLabel) {
+    public HttpConnectorException(
+            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, boolean reCreateLabel) {
         super(seaTunnelErrorCode, errorMessage);
         this.reCreateLabel = reCreateLabel;
     }
 
-    public HttpConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+    public HttpConnectorException(
+            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
         super(seaTunnelErrorCode, errorMessage, cause);
     }
 

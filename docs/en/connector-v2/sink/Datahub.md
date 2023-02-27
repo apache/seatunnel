@@ -12,8 +12,8 @@ A sink plugin which use send message to DataHub
 
 ## Options
 
-| name       | type   | required | default value |
-|--------------- |--------|----------|---------------|
+|      name      |  type  | required | default value |
+|----------------|--------|----------|---------------|
 | endpoint       | string | yes      | -             |
 | accessId       | string | yes      | -             |
 | accessKey      | string | yes      | -             |
@@ -76,3 +76,4 @@ sink {
 ### 2.2.0-beta 2022-09-26
 
 - Add DataHub Sink Connector
+

@@ -17,14 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -43,12 +43,15 @@ public class FakeDataGeneratorTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"complex.schema.conf", "simple.schema.conf"})
-    public void testComplexSchemaParse(String conf) throws FileNotFoundException, URISyntaxException {
+    public void testComplexSchemaParse(String conf)
+            throws FileNotFoundException, URISyntaxException {
         Config testConfig = getTestConfigFile(conf);
-        SeaTunnelRowType seaTunnelRowType = CatalogTableUtil.buildWithConfig(testConfig).getSeaTunnelRowType();
+        SeaTunnelRowType seaTunnelRowType =
+                CatalogTableUtil.buildWithConfig(testConfig).getSeaTunnelRowType();
         FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
         FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(seaTunnelRowType, fakeConfig);
-        List<SeaTunnelRow> seaTunnelRows = fakeDataGenerator.generateFakedRows(fakeConfig.getRowNum());
+        List<SeaTunnelRow> seaTunnelRows =
+                fakeDataGenerator.generateFakedRows(fakeConfig.getRowNum());
         Assertions.assertNotNull(seaTunnelRows);
         Assertions.assertEquals(seaTunnelRows.size(), 10);
         for (SeaTunnelRow seaTunnelRow : seaTunnelRows) {
@@ -77,29 +80,33 @@ public class FakeDataGeneratorTest {
     @ParameterizedTest
     @ValueSource(strings = {"fake-data.schema.conf"})
     public void testRowDataParse(String conf) throws FileNotFoundException, URISyntaxException {
-        SeaTunnelRow row1 = new SeaTunnelRow(new Object[]{ 1L, "A", 100 });
+        SeaTunnelRow row1 = new SeaTunnelRow(new Object[] {1L, "A", 100});
         row1.setRowKind(RowKind.INSERT);
-        SeaTunnelRow row2 = new SeaTunnelRow(new Object[]{ 2L, "B", 100 });
+        SeaTunnelRow row2 = new SeaTunnelRow(new Object[] {2L, "B", 100});
         row2.setRowKind(RowKind.INSERT);
-        SeaTunnelRow row3 = new SeaTunnelRow(new Object[]{ 3L, "C", 100 });
+        SeaTunnelRow row3 = new SeaTunnelRow(new Object[] {3L, "C", 100});
         row3.setRowKind(RowKind.INSERT);
-        SeaTunnelRow row1UpdateBefore = new SeaTunnelRow(new Object[]{ 1L, "A", 100 });
+        SeaTunnelRow row1UpdateBefore = new SeaTunnelRow(new Object[] {1L, "A", 100});
         row1UpdateBefore.setRowKind(RowKind.UPDATE_BEFORE);
-        SeaTunnelRow row1UpdateAfter = new SeaTunnelRow(new Object[]{ 1L, "A_1", 100 });
+        SeaTunnelRow row1UpdateAfter = new SeaTunnelRow(new Object[] {1L, "A_1", 100});
         row1UpdateAfter.setRowKind(RowKind.UPDATE_AFTER);
-        SeaTunnelRow row2Delete = new SeaTunnelRow(new Object[]{ 2L, "B", 100 });
+        SeaTunnelRow row2Delete = new SeaTunnelRow(new Object[] {2L, "B", 100});
         row2Delete.setRowKind(RowKind.DELETE);
-        List<SeaTunnelRow> expected = Arrays.asList(row1, row2, row3, row1UpdateBefore, row1UpdateAfter, row2Delete);
+        List<SeaTunnelRow> expected =
+                Arrays.asList(row1, row2, row3, row1UpdateBefore, row1UpdateAfter, row2Delete);
 
         Config testConfig = getTestConfigFile(conf);
-        SeaTunnelRowType seaTunnelRowType = CatalogTableUtil.buildWithConfig(testConfig).getSeaTunnelRowType();
+        SeaTunnelRowType seaTunnelRowType =
+                CatalogTableUtil.buildWithConfig(testConfig).getSeaTunnelRowType();
         FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
         FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(seaTunnelRowType, fakeConfig);
-        List<SeaTunnelRow> seaTunnelRows = fakeDataGenerator.generateFakedRows(fakeConfig.getRowNum());
+        List<SeaTunnelRow> seaTunnelRows =
+                fakeDataGenerator.generateFakedRows(fakeConfig.getRowNum());
         Assertions.assertIterableEquals(expected, seaTunnelRows);
     }
 
-    private Config getTestConfigFile(String configFile) throws FileNotFoundException, URISyntaxException {
+    private Config getTestConfigFile(String configFile)
+            throws FileNotFoundException, URISyntaxException {
         if (!configFile.startsWith("/")) {
             configFile = "/" + configFile;
         }
@@ -112,5 +119,4 @@ public class FakeDataGeneratorTest {
         assert config.hasPath("FakeSource");
         return config.getConfig("FakeSource");
     }
-
 }

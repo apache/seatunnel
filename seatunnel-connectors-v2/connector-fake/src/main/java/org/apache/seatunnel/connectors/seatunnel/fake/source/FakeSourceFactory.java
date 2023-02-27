@@ -17,6 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption;
+
+import com.google.auto.service.AutoService;
+
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.ARRAY_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.BIGINT_FAKE_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.BIGINT_TEMPLATE;
@@ -44,15 +53,6 @@ import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.T
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.TIME_SECOND_TEMPLATE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.TINYINT_FAKE_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.TINYINT_TEMPLATE;
-
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption;
-
-import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
 public class FakeSourceFactory implements TableSourceFactory {
@@ -87,8 +87,12 @@ public class FakeSourceFactory implements TableSourceFactory {
                         MAP_SIZE,
                         ARRAY_SIZE,
                         BYTES_LENGTH,
-                        DATE_YEAR_TEMPLATE, DATE_MONTH_TEMPLATE, DATE_DAY_TEMPLATE,
-                        TIME_HOUR_TEMPLATE, TIME_MINUTE_TEMPLATE, TIME_SECOND_TEMPLATE)
+                        DATE_YEAR_TEMPLATE,
+                        DATE_MONTH_TEMPLATE,
+                        DATE_DAY_TEMPLATE,
+                        TIME_HOUR_TEMPLATE,
+                        TIME_MINUTE_TEMPLATE,
+                        TIME_SECOND_TEMPLATE)
                 .build();
     }
 

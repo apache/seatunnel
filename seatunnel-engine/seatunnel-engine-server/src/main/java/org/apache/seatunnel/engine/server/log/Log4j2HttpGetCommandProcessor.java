@@ -17,14 +17,15 @@
 
 package org.apache.seatunnel.engine.server.log;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.log4j.core.config.LoggerConfig;
+
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;
 import com.hazelcast.internal.ascii.rest.HttpGetCommand;
 import com.hazelcast.internal.ascii.rest.HttpGetCommandProcessor;
 import com.hazelcast.internal.json.JsonObject;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.core.LoggerContext;
-import org.apache.logging.log4j.core.config.LoggerConfig;
 
 import java.util.Map;
 
@@ -36,9 +37,12 @@ public class Log4j2HttpGetCommandProcessor extends HttpCommandProcessor<HttpGetC
         this(textCommandService, new HttpGetCommandProcessor(textCommandService));
     }
 
-    public Log4j2HttpGetCommandProcessor(TextCommandService textCommandService,
-                                         HttpGetCommandProcessor httpGetCommandProcessor) {
-        super(textCommandService, textCommandService.getNode().getLogger(Log4j2HttpGetCommandProcessor.class));
+    public Log4j2HttpGetCommandProcessor(
+            TextCommandService textCommandService,
+            HttpGetCommandProcessor httpGetCommandProcessor) {
+        super(
+                textCommandService,
+                textCommandService.getNode().getLogger(Log4j2HttpGetCommandProcessor.class));
         this.original = httpGetCommandProcessor;
     }
 
@@ -60,15 +64,11 @@ public class Log4j2HttpGetCommandProcessor extends HttpCommandProcessor<HttpGetC
     /**
      * Request example:
      *
-     * GET {@link HttpCommandProcessor#URI_LOG_LEVEL}
+     * <p>GET {@link HttpCommandProcessor#URI_LOG_LEVEL}
      *
-     * Response Body(application/json):
+     * <p>Response Body(application/json):
      *
-     * {
-     *     "root": "INFO"
-     *     "com.example.logger1": "ERROR"
-     * }
-     *
+     * <p>{ "root": "INFO" "com.example.logger1": "ERROR" }
      */
     private void outputAllLoggerLevel(HttpGetCommand request) {
         JsonObject jsonObject = new JsonObject();

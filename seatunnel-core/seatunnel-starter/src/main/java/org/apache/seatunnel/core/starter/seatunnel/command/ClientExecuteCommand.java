@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.core.starter.seatunnel.command;
 
-import static org.apache.seatunnel.core.starter.utils.FileUtils.checkConfigExist;
-
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.core.starter.command.Command;
@@ -50,9 +48,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-/**
- * This command is used to execute the SeaTunnel engine job by SeaTunnel API.
- */
+import static org.apache.seatunnel.core.starter.utils.FileUtils.checkConfigExist;
+
+/** This command is used to execute the SeaTunnel engine job by SeaTunnel API. */
 @Slf4j
 public class ClientExecuteCommand implements Command<ClientCommandArgs> {
 
@@ -88,12 +86,16 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 String jobStatus = engineClient.listJobStatus();
                 System.out.println(jobStatus);
             } else if (null != clientCommandArgs.getJobId()) {
-                String jobState = engineClient.getJobDetailStatus(Long.parseLong(clientCommandArgs.getJobId()));
+                String jobState =
+                        engineClient.getJobDetailStatus(
+                                Long.parseLong(clientCommandArgs.getJobId()));
                 System.out.println(jobState);
             } else if (null != clientCommandArgs.getCancelJobId()) {
                 engineClient.cancelJob(Long.parseLong(clientCommandArgs.getCancelJobId()));
             } else if (null != clientCommandArgs.getMetricsJobId()) {
-                String jobMetrics = engineClient.getJobMetrics(Long.parseLong(clientCommandArgs.getMetricsJobId()));
+                String jobMetrics =
+                        engineClient.getJobMetrics(
+                                Long.parseLong(clientCommandArgs.getMetricsJobId()));
                 System.out.println(jobMetrics);
             } else if (null != clientCommandArgs.getSavePointJobId()) {
                 engineClient.savePointJob(Long.parseLong(clientCommandArgs.getSavePointJobId()));
@@ -104,10 +106,14 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 JobExecutionEnvironment jobExecutionEnv;
                 jobConfig.setName(clientCommandArgs.getJobName());
                 if (null != clientCommandArgs.getRestoreJobId()) {
-                    jobExecutionEnv = engineClient.restoreExecutionContext(configFile.toString(), jobConfig,
-                        Long.parseLong(clientCommandArgs.getRestoreJobId()));
+                    jobExecutionEnv =
+                            engineClient.restoreExecutionContext(
+                                    configFile.toString(),
+                                    jobConfig,
+                                    Long.parseLong(clientCommandArgs.getRestoreJobId()));
                 } else {
-                    jobExecutionEnv = engineClient.createExecutionContext(configFile.toString(), jobConfig);
+                    jobExecutionEnv =
+                            engineClient.createExecutionContext(configFile.toString(), jobConfig);
                 }
 
                 // get job start time
@@ -116,23 +122,31 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
                 // register cancelJob hook
                 if (clientCommandArgs.isCloseJob()) {
-                    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                        try {
-                            shutdownHook(clientJobProxy);
-                        } catch (Exception e) {
-                            log.error("Cancel job failed.", e);
-                        }
-                    }));
+                    Runtime.getRuntime()
+                            .addShutdownHook(
+                                    new Thread(
+                                            () -> {
+                                                try {
+                                                    shutdownHook(clientJobProxy);
+                                                } catch (Exception e) {
+                                                    log.error("Cancel job failed.", e);
+                                                }
+                                            }));
                 }
                 // get job id
                 long jobId = clientJobProxy.getJobId();
                 JobMetricsRunner jobMetricsRunner = new JobMetricsRunner(engineClient, jobId);
-                executorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder()
-                    .setNameFormat("job-metrics-runner-%d")
-                    .setDaemon(true)
-                    .build());
-                executorService.scheduleAtFixedRate(jobMetricsRunner, 0,
-                    seaTunnelConfig.getEngineConfig().getPrintJobMetricsInfoInterval(), TimeUnit.SECONDS);
+                executorService =
+                        Executors.newSingleThreadScheduledExecutor(
+                                new ThreadFactoryBuilder()
+                                        .setNameFormat("job-metrics-runner-%d")
+                                        .setDaemon(true)
+                                        .build());
+                executorService.scheduleAtFixedRate(
+                        jobMetricsRunner,
+                        0,
+                        seaTunnelConfig.getEngineConfig().getPrintJobMetricsInfoInterval(),
+                        TimeUnit.SECONDS);
                 // wait for job complete
                 jobStatus = clientJobProxy.waitForJobComplete();
                 // get job end time
@@ -157,25 +171,24 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             }
             if (jobMetricsSummary != null) {
                 // print job statistics information when job finished
-                log.info(StringFormatUtils.formatTable(
-                    "Job Statistic Information",
-                    "Start Time",
-                    DateTimeUtils.toString(startTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS),
-
-                    "End Time",
-                    DateTimeUtils.toString(endTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS),
-
-                    "Total Time(s)",
-                    Duration.between(startTime, endTime).getSeconds(),
-
-                    "Total Read Count",
-                    jobMetricsSummary.getSourceReadCount(),
-
-                    "Total Write Count",
-                    jobMetricsSummary.getSinkWriteCount(),
-
-                    "Total Failed Count",
-                    jobMetricsSummary.getSourceReadCount() - jobMetricsSummary.getSinkWriteCount()));
+                log.info(
+                        StringFormatUtils.formatTable(
+                                "Job Statistic Information",
+                                "Start Time",
+                                DateTimeUtils.toString(
+                                        startTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS),
+                                "End Time",
+                                DateTimeUtils.toString(
+                                        endTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS),
+                                "Total Time(s)",
+                                Duration.between(startTime, endTime).getSeconds(),
+                                "Total Read Count",
+                                jobMetricsSummary.getSourceReadCount(),
+                                "Total Write Count",
+                                jobMetricsSummary.getSinkWriteCount(),
+                                "Total Failed Count",
+                                jobMetricsSummary.getSourceReadCount()
+                                        - jobMetricsSummary.getSinkWriteCount()));
             }
         }
     }
@@ -183,9 +196,10 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
     private HazelcastInstance createServerInLocal(String clusterName) {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
-        return HazelcastInstanceFactory.newHazelcastInstance(seaTunnelConfig.getHazelcastConfig(),
-            Thread.currentThread().getName(),
-            new SeaTunnelNodeContext(seaTunnelConfig));
+        return HazelcastInstanceFactory.newHazelcastInstance(
+                seaTunnelConfig.getHazelcastConfig(),
+                Thread.currentThread().getName(),
+                new SeaTunnelNodeContext(seaTunnelConfig));
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
@@ -200,5 +214,4 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             clientJobProxy.cancelJob();
         }
     }
-
 }

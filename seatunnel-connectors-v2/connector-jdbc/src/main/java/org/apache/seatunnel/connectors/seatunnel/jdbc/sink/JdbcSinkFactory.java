@@ -17,6 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+
+import com.google.auto.service.AutoService;
+
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.AUTO_COMMIT;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.BATCH_INTERVAL_MS;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.BATCH_SIZE;
@@ -37,12 +43,6 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.USER;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.XA_DATA_SOURCE_CLASS_NAME;
 
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSinkFactory;
-
-import com.google.auto.service.AutoService;
-
 @AutoService(Factory.class)
 public class JdbcSinkFactory implements TableSinkFactory {
     @Override
@@ -53,21 +53,27 @@ public class JdbcSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-            .required(URL, DRIVER)
-            .optional(USER,
-                PASSWORD,
-                CONNECTION_CHECK_TIMEOUT_SEC,
-                BATCH_SIZE,
-                BATCH_INTERVAL_MS,
-                IS_EXACTLY_ONCE,
-                GENERATE_SINK_SQL,
-                AUTO_COMMIT,
-                SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST)
-            .conditional(IS_EXACTLY_ONCE, true, XA_DATA_SOURCE_CLASS_NAME, MAX_COMMIT_ATTEMPTS, TRANSACTION_TIMEOUT_SEC)
-            .conditional(IS_EXACTLY_ONCE, false, MAX_RETRIES)
-            .conditional(GENERATE_SINK_SQL, true, DATABASE, TABLE)
-            .conditional(GENERATE_SINK_SQL, false, QUERY)
-            .conditional(SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST, true, PRIMARY_KEYS)
-            .build();
+                .required(URL, DRIVER)
+                .optional(
+                        USER,
+                        PASSWORD,
+                        CONNECTION_CHECK_TIMEOUT_SEC,
+                        BATCH_SIZE,
+                        BATCH_INTERVAL_MS,
+                        IS_EXACTLY_ONCE,
+                        GENERATE_SINK_SQL,
+                        AUTO_COMMIT,
+                        SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST)
+                .conditional(
+                        IS_EXACTLY_ONCE,
+                        true,
+                        XA_DATA_SOURCE_CLASS_NAME,
+                        MAX_COMMIT_ATTEMPTS,
+                        TRANSACTION_TIMEOUT_SEC)
+                .conditional(IS_EXACTLY_ONCE, false, MAX_RETRIES)
+                .conditional(GENERATE_SINK_SQL, true, DATABASE, TABLE)
+                .conditional(GENERATE_SINK_SQL, false, QUERY)
+                .conditional(SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST, true, PRIMARY_KEYS)
+                .build();
     }
 }

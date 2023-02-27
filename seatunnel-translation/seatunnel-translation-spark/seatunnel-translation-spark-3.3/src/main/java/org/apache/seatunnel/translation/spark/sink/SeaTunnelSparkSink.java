@@ -26,9 +26,7 @@ import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 
 import java.util.Map;
 
-/**
- * SeaTunnel sink class of Spark 3+, can be used as sink
- */
+/** SeaTunnel sink class of Spark 3+, can be used as sink */
 public class SeaTunnelSparkSink implements DataSourceRegister, TableProvider {
 
     private static final String SINK_NAME = "SeaTunnelSink";
@@ -39,7 +37,8 @@ public class SeaTunnelSparkSink implements DataSourceRegister, TableProvider {
     }
 
     @Override
-    public Table getTable(StructType schema, Transform[] partitioning, Map<String, String> properties) {
+    public Table getTable(
+            StructType schema, Transform[] partitioning, Map<String, String> properties) {
         return new SeaTunnelSinkTable(properties);
     }
 

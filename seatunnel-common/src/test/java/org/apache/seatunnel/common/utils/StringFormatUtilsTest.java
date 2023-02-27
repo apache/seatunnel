@@ -23,34 +23,33 @@ import org.junit.jupiter.api.Test;
 public class StringFormatUtilsTest {
     @Test
     public void testStringFormat() {
-        String s = StringFormatUtils.formatTable("Job Statistic Information",
-                "Start Time",
-                "2023-01-11 00:00:00",
-
-                "End Time",
-                "2023-01-11 00:00:00",
-
-                "Total Time(s)",
-                0,
-
-                "Total Read Count",
-                0,
-
-                "Total Write Count",
-                0,
-
-                "Total Failed Count",
-                0);
-        Assertions.assertEquals(s, "\n" +
-                "***********************************************\n" +
-                "           Job Statistic Information\n" +
-                "***********************************************\n" +
-                "Start Time                : 2023-01-11 00:00:00\n" +
-                "End Time                  : 2023-01-11 00:00:00\n" +
-                "Total Time(s)             :                   0\n" +
-                "Total Read Count          :                   0\n" +
-                "Total Write Count         :                   0\n" +
-                "Total Failed Count        :                   0\n" +
-                "***********************************************\n");
+        String s =
+                StringFormatUtils.formatTable(
+                        "Job Statistic Information",
+                        "Start Time",
+                        "2023-01-11 00:00:00",
+                        "End Time",
+                        "2023-01-11 00:00:00",
+                        "Total Time(s)",
+                        0,
+                        "Total Read Count",
+                        0,
+                        "Total Write Count",
+                        0,
+                        "Total Failed Count",
+                        0);
+        Assertions.assertEquals(
+                s,
+                "\n"
+                        + "***********************************************\n"
+                        + "           Job Statistic Information\n"
+                        + "***********************************************\n"
+                        + "Start Time                : 2023-01-11 00:00:00\n"
+                        + "End Time                  : 2023-01-11 00:00:00\n"
+                        + "Total Time(s)             :                   0\n"
+                        + "Total Read Count          :                   0\n"
+                        + "Total Write Count         :                   0\n"
+                        + "Total Failed Count        :                   0\n"
+                        + "***********************************************\n");
     }
 }

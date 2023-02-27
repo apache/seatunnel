@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.engine.core.dag.actions;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 import org.apache.seatunnel.api.table.type.Record;
 
 import com.hazelcast.collection.IQueue;
@@ -33,6 +31,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 @SuperBuilder
 @Getter
 @Setter
@@ -42,11 +42,11 @@ public class ShufflePartitionStrategy extends ShuffleStrategy {
     private int targetPartitions;
 
     @Tolerate
-    public ShufflePartitionStrategy() {
-    }
+    public ShufflePartitionStrategy() {}
 
     @Override
-    public Map<String, IQueue<Record<?>>> createShuffles(HazelcastInstance hazelcast, int pipelineId, int inputIndex) {
+    public Map<String, IQueue<Record<?>>> createShuffles(
+            HazelcastInstance hazelcast, int pipelineId, int inputIndex) {
         checkArgument(inputIndex >= 0 && inputIndex < getInputPartitions());
         Map<String, IQueue<Record<?>>> shuffleMap = new HashMap<>();
         for (int targetIndex = 0; targetIndex < targetPartitions; targetIndex++) {
@@ -61,18 +61,25 @@ public class ShufflePartitionStrategy extends ShuffleStrategy {
 
     @Override
     public String createShuffleKey(Record<?> record, int pipelineId, int inputIndex) {
-        String[] inputQueueNames = inputQueueMapping.computeIfAbsent(inputIndex, key -> {
-            String[] queueNames = new String[targetPartitions];
-            for (int targetIndex = 0; targetIndex < targetPartitions; targetIndex++) {
-                queueNames[targetIndex] = generateQueueName(pipelineId, key, targetIndex);
-            }
-            return queueNames;
-        });
+        String[] inputQueueNames =
+                inputQueueMapping.computeIfAbsent(
+                        inputIndex,
+                        key -> {
+                            String[] queueNames = new String[targetPartitions];
+                            for (int targetIndex = 0;
+                                    targetIndex < targetPartitions;
+                                    targetIndex++) {
+                                queueNames[targetIndex] =
+                                        generateQueueName(pipelineId, key, targetIndex);
+                            }
+                            return queueNames;
+                        });
         return inputQueueNames[ThreadLocalRandom.current().nextInt(targetPartitions)];
     }
 
     @Override
-    public IQueue<Record<?>>[] getShuffles(HazelcastInstance hazelcast, int pipelineId, int targetIndex) {
+    public IQueue<Record<?>>[] getShuffles(
+            HazelcastInstance hazelcast, int pipelineId, int targetIndex) {
         checkArgument(targetIndex >= 0 && targetIndex < targetPartitions);
         IQueue<Record<?>>[] shuffles = new IQueue[getInputPartitions()];
         for (int inputIndex = 0; inputIndex < getInputPartitions(); inputIndex++) {
@@ -83,6 +90,8 @@ public class ShufflePartitionStrategy extends ShuffleStrategy {
     }
 
     private String generateQueueName(int pipelineId, int inputIndex, int targetIndex) {
-        return String.format("ShufflePartition-Queue[%s-%s-%s-%s]", getJobId(), pipelineId, inputIndex, targetIndex);
+        return String.format(
+                "ShufflePartition-Queue[%s-%s-%s-%s]",
+                getJobId(), pipelineId, inputIndex, targetIndex);
     }
 }

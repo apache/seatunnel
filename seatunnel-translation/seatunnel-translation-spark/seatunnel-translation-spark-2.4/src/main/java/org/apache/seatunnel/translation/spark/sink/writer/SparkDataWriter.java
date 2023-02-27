@@ -38,15 +38,16 @@ public class SparkDataWriter<CommitInfoT, StateT> implements DataWriter<Internal
 
     private final SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter;
 
-    @Nullable
-    private final SinkCommitter<CommitInfoT> sinkCommitter;
+    @Nullable private final SinkCommitter<CommitInfoT> sinkCommitter;
     private final RowConverter<InternalRow> rowConverter;
     private CommitInfoT latestCommitInfoT;
     private long epochId;
 
-    SparkDataWriter(SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter,
-                    @Nullable SinkCommitter<CommitInfoT> sinkCommitter,
-                    SeaTunnelDataType<?> dataType, long epochId) {
+    SparkDataWriter(
+            SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter,
+            @Nullable SinkCommitter<CommitInfoT> sinkCommitter,
+            SeaTunnelDataType<?> dataType,
+            long epochId) {
         this.sinkWriter = sinkWriter;
         this.sinkCommitter = sinkCommitter;
         this.rowConverter = new InternalRowConverter(dataType);
@@ -63,9 +64,11 @@ public class SparkDataWriter<CommitInfoT, StateT> implements DataWriter<Internal
         // We combine the prepareCommit and commit in this method.
         // If this method fails, we need to rollback the transaction in the abort method.
         // 1. prepareCommit fails:
-        //   1.1. We don't have the commit info, we need to execute the sinkWriter#abort to rollback the transaction.
+        //   1.1. We don't have the commit info, we need to execute the sinkWriter#abort to rollback
+        // the transaction.
         // 2. commit fails
-        //   2.1. We have the commit info, we need to execute the sinkCommitter#abort to rollback the transaction.
+        //   2.1. We have the commit info, we need to execute the sinkCommitter#abort to rollback
+        // the transaction.
         Optional<CommitInfoT> commitInfoTOptional = sinkWriter.prepareCommit();
         commitInfoTOptional.ifPresent(commitInfoT -> latestCommitInfoT = commitInfoT);
         sinkWriter.snapshotState(epochId++);
@@ -76,7 +79,8 @@ public class SparkDataWriter<CommitInfoT, StateT> implements DataWriter<Internal
                 sinkCommitter.commit(Collections.singletonList(latestCommitInfoT));
             }
         }
-        SparkWriterCommitMessage<CommitInfoT> sparkWriterCommitMessage = new SparkWriterCommitMessage<>(latestCommitInfoT);
+        SparkWriterCommitMessage<CommitInfoT> sparkWriterCommitMessage =
+                new SparkWriterCommitMessage<>(latestCommitInfoT);
         cleanCommitInfo();
         sinkWriter.close();
         return sparkWriterCommitMessage;

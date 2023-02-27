@@ -17,15 +17,6 @@
 
 package org.apache.seatunnel.engine.server.task;
 
-import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
-import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.CANCELED;
-import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.CLOSED;
-import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.PREPARE_CLOSE;
-import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.READY_START;
-import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.RUNNING;
-import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.STARTING;
-import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.WAITING_RESTORE;
-
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -66,6 +57,15 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.CANCELED;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.CLOSED;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.PREPARE_CLOSE;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.READY_START;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.RUNNING;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.STARTING;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.WAITING_RESTORE;
+
 public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends CoordinatorTask {
 
     private static final ILogger LOGGER = Logger.getLogger(SourceSplitEnumeratorTask.class);
@@ -93,8 +93,11 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         currState = SeaTunnelTaskState.INIT;
         super.init();
         readerRegisterComplete = false;
-        LOGGER.info("starting seatunnel source split enumerator task, source name: " + source.getName());
-        enumeratorContext = new SeaTunnelSplitEnumeratorContext<>(this.source.getParallelism(), this);
+        LOGGER.info(
+                "starting seatunnel source split enumerator task, source name: "
+                        + source.getName());
+        enumeratorContext =
+                new SeaTunnelSplitEnumeratorContext<>(this.source.getParallelism(), this);
         enumeratorStateSerializer = this.source.getSource().getEnumeratorStateSerializer();
         taskMemberMapping = new ConcurrentHashMap<>();
         taskIDToTaskLocationMapping = new ConcurrentHashMap<>();
@@ -112,14 +115,14 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     }
 
     @SuppressWarnings("unchecked")
-    public SourceSplitEnumeratorTask(long jobID, TaskLocation taskID, SourceAction<?, SplitT, ?> source) {
+    public SourceSplitEnumeratorTask(
+            long jobID, TaskLocation taskID, SourceAction<?, SplitT, ?> source) {
         super(jobID, taskID);
         this.source = (SourceAction<?, SplitT, Serializable>) source;
         this.currState = SeaTunnelTaskState.CREATED;
     }
 
-    @NonNull
-    @Override
+    @NonNull @Override
     public ProgressState call() throws Exception {
         stateProcess();
         return progress.toState();
@@ -142,24 +145,33 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             sendToAllReader(location -> new BarrierFlowOperation(barrier, location));
         }
         if (barrier.snapshot()) {
-            this.getExecutionContext().sendToMaster(new TaskAcknowledgeOperation(this.taskLocation, (CheckpointBarrier) barrier,
-                Collections.singletonList(new ActionSubtaskState(source.getId(), -1, Collections.singletonList(serialize)))));
+            this.getExecutionContext()
+                    .sendToMaster(
+                            new TaskAcknowledgeOperation(
+                                    this.taskLocation,
+                                    (CheckpointBarrier) barrier,
+                                    Collections.singletonList(
+                                            new ActionSubtaskState(
+                                                    source.getId(),
+                                                    -1,
+                                                    Collections.singletonList(serialize)))));
         }
     }
 
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
-        Optional<Serializable> state = actionStateList.stream()
-            .map(ActionSubtaskState::getState)
-            .flatMap(Collection::stream).filter(Objects::nonNull)
-            .map(bytes -> sneaky(() -> enumeratorStateSerializer.deserialize(bytes)))
-            .findFirst();
+        Optional<Serializable> state =
+                actionStateList.stream()
+                        .map(ActionSubtaskState::getState)
+                        .flatMap(Collection::stream)
+                        .filter(Objects::nonNull)
+                        .map(bytes -> sneaky(() -> enumeratorStateSerializer.deserialize(bytes)))
+                        .findFirst();
         if (state.isPresent()) {
-            this.enumerator = this.source.getSource()
-                .restoreEnumerator(enumeratorContext, state.get());
+            this.enumerator =
+                    this.source.getSource().restoreEnumerator(enumeratorContext, state.get());
         } else {
-            this.enumerator = this.source.getSource()
-                .createEnumerator(enumeratorContext);
+            this.enumerator = this.source.getSource().createEnumerator(enumeratorContext);
         }
         restoreComplete = true;
     }
@@ -242,7 +254,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             case RUNNING:
                 // The reader closes automatically after reading
                 if (prepareCloseStatus) {
-                    this.getExecutionContext().sendToMaster(new LastCheckpointNotifyOperation(jobID, taskLocation));
+                    this.getExecutionContext()
+                            .sendToMaster(new LastCheckpointNotifyOperation(jobID, taskLocation));
                     currState = PREPARE_CLOSE;
                 } else {
                     Thread.sleep(100);
@@ -258,7 +271,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             case CLOSED:
                 this.close();
                 return;
-            // TODO support cancel by outside
+                // TODO support cancel by outside
             case CANCELLING:
                 this.close();
                 currState = CANCELED;
@@ -269,13 +282,18 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     }
 
     public Set<Integer> getRegisteredReaders() {
-        return taskMemberMapping.keySet().stream().map(TaskLocation::getTaskIndex).collect(Collectors.toSet());
+        return taskMemberMapping.keySet().stream()
+                .map(TaskLocation::getTaskIndex)
+                .collect(Collectors.toSet());
     }
 
     private void sendToAllReader(Function<TaskLocation, Operation> function) {
         List<InvocationFuture<?>> futures = new ArrayList<>();
-        taskMemberMapping.forEach((location, address) ->
-            futures.add(this.getExecutionContext().sendToMember(function.apply(location), address)));
+        taskMemberMapping.forEach(
+                (location, address) ->
+                        futures.add(
+                                this.getExecutionContext()
+                                        .sendToMember(function.apply(location), address)));
         futures.forEach(InvocationFuture::join);
     }
 

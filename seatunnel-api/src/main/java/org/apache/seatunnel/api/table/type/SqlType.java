@@ -17,9 +17,7 @@
 
 package org.apache.seatunnel.api.table.type;
 
-/**
- * The sql type of {@link SeaTunnelDataType}.
- */
+/** The sql type of {@link SeaTunnelDataType}. */
 public enum SqlType {
     ARRAY,
     MAP,

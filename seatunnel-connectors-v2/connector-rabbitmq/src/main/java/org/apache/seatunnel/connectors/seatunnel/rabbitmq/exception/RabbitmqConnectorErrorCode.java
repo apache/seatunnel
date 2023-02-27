@@ -24,7 +24,8 @@ public enum RabbitmqConnectorErrorCode implements SeaTunnelErrorCode {
     CREATE_RABBITMQ_CLIENT_FAILED("RABBITMQ-02", "create rabbitmq client failed"),
     CLOSE_CONNECTION_FAILED("RABBITMQ-03", "close connection failed"),
     SEND_MESSAGE_FAILED("RABBITMQ-04", "send messages failed"),
-    MESSAGE_ACK_FAILED("RABBITMQ-05", "messages could not be acknowledged during checkpoint creation"),
+    MESSAGE_ACK_FAILED(
+            "RABBITMQ-05", "messages could not be acknowledged during checkpoint creation"),
     MESSAGE_ACK_REJECTED("RABBITMQ-06", "messages could not be acknowledged with basicReject"),
     PARSE_URI_FAILED("RABBITMQ-07", "parse uri failed"),
     INIT_SSL_CONTEXT_FAILED("RABBITMQ-08", "initialize ssl context failed"),

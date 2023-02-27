@@ -17,11 +17,6 @@
 
 package org.apache.seatunnel.e2e.common.container;
 
-import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
-import static org.apache.seatunnel.e2e.common.util.ContainerUtil.adaptPathForWin;
-import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyConfigFileToContainer;
-import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyConnectorJarToContainer;
-
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.slf4j.Logger;
@@ -35,6 +30,11 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
+import static org.apache.seatunnel.e2e.common.util.ContainerUtil.adaptPathForWin;
+import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyConfigFileToContainer;
+import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyConnectorJarToContainer;
+
 public abstract class AbstractTestContainer implements TestContainer {
 
     protected static final Logger LOG = LoggerFactory.getLogger(AbstractTestContainer.class);
@@ -47,7 +47,12 @@ public abstract class AbstractTestContainer implements TestContainer {
 
     public AbstractTestContainer() {
         this.startModuleName = getStartModuleName();
-        this.startModuleFullPath = PROJECT_ROOT_PATH + File.separator + START_ROOT_MODULE_NAME + File.separator + this.startModuleName;
+        this.startModuleFullPath =
+                PROJECT_ROOT_PATH
+                        + File.separator
+                        + START_ROOT_MODULE_NAME
+                        + File.separator
+                        + this.startModuleName;
         ContainerUtil.checkPathExist(startModuleFullPath);
     }
 
@@ -66,38 +71,40 @@ public abstract class AbstractTestContainer implements TestContainer {
     protected abstract List<String> getExtraStartShellCommands();
 
     /**
-     * TODO: issue #2733, Reimplement all modules that override the method, remove this method & use {@link ContainerExtendedFactory}.
+     * TODO: issue #2733, Reimplement all modules that override the method, remove this method & use
+     * {@link ContainerExtendedFactory}.
      */
-    protected void executeExtraCommands(GenericContainer<?> container) throws IOException, InterruptedException {
-        //do nothing
+    protected void executeExtraCommands(GenericContainer<?> container)
+            throws IOException, InterruptedException {
+        // do nothing
     }
 
     protected void copySeaTunnelStarterToContainer(GenericContainer<?> container) {
-        ContainerUtil.copySeaTunnelStarterToContainer(container,
-            this.startModuleName,
-            this.startModuleFullPath,
-            SEATUNNEL_HOME);
+        ContainerUtil.copySeaTunnelStarterToContainer(
+                container, this.startModuleName, this.startModuleFullPath, SEATUNNEL_HOME);
     }
 
     protected void copySeaTunnelStarterLoggingToContainer(GenericContainer<?> container) {
-        ContainerUtil.copySeaTunnelStarterLoggingToContainer(container,
-            this.startModuleFullPath,
-            SEATUNNEL_HOME);
+        ContainerUtil.copySeaTunnelStarterLoggingToContainer(
+                container, this.startModuleFullPath, SEATUNNEL_HOME);
     }
 
-    protected Container.ExecResult executeJob(GenericContainer<?> container, String confFile) throws IOException, InterruptedException {
+    protected Container.ExecResult executeJob(GenericContainer<?> container, String confFile)
+            throws IOException, InterruptedException {
         final String confInContainerPath = copyConfigFileToContainer(container, confFile);
         // copy connectors
-        copyConnectorJarToContainer(container,
-            confFile,
-            getConnectorModulePath(),
-            getConnectorNamePrefix(),
-            getConnectorType(),
-            SEATUNNEL_HOME);
+        copyConnectorJarToContainer(
+                container,
+                confFile,
+                getConnectorModulePath(),
+                getConnectorNamePrefix(),
+                getConnectorType(),
+                SEATUNNEL_HOME);
         return executeCommand(container, confInContainerPath);
     }
 
-    protected Container.ExecResult executeCommand(GenericContainer<?> container, String configPath) throws IOException, InterruptedException {
+    protected Container.ExecResult executeCommand(GenericContainer<?> container, String configPath)
+            throws IOException, InterruptedException {
         final List<String> command = new ArrayList<>();
         String binPath = Paths.get(SEATUNNEL_HOME, "bin", getStartShellName()).toString();
         // base command
@@ -106,26 +113,36 @@ public abstract class AbstractTestContainer implements TestContainer {
         command.add(adaptPathForWin(configPath));
         command.addAll(getExtraStartShellCommands());
 
-        LOG.info("Execute config file: {} to Container[{}] "
-                + "\n==================== Shell Command start ====================\n"
-                + "{}"
-                + "\n==================== Shell Command end   ====================",
-                configPath, container.getDockerImageName(), String.join(" ", command));
-        Container.ExecResult execResult = container.execInContainer("bash", "-c", String.join(" ", command));
+        LOG.info(
+                "Execute config file: {} to Container[{}] "
+                        + "\n==================== Shell Command start ====================\n"
+                        + "{}"
+                        + "\n==================== Shell Command end   ====================",
+                configPath,
+                container.getDockerImageName(),
+                String.join(" ", command));
+        Container.ExecResult execResult =
+                container.execInContainer("bash", "-c", String.join(" ", command));
 
         if (execResult.getStdout() != null && execResult.getStdout().length() > 0) {
-            LOG.info("Execute config file: {} to Container[{}] STDOUT:"
-                    + "\n==================== STDOUT start ====================\n"
-                    + "{}"
-                    + "\n==================== STDOUT end   ====================",
-                    configPath, container.getDockerImageName(), execResult.getStdout());
+            LOG.info(
+                    "Execute config file: {} to Container[{}] STDOUT:"
+                            + "\n==================== STDOUT start ====================\n"
+                            + "{}"
+                            + "\n==================== STDOUT end   ====================",
+                    configPath,
+                    container.getDockerImageName(),
+                    execResult.getStdout());
         }
         if (execResult.getStderr() != null && execResult.getStderr().length() > 0) {
-            LOG.error("Execute config file: {} to Container[{}] STDERR:"
-                    + "\n==================== STDERR start ====================\n"
-                    + "{}"
-                    + "\n==================== STDERR end   ====================",
-                    configPath, container.getDockerImageName(), execResult.getStderr());
+            LOG.error(
+                    "Execute config file: {} to Container[{}] STDERR:"
+                            + "\n==================== STDERR start ====================\n"
+                            + "{}"
+                            + "\n==================== STDERR end   ====================",
+                    configPath,
+                    container.getDockerImageName(),
+                    execResult.getStderr());
         }
         return execResult;
     }

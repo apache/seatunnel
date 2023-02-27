@@ -51,14 +51,21 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     protected final HttpParameter httpParameter;
     protected HttpClientProvider httpClient;
     private final DeserializationCollector deserializationCollector;
-    private static final Option[] DEFAULT_OPTIONS =
-        {Option.SUPPRESS_EXCEPTIONS, Option.ALWAYS_RETURN_LIST, Option.DEFAULT_PATH_LEAF_TO_NULL};
+    private static final Option[] DEFAULT_OPTIONS = {
+        Option.SUPPRESS_EXCEPTIONS, Option.ALWAYS_RETURN_LIST, Option.DEFAULT_PATH_LEAF_TO_NULL
+    };
     private JsonPath[] jsonPaths;
     private final JsonField jsonField;
     private final String contentJson;
-    private final Configuration jsonConfiguration = Configuration.defaultConfiguration().addOptions(DEFAULT_OPTIONS);
+    private final Configuration jsonConfiguration =
+            Configuration.defaultConfiguration().addOptions(DEFAULT_OPTIONS);
 
-    public HttpSourceReader(HttpParameter httpParameter, SingleSplitReaderContext context, DeserializationSchema<SeaTunnelRow> deserializationSchema, JsonField jsonField, String contentJson) {
+    public HttpSourceReader(
+            HttpParameter httpParameter,
+            SingleSplitReaderContext context,
+            DeserializationSchema<SeaTunnelRow> deserializationSchema,
+            JsonField jsonField,
+            String contentJson) {
         this.context = context;
         this.httpParameter = httpParameter;
         this.deserializationCollector = new DeserializationCollector(deserializationSchema);
@@ -81,7 +88,13 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         try {
-            HttpResponse response = httpClient.execute(this.httpParameter.getUrl(), this.httpParameter.getMethod().getMethod(), this.httpParameter.getHeaders(), this.httpParameter.getParams(), this.httpParameter.getBody());
+            HttpResponse response =
+                    httpClient.execute(
+                            this.httpParameter.getUrl(),
+                            this.httpParameter.getMethod().getMethod(),
+                            this.httpParameter.getHeaders(),
+                            this.httpParameter.getParams(),
+                            this.httpParameter.getBody());
             if (HttpResponse.STATUS_OK == response.getCode()) {
                 String content = response.getContent();
                 if (!Strings.isNullOrEmpty(content)) {
@@ -90,13 +103,18 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                     }
                     if (jsonField != null) {
                         this.initJsonPath(jsonField);
-                        content = JsonUtils.toJsonNode(parseToMap(decodeJSON(content), jsonField)).toString();
+                        content =
+                                JsonUtils.toJsonNode(parseToMap(decodeJSON(content), jsonField))
+                                        .toString();
                     }
                     deserializationCollector.collect(content.getBytes(), output);
                 }
                 return;
             }
-            log.error("http client execute exception, http response status code:[{}], content:[{}]", response.getCode(), response.getContent());
+            log.error(
+                    "http client execute exception, http response status code:[{}], content:[{}]",
+                    response.getCode(),
+                    response.getContent());
         } catch (Exception e) {
             log.error(e.getMessage(), e);
         } finally {
@@ -114,15 +132,16 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     private List<Map<String, String>> parseToMap(List<List<String>> datas, JsonField jsonField) {
         List<Map<String, String>> decodeDatas = new ArrayList<>(datas.size());
-        String[] keys = jsonField.getFields().keySet().toArray(new String[]{});
+        String[] keys = jsonField.getFields().keySet().toArray(new String[] {});
 
         for (List<String> data : datas) {
             Map<String, String> decodeData = new HashMap<>(jsonField.getFields().size());
             final int[] index = {0};
-            data.forEach(field -> {
-                decodeData.put(keys[index[0]], field);
-                index[0]++;
-            });
+            data.forEach(
+                    field -> {
+                        decodeData.put(keys[index[0]], field);
+                        index[0]++;
+                    });
             decodeDatas.add(decodeData);
         }
 
@@ -141,10 +160,13 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             List<?> result = results.get(i);
             if (result0.size() != result.size()) {
                 throw new HttpConnectorException(
-                    HttpConnectorErrorCode.FIELD_DATA_IS_INCONSISTENT,
-                    String.format(
-                        "[%s](%d) and [%s](%d) the number of parsing records is inconsistent.",
-                        jsonPaths[0].getPath(), result0.size(), jsonPaths[i].getPath(), result.size()));
+                        HttpConnectorErrorCode.FIELD_DATA_IS_INCONSISTENT,
+                        String.format(
+                                "[%s](%d) and [%s](%d) the number of parsing records is inconsistent.",
+                                jsonPaths[0].getPath(),
+                                result0.size(),
+                                jsonPaths[i].getPath(),
+                                result.size()));
             }
         }
 
@@ -183,7 +205,9 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private void initJsonPath(JsonField jsonField) {
         jsonPaths = new JsonPath[jsonField.getFields().size()];
         for (int index = 0; index < jsonField.getFields().keySet().size(); index++) {
-            jsonPaths[index] = JsonPath.compile(jsonField.getFields().values().toArray(new String[]{})[index]);
+            jsonPaths[index] =
+                    JsonPath.compile(
+                            jsonField.getFields().values().toArray(new String[] {})[index]);
         }
     }
 }

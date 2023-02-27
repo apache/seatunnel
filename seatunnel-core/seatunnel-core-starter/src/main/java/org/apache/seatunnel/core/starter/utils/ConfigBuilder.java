@@ -28,13 +28,12 @@ import lombok.extern.slf4j.Slf4j;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-/**
- * Used to build the {@link Config} from config file.
- */
+/** Used to build the {@link Config} from config file. */
 @Slf4j
 public class ConfigBuilder {
 
-    private static final ConfigRenderOptions CONFIG_RENDER_OPTIONS = ConfigRenderOptions.concise().setFormatted(true);
+    private static final ConfigRenderOptions CONFIG_RENDER_OPTIONS =
+            ConfigRenderOptions.concise().setFormatted(true);
 
     private ConfigBuilder() {
         // utility class and cannot be instantiated
@@ -47,11 +46,12 @@ public class ConfigBuilder {
 
     public static Config of(@NonNull Path filePath) {
         log.info("Loading config file from path: {}", filePath);
-        Config config = ConfigFactory
-                .parseFile(filePath.toFile())
-                .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-                .resolveWith(ConfigFactory.systemProperties(),
-                        ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        Config config =
+                ConfigFactory.parseFile(filePath.toFile())
+                        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
+                        .resolveWith(
+                                ConfigFactory.systemProperties(),
+                                ConfigResolveOptions.defaults().setAllowUnresolved(true));
         log.info("Parsed config file: {}", config.root().render(CONFIG_RENDER_OPTIONS));
         return config;
     }

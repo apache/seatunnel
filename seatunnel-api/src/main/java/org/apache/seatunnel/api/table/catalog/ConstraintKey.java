@@ -17,13 +17,13 @@
 
 package org.apache.seatunnel.api.table.catalog;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.io.Serializable;
 import java.util.List;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 @Data
 public class ConstraintKey implements Serializable {
@@ -35,9 +35,10 @@ public class ConstraintKey implements Serializable {
 
     private final List<ConstraintKeyColumn> columnNames;
 
-    private ConstraintKey(ConstraintType constraintType,
-                          String constraintName,
-                          List<ConstraintKeyColumn> columnNames) {
+    private ConstraintKey(
+            ConstraintType constraintType,
+            String constraintName,
+            List<ConstraintKeyColumn> columnNames) {
         checkNotNull(constraintType, "constraintType must not be null");
 
         this.constraintType = constraintType;
@@ -45,15 +46,16 @@ public class ConstraintKey implements Serializable {
         this.columnNames = columnNames;
     }
 
-    public static ConstraintKey of(ConstraintType constraintType,
-                                   String constraintName,
-                                   List<ConstraintKeyColumn> columnNames) {
+    public static ConstraintKey of(
+            ConstraintType constraintType,
+            String constraintName,
+            List<ConstraintKeyColumn> columnNames) {
         return new ConstraintKey(constraintType, constraintName, columnNames);
     }
 
     @Data
     @AllArgsConstructor
-    public static class ConstraintKeyColumn implements Serializable{
+    public static class ConstraintKeyColumn implements Serializable {
         private final String columnName;
         private final ColumnSortType sortType;
 
@@ -72,5 +74,4 @@ public class ConstraintKey implements Serializable {
         ASC,
         DESC
     }
-
 }

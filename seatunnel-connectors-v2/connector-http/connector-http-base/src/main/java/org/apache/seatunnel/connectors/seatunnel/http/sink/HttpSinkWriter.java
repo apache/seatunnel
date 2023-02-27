@@ -42,9 +42,10 @@ public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         this(seaTunnelRowType, httpParameter, new JsonSerializationSchema(seaTunnelRowType));
     }
 
-    public HttpSinkWriter(SeaTunnelRowType seaTunnelRowType,
-                          HttpParameter httpParameter,
-                          SerializationSchema serializationSchema) {
+    public HttpSinkWriter(
+            SeaTunnelRowType seaTunnelRowType,
+            HttpParameter httpParameter,
+            SerializationSchema serializationSchema) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.httpParameter = httpParameter;
         this.httpClient = new HttpClientProvider(httpParameter);
@@ -57,11 +58,15 @@ public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         String body = new String(serialize);
         try {
             // only support post web hook
-            HttpResponse response = httpClient.doPost(httpParameter.getUrl(), httpParameter.getHeaders(), body);
+            HttpResponse response =
+                    httpClient.doPost(httpParameter.getUrl(), httpParameter.getHeaders(), body);
             if (HttpResponse.STATUS_OK == response.getCode()) {
                 return;
             }
-            log.error("http client execute exception, http response status code:[{}], content:[{}]", response.getCode(), response.getContent());
+            log.error(
+                    "http client execute exception, http response status code:[{}], content:[{}]",
+                    response.getCode(),
+                    response.getContent());
         } catch (Exception e) {
             log.error(e.getMessage(), e);
         }

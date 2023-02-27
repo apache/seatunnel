@@ -23,10 +23,10 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-public class MultipleRowType implements SeaTunnelDataType<SeaTunnelRow>, Iterable<Map.Entry<String, SeaTunnelRowType>> {
+public class MultipleRowType
+        implements SeaTunnelDataType<SeaTunnelRow>, Iterable<Map.Entry<String, SeaTunnelRowType>> {
     private final Map<String, SeaTunnelRowType> rowTypeMap;
-    @Getter
-    private String[] tableIds;
+    @Getter private String[] tableIds;
 
     public MultipleRowType(String[] tableIds, SeaTunnelRowType[] rowTypes) {
         Map<String, SeaTunnelRowType> rowTypeMap = new LinkedHashMap<>();

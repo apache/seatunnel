@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.email.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -24,8 +26,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
 
@@ -59,5 +59,4 @@ public class EmailSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     public void prepare(Config pluginConfig) {
         this.pluginConfig = pluginConfig;
     }
-
 }

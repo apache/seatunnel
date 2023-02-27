@@ -36,18 +36,28 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPartitionReader {
     protected final Map<Integer, InternalRowCollector> collectorMap;
 
-    public CoordinatedMicroBatchPartitionReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source,
-                                                Integer parallelism,
-                                                Integer subtaskId,
-                                                Integer checkpointId,
-                                                Integer checkpointInterval,
-                                                String checkpointPath,
-                                                String hdfsRoot,
-                                                String hdfsUser) {
-        super(source, parallelism, subtaskId, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser);
+    public CoordinatedMicroBatchPartitionReader(
+            SeaTunnelSource<SeaTunnelRow, ?, ?> source,
+            Integer parallelism,
+            Integer subtaskId,
+            Integer checkpointId,
+            Integer checkpointInterval,
+            String checkpointPath,
+            String hdfsRoot,
+            String hdfsUser) {
+        super(
+                source,
+                parallelism,
+                subtaskId,
+                checkpointId,
+                checkpointInterval,
+                checkpointPath,
+                hdfsRoot,
+                hdfsUser);
         this.collectorMap = new HashMap<>(parallelism);
         for (int i = 0; i < parallelism; i++) {
-            collectorMap.put(i, new InternalRowCollector(handover, new Object(), source.getProducedType()));
+            collectorMap.put(
+                    i, new InternalRowCollector(handover, new Object(), source.getProducedType()));
         }
     }
 
@@ -57,12 +67,18 @@ public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPart
             int checkpointRetries = Math.max(1, CHECKPOINT_RETRIES);
             do {
                 checkpointRetries--;
-                long collectedReader = collectorMap.values().stream().mapToLong(e -> e.collectTotalCount() > 0 ? 1 : 0).sum();
+                long collectedReader =
+                        collectorMap.values().stream()
+                                .mapToLong(e -> e.collectTotalCount() > 0 ? 1 : 0)
+                                .sum();
                 if (collectedReader == 0) {
                     Thread.sleep(CHECKPOINT_SLEEP_INTERVAL);
                 }
 
-                collectedReader = collectorMap.values().stream().mapToLong(e -> e.collectTotalCount() > 0 ? 1 : 0).sum();
+                collectedReader =
+                        collectorMap.values().stream()
+                                .mapToLong(e -> e.collectTotalCount() > 0 ? 1 : 0)
+                                .sum();
                 if (collectedReader != 0 || checkpointRetries == 0) {
                     checkpointRetries = 0;
                     internalCheckpoint(collectorMap.values().iterator(), 0);
@@ -73,7 +89,8 @@ public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPart
         }
     }
 
-    private void internalCheckpoint(Iterator<InternalRowCollector> iterator, int loop) throws Exception {
+    private void internalCheckpoint(Iterator<InternalRowCollector> iterator, int loop)
+            throws Exception {
         if (!iterator.hasNext()) {
             return;
         }
@@ -104,36 +121,44 @@ public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPart
 
     @Override
     protected BaseSourceFunction<SeaTunnelRow> createInternalSource() {
-        return new InternalCoordinatedSource<>(source,
-            null,
-            parallelism);
+        return new InternalCoordinatedSource<>(source, null, parallelism);
     }
 
-    public class InternalCoordinatedSource<SplitT extends SourceSplit, StateT extends Serializable> extends CoordinatedSource<SeaTunnelRow, SplitT, StateT> {
+    public class InternalCoordinatedSource<SplitT extends SourceSplit, StateT extends Serializable>
+            extends CoordinatedSource<SeaTunnelRow, SplitT, StateT> {
 
-        public InternalCoordinatedSource(SeaTunnelSource<SeaTunnelRow, SplitT, StateT> source, Map<Integer, List<byte[]>> restoredState, int parallelism) {
+        public InternalCoordinatedSource(
+                SeaTunnelSource<SeaTunnelRow, SplitT, StateT> source,
+                Map<Integer, List<byte[]>> restoredState,
+                int parallelism) {
             super(source, restoredState, parallelism);
         }
 
         @Override
         public void run(Collector<SeaTunnelRow> collector) throws Exception {
-            readerMap.entrySet().parallelStream().forEach(entry -> {
-                final AtomicBoolean flag = readerRunningMap.get(entry.getKey());
-                final SourceReader<SeaTunnelRow, SplitT> reader = entry.getValue();
-                final Collector<SeaTunnelRow> rowCollector = collectorMap.get(entry.getKey());
-                executorService.execute(() -> {
-                    while (flag.get()) {
-                        try {
-                            reader.pollNext(rowCollector);
-                            Thread.sleep(SLEEP_TIME_INTERVAL);
-                        } catch (Exception e) {
-                            this.running = false;
-                            flag.set(false);
-                            throw new RuntimeException(e);
-                        }
-                    }
-                });
-            });
+            readerMap
+                    .entrySet()
+                    .parallelStream()
+                    .forEach(
+                            entry -> {
+                                final AtomicBoolean flag = readerRunningMap.get(entry.getKey());
+                                final SourceReader<SeaTunnelRow, SplitT> reader = entry.getValue();
+                                final Collector<SeaTunnelRow> rowCollector =
+                                        collectorMap.get(entry.getKey());
+                                executorService.execute(
+                                        () -> {
+                                            while (flag.get()) {
+                                                try {
+                                                    reader.pollNext(rowCollector);
+                                                    Thread.sleep(SLEEP_TIME_INTERVAL);
+                                                } catch (Exception e) {
+                                                    this.running = false;
+                                                    flag.set(false);
+                                                    throw new RuntimeException(e);
+                                                }
+                                            }
+                                        });
+                            });
             splitEnumerator.run();
             while (this.running) {
                 Thread.sleep(SLEEP_TIME_INTERVAL);

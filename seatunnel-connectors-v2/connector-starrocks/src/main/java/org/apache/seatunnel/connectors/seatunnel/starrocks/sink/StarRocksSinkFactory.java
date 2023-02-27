@@ -28,8 +28,9 @@ import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksOptions;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksSinkOptions;
 
-import com.google.auto.service.AutoService;
 import org.apache.commons.lang3.StringUtils;
+
+import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
 public class StarRocksSinkFactory implements TableSinkFactory {
@@ -41,13 +42,21 @@ public class StarRocksSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-            .required(StarRocksOptions.USERNAME, StarRocksOptions.PASSWORD)
-            .required(StarRocksSinkOptions.DATABASE, StarRocksOptions.BASE_URL)
-            .required(StarRocksSinkOptions.NODE_URLS)
-            .optional(StarRocksSinkOptions.TABLE, StarRocksSinkOptions.LABEL_PREFIX, StarRocksSinkOptions.BATCH_MAX_SIZE, StarRocksSinkOptions.BATCH_MAX_BYTES,
-                StarRocksSinkOptions.BATCH_INTERVAL_MS, StarRocksSinkOptions.MAX_RETRIES, StarRocksSinkOptions.MAX_RETRY_BACKOFF_MS,
-                StarRocksSinkOptions.RETRY_BACKOFF_MULTIPLIER_MS, StarRocksSinkOptions.STARROCKS_CONFIG, StarRocksSinkOptions.ENABLE_UPSERT_DELETE,
-                StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE)
+                .required(StarRocksOptions.USERNAME, StarRocksOptions.PASSWORD)
+                .required(StarRocksSinkOptions.DATABASE, StarRocksOptions.BASE_URL)
+                .required(StarRocksSinkOptions.NODE_URLS)
+                .optional(
+                        StarRocksSinkOptions.TABLE,
+                        StarRocksSinkOptions.LABEL_PREFIX,
+                        StarRocksSinkOptions.BATCH_MAX_SIZE,
+                        StarRocksSinkOptions.BATCH_MAX_BYTES,
+                        StarRocksSinkOptions.BATCH_INTERVAL_MS,
+                        StarRocksSinkOptions.MAX_RETRIES,
+                        StarRocksSinkOptions.MAX_RETRY_BACKOFF_MS,
+                        StarRocksSinkOptions.RETRY_BACKOFF_MULTIPLIER_MS,
+                        StarRocksSinkOptions.STARROCKS_CONFIG,
+                        StarRocksSinkOptions.ENABLE_UPSERT_DELETE,
+                        StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE)
                 .build();
     }
 
@@ -58,8 +67,6 @@ public class StarRocksSinkFactory implements TableSinkFactory {
         if (StringUtils.isBlank(sinkConfig.getTable())) {
             sinkConfig.setTable(catalogTable.getTableId().getTableName());
         }
-        return () -> new StarRocksSink(DataSaveMode.KEEP_SCHEMA_AND_DATA,
-            sinkConfig,
-            catalogTable);
+        return () -> new StarRocksSink(DataSaveMode.KEEP_SCHEMA_AND_DATA, sinkConfig, catalogTable);
     }
 }

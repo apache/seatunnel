@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.catalog;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -31,7 +29,6 @@ import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistExcepti
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.Config;
 
-import com.google.common.collect.Lists;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.CreateTopicsResult;
@@ -43,8 +40,11 @@ import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.TopicPartitionInfo;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.Lists;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -54,9 +54,12 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 /**
  * This is a KafkaCatalog implementation.
- * <p> In kafka the database and table both are the topic name.
+ *
+ * <p>In kafka the database and table both are the topic name.
  */
 public class KafkaCatalog implements Catalog {
 
@@ -84,13 +87,19 @@ public class KafkaCatalog implements Catalog {
             if (topicDescription == null) {
                 throw new DatabaseNotExistException(catalogName, defaultTopic);
             }
-            LOGGER.info("Catalog {} is established connection to {}, the default database is {}",
-                catalogName, bootstrapServers, topicDescription.name());
+            LOGGER.info(
+                    "Catalog {} is established connection to {}, the default database is {}",
+                    catalogName,
+                    bootstrapServers,
+                    topicDescription.name());
         } catch (DatabaseNotExistException e) {
             throw e;
         } catch (Exception e) {
             throw new CatalogException(
-                String.format("Catalog : %s establish connection to %s error", catalogName, bootstrapServers), e);
+                    String.format(
+                            "Catalog : %s establish connection to %s error",
+                            catalogName, bootstrapServers),
+                    e);
         }
     }
 
@@ -112,7 +121,10 @@ public class KafkaCatalog implements Catalog {
             return topicDescription != null;
         } catch (Exception e) {
             throw new CatalogException(
-                String.format("Catalog : %s check database : %s exists error", catalogName, databaseName), e);
+                    String.format(
+                            "Catalog : %s check database : %s exists error",
+                            catalogName, databaseName),
+                    e);
         }
     }
 
@@ -123,12 +135,14 @@ public class KafkaCatalog implements Catalog {
             Set<String> topics = listTopicsResult.names().get();
             return Lists.newArrayList(topics);
         } catch (InterruptedException | ExecutionException e) {
-            throw new CatalogException(String.format("Listing database in catalog %s error", catalogName), e);
+            throw new CatalogException(
+                    String.format("Listing database in catalog %s error", catalogName), e);
         }
     }
 
     @Override
-    public List<String> listTables(String databaseName) throws CatalogException, DatabaseNotExistException {
+    public List<String> listTables(String databaseName)
+            throws CatalogException, DatabaseNotExistException {
         if (!databaseExists(databaseName)) {
             throw new DatabaseNotExistException(catalogName, databaseName);
         }
@@ -142,7 +156,8 @@ public class KafkaCatalog implements Catalog {
     }
 
     @Override
-    public CatalogTable getTable(TablePath tablePath) throws CatalogException, TableNotExistException {
+    public CatalogTable getTable(TablePath tablePath)
+            throws CatalogException, TableNotExistException {
         checkNotNull(tablePath, "tablePath cannot be null");
         TopicDescription topicDescription;
         try {
@@ -152,23 +167,24 @@ public class KafkaCatalog implements Catalog {
             }
         } catch (ExecutionException | InterruptedException e) {
             throw new CatalogException(
-                String.format("Catalog : %s get table : %s error", catalogName, tablePath), e);
+                    String.format("Catalog : %s get table : %s error", catalogName, tablePath), e);
         }
-        TableIdentifier tableIdentifier = TableIdentifier.of(catalogName, tablePath.getDatabaseName(), tablePath.getTableName());
+        TableIdentifier tableIdentifier =
+                TableIdentifier.of(
+                        catalogName, tablePath.getDatabaseName(), tablePath.getTableName());
         // todo: Set the schema of the table?
-        TableSchema tableSchema = TableSchema.builder()
-            .build();
+        TableSchema tableSchema = TableSchema.builder().build();
         return CatalogTable.of(
-            tableIdentifier,
-            tableSchema,
-            buildConnectorOptions(topicDescription),
-            Collections.emptyList(),
-            "");
+                tableIdentifier,
+                tableSchema,
+                buildConnectorOptions(topicDescription),
+                Collections.emptyList(),
+                "");
     }
 
     @Override
     public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
-        throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
+            throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         checkNotNull(tablePath, "tablePath cannot be null");
         if (tableExists(tablePath)) {
             throw new TableAlreadyExistException(catalogName, tablePath);
@@ -176,45 +192,61 @@ public class KafkaCatalog implements Catalog {
         Map<String, String> options = table.getOptions();
         int partitionNumber = Integer.parseInt(options.get(Config.PARTITION.key()));
         short replicationFactor = Short.parseShort(options.get(Config.REPLICATION_FACTOR));
-        NewTopic newTopic = new NewTopic(tablePath.getTableName(), partitionNumber, replicationFactor);
-        CreateTopicsResult createTopicsResult = adminClient.createTopics(Lists.newArrayList(newTopic));
+        NewTopic newTopic =
+                new NewTopic(tablePath.getTableName(), partitionNumber, replicationFactor);
+        CreateTopicsResult createTopicsResult =
+                adminClient.createTopics(Lists.newArrayList(newTopic));
         try {
             createTopicsResult.all().get();
         } catch (ExecutionException | InterruptedException e) {
             throw new CatalogException(
-                String.format("Catalog : %s create table : %s error", catalogName, tablePath.getFullName()), e);
+                    String.format(
+                            "Catalog : %s create table : %s error",
+                            catalogName, tablePath.getFullName()),
+                    e);
         }
     }
 
     @Override
-    public void dropTable(TablePath tablePath, boolean ignoreIfNotExists) throws TableNotExistException, CatalogException {
+    public void dropTable(TablePath tablePath, boolean ignoreIfNotExists)
+            throws TableNotExistException, CatalogException {
         if (!tableExists(tablePath)) {
             throw new TableNotExistException(catalogName, tablePath);
         }
-        DeleteTopicsResult deleteTopicsResult = adminClient.deleteTopics(Lists.newArrayList(tablePath.getTableName()));
+        DeleteTopicsResult deleteTopicsResult =
+                adminClient.deleteTopics(Lists.newArrayList(tablePath.getTableName()));
         try {
             deleteTopicsResult.all().get();
         } catch (InterruptedException | ExecutionException e) {
             throw new CatalogException(
-                String.format("Catalog : %s drop table : %s error", catalogName, tablePath.getFullName()), e);
+                    String.format(
+                            "Catalog : %s drop table : %s error",
+                            catalogName, tablePath.getFullName()),
+                    e);
         }
     }
 
     @Override
-    public void createDatabase(TablePath tablePath, boolean ignoreIfExists) throws DatabaseAlreadyExistException, CatalogException {
-        // todo: We cannot create topic here, since we don't know the partition number and replication factor.
+    public void createDatabase(TablePath tablePath, boolean ignoreIfExists)
+            throws DatabaseAlreadyExistException, CatalogException {
+        // todo: We cannot create topic here, since we don't know the partition number and
+        // replication factor.
         throw new UnsupportedOperationException("Kafka catalog does not support create database");
     }
 
     @Override
-    public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists) throws DatabaseNotExistException, CatalogException {
+    public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
+            throws DatabaseNotExistException, CatalogException {
         // todo:
         dropTable(tablePath, ignoreIfNotExists);
     }
 
-    private TopicDescription getTopicDescription(String topicName) throws ExecutionException, InterruptedException {
-        DescribeTopicsResult describeTopicsResult = adminClient.describeTopics(Lists.newArrayList(topicName));
-        KafkaFuture<TopicDescription> topicDescriptionKafkaFuture = describeTopicsResult.topicNameValues().get(topicName);
+    private TopicDescription getTopicDescription(String topicName)
+            throws ExecutionException, InterruptedException {
+        DescribeTopicsResult describeTopicsResult =
+                adminClient.describeTopics(Lists.newArrayList(topicName));
+        KafkaFuture<TopicDescription> topicDescriptionKafkaFuture =
+                describeTopicsResult.topicNameValues().get(topicName);
         return topicDescriptionKafkaFuture.get();
     }
 

@@ -25,7 +25,7 @@ package org.apache.seatunnel.common.utils.function;
  * @param <E> The type of Exceptions thrown by this function.
  */
 @FunctionalInterface
-public interface FunctionWithException<T, R, E extends Throwable>  {
+public interface FunctionWithException<T, R, E extends Throwable> {
     /**
      * Applies this function to the given argument.
      *

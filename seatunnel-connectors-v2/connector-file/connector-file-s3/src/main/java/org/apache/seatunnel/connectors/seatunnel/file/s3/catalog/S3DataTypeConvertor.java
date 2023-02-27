@@ -18,8 +18,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.s3.catalog;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertException;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
@@ -31,6 +29,8 @@ import com.google.auto.service.AutoService;
 
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 @AutoService(DataTypeConvertor.class)
 public class S3DataTypeConvertor implements DataTypeConvertor<SeaTunnelRowType> {
     @Override
@@ -40,12 +40,16 @@ public class S3DataTypeConvertor implements DataTypeConvertor<SeaTunnelRowType> 
     }
 
     @Override
-    public SeaTunnelDataType<?> toSeaTunnelType(SeaTunnelRowType connectorDataType, Map<String, Object> dataTypeProperties) throws DataTypeConvertException {
+    public SeaTunnelDataType<?> toSeaTunnelType(
+            SeaTunnelRowType connectorDataType, Map<String, Object> dataTypeProperties)
+            throws DataTypeConvertException {
         return connectorDataType;
     }
 
     @Override
-    public SeaTunnelRowType toConnectorType(SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties) throws DataTypeConvertException {
+    public SeaTunnelRowType toConnectorType(
+            SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties)
+            throws DataTypeConvertException {
         // transform SeaTunnelDataType to SeaTunnelRowType
         if (!(seaTunnelDataType instanceof SeaTunnelRowType)) {
             throw DataTypeConvertException.convertToConnectorDataTypeException(seaTunnelDataType);

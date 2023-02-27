@@ -39,14 +39,20 @@ public class DelimiterParserUtil {
         String hexStr = sp.substring(2);
         // check hex str
         if (hexStr.isEmpty()) {
-            throw new DorisConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, "Failed to parse delimiter: `Hex str is empty`");
+            throw new DorisConnectorException(
+                    CommonErrorCode.ILLEGAL_ARGUMENT,
+                    "Failed to parse delimiter: `Hex str is empty`");
         }
         if (hexStr.length() % 2 != 0) {
-            throw new DorisConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, "Failed to parse delimiter: `Hex str is empty`");
+            throw new DorisConnectorException(
+                    CommonErrorCode.ILLEGAL_ARGUMENT,
+                    "Failed to parse delimiter: `Hex str is empty`");
         }
         for (char hexChar : hexStr.toUpperCase().toCharArray()) {
             if (HEX_STRING.indexOf(hexChar) == -1) {
-                throw new DorisConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, "Failed to parse delimiter: `Hex str is empty`");
+                throw new DorisConnectorException(
+                        CommonErrorCode.ILLEGAL_ARGUMENT,
+                        "Failed to parse delimiter: `Hex str is empty`");
             }
         }
         // transform to separator

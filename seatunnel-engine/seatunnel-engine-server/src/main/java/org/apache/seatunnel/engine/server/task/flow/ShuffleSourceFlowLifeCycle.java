@@ -35,7 +35,8 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @SuppressWarnings("MagicNumber")
-public class ShuffleSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle implements OneOutputFlowLifeCycle<Record<?>> {
+public class ShuffleSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle
+        implements OneOutputFlowLifeCycle<Record<?>> {
     private final ShuffleAction shuffleAction;
     private final int shuffleBatchSize;
     private final IQueue<Record<?>>[] shuffles;
@@ -44,16 +45,20 @@ public class ShuffleSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle impleme
     private long currentCheckpointId = Long.MAX_VALUE;
     private int alignedBarriersCounter = 0;
 
-    public ShuffleSourceFlowLifeCycle(SeaTunnelTask runningTask,
-                                      int taskIndex,
-                                      ShuffleAction shuffleAction,
-                                      HazelcastInstance hazelcastInstance,
-                                      CompletableFuture<Void> completableFuture) {
+    public ShuffleSourceFlowLifeCycle(
+            SeaTunnelTask runningTask,
+            int taskIndex,
+            ShuffleAction shuffleAction,
+            HazelcastInstance hazelcastInstance,
+            CompletableFuture<Void> completableFuture) {
         super(runningTask, completableFuture);
         int pipelineId = runningTask.getTaskLocation().getPipelineId();
         this.shuffleAction = shuffleAction;
-        this.shuffles = shuffleAction.getConfig()
-            .getShuffleStrategy().getShuffles(hazelcastInstance, pipelineId, taskIndex);
+        this.shuffles =
+                shuffleAction
+                        .getConfig()
+                        .getShuffleStrategy()
+                        .getShuffles(hazelcastInstance, pipelineId, taskIndex);
         this.shuffleBatchSize = shuffleAction.getConfig().getBatchSize();
     }
 
@@ -65,7 +70,8 @@ public class ShuffleSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle impleme
                 continue;
             }
             // aligned barrier
-            if (alignedBarriers.get(i) != null && alignedBarriers.get(i).getId() == currentCheckpointId) {
+            if (alignedBarriers.get(i) != null
+                    && alignedBarriers.get(i).getId() == currentCheckpointId) {
                 continue;
             }
 
@@ -95,7 +101,8 @@ public class ShuffleSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle impleme
                             prepareClose = true;
                         }
                         if (barrier.snapshot()) {
-                            runningTask.addState(barrier, shuffleAction.getId(), Collections.emptyList());
+                            runningTask.addState(
+                                    barrier, shuffleAction.getId(), Collections.emptyList());
                         }
                         runningTask.ack(barrier);
 
@@ -106,7 +113,9 @@ public class ShuffleSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle impleme
                     }
 
                     if (recordIndex + 1 < shuffleBatch.size()) {
-                        unsentBuffer = new LinkedList<>(shuffleBatch.subList(recordIndex + 1, shuffleBatch.size()));
+                        unsentBuffer =
+                                new LinkedList<>(
+                                        shuffleBatch.subList(recordIndex + 1, shuffleBatch.size()));
                     }
                     break;
                 } else {
