@@ -181,9 +181,9 @@ public class PhysicalPlan {
                             errorBySubPlan.compareAndSet(null, pipelineState.getThrowableMsg());
                             if (makeJobEndWhenPipelineEnded) {
                                 LOGGER.info(
-                                    String.format(
-                                        "cancel job %s because makeJobEndWhenPipelineEnded is true",
-                                        jobFullName));
+                                        String.format(
+                                                "cancel job %s because makeJobEndWhenPipelineEnded is true",
+                                                jobFullName));
                                 cancelJob();
                             }
                         }

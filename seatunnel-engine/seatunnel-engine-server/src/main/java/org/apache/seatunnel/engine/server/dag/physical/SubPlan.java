@@ -418,7 +418,10 @@ public class SubPlan {
         synchronized (restoreLock) {
             try {
                 pipelineRestoreNum++;
-                LOGGER.info(String.format("Restore time %s, pipeline %s", pipelineRestoreNum + "", pipelineFullName));
+                LOGGER.info(
+                        String.format(
+                                "Restore time %s, pipeline %s",
+                                pipelineRestoreNum + "", pipelineFullName));
                 // We must ensure the scheduler complete and then can handle pipeline state change.
                 if (jobMaster.getScheduleFuture() != null) {
                     jobMaster.getScheduleFuture().join();
