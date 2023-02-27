@@ -618,7 +618,8 @@ public class CheckpointCoordinator {
                             .build());
             if (completedCheckpoints.size()
                             % coordinatorConfig.getStorage().getMaxRetainedCheckpoints()
-                    == 0) {
+                    == 0 && completedCheckpoints.size()
+                / coordinatorConfig.getStorage().getMaxRetainedCheckpoints() > 1) {
                 List<String> needDeleteCheckpointId = new ArrayList<>();
                 for (int i = 0;
                         i < coordinatorConfig.getStorage().getMaxRetainedCheckpoints();
