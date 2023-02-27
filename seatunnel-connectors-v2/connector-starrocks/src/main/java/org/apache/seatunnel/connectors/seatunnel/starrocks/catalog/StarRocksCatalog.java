@@ -62,7 +62,7 @@ import java.util.Set;
 public class StarRocksCatalog implements Catalog {
 
     protected final String catalogName;
-    protected String defaultDatabase = "default";
+    protected String defaultDatabase = "information_schema";
     protected final String username;
     protected final String pwd;
     protected final String baseUrl;
