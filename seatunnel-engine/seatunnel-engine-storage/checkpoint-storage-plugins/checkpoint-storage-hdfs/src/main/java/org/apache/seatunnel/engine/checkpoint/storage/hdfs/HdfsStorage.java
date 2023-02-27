@@ -174,7 +174,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                 });
 
         if (latestPipelineStates.isEmpty()) {
-            log.info("No checkpoint found for job, job id:{} " + jobId);
+            log.info("No checkpoint found for this job,  the job id:{} " + jobId);
         }
         return latestPipelineStates;
     }
