@@ -51,11 +51,11 @@ public class MysqlDialect implements JdbcDialect {
     }
 
     @Override
-    public Optional<String> getUpsertStatement(String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+    public Optional<String> getUpsertStatement(String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
         String updateClause = Arrays.stream(fieldNames)
             .map(fieldName -> quoteIdentifier(fieldName) + "=VALUES(" + quoteIdentifier(fieldName) + ")")
             .collect(Collectors.joining(", "));
-        String upsertSQL = getInsertIntoStatement(tableName, fieldNames) + " ON DUPLICATE KEY UPDATE " + updateClause;
+        String upsertSQL = getInsertIntoStatement(database, tableName, fieldNames) + " ON DUPLICATE KEY UPDATE " + updateClause;
         return Optional.of(upsertSQL);
     }
 
