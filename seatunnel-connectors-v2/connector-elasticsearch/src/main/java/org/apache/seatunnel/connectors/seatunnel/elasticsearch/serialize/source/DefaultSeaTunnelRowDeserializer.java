@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingExcep
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -37,7 +38,9 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.Elastic
 
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.HashMap;
@@ -111,7 +114,12 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                 value = recursiveGet(rowRecord.getDoc(), fieldName);
                 if (value != null) {
                     seaTunnelDataType = rowTypeInfo.getFieldType(i);
-                    seaTunnelFields[i] = convertValue(seaTunnelDataType, value.toString());
+                    if (value instanceof TextNode) {
+                        seaTunnelFields[i] =
+                                convertValue(seaTunnelDataType, ((TextNode) value).textValue());
+                    } else {
+                        seaTunnelFields[i] = convertValue(seaTunnelDataType, value.toString());
+                    }
                 }
             }
         } catch (Exception ex) {
@@ -150,7 +158,8 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
             LocalDateTime localDateTime = parseDate(fieldValue);
             return localDateTime.toLocalTime();
         } else if (LocalTimeType.LOCAL_DATE_TIME_TYPE.equals(fieldType)) {
-            return parseDate(fieldValue);
+            return LocalDateTime.ofInstant(
+                    Instant.ofEpochMilli(Long.parseLong(fieldValue)), ZoneId.systemDefault());
         } else if (fieldType instanceof DecimalType) {
             return new BigDecimal(fieldValue);
         } else if (fieldType instanceof ArrayType) {
