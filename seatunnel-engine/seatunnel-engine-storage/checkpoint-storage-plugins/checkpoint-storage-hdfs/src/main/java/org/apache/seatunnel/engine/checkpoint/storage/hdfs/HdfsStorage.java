@@ -135,7 +135,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
         String path = getStorageParentDirectory() + jobId;
         List<String> fileNames = getFileNames(path);
         if (fileNames.isEmpty()) {
-            log.info("No checkpoint found for job, job id is: " + jobId);
+            log.info("No checkpoint found for this job, the job id is: " + jobId);
             return new ArrayList<>();
         }
         List<PipelineState> states = new ArrayList<>();
