@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.fetcher.SplitFetcherManager;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.splitreader.SplitReader;
 
@@ -162,7 +163,7 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
                 log.trace("Current fetch is finished.");
                 Thread.sleep(100);
             } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+                throw new SeaTunnelException(e);
             }
             return null;
         }
