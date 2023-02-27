@@ -35,6 +35,7 @@ public class JdbcSinkOptions implements Serializable {
     private JdbcConnectionOptions jdbcConnectionOptions;
     private boolean isExactlyOnce;
     public String simpleSQL;
+    private String database;
     private String table;
     private List<String> primaryKeys;
     private boolean supportUpsertByQueryPrimaryKeyExist;
@@ -45,7 +46,8 @@ public class JdbcSinkOptions implements Serializable {
             this.isExactlyOnce = true;
         }
 
-        if (config.hasPath(JdbcConfig.TABLE.key())) {
+        if (config.hasPath(JdbcConfig.TABLE.key()) && config.hasPath(JdbcConfig.DATABASE.key())) {
+            this.database = config.getString(JdbcConfig.DATABASE.key());
             this.table = config.getString(JdbcConfig.TABLE.key());
             if (config.hasPath(JdbcConfig.PRIMARY_KEYS.key())) {
                 this.primaryKeys = config.getStringList(JdbcConfig.PRIMARY_KEYS.key());
