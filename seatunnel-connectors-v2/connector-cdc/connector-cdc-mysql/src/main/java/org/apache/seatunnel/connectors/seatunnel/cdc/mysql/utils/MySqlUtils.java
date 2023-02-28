@@ -344,9 +344,8 @@ public class MySqlUtils {
                 connection.prepareStatement(
                         sql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
         if (fetchSize == 0) {
-            fetchSize = 1024;
+            statement.setFetchSize(Integer.MIN_VALUE);
         }
-        statement.setFetchSize(fetchSize);
         return statement;
     }
 

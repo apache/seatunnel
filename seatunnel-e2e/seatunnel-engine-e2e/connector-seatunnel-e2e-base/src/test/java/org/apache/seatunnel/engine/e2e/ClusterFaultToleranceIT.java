@@ -570,8 +570,8 @@ public class ClusterFaultToleranceIT {
                             () -> {
                                 Thread.sleep(2000);
                                 log.info(
-                                        FileUtils.getFileLineNumberFromDir(
-                                                testResources.getLeft()));
+                                        FileUtils.getFileLineNumberFromDir(testResources.getLeft())
+                                                + "");
                                 Assertions.assertTrue(
                                         objectCompletableFuture.isDone()
                                                 && JobStatus.FINISHED.equals(
@@ -863,8 +863,8 @@ public class ClusterFaultToleranceIT {
                                 // Wait job write all rows in file
                                 Thread.sleep(2000);
                                 log.info(
-                                        FileUtils.getFileLineNumberFromDir(
-                                                testResources.getLeft()));
+                                        FileUtils.getFileLineNumberFromDir(testResources.getLeft())
+                                                + "");
                                 JobStatus jobStatus = null;
                                 try {
                                     jobStatus = newClientJobProxy.getJobStatus();
