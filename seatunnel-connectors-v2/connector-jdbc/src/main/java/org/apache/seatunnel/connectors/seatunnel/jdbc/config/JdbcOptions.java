@@ -73,7 +73,7 @@ public interface JdbcOptions {
     Option<Boolean> IS_EXACTLY_ONCE =
             Options.key("is_exactly_once")
                     .booleanType()
-                    .defaultValue(true)
+                    .defaultValue(false)
                     .withDescription("exactly once");
 
     Option<Boolean> GENERATE_SINK_SQL =
