@@ -70,6 +70,7 @@ public class StarRocksCatalog implements Catalog {
     protected final String pwd;
     protected final String baseUrl;
     protected String defaultUrl;
+    private final JdbcUrlUtil.UrlInfo urlInfo;
 
     private static final Set<String> SYS_DATABASES = new HashSet<>();
     private static final Logger LOG = LoggerFactory.getLogger(StarRocksCatalog.class);
@@ -84,45 +85,13 @@ public class StarRocksCatalog implements Catalog {
         checkArgument(StringUtils.isNotBlank(username));
         checkArgument(StringUtils.isNotBlank(pwd));
         checkArgument(StringUtils.isNotBlank(defaultUrl));
-        JdbcUrlUtil.getUrlInfo(defaultUrl);
-
-        defaultUrl = defaultUrl.trim();
-        if (validateJdbcUrlWithDatabase(defaultUrl)) {
-            String[] strings = splitDefaultUrl(defaultUrl);
-            this.baseUrl = strings[0];
-            this.defaultDatabase = strings[1];
-            this.defaultUrl = defaultUrl;
-        } else {
-            this.baseUrl = defaultUrl;
-            this.defaultUrl = this.baseUrl + defaultDatabase;
+        urlInfo = JdbcUrlUtil.getUrlInfo(defaultUrl);
+        this.baseUrl = urlInfo.getUrlWithoutDatabase();
+        if (urlInfo.getDefaultDatabase().isPresent()) {
+            this.defaultDatabase = urlInfo.getDefaultDatabase().get();
         }
+        this.defaultUrl = defaultUrl;
         this.catalogName = catalogName;
-        this.username = username;
-        this.pwd = pwd;
-    }
-
-    public StarRocksCatalog(
-            String catalogName,
-            String defaultDatabase,
-            String username,
-            String pwd,
-            String baseUrl) {
-
-        checkArgument(StringUtils.isNotBlank(username));
-        checkArgument(StringUtils.isNotBlank(pwd));
-        checkArgument(StringUtils.isNotBlank(baseUrl));
-
-        baseUrl = baseUrl.trim();
-        if (validateJdbcUrlWithoutDatabase(baseUrl)) {
-            this.baseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
-            this.defaultUrl = this.baseUrl + defaultDatabase;
-        } else {
-            String[] strings = splitDefaultUrl(baseUrl);
-            this.baseUrl = strings[0];
-            this.defaultUrl = baseUrl;
-        }
-        this.catalogName = catalogName;
-        this.defaultDatabase = defaultDatabase;
         this.username = username;
         this.pwd = pwd;
     }
@@ -157,7 +126,9 @@ public class StarRocksCatalog implements Catalog {
             throw new DatabaseNotExistException(this.catalogName, databaseName);
         }
 
-        try (Connection conn = DriverManager.getConnection(baseUrl + databaseName, username, pwd)) {
+        try (Connection conn =
+                DriverManager.getConnection(
+                        urlInfo.getUrlWithDatabase(databaseName), username, pwd)) {
             PreparedStatement ps = conn.prepareStatement("SHOW TABLES;");
 
             ResultSet rs = ps.executeQuery();
@@ -182,7 +153,7 @@ public class StarRocksCatalog implements Catalog {
             throw new TableNotExistException(catalogName, tablePath);
         }
 
-        String dbUrl = baseUrl + tablePath.getDatabaseName();
+        String dbUrl = urlInfo.getUrlWithDatabase(tablePath.getDatabaseName());
         try (Connection conn = DriverManager.getConnection(dbUrl, username, pwd)) {
             Optional<PrimaryKey> primaryKey =
                     getPrimaryKey(tablePath.getDatabaseName(), tablePath.getTableName());
@@ -241,7 +212,7 @@ public class StarRocksCatalog implements Catalog {
     @Override
     public void createDatabase(TablePath tablePath, boolean ignoreIfExists)
             throws DatabaseAlreadyExistException, CatalogException {
-        try (Connection conn = DriverManager.getConnection(baseUrl, username, pwd)) {
+        try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd)) {
             if (ignoreIfExists) {
                 conn.createStatement()
                         .execute(
@@ -261,7 +232,7 @@ public class StarRocksCatalog implements Catalog {
     @Override
     public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
             throws DatabaseNotExistException, CatalogException {
-        try (Connection conn = DriverManager.getConnection(baseUrl, username, pwd)) {
+        try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd)) {
             if (ignoreIfNotExists) {
                 conn.createStatement()
                         .execute("DROP DATABASE IF EXISTS `" + tablePath.getDatabaseName() + "`");
@@ -356,8 +327,7 @@ public class StarRocksCatalog implements Catalog {
 
     public void createTable(String sql)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
-        try (Connection conn =
-                DriverManager.getConnection(baseUrl + getDefaultDatabase(), username, pwd)) {
+        try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd)) {
             conn.createStatement().execute(sql);
         } catch (Exception e) {
             throw new CatalogException(
