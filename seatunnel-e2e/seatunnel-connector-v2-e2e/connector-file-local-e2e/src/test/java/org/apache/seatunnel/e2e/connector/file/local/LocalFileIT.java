@@ -19,7 +19,9 @@ package org.apache.seatunnel.e2e.connector.file.local;
 
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
@@ -66,7 +68,7 @@ public class LocalFileIT extends TestSuiteBase {
                 container.executeJob("/excel/fakesource_to_local_excel.conf");
         Assertions.assertEquals(0, excelWriteResult.getExitCode(), excelWriteResult.getStderr());
         Container.ExecResult excelReadResult =
-                container.executeJob("/excel/local_excel_sink_to_console.conf");
+                container.executeJob("/excel/local_excel_sink_to_assert.conf");
         Assertions.assertEquals(0, excelReadResult.getExitCode(), excelReadResult.getStderr());
         // test write local text file
         Container.ExecResult textWriteResult =
