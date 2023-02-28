@@ -131,6 +131,9 @@ public class FieldMapperTransform extends AbstractSeaTunnelTransform {
         for (int i = 0; i < outputDataArray.length; i++) {
             outputDataArray[i] = inputRow.getField(needReaderColIndex.get(i));
         }
-        return new SeaTunnelRow(outputDataArray);
+        SeaTunnelRow outputRow = new SeaTunnelRow(outputDataArray);
+        outputRow.setRowKind(inputRow.getRowKind());
+        outputRow.setTableId(inputRow.getTableId());
+        return outputRow;
     }
 }
