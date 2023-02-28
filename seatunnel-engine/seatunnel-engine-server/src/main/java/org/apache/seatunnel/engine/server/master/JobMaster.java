@@ -141,6 +141,7 @@ public class JobMaster {
 
     /** If the job or pipeline cancel by user, needRestore will be false */
     @Getter private volatile boolean needRestore = true;
+    private CheckpointConfig jobCheckpointConfig;
 
     public JobMaster(
             @NonNull Data jobImmutableInformationData,
@@ -173,6 +174,11 @@ public class JobMaster {
             throws Exception {
         jobImmutableInformation =
                 nodeEngine.getSerializationService().toObject(jobImmutableInformationData);
+        jobCheckpointConfig =
+                createJobCheckpointConfig(
+                        engineConfig.getCheckpointConfig(),
+                        jobImmutableInformation.getJobConfig().getEnvOptions());
+
         LOGGER.info(
                 String.format(
                         "Init JobMaster for Job %s (%s) ",
@@ -203,7 +209,8 @@ public class JobMaster {
                         flakeIdGenerator,
                         runningJobStateIMap,
                         runningJobStateTimestampsIMap,
-                        engineConfig.getQueueType());
+                        engineConfig.getQueueType(),
+                        jobCheckpointConfig);
         this.physicalPlan = planTuple.f0();
         this.physicalPlan.setJobMaster(this);
         this.checkpointPlanMap = planTuple.f1();
@@ -225,11 +232,7 @@ public class JobMaster {
         }
     }
 
-    private void initCheckPointManager() throws CheckpointStorageException {
-        CheckpointConfig checkpointConfig =
-                mergeEnvAndEngineConfig(
-                        engineConfig.getCheckpointConfig(),
-                        jobImmutableInformation.getJobConfig().getEnvOptions());
+    public void initCheckPointManager() throws CheckpointStorageException {
         this.checkpointManager =
                 new CheckpointManager(
                         jobImmutableInformation.getJobId(),
@@ -237,28 +240,35 @@ public class JobMaster {
                         nodeEngine,
                         this,
                         checkpointPlanMap,
-                        checkpointConfig,
+                        jobCheckpointConfig,
                         executorService);
     }
 
     // TODO replace it after ReadableConfig Support parse yaml format, then use only one config to
     // read engine and env config.
-    private CheckpointConfig mergeEnvAndEngineConfig(
-            CheckpointConfig engine, Map<String, Object> env) {
-        CheckpointConfig checkpointConfig = new CheckpointConfig();
-        if (env.containsKey(EnvCommonOptions.CHECKPOINT_INTERVAL.key())) {
-            checkpointConfig.setCheckpointInterval(
-                    (Integer) env.get(EnvCommonOptions.CHECKPOINT_INTERVAL.key()));
+    private CheckpointConfig createJobCheckpointConfig(
+            CheckpointConfig defaultCheckpointConfig, Map<String, Object> jobEnv) {
+        CheckpointConfig jobCheckpointConfig = new CheckpointConfig();
+        jobCheckpointConfig.setCheckpointTimeout(defaultCheckpointConfig.getCheckpointTimeout());
+        jobCheckpointConfig.setCheckpointInterval(defaultCheckpointConfig.getCheckpointInterval());
+        jobCheckpointConfig.setMaxConcurrentCheckpoints(
+                defaultCheckpointConfig.getMaxConcurrentCheckpoints());
+        jobCheckpointConfig.setTolerableFailureCheckpoints(
+                defaultCheckpointConfig.getTolerableFailureCheckpoints());
+
+        CheckpointStorageConfig jobCheckpointStorageConfig = new CheckpointStorageConfig();
+        jobCheckpointStorageConfig.setStorage(defaultCheckpointConfig.getStorage().getStorage());
+        jobCheckpointStorageConfig.setStoragePluginConfig(
+                defaultCheckpointConfig.getStorage().getStoragePluginConfig());
+        jobCheckpointStorageConfig.setMaxRetainedCheckpoints(
+                defaultCheckpointConfig.getStorage().getMaxRetainedCheckpoints());
+        jobCheckpointConfig.setStorage(jobCheckpointStorageConfig);
+
+        if (jobEnv.containsKey(EnvCommonOptions.CHECKPOINT_INTERVAL.key())) {
+            jobCheckpointConfig.setCheckpointInterval(
+                    (Long) jobEnv.get(EnvCommonOptions.CHECKPOINT_INTERVAL.key()));
         }
-        checkpointConfig.setCheckpointTimeout(engine.getCheckpointTimeout());
-        checkpointConfig.setTolerableFailureCheckpoints(engine.getTolerableFailureCheckpoints());
-        checkpointConfig.setMaxConcurrentCheckpoints(engine.getMaxConcurrentCheckpoints());
-        CheckpointStorageConfig storageConfig = new CheckpointStorageConfig();
-        storageConfig.setMaxRetainedCheckpoints(engine.getStorage().getMaxRetainedCheckpoints());
-        storageConfig.setStorage(engine.getStorage().getStorage());
-        storageConfig.setStoragePluginConfig(engine.getStorage().getStoragePluginConfig());
-        checkpointConfig.setStorage(storageConfig);
-        return checkpointConfig;
+        return jobCheckpointConfig;
     }
 
     public void initStateFuture() {
@@ -360,7 +370,11 @@ public class JobMaster {
     public JobDAGInfo getJobDAGInfo() {
         if (jobDAGInfo == null) {
             jobDAGInfo =
-                    DAGUtils.getJobDAGInfo(logicalDag, jobImmutableInformation, isPhysicalDAGIInfo);
+                    DAGUtils.getJobDAGInfo(
+                            logicalDag,
+                            jobImmutableInformation,
+                            engineConfig.getCheckpointConfig(),
+                            isPhysicalDAGIInfo);
         }
         return jobDAGInfo;
     }

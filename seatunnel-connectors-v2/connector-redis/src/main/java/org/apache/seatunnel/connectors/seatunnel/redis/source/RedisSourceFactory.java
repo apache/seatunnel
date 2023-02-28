@@ -19,9 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.redis.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisConfig;
 
 import com.google.auto.service.AutoService;
@@ -45,7 +45,7 @@ public class RedisSourceFactory implements TableSourceFactory {
                         RedisConfig.USER,
                         RedisConfig.KEY_PATTERN)
                 .conditional(RedisConfig.MODE, RedisConfig.RedisMode.CLUSTER, RedisConfig.NODES)
-                .bundled(RedisConfig.FORMAT, SeaTunnelSchema.SCHEMA)
+                .bundled(RedisConfig.FORMAT, CatalogTableUtil.SCHEMA)
                 .build();
     }
 

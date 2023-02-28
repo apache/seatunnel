@@ -99,10 +99,7 @@ public class StarRocksStreamLoadVisitor {
                     "Unable to flush data to StarRocks: unknown result status. " + loadResult);
         }
         if (LOG.isDebugEnabled()) {
-            LOG.debug(
-                    new StringBuilder("StreamLoad response:\n")
-                            .append(JsonUtils.toJsonString(loadResult))
-                            .toString());
+            LOG.debug("StreamLoad response:\n" + JsonUtils.toJsonString(loadResult));
         }
         if (RESULT_FAILED.equals(loadResult.get(keyStatus))) {
             StringBuilder errorBuilder = new StringBuilder("Failed to flush data to StarRocks \n");
@@ -131,10 +128,7 @@ public class StarRocksStreamLoadVisitor {
             throw new StarRocksConnectorException(
                     StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, errorBuilder.toString());
         } else if (RESULT_LABEL_EXISTED.equals(loadResult.get(keyStatus))) {
-            LOG.debug(
-                    new StringBuilder("StreamLoad response:\n")
-                            .append(JsonUtils.toJsonString(loadResult))
-                            .toString());
+            LOG.debug("StreamLoad response:\n" + JsonUtils.toJsonString(loadResult));
             // has to block-checking the state to get the final result
             checkLabelState(host, flushData.getLabel());
         }

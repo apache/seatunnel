@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 
 import lombok.extern.slf4j.Slf4j;
@@ -44,10 +44,10 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
     private volatile long latestTimestamp = 0;
 
     public FakeSourceReader(
-            SourceReader.Context context, SeaTunnelSchema schema, FakeConfig fakeConfig) {
+            SourceReader.Context context, SeaTunnelRowType rowType, FakeConfig fakeConfig) {
         this.context = context;
         this.config = fakeConfig;
-        this.fakeDataGenerator = new FakeDataGenerator(schema, fakeConfig);
+        this.fakeDataGenerator = new FakeDataGenerator(rowType, fakeConfig);
     }
 
     @Override

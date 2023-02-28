@@ -101,7 +101,12 @@ public class Common {
 
     /** Plugin Root Dir */
     public static Path pluginRootDir() {
-        return Paths.get(appRootDir().toString(), "plugins");
+        String seatunnelHome = System.getProperty("SEATUNNEL_HOME");
+        if (StringUtils.isBlank(seatunnelHome)) {
+            return Paths.get(appRootDir().toString(), "plugins");
+        } else {
+            return Paths.get(seatunnelHome, "plugins");
+        }
     }
 
     /** Plugin Root Dir */

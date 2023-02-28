@@ -19,11 +19,11 @@ package org.apache.seatunnel.core.starter.flink.execution;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SupportDataSaveMode;
-import org.apache.seatunnel.api.source.SourceCommonOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.core.starter.enums.PluginType;
@@ -118,8 +118,8 @@ public class SinkExecuteProcessor
             DataStreamSink<Row> dataStreamSink =
                     stream.sinkTo(SinkV1Adapter.wrap(new FlinkSink<>(seaTunnelSink)))
                             .name(seaTunnelSink.getPluginName());
-            if (sinkConfig.hasPath(SourceCommonOptions.PARALLELISM.key())) {
-                int parallelism = sinkConfig.getInt(SourceCommonOptions.PARALLELISM.key());
+            if (sinkConfig.hasPath(CommonOptions.PARALLELISM.key())) {
+                int parallelism = sinkConfig.getInt(CommonOptions.PARALLELISM.key());
                 dataStreamSink.setParallelism(parallelism);
             }
         }

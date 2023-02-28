@@ -27,13 +27,13 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.client.InfluxDBClient;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorErrorCode;
@@ -75,7 +75,7 @@ public class InfluxDBSource
     @Override
     public void prepare(Config config) throws PrepareFailException {
         CheckResult result =
-                CheckConfigUtil.checkAllExists(config, SQL.key(), SeaTunnelSchema.SCHEMA.key());
+                CheckConfigUtil.checkAllExists(config, SQL.key(), CatalogTableUtil.SCHEMA.key());
         if (!result.isSuccess()) {
             throw new InfluxdbConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -85,8 +85,7 @@ public class InfluxDBSource
         }
         try {
             this.sourceConfig = SourceConfig.loadConfig(config);
-            Config schema = config.getConfig(SeaTunnelSchema.SCHEMA.key());
-            this.typeInfo = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
+            this.typeInfo = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
             this.columnsIndexList = initColumnsIndex(InfluxDBClient.getInfluxDB(sourceConfig));
         } catch (Exception e) {
             throw new InfluxdbConnectorException(

@@ -52,7 +52,7 @@ public class MysqlDialect implements JdbcDialect {
 
     @Override
     public Optional<String> getUpsertStatement(
-            String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+            String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
         String updateClause =
                 Arrays.stream(fieldNames)
                         .map(
@@ -63,7 +63,7 @@ public class MysqlDialect implements JdbcDialect {
                                                 + ")")
                         .collect(Collectors.joining(", "));
         String upsertSQL =
-                getInsertIntoStatement(tableName, fieldNames)
+                getInsertIntoStatement(database, tableName, fieldNames)
                         + " ON DUPLICATE KEY UPDATE "
                         + updateClause;
         return Optional.of(upsertSQL);

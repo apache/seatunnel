@@ -19,9 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.file.hdfs.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
@@ -49,7 +49,7 @@ public class HdfsFileSourceFactory implements TableSourceFactory {
                 .conditional(
                         BaseSourceConfig.FILE_TYPE,
                         Arrays.asList(FileFormat.TEXT, FileFormat.JSON),
-                        SeaTunnelSchema.SCHEMA)
+                        CatalogTableUtil.SCHEMA)
                 .optional(BaseSourceConfig.PARSE_PARTITION_FROM_PATH)
                 .optional(BaseSourceConfig.DATE_FORMAT)
                 .optional(BaseSourceConfig.DATETIME_FORMAT)

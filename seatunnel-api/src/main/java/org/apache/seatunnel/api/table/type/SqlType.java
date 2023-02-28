@@ -35,5 +35,6 @@ public enum SqlType {
     DATE,
     TIME,
     TIMESTAMP,
-    ROW;
+    ROW,
+    MULTIPLE_ROW;
 }

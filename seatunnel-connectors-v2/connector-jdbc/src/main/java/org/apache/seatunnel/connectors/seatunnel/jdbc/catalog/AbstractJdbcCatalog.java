@@ -19,12 +19,19 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog;
 
 import org.apache.seatunnel.api.table.catalog.Catalog;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
+import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
+import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
+import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,13 +41,16 @@ import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public abstract class AbstractJdbcCatalog implements Catalog {
     private static final Logger LOG = LoggerFactory.getLogger(AbstractJdbcCatalog.class);
@@ -54,73 +64,22 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     public AbstractJdbcCatalog(
             String catalogName,
-            String defaultDatabase,
             String username,
             String pwd,
-            String baseUrl) {
+            String defaultDatabase,
+            String baseUrl,
+            String defaultUrl) {
 
         checkArgument(StringUtils.isNotBlank(username));
         checkArgument(StringUtils.isNotBlank(pwd));
+        checkArgument(StringUtils.isNotBlank(defaultDatabase));
         checkArgument(StringUtils.isNotBlank(baseUrl));
-
-        baseUrl = baseUrl.trim();
-        validateJdbcUrlWithoutDatabase(baseUrl);
         this.catalogName = catalogName;
         this.defaultDatabase = defaultDatabase;
         this.username = username;
         this.pwd = pwd;
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
-        this.defaultUrl = this.baseUrl + defaultDatabase;
-    }
-
-    /**
-     * URL has to be without database, like "jdbc:mysql://localhost:5432/" or
-     * "jdbc:mysql://localhost:5432" rather than "jdbc:mysql://localhost:5432/db".
-     */
-    public static void validateJdbcUrlWithoutDatabase(String url) {
-        String[] parts = url.trim().split("\\/+");
-
-        checkArgument(parts.length == 2);
-    }
-
-    public AbstractJdbcCatalog(String catalogName, String username, String pwd, String defaultUrl) {
-
-        checkArgument(StringUtils.isNotBlank(username));
-        checkArgument(StringUtils.isNotBlank(pwd));
-        checkArgument(StringUtils.isNotBlank(defaultUrl));
-
-        defaultUrl = defaultUrl.trim();
-        validateJdbcUrlWithDatabase(defaultUrl);
-        this.catalogName = catalogName;
-        this.username = username;
-        this.pwd = pwd;
         this.defaultUrl = defaultUrl;
-        String[] strings = splitDefaultUrl(defaultUrl);
-        this.baseUrl = strings[0];
-        this.defaultDatabase = strings[1];
-    }
-
-    /**
-     * URL has to be with database, like "jdbc:mysql://localhost:5432/db" rather than
-     * "jdbc:mysql://localhost:5432/".
-     */
-    @SuppressWarnings("MagicNumber")
-    public static void validateJdbcUrlWithDatabase(String url) {
-        String[] parts = url.trim().split("\\/+");
-        checkArgument(parts.length == 3);
-    }
-
-    /**
-     * Ensure that the url was validated {@link #validateJdbcUrlWithDatabase}.
-     *
-     * @return The array size is fixed at 2, index 0 is base url, and index 1 is default database.
-     */
-    public static String[] splitDefaultUrl(String defaultUrl) {
-        String[] res = new String[2];
-        int index = defaultUrl.lastIndexOf("/") + 1;
-        res[0] = defaultUrl.substring(0, index);
-        res[1] = defaultUrl.substring(index, defaultUrl.length());
-        return res;
     }
 
     @Override
@@ -161,15 +120,16 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         LOG.info("Catalog {} closing", catalogName);
     }
 
-    protected Optional<TableSchema.PrimaryKey> getPrimaryKey(
-            DatabaseMetaData metaData, String schema, String table) throws SQLException {
+    protected Optional<PrimaryKey> getPrimaryKey(
+            DatabaseMetaData metaData, String database, String table) throws SQLException {
 
         // According to the Javadoc of java.sql.DatabaseMetaData#getPrimaryKeys,
         // the returned primary key columns are ordered by COLUMN_NAME, not by KEY_SEQ.
         // We need to sort them based on the KEY_SEQ value.
-        ResultSet rs = metaData.getPrimaryKeys(null, schema, table);
+        ResultSet rs = metaData.getPrimaryKeys(database, table, table);
 
-        Map<Integer, String> keySeqColumnName = new HashMap<>();
+        // seq -> column name
+        List<Pair<Integer, String>> primaryKeyColumns = new ArrayList<>();
         String pkName = null;
         while (rs.next()) {
             String columnName = rs.getString("COLUMN_NAME");
@@ -177,15 +137,62 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             pkName = rs.getString("PK_NAME");
             int keySeq = rs.getInt("KEY_SEQ");
             // KEY_SEQ is 1-based index
-            keySeqColumnName.put(keySeq - 1, columnName);
+            primaryKeyColumns.add(Pair.of(keySeq, columnName));
         }
         // initialize size
-        List<String> pkFields = Arrays.asList(new String[keySeqColumnName.size()]);
-        keySeqColumnName.forEach(pkFields::set);
-        if (!pkFields.isEmpty()) {
-            // PK_NAME maybe null according to the javadoc, generate an unique name in that case
-            pkName = pkName == null ? "pk_" + String.join("_", pkFields) : pkName;
-            return Optional.of(TableSchema.PrimaryKey.of(pkName, pkFields));
+        List<String> pkFields =
+                primaryKeyColumns.stream()
+                        .sorted(Comparator.comparingInt(Pair::getKey))
+                        .map(Pair::getValue)
+                        .collect(Collectors.toList());
+        if (CollectionUtils.isEmpty(pkFields)) {
+            return Optional.empty();
+        }
+        return Optional.of(PrimaryKey.of(pkName, pkFields));
+    }
+
+    protected List<ConstraintKey> getConstraintKeys(
+            DatabaseMetaData metaData, String database, String table) throws SQLException {
+        ResultSet resultSet = metaData.getIndexInfo(database, table, table, false, false);
+        // index name -> index
+        Map<String, ConstraintKey> constraintKeyMap = new HashMap<>();
+        while (resultSet.next()) {
+            String indexName = resultSet.getString("INDEX_NAME");
+            String columnName = resultSet.getString("COLUMN_NAME");
+            String unique = resultSet.getString("NON_UNIQUE");
+
+            ConstraintKey constraintKey =
+                    constraintKeyMap.computeIfAbsent(
+                            indexName,
+                            s -> {
+                                ConstraintKey.ConstraintType constraintType =
+                                        ConstraintKey.ConstraintType.KEY;
+                                // 0 is unique.
+                                if ("0".equals(unique)) {
+                                    constraintType = ConstraintKey.ConstraintType.UNIQUE_KEY;
+                                }
+                                return ConstraintKey.of(
+                                        constraintType, indexName, new ArrayList<>());
+                            });
+
+            ConstraintKey.ColumnSortType sortType =
+                    "A".equals(resultSet.getString("ASC_OR_DESC"))
+                            ? ConstraintKey.ColumnSortType.ASC
+                            : ConstraintKey.ColumnSortType.DESC;
+            ConstraintKey.ConstraintKeyColumn constraintKeyColumn =
+                    new ConstraintKey.ConstraintKeyColumn(columnName, sortType);
+            constraintKey.getColumnNames().add(constraintKeyColumn);
+        }
+        return new ArrayList<>(constraintKeyMap.values());
+    }
+
+    protected Optional<String> getColumnDefaultValue(
+            DatabaseMetaData metaData, String table, String column) throws SQLException {
+        try (ResultSet resultSet = metaData.getColumns(null, null, table, column)) {
+            while (resultSet.next()) {
+                String defaultValue = resultSet.getString("COLUMN_DEF");
+                return Optional.ofNullable(defaultValue);
+            }
         }
         return Optional.empty();
     }
@@ -206,4 +213,60 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             return false;
         }
     }
+
+    @Override
+    public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
+            throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
+        checkNotNull(tablePath, "Table path cannot be null");
+
+        if (!databaseExists(tablePath.getDatabaseName())) {
+            throw new DatabaseNotExistException(catalogName, tablePath.getDatabaseName());
+        }
+        if (!createTableInternal(tablePath, table) && !ignoreIfExists) {
+            throw new TableAlreadyExistException(catalogName, tablePath);
+        }
+    }
+
+    protected abstract boolean createTableInternal(TablePath tablePath, CatalogTable table)
+            throws CatalogException;
+
+    @Override
+    public void dropTable(TablePath tablePath, boolean ignoreIfNotExists)
+            throws TableNotExistException, CatalogException {
+        checkNotNull(tablePath, "Table path cannot be null");
+        if (!dropTableInternal(tablePath) && !ignoreIfNotExists) {
+            throw new TableNotExistException(catalogName, tablePath);
+        }
+    }
+
+    protected abstract boolean dropTableInternal(TablePath tablePath) throws CatalogException;
+
+    @Override
+    public void createDatabase(TablePath tablePath, boolean ignoreIfExists)
+            throws DatabaseAlreadyExistException, CatalogException {
+        checkNotNull(tablePath, "Table path cannot be null");
+        checkNotNull(tablePath.getDatabaseName(), "Database name cannot be null");
+
+        if (databaseExists(tablePath.getDatabaseName())) {
+            throw new DatabaseAlreadyExistException(catalogName, tablePath.getDatabaseName());
+        }
+        if (!createDatabaseInternal(tablePath.getDatabaseName()) && !ignoreIfExists) {
+            throw new DatabaseAlreadyExistException(catalogName, tablePath.getDatabaseName());
+        }
+    }
+
+    protected abstract boolean createDatabaseInternal(String databaseName);
+
+    @Override
+    public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
+            throws DatabaseNotExistException, CatalogException {
+        checkNotNull(tablePath, "Table path cannot be null");
+        checkNotNull(tablePath.getDatabaseName(), "Database name cannot be null");
+
+        if (!dropDatabaseInternal(tablePath.getDatabaseName()) && !ignoreIfNotExists) {
+            throw new DatabaseNotExistException(catalogName, tablePath.getDatabaseName());
+        }
+    }
+
+    protected abstract boolean dropDatabaseInternal(String databaseName) throws CatalogException;
 }

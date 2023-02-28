@@ -19,9 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 
 import com.google.auto.service.AutoService;
 
@@ -61,7 +61,7 @@ public class ElasticsearchSourceFactory implements TableSourceFactory {
                         TLS_KEY_STORE_PASSWORD,
                         TLS_TRUST_STORE_PATH,
                         TLS_TRUST_STORE_PASSWORD)
-                .exclusive(SOURCE, SeaTunnelSchema.SCHEMA)
+                .exclusive(SOURCE, CatalogTableUtil.SCHEMA)
                 .build();
     }
 

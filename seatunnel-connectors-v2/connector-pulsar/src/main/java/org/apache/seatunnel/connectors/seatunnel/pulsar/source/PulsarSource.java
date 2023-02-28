@@ -27,12 +27,12 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarAdminConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarClientConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
@@ -293,9 +293,7 @@ public class PulsarSource<T>
     private void setDeserialization(Config config) {
         String format = config.getString("format");
         // TODO: format SPI
-        SeaTunnelRowType rowType =
-                SeaTunnelSchema.buildWithConfig(config.getConfig(SeaTunnelSchema.SCHEMA.key()))
-                        .getSeaTunnelRowType();
+        SeaTunnelRowType rowType = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
         deserialization =
                 (DeserializationSchema<T>) new JsonDeserializationSchema(false, false, rowType);
     }

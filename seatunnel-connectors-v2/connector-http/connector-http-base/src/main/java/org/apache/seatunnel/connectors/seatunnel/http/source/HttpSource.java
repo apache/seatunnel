@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -35,7 +36,6 @@ import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
@@ -85,9 +85,8 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     }
 
     protected void buildSchemaWithConfig(Config pluginConfig) {
-        if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA.key())) {
-            Config schema = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
-            this.rowType = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
+        if (pluginConfig.hasPath(CatalogTableUtil.SCHEMA.key())) {
+            this.rowType = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
             // default use json format
             HttpConfig.ResponseFormat format = HttpConfig.FORMAT.defaultValue();
             if (pluginConfig.hasPath(HttpConfig.FORMAT.key())) {
@@ -118,7 +117,7 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                                     format));
             }
         } else {
-            this.rowType = SeaTunnelSchema.buildSimpleTextSchema();
+            this.rowType = CatalogTableUtil.buildSimpleTextSchema();
             this.deserializationSchema = new SimpleTextDeserializationSchema(this.rowType);
         }
     }

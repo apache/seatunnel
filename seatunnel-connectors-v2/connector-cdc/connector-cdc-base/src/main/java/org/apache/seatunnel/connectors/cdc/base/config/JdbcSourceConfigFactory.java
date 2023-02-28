@@ -18,11 +18,11 @@
 package org.apache.seatunnel.connectors.cdc.base.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 
@@ -189,13 +189,8 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         this.hostname = config.get(JdbcSourceOptions.HOSTNAME);
         this.username = config.get(JdbcSourceOptions.USERNAME);
         this.password = config.get(JdbcSourceOptions.PASSWORD);
-        // TODO: support multi-table
-        this.databaseList = Collections.singletonList(config.get(JdbcSourceOptions.DATABASE_NAME));
-        this.tableList =
-                Collections.singletonList(
-                        config.get(JdbcSourceOptions.DATABASE_NAME)
-                                + "."
-                                + config.get(JdbcSourceOptions.TABLE_NAME));
+        this.databaseList = config.get(JdbcSourceOptions.DATABASE_NAMES);
+        this.tableList = config.get(CatalogOptions.TABLE_NAMES);
         this.distributionFactorUpper =
                 config.get(JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND);
         this.distributionFactorLower =

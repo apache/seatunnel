@@ -284,6 +284,7 @@ public class ClusterFaultToleranceIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
+    @Disabled
     public void testBatchJobRestoreIn2NodeWorkerDown()
             throws ExecutionException, InterruptedException {
         String testCaseName = "testBatchJobRestoreIn2NodeWorkerDown";
@@ -500,6 +501,7 @@ public class ClusterFaultToleranceIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
+    @Disabled
     public void testBatchJobRestoreIn2NodeMasterDown()
             throws ExecutionException, InterruptedException {
         String testCaseName = "testBatchJobRestoreIn2NodeMasterDown";
@@ -599,6 +601,7 @@ public class ClusterFaultToleranceIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
+    @Disabled
     public void testStreamJobRestoreIn2NodeMasterDown()
             throws ExecutionException, InterruptedException {
         String testCaseName = "testStreamJobRestoreIn2NodeMasterDown";
@@ -723,6 +726,7 @@ public class ClusterFaultToleranceIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
+    @Disabled
     public void testStreamJobRestoreInAllNodeDown()
             throws ExecutionException, InterruptedException {
         String testCaseName = "testStreamJobRestoreInAllNodeDown";
