@@ -372,7 +372,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
                             () -> {
                                 // Wait some tasks commit finished
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.info(
                                         FileUtils.getFileLineNumberFromDir(
                                                 testResources.getLeft()));
                                 Assertions.assertTrue(
@@ -609,7 +609,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
                             () -> {
                                 // Wait some tasks commit finished
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.info(
                                         FileUtils.getFileLineNumberFromDir(
                                                 testResources.getLeft()));
                                 Assertions.assertTrue(

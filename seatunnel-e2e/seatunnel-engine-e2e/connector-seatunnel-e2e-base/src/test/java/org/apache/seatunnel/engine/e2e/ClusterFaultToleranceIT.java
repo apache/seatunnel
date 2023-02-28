@@ -133,7 +133,7 @@ public class ClusterFaultToleranceIT {
                     FileUtils.getFileLineNumberFromDir(testResources.getLeft());
             Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
             System.out.println(engineClient.getJobMetrics(clientJobProxy.getJobId()));
-            System.out.println("========================clean test resource====================");
+            log.info("========================clean test resource====================");
         } finally {
             if (engineClient != null) {
                 engineClient.shutdown();
@@ -312,7 +312,7 @@ public class ClusterFaultToleranceIT {
                                     Assertions.assertEquals(
                                             2, finalNode.getCluster().getMembers().size()));
 
-            System.out.println(
+            log.info(
                     "===================================All node is running==========================");
             Common.setDeployMode(DeployMode.CLIENT);
             ImmutablePair<String, String> testResources =
@@ -348,7 +348,7 @@ public class ClusterFaultToleranceIT {
                             });
 
             // shutdown on worker node
-            System.out.println(
+            log.info(
                     "=====================================shutdown node2=================================");
             node2.shutdown();
 
@@ -569,7 +569,7 @@ public class ClusterFaultToleranceIT {
                     .untilAsserted(
                             () -> {
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.info(
                                         FileUtils.getFileLineNumberFromDir(
                                                 testResources.getLeft()));
                                 Assertions.assertTrue(
@@ -862,7 +862,7 @@ public class ClusterFaultToleranceIT {
                             () -> {
                                 // Wait job write all rows in file
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.info(
                                         FileUtils.getFileLineNumberFromDir(
                                                 testResources.getLeft()));
                                 JobStatus jobStatus = null;
