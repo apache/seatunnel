@@ -409,15 +409,15 @@ public class CheckpointCoordinator {
                             pendingCheckpoint.getCheckpointId(),
                             pendingCheckpoint.getCheckpointType());
                     CompletableFuture<InvocationFuture<?>[]> completableFutureArray =
-                            CompletableFuture.supplyAsync(
-                                            () ->
-                                                    new CheckpointBarrier(
-                                                            pendingCheckpoint.getCheckpointId(),
-                                                            pendingCheckpoint
-                                                                    .getCheckpointTimestamp(),
-                                                            pendingCheckpoint.getCheckpointType()),
-                                            executorService)
-                                    .thenApplyAsync(this::triggerCheckpoint);
+                        CompletableFuture.supplyAsync(
+                                () ->
+                                    new CheckpointBarrier(
+                                        pendingCheckpoint.getCheckpointId(),
+                                        pendingCheckpoint
+                                            .getCheckpointTimestamp(),
+                                        pendingCheckpoint.getCheckpointType()),
+                                executorService)
+                            .thenApplyAsync(this::triggerCheckpoint, executorService);
 
                     try {
                         CompletableFuture.allOf(completableFutureArray).get();
@@ -460,6 +460,10 @@ public class CheckpointCoordinator {
                                         // (in HA mode) and may block for a while.
                                         return checkpointIdCounter.getAndIncrement();
                                     } catch (Throwable e) {
+                                        handleCoordinatorError(
+                                            "get checkpoint id failed",
+                                            e,
+                                            CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR);
                                         throw new CompletionException(e);
                                     }
                                 },
