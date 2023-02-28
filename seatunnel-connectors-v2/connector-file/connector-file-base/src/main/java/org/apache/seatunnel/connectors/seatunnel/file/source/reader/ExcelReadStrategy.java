@@ -80,7 +80,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                         : workbook.getSheetAt(0);
         Row rowTitle = sheet.getRow(0);
         int cellCount = rowTitle.getPhysicalNumberOfCells();
-        cellCount = partitionsMap.isEmpty()? cellCount : cellCount + partitionsMap.size();
+        cellCount = partitionsMap.isEmpty() ? cellCount : cellCount + partitionsMap.size();
         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(cellCount);
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
         int rowCount = sheet.getPhysicalNumberOfRows();
