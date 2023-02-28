@@ -569,7 +569,7 @@ public class ClusterFaultToleranceIT {
                     .untilAsserted(
                             () -> {
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.info(
                                         FileUtils.getFileLineNumberFromDir(
                                                 testResources.getLeft()));
                                 Assertions.assertTrue(
