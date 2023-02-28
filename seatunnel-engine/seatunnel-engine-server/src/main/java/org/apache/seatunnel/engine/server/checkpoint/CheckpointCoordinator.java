@@ -460,6 +460,10 @@ public class CheckpointCoordinator {
                                         // (in HA mode) and may block for a while.
                                         return checkpointIdCounter.getAndIncrement();
                                     } catch (Throwable e) {
+                                        handleCoordinatorError(
+                                                "get checkpoint id failed",
+                                                e,
+                                                CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR);
                                         throw new CompletionException(e);
                                     }
                                 },

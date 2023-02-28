@@ -183,7 +183,7 @@ public class SubPlan {
                                 pipelineStatus = PipelineStatus.FINISHED;
                             }
 
-                            if (checkAndCleanPipeline(pipelineStatus)) {
+                            if (!checkNeedRestore(pipelineStatus)) {
                                 subPlanDone(pipelineStatus);
                             }
 
@@ -211,8 +211,8 @@ public class SubPlan {
                 executorService);
     }
 
-    private boolean checkAndCleanPipeline(PipelineStatus pipelineStatus) {
-        return canRestorePipeline() || PipelineStatus.FINISHED.equals(pipelineStatus);
+    private boolean checkNeedRestore(PipelineStatus pipelineStatus) {
+        return canRestorePipeline() && !PipelineStatus.FINISHED.equals(pipelineStatus);
     }
 
     /** only call when the pipeline will never restart */
