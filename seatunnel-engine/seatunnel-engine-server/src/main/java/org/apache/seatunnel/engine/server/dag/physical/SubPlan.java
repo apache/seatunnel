@@ -409,8 +409,6 @@ public class SubPlan {
             } catch (Throwable e) {
                 LOGGER.severe(
                         String.format(
-                                "Restore pipeline %s error with exception: %s",
-                                pipelineFullName, ExceptionUtils.getMessage(e)));
                                 "Restore pipeline %s error with exception: ", pipelineFullName),
                         e);
                 cancelPipeline();

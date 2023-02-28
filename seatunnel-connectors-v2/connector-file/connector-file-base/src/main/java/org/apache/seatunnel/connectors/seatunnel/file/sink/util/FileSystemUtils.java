@@ -33,9 +33,6 @@ import org.apache.hadoop.security.UserGroupInformation;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
-import lombok.NonNull;
-import lombok.extern.slf4j.Slf4j;
-
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;

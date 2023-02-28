@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.format.text;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
-
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
