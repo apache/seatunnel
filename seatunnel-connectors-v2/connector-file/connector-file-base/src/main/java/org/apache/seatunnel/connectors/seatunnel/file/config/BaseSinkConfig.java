@@ -225,11 +225,11 @@ public class BaseSinkConfig {
             Options.key("max_rows_in_memory")
                     .intType()
                     .noDefaultValue()
-                    .withDescription("Max rows in memory");
+                    .withDescription("Max rows in memory,only valid for excel files");
 
     public static final Option<String> SHEET_NAME =
             Options.key("sheet_name")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("To be written sheet name");
+                    .withDescription("To be written sheet name,only valid for excel files");
 }

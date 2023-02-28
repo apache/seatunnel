@@ -53,6 +53,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Map;
 
 import static org.apache.seatunnel.common.utils.DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
 
@@ -68,6 +69,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
     public void read(String path, Collector<SeaTunnelRow> output) {
         Configuration conf = getConfiguration();
         FileSystem fs = FileSystem.get(conf);
+        Map<String, String> partitionsMap = parsePartitionsByPath(path);
         Path filePath = new Path(path);
         FSDataInputStream file = fs.open(filePath);
         Workbook workbook = new XSSFWorkbook(file);
@@ -78,6 +80,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                         : workbook.getSheetAt(0);
         Row rowTitle = sheet.getRow(0);
         int cellCount = rowTitle.getPhysicalNumberOfCells();
+        cellCount = partitionsMap.isEmpty()? cellCount : cellCount + partitionsMap.size();
         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(cellCount);
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
         int rowCount = sheet.getPhysicalNumberOfRows();
@@ -90,6 +93,12 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                         seaTunnelRow.setField(
                                 j, convert(getCellValue(cell.getCellType(), cell), fieldTypes[j]));
                     }
+                }
+            }
+            if (isMergePartition) {
+                int index = seaTunnelRowType.getTotalFields();
+                for (String value : partitionsMap.values()) {
+                    seaTunnelRow.setField(index++, value);
                 }
             }
             output.collect(seaTunnelRow);

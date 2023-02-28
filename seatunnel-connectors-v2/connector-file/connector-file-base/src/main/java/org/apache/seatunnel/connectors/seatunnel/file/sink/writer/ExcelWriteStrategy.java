@@ -56,7 +56,6 @@ public class ExcelWriteStrategy extends AbstractWriteStrategy {
                         v.flushAndCloseExcel(fileOutputStream);
                         fileOutputStream.close();
                     } catch (IOException e) {
-                        log.error("");
                         throw new FileConnectorException(
                                 CommonErrorCode.FILE_OPERATION_FAILED,
                                 "can not get output file stream");

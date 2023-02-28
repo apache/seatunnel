@@ -110,5 +110,5 @@ public class BaseSourceConfig {
             Options.key("sheet_name")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("To be read sheet name");
+                    .withDescription("To be read sheet name,only valid for excel files");
 }
