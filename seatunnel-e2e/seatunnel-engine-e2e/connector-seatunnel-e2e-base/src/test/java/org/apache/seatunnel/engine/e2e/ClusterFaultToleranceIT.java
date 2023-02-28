@@ -133,7 +133,7 @@ public class ClusterFaultToleranceIT {
                     FileUtils.getFileLineNumberFromDir(testResources.getLeft());
             Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
             System.out.println(engineClient.getJobMetrics(clientJobProxy.getJobId()));
-            System.out.println("========================clean test resource====================");
+            log.info("========================clean test resource====================");
         } finally {
             if (engineClient != null) {
                 engineClient.shutdown();
