@@ -348,7 +348,7 @@ public class ClusterFaultToleranceIT {
                             });
 
             // shutdown on worker node
-            System.out.println(
+            log.info(
                     "=====================================shutdown node2=================================");
             node2.shutdown();
 
