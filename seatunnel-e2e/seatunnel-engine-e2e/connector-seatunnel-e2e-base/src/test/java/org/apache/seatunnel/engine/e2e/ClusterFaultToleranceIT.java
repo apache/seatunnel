@@ -862,7 +862,7 @@ public class ClusterFaultToleranceIT {
                             () -> {
                                 // Wait job write all rows in file
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.info(
                                         FileUtils.getFileLineNumberFromDir(
                                                 testResources.getLeft()));
                                 JobStatus jobStatus = null;
