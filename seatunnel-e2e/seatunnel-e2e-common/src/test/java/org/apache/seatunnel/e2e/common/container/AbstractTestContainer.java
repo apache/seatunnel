@@ -40,7 +40,7 @@ public abstract class AbstractTestContainer implements TestContainer {
     protected static final Logger LOG = LoggerFactory.getLogger(AbstractTestContainer.class);
     protected static final String START_ROOT_MODULE_NAME = "seatunnel-core";
 
-    public static final String SEATUNNEL_HOME = "/tmp/seatunnel";
+    public static final String SEATUNNEL_HOME = "/tmp/seatunnel/";
     protected final String startModuleName;
 
     protected final String startModuleFullPath;

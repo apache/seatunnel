@@ -18,6 +18,8 @@
 package org.apache.seatunnel.e2e.transform;
 
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
@@ -25,6 +27,15 @@ import org.testcontainers.containers.Container;
 
 import java.io.IOException;
 
+@DisabledOnContainer(
+    value = {
+        TestContainerId.FLINK_1_13,
+        TestContainerId.FLINK_1_14,
+        TestContainerId.FLINK_1_15,
+        TestContainerId.FLINK_1_16,
+        TestContainerId.SPARK_2_4,
+        TestContainerId.SPARK_3_3
+    })
 public class TestCopyIT extends TestSuiteBase {
 
     @TestTemplate

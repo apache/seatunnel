@@ -201,7 +201,7 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
     private Map<String, String> parseCheckpointPluginConfig(Node checkpointPluginConfigNode) {
         Map<String, String> checkpointPluginConfig = new HashMap<>();
         for (Node node : childElements(checkpointPluginConfigNode)) {
-            String name = cleanNodeName(node);
+            String name = node.getNodeName();
             checkpointPluginConfig.put(name, getTextContent(node));
         }
         return checkpointPluginConfig;

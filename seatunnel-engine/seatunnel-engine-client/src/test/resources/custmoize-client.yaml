@@ -15,22 +15,23 @@
 # limitations under the License.
 #
 
-seatunnel:
-    engine:
-        backup-count: 1
-        queue-type: blockingqueue
-        print-execution-info-interval: 10
-        slot-service:
-            dynamic-slot: true
-        checkpoint:
-            interval: 300000
-            timeout: 10000
-            max-concurrent: 5
-            tolerable-failure: 2
-            storage:
-                type: hdfs
-                max-retained: 3
-                plugin-config:
-                    namespace: /tmp/seatunnel/checkpoint_snapshot/
-                    storage.type: hdfs
-                    fs.defaultFS: /tmp/ # Ensure that the directory has written permission
+hazelcast-client:
+  cluster-name: custmoize
+
+  network:
+    cluster-members:
+      - host:5801
+      - host:5802
+      - host:5803
+      - host:5804
+      - host:5805
+      - host:5806
+      - host:5807
+      - host:5808
+      - host:5809
+      - host:5810
+      - host:5811
+      - host:5812
+      - host:5813
+      - host:5814
+      - host:5815

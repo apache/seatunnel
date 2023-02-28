@@ -373,8 +373,8 @@ public class ClusterFaultToleranceTwoPipelineIT {
                                 // Wait some tasks commit finished
                                 Thread.sleep(2000);
                                 log.info(
-                                        FileUtils.getFileLineNumberFromDir(
-                                                testResources.getLeft()));
+                                        FileUtils.getFileLineNumberFromDir(testResources.getLeft())
+                                                + "");
                                 Assertions.assertTrue(
                                         objectCompletableFuture.isDone()
                                                 && JobStatus.FINISHED.equals(
@@ -610,8 +610,8 @@ public class ClusterFaultToleranceTwoPipelineIT {
                                 // Wait some tasks commit finished
                                 Thread.sleep(2000);
                                 log.info(
-                                        FileUtils.getFileLineNumberFromDir(
-                                                testResources.getLeft()));
+                                        FileUtils.getFileLineNumberFromDir(testResources.getLeft())
+                                                + "");
                                 Assertions.assertTrue(
                                         objectCompletableFuture.isDone()
                                                 && JobStatus.FINISHED.equals(
