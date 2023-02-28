@@ -13,16 +13,16 @@ The internal implementation of Doris sink connector is cached and imported by st
 
 ## Options
 
-| name                | type   | required | default value |
-|---------------------|--------|----------|---------------|
-| fenodes             | string | yes      | -             |
-| username            | string | yes      | -             |
-| password            | string | yes      | -             |
-| table.identifier    | string | yes      | -             |
-| sink.label-prefix   | string | yes      | -             |
-| sink.enable-2pc     | bool   | no       | true          |
-| sink.enable-delete  | bool   | no       | false         |
-| doris.config        | map    | yes      | -             |
+|        name        |  type  | required | default value |
+|--------------------|--------|----------|---------------|
+| fenodes            | string | yes      | -             |
+| username           | string | yes      | -             |
+| password           | string | yes      | -             |
+| table.identifier   | string | yes      | -             |
+| sink.label-prefix  | string | yes      | -             |
+| sink.enable-2pc    | bool   | no       | true          |
+| sink.enable-delete | bool   | no       | false         |
+| doris.config       | map    | yes      | -             |
 
 ### node_urls [string]
 

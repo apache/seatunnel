@@ -161,11 +161,11 @@ problems encountered by users.
 
 ## Doris Connector Error Codes
 
-| code      | description         | solution                                                                                                                          |
-|-----------|---------------------|-----------------------------------------------------------------------------------------------------------------------------------|
-| Doris-01  | stream load error.  | When users encounter this error code, it means that stream load to Doris failed, please check data from files whether is correct. |
- | Doris-02  | commit error.       | When users encounter this error code, it means that commit to Doris failed, please check network.                                 |
- | Doris-03  | rest service error. | When users encounter this error code, it means that rest service failed, please check network and config.                         |
+|   code   |     description     |                                                             solution                                                              |
+|----------|---------------------|-----------------------------------------------------------------------------------------------------------------------------------|
+| Doris-01 | stream load error.  | When users encounter this error code, it means that stream load to Doris failed, please check data from files whether is correct. |
+| Doris-02 | commit error.       | When users encounter this error code, it means that commit to Doris failed, please check network.                                 |
+| Doris-03 | rest service error. | When users encounter this error code, it means that rest service failed, please check network and config.                         |
 
 ## SelectDB Cloud Connector Error Codes
 
