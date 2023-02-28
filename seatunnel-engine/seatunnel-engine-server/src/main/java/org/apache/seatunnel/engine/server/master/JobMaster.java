@@ -141,6 +141,7 @@ public class JobMaster {
 
     /** If the job or pipeline cancel by user, needRestore will be false */
     @Getter private volatile boolean needRestore = true;
+
     private CheckpointConfig jobCheckpointConfig;
 
     public JobMaster(
