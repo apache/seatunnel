@@ -84,7 +84,6 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         StarRocksCatalog starRocksCatalog =
                 new StarRocksCatalog(
                         "StarRocks",
-                        sinkConfig.getDatabase(),
                         sinkConfig.getUsername(),
                         sinkConfig.getPassword(),
                         sinkConfig.getJdbcUrl());
