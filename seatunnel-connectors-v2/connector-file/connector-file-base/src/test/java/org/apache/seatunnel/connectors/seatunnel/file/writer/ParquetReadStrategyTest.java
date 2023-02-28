@@ -37,8 +37,6 @@ import java.util.List;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
-
 public class ParquetReadStrategyTest {
     @Test
     public void testParquetRead1() throws Exception {
