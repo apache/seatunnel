@@ -131,6 +131,6 @@ public interface StarRocksSinkOptions {
     Option<StreamLoadFormat> LOAD_FORMAT =
             Options.key("starrocks.config.format")
                     .enumType(StreamLoadFormat.class)
-                    .defaultValue(StreamLoadFormat.CSV)
+                    .defaultValue(StreamLoadFormat.JSON)
                     .withDescription("");
 }
