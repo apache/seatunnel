@@ -38,7 +38,8 @@ public class JdbcUrlUtilTest {
         Assertions.assertEquals("192.168.1.1", urlInfo.getHost());
         Assertions.assertEquals(5310, urlInfo.getPort());
         Assertions.assertEquals(
-                urlInfo, JdbcUrlUtil.getUrlInfo("jdbc:mysql://192.168.1.1:5310/seatunnel"));
+                urlInfo,
+                JdbcUrlUtil.getUrlInfo("jdbc:mysql://192.168.1.1:5310/seatunnel?useSSL=true"));
     }
 
     @Test

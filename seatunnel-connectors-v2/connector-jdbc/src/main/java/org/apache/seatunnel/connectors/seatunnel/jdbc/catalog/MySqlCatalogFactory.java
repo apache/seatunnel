@@ -49,9 +49,7 @@ public class MySqlCatalogFactory implements CatalogFactory {
                 catalogName,
                 options.get(JdbcCatalogOptions.USERNAME),
                 options.get(JdbcCatalogOptions.PASSWORD),
-                defaultDatabase.get(),
-                urlInfo.getUrlWithoutDatabase(),
-                urlInfo.getUrlWithDatabase().get());
+                urlInfo);
     }
 
     @Override

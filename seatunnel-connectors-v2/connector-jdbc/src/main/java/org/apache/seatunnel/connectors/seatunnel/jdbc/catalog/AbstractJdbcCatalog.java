@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistExce
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
+import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -60,26 +61,26 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     protected final String username;
     protected final String pwd;
     protected final String baseUrl;
+    protected final String suffix;
     protected final String defaultUrl;
 
     public AbstractJdbcCatalog(
-            String catalogName,
-            String username,
-            String pwd,
-            String defaultDatabase,
-            String baseUrl,
-            String defaultUrl) {
+            String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
 
         checkArgument(StringUtils.isNotBlank(username));
         checkArgument(StringUtils.isNotBlank(pwd));
-        checkArgument(StringUtils.isNotBlank(defaultDatabase));
-        checkArgument(StringUtils.isNotBlank(baseUrl));
+        urlInfo.getDefaultDatabase()
+                .orElseThrow(
+                        () -> new IllegalArgumentException("Can't find default database in url"));
+        checkArgument(StringUtils.isNotBlank(urlInfo.getUrlWithoutDatabase()));
         this.catalogName = catalogName;
-        this.defaultDatabase = defaultDatabase;
+        this.defaultDatabase = urlInfo.getDefaultDatabase().get();
         this.username = username;
         this.pwd = pwd;
+        String baseUrl = urlInfo.getUrlWithoutDatabase();
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
-        this.defaultUrl = defaultUrl;
+        this.defaultUrl = urlInfo.getOrigin();
+        this.suffix = urlInfo.getSuffix();
     }
 
     @Override
