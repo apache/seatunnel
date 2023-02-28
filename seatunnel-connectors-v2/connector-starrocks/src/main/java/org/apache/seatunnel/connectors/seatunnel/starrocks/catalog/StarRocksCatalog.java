@@ -89,13 +89,14 @@ public class StarRocksCatalog implements Catalog {
             String[] strings = splitDefaultUrl(defaultUrl);
             this.baseUrl = strings[0];
             this.defaultDatabase = strings[1];
+            this.defaultUrl = defaultUrl;
         } else {
             this.baseUrl = defaultUrl;
+            this.defaultUrl = this.baseUrl + defaultDatabase;
         }
         this.catalogName = catalogName;
         this.username = username;
         this.pwd = pwd;
-        this.defaultUrl = defaultUrl;
     }
 
     public StarRocksCatalog(
@@ -116,6 +117,7 @@ public class StarRocksCatalog implements Catalog {
         } else {
             String[] strings = splitDefaultUrl(baseUrl);
             this.baseUrl = strings[0];
+            this.defaultUrl = baseUrl;
         }
         this.catalogName = catalogName;
         this.defaultDatabase = defaultDatabase;
