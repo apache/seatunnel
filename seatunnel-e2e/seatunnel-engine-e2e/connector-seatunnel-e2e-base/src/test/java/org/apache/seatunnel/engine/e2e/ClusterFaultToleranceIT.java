@@ -312,7 +312,7 @@ public class ClusterFaultToleranceIT {
                                     Assertions.assertEquals(
                                             2, finalNode.getCluster().getMembers().size()));
 
-            System.out.println(
+            log.info(
                     "===================================All node is running==========================");
             Common.setDeployMode(DeployMode.CLIENT);
             ImmutablePair<String, String> testResources =
