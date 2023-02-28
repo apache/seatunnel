@@ -22,7 +22,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 
 Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
 
-- [ ] [column projection](../../concept/connector-v2-features.md)
+- [x] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 - [x] file format
@@ -39,6 +39,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | path                      | string  | yes      | -                   |
 | type                      | string  | yes      | -                   |
 | fs.defaultFS              | string  | yes      | -                   |
+| read_columns              | list    | yes      | -                   |
 | hdfs_site_path            | string  | no       | -                   |
 | delimiter                 | string  | no       | \001                |
 | parse_partition_from_path | boolean | no       | true                |
@@ -218,6 +219,20 @@ The keytab path of kerberos
 #### fields [Config]
 
 the schema fields of upstream data
+
+### read_columns [list]
+
+The read column list of the data source, user can use it to implement field projection.
+
+The file type supported column projection as the following shown:
+
+- text
+- json
+- csv
+- orc
+- parquet
+
+**Tips: If the user wants to use this feature when reading `text` `json` `csv` files, the schema option must be configured**
 
 ### common options
 

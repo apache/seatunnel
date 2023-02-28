@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -35,6 +36,7 @@ import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -50,8 +52,20 @@ public class FakeDataGeneratorTest {
                 CatalogTableUtil.buildWithConfig(testConfig).getSeaTunnelRowType();
         FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
         FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(seaTunnelRowType, fakeConfig);
-        List<SeaTunnelRow> seaTunnelRows =
-                fakeDataGenerator.generateFakedRows(fakeConfig.getRowNum());
+        List<SeaTunnelRow> seaTunnelRows = new ArrayList<>();
+        fakeDataGenerator.collectFakedRows(
+                fakeConfig.getRowNum(),
+                new Collector<SeaTunnelRow>() {
+                    @Override
+                    public void collect(SeaTunnelRow record) {
+                        seaTunnelRows.add(record);
+                    }
+
+                    @Override
+                    public Object getCheckpointLock() {
+                        throw new UnsupportedOperationException();
+                    }
+                });
         Assertions.assertNotNull(seaTunnelRows);
         Assertions.assertEquals(seaTunnelRows.size(), 10);
         for (SeaTunnelRow seaTunnelRow : seaTunnelRows) {
@@ -100,8 +114,20 @@ public class FakeDataGeneratorTest {
                 CatalogTableUtil.buildWithConfig(testConfig).getSeaTunnelRowType();
         FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
         FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(seaTunnelRowType, fakeConfig);
-        List<SeaTunnelRow> seaTunnelRows =
-                fakeDataGenerator.generateFakedRows(fakeConfig.getRowNum());
+        List<SeaTunnelRow> seaTunnelRows = new ArrayList<>();
+        fakeDataGenerator.collectFakedRows(
+                fakeConfig.getRowNum(),
+                new Collector<SeaTunnelRow>() {
+                    @Override
+                    public void collect(SeaTunnelRow record) {
+                        seaTunnelRows.add(record);
+                    }
+
+                    @Override
+                    public Object getCheckpointLock() {
+                        throw new UnsupportedOperationException();
+                    }
+                });
         Assertions.assertIterableEquals(expected, seaTunnelRows);
     }
 

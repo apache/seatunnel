@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-tdengine</artifactId>
+    <name>SeaTunnel : Connectors V2 : TDengine</name>
 
     <dependencies>
         <dependency>

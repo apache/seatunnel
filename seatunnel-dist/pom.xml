@@ -28,6 +28,7 @@
 
     <artifactId>seatunnel-dist</artifactId>
     <packaging>pom</packaging>
+    <name>SeaTunnel : Dist</name>
 
     <properties>
         <!-- disable mvn deploy to central maven repo by default -->
@@ -408,6 +409,12 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-http-github</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-http-jira</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
@@ -457,6 +464,12 @@
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-selectdb-cloud</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-hbase</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>

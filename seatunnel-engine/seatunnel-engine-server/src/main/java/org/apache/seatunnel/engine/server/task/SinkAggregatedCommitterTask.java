@@ -130,7 +130,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
                 reportTaskStatus(WAITING_RESTORE);
                 break;
             case WAITING_RESTORE:
-                if (restoreComplete) {
+                if (restoreComplete.isDone()) {
                     currState = READY_START;
                     reportTaskStatus(READY_START);
                 }
@@ -227,7 +227,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
                                                                 bytes)))
                         .collect(Collectors.toList());
         aggregatedCommitter.commit(aggregatedCommitInfos);
-        restoreComplete = true;
+        restoreComplete.complete(null);
     }
 
     public void receivedWriterCommitInfo(long checkpointID, CommandInfoT commitInfos) {

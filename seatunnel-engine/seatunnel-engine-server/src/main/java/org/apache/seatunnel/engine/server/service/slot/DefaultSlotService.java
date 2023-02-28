@@ -35,6 +35,7 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
@@ -47,7 +48,6 @@ public class DefaultSlotService implements SlotService {
 
     private static final ILogger LOGGER = Logger.getLogger(DefaultSlotService.class);
     private static final long DEFAULT_HEARTBEAT_TIMEOUT = 2000;
-    private static final int HEARTBEAT_RETRY_TIME = 5;
     private final NodeEngineImpl nodeEngine;
 
     private AtomicReference<ResourceProfile> unassignedResource;
@@ -63,6 +63,7 @@ public class DefaultSlotService implements SlotService {
     private final IdGenerator idGenerator;
     private final TaskExecutionService taskExecutionService;
     private ConcurrentMap<Integer, SlotContext> contexts;
+    private String slotServiceSequence;
 
     public DefaultSlotService(
             NodeEngineImpl nodeEngine,
@@ -77,6 +78,7 @@ public class DefaultSlotService implements SlotService {
     @Override
     public void init() {
         initStatus = true;
+        slotServiceSequence = UUID.randomUUID().toString();
         contexts = new ConcurrentHashMap<>();
         assignedSlots = new ConcurrentHashMap<>();
         unassignedSlots = new ConcurrentHashMap<>();
@@ -100,7 +102,7 @@ public class DefaultSlotService implements SlotService {
                         LOGGER.fine(
                                 "start send heartbeat to resource manager, this address: "
                                         + nodeEngine.getClusterService().getThisAddress());
-                        sendToMaster(new WorkerHeartbeatOperation(toWorkerProfile())).join();
+                        sendToMaster(new WorkerHeartbeatOperation(getWorkerProfile())).join();
                     } catch (Exception e) {
                         LOGGER.warning(
                                 "failed send heartbeat to resource manager, will retry later. this address: "
@@ -128,10 +130,6 @@ public class DefaultSlotService implements SlotService {
     public synchronized SlotAndWorkerProfile requestSlot(
             long jobId, ResourceProfile resourceProfile) {
         initStatus = false;
-        LOGGER.info(
-                String.format(
-                        "received slot request, jobID: %d, resource profile: %s",
-                        jobId, resourceProfile));
         SlotProfile profile = selectBestMatchSlot(resourceProfile);
         if (profile != null) {
             profile.assign(jobId);
@@ -144,7 +142,11 @@ public class DefaultSlotService implements SlotService {
                     profile.getSlotID(),
                     p -> new SlotContext(profile.getSlotID(), taskExecutionService));
         }
-        return new SlotAndWorkerProfile(toWorkerProfile(), profile);
+        LOGGER.info(
+                String.format(
+                        "received slot request, jobID: %d, resource profile: %s, return: %s",
+                        jobId, resourceProfile, profile));
+        return new SlotAndWorkerProfile(getWorkerProfile(), profile);
     }
 
     public SlotContext getSlotContext(SlotProfile slotProfile) {
@@ -156,13 +158,18 @@ public class DefaultSlotService implements SlotService {
     }
 
     @Override
-    public void releaseSlot(long jobId, SlotProfile profile) {
+    public synchronized void releaseSlot(long jobId, SlotProfile profile) {
         LOGGER.info(
                 String.format(
                         "received slot release request, jobID: %d, slot: %s", jobId, profile));
         if (!assignedSlots.containsKey(profile.getSlotID())) {
             throw new WrongTargetSlotException(
                     "Not exist this slot in slot service, slot profile: " + profile);
+        }
+
+        if (!assignedSlots.get(profile.getSlotID()).getSequence().equals(profile.getSequence())) {
+            throw new WrongTargetSlotException(
+                    "Wrong slot sequence in profile, slot profile: " + profile);
         }
 
         if (assignedSlots.get(profile.getSlotID()).getOwnerJobID() != jobId) {
@@ -196,7 +203,10 @@ public class DefaultSlotService implements SlotService {
         if (config.isDynamicSlot()) {
             if (unassignedResource.get().enoughThan(profile)) {
                 return new SlotProfile(
-                        nodeEngine.getThisAddress(), (int) idGenerator.getNextId(), profile);
+                        nodeEngine.getThisAddress(),
+                        (int) idGenerator.getNextId(),
+                        profile,
+                        slotServiceSequence);
             }
         } else {
             Optional<SlotProfile> result =
@@ -236,11 +246,13 @@ public class DefaultSlotService implements SlotService {
                             nodeEngine.getThisAddress(),
                             i,
                             new ResourceProfile(
-                                    CPU.of(0), Memory.of(maxMemory / config.getSlotNum()))));
+                                    CPU.of(0), Memory.of(maxMemory / config.getSlotNum())),
+                            slotServiceSequence));
         }
     }
 
-    public WorkerProfile toWorkerProfile() {
+    @Override
+    public synchronized WorkerProfile getWorkerProfile() {
         WorkerProfile workerProfile = new WorkerProfile(nodeEngine.getThisAddress());
         workerProfile.setProfile(getNodeResource());
         workerProfile.setAssignedSlots(assignedSlots.values().toArray(new SlotProfile[0]));

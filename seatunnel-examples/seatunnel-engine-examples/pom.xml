@@ -25,12 +25,23 @@
     </parent>
 
     <artifactId>seatunnel-engine-examples</artifactId>
+    <name>SeaTunnel : Examples : Engine</name>
+
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-starter</artifactId>
             <version>${project.version}</version>
         </dependency>
+
+        <!--   seatunnel-transforms-v2   -->
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-transforms-v2</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!--   seatunnel-transforms-v2   -->
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-fake</artifactId>

@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
+import org.apache.seatunnel.format.json.canal.CanalJsonSerializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
@@ -31,6 +32,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import java.util.List;
 import java.util.function.Function;
 
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CANNAL_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TEXT_FORMAT;
 
@@ -78,16 +80,19 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<byt
 
     private static SerializationSchema createSerializationSchema(
             SeaTunnelRowType rowType, String format, String delimiter) {
-        if (DEFAULT_FORMAT.equals(format)) {
-            return new JsonSerializationSchema(rowType);
-        } else if (TEXT_FORMAT.equals(format)) {
-            return TextSerializationSchema.builder()
-                    .seaTunnelRowType(rowType)
-                    .delimiter(delimiter)
-                    .build();
-        } else {
-            throw new SeaTunnelJsonFormatException(
-                    CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + format);
+        switch (format) {
+            case DEFAULT_FORMAT:
+                return new JsonSerializationSchema(rowType);
+            case TEXT_FORMAT:
+                return TextSerializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter(delimiter)
+                        .build();
+            case CANNAL_FORMAT:
+                return new CanalJsonSerializationSchema(rowType);
+            default:
+                throw new SeaTunnelJsonFormatException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + format);
         }
     }
 

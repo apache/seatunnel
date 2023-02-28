@@ -21,6 +21,7 @@ import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConsta
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ReleaseSlotOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.RequestSlotOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ResetResourceOperation;
+import org.apache.seatunnel.engine.server.resourcemanager.opeartion.SyncWorkerProfileOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.WorkerHeartbeatOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
@@ -46,6 +47,8 @@ public class ResourceDataSerializerHook implements DataSerializerHook {
     public static final int SLOT_PROFILE_TYPE = 6;
 
     public static final int SLOT_AND_WORKER_PROFILE = 7;
+
+    public static final int SYNC_SLOT_SERVICE_STATUS_TYPE = 8;
 
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
@@ -81,6 +84,8 @@ public class ResourceDataSerializerHook implements DataSerializerHook {
                     return new SlotProfile();
                 case SLOT_AND_WORKER_PROFILE:
                     return new SlotAndWorkerProfile();
+                case SYNC_SLOT_SERVICE_STATUS_TYPE:
+                    return new SyncWorkerProfileOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

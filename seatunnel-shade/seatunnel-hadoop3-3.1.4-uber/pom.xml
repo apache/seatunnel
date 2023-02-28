@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+    <name>SeaTunnel : Shade : Hadoop3</name>
 
     <properties>
         <hadoop3.version>3.1.4</hadoop3.version>

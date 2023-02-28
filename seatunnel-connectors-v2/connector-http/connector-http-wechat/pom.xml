@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-http-wechat</artifactId>
+    <name>SeaTunnel : Connectors V2 : Http : WeChat</name>
 
     <dependencies>
         <dependency>

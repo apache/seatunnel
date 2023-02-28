@@ -26,6 +26,33 @@
         <version>${revision}</version>
     </parent>
     <artifactId>connector-cdc-mysql</artifactId>
+    <name>SeaTunnel : Connectors V2 : CDC : MySql</name>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>connector-cdc-base</artifactId>
+                <version>${project.version}</version>
+                <scope>compile</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>io.debezium</groupId>
+                <artifactId>debezium-connector-mysql</artifactId>
+                <version>${debezium.version}</version>
+                <scope>compile</scope>
+            </dependency>
+
+            <!-- test dependencies on TestContainers -->
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>mysql</artifactId>
+                <version>${testcontainer.version}</version>
+                <scope>test</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencyManagement>
         <dependencies>

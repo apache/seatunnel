@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>seatunnel-format-text</artifactId>
+    <name>SeaTunnel : Formats : Text</name>
 
     <dependencies>
         <dependency>

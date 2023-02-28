@@ -9,6 +9,9 @@ In SeaTunnel, the most important thing is the Config file, through which users c
 synchronization requirements to maximize the potential of SeaTunnel. So next, I will introduce you how to
 configure the Config file.
 
+The main format of the Config file is `hocon`, for more details of this format type you can refer to [HOCON-GUIDE](https://github.com/lightbend/config/blob/main/HOCON.md),
+BTW, we also support the `json` format, but you should know that the name of the config file should end with `.json`
+
 ## Example
 
 Before you read on, you can find config file
@@ -18,6 +21,8 @@ config directory.
 ## Config file structure
 
 The Config file will be similar to the one below.
+
+### hocon
 
 ```hocon
 env {
@@ -57,6 +62,52 @@ sink {
     source_table_name = "fake1"
   }
 }
+```
+
+### json
+
+```json
+
+{
+  "env": {
+    "job.mode": "batch"
+  },
+  "source": [
+    {
+      "plugin_name": "FakeSource",
+      "result_table_name": "fake",
+      "row.num": 100,
+      "schema": {
+        "fields": {
+          "name": "string",
+          "age": "int",
+          "card": "int"
+        }
+      }
+    }
+  ],
+  "transform": [
+    {
+      "plugin_name": "Filter",
+      "source_table_name": "fake",
+      "result_table_name": "fake1",
+      "fields": ["name", "card"]
+    }
+  ],
+  "sink": [
+    {
+      "plugin_name": "Clickhouse",
+      "host": "clickhouse:8123",
+      "database": "default",
+      "table": "seatunnel_console",
+      "fields": ["name", "card"],
+      "username": "default",
+      "password": "",
+      "source_table_name": "fake1"
+    }
+  ]
+}
+
 ```
 
 As you can see, the Config file contains several sections: env, source, transform, sink. Different modules
@@ -108,7 +159,7 @@ sink {
     host = "clickhouse:8123"
     database = "default"
     table = "seatunnel_console"
-    fields = ["name", "age", card"]
+    fields = ["name", "age", "card"]
     username = "default"
     password = ""
     source_table_name = "fake1"

@@ -33,6 +33,8 @@ public class Config {
 
     public static final String TEXT_FORMAT = "text";
 
+    public static final String CANNAL_FORMAT = "canal-json";
+
     /** The default field delimiter is “,” */
     public static final String DEFAULT_FIELD_DELIMITER = ",";
 

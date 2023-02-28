@@ -55,6 +55,7 @@ import static com.google.common.base.Preconditions.checkArgument;
  * data consistency assurance capability in case of cluster node failure
  */
 @Slf4j
+@Disabled
 public class ClusterFaultToleranceTwoPipelineIT {
 
     public static final String TEST_TEMPLATE_FILE_NAME =

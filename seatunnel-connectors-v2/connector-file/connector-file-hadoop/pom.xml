@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-file-hadoop</artifactId>
+    <name>SeaTunnel : Connectors V2 : File : Hadoop</name>
 
     <dependencies>
         <dependency>

@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
+import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
 import java.util.List;
 
@@ -41,7 +42,7 @@ public class BaseSourceConfig {
     public static final Option<String> DELIMITER =
             Options.key("delimiter")
                     .stringType()
-                    .defaultValue(String.valueOf('\001'))
+                    .defaultValue(TextFormatConstant.SEPARATOR[0])
                     .withDescription(
                             "The separator between columns in a row of data. Only needed by `text` file format");
 
@@ -98,4 +99,10 @@ public class BaseSourceConfig {
                     .listType()
                     .noDefaultValue()
                     .withDescription("The partitions that the user want to read");
+
+    public static final Option<List<String>> READ_COLUMNS =
+            Options.key("read_columns")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription("The columns list that the user want to read");
 }

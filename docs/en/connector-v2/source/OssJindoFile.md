@@ -45,6 +45,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | access_key                | string  | yes      | -                   |
 | access_secret             | string  | yes      | -                   |
 | endpoint                  | string  | yes      | -                   |
+| read_columns              | list    | no       | -                   |
 | delimiter                 | string  | no       | \001                |
 | parse_partition_from_path | boolean | no       | true                |
 | date_format               | string  | no       | yyyy-MM-dd          |
@@ -221,6 +222,20 @@ The endpoint of oss file system.
 #### fields [Config]
 
 The schema of upstream data.
+
+### read_columns [list]
+
+The read column list of the data source, user can use it to implement field projection.
+
+The file type supported column projection as the following shown:
+
+- text
+- json
+- csv
+- orc
+- parquet
+
+**Tips: If the user wants to use this feature when reading `text` `json` `csv` files, the schema option must be configured**
 
 ### common options
 

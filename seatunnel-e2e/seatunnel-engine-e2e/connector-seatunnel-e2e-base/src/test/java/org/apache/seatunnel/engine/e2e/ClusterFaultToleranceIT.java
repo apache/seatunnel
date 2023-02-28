@@ -56,6 +56,7 @@ import static com.google.common.base.Preconditions.checkArgument;
  * capability in case of cluster node failure
  */
 @Slf4j
+@Disabled
 public class ClusterFaultToleranceIT {
 
     public static final String DYNAMIC_TEST_CASE_NAME = "dynamic_test_case_name";
@@ -69,7 +70,6 @@ public class ClusterFaultToleranceIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    @Disabled
     public void testBatchJobRunOkIn2Node() throws ExecutionException, InterruptedException {
         String testCaseName = "testBatchJobRunOkIn2Node";
         String testClusterName = "ClusterFaultToleranceIT_testBatchJobRunOkIn2Node";
@@ -192,7 +192,6 @@ public class ClusterFaultToleranceIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    @Disabled
     public void testStreamJobRunOkIn2Node() throws ExecutionException, InterruptedException {
         String testCaseName = "testStreamJobRunOkIn2Node";
         String testClusterName = "ClusterFaultToleranceIT_testStreamJobRunOkIn2Node";

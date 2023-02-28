@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>connector-jdbc-spark-e2e</artifactId>
+    <name>SeaTunnel : E2E : Spark Connector V2 : Jdbc</name>
 
     <dependencyManagement>
         <dependencies>

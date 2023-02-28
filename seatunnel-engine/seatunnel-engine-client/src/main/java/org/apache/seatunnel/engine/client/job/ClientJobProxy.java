@@ -43,6 +43,7 @@ public class ClientJobProxy implements Job {
     private static final ILogger LOGGER = Logger.getLogger(ClientJobProxy.class);
     private final SeaTunnelHazelcastClient seaTunnelHazelcastClient;
     private final JobImmutableInformation jobImmutableInformation;
+    private JobResult jobResult;
 
     public ClientJobProxy(
             @NonNull SeaTunnelHazelcastClient seaTunnelHazelcastClient,
@@ -81,7 +82,6 @@ public class ClientJobProxy implements Job {
      */
     @Override
     public JobStatus waitForJobComplete() {
-        JobResult jobResult;
         try {
             jobResult =
                     RetryUtils.retryWithException(
@@ -113,10 +113,15 @@ public class ClientJobProxy implements Job {
                         jobImmutableInformation.getJobConfig().getName(),
                         jobImmutableInformation.getJobId(),
                         jobResult.getStatus()));
-        if (StringUtils.isNotEmpty(jobResult.getError())) {
+        if (StringUtils.isNotEmpty(jobResult.getError())
+                || jobResult.getStatus().equals(JobStatus.FAILED)) {
             throw new SeaTunnelEngineException(jobResult.getError());
         }
         return jobResult.getStatus();
+    }
+
+    public JobResult getJobResultCache() {
+        return jobResult;
     }
 
     @Override
