@@ -36,6 +36,7 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
     protected String hostname;
     protected String username;
     protected String password;
+    protected String originUrl;
     protected List<String> databaseList;
     protected List<String> tableList;
     protected StartupConfig startupConfig;
@@ -60,6 +61,11 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
     /** Integer port number of the database server. */
     public JdbcSourceConfigFactory port(int port) {
         this.port = port;
+        return this;
+    }
+
+    public JdbcSourceConfigFactory originUrl(String originUrl) {
+        this.originUrl = originUrl;
         return this;
     }
 

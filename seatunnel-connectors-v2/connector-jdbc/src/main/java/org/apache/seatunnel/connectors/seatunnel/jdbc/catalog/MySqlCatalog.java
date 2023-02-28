@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sql.MysqlCreateTableSqlBuilder;
 
 import com.mysql.cj.MysqlType;
@@ -62,13 +63,8 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
     }
 
     public MySqlCatalog(
-            String catalogName,
-            String username,
-            String pwd,
-            String defaultDatabase,
-            String baseUrl,
-            String defaultUrl) {
-        super(catalogName, username, pwd, defaultDatabase, baseUrl, defaultUrl);
+            String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
+        super(catalogName, username, pwd, urlInfo);
     }
 
     @Override
@@ -100,7 +96,8 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
             throw new DatabaseNotExistException(this.catalogName, databaseName);
         }
 
-        try (Connection conn = DriverManager.getConnection(baseUrl + databaseName, username, pwd);
+        String dbUrl = getUrlFromDatabaseName(databaseName);
+        try (Connection conn = DriverManager.getConnection(dbUrl, username, pwd);
                 PreparedStatement ps = conn.prepareStatement("SHOW TABLES;")) {
 
             ResultSet rs = ps.executeQuery();
@@ -125,7 +122,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
             throw new TableNotExistException(catalogName, tablePath);
         }
 
-        String dbUrl = baseUrl + tablePath.getDatabaseName();
+        String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
         try (Connection conn = DriverManager.getConnection(dbUrl, username, pwd)) {
             DatabaseMetaData metaData = conn.getMetaData();
             Optional<PrimaryKey> primaryKey =
@@ -189,7 +186,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
     @Override
     protected boolean createTableInternal(TablePath tablePath, CatalogTable table)
             throws CatalogException {
-        String dbUrl = baseUrl + tablePath.getDatabaseName();
+        String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
         String createTableSql = MysqlCreateTableSqlBuilder.builder(tablePath, table).build();
         try (Connection conn = DriverManager.getConnection(dbUrl, username, pwd);
                 PreparedStatement ps = conn.prepareStatement(createTableSql)) {
@@ -202,7 +199,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected boolean dropTableInternal(TablePath tablePath) throws CatalogException {
-        String dbUrl = baseUrl + tablePath.getDatabaseName();
+        String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
         try (Connection conn = DriverManager.getConnection(dbUrl, username, pwd);
                 PreparedStatement ps =
                         conn.prepareStatement(
@@ -270,5 +267,9 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         options.put("username", username);
         options.put("password", pwd);
         return options;
+    }
+
+    private String getUrlFromDatabaseName(String databaseName) {
+        return baseUrl + databaseName + suffix;
     }
 }

@@ -123,6 +123,7 @@ public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
                 port,
                 username,
                 password,
+                originUrl,
                 fetchSize,
                 serverTimeZone,
                 connectTimeoutMillis,
