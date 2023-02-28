@@ -27,7 +27,7 @@ import java.util.Objects;
 public final class SeaTunnelRow implements Serializable {
     private static final long serialVersionUID = -1L;
     /** Table identifier, used for the source connector that {@link SupportMultipleTable}. */
-    private String tableId;
+    private String tableId = "";
     /** The kind of change that a row describes in a changelog. */
     private RowKind kind = RowKind.INSERT;
     /** The array to store the actual internal format values. */
