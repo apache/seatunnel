@@ -15,22 +15,23 @@
 # limitations under the License.
 #
 
-seatunnel:
-    engine:
-        backup-count: 1
-        queue-type: blockingqueue
-        print-execution-info-interval: 10
-        slot-service:
-            dynamic-slot: true
-        checkpoint:
-            interval: 300000
-            timeout: 10000
-            max-concurrent: 5
-            tolerable-failure: 2
-            storage:
-                type: hdfs
-                max-retained: 3
-                plugin-config:
-                    namespace: /tmp/seatunnel/checkpoint_snapshot/
-                    storage.type: hdfs
-                    fs.defaultFS: /tmp/ # Ensure that the directory has written permission
+hazelcast:
+  cluster-name: seatunnel
+  network:
+    join:
+      tcp-ip:
+        enabled: true
+        member-list:
+          - localhost
+    port:
+      auto-increment: true
+      port-count: 100
+      port: 5801
+  map:
+    map-name-template:
+      map-store:
+        enabled: true
+        initial-mode: EAGER
+        class-name: org.apache.seatunnel.engine.server.persistence.FileMapStore
+        properties:
+          path: /tmp/file-store-map

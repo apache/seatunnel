@@ -19,7 +19,6 @@ package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.api.common.metrics.MetricTags;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
-import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
@@ -27,6 +26,7 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.Task;
@@ -160,8 +160,15 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     public TaskGroupContext getExecutionContext(TaskGroupLocation taskGroupLocation) {
+        TaskGroupContext taskGroupContext = null;
         if (executionContexts.get(taskGroupLocation) == null) {
-            return finishedExecutionContexts.get(taskGroupLocation);
+            taskGroupContext = finishedExecutionContexts.get(taskGroupLocation);
+        }
+
+        taskGroupContext = executionContexts.get(taskGroupLocation);
+        if (taskGroupContext == null) {
+            throw new TaskGroupContextNotFoundException(
+                    String.format("task group %s not found.", taskGroupLocation));
         }
         return executionContexts.get(taskGroupLocation);
     }
@@ -222,12 +229,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     public <T extends Task> T getTask(@NonNull TaskLocation taskLocation) {
         TaskGroupContext executionContext =
                 this.getExecutionContext(taskLocation.getTaskGroupLocation());
-        if (null == executionContext) {
-            throw new SeaTunnelException(
-                    String.format(
-                            "Failed to get Task, TaskLocation{%s} does not exist in TaskExecutionServer",
-                            taskLocation));
-        }
         return executionContext.getTaskGroup().getTask(taskLocation.getTaskID());
     }
 

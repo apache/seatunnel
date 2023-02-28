@@ -92,6 +92,8 @@ public class SubPlan {
 
     private final Object restoreLock = new Object();
 
+    private Throwable checkpointThrowable;
+
     public SubPlan(
             int pipelineId,
             int totalPipelineNum,
@@ -178,7 +180,14 @@ public class SubPlan {
                             if (failedTaskNum.get() > 0) {
                                 pipelineStatus = PipelineStatus.FAILED;
                             } else if (canceledTaskNum.get() > 0) {
-                                pipelineStatus = PipelineStatus.CANCELED;
+                                if (checkpointThrowable != null) {
+                                    pipelineStatus = PipelineStatus.FAILED;
+                                    errorByPhysicalVertex.set(
+                                            ExceptionUtils.getMessage(checkpointThrowable));
+                                    checkpointThrowable = null;
+                                } else {
+                                    pipelineStatus = PipelineStatus.CANCELED;
+                                }
                             } else {
                                 pipelineStatus = PipelineStatus.FINISHED;
                             }
@@ -513,5 +522,14 @@ public class SubPlan {
 
     public int getPipelineRestoreNum() {
         return pipelineRestoreNum;
+    }
+
+    public void handleCheckpointError(Throwable e) {
+        LOGGER.warning(
+                String.format(
+                        "%s checkpoint have error, cancel the pipeline", getPipelineFullName()),
+                e);
+        this.checkpointThrowable = e;
+        this.cancelPipeline();
     }
 }

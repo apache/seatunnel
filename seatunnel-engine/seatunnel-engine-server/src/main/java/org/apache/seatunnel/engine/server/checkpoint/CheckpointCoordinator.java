@@ -206,12 +206,12 @@ public class CheckpointCoordinator {
 
     private void handleCoordinatorError(String message, Throwable e, CheckpointCloseReason reason) {
         LOG.error(message, e);
-        handleCoordinatorError(reason);
+        handleCoordinatorError(reason, e);
     }
 
-    private void handleCoordinatorError(CheckpointCloseReason reason) {
+    private void handleCoordinatorError(CheckpointCloseReason reason, Throwable e) {
         cleanPendingCheckpoint(reason);
-        checkpointManager.handleCheckpointError(pipelineId, new CheckpointException(reason));
+        checkpointManager.handleCheckpointError(pipelineId, new CheckpointException(reason, e));
     }
 
     private void restoreTaskState(TaskLocation taskLocation) {
@@ -409,15 +409,15 @@ public class CheckpointCoordinator {
                             pendingCheckpoint.getCheckpointId(),
                             pendingCheckpoint.getCheckpointType());
                     CompletableFuture<InvocationFuture<?>[]> completableFutureArray =
-                        CompletableFuture.supplyAsync(
-                                () ->
-                                    new CheckpointBarrier(
-                                        pendingCheckpoint.getCheckpointId(),
-                                        pendingCheckpoint
-                                            .getCheckpointTimestamp(),
-                                        pendingCheckpoint.getCheckpointType()),
-                                executorService)
-                            .thenApplyAsync(this::triggerCheckpoint, executorService);
+                            CompletableFuture.supplyAsync(
+                                            () ->
+                                                    new CheckpointBarrier(
+                                                            pendingCheckpoint.getCheckpointId(),
+                                                            pendingCheckpoint
+                                                                    .getCheckpointTimestamp(),
+                                                            pendingCheckpoint.getCheckpointType()),
+                                            executorService)
+                                    .thenApplyAsync(this::triggerCheckpoint, executorService);
 
                     try {
                         CompletableFuture.allOf(completableFutureArray).get();
@@ -437,7 +437,7 @@ public class CheckpointCoordinator {
                                         && !pendingCheckpoint.isFullyAcknowledged()) {
                                     if (tolerableFailureCheckpoints-- <= 0) {
                                         handleCoordinatorError(
-                                                CheckpointCloseReason.CHECKPOINT_EXPIRED);
+                                                CheckpointCloseReason.CHECKPOINT_EXPIRED, null);
                                     }
                                 }
                             },
@@ -461,9 +461,9 @@ public class CheckpointCoordinator {
                                         return checkpointIdCounter.getAndIncrement();
                                     } catch (Throwable e) {
                                         handleCoordinatorError(
-                                            "get checkpoint id failed",
-                                            e,
-                                            CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR);
+                                                "get checkpoint id failed",
+                                                e,
+                                                CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR);
                                         throw new CompletionException(e);
                                     }
                                 },

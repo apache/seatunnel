@@ -373,8 +373,8 @@ public class ClusterFaultToleranceTwoPipelineIT {
                                 // Wait some tasks commit finished
                                 Thread.sleep(2000);
                                 log.info(
-                                        FileUtils.getFileLineNumberFromDir(
-                                                testResources.getLeft()));
+                                        FileUtils.getFileLineNumberFromDir(testResources.getLeft())
+                                                + "");
                                 Assertions.assertTrue(
                                         objectCompletableFuture.isDone()
                                                 && JobStatus.FINISHED.equals(
@@ -403,7 +403,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
     @Disabled
     public void testFor() throws ExecutionException, InterruptedException {
         for (int i = 0; i < 200; i++) {
-            testTwoPipelineBatchJobRestoreIn2NodeWorkerDown();
+            testTwoPipelineStreamJobRestoreIn2NodeMasterDown();
         }
     }
 
@@ -610,8 +610,8 @@ public class ClusterFaultToleranceTwoPipelineIT {
                                 // Wait some tasks commit finished
                                 Thread.sleep(2000);
                                 log.info(
-                                        FileUtils.getFileLineNumberFromDir(
-                                                testResources.getLeft()));
+                                        FileUtils.getFileLineNumberFromDir(testResources.getLeft())
+                                                + "");
                                 Assertions.assertTrue(
                                         objectCompletableFuture.isDone()
                                                 && JobStatus.FINISHED.equals(

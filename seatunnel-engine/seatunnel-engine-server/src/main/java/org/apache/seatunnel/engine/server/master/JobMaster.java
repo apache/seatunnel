@@ -314,12 +314,7 @@ public class JobMaster {
                 .forEach(
                         pipeline -> {
                             if (pipeline.getPipelineLocation().getPipelineId() == pipelineId) {
-                                LOGGER.warning(
-                                        String.format(
-                                                "%s checkpoint have error, cancel the pipeline",
-                                                pipeline.getPipelineFullName()),
-                                        e);
-                                pipeline.cancelPipeline();
+                                pipeline.handleCheckpointError(e);
                             }
                         });
     }
@@ -606,10 +601,10 @@ public class JobMaster {
                             pipelineOwnedSlotProfiles.equals(
                                     ownedSlotProfilesIMap.get(pipelineLocation)),
                     new RetryUtils.RetryMaterial(
-                            20,
+                            Constant.OPERATION_RETRY_TIME,
                             true,
                             exception -> exception instanceof NullPointerException && isRunning,
-                            1000));
+                            Constant.OPERATION_RETRY_SLEEP));
         } catch (Exception e) {
             throw new SeaTunnelEngineException(
                     "Can not sync pipeline owned slot profiles with IMap", e);
