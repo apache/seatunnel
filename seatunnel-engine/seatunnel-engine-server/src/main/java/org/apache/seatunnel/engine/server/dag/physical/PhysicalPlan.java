@@ -225,6 +225,9 @@ public class PhysicalPlan {
      * @param subPlan subPlan
      */
     private void notifyCheckpointManagerPipelineEnd(@NonNull SubPlan subPlan) {
+        if (jobMaster.getCheckpointManager() == null) {
+            return;
+        }
         jobMaster
                 .getCheckpointManager()
                 .listenPipeline(

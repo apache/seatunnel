@@ -411,6 +411,8 @@ public class SubPlan {
                         String.format(
                                 "Restore pipeline %s error with exception: %s",
                                 pipelineFullName, ExceptionUtils.getMessage(e)));
+                                "Restore pipeline %s error with exception: ", pipelineFullName),
+                        e);
                 cancelPipeline();
             }
         }

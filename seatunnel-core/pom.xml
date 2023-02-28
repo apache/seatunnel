@@ -28,6 +28,7 @@
 
     <artifactId>seatunnel-core</artifactId>
     <packaging>pom</packaging>
+    <name>SeaTunnel : Core :</name>
 
     <modules>
         <module>seatunnel-core-starter</module>

@@ -250,15 +250,13 @@ public class CoordinatorService {
                         runningJobStateIMap,
                         runningJobStateTimestampsIMap,
                         ownedSlotProfilesIMap,
+                        runningJobInfoIMap,
                         engineConfig);
 
-        jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp());
         try {
-            jobMaster.initCheckPointManager();
+            jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp(), true);
         } catch (Exception e) {
-            jobMaster.cancelJob();
-            throw new SeaTunnelEngineException(
-                    String.format("Job id %s init CheckPointManager failed", jobId), e);
+            throw new SeaTunnelEngineException(String.format("Job id %s init failed", jobId), e);
         }
 
         String jobFullName = jobMaster.getPhysicalPlan().getJobFullName();
@@ -267,7 +265,7 @@ public class CoordinatorService {
                     String.format(
                             "The restore %s is in an end state %s, store the job info to JobHistory and clear the job running time info",
                             jobFullName, jobStatus));
-            removeJobIMap(jobMaster);
+            jobMaster.cleanJob();
             return;
         }
 
@@ -296,8 +294,12 @@ public class CoordinatorService {
                             jobMaster.cancelJob();
                             jobMaster.run();
                         } finally {
-                            // storage job state info to HistoryStorage
-                            onJobDone(jobMaster, jobId);
+                            // voidCompletableFuture will be cancelled when zeta master node
+                            // shutdown to simulate master failure,
+                            // don't update runningJobMasterMap is this case.
+                            if (!jobMaster.getJobMasterCompleteFuture().isCancelled()) {
+                                runningJobMasterMap.remove(jobId);
+                            }
                         }
                     });
             return;
@@ -317,7 +319,12 @@ public class CoordinatorService {
                                     .forEach(SubPlan::restorePipelineState);
                             jobMaster.run();
                         } finally {
-                            onJobDone(jobMaster, jobId);
+                            // voidCompletableFuture will be cancelled when zeta master node
+                            // shutdown to simulate master failure,
+                            // don't update runningJobMasterMap is this case.
+                            if (!jobMaster.getJobMasterCompleteFuture().isCancelled()) {
+                                runningJobMasterMap.remove(jobId);
+                            }
                         }
                     });
         }
@@ -351,7 +358,6 @@ public class CoordinatorService {
 
         try {
             executorService.awaitTermination(20, TimeUnit.SECONDS);
-            runningJobMasterMap = new ConcurrentHashMap<>();
         } catch (InterruptedException e) {
             throw new SeaTunnelEngineException("wait clean executor service error", e);
         }
@@ -378,7 +384,7 @@ public class CoordinatorService {
 
     /** call by client to submit job */
     public PassiveCompletableFuture<Void> submitJob(long jobId, Data jobImmutableInformation) {
-        CompletableFuture<Void> voidCompletableFuture = new CompletableFuture<>();
+        CompletableFuture<Void> jobSubmitFuture = new CompletableFuture<>();
         JobMaster jobMaster =
                 new JobMaster(
                         jobImmutableInformation,
@@ -389,6 +395,7 @@ public class CoordinatorService {
                         runningJobStateIMap,
                         runningJobStateTimestampsIMap,
                         ownedSlotProfilesIMap,
+                        runningJobInfoIMap,
                         engineConfig);
         executorService.submit(
                 () -> {
@@ -397,26 +404,34 @@ public class CoordinatorService {
                                 jobId,
                                 new JobInfo(System.currentTimeMillis(), jobImmutableInformation));
                         runningJobMasterMap.put(jobId, jobMaster);
-                        jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp());
-                        jobMaster.initCheckPointManager();
+                        jobMaster.init(
+                                runningJobInfoIMap.get(jobId).getInitializationTimestamp(), false);
+                        // We specify that when init is complete, the submitJob is complete
+                        jobSubmitFuture.complete(null);
                     } catch (Throwable e) {
                         logger.severe(
                                 String.format(
                                         "submit job %s error %s ",
                                         jobId, ExceptionUtils.getMessage(e)));
-                        voidCompletableFuture.completeExceptionally(e);
-                    } finally {
-                        // We specify that when init is complete, the submitJob is complete
-                        voidCompletableFuture.complete(null);
+                        jobSubmitFuture.completeExceptionally(e);
                     }
-
-                    try {
-                        jobMaster.run();
-                    } finally {
-                        onJobDone(jobMaster, jobId);
+                    if (!jobSubmitFuture.isCompletedExceptionally()) {
+                        try {
+                            jobMaster.run();
+                        } finally {
+                            // voidCompletableFuture will be cancelled when zeta master node
+                            // shutdown to simulate master failure,
+                            // don't update runningJobMasterMap is this case.
+                            if (!jobMaster.getJobMasterCompleteFuture().isCancelled()) {
+                                runningJobMasterMap.remove(jobId);
+                            }
+                        }
+                    } else {
+                        runningJobInfoIMap.remove(jobId);
+                        runningJobMasterMap.remove(jobId);
                     }
                 });
-        return new PassiveCompletableFuture<>(voidCompletableFuture);
+        return new PassiveCompletableFuture<>(jobSubmitFuture);
     }
 
     public PassiveCompletableFuture<Void> savePoint(long jobId) {
@@ -431,49 +446,6 @@ public class CoordinatorService {
             voidCompletableFuture = jobMaster.savePoint();
         }
         return new PassiveCompletableFuture<>(voidCompletableFuture);
-    }
-
-    private void onJobDone(JobMaster jobMaster, long jobId) {
-        // storage job state and metrics to HistoryStorage
-        jobHistoryService.storeJobInfo(jobId, runningJobMasterMap.get(jobId).getJobDAGInfo());
-        jobHistoryService.storeFinishedJobState(jobMaster);
-        removeJobIMap(jobMaster);
-        runningJobMasterMap.remove(jobId);
-    }
-
-    private void removeJobIMap(JobMaster jobMaster) {
-        Long jobId = jobMaster.getJobImmutableInformation().getJobId();
-        runningJobStateTimestampsIMap.remove(jobId);
-
-        jobMaster
-                .getPhysicalPlan()
-                .getPipelineList()
-                .forEach(
-                        pipeline -> {
-                            runningJobStateIMap.remove(pipeline.getPipelineLocation());
-                            runningJobStateTimestampsIMap.remove(pipeline.getPipelineLocation());
-                            pipeline.getCoordinatorVertexList()
-                                    .forEach(
-                                            coordinator -> {
-                                                runningJobStateIMap.remove(
-                                                        coordinator.getTaskGroupLocation());
-                                                runningJobStateTimestampsIMap.remove(
-                                                        coordinator.getTaskGroupLocation());
-                                            });
-
-                            pipeline.getPhysicalVertexList()
-                                    .forEach(
-                                            task -> {
-                                                runningJobStateIMap.remove(
-                                                        task.getTaskGroupLocation());
-                                                runningJobStateTimestampsIMap.remove(
-                                                        task.getTaskGroupLocation());
-                                            });
-                        });
-
-        // These should be deleted at the end.
-        runningJobStateIMap.remove(jobId);
-        runningJobInfoIMap.remove(jobId);
     }
 
     public PassiveCompletableFuture<JobResult> waitForJobComplete(long jobId) {

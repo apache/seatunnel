@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
+import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
 import java.util.Arrays;
 import java.util.List;
@@ -31,7 +32,7 @@ public class BaseSinkConfig {
     public static final String NON_PARTITION = "NON_PARTITION";
     public static final String TRANSACTION_ID_SPLIT = "_";
     public static final String TRANSACTION_EXPRESSION = "transactionId";
-    public static final String DEFAULT_FIELD_DELIMITER = String.valueOf('\001');
+    public static final String DEFAULT_FIELD_DELIMITER = TextFormatConstant.SEPARATOR[0];
     public static final String DEFAULT_ROW_DELIMITER = "\n";
     public static final String DEFAULT_PARTITION_DIR_EXPRESSION =
             "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/";

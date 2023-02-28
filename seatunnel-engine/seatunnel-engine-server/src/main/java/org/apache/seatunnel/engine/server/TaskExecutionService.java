@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.api.common.metrics.MetricTags;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -35,7 +36,7 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.execution.TaskTracker;
-import org.apache.seatunnel.engine.server.metrics.MetricsContext;
+import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperation;
@@ -51,7 +52,6 @@ import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.map.IMap;
-import com.hazelcast.spi.exception.WrongTargetException;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import com.hazelcast.spi.properties.HazelcastProperties;
@@ -209,10 +209,16 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         return deployTask(taskImmutableInfo);
     }
 
-    public <T extends Task> T getTask(TaskLocation taskLocation) {
-        return this.getExecutionContext(taskLocation.getTaskGroupLocation())
-                .getTaskGroup()
-                .getTask(taskLocation.getTaskID());
+    public <T extends Task> T getTask(@NonNull TaskLocation taskLocation) {
+        TaskGroupContext executionContext =
+                this.getExecutionContext(taskLocation.getTaskGroupLocation());
+        if (null == executionContext) {
+            throw new SeaTunnelException(
+                    String.format(
+                            "Failed to get Task, TaskLocation{%s} does not exist in TaskExecutionServer",
+                            taskLocation));
+        }
+        return executionContext.getTaskGroup().getTask(taskLocation.getTaskID());
     }
 
     public PassiveCompletableFuture<TaskExecutionState> deployTask(
@@ -427,7 +433,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         contextMap.putAll(executionContexts);
         contextMap.putAll(finishedExecutionContexts);
         try {
-            IMap<TaskLocation, MetricsContext> map =
+            IMap<TaskLocation, SeaTunnelMetricsContext> map =
                     nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
             contextMap.forEach(
                     (taskGroupLocation, taskGroupContext) -> {
@@ -447,7 +453,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                             }
                                         });
                     });
-        } catch (WrongTargetException e) {
+        } catch (Exception e) {
             logger.warning(
                     "The Imap acquisition failed due to the hazelcast node being offline or restarted, and will be retried next time",
                     e);

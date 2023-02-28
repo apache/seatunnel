@@ -43,8 +43,10 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
+import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
+import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
 import org.apache.kafka.common.TopicPartition;
 
@@ -55,6 +57,7 @@ import java.util.Map;
 import java.util.Properties;
 
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.BOOTSTRAP_SERVERS;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CANNAL_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.COMMIT_ON_CHECKPOINT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CONSUMER_GROUP;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FIELD_DELIMITER;
@@ -228,29 +231,37 @@ public class KafkaSource
             if (config.hasPath(FORMAT.key())) {
                 format = config.getString(FORMAT.key());
             }
-            if (DEFAULT_FORMAT.equals(format)) {
-                deserializationSchema = new JsonDeserializationSchema(false, false, typeInfo);
-            } else if (TEXT_FORMAT.equals(format)) {
-                String delimiter = DEFAULT_FIELD_DELIMITER;
-                if (config.hasPath(FIELD_DELIMITER.key())) {
-                    delimiter = config.getString(FIELD_DELIMITER.key());
-                }
-                deserializationSchema =
-                        TextDeserializationSchema.builder()
-                                .seaTunnelRowType(typeInfo)
-                                .delimiter(delimiter)
-                                .build();
-            } else {
-                // TODO: use format SPI
-                throw new SeaTunnelJsonFormatException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + format);
+            switch (format) {
+                case DEFAULT_FORMAT:
+                    deserializationSchema = new JsonDeserializationSchema(false, false, typeInfo);
+                    break;
+                case TEXT_FORMAT:
+                    String delimiter = DEFAULT_FIELD_DELIMITER;
+                    if (config.hasPath(FIELD_DELIMITER.key())) {
+                        delimiter = config.getString(FIELD_DELIMITER.key());
+                    }
+                    deserializationSchema =
+                            TextDeserializationSchema.builder()
+                                    .seaTunnelRowType(typeInfo)
+                                    .delimiter(delimiter)
+                                    .build();
+                    break;
+                case CANNAL_FORMAT:
+                    deserializationSchema =
+                            CanalJsonDeserializationSchema.builder(typeInfo)
+                                    .setIgnoreParseErrors(true)
+                                    .build();
+                    break;
+                default:
+                    throw new SeaTunnelJsonFormatException(
+                            CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + format);
             }
         } else {
             typeInfo = CatalogTableUtil.buildSimpleTextSchema();
             this.deserializationSchema =
                     TextDeserializationSchema.builder()
                             .seaTunnelRowType(typeInfo)
-                            .delimiter(String.valueOf('\002'))
+                            .delimiter(TextFormatConstant.PLACEHOLDER)
                             .build();
         }
     }

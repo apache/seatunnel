@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>connector-clickhouse-e2e</artifactId>
+    <name>SeaTunnel : E2E : Connector V2 : Clickhouse</name>
 
     <properties>
         <clickhouse.jdbc.version>0.3.2-patch9</clickhouse.jdbc.version>

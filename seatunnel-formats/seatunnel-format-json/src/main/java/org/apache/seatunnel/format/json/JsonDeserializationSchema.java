@@ -139,7 +139,15 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
         }
     }
 
-    private JsonNode convertBytes(byte[] message) throws IOException {
+    public JsonNode deserializeToJsonNode(byte[] message) throws IOException {
+        return objectMapper.readTree(message);
+    }
+
+    public SeaTunnelRow convertToRowData(JsonNode message) {
+        return (SeaTunnelRow) runtimeConverter.convert(message);
+    }
+
+    private JsonNode convertBytes(byte[] message) {
         try {
             return objectMapper.readTree(message);
         } catch (Throwable t) {
@@ -153,7 +161,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
         }
     }
 
-    private JsonNode convert(String message) throws IOException {
+    private JsonNode convert(String message) {
         try {
             return objectMapper.readTree(message);
         } catch (Throwable t) {

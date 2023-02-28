@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.service.slot;
 
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 
 public interface SlotService {
 
@@ -33,4 +34,6 @@ public interface SlotService {
     void releaseSlot(long jobId, SlotProfile slotProfile);
 
     void close();
+
+    WorkerProfile getWorkerProfile();
 }

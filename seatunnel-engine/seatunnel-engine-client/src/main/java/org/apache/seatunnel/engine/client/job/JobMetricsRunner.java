@@ -53,6 +53,8 @@ public class JobMetricsRunner implements Runnable {
             log.info(
                     StringFormatUtils.formatTable(
                             "Job Progress Information",
+                            "Job Id",
+                            jobId,
                             "Read Count So Far",
                             jobMetricsSummary.getSourceReadCount(),
                             "Write Count So Far",

@@ -27,6 +27,7 @@
     </parent>
     <artifactId>seatunnel-connectors-v2</artifactId>
     <packaging>pom</packaging>
+    <name>SeaTunnel : Connectors V2 :</name>
 
     <modules>
         <module>connector-common</module>
@@ -68,6 +69,7 @@
         <module>connector-maxcompute</module>
         <module>connector-tdengine</module>
         <module>connector-selectdb-cloud</module>
+        <module>connector-hbase</module>
     </modules>
 
     <dependencyManagement>

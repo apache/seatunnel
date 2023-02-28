@@ -25,10 +25,13 @@ import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.core.starter.seatunnel.command.ClientExecuteCommand;
 import org.apache.seatunnel.core.starter.seatunnel.command.SeaTunnelConfValidateCommand;
 
+import com.beust.jcommander.IParameterValidator;
 import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.Parameter;
+import com.beust.jcommander.ParameterException;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,8 +40,9 @@ import java.util.List;
 @Data
 public class ClientCommandArgs extends AbstractCommandArgs {
     @Parameter(
-            names = {"-m", "--master"},
+            names = {"-m", "--master", "-e", "--deploy-mode"},
             description = "SeaTunnel job submit master, support [local, cluster]",
+            validateWith = MasterTypeValidator.class,
             converter = SeaTunnelMasterTargetConverter.class)
     private MasterType masterType = MasterType.CLUSTER;
 
@@ -113,6 +117,19 @@ public class ClientCommandArgs extends AbstractCommandArgs {
                 throw new IllegalArgumentException(
                         "SeaTunnel job on st-engine submitted target only "
                                 + "support these options: [local, cluster]");
+            }
+        }
+    }
+
+    @Slf4j
+    public static class MasterTypeValidator implements IParameterValidator {
+        @Override
+        public void validate(String name, String value) throws ParameterException {
+            if (name.equals("-e") || name.equals("--deploy-mode")) {
+                log.warn(
+                        "\n******************************************************************************************"
+                                + "\n-e and --deploy-mode will be deprecated in 2.3.1, please use -m and --master instead of it"
+                                + "\n******************************************************************************************");
             }
         }
     }

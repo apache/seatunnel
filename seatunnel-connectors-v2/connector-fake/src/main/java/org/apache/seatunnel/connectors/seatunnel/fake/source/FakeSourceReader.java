@@ -71,12 +71,8 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
         synchronized (output.getCheckpointLock()) {
             FakeSourceSplit split = splits.poll();
             if (null != split) {
-                // Generate a random number of rows to emit.
-                List<SeaTunnelRow> seaTunnelRows =
-                        fakeDataGenerator.generateFakedRows(split.getRowNum());
-                for (SeaTunnelRow seaTunnelRow : seaTunnelRows) {
-                    output.collect(seaTunnelRow);
-                }
+                // Randomly generated data are sent directly to the downstream operator
+                fakeDataGenerator.collectFakedRows(split.getRowNum(), output);
                 log.info(
                         "{} rows of data have been generated in split({}). Generation time: {}",
                         split.getRowNum(),

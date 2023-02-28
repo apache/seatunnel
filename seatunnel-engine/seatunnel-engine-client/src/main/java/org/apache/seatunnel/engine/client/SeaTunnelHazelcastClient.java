@@ -40,8 +40,14 @@ public class SeaTunnelHazelcastClient {
     private final HazelcastClientInstanceImpl hazelcastClient;
     private final SerializationService serializationService;
 
+    private static final int CONNECT_TIMEOUT = 3000;
+
     public SeaTunnelHazelcastClient(@NonNull ClientConfig clientConfig) {
         Preconditions.checkNotNull(clientConfig, "config");
+        clientConfig
+                .getConnectionStrategyConfig()
+                .getConnectionRetryConfig()
+                .setClusterConnectTimeoutMillis(CONNECT_TIMEOUT);
         this.hazelcastClient =
                 ((HazelcastClientProxy)
                                 com.hazelcast.client.HazelcastClient.newHazelcastClient(

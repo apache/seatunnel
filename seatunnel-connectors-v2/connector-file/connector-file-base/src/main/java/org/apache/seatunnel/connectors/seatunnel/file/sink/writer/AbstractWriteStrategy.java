@@ -37,7 +37,6 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
-import org.apache.hadoop.security.UserGroupInformation;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -154,31 +153,8 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         this.hadoopConf.setExtraOptionsForConfiguration(configuration);
         String principal = hadoopConf.getKerberosPrincipal();
         String keytabPath = hadoopConf.getKerberosKeytabPath();
-        if (!isKerberosAuthorization && StringUtils.isNotBlank(principal)) {
-            // kerberos authentication and only once
-            if (StringUtils.isBlank(keytabPath)) {
-                throw new FileConnectorException(
-                        CommonErrorCode.KERBEROS_AUTHORIZED_FAILED,
-                        "Kerberos keytab path is blank, please check this parameter that in your config file");
-            }
-            configuration.set("hadoop.security.authentication", "kerberos");
-            UserGroupInformation.setConfiguration(configuration);
-            try {
-                log.info(
-                        "Start Kerberos authentication using principal {} and keytab {}",
-                        principal,
-                        keytabPath);
-                UserGroupInformation.loginUserFromKeytab(principal, keytabPath);
-                log.info("Kerberos authentication successful");
-            } catch (IOException e) {
-                String errorMsg =
-                        String.format(
-                                "Kerberos authentication failed using this "
-                                        + "principal [%s] and keytab path [%s]",
-                                principal, keytabPath);
-                throw new FileConnectorException(
-                        CommonErrorCode.KERBEROS_AUTHORIZED_FAILED, errorMsg, e);
-            }
+        if (!isKerberosAuthorization) {
+            FileSystemUtils.doKerberosAuthentication(configuration, principal, keytabPath);
             isKerberosAuthorization = true;
         }
         return configuration;

@@ -30,7 +30,7 @@ public interface IMapStorage {
     public void initialize(Map<String, Object> properties);
 
     /**
-     * Store a key-value pair in the map.
+     * Store a key-value pair in the map. todo: it's better add timeout parameter
      *
      * @param key storage key
      * @param value storage value

@@ -24,6 +24,7 @@ import org.apache.http.HttpStatus;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -56,6 +57,24 @@ public class HttpHelper {
             return null;
         }
         return respEntity;
+    }
+
+    public String doHttpPost(String postUrl, Map<String, String> header, String postBody)
+            throws IOException {
+        log.info("Executing POST from {}.", postUrl);
+        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+            HttpPost httpPost = new HttpPost(postUrl);
+            if (null != header) {
+                for (Map.Entry<String, String> entry : header.entrySet()) {
+                    httpPost.setHeader(entry.getKey(), String.valueOf(entry.getValue()));
+                }
+            }
+            httpPost.setEntity(new ByteArrayEntity(postBody.getBytes()));
+            try (CloseableHttpResponse resp = httpClient.execute(httpPost)) {
+                HttpEntity respEntity = getHttpEntity(resp);
+                return respEntity != null ? EntityUtils.toString(respEntity, "UTF-8") : null;
+            }
+        }
     }
 
     public String doHttpGet(String getUrl) throws IOException {

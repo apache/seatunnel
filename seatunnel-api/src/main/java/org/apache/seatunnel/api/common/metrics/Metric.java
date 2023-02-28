@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.api.common.metrics;
 
-public interface Metric {
+import java.io.Serializable;
+
+public interface Metric extends Serializable {
 
     /** Returns the name of the associated metric. */
     String name();
