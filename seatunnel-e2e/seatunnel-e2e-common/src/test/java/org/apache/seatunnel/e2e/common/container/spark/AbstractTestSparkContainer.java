@@ -20,6 +20,7 @@ package org.apache.seatunnel.e2e.common.container.spark;
 import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 
+import lombok.extern.slf4j.Slf4j;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -32,7 +33,7 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
-
+@Slf4j
 public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
 
     private static final String DEFAULT_DOCKER_IMAGE = "bitnami/spark:2.4.6";
@@ -90,6 +91,7 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
 
     public Container.ExecResult executeJob(String confFile)
             throws IOException, InterruptedException {
+        log.info("test in container: {}", identifier());
         return executeJob(master, confFile);
     }
 }
