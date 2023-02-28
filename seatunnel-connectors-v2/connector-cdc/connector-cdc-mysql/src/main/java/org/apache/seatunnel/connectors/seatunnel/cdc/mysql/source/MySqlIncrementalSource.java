@@ -69,6 +69,7 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
         configFactory.fromReadonlyConfig(readonlyConfig);
         JdbcUrlUtil.UrlInfo urlInfo =
                 JdbcUrlUtil.getUrlInfo(config.get(JdbcCatalogOptions.BASE_URL));
+        configFactory.originUrl(urlInfo.getOrigin());
         configFactory.hostname(urlInfo.getHost());
         configFactory.port(urlInfo.getPort());
         configFactory.startupOptions(startupConfig);
