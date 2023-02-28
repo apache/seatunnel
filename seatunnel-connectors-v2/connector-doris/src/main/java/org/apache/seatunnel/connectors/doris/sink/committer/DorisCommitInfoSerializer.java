@@ -25,15 +25,13 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
-/**
- * define how to serialize DorisCommittable.
- */
+/** define how to serialize DorisCommittable. */
 public class DorisCommitInfoSerializer implements Serializer<DorisCommitInfo> {
 
     @Override
     public byte[] serialize(DorisCommitInfo dorisCommittable) throws IOException {
         try (final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-             final DataOutputStream out = new DataOutputStream(baos)) {
+                final DataOutputStream out = new DataOutputStream(baos)) {
             out.writeUTF(dorisCommittable.getHostPort());
             out.writeUTF(dorisCommittable.getDb());
             out.writeLong(dorisCommittable.getTxbID());
@@ -46,7 +44,7 @@ public class DorisCommitInfoSerializer implements Serializer<DorisCommitInfo> {
     @Override
     public DorisCommitInfo deserialize(byte[] serialized) throws IOException {
         try (final ByteArrayInputStream bais = new ByteArrayInputStream(serialized);
-             final DataInputStream in = new DataInputStream(bais)) {
+                final DataInputStream in = new DataInputStream(bais)) {
             final String hostPort = in.readUTF();
             final String db = in.readUTF();
             final long txnId = in.readLong();

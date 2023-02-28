@@ -67,10 +67,10 @@ public class Tablet {
             return false;
         }
         Tablet tablet = (Tablet) o;
-        return version == tablet.version &&
-                versionHash == tablet.versionHash &&
-                schemaHash == tablet.schemaHash &&
-                Objects.equals(routings, tablet.routings);
+        return version == tablet.version
+                && versionHash == tablet.versionHash
+                && schemaHash == tablet.schemaHash
+                && Objects.equals(routings, tablet.routings);
     }
 
     @Override

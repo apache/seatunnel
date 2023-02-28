@@ -36,9 +36,7 @@ public class DorisJsonSerializer extends DorisBaseSerializer implements DorisSer
     }
 
     @Override
-    public void open() throws IOException {
-
-    }
+    public void open() throws IOException {}
 
     @Override
     public byte[] serialize(SeaTunnelRow row) {
@@ -52,7 +50,5 @@ public class DorisJsonSerializer extends DorisBaseSerializer implements DorisSer
     }
 
     @Override
-    public void close() throws IOException {
-
-    }
+    public void close() throws IOException {}
 }

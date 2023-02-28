@@ -17,9 +17,7 @@
 
 package org.apache.seatunnel.connectors.doris.sink.writer;
 
-/**
- * Generator label for stream load.
- */
+/** Generator label for stream load. */
 public class LabelGenerator {
     private String labelPrefix;
     private boolean enable2PC;
@@ -30,6 +28,8 @@ public class LabelGenerator {
     }
 
     public String generateLabel(long chkId) {
-        return enable2PC ? labelPrefix + "_" + chkId : labelPrefix + "_" + System.currentTimeMillis();
+        return enable2PC
+                ? labelPrefix + "_" + chkId
+                : labelPrefix + "_" + System.currentTimeMillis();
     }
 }

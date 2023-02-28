@@ -22,21 +22,19 @@ import org.apache.http.impl.client.DefaultRedirectStrategy;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 
-/**
- * util to build http client.
- */
+/** util to build http client. */
 public class HttpUtil {
-    private final HttpClientBuilder httpClientBuilder = HttpClients
-            .custom()
-            .setRedirectStrategy(new DefaultRedirectStrategy() {
-                @Override
-                protected boolean isRedirectable(String method) {
-                    return true;
-                }
-            });
+    private final HttpClientBuilder httpClientBuilder =
+            HttpClients.custom()
+                    .setRedirectStrategy(
+                            new DefaultRedirectStrategy() {
+                                @Override
+                                protected boolean isRedirectable(String method) {
+                                    return true;
+                                }
+                            });
 
     public CloseableHttpClient getHttpClient() {
         return httpClientBuilder.build();
     }
-
 }

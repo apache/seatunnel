@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.doris.sink.writer;
 
-import static com.google.common.base.Preconditions.checkState;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -32,11 +32,9 @@ import org.apache.seatunnel.connectors.doris.rest.models.RespContent;
 import org.apache.seatunnel.connectors.doris.serialize.DorisCsvSerializer;
 import org.apache.seatunnel.connectors.doris.serialize.DorisJsonSerializer;
 import org.apache.seatunnel.connectors.doris.serialize.DorisSerializer;
+import org.apache.seatunnel.connectors.doris.sink.LoadStatus;
 import org.apache.seatunnel.connectors.doris.sink.committer.DorisCommitInfo;
 import org.apache.seatunnel.connectors.doris.util.HttpUtil;
-
-import org.apache.seatunnel.connectors.doris.sink.LoadStatus;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -55,11 +53,14 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Preconditions.checkState;
+
 @Slf4j
 public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo, DorisSinkState> {
     private static final int INITIAL_DELAY = 200;
     private static final int CONNECT_TIMEOUT = 1000;
-    private static final List<String> DORIS_SUCCESS_STATUS = new ArrayList<>(Arrays.asList(LoadStatus.SUCCESS, LoadStatus.PUBLISH_TIMEOUT));
+    private static final List<String> DORIS_SUCCESS_STATUS =
+            new ArrayList<>(Arrays.asList(LoadStatus.SUCCESS, LoadStatus.PUBLISH_TIMEOUT));
     private final long lastCheckpointId = 0;
     private DorisStreamLoad dorisStreamLoad;
     volatile boolean loading;
@@ -75,17 +76,20 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
     private List<BackendV2.BackendRowV2> backends;
     private long pos;
 
-    public DorisSinkWriter(SinkWriter.Context context,
-                           List<DorisSinkState> state,
-                           SeaTunnelRowType seaTunnelRowType,
-                           Config pluginConfig) {
+    public DorisSinkWriter(
+            SinkWriter.Context context,
+            List<DorisSinkState> state,
+            SeaTunnelRowType seaTunnelRowType,
+            Config pluginConfig) {
         this.dorisConfig = DorisConfig.loadConfig(pluginConfig);
         log.info("restore checkpointId {}", lastCheckpointId);
         log.info("labelPrefix " + dorisConfig.getLabelPrefix());
         this.dorisSinkState = new DorisSinkState(dorisConfig.getLabelPrefix());
         this.labelPrefix = dorisConfig.getLabelPrefix() + "_" + context.getIndexOfSubtask();
         this.labelGenerator = new LabelGenerator(labelPrefix, dorisConfig.getEnable2PC());
-        this.scheduledExecutorService = new ScheduledThreadPoolExecutor(1, new ThreadFactoryBuilder().setNameFormat("stream-load-check").build());
+        this.scheduledExecutorService =
+                new ScheduledThreadPoolExecutor(
+                        1, new ThreadFactoryBuilder().setNameFormat("stream-load-check").build());
         this.serializer = createSerializer(dorisConfig, seaTunnelRowType);
         this.intervalTime = dorisConfig.getCheckInterval();
         this.loading = false;
@@ -95,10 +99,9 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
         this.backends = RestService.getBackendsV2(dorisConfig, log);
         String backend = getAvailableBackend();
         try {
-            this.dorisStreamLoad = new DorisStreamLoad(
-                    backend,
-                    dorisConfig,
-                    labelGenerator, new HttpUtil().getHttpClient());
+            this.dorisStreamLoad =
+                    new DorisStreamLoad(
+                            backend, dorisConfig, labelGenerator, new HttpUtil().getHttpClient());
             if (dorisConfig.getEnable2PC()) {
                 dorisStreamLoad.abortPreCommit(labelPrefix, lastCheckpointId + 1);
             }
@@ -108,8 +111,10 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
         // get main work thread.
         executorThread = Thread.currentThread();
         dorisStreamLoad.startLoad(labelGenerator.generateLabel(lastCheckpointId + 1));
-        // when uploading data in streaming mode, we need to regularly detect whether there are exceptions.
-        scheduledExecutorService.scheduleWithFixedDelay(this::checkDone, INITIAL_DELAY, intervalTime, TimeUnit.MILLISECONDS);
+        // when uploading data in streaming mode, we need to regularly detect whether there are
+        // exceptions.
+        scheduledExecutorService.scheduleWithFixedDelay(
+                this::checkDone, INITIAL_DELAY, intervalTime, TimeUnit.MILLISECONDS);
     }
 
     @Override
@@ -129,7 +134,10 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
         checkState(dorisStreamLoad != null);
         RespContent respContent = dorisStreamLoad.stopLoad();
         if (!DORIS_SUCCESS_STATUS.contains(respContent.getStatus())) {
-            String errMsg = String.format("stream load error: %s, see more in %s", respContent.getMessage(), respContent.getErrorURL());
+            String errMsg =
+                    String.format(
+                            "stream load error: %s, see more in %s",
+                            respContent.getMessage(), respContent.getErrorURL());
             throw new DorisConnectorException(DorisConnectorErrorCode.STREAM_LOAD_FAILED, errMsg);
         }
         if (!dorisConfig.getEnable2PC()) {
@@ -137,7 +145,8 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
         }
         long txnId = respContent.getTxnId();
 
-        return Optional.of(new DorisCommitInfo(dorisStreamLoad.getHostPort(), dorisStreamLoad.getDb(), txnId));
+        return Optional.of(
+                new DorisCommitInfo(dorisStreamLoad.getHostPort(), dorisStreamLoad.getDb(), txnId));
     }
 
     @Override
@@ -150,9 +159,7 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
     }
 
     @Override
-    public void abortPrepare() {
-
-    }
+    public void abortPrepare() {}
 
     private void checkDone() {
         // the load future is done and checked in prepareCommit().
@@ -166,13 +173,17 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
             }
             String errorMsg;
             try {
-                RespContent content = dorisStreamLoad.handlePreCommitResponse(dorisStreamLoad.getPendingLoadFuture().get());
+                RespContent content =
+                        dorisStreamLoad.handlePreCommitResponse(
+                                dorisStreamLoad.getPendingLoadFuture().get());
                 errorMsg = content.getMessage();
             } catch (Exception e) {
                 errorMsg = e.getMessage();
             }
 
-            loadException = new DorisConnectorException(DorisConnectorErrorCode.STREAM_LOAD_FAILED, errorMsg);
+            loadException =
+                    new DorisConnectorException(
+                            DorisConnectorErrorCode.STREAM_LOAD_FAILED, errorMsg);
             log.error("stream load finished unexpectedly, interrupt worker thread! {}", errorMsg);
             // set the executor thread interrupted in case blocking in write data.
             executorThread.interrupt();
@@ -216,7 +227,7 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
         while (pos < tmp) {
             BackendV2.BackendRowV2 backend = backends.get((int) (pos % backends.size()));
             String res = backend.toBackendString();
-            if (tryHttpConnection(res)){
+            if (tryHttpConnection(res)) {
                 pos++;
                 return res;
             }
@@ -229,7 +240,7 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
         try {
             backend = "http://" + backend;
             URL url = new URL(backend);
-            HttpURLConnection co =  (HttpURLConnection) url.openConnection();
+            HttpURLConnection co = (HttpURLConnection) url.openConnection();
             co.setConnectTimeout(CONNECT_TIMEOUT);
             co.connect();
             co.disconnect();
@@ -241,14 +252,20 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
         }
     }
 
-    public static DorisSerializer createSerializer(DorisConfig dorisConfig, SeaTunnelRowType seaTunnelRowType) {
-        if (LoadConstants.CSV.equals(dorisConfig.getStreamLoadProps().getProperty(LoadConstants.FORMAT_KEY))) {
-            return new DorisCsvSerializer(dorisConfig.getStreamLoadProps().getProperty(LoadConstants.FIELD_DELIMITER_KEY), seaTunnelRowType);
+    public static DorisSerializer createSerializer(
+            DorisConfig dorisConfig, SeaTunnelRowType seaTunnelRowType) {
+        if (LoadConstants.CSV.equals(
+                dorisConfig.getStreamLoadProps().getProperty(LoadConstants.FORMAT_KEY))) {
+            return new DorisCsvSerializer(
+                    dorisConfig.getStreamLoadProps().getProperty(LoadConstants.FIELD_DELIMITER_KEY),
+                    seaTunnelRowType);
         }
-        if (LoadConstants.JSON.equals(dorisConfig.getStreamLoadProps().getProperty(LoadConstants.FORMAT_KEY))) {
+        if (LoadConstants.JSON.equals(
+                dorisConfig.getStreamLoadProps().getProperty(LoadConstants.FORMAT_KEY))) {
             return new DorisJsonSerializer(seaTunnelRowType);
         }
-        throw new DorisConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, "Failed to create row serializer, unsupported `format` from copy into load properties.");
+        throw new DorisConnectorException(
+                CommonErrorCode.ILLEGAL_ARGUMENT,
+                "Failed to create row serializer, unsupported `format` from copy into load properties.");
     }
-
 }

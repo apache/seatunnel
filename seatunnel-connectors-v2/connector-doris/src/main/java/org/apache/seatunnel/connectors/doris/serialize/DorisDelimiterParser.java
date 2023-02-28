@@ -79,4 +79,3 @@ public class DorisDelimiterParser {
         return (byte) HEX_STRING.indexOf(c);
     }
 }
-

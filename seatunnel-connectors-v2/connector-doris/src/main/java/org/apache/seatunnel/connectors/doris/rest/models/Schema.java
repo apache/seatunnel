@@ -58,7 +58,13 @@ public class Schema {
         this.properties = properties;
     }
 
-    public void put(String name, String type, String comment, int scale, int precision, String aggregationType) {
+    public void put(
+            String name,
+            String type,
+            String comment,
+            int scale,
+            int precision,
+            String aggregationType) {
         properties.add(new Field(name, type, comment, scale, precision, aggregationType));
     }
 
@@ -68,7 +74,8 @@ public class Schema {
 
     public Field get(int index) {
         if (index >= properties.size()) {
-            throw new IndexOutOfBoundsException("Index: " + index + ", Fields size:" + properties.size());
+            throw new IndexOutOfBoundsException(
+                    "Index: " + index + ", Fields size:" + properties.size());
         }
         return properties.get(index);
     }
@@ -86,8 +93,7 @@ public class Schema {
             return false;
         }
         Schema schema = (Schema) o;
-        return status == schema.status &&
-                Objects.equals(properties, schema.properties);
+        return status == schema.status && Objects.equals(properties, schema.properties);
     }
 
     @Override
@@ -97,9 +103,6 @@ public class Schema {
 
     @Override
     public String toString() {
-        return "Schema{" +
-                "status=" + status +
-                ", properties=" + properties +
-                '}';
+        return "Schema{" + "status=" + status + ", properties=" + properties + '}';
     }
 }

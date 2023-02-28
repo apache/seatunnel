@@ -24,7 +24,6 @@ public enum DorisConnectorErrorCode implements SeaTunnelErrorCode {
     COMMIT_FAILED("Doris-02", "commit error"),
     REST_SERVICE_FAILED("Doris-03", "rest service error");
 
-
     private final String code;
     private final String description;
 

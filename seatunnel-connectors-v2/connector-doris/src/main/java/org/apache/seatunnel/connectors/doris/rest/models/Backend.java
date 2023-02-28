@@ -22,9 +22,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 
-/**
- * Be response model
- **/
+/** Be response model */
 @Deprecated
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Backend {

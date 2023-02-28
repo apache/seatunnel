@@ -20,9 +20,7 @@ package org.apache.seatunnel.connectors.doris.sink.writer;
 import java.io.IOException;
 import java.io.InputStream;
 
-/**
- * Record Stream for writing record.
- */
+/** Record Stream for writing record. */
 public class RecordStream extends InputStream {
     private final RecordBuffer recordBuffer;
 
@@ -39,7 +37,7 @@ public class RecordStream extends InputStream {
         recordBuffer.startBufferData();
     }
 
-    public void endInput() throws IOException{
+    public void endInput() throws IOException {
         recordBuffer.stopBufferData();
     }
 

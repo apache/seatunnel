@@ -58,9 +58,9 @@ public class QueryPlan {
             return false;
         }
         QueryPlan queryPlan = (QueryPlan) o;
-        return status == queryPlan.status &&
-                Objects.equals(opaquedQueryPlan, queryPlan.opaquedQueryPlan) &&
-                Objects.equals(partitions, queryPlan.partitions);
+        return status == queryPlan.status
+                && Objects.equals(opaquedQueryPlan, queryPlan.opaquedQueryPlan)
+                && Objects.equals(partitions, queryPlan.partitions);
     }
 
     @Override

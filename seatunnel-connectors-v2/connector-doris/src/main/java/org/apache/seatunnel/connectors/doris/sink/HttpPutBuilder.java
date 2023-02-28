@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.doris.sink;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import org.apache.seatunnel.connectors.doris.sink.writer.LoadConstants;
 
 import org.apache.commons.codec.binary.Base64;
@@ -32,13 +30,14 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
-/**
- * Builder for HttpPut.
- */
+import static com.google.common.base.Preconditions.checkNotNull;
+
+/** Builder for HttpPut. */
 public class HttpPutBuilder {
     String url;
     Map<String, String> header;
     HttpEntity httpEntity;
+
     public HttpPutBuilder() {
         header = new HashMap<>();
     }
@@ -54,7 +53,7 @@ public class HttpPutBuilder {
     }
 
     public HttpPutBuilder addHiddenColumns(boolean add) {
-        if (add){
+        if (add) {
             header.put("hidden_columns", LoadConstants.DORIS_DELETE_SIGN);
         }
         return this;

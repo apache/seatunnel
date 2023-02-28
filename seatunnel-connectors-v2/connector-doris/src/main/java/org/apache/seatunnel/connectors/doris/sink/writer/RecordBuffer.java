@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.doris.sink.writer;
 
-import static com.google.common.base.Preconditions.checkState;
-
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -27,9 +25,9 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 
-/**
- * Channel of record stream and HTTP data stream.
- */
+import static com.google.common.base.Preconditions.checkState;
+
+/** Channel of record stream and HTTP data stream. */
 @Slf4j
 public class RecordBuffer {
     BlockingQueue<ByteBuffer> writeQueue;
@@ -53,16 +51,19 @@ public class RecordBuffer {
     }
 
     public void startBufferData() {
-        log.info("start buffer data, read queue size {}, write queue size {}", readQueue.size(), writeQueue.size());
+        log.info(
+                "start buffer data, read queue size {}, write queue size {}",
+                readQueue.size(),
+                writeQueue.size());
         checkState(readQueue.size() == 0);
         checkState(writeQueue.size() == queueSize);
-        for (ByteBuffer byteBuffer: writeQueue) {
+        for (ByteBuffer byteBuffer : writeQueue) {
             checkState(byteBuffer.position() == 0);
             checkState(byteBuffer.remaining() == bufferCapacity);
         }
     }
 
-    public void stopBufferData() throws IOException{
+    public void stopBufferData() throws IOException {
         try {
             // add Empty buffer as finish flag.
             boolean isEmpty = false;
@@ -84,7 +85,7 @@ public class RecordBuffer {
         }
     }
 
-    public void write(byte[] buf) throws InterruptedException{
+    public void write(byte[] buf) throws InterruptedException {
         int wPos = 0;
         do {
             if (currentWriteBuffer == null) {
