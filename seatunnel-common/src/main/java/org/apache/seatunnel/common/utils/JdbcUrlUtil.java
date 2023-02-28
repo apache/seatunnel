@@ -85,5 +85,9 @@ public final class JdbcUrlUtil {
                     ? Optional.empty()
                     : Optional.of(defaultDatabase);
         }
+
+        public String getUrlWithDatabase(String database) {
+            return urlWithoutDatabase + "/" + database + suffix;
+        }
     }
 }
