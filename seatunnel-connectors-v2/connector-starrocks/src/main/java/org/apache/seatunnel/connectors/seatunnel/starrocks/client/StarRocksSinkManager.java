@@ -169,6 +169,6 @@ public class StarRocksSinkManager {
         if (!Strings.isNullOrEmpty(sinkConfig.getLabelPrefix())) {
             sb.append(sinkConfig.getLabelPrefix());
         }
-        return sb.append(UUID.randomUUID().toString()).toString();
+        return sb.append(UUID.randomUUID()).toString();
     }
 }
