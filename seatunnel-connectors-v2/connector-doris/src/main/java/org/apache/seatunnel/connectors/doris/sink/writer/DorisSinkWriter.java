@@ -90,7 +90,7 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
                         1, new ThreadFactoryBuilder().setNameFormat("stream-load-check").build());
         this.serializer =
                 new SeaTunnelRowSerializer(
-                        dorisConfig.getStreamLoadProps().getProperty(LoadConstants.FORMAT_KEY),
+                        dorisConfig.getStreamLoadProps().getProperty(LoadConstants.FORMAT_KEY).toLowerCase(),
                         seaTunnelRowType,
                         dorisConfig
                                 .getStreamLoadProps()
