@@ -64,6 +64,7 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
         JobImmutableInformation jobInfo =
                 new JobImmutableInformation(
                         1,
+                        "Test",
                         nodeEngine.getSerializationService().toData(logicalDag),
                         config,
                         Collections.emptyList());

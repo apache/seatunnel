@@ -57,8 +57,6 @@ public class JobExecutionEnvironment {
 
     private final JobConfig jobConfig;
 
-    private final int maxParallelism = 1;
-
     private final List<Action> actions = new ArrayList<>();
 
     private final Set<URL> jarUrls = new HashSet<>();
@@ -144,6 +142,7 @@ public class JobExecutionEnvironment {
         JobImmutableInformation jobImmutableInformation =
                 new JobImmutableInformation(
                         Long.parseLong(jobConfig.getJobContext().getJobId()),
+                        jobConfig.getName(),
                         isStartWithSavePoint,
                         seaTunnelHazelcastClient.getSerializationService().toData(getLogicalDag()),
                         jobConfig,

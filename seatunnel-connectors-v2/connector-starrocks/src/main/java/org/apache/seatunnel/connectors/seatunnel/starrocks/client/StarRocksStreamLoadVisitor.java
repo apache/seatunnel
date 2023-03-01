@@ -249,7 +249,7 @@ public class StarRocksStreamLoadVisitor {
     private String getBasicAuthHeader(String username, String password) {
         String auth = username + ":" + password;
         byte[] encodedAuth = Base64.encodeBase64(auth.getBytes(StandardCharsets.UTF_8));
-        return new StringBuilder("Basic ").append(new String(encodedAuth)).toString();
+        return "Basic " + new String(encodedAuth);
     }
 
     private Map<String, String> getStreamLoadHttpHeader(String label) {

@@ -15,30 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.client;
+package org.apache.seatunnel.engine.core.job;
 
-import org.apache.seatunnel.engine.client.util.ContentFormatUtil;
-import org.apache.seatunnel.engine.core.job.JobStatusData;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-import org.junit.jupiter.api.Test;
+import java.io.Serializable;
 
-import java.util.ArrayList;
-import java.util.List;
-
-public class TestUtils {
-    public static String getResource(String confFile) {
-        return System.getProperty("user.dir") + "/src/test/resources/" + confFile;
-    }
-
-    public static String getClusterName(String testClassName) {
-        return System.getProperty("user.name") + "_" + testClassName;
-    }
-
-    @Test
-    public void testContentFormatUtil() {
-        List<JobStatusData> statusDataList = new ArrayList<>();
-
-        String r = ContentFormatUtil.format(statusDataList);
-        System.out.println(r);
-    }
+@AllArgsConstructor
+@Data
+@NoArgsConstructor
+public final class JobStatusData implements Serializable {
+    private Long jobId;
+    private String jobName;
+    private JobStatus jobStatus;
+    private long submitTime;
+    private Long finishTime;
 }
