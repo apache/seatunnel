@@ -134,10 +134,7 @@ public class StarRocksStreamLoadVisitor {
         List<String> hostList = sinkConfig.getNodeUrls();
         long tmp = pos + hostList.size();
         for (; pos < tmp; pos++) {
-            String host =
-                    new StringBuilder("http://")
-                            .append(hostList.get((int) (pos % hostList.size())))
-                            .toString();
+            String host = "http://" + hostList.get((int) (pos % hostList.size()));
             if (httpHelper.tryHttpConnection(host)) {
                 return host;
             }
@@ -277,6 +274,7 @@ public class StarRocksStreamLoadVisitor {
         headerMap.put("Expect", "100-continue");
         headerMap.put("label", label);
         headerMap.put("Content-Type", "application/x-www-form-urlencoded");
+        headerMap.put("format", sinkConfig.getLoadFormat().name().toUpperCase());
         headerMap.put(
                 "Authorization",
                 getBasicAuthHeader(sinkConfig.getUsername(), sinkConfig.getPassword()));
