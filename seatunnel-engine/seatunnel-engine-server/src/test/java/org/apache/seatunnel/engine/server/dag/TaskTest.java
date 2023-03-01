@@ -68,6 +68,7 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
         JobImmutableInformation jobImmutableInformation =
                 new JobImmutableInformation(
                         1,
+                        "Test",
                         nodeEngine.getSerializationService().toData(testLogicalDag),
                         config,
                         Collections.emptyList());
@@ -125,6 +126,7 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
         JobImmutableInformation jobImmutableInformation =
                 new JobImmutableInformation(
                         1,
+                        "Test",
                         nodeEngine.getSerializationService().toData(logicalDag),
                         config,
                         Collections.emptyList());

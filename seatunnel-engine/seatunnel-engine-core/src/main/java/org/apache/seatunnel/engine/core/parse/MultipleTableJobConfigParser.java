@@ -36,6 +36,7 @@ import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
@@ -166,7 +167,8 @@ public class MultipleTableJobConfigParser {
 
     private void fillJobConfig() {
         jobConfig.getJobContext().setJobMode(envOptions.get(EnvCommonOptions.JOB_MODE));
-        if (StringUtils.isEmpty(jobConfig.getName())) {
+        if (StringUtils.isEmpty(jobConfig.getName())
+                || jobConfig.getName().equals(Constants.LOGO)) {
             jobConfig.setName(envOptions.get(EnvCommonOptions.JOB_NAME));
         }
         envOptions

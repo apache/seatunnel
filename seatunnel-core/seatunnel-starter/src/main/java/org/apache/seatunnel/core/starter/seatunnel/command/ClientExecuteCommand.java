@@ -84,22 +84,28 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             clientConfig.setClusterName(clusterName);
             engineClient = new SeaTunnelClient(clientConfig);
             if (clientCommandArgs.isListJob()) {
-                String jobStatus = engineClient.listJobStatus();
+                String jobStatus = engineClient.getJobClient().listJobStatus(true);
                 System.out.println(jobStatus);
             } else if (null != clientCommandArgs.getJobId()) {
                 String jobState =
-                        engineClient.getJobDetailStatus(
-                                Long.parseLong(clientCommandArgs.getJobId()));
+                        engineClient
+                                .getJobClient()
+                                .getJobDetailStatus(Long.parseLong(clientCommandArgs.getJobId()));
                 System.out.println(jobState);
             } else if (null != clientCommandArgs.getCancelJobId()) {
-                engineClient.cancelJob(Long.parseLong(clientCommandArgs.getCancelJobId()));
+                engineClient
+                        .getJobClient()
+                        .cancelJob(Long.parseLong(clientCommandArgs.getCancelJobId()));
             } else if (null != clientCommandArgs.getMetricsJobId()) {
                 String jobMetrics =
-                        engineClient.getJobMetrics(
-                                Long.parseLong(clientCommandArgs.getMetricsJobId()));
+                        engineClient
+                                .getJobClient()
+                                .getJobMetrics(Long.parseLong(clientCommandArgs.getMetricsJobId()));
                 System.out.println(jobMetrics);
             } else if (null != clientCommandArgs.getSavePointJobId()) {
-                engineClient.savePointJob(Long.parseLong(clientCommandArgs.getSavePointJobId()));
+                engineClient
+                        .getJobClient()
+                        .savePointJob(Long.parseLong(clientCommandArgs.getSavePointJobId()));
             } else {
                 Path configFile = FileUtils.getConfigPath(clientCommandArgs);
                 checkConfigExist(configFile);
