@@ -22,16 +22,14 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.doris.config.DorisConfig;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 import org.apache.seatunnel.connectors.doris.rest.RestService;
 import org.apache.seatunnel.connectors.doris.rest.models.BackendV2;
 import org.apache.seatunnel.connectors.doris.rest.models.RespContent;
-import org.apache.seatunnel.connectors.doris.serialize.DorisCsvSerializer;
-import org.apache.seatunnel.connectors.doris.serialize.DorisJsonSerializer;
 import org.apache.seatunnel.connectors.doris.serialize.DorisSerializer;
+import org.apache.seatunnel.connectors.doris.serialize.SeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.doris.sink.LoadStatus;
 import org.apache.seatunnel.connectors.doris.sink.committer.DorisCommitInfo;
 import org.apache.seatunnel.connectors.doris.util.HttpUtil;
@@ -90,7 +88,14 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
         this.scheduledExecutorService =
                 new ScheduledThreadPoolExecutor(
                         1, new ThreadFactoryBuilder().setNameFormat("stream-load-check").build());
-        this.serializer = createSerializer(dorisConfig, seaTunnelRowType);
+        this.serializer =
+                new SeaTunnelRowSerializer(
+                        dorisConfig.getStreamLoadProps().getProperty(LoadConstants.FORMAT_KEY),
+                        seaTunnelRowType,
+                        dorisConfig
+                                .getStreamLoadProps()
+                                .getProperty(LoadConstants.FIELD_DELIMITER_KEY),
+                        dorisConfig.getEnableDelete());
         this.intervalTime = dorisConfig.getCheckInterval();
         this.loading = false;
     }
@@ -250,22 +255,5 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
             pos++;
             return false;
         }
-    }
-
-    public static DorisSerializer createSerializer(
-            DorisConfig dorisConfig, SeaTunnelRowType seaTunnelRowType) {
-        if (LoadConstants.CSV.equals(
-                dorisConfig.getStreamLoadProps().getProperty(LoadConstants.FORMAT_KEY))) {
-            return new DorisCsvSerializer(
-                    dorisConfig.getStreamLoadProps().getProperty(LoadConstants.FIELD_DELIMITER_KEY),
-                    seaTunnelRowType);
-        }
-        if (LoadConstants.JSON.equals(
-                dorisConfig.getStreamLoadProps().getProperty(LoadConstants.FORMAT_KEY))) {
-            return new DorisJsonSerializer(seaTunnelRowType);
-        }
-        throw new DorisConnectorException(
-                CommonErrorCode.ILLEGAL_ARGUMENT,
-                "Failed to create row serializer, unsupported `format` from copy into load properties.");
     }
 }

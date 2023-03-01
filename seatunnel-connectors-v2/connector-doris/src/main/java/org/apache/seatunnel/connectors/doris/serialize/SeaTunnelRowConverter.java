@@ -31,7 +31,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
-public class DorisBaseSerializer {
+public class SeaTunnelRowConverter {
     @Builder.Default private DateUtils.Formatter dateFormatter = DateUtils.Formatter.YYYY_MM_DD;
 
     @Builder.Default
@@ -39,33 +39,27 @@ public class DorisBaseSerializer {
 
     @Builder.Default private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
 
-    protected String convert(SeaTunnelDataType dataType, Object val) {
+    protected Object convert(SeaTunnelDataType dataType, Object val) {
         if (val == null) {
             return null;
         }
         switch (dataType.getSqlType()) {
             case TINYINT:
             case SMALLINT:
-                return String.valueOf(((Number) val).shortValue());
             case INT:
-                return String.valueOf(((Number) val).intValue());
             case BIGINT:
-                return String.valueOf(((Number) val).longValue());
             case FLOAT:
-                return String.valueOf(((Number) val).floatValue());
             case DOUBLE:
-                return String.valueOf(((Number) val).doubleValue());
             case DECIMAL:
             case BOOLEAN:
-                return val.toString();
+            case STRING:
+                return val;
             case DATE:
                 return DateUtils.toString((LocalDate) val, dateFormatter);
             case TIME:
                 return TimeUtils.toString((LocalTime) val, timeFormatter);
             case TIMESTAMP:
                 return DateTimeUtils.toString((LocalDateTime) val, dateTimeFormatter);
-            case STRING:
-                return (String) val;
             case ARRAY:
             case MAP:
                 return JsonUtils.toJsonString(val);
