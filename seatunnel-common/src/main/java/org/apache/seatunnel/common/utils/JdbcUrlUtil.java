@@ -71,13 +71,13 @@ public final class JdbcUrlUtil {
             this.host = host;
             this.port = port;
             this.defaultDatabase = defaultDatabase;
-            this.suffix = suffix;
+            this.suffix = suffix == null ? "" : suffix;
         }
 
         public Optional<String> getUrlWithDatabase() {
             return StringUtils.isBlank(defaultDatabase)
                     ? Optional.empty()
-                    : Optional.of(urlWithoutDatabase + "/" + defaultDatabase);
+                    : Optional.of(urlWithoutDatabase + "/" + defaultDatabase + suffix);
         }
 
         public Optional<String> getDefaultDatabase() {
