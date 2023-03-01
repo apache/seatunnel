@@ -76,8 +76,8 @@ public final class JdbcUrlUtil {
 
         public Optional<String> getUrlWithDatabase() {
             return StringUtils.isBlank(defaultDatabase)
-                ? Optional.empty()
-                : Optional.of(urlWithoutDatabase + "/" + defaultDatabase + suffix);
+                    ? Optional.empty()
+                    : Optional.of(urlWithoutDatabase + "/" + defaultDatabase + suffix);
         }
 
         public Optional<String> getDefaultDatabase() {
