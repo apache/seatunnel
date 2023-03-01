@@ -33,7 +33,8 @@ public class JdbcUrlUtilTest {
         Assertions.assertTrue(urlInfo.getDefaultDatabase().isPresent());
         Assertions.assertEquals("seatunnel", urlInfo.getDefaultDatabase().get());
         Assertions.assertEquals(
-                "jdbc:mysql://192.168.1.1:5310/seatunnel", urlInfo.getUrlWithDatabase().get());
+                "jdbc:mysql://192.168.1.1:5310/seatunnel?useSSL=true",
+                urlInfo.getUrlWithDatabase().get());
         Assertions.assertEquals("jdbc:mysql://192.168.1.1:5310", urlInfo.getUrlWithoutDatabase());
         Assertions.assertEquals("192.168.1.1", urlInfo.getHost());
         Assertions.assertEquals(5310, urlInfo.getPort());
@@ -50,6 +51,6 @@ public class JdbcUrlUtilTest {
         Assertions.assertEquals("jdbc:mysql://192.168.1.1:5310", urlInfo.getUrlWithoutDatabase());
         Assertions.assertEquals("192.168.1.1", urlInfo.getHost());
         Assertions.assertEquals(5310, urlInfo.getPort());
-        Assertions.assertEquals(urlInfo, JdbcUrlUtil.getUrlInfo("jdbc:mysql://192.168.1.1:5310"));
+        Assertions.assertEquals(urlInfo, JdbcUrlUtil.getUrlInfo("jdbc:mysql://192.168.1.1:5310/"));
     }
 }
