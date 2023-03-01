@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.PartitionSeaTunnelTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -153,7 +154,8 @@ public class JobConfigParser {
             jobConfig.getJobContext().setJobMode(EnvCommonOptions.JOB_MODE.defaultValue());
         }
 
-        if (StringUtils.isEmpty(jobConfig.getName())) {
+        if (StringUtils.isEmpty(jobConfig.getName())
+                || jobConfig.getName().equals(Constants.LOGO)) {
             if (envConfigs.hasPath(EnvCommonOptions.JOB_NAME.key())) {
                 jobConfig.setName(envConfigs.getString(EnvCommonOptions.JOB_NAME.key()));
             } else {
