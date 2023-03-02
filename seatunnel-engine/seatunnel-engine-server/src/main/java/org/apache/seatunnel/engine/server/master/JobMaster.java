@@ -325,12 +325,7 @@ public class JobMaster {
                 .forEach(
                         pipeline -> {
                             if (pipeline.getPipelineLocation().getPipelineId() == pipelineId) {
-                                LOGGER.warning(
-                                        String.format(
-                                                "%s checkpoint have error, cancel the pipeline",
-                                                pipeline.getPipelineFullName()),
-                                        e);
-                                pipeline.cancelPipeline();
+                                pipeline.handleCheckpointError(e);
                             }
                         });
     }
