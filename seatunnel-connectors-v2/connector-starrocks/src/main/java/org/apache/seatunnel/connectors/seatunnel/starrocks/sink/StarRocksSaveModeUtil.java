@@ -94,6 +94,8 @@ public class StarRocksSaveModeUtil {
                                     + newCol
                                     + template.substring(offset + columnInfo.getIndex());
                     offset += newCol.length() - columnInfo.getName().length();
+                } else {
+                    throw new IllegalArgumentException("Can't find column " + col + " in table.");
                 }
             }
         }
