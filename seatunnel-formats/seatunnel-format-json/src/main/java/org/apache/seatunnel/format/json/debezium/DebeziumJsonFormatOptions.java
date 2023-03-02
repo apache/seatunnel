@@ -41,11 +41,13 @@ public class DebeziumJsonFormatOptions {
 
     public static boolean getSchemaInclude(Map<String, String> options) {
         return Boolean.parseBoolean(
-                options.getOrDefault(SCHEMA_INCLUDE.key(), SCHEMA_INCLUDE.toString()));
+                options.getOrDefault(
+                        SCHEMA_INCLUDE.key(), SCHEMA_INCLUDE.defaultValue().toString()));
     }
 
     public static boolean getIgnoreParseErrors(Map<String, String> options) {
         return Boolean.parseBoolean(
-                options.getOrDefault(IGNORE_PARSE_ERRORS.key(), IGNORE_PARSE_ERRORS.toString()));
+                options.getOrDefault(
+                        IGNORE_PARSE_ERRORS.key(), IGNORE_PARSE_ERRORS.defaultValue().toString()));
     }
 }
