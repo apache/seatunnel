@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
