@@ -29,11 +29,15 @@ import lombok.Setter;
 import lombok.ToString;
 import lombok.experimental.SuperBuilder;
 import lombok.experimental.Tolerate;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+@Slf4j
 @SuperBuilder(toBuilder = true)
 @Getter
 @Setter
@@ -57,6 +61,13 @@ public class ShuffleMultipleRowStrategy extends ShuffleStrategy {
             queue.clear();
             shuffleMap.put(queueName, queue);
         }
+
+        log.info(
+                "pipeline[{}] / reader[{}] assigned shuffle queue list: {}",
+                pipelineId,
+                inputIndex,
+                shuffleMap.keySet());
+
         return shuffleMap;
     }
 
@@ -75,18 +86,24 @@ public class ShuffleMultipleRowStrategy extends ShuffleStrategy {
             String queueName = generateQueueName(pipelineId, inputIndex, targetTableId);
             queues[inputIndex] = getIQueue(hazelcast, queueName);
         }
+
+        log.info(
+                "pipeline[{}] / writer[{}] assigned shuffle queue list: {}",
+                pipelineId,
+                targetIndex,
+                Stream.of(queues).map(e -> e.getName()).collect(Collectors.toList()));
+
         return queues;
     }
 
     private String generateQueueName(int pipelineId, int inputIndex, String tableId) {
-        return "ShuffleMultipleRow-Queue["
+        return "ShuffleMultipleRow-Queue_"
                 + getJobId()
-                + "-"
+                + "_"
                 + pipelineId
-                + "-"
+                + "_"
                 + inputIndex
-                + "-"
-                + tableId
-                + "]";
+                + "_"
+                + tableId;
     }
 }

@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.task;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
@@ -221,7 +222,8 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
                                     this.taskLocation,
                                     (CheckpointBarrier) barrier,
                                     Collections.singletonList(
-                                            new ActionSubtaskState(sink.getId(), -1, states))));
+                                            new ActionSubtaskState(
+                                                    ActionStateKey.of(sink), -1, states))));
         }
     }
 

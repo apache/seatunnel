@@ -520,15 +520,13 @@ public class CheckpointCoordinator {
                 .collect(Collectors.toCollection(CopyOnWriteArraySet::new));
     }
 
-    private Map<Long, ActionState> getActionStates() {
+    private Map<ActionStateKey, ActionState> getActionStates() {
         // TODO: some tasks have completed and will not submit state again.
         return plan.getPipelineActions().entrySet().stream()
                 .collect(
                         Collectors.toMap(
                                 Map.Entry::getKey,
-                                entry ->
-                                        new ActionState(
-                                                String.valueOf(entry.getKey()), entry.getValue())));
+                                entry -> new ActionState(entry.getKey(), entry.getValue())));
     }
 
     private Map<Long, TaskStatistics> getTaskStatistics() {
