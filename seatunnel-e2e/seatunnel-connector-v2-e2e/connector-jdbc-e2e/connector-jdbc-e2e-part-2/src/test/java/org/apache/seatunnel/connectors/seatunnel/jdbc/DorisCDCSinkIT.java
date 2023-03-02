@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.doris;
 
-import com.google.common.collect.Lists;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -33,6 +32,7 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
 import java.net.MalformedURLException;
@@ -69,7 +69,8 @@ public class DorisCDCSinkIT extends TestSuiteBase implements TestResource {
     private static final String SINK_TABLE = "e2e_table_sink";
     private static final String DRIVER_JAR =
             "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
-    private static final String SET_SQL = "ADMIN SET FRONTEND CONFIG (\"enable_batch_delete_by_default\" = \"true\")";
+    private static final String SET_SQL =
+            "ADMIN SET FRONTEND CONFIG (\"enable_batch_delete_by_default\" = \"true\")";
     private static final String CREATE_DATABASE = "CREATE DATABASE IF NOT EXISTS " + DATABASE;
     private static final String DDL_SINK =
             "CREATE TABLE IF NOT EXISTS "
@@ -148,7 +149,8 @@ public class DorisCDCSinkIT extends TestSuiteBase implements TestResource {
     }
 
     private void initializeJdbcConnection()
-            throws SQLException, ClassNotFoundException, InstantiationException, IllegalAccessException, MalformedURLException {
+            throws SQLException, ClassNotFoundException, InstantiationException,
+                    IllegalAccessException, MalformedURLException {
         URLClassLoader urlClassLoader =
                 new URLClassLoader(new URL[] {new URL(DRIVER_JAR)}, DorisIT.class.getClassLoader());
         Thread.currentThread().setContextClassLoader(urlClassLoader);
