@@ -56,11 +56,9 @@ public class Scn implements Comparable<Scn> {
     public int compareTo(Scn o) {
         if (isNull() && o.isNull()) {
             return 0;
-        }
-        else if (isNull() && !o.isNull()) {
+        } else if (isNull() && !o.isNull()) {
             return -1;
-        }
-        else if (!isNull() && o.isNull()) {
+        } else if (!isNull() && o.isNull()) {
             return 1;
         }
         return scn.compareTo(o.scn);

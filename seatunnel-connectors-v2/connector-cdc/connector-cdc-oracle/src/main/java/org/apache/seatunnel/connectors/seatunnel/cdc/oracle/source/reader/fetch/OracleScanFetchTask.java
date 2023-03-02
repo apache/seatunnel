@@ -17,11 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.reader.fetch;
 
-import static org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleConnectionUtils.createOracleConnection;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleConnectionUtils.currentRedoLogOffset;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleUtils.buildSplitScanQuery;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleUtils.readTableSplitDataStatement;
-
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
@@ -29,6 +24,14 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkKind;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.offset.RedoLogOffset;
+
+import org.apache.kafka.connect.data.Field;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaBuilder;
+import org.apache.kafka.connect.errors.ConnectException;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.debezium.DebeziumException;
 import io.debezium.config.Configuration;
@@ -56,12 +59,6 @@ import io.debezium.util.Clock;
 import io.debezium.util.ColumnUtils;
 import io.debezium.util.Strings;
 import io.debezium.util.Threads;
-import org.apache.kafka.connect.data.Field;
-import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.data.SchemaBuilder;
-import org.apache.kafka.connect.errors.ConnectException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -70,6 +67,11 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Map;
+
+import static org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleConnectionUtils.createOracleConnection;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleConnectionUtils.currentRedoLogOffset;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleUtils.buildSplitScanQuery;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleUtils.readTableSplitDataStatement;
 
 /** The task to work for fetching data of Oracle table snapshot split. */
 public class OracleScanFetchTask implements FetchTask<SourceSplitBase> {
@@ -118,9 +120,7 @@ public class OracleScanFetchTask implements FetchTask<SourceSplitBase> {
         // watermark
 
         final boolean binlogBackfillRequired =
-                backfillBinlogSplit
-                    .getStopOffset()
-                        .isAfter(backfillBinlogSplit.getStartupOffset());
+                backfillBinlogSplit.getStopOffset().isAfter(backfillBinlogSplit.getStartupOffset());
 
         if (!binlogBackfillRequired) {
             dispatchBinlogEndEvent(
@@ -136,11 +136,11 @@ public class OracleScanFetchTask implements FetchTask<SourceSplitBase> {
                     createBackfillRedoLogReadTask(backfillBinlogSplit, sourceFetchContext);
 
             OracleConnectorConfig oracleConnectorConfig =
-                sourceFetchContext.getSourceConfig().getDbzConnectorConfig();
+                    sourceFetchContext.getSourceConfig().getDbzConnectorConfig();
             final OffsetContext.Loader<OracleOffsetContext> loader =
-                new LogMinerOracleOffsetContextLoader(oracleConnectorConfig);
+                    new LogMinerOracleOffsetContextLoader(oracleConnectorConfig);
             final OracleOffsetContext oracleOffsetContext =
-                loader.load(backfillBinlogSplit.getStartupOffset().getOffset());
+                    loader.load(backfillBinlogSplit.getStartupOffset().getOffset());
             backfillBinlogReadTask.execute(
                     new SnapshotBinlogSplitChangeEventSourceContext(), oracleOffsetContext);
         } else {
@@ -153,11 +153,11 @@ public class OracleScanFetchTask implements FetchTask<SourceSplitBase> {
     private IncrementalSplit createBackfillRedoLogSplit(
             SnapshotSplitChangeEventSourceContext sourceContext) {
         return new IncrementalSplit(
-            split.splitId(),
-            Collections.singletonList(split.getTableId()),
-            sourceContext.getLowWatermark(),
-            sourceContext.getHighWatermark(),
-            new ArrayList<>());
+                split.splitId(),
+                Collections.singletonList(split.getTableId()),
+                sourceContext.getLowWatermark(),
+                sourceContext.getHighWatermark(),
+                new ArrayList<>());
     }
 
     private OracleStreamFetchTask.RedoLogSplitReadTask createBackfillRedoLogReadTask(
@@ -168,8 +168,11 @@ public class OracleScanFetchTask implements FetchTask<SourceSplitBase> {
                 context.getSourceConfig()
                         .getDbzConfiguration()
                         .edit()
-                        .with("table.include.list",
-                            split.getTableId().toString().substring(split.getTableId().toString().indexOf(".") + 1))
+                        .with(
+                                "table.include.list",
+                                split.getTableId()
+                                        .toString()
+                                        .substring(split.getTableId().toString().indexOf(".") + 1))
                         // Disable heartbeat event in snapshot split fetcher
                         .with(Heartbeat.HEARTBEAT_INTERVAL, 0)
                         .build();
@@ -340,14 +343,14 @@ public class OracleScanFetchTask implements FetchTask<SourceSplitBase> {
 
             try (PreparedStatement selectStatement =
                             readTableSplitDataStatement(
-                                jdbcConnection,
-                                selectSql,
-                                snapshotSplit.getSplitStart() == null,
-                                snapshotSplit.getSplitEnd() == null,
-                                new Object[]{snapshotSplit.getSplitStart()},
-                                new Object[]{snapshotSplit.getSplitEnd()},
-                                snapshotSplit.getSplitKeyType().getTotalFields(),
-                                connectorConfig.getQueryFetchSize());
+                                    jdbcConnection,
+                                    selectSql,
+                                    snapshotSplit.getSplitStart() == null,
+                                    snapshotSplit.getSplitEnd() == null,
+                                    new Object[] {snapshotSplit.getSplitStart()},
+                                    new Object[] {snapshotSplit.getSplitEnd()},
+                                    snapshotSplit.getSplitKeyType().getTotalFields(),
+                                    connectorConfig.getQueryFetchSize());
                     ResultSet rs = selectStatement.executeQuery()) {
 
                 ColumnUtils.ColumnArray columnArray = ColumnUtils.toArray(rs, table);
@@ -419,7 +422,7 @@ public class OracleScanFetchTask implements FetchTask<SourceSplitBase> {
         }
 
         private static class MySqlSnapshotContext
-            extends RelationalSnapshotChangeEventSource.RelationalSnapshotContext {
+                extends RelationalSnapshotChangeEventSource.RelationalSnapshotContext {
 
             public MySqlSnapshotContext() throws SQLException {
                 super("");

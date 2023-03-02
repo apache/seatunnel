@@ -17,14 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.reader.fetch;
 
-import static org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.offset.RedoLogOffset.NO_STOPPING_OFFSET;
-
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkKind;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.offset.RedoLogOffset;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.debezium.DebeziumException;
 import io.debezium.config.Configuration;
@@ -37,11 +38,11 @@ import io.debezium.connector.oracle.logminer.LogMinerStreamingChangeEventSource;
 import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.source.spi.ChangeEventSource;
 import io.debezium.util.Clock;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
+
+import static org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.offset.RedoLogOffset.NO_STOPPING_OFFSET;
 
 /** The task to work for fetching data of Oracle table stream split. */
 public class OracleStreamFetchTask implements FetchTask<SourceSplitBase> {

@@ -19,10 +19,7 @@ package io.debezium.connector.dameng.logminer.parser;
 
 import io.debezium.relational.Table;
 
-/**
- * Contract for a DML parser for LogMiner.
- *
- */
+/** Contract for a DML parser for LogMiner. */
 public interface DmlParser {
     /**
      * Parse a DML SQL string from the LogMiner event stream.

@@ -34,20 +34,16 @@ import java.util.function.Supplier;
 @Builder
 public class LogMiner implements Closeable {
     private static final int ERROR_CODE_FOR_NOT_ACTIVE_LOGMINER = -2846;
-    @NonNull
-    private final DamengConnection connection;
-    @NonNull
-    private final Scn previousScn;
-    @NonNull
-    private final String[] schemas;
+    @NonNull private final DamengConnection connection;
+    @NonNull private final Scn previousScn;
+    @NonNull private final String[] schemas;
     private final String[] tables;
     private Scn fileFirstScn;
     private Scn fileNextScn;
     private Scn recordNextScn;
 
-    public void startLoop(Supplier<Boolean> runningContext,
-                          long sleepMillis,
-                          Consumer<LogContent> consumer) {
+    public void startLoop(
+            Supplier<Boolean> runningContext, long sleepMillis, Consumer<LogContent> consumer) {
         try {
             init();
 
@@ -85,7 +81,7 @@ public class LogMiner implements Closeable {
         try {
             connection.endLogMiner();
             log.debug("End current session log miner");
-        } catch (SQLException e){
+        } catch (SQLException e) {
             if (ERROR_CODE_FOR_NOT_ACTIVE_LOGMINER != e.getErrorCode()) {
                 throw e;
             }
@@ -100,15 +96,19 @@ public class LogMiner implements Closeable {
         AtomicBoolean hasNextRows = new AtomicBoolean();
         do {
             hasNextRows.set(false);
-            connection.readLogContent(recordNextScn, schemas, tables,
-                (Consumer<LogContent>) logContent -> {
-                    consumer.accept(logContent);
+            connection.readLogContent(
+                    recordNextScn,
+                    schemas,
+                    tables,
+                    (Consumer<LogContent>)
+                            logContent -> {
+                                consumer.accept(logContent);
 
-                    recordNextScn = logContent.getScn();
-                    log.debug("Update scan log record next scn to {}", recordNextScn);
+                                recordNextScn = logContent.getScn();
+                                log.debug("Update scan log record next scn to {}", recordNextScn);
 
-                    hasNextRows.set(true);
-                });
+                                hasNextRows.set(true);
+                            });
         } while (hasNextRows.get());
     }
 

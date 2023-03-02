@@ -25,9 +25,11 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class DamengSnapshotSplitChangeEventSourceContext implements ChangeEventSource.ChangeEventSourceContext{
+public class DamengSnapshotSplitChangeEventSourceContext
+        implements ChangeEventSource.ChangeEventSourceContext {
     private LogMinerOffset lowWatermark;
     private LogMinerOffset highWatermark;
+
     @Override
     public boolean isRunning() {
         return lowWatermark != null && highWatermark != null;

@@ -26,9 +26,8 @@ import io.debezium.util.Clock;
 public class DamengDataChangeRecordEmitter extends RelationalChangeRecordEmitter {
     private final LogMinerDmlEntry dmlEntry;
 
-    public DamengDataChangeRecordEmitter(OffsetContext offset,
-                                         Clock clock,
-                                         LogMinerDmlEntry dmlEntry) {
+    public DamengDataChangeRecordEmitter(
+            OffsetContext offset, Clock clock, LogMinerDmlEntry dmlEntry) {
         super(offset, clock);
         this.dmlEntry = dmlEntry;
     }
@@ -44,7 +43,7 @@ public class DamengDataChangeRecordEmitter extends RelationalChangeRecordEmitter
                 return Envelope.Operation.DELETE;
             default:
                 throw new IllegalArgumentException(
-                    "Received event of unexpected command type: " + dmlEntry.getOperation());
+                        "Received event of unexpected command type: " + dmlEntry.getOperation());
         }
     }
 

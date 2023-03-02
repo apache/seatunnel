@@ -19,5 +19,4 @@ package io.debezium.connector.dameng;
 
 import io.debezium.jdbc.JdbcValueConverters;
 
-public class DamengValueConverters extends JdbcValueConverters {
-}
+public class DamengValueConverters extends JdbcValueConverters {}

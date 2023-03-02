@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.eumerator;
 
-import static org.apache.seatunnel.connectors.cdc.base.utils.ObjectUtils.doubleCompare;
-import static java.math.BigDecimal.ROUND_CEILING;
-
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
@@ -32,14 +29,15 @@ import org.apache.seatunnel.connectors.cdc.base.utils.ObjectUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleTypeUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleUtils;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Column;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.TableChanges.TableChange;
 import oracle.sql.ROWID;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.sql.SQLException;
@@ -50,6 +48,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+
+import static java.math.BigDecimal.ROUND_CEILING;
+import static org.apache.seatunnel.connectors.cdc.base.utils.ObjectUtils.doubleCompare;
 
 /**
  * The {@code ChunkSplitter} used to split Oracle table into a set of chunks for JDBC data source.
@@ -143,7 +144,10 @@ public class OracleChunkSplitter implements JdbcSourceChunkSplitter {
 
     @Override
     public String buildSplitScanQuery(
-            TableId tableId, SeaTunnelRowType splitKeyType, boolean isFirstSplit, boolean isLastSplit) {
+            TableId tableId,
+            SeaTunnelRowType splitKeyType,
+            boolean isFirstSplit,
+            boolean isLastSplit) {
         return OracleUtils.buildSplitScanQuery(tableId, splitKeyType, isFirstSplit, isLastSplit);
     }
 
@@ -267,7 +271,8 @@ public class OracleChunkSplitter implements JdbcSourceChunkSplitter {
         boolean chunkEndMaxCompare;
         if (chunkEnd instanceof ROWID && max instanceof ROWID) {
             chunkEndMaxCompare =
-                    ROWID.compareBytes(((ROWID) chunkEnd).getBytes(), ((ROWID) max).getBytes()) <= 0;
+                    ROWID.compareBytes(((ROWID) chunkEnd).getBytes(), ((ROWID) max).getBytes())
+                            <= 0;
         } else {
             chunkEndMaxCompare = chunkEnd != null && ObjectUtils.compare(chunkEnd, max) <= 0;
         }
@@ -279,7 +284,8 @@ public class OracleChunkSplitter implements JdbcSourceChunkSplitter {
         boolean chunkEndMaxCompare;
         if (chunkEnd instanceof ROWID && max instanceof ROWID) {
             chunkEndMaxCompare =
-                    ROWID.compareBytes(((ROWID) chunkEnd).getBytes(), ((ROWID) max).getBytes()) >= 0;
+                    ROWID.compareBytes(((ROWID) chunkEnd).getBytes(), ((ROWID) max).getBytes())
+                            >= 0;
         } else {
             chunkEndMaxCompare = chunkEnd != null && ObjectUtils.compare(chunkEnd, max) >= 0;
         }
@@ -322,12 +328,7 @@ public class OracleChunkSplitter implements JdbcSourceChunkSplitter {
         Map<TableId, TableChange> schema = new HashMap<>();
         schema.put(tableId, dialect.queryTableSchema(jdbc, tableId));
         return new SnapshotSplit(
-                splitId(tableId, chunkId),
-                tableId,
-                splitKeyType,
-                splitStart,
-                splitEnd,
-                null);
+                splitId(tableId, chunkId), tableId, splitKeyType, splitStart, splitEnd, null);
     }
 
     // ------------------------------------------------------------------------------------------
@@ -381,9 +382,10 @@ public class OracleChunkSplitter implements JdbcSourceChunkSplitter {
         List<Column> primaryKeys = table.primaryKeyColumns();
         if (primaryKeys.isEmpty()) {
             throw new UnsupportedOperationException(
-                String.format("Incremental snapshot for tables requires primary key,"
-                        + " but table %s doesn't have primary key.",
-                    table.id()));
+                    String.format(
+                            "Incremental snapshot for tables requires primary key,"
+                                    + " but table %s doesn't have primary key.",
+                            table.id()));
         }
 
         // use first field in primary key as the split key

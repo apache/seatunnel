@@ -46,42 +46,47 @@ public class DamengSnapshotFetchTask implements FetchTask<SourceSplitBase> {
         taskRunning = true;
 
         DamengSourceFetchTaskContext sourceFetchContext = (DamengSourceFetchTaskContext) context;
-        snapshotSplitReadTask = new DamengSnapshotSplitReadTask(
-            sourceFetchContext.getDbzConnectorConfig(),
-            sourceFetchContext.getOffsetContext(),
-            sourceFetchContext.getSnapshotChangeEventSourceMetrics(),
-            sourceFetchContext.getDatabaseSchema(),
-            sourceFetchContext.getConnection(),
-            sourceFetchContext.getDispatcher(),
-            split);
+        snapshotSplitReadTask =
+                new DamengSnapshotSplitReadTask(
+                        sourceFetchContext.getDbzConnectorConfig(),
+                        sourceFetchContext.getOffsetContext(),
+                        sourceFetchContext.getSnapshotChangeEventSourceMetrics(),
+                        sourceFetchContext.getDatabaseSchema(),
+                        sourceFetchContext.getConnection(),
+                        sourceFetchContext.getDispatcher(),
+                        split);
         DamengSnapshotSplitChangeEventSourceContext changeEventSourceContext =
-            new DamengSnapshotSplitChangeEventSourceContext();
-        SnapshotResult snapshotResult = snapshotSplitReadTask.execute(
-            changeEventSourceContext, sourceFetchContext.getOffsetContext());
-        IncrementalSplit backfillLogMinerSplit = createBackfillLogMinerSplit(changeEventSourceContext);
+                new DamengSnapshotSplitChangeEventSourceContext();
+        SnapshotResult snapshotResult =
+                snapshotSplitReadTask.execute(
+                        changeEventSourceContext, sourceFetchContext.getOffsetContext());
+        IncrementalSplit backfillLogMinerSplit =
+                createBackfillLogMinerSplit(changeEventSourceContext);
 
         // optimization that skip the logminer read when the low watermark equals high watermark
-        boolean logMinerBackfillRequired = backfillLogMinerSplit
-            .getStopOffset()
-            .isAfter(backfillLogMinerSplit.getStartupOffset());
+        boolean logMinerBackfillRequired =
+                backfillLogMinerSplit
+                        .getStopOffset()
+                        .isAfter(backfillLogMinerSplit.getStartupOffset());
         if (!logMinerBackfillRequired) {
             dispatchLogMinerEndEvent(
-                backfillLogMinerSplit,
-                ((DamengSourceFetchTaskContext) context).getOffsetContext().getPartition(),
-                ((DamengSourceFetchTaskContext) context).getDispatcher());
+                    backfillLogMinerSplit,
+                    ((DamengSourceFetchTaskContext) context).getOffsetContext().getPartition(),
+                    ((DamengSourceFetchTaskContext) context).getDispatcher());
             taskRunning = false;
             return;
         }
         // execute logminer read task
         if (snapshotResult.isCompletedOrSkipped()) {
             DamengLogMinerSplitReadTask backfillLogMinerReadTask =
-                createBackfillLogMinerReadTask(backfillLogMinerSplit, sourceFetchContext);
+                    createBackfillLogMinerReadTask(backfillLogMinerSplit, sourceFetchContext);
             backfillLogMinerReadTask.execute(
-                new SnapshotScnSplitChangeEventSourceContext(),
-                sourceFetchContext.getOffsetContext());
+                    new SnapshotScnSplitChangeEventSourceContext(),
+                    sourceFetchContext.getOffsetContext());
         } else {
             taskRunning = false;
-            throw new IllegalStateException(String.format("Read snapshot for dameng split %s fail", split));
+            throw new IllegalStateException(
+                    String.format("Read snapshot for dameng split %s fail", split));
         }
     }
 
@@ -96,43 +101,46 @@ public class DamengSnapshotFetchTask implements FetchTask<SourceSplitBase> {
     }
 
     private DamengLogMinerSplitReadTask createBackfillLogMinerReadTask(
-        IncrementalSplit backfillLogMinerSplit, DamengSourceFetchTaskContext context) {
+            IncrementalSplit backfillLogMinerSplit, DamengSourceFetchTaskContext context) {
         DamengOffsetContext.Loader loader =
-            new DamengOffsetContext.Loader(context.getSourceConfig().getDbzConnectorConfig());
+                new DamengOffsetContext.Loader(context.getSourceConfig().getDbzConnectorConfig());
         DamengOffsetContext damengOffsetContext =
-            loader.load(backfillLogMinerSplit.getStartupOffset().getOffset());
+                loader.load(backfillLogMinerSplit.getStartupOffset().getOffset());
         // task to read logminer and backfill for current split
         return new DamengLogMinerSplitReadTask(
-            damengOffsetContext,
-            context.getSourceConfig(),
-            context.getConnection(),
-            context.getDispatcher(),
-            context.getErrorHandler(),
-            context.getDatabaseSchema(),
-            backfillLogMinerSplit);
+                damengOffsetContext,
+                context.getSourceConfig(),
+                context.getConnection(),
+                context.getDispatcher(),
+                context.getErrorHandler(),
+                context.getDatabaseSchema(),
+                backfillLogMinerSplit);
     }
 
-    private IncrementalSplit createBackfillLogMinerSplit(DamengSnapshotSplitChangeEventSourceContext sourceContext) {
+    private IncrementalSplit createBackfillLogMinerSplit(
+            DamengSnapshotSplitChangeEventSourceContext sourceContext) {
         return new IncrementalSplit(
-            split.splitId(),
-            Collections.singletonList(split.getTableId()),
-            sourceContext.getLowWatermark(),
-            sourceContext.getHighWatermark(),
-            new ArrayList<>());
+                split.splitId(),
+                Collections.singletonList(split.getTableId()),
+                sourceContext.getLowWatermark(),
+                sourceContext.getHighWatermark(),
+                new ArrayList<>());
     }
 
-    private void dispatchLogMinerEndEvent(IncrementalSplit backFillLogMinerSplit,
-                                          Map<String, ?> sourcePartition,
-                                          JdbcSourceEventDispatcher eventDispatcher) throws InterruptedException {
+    private void dispatchLogMinerEndEvent(
+            IncrementalSplit backFillLogMinerSplit,
+            Map<String, ?> sourcePartition,
+            JdbcSourceEventDispatcher eventDispatcher)
+            throws InterruptedException {
         eventDispatcher.dispatchWatermarkEvent(
-            sourcePartition,
-            backFillLogMinerSplit,
-            backFillLogMinerSplit.getStopOffset(),
-            WatermarkKind.END);
+                sourcePartition,
+                backFillLogMinerSplit,
+                backFillLogMinerSplit.getStopOffset(),
+                WatermarkKind.END);
     }
 
     public class SnapshotScnSplitChangeEventSourceContext
-        implements ChangeEventSource.ChangeEventSourceContext {
+            implements ChangeEventSource.ChangeEventSourceContext {
 
         public void finished() {
             taskRunning = false;

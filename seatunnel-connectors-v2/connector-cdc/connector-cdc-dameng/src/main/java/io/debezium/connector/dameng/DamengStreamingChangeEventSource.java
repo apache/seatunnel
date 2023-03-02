@@ -37,7 +37,8 @@ import java.util.List;
 import java.util.function.Consumer;
 
 @Slf4j
-public class DamengStreamingChangeEventSource implements StreamingChangeEventSource<DamengOffsetContext> {
+public class DamengStreamingChangeEventSource
+        implements StreamingChangeEventSource<DamengOffsetContext> {
     private final DamengSourceConfig sourceConfig;
     private final DamengConnection connection;
     private final List<TableId> tableIds;
@@ -46,13 +47,15 @@ public class DamengStreamingChangeEventSource implements StreamingChangeEventSou
     private final Clock clock;
     private final DamengDatabaseSchema databaseSchema;
     private final DmlParser dmlParser;
-    public DamengStreamingChangeEventSource(DamengSourceConfig sourceConfig,
-                                            DamengConnection connection,
-                                            List<TableId> tableIds,
-                                            EventDispatcher<TableId> eventDispatcher,
-                                            ErrorHandler errorHandler,
-                                            Clock clock,
-                                            DamengDatabaseSchema databaseSchema) {
+
+    public DamengStreamingChangeEventSource(
+            DamengSourceConfig sourceConfig,
+            DamengConnection connection,
+            List<TableId> tableIds,
+            EventDispatcher<TableId> eventDispatcher,
+            ErrorHandler errorHandler,
+            Clock clock,
+            DamengDatabaseSchema databaseSchema) {
         this.sourceConfig = sourceConfig;
         this.connection = connection;
         this.tableIds = tableIds;
@@ -66,21 +69,26 @@ public class DamengStreamingChangeEventSource implements StreamingChangeEventSou
     @Override
     public void execute(ChangeEventSourceContext context, DamengOffsetContext offsetContext) {
         Scn startScn = offsetContext.getScn();
-        LogMiner logMiner = LogMiner.builder()
-            .connection(connection)
-            .schemas(tableIds.stream().map(e -> e.schema()).toArray(value -> new String[value]))
-            .tables(tableIds.stream().map(e -> e.table()).toArray(value -> new String[value]))
-            .previousScn(startScn)
-            .build();
+        LogMiner logMiner =
+                LogMiner.builder()
+                        .connection(connection)
+                        .schemas(
+                                tableIds.stream()
+                                        .map(e -> e.schema())
+                                        .toArray(value -> new String[value]))
+                        .tables(
+                                tableIds.stream()
+                                        .map(e -> e.table())
+                                        .toArray(value -> new String[value]))
+                        .previousScn(startScn)
+                        .build();
 
-        Consumer<LogContent> consumer =  logContent -> handleEvent(offsetContext, logContent);
+        Consumer<LogContent> consumer = logContent -> handleEvent(offsetContext, logContent);
         try {
             logMiner.init();
             log.info("Start logminer for scn={}", startScn);
 
-            long pollInterval = sourceConfig.getDbzConnectorConfig()
-                .getPollInterval()
-                .toMillis();
+            long pollInterval = sourceConfig.getDbzConnectorConfig().getPollInterval().toMillis();
             while (context.isRunning()) {
                 Thread.sleep(pollInterval);
 
@@ -95,27 +103,32 @@ public class DamengStreamingChangeEventSource implements StreamingChangeEventSou
             log.error("Mining session stopped due to the {}", e);
             errorHandler.setProducerThrowable(e);
         } finally {
-            log.info("Close logminer startScn={}, offsetContext.getScn()={}", startScn, offsetContext.getScn());
+            log.info(
+                    "Close logminer startScn={}, offsetContext.getScn()={}",
+                    startScn,
+                    offsetContext.getScn());
             logMiner.close();
         }
     }
 
-    protected void handleEvent(DamengOffsetContext offsetContext,
-                               LogContent logContent) {
+    protected void handleEvent(DamengOffsetContext offsetContext, LogContent logContent) {
         switch (Operation.parse(logContent.getOperationCode())) {
             case INSERT:
             case DELETE:
             case UPDATE:
-                TableId tableId = new TableId(null, logContent.getSegOwner(), logContent.getTableName());
+                TableId tableId =
+                        new TableId(null, logContent.getSegOwner(), logContent.getTableName());
                 Table table = databaseSchema.tableFor(tableId);
-                LogMinerDmlEntry dmlEntry = dmlParser.parse(logContent.getSqlRedo(), table, logContent.getXid());
+                LogMinerDmlEntry dmlEntry =
+                        dmlParser.parse(logContent.getSqlRedo(), table, logContent.getXid());
 
                 offsetContext.event(tableId, clock.currentTime());
                 offsetContext.setScn(logContent.getScn());
 
                 try {
-                    eventDispatcher.dispatchDataChangeEvent(tableId,
-                        new DamengDataChangeRecordEmitter(offsetContext, clock, dmlEntry));
+                    eventDispatcher.dispatchDataChangeEvent(
+                            tableId,
+                            new DamengDataChangeRecordEmitter(offsetContext, clock, dmlEntry));
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }

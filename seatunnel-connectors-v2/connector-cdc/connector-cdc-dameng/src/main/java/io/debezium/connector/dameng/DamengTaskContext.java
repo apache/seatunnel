@@ -20,8 +20,7 @@ package io.debezium.connector.dameng;
 import io.debezium.connector.common.CdcSourceTaskContext;
 
 public class DamengTaskContext extends CdcSourceTaskContext {
-    public DamengTaskContext(DamengConnectorConfig config,
-                             DamengDatabaseSchema schema) {
+    public DamengTaskContext(DamengConnectorConfig config, DamengDatabaseSchema schema) {
         super(config.getContextName(), config.getLogicalName(), schema::tableIds);
     }
 }

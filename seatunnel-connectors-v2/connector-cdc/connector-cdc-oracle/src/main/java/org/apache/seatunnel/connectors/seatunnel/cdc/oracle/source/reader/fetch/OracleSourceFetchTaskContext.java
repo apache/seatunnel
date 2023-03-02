@@ -29,6 +29,12 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceC
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.offset.RedoLogOffset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleUtils;
 
+import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.source.SourceRecord;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.debezium.connector.base.ChangeEventQueue;
 import io.debezium.connector.oracle.OracleChangeEventSourceMetricsFactory;
 import io.debezium.connector.oracle.OracleConnection;
@@ -54,10 +60,6 @@ import io.debezium.relational.history.TableChanges;
 import io.debezium.schema.DataCollectionId;
 import io.debezium.schema.TopicSelector;
 import io.debezium.util.Collect;
-import org.apache.kafka.connect.data.Struct;
-import org.apache.kafka.connect.source.SourceRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.Collection;
@@ -101,10 +103,10 @@ public class OracleSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         this.topicSelector = OracleTopicSelector.defaultSelector(connectorConfig);
 
         EmbeddedDatabaseHistory.registerHistory(
-            sourceConfig
-                .getDbzConfiguration()
-                .getString(EmbeddedDatabaseHistory.DATABASE_HISTORY_INSTANCE_NAME),
-            engineHistory);
+                sourceConfig
+                        .getDbzConfiguration()
+                        .getString(EmbeddedDatabaseHistory.DATABASE_HISTORY_INSTANCE_NAME),
+                engineHistory);
 
         this.databaseSchema = OracleUtils.createOracleDatabaseSchema(connectorConfig);
         // todo logMiner or xStream
@@ -116,7 +118,8 @@ public class OracleSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         this.taskContext = new OracleTaskContext(connectorConfig, databaseSchema);
 
         final int queueSize =
-                sourceSplitBase.isSnapshotSplit() ? Integer.MAX_VALUE
+                sourceSplitBase.isSnapshotSplit()
+                        ? Integer.MAX_VALUE
                         : getSourceConfig().getDbzConnectorConfig().getMaxQueueSize();
         this.queue =
                 new ChangeEventQueue.Builder<DataChangeEvent>()
@@ -223,7 +226,8 @@ public class OracleSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     private OracleOffsetContext loadStartingOffsetState(
             OffsetContext.Loader loader, SourceSplitBase oracleSplit) {
         Offset offset =
-                oracleSplit.isSnapshotSplit() ? RedoLogOffset.INITIAL_OFFSET
+                oracleSplit.isSnapshotSplit()
+                        ? RedoLogOffset.INITIAL_OFFSET
                         : oracleSplit.asIncrementalSplit().getStartupOffset();
 
         OracleOffsetContext oracleOffsetContext =

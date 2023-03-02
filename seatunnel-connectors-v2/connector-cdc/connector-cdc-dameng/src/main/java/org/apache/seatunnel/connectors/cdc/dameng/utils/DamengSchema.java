@@ -40,12 +40,14 @@ public class DamengSchema {
         if (schema == null) {
             try {
                 List<Column> columns = DamengConncetionUtils.queryColumns(jdbc, tableId);
-                List<String> primaryKeyNames = DamengConncetionUtils.queryPrimaryKeyNames(jdbc, tableId);
-                Table table = Table.editor()
-                    .tableId(tableId)
-                    .setColumns(columns)
-                    .setPrimaryKeyNames(primaryKeyNames)
-                    .create();
+                List<String> primaryKeyNames =
+                        DamengConncetionUtils.queryPrimaryKeyNames(jdbc, tableId);
+                Table table =
+                        Table.editor()
+                                .tableId(tableId)
+                                .setColumns(columns)
+                                .setPrimaryKeyNames(primaryKeyNames)
+                                .create();
                 schema = new TableChanges.TableChange(TableChanges.TableChangeType.CREATE, table);
                 schemasByTableId.put(tableId, schema);
             } catch (SQLException e) {

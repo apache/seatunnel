@@ -17,11 +17,12 @@
 
 package io.debezium.connector.dameng;
 
-import io.debezium.config.Configuration;
-import io.debezium.connector.common.RelationalBaseSourceConnector;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigValue;
 import org.apache.kafka.connect.connector.Task;
+
+import io.debezium.config.Configuration;
+import io.debezium.connector.common.RelationalBaseSourceConnector;
 
 import java.util.List;
 import java.util.Map;

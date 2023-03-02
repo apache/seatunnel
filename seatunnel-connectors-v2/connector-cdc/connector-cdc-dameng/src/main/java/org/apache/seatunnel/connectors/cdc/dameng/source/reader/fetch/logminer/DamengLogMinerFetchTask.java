@@ -34,22 +34,25 @@ public class DamengLogMinerFetchTask implements FetchTask<SourceSplitBase> {
 
     private final IncrementalSplit incrementalSplit;
     private volatile boolean taskRunning = false;
+
     @Override
     public void execute(Context context) throws Exception {
         taskRunning = true;
 
         DamengSourceFetchTaskContext sourceFetchContext = (DamengSourceFetchTaskContext) context;
-        DamengStreamingChangeEventSource streamingChangeEventSource = new DamengStreamingChangeEventSource(
-            sourceFetchContext.getSourceConfig(),
-            sourceFetchContext.getConnection(),
-            incrementalSplit.getTableIds(),
-            sourceFetchContext.getDispatcher(),
-            sourceFetchContext.getErrorHandler(),
-            Clock.SYSTEM,
-            sourceFetchContext.getDatabaseSchema());
+        DamengStreamingChangeEventSource streamingChangeEventSource =
+                new DamengStreamingChangeEventSource(
+                        sourceFetchContext.getSourceConfig(),
+                        sourceFetchContext.getConnection(),
+                        incrementalSplit.getTableIds(),
+                        sourceFetchContext.getDispatcher(),
+                        sourceFetchContext.getErrorHandler(),
+                        Clock.SYSTEM,
+                        sourceFetchContext.getDatabaseSchema());
         DamengLogMinerChangeEventSourceContext changeEventSourceContext =
-            new DamengLogMinerChangeEventSourceContext();
-        streamingChangeEventSource.execute(changeEventSourceContext, sourceFetchContext.getOffsetContext());
+                new DamengLogMinerChangeEventSourceContext();
+        streamingChangeEventSource.execute(
+                changeEventSourceContext, sourceFetchContext.getOffsetContext());
     }
 
     @Override
@@ -63,7 +66,7 @@ public class DamengLogMinerFetchTask implements FetchTask<SourceSplitBase> {
     }
 
     private class DamengLogMinerChangeEventSourceContext
-        implements ChangeEventSource.ChangeEventSourceContext {
+            implements ChangeEventSource.ChangeEventSourceContext {
         @Override
         public boolean isRunning() {
             return taskRunning;

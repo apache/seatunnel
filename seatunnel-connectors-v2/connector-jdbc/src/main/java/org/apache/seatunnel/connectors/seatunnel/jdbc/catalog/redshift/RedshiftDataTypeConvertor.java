@@ -1,7 +1,5 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.redshift;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertException;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -11,11 +9,14 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SqlType;
 
-import com.google.auto.service.AutoService;
 import org.apache.commons.collections4.MapUtils;
+
+import com.google.auto.service.AutoService;
 
 import java.util.Collections;
 import java.util.Map;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 @AutoService(DataTypeConvertor.class)
 public class RedshiftDataTypeConvertor implements DataTypeConvertor<String> {
@@ -69,7 +70,8 @@ public class RedshiftDataTypeConvertor implements DataTypeConvertor<String> {
 
     private static final String REDSHIFT_TIMETZ = "TIMETZ";
     private static final String REDSHIFT_TIMESTAMP = "TIMESTAMP";
-    private static final String REDSHIFT_TIMESTAMP_WITH_OUT_TIME_ZONE = "TIMESTAMP WITHOUT TIME ZONE";
+    private static final String REDSHIFT_TIMESTAMP_WITH_OUT_TIME_ZONE =
+            "TIMESTAMP WITHOUT TIME ZONE";
 
     private static final String REDSHIFT_TIMESTAMPTZ = "TIMESTAMPTZ";
 
@@ -79,8 +81,9 @@ public class RedshiftDataTypeConvertor implements DataTypeConvertor<String> {
     }
 
     @Override
-    public SeaTunnelDataType<?> toSeaTunnelType(String connectorDataType,
-                                                Map<String, Object> dataTypeProperties) throws DataTypeConvertException {
+    public SeaTunnelDataType<?> toSeaTunnelType(
+            String connectorDataType, Map<String, Object> dataTypeProperties)
+            throws DataTypeConvertException {
         checkNotNull(connectorDataType, "redshiftType cannot be null");
         switch (connectorDataType) {
             case REDSHIFT_SMALLINT:
@@ -96,7 +99,8 @@ public class RedshiftDataTypeConvertor implements DataTypeConvertor<String> {
                 return BasicType.LONG_TYPE;
             case REDSHIFT_DECIMAL:
             case REDSHIFT_NUMERIC:
-                Integer precision = MapUtils.getInteger(dataTypeProperties, PRECISION, DEFAULT_PRECISION);
+                Integer precision =
+                        MapUtils.getInteger(dataTypeProperties, PRECISION, DEFAULT_PRECISION);
                 Integer scale = MapUtils.getInteger(dataTypeProperties, SCALE, DEFAULT_SCALE);
                 return new DecimalType(precision, scale);
             case REDSHIFT_REAL:
@@ -132,13 +136,16 @@ public class RedshiftDataTypeConvertor implements DataTypeConvertor<String> {
             case REDSHIFT_TIMESTAMPTZ:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             default:
-                throw new UnsupportedOperationException(String.format("Doesn't support REDSHIFT type '%s''  yet.", connectorDataType));
+                throw new UnsupportedOperationException(
+                        String.format(
+                                "Doesn't support REDSHIFT type '%s''  yet.", connectorDataType));
         }
     }
 
     @Override
-    public String toConnectorType(SeaTunnelDataType<?> seaTunnelDataType,
-                                  Map<String, Object> dataTypeProperties) throws DataTypeConvertException {
+    public String toConnectorType(
+            SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties)
+            throws DataTypeConvertException {
         checkNotNull(seaTunnelDataType, "seaTunnelDataType cannot be null");
         SqlType sqlType = seaTunnelDataType.getSqlType();
         switch (sqlType) {
@@ -168,7 +175,9 @@ public class RedshiftDataTypeConvertor implements DataTypeConvertor<String> {
             case TIMESTAMP:
                 return REDSHIFT_TIMESTAMP;
             default:
-                throw new UnsupportedOperationException(String.format("Doesn't support SeaTunnel type '%s''  yet.", seaTunnelDataType));
+                throw new UnsupportedOperationException(
+                        String.format(
+                                "Doesn't support SeaTunnel type '%s''  yet.", seaTunnelDataType));
         }
     }
 
@@ -177,4 +186,3 @@ public class RedshiftDataTypeConvertor implements DataTypeConvertor<String> {
         return "REDSHIFT";
     }
 }
-

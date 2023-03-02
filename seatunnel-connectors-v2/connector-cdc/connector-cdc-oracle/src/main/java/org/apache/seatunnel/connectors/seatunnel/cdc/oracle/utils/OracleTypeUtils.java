@@ -85,7 +85,9 @@ public class OracleTypeUtils {
         String[] fieldNames = columns.stream().map(Column::name).toArray(String[]::new);
 
         SeaTunnelDataType<?>[] fieldTypes =
-            columns.stream().map(OracleTypeUtils::convertFromColumn).toArray(SeaTunnelDataType[]::new);
+                columns.stream()
+                        .map(OracleTypeUtils::convertFromColumn)
+                        .toArray(SeaTunnelDataType[]::new);
 
         return new SeaTunnelRowType(fieldNames, fieldTypes);
     }

@@ -23,6 +23,8 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.Watermar
 import org.apache.seatunnel.connectors.cdc.dameng.source.offset.LogMinerOffset;
 import org.apache.seatunnel.connectors.cdc.dameng.utils.DamengConncetionUtils;
 
+import org.apache.kafka.connect.errors.ConnectException;
+
 import io.debezium.DebeziumException;
 import io.debezium.connector.dameng.DamengConnection;
 import io.debezium.connector.dameng.DamengConnectorConfig;
@@ -44,7 +46,6 @@ import io.debezium.util.ColumnUtils;
 import io.debezium.util.Strings;
 import io.debezium.util.Threads;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.connect.errors.ConnectException;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -65,13 +66,14 @@ public class DamengSnapshotSplitReadTask extends AbstractSnapshotChangeEventSour
     private final SnapshotSplit snapshotSplit;
     private final Clock clock;
 
-    public DamengSnapshotSplitReadTask(DamengConnectorConfig connectorConfig,
-                                       DamengOffsetContext previousOffset,
-                                       SnapshotProgressListener snapshotProgressListener,
-                                       DamengDatabaseSchema databaseSchema,
-                                       DamengConnection jdbcConnection,
-                                       JdbcSourceEventDispatcher eventDispatcher,
-                                       SnapshotSplit snapshotSplit) {
+    public DamengSnapshotSplitReadTask(
+            DamengConnectorConfig connectorConfig,
+            DamengOffsetContext previousOffset,
+            SnapshotProgressListener snapshotProgressListener,
+            DamengDatabaseSchema databaseSchema,
+            DamengConnection jdbcConnection,
+            JdbcSourceEventDispatcher eventDispatcher,
+            SnapshotSplit snapshotSplit) {
         super(connectorConfig, snapshotProgressListener);
         this.connectorConfig = connectorConfig;
         this.offsetContext = previousOffset;
@@ -85,8 +87,8 @@ public class DamengSnapshotSplitReadTask extends AbstractSnapshotChangeEventSour
 
     @Override
     public SnapshotResult execute(
-        ChangeEventSource.ChangeEventSourceContext context, OffsetContext previousOffset)
-        throws InterruptedException {
+            ChangeEventSource.ChangeEventSourceContext context, OffsetContext previousOffset)
+            throws InterruptedException {
         SnapshottingTask snapshottingTask = getSnapshottingTask(previousOffset);
         final SnapshotContext ctx;
         try {
@@ -106,34 +108,36 @@ public class DamengSnapshotSplitReadTask extends AbstractSnapshotChangeEventSour
     }
 
     @Override
-    protected SnapshotResult doExecute(ChangeEventSourceContext context,
-                                       OffsetContext previousOffset,
-                                       SnapshotContext snapshotContext,
-                                       SnapshottingTask snapshottingTask) throws Exception {
+    protected SnapshotResult doExecute(
+            ChangeEventSourceContext context,
+            OffsetContext previousOffset,
+            SnapshotContext snapshotContext,
+            SnapshottingTask snapshottingTask)
+            throws Exception {
         RelationalSnapshotChangeEventSource.RelationalSnapshotContext ctx =
-            (RelationalSnapshotChangeEventSource.RelationalSnapshotContext) snapshotContext;
+                (RelationalSnapshotChangeEventSource.RelationalSnapshotContext) snapshotContext;
         ctx.offset = offsetContext;
 
         LogMinerOffset lowWatermark = new LogMinerOffset(jdbcConnection.currentCheckpointLsn());
         log.info(
-            "Snapshot step 1 - Determining low watermark {} for split {}",
-            lowWatermark,
-            snapshotSplit);
+                "Snapshot step 1 - Determining low watermark {} for split {}",
+                lowWatermark,
+                snapshotSplit);
         ((DamengSnapshotSplitChangeEventSourceContext) context).setLowWatermark(lowWatermark);
         eventDispatcher.dispatchWatermarkEvent(
-            offsetContext.getPartition(), snapshotSplit, lowWatermark, WatermarkKind.LOW);
+                offsetContext.getPartition(), snapshotSplit, lowWatermark, WatermarkKind.LOW);
 
         log.info("Snapshot step 2 - Snapshotting data");
         createDataEvents(ctx, snapshotSplit.getTableId());
 
         LogMinerOffset highWatermark = new LogMinerOffset(jdbcConnection.currentCheckpointLsn());
         log.info(
-            "Snapshot step 3 - Determining high watermark {} for split {}",
-            highWatermark,
-            snapshotSplit);
+                "Snapshot step 3 - Determining high watermark {} for split {}",
+                highWatermark,
+                snapshotSplit);
         ((DamengSnapshotSplitChangeEventSourceContext) context).setHighWatermark(highWatermark);
         eventDispatcher.dispatchWatermarkEvent(
-            offsetContext.getPartition(), snapshotSplit, highWatermark, WatermarkKind.HIGH);
+                offsetContext.getPartition(), snapshotSplit, highWatermark, WatermarkKind.HIGH);
         return SnapshotResult.completed(ctx.offset);
     }
 
@@ -143,45 +147,54 @@ public class DamengSnapshotSplitReadTask extends AbstractSnapshotChangeEventSour
     }
 
     @Override
-    protected SnapshotContext prepare(ChangeEventSourceContext changeEventSourceContext) throws Exception {
+    protected SnapshotContext prepare(ChangeEventSourceContext changeEventSourceContext)
+            throws Exception {
         return new DamengSnapshotContext();
     }
 
-    private void createDataEvents(RelationalSnapshotChangeEventSource.RelationalSnapshotContext snapshotContext,
-                                  TableId tableId) throws Exception {
-        EventDispatcher.SnapshotReceiver snapshotReceiver = eventDispatcher.getSnapshotChangeEventReceiver();
+    private void createDataEvents(
+            RelationalSnapshotChangeEventSource.RelationalSnapshotContext snapshotContext,
+            TableId tableId)
+            throws Exception {
+        EventDispatcher.SnapshotReceiver snapshotReceiver =
+                eventDispatcher.getSnapshotChangeEventReceiver();
         log.debug("Snapshotting table {}", tableId);
         createDataEventsForTable(
-            snapshotContext, snapshotReceiver, databaseSchema.tableFor(tableId));
+                snapshotContext, snapshotReceiver, databaseSchema.tableFor(tableId));
         snapshotReceiver.completeSnapshot();
     }
 
-    private void createDataEventsForTable(RelationalSnapshotChangeEventSource.RelationalSnapshotContext snapshotContext,
-                                          EventDispatcher.SnapshotReceiver snapshotReceiver,
-                                          Table table) throws InterruptedException {
+    private void createDataEventsForTable(
+            RelationalSnapshotChangeEventSource.RelationalSnapshotContext snapshotContext,
+            EventDispatcher.SnapshotReceiver snapshotReceiver,
+            Table table)
+            throws InterruptedException {
         long exportStart = clock.currentTimeInMillis();
-        log.info("Exporting data from split '{}' of table {}",
-            snapshotSplit.splitId(), table.id());
+        log.info("Exporting data from split '{}' of table {}", snapshotSplit.splitId(), table.id());
 
-        String selectSql = DamengConncetionUtils.buildSplitQuery(
-                snapshotSplit.getTableId(),
-                snapshotSplit.getSplitKeyType(),
-                snapshotSplit.getSplitStart() == null,
-                snapshotSplit.getSplitEnd() == null);
-        log.info("For split '{}' of table {} using select statement: '{}'",
-            snapshotSplit.splitId(), table.id(), selectSql);
+        String selectSql =
+                DamengConncetionUtils.buildSplitQuery(
+                        snapshotSplit.getTableId(),
+                        snapshotSplit.getSplitKeyType(),
+                        snapshotSplit.getSplitStart() == null,
+                        snapshotSplit.getSplitEnd() == null);
+        log.info(
+                "For split '{}' of table {} using select statement: '{}'",
+                snapshotSplit.splitId(),
+                table.id(),
+                selectSql);
 
         try (PreparedStatement selectStatement =
-                 DamengConncetionUtils.createTableSplitDataStatement(
-                     jdbcConnection,
-                     selectSql,
-                     snapshotSplit.getSplitStart() == null,
-                     snapshotSplit.getSplitEnd() == null,
-                     new Object[]{snapshotSplit.getSplitStart()},
-                     new Object[]{snapshotSplit.getSplitEnd()},
-                     snapshotSplit.getSplitKeyType().getTotalFields(),
-                     connectorConfig.getQueryFetchSize());
-             ResultSet rs = selectStatement.executeQuery()) {
+                        DamengConncetionUtils.createTableSplitDataStatement(
+                                jdbcConnection,
+                                selectSql,
+                                snapshotSplit.getSplitStart() == null,
+                                snapshotSplit.getSplitEnd() == null,
+                                new Object[] {snapshotSplit.getSplitStart()},
+                                new Object[] {snapshotSplit.getSplitEnd()},
+                                snapshotSplit.getSplitKeyType().getTotalFields(),
+                                connectorConfig.getQueryFetchSize());
+                ResultSet rs = selectStatement.executeQuery()) {
 
             ColumnUtils.ColumnArray columnArray = ColumnUtils.toArray(rs, table);
             Threads.Timer logTimer = getTableScanLogTimer();
@@ -195,22 +208,24 @@ public class DamengSnapshotSplitReadTask extends AbstractSnapshotChangeEventSour
                 }
 
                 if (logTimer.expired()) {
-                    log.info("Exported {} records for split '{}' after {}",
-                        rows,
-                        snapshotSplit.splitId(),
-                        Strings.duration(clock.currentTimeInMillis() - exportStart));
+                    log.info(
+                            "Exported {} records for split '{}' after {}",
+                            rows,
+                            snapshotSplit.splitId(),
+                            Strings.duration(clock.currentTimeInMillis() - exportStart));
                     snapshotProgressListener.rowsScanned(table.id(), rows);
                     logTimer = getTableScanLogTimer();
                 }
                 eventDispatcher.dispatchSnapshotEvent(
-                    table.id(),
-                    getChangeRecordEmitter(snapshotContext, table.id(), row),
-                    snapshotReceiver);
+                        table.id(),
+                        getChangeRecordEmitter(snapshotContext, table.id(), row),
+                        snapshotReceiver);
             }
-            log.info("Finished exporting {} records for split '{}', total duration '{}'",
-                rows,
-                snapshotSplit.splitId(),
-                Strings.duration(clock.currentTimeInMillis() - exportStart));
+            log.info(
+                    "Finished exporting {} records for split '{}', total duration '{}'",
+                    rows,
+                    snapshotSplit.splitId(),
+                    Strings.duration(clock.currentTimeInMillis() - exportStart));
         } catch (SQLException e) {
             throw new ConnectException("Snapshotting of table " + table.id() + " failed", e);
         }
@@ -232,12 +247,15 @@ public class DamengSnapshotSplitReadTask extends AbstractSnapshotChangeEventSour
     }
 
     protected ChangeRecordEmitter getChangeRecordEmitter(
-        AbstractSnapshotChangeEventSource.SnapshotContext snapshotContext, TableId tableId, Object[] row) {
+            AbstractSnapshotChangeEventSource.SnapshotContext snapshotContext,
+            TableId tableId,
+            Object[] row) {
         snapshotContext.offset.event(tableId, clock.currentTime());
         return new SnapshotChangeRecordEmitter(snapshotContext.offset, row, clock);
     }
 
-    private static class DamengSnapshotContext extends RelationalSnapshotChangeEventSource.RelationalSnapshotContext {
+    private static class DamengSnapshotContext
+            extends RelationalSnapshotChangeEventSource.RelationalSnapshotContext {
         public DamengSnapshotContext() throws SQLException {
             super("");
         }

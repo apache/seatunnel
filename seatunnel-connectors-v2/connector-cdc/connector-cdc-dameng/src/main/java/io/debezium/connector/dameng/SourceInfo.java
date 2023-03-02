@@ -48,20 +48,22 @@ public class SourceInfo extends BaseSourceInfo {
     }
 
     public String tableSchema() {
-        return tableIds.isEmpty() ? null
-            : tableIds.stream()
-            .filter(x -> x != null)
-            .map(TableId::schema)
-            .distinct()
-            .collect(Collectors.joining(","));
+        return tableIds.isEmpty()
+                ? null
+                : tableIds.stream()
+                        .filter(x -> x != null)
+                        .map(TableId::schema)
+                        .distinct()
+                        .collect(Collectors.joining(","));
     }
 
     public String table() {
-        return tableIds.isEmpty() ? null
-            : tableIds.stream()
-            .filter(x -> x != null)
-            .map(TableId::table)
-            .collect(Collectors.joining(","));
+        return tableIds.isEmpty()
+                ? null
+                : tableIds.stream()
+                        .filter(x -> x != null)
+                        .map(TableId::table)
+                        .collect(Collectors.joining(","));
     }
 
     public void tableEvent(Set<TableId> tableIds) {

@@ -21,40 +21,34 @@ import io.debezium.connector.dameng.logminer.Operation;
 
 public interface LogMinerDmlEntry {
 
-    /**
-     * @return object array that contains the before state, values from WHERE clause.
-     */
+    /** @return object array that contains the before state, values from WHERE clause. */
     Object[] getOldValues();
 
     /**
-     * @return object array that contains the after state, values from an insert's
-     * values list or the values in the SET clause of an update statement.
+     * @return object array that contains the after state, values from an insert's values list or
+     *     the values in the SET clause of an update statement.
      */
     Object[] getNewValues();
 
-    /**
-     * @return LogMiner event operation type
-     */
+    /** @return LogMiner event operation type */
     Operation getOperation();
 
-    /**
-     * @return schema name
-     */
+    /** @return schema name */
     String getObjectOwner();
 
-    /**
-     * @return table name
-     */
+    /** @return table name */
     String getObjectName();
 
     /**
      * Sets table name
+     *
      * @param name table name
      */
     LogMinerDmlEntry setObjectName(String name);
 
     /**
      * Sets schema owner
+     *
      * @param name schema owner
      */
     LogMinerDmlEntry setObjectOwner(String name);

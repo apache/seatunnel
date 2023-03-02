@@ -17,16 +17,12 @@
 
 package org.apache.seatunnel.e2e.connector.cdc.dameng;
 
-import static org.awaitility.Awaitility.await;
-import static org.awaitility.Awaitility.given;
-
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
-import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -36,6 +32,8 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -48,8 +46,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
+import static org.awaitility.Awaitility.await;
+import static org.awaitility.Awaitility.given;
+
 @Slf4j
-@DisabledOnContainer(value = {}, type = {EngineType.SPARK, EngineType.FLINK})
+@DisabledOnContainer(
+        value = {},
+        type = {EngineType.SPARK, EngineType.FLINK})
 public class DamengCDCIT extends TestSuiteBase implements TestResource {
     private static final String DOCKER_IMAGE = "laglangyue/dmdb8";
     private static final String HOST = "dameng-server";
@@ -63,20 +66,26 @@ public class DamengCDCIT extends TestSuiteBase implements TestResource {
     @Override
     public void startUp() throws Exception {
         log.info("Starting containers...");
-        damengServer = new GenericContainer<>(DOCKER_IMAGE)
-            .withNetwork(NETWORK)
-            .withNetworkAliases(HOST)
-            .withExposedPorts(5236)
-            .withCopyFileToContainer(MountableFile.forClasspathResource("/docker/dm.ini"), "/opt/dmdbms/data/DAMENG/dm.ini")
-            .withCopyFileToContainer(MountableFile.forClasspathResource("/docker/dmarch.ini"), "/opt/dmdbms/data/DAMENG/dmarch.ini")
-            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
+        damengServer =
+                new GenericContainer<>(DOCKER_IMAGE)
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(HOST)
+                        .withExposedPorts(5236)
+                        .withCopyFileToContainer(
+                                MountableFile.forClasspathResource("/docker/dm.ini"),
+                                "/opt/dmdbms/data/DAMENG/dm.ini")
+                        .withCopyFileToContainer(
+                                MountableFile.forClasspathResource("/docker/dmarch.ini"),
+                                "/opt/dmdbms/data/DAMENG/dmarch.ini")
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
         Startables.deepStart(Stream.of(damengServer)).join();
         // wait for Dmdb fully start
         Class.forName(DRIVER_CLASS);
         given().ignoreExceptions()
-            .await()
-            .atMost(180, TimeUnit.SECONDS)
-            .untilAsserted(this::initializeJdbcConnection);
+                .await()
+                .atMost(180, TimeUnit.SECONDS)
+                .untilAsserted(this::initializeJdbcConnection);
         initializeDmanegSetting();
         initializeTable();
         insertSourceTable();
@@ -98,31 +107,35 @@ public class DamengCDCIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testCDC(TestContainer container) throws Exception {
-        CompletableFuture.runAsync(() -> {
-            try {
-                container.executeJob("/dameng_cdc_to_jdbc.conf");
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        });
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob("/dameng_cdc_to_jdbc.conf");
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
 
         // snapshot stage
         await().atMost(60000, TimeUnit.MILLISECONDS)
-            .untilAsserted(() -> checkSourceAndSinkTableDataEquals());
+                .untilAsserted(() -> checkSourceAndSinkTableDataEquals());
 
         // insert update delete
         updateSourceTable();
 
         // stream stage
         await().atMost(60000, TimeUnit.MILLISECONDS)
-            .untilAsserted(() -> checkSourceAndSinkTableDataEquals());
+                .untilAsserted(() -> checkSourceAndSinkTableDataEquals());
     }
 
     private void initializeJdbcConnection() throws SQLException {
-        jdbcConnection = DriverManager.getConnection(
-            String.format("jdbc:dm://%s:%s", damengServer.getHost(), damengServer.getFirstMappedPort()),
-            USERNAME,
-            PASSWORD);
+        jdbcConnection =
+                DriverManager.getConnection(
+                        String.format(
+                                "jdbc:dm://%s:%s",
+                                damengServer.getHost(), damengServer.getFirstMappedPort()),
+                        USERNAME,
+                        PASSWORD);
         try (Statement statement = jdbcConnection.createStatement()) {
             statement.executeQuery("SELECT 1").next();
         }
@@ -137,14 +150,16 @@ public class DamengCDCIT extends TestSuiteBase implements TestResource {
             //      ARCHIVE_LOCAL...
             //
             // Using SQL config:
-            //statement.execute("ALTER DATABASE MOUNT");
-            //statement.execute("ALTER DATABASE ADD ARCHIVELOG 'TYPE=LOCAL,DEST=/bak/archlog,FILE_SIZE=64,SPACE_LIMIT=1024'");
-            //statement.execute("ALTER DATABASE ARCHIVELOG");
-            //statement.execute("ALTER DATABASE OPEN");
-            //statement.execute("ALTER SYSTEM SET 'RLOG_APPEND_LOGIC'=2 MEMORY");
+            // statement.execute("ALTER DATABASE MOUNT");
+            // statement.execute("ALTER DATABASE ADD ARCHIVELOG
+            // 'TYPE=LOCAL,DEST=/bak/archlog,FILE_SIZE=64,SPACE_LIMIT=1024'");
+            // statement.execute("ALTER DATABASE ARCHIVELOG");
+            // statement.execute("ALTER DATABASE OPEN");
+            // statement.execute("ALTER SYSTEM SET 'RLOG_APPEND_LOGIC'=2 MEMORY");
 
-            ResultSet resultSet = statement.executeQuery(
-                "SELECT PARA_NAME, PARA_VALUE FROM v$dm_ini WHERE PARA_NAME IN ('ARCH_INI','RLOG_APPEND_LOGIC')");
+            ResultSet resultSet =
+                    statement.executeQuery(
+                            "SELECT PARA_NAME, PARA_VALUE FROM v$dm_ini WHERE PARA_NAME IN ('ARCH_INI','RLOG_APPEND_LOGIC')");
 
             Integer rlogAppendLogic = null;
             Integer archIni = null;
@@ -166,24 +181,31 @@ public class DamengCDCIT extends TestSuiteBase implements TestResource {
     private void initializeTable() throws SQLException {
         try (Statement statement = jdbcConnection.createStatement()) {
             statement.execute("CREATE SCHEMA CDC_SCHEMA AUTHORIZATION SYSDBA");
-            statement.execute("CREATE TABLE CDC_SCHEMA.SOURCE_TABLE(id INT PRIMARY KEY, name VARCHAR(128) NULL, score INT NULL, d1 DATE NULL, t1 TIME NULL, ts1 TIMESTAMP NULL, dt1 DATETIME NULL)");
-            statement.execute("CREATE TABLE CDC_SCHEMA.SINK_TABLE(id INT PRIMARY KEY, name VARCHAR(128) NULL, score INT NULL, d1 DATE NULL, t1 TIME NULL, ts1 TIMESTAMP NULL, dt1 DATETIME NULL)");
+            statement.execute(
+                    "CREATE TABLE CDC_SCHEMA.SOURCE_TABLE(id INT PRIMARY KEY, name VARCHAR(128) NULL, score INT NULL, d1 DATE NULL, t1 TIME NULL, ts1 TIMESTAMP NULL, dt1 DATETIME NULL)");
+            statement.execute(
+                    "CREATE TABLE CDC_SCHEMA.SINK_TABLE(id INT PRIMARY KEY, name VARCHAR(128) NULL, score INT NULL, d1 DATE NULL, t1 TIME NULL, ts1 TIMESTAMP NULL, dt1 DATETIME NULL)");
         }
     }
 
     private void insertSourceTable() throws SQLException {
         try (Statement statement = jdbcConnection.createStatement()) {
-            statement.execute("INSERT INTO CDC_SCHEMA.SOURCE_TABLE(id, name, score) VALUES(1, 'A', 100)");
-            statement.execute("INSERT INTO CDC_SCHEMA.SOURCE_TABLE(id, name, score) VALUES(2, 'B', 100)");
-            statement.execute("INSERT INTO CDC_SCHEMA.SOURCE_TABLE(id, name, score, d1, t1, ts1, dt1) VALUES(3, 'C', 100, '2022-12-12', '12:12:12', '2022-12-12 12:12:12.111', '2022-12-12 12:12:12.111')");
+            statement.execute(
+                    "INSERT INTO CDC_SCHEMA.SOURCE_TABLE(id, name, score) VALUES(1, 'A', 100)");
+            statement.execute(
+                    "INSERT INTO CDC_SCHEMA.SOURCE_TABLE(id, name, score) VALUES(2, 'B', 100)");
+            statement.execute(
+                    "INSERT INTO CDC_SCHEMA.SOURCE_TABLE(id, name, score, d1, t1, ts1, dt1) VALUES(3, 'C', 100, '2022-12-12', '12:12:12', '2022-12-12 12:12:12.111', '2022-12-12 12:12:12.111')");
             jdbcConnection.commit();
         }
     }
 
     private void updateSourceTable() throws SQLException {
         try (Statement statement = jdbcConnection.createStatement()) {
-            statement.execute("UPDATE CDC_SCHEMA.SOURCE_TABLE set score = 99, d1 = '2022-12-13', t1 = '13:12:12', ts1 = '2022-12-13 13:12:12.111', dt1 = '2022-12-13 13:12:12.111' where score = 100");
-            statement.execute("INSERT INTO CDC_SCHEMA.SOURCE_TABLE(id, name, score) VALUES(4, 'D', 100)");
+            statement.execute(
+                    "UPDATE CDC_SCHEMA.SOURCE_TABLE set score = 99, d1 = '2022-12-13', t1 = '13:12:12', ts1 = '2022-12-13 13:12:12.111', dt1 = '2022-12-13 13:12:12.111' where score = 100");
+            statement.execute(
+                    "INSERT INTO CDC_SCHEMA.SOURCE_TABLE(id, name, score) VALUES(4, 'D', 100)");
             jdbcConnection.commit();
         }
         try (Statement statement = jdbcConnection.createStatement()) {
@@ -194,8 +216,8 @@ public class DamengCDCIT extends TestSuiteBase implements TestResource {
 
     private void checkSourceAndSinkTableDataEquals() {
         Assertions.assertIterableEquals(
-            querySql("SELECT * FROM CDC_SCHEMA.SOURCE_TABLE ORDER BY ID"),
-            querySql("SELECT * FROM CDC_SCHEMA.SINK_TABLE ORDER BY ID"));
+                querySql("SELECT * FROM CDC_SCHEMA.SOURCE_TABLE ORDER BY ID"),
+                querySql("SELECT * FROM CDC_SCHEMA.SINK_TABLE ORDER BY ID"));
     }
 
     private List<List<Object>> querySql(String sql) {

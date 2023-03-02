@@ -37,9 +37,7 @@ public class RedoLogOffsetFactory extends OffsetFactory {
 
     private final OracleDialect dialect;
 
-    public RedoLogOffsetFactory(
-        OracleSourceConfigFactory configFactory,
-        OracleDialect dialect) {
+    public RedoLogOffsetFactory(OracleSourceConfigFactory configFactory, OracleDialect dialect) {
         this.sourceConfig = configFactory.create(0);
         this.dialect = dialect;
     }
@@ -71,7 +69,7 @@ public class RedoLogOffsetFactory extends OffsetFactory {
     @Override
     public Offset specific(String filename, Long position) {
         throw new UnsupportedOperationException(
-            "not supported create new Offset by filename and position.");
+                "not supported create new Offset by filename and position.");
     }
 
     @Override

@@ -19,10 +19,7 @@ package io.debezium.connector.dameng.logminer.parser;
 
 import io.debezium.DebeziumException;
 
-/**
- * Exception returned by the {@link DmlParser}.
- *
- */
+/** Exception returned by the {@link DmlParser}. */
 public class DmlParserException extends DebeziumException {
     public DmlParserException(String message) {
         super(message);

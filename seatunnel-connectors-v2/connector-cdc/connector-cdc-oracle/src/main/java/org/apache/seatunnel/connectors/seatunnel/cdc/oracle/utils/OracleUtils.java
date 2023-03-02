@@ -23,6 +23,8 @@ import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.offset.RedoLogOffset;
 
+import org.apache.kafka.connect.source.SourceRecord;
+
 import io.debezium.config.Configuration;
 import io.debezium.connector.oracle.OracleConnection;
 import io.debezium.connector.oracle.OracleConnectorConfig;
@@ -36,7 +38,6 @@ import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 import io.debezium.schema.TopicSelector;
 import io.debezium.util.SchemaNameAdjuster;
-import org.apache.kafka.connect.source.SourceRecord;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -151,7 +152,7 @@ public class OracleUtils {
     }
 
     public static String buildSplitScanQuery(
-        TableId tableId, SeaTunnelRowType rowType, boolean isFirstSplit, boolean isLastSplit) {
+            TableId tableId, SeaTunnelRowType rowType, boolean isFirstSplit, boolean isLastSplit) {
         return buildSplitQuery(tableId, rowType, isFirstSplit, isLastSplit, -1, true);
     }
 
@@ -196,8 +197,7 @@ public class OracleUtils {
             return buildSelectWithRowLimits(
                     tableId, limitSize, "*", Optional.ofNullable(condition), Optional.empty());
         } else {
-            final String orderBy =
-                String.join(", ", rowType.getFieldNames());
+            final String orderBy = String.join(", ", rowType.getFieldNames());
             return buildSelectWithBoundaryRowLimits(
                     tableId,
                     limitSize,
@@ -288,7 +288,8 @@ public class OracleUtils {
         OracleValueConverters oracleValueConverters =
                 new OracleValueConverters(dbzOracleConfig, oracleConnection);
         StreamingAdapter.TableNameCaseSensitivity tableNameCaseSensitivity =
-                tableIdCaseInsensitive ? StreamingAdapter.TableNameCaseSensitivity.SENSITIVE
+                tableIdCaseInsensitive
+                        ? StreamingAdapter.TableNameCaseSensitivity.SENSITIVE
                         : StreamingAdapter.TableNameCaseSensitivity.INSENSITIVE;
         return new OracleDatabaseSchema(
                 dbzOracleConfig,
@@ -312,8 +313,9 @@ public class OracleUtils {
     }
 
     public static SeaTunnelRowType getSplitType(Column splitColumn) {
-        return new SeaTunnelRowType(new String[]{splitColumn.name()},
-            new SeaTunnelDataType<?>[]{OracleTypeUtils.convertFromColumn(splitColumn)});
+        return new SeaTunnelRowType(
+                new String[] {splitColumn.name()},
+                new SeaTunnelDataType<?>[] {OracleTypeUtils.convertFromColumn(splitColumn)});
     }
 
     public static Column getSplitColumn(Table table) {
@@ -355,9 +357,9 @@ public class OracleUtils {
     }
 
     private static void addPrimaryKeyColumnsToCondition(
-        SeaTunnelRowType rowType, StringBuilder sql, String predicate) {
+            SeaTunnelRowType rowType, StringBuilder sql, String predicate) {
         for (Iterator<String> fieldNamesIt = Arrays.stream(rowType.getFieldNames()).iterator();
-             fieldNamesIt.hasNext(); ) {
+                fieldNamesIt.hasNext(); ) {
             sql.append(fieldNamesIt.next()).append(predicate);
             if (fieldNamesIt.hasNext()) {
                 sql.append(" AND ");
@@ -368,7 +370,7 @@ public class OracleUtils {
     private static String getPrimaryKeyColumnsProjection(SeaTunnelRowType rowType) {
         StringBuilder sql = new StringBuilder();
         for (Iterator<String> fieldNamesIt = Arrays.stream(rowType.getFieldNames()).iterator();
-             fieldNamesIt.hasNext(); ) {
+                fieldNamesIt.hasNext(); ) {
             sql.append(fieldNamesIt.next());
             if (fieldNamesIt.hasNext()) {
                 sql.append(" , ");

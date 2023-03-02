@@ -27,13 +27,14 @@ import java.util.Map;
 
 public class LogMinerOffset extends Offset {
     public static final LogMinerOffset INITIAL_OFFSET = new LogMinerOffset(Scn.valueOf(0));
-    public static final LogMinerOffset NO_STOPPING_OFFSET = new LogMinerOffset(Scn.valueOf(Long.MAX_VALUE));
+    public static final LogMinerOffset NO_STOPPING_OFFSET =
+            new LogMinerOffset(Scn.valueOf(Long.MAX_VALUE));
 
     public LogMinerOffset(Scn scn) {
         this(scn, null, null);
     }
 
-    public LogMinerOffset(Scn changeScn, Scn commitScn, Long eventSerialNo){
+    public LogMinerOffset(Scn changeScn, Scn commitScn, Long eventSerialNo) {
         this(createOffsetMap(changeScn, commitScn, eventSerialNo));
     }
 
@@ -80,7 +81,8 @@ public class LogMinerOffset extends Offset {
         return offset.equals(that.offset);
     }
 
-    private static Map<String, String> createOffsetMap(Scn changeScn, Scn commitScn, Long eventSerialNo) {
+    private static Map<String, String> createOffsetMap(
+            Scn changeScn, Scn commitScn, Long eventSerialNo) {
         Map<String, String> offsetMap = new HashMap<>();
         if (changeScn != null) {
             offsetMap.put(SourceInfo.SCN_KEY, changeScn.toString());

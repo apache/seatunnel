@@ -23,8 +23,10 @@ import io.debezium.schema.TopicSelector;
 public class DamengTopicSelector {
 
     public static TopicSelector<TableId> defaultSelector(DamengConnectorConfig connectorConfig) {
-        return TopicSelector.defaultSelector(connectorConfig, (tableId, prefix, delimiter) -> {
-            return String.join(delimiter, prefix, tableId.schema(), tableId.table());
-        });
+        return TopicSelector.defaultSelector(
+                connectorConfig,
+                (tableId, prefix, delimiter) -> {
+                    return String.join(delimiter, prefix, tableId.schema(), tableId.table());
+                });
     }
 }

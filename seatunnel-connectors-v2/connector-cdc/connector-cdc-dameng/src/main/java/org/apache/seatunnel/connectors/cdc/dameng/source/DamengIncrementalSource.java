@@ -66,18 +66,24 @@ public class DamengIncrementalSource<T> extends IncrementalSource<T, JdbcSourceC
     }
 
     @Override
-    public DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(ReadonlyConfig config) {
+    public DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(
+            ReadonlyConfig config) {
         // TODO: support multi-table
         TableId tableId = dataSourceDialect.discoverDataCollections(sourceConfig).get(0);
         Configuration jdbcConfig = sourceConfig.getDbzConnectorConfig().getJdbcConfig();
         try (DamengConnection damengConnection = new DamengConnection(jdbcConfig)) {
-            Table table = ((DamengDialect) dataSourceDialect).queryTableSchema(damengConnection, tableId).getTable();
+            Table table =
+                    ((DamengDialect) dataSourceDialect)
+                            .queryTableSchema(damengConnection, tableId)
+                            .getTable();
             SeaTunnelRowType seaTunnelRowType = DamengUtils.convert(table);
-            return (DebeziumDeserializationSchema<T>) SeaTunnelRowDebeziumDeserializeSchema.builder()
-                .setPhysicalRowType(seaTunnelRowType)
-                .setResultTypeInfo(seaTunnelRowType)
-                .setServerTimeZone(ZoneId.of(config.get(JdbcSourceOptions.SERVER_TIME_ZONE)))
-                .build();
+            return (DebeziumDeserializationSchema<T>)
+                    SeaTunnelRowDebeziumDeserializeSchema.builder()
+                            .setPhysicalRowType(seaTunnelRowType)
+                            .setResultTypeInfo(seaTunnelRowType)
+                            .setServerTimeZone(
+                                    ZoneId.of(config.get(JdbcSourceOptions.SERVER_TIME_ZONE)))
+                            .build();
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }

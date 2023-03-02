@@ -17,6 +17,9 @@
 
 package io.debezium.connector.dameng;
 
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.Struct;
+
 import io.debezium.connector.SnapshotRecord;
 import io.debezium.pipeline.source.snapshot.incremental.IncrementalSnapshotContext;
 import io.debezium.pipeline.spi.OffsetContext;
@@ -25,8 +28,6 @@ import io.debezium.relational.TableId;
 import io.debezium.schema.DataCollectionId;
 import io.debezium.util.Collect;
 import lombok.RequiredArgsConstructor;
-import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.data.Struct;
 
 import java.time.Instant;
 import java.util.Collections;
@@ -43,28 +44,38 @@ public class DamengOffsetContext implements OffsetContext {
     private boolean snapshotCompleted;
     private long eventSerialNo;
 
-    public DamengOffsetContext(DamengConnectorConfig connectorConfig,
-                               Scn scn,
-                               boolean snapshot,
-                               boolean snapshotCompleted) {
+    public DamengOffsetContext(
+            DamengConnectorConfig connectorConfig,
+            Scn scn,
+            boolean snapshot,
+            boolean snapshotCompleted) {
         this(connectorConfig, scn, snapshot, snapshotCompleted, new TransactionContext());
     }
 
-    public DamengOffsetContext(DamengConnectorConfig connectorConfig,
-                               Scn scn,
-                               boolean snapshot,
-                               boolean snapshotCompleted,
-                               TransactionContext transactionContext) {
-        this(connectorConfig, scn, snapshot, snapshotCompleted, transactionContext, new IncrementalSnapshotContext());
+    public DamengOffsetContext(
+            DamengConnectorConfig connectorConfig,
+            Scn scn,
+            boolean snapshot,
+            boolean snapshotCompleted,
+            TransactionContext transactionContext) {
+        this(
+                connectorConfig,
+                scn,
+                snapshot,
+                snapshotCompleted,
+                transactionContext,
+                new IncrementalSnapshotContext());
     }
 
-    public DamengOffsetContext(DamengConnectorConfig connectorConfig,
-                               Scn scn,
-                               boolean snapshot,
-                               boolean snapshotCompleted,
-                               TransactionContext transactionContext,
-                               IncrementalSnapshotContext incrementalSnapshotContext) {
-        partition = Collections.singletonMap(SERVER_PARTITION_KEY, connectorConfig.getLogicalName());
+    public DamengOffsetContext(
+            DamengConnectorConfig connectorConfig,
+            Scn scn,
+            boolean snapshot,
+            boolean snapshotCompleted,
+            TransactionContext transactionContext,
+            IncrementalSnapshotContext incrementalSnapshotContext) {
+        partition =
+                Collections.singletonMap(SERVER_PARTITION_KEY, connectorConfig.getLogicalName());
         sourceInfo = new SourceInfo(connectorConfig);
         sourceInfo.setScn(scn);
         sourceInfoSchema = sourceInfo.schema();
@@ -89,15 +100,20 @@ public class DamengOffsetContext implements OffsetContext {
     public Map<String, ?> getOffset() {
         if (sourceInfo.isSnapshot()) {
             return Collect.hashMapOf(
-                SNAPSHOT_COMPLETED_KEY, snapshotCompleted,
-                SourceInfo.SNAPSHOT_KEY, true,
-                SourceInfo.SCN_KEY, sourceInfo.getScn().toString());
+                    SNAPSHOT_COMPLETED_KEY,
+                    snapshotCompleted,
+                    SourceInfo.SNAPSHOT_KEY,
+                    true,
+                    SourceInfo.SCN_KEY,
+                    sourceInfo.getScn().toString());
         }
         return incrementalSnapshotContext.store(
-            transactionContext.store(
-                Collect.hashMapOf(
-                    SourceInfo.SCN_KEY, sourceInfo.getScn() == null ? null : sourceInfo.getScn().toString(),
-                    SourceInfo.EVENT_SERIAL_NO_KEY, eventSerialNo)));
+                transactionContext.store(
+                        Collect.hashMapOf(
+                                SourceInfo.SCN_KEY,
+                                sourceInfo.getScn() == null ? null : sourceInfo.getScn().toString(),
+                                SourceInfo.EVENT_SERIAL_NO_KEY,
+                                eventSerialNo)));
     }
 
     @Override
@@ -168,9 +184,11 @@ public class DamengOffsetContext implements OffsetContext {
     @RequiredArgsConstructor
     public static class Loader implements OffsetContext.Loader<DamengOffsetContext> {
         private final DamengConnectorConfig connectorConfig;
+
         @Override
         public Map<String, ?> getPartition() {
-            return Collections.singletonMap(DamengOffsetContext.SERVER_PARTITION_KEY, connectorConfig.getLogicalName());
+            return Collections.singletonMap(
+                    DamengOffsetContext.SERVER_PARTITION_KEY, connectorConfig.getLogicalName());
         }
 
         @Override
@@ -184,19 +202,19 @@ public class DamengOffsetContext implements OffsetContext {
                 eventSerialNo = Long.valueOf(0);
             }
 
-            return new DamengOffsetContext(connectorConfig,
-                scn,
-                snapshot,
-                snapshotCompleted,
-                TransactionContext.load(offset));
+            return new DamengOffsetContext(
+                    connectorConfig,
+                    scn,
+                    snapshot,
+                    snapshotCompleted,
+                    TransactionContext.load(offset));
         }
 
         private static Scn getLsn(Map<String, ?> offset, String key) {
             Object scn = offset.get(key);
             if (scn instanceof String) {
                 return Scn.valueOf((String) scn);
-            }
-            else if (scn != null) {
+            } else if (scn != null) {
                 return Scn.valueOf((Long) scn);
             }
             return null;

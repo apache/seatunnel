@@ -26,9 +26,7 @@ public class DamengTypeConverter {
     private static final DmdbTypeMapper DAMENG_TYPE_MAPPER = new DmdbTypeMapper();
 
     public static SeaTunnelDataType<?> convert(Column column) {
-        return DAMENG_TYPE_MAPPER.mapping(column.name(),
-            column.typeName(),
-            column.position(),
-            column.scale().orElse(null));
+        return DAMENG_TYPE_MAPPER.mapping(
+                column.name(), column.typeName(), column.position(), column.scale().orElse(null));
     }
 }

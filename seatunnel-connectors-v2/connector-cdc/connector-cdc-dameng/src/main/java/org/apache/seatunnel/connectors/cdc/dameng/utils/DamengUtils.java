@@ -37,10 +37,10 @@ public class DamengUtils {
         List<Column> primaryKeys = table.primaryKeyColumns();
         if (primaryKeys.isEmpty()) {
             throw new SeaTunnelException(
-                String.format(
-                    "Incremental snapshot for tables requires primary key,"
-                        + " but table %s doesn't have primary key.",
-                    table.id()));
+                    String.format(
+                            "Incremental snapshot for tables requires primary key,"
+                                    + " but table %s doesn't have primary key.",
+                            table.id()));
         }
 
         // use first field in primary key as the split key
@@ -66,7 +66,7 @@ public class DamengUtils {
         Map<String, String> offsetStrMap = new HashMap<>();
         for (Map.Entry<String, ?> entry : offset.entrySet()) {
             offsetStrMap.put(
-                entry.getKey(), entry.getValue() == null ? null : entry.getValue().toString());
+                    entry.getKey(), entry.getValue() == null ? null : entry.getValue().toString());
         }
         return new LogMinerOffset(Scn.valueOf(offsetStrMap.get(SourceInfo.SCN_KEY)));
     }
