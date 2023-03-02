@@ -208,6 +208,7 @@ problems encountered by users.
 | PULSAR-04 | Subscribe topic from pulsar failed               | When users encounter this error code, it means that Subscribe topic from pulsar failed, please check it               |
 | PULSAR-05 | Get last cursor of pulsar topic failed           | When users encounter this error code, it means that get last cursor of pulsar topic failed, please check it           |
 | PULSAR-06 | Get partition information of pulsar topic failed | When users encounter this error code, it means that Get partition information of pulsar topic failed, please check it |
+| PULSAR-07 | Pulsar consumer acknowledgeCumulative failed     | When users encounter this error code, it means that Pulsar consumer acknowledgeCumulative failed                      |
 
 ## StarRocks Connector Error Codes
 
