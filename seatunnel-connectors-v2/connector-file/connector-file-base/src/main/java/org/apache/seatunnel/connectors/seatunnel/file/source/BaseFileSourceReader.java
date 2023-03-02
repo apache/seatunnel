@@ -26,23 +26,27 @@ import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorExc
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.Deque;
 import java.util.List;
-import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
+@Slf4j
 public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSourceSplit> {
     private final ReadStrategy readStrategy;
     private final HadoopConf hadoopConf;
     private final SourceReader.Context context;
-    private final Set<FileSourceSplit> sourceSplits;
+    private final Deque<FileSourceSplit> sourceSplits = new ConcurrentLinkedDeque<>();
+    private volatile boolean noMoreSplit;
 
-    public BaseFileSourceReader(ReadStrategy readStrategy, HadoopConf hadoopConf, SourceReader.Context context) {
+    public BaseFileSourceReader(
+            ReadStrategy readStrategy, HadoopConf hadoopConf, SourceReader.Context context) {
         this.readStrategy = readStrategy;
         this.hadoopConf = hadoopConf;
         this.context = context;
-        this.sourceSplits = new HashSet<>();
     }
 
     @Override
@@ -51,21 +55,29 @@ public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSour
     }
 
     @Override
-    public void close() throws IOException {
-
-    }
+    public void close() throws IOException {}
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        sourceSplits.forEach(source -> {
-            try {
-                readStrategy.read(source.splitId(), output);
-            } catch (Exception e) {
-                String errorMsg = String.format("Read data from this file [%s] failed", source.splitId());
-                throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED, errorMsg, e);
+        synchronized (output.getCheckpointLock()) {
+            FileSourceSplit split = sourceSplits.poll();
+            if (null != split) {
+                try {
+                    readStrategy.read(split.splitId(), output);
+                } catch (Exception e) {
+                    String errorMsg =
+                            String.format("Read data from this file [%s] failed", split.splitId());
+                    throw new FileConnectorException(
+                            CommonErrorCode.FILE_OPERATION_FAILED, errorMsg, e);
+                }
+            } else if (noMoreSplit && sourceSplits.isEmpty()) {
+                // signal to the source that we have reached the end of the data.
+                log.info("Closed the bounded File source");
+                context.signalNoMoreElement();
+            } else {
+                Thread.sleep(1000L);
             }
-        });
-        context.signalNoMoreElement();
+        }
     }
 
     @Override
@@ -80,11 +92,9 @@ public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSour
 
     @Override
     public void handleNoMoreSplits() {
-
+        noMoreSplit = true;
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {
-
-    }
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
 }

@@ -15,22 +15,22 @@ Used to read data from Redis.
 - [ ] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
-##  Options
+## Options
 
-| name                | type   | required              | default value |
-|---------------------|--------|-----------------------|--------------|
-| host                | string | yes                   | -            |
-| port                | int    | yes                   | -            |
-| keys                | string | yes                   | -            |
-| data_type           | string | yes                   | -            |
-| user                | string | no                    | -            |
-| auth                | string | no                    | -            |
-| mode                | string | no                    | single       |
-| hash_key_parse_mode | string | no                    | all          |
-| nodes               | list   | yes when mode=cluster | -            |
-| schema              | config | yes when format=json  | -            |
-| format              | string | no                    | json         |
-| common-options      |        | no                    | -            |
+|        name         |  type  |       required        | default value |
+|---------------------|--------|-----------------------|---------------|
+| host                | string | yes                   | -             |
+| port                | int    | yes                   | -             |
+| keys                | string | yes                   | -             |
+| data_type           | string | yes                   | -             |
+| user                | string | no                    | -             |
+| auth                | string | no                    | -             |
+| mode                | string | no                    | single        |
+| hash_key_parse_mode | string | no                    | all           |
+| nodes               | list   | yes when mode=cluster | -             |
+| schema              | config | yes when format=json  | -             |
+| format              | string | no                    | json          |
+| common-options      |        | no                    | -             |
 
 ### host [string]
 
@@ -81,7 +81,7 @@ schema {
 
 ```
 
-| 001                             | 002                       |
+|               001               |            002            |
 |---------------------------------|---------------------------|
 | Row(name=tyrantlucifer, age=26) | Row(name=Zongwen, age=26) |
 
@@ -99,7 +99,7 @@ schema {
 
 ```
 
-| hash_key | name          | age |
+| hash_key |     name      | age |
 |----------|---------------|-----|
 | 001      | tyrantlucifer | 26  |
 | 002      | Zongwen       | 26  |
@@ -119,23 +119,27 @@ keys pattern
 redis data types, support `key` `hash` `list` `set` `zset`
 
 - key
+
 > The value of each key will be sent downstream as a single row of data.
 > For example, the value of key is `SeaTunnel test message`, the data received downstream is `SeaTunnel test message` and only one message will be received.
 
-
 - hash
+
 > The hash key-value pairs will be formatted as json to be sent downstream as a single row of data.
 > For example, the value of hash is `name:tyrantlucifer age:26`, the data received downstream is `{"name":"tyrantlucifer", "age":"26"}` and only one message will be received.
 
 - list
+
 > Each element in the list will be sent downstream as a single row of data.
 > For example, the value of list is `[tyrantlucier, CalvinKirs]`, the data received downstream are `tyrantlucifer` and `CalvinKirs` and only two message will be received.
 
 - set
+
 > Each element in the set will be sent downstream as a single row of data
 > For example, the value of set is `[tyrantlucier, CalvinKirs]`, the data received downstream are `tyrantlucifer` and `CalvinKirs` and only two message will be received.
 
 - zset
+
 > Each element in the sorted set will be sent downstream as a single row of data
 > For example, the value of sorted set is `[tyrantlucier, CalvinKirs]`, the data received downstream are `tyrantlucifer` and `CalvinKirs` and only two message will be received.
 
@@ -153,7 +157,7 @@ redis mode, `single` or `cluster`, default is `single`
 
 ### nodes [list]
 
-redis nodes information, used in cluster mode, must like as the following format: 
+redis nodes information, used in cluster mode, must like as the following format:
 
 [host1:port1, host2:port2]
 
@@ -187,7 +191,7 @@ schema {
 
 connector will generate data as the following:
 
-| code | data        | success |
+| code |    data     | success |
 |------|-------------|---------|
 | 200  | get success | true    |
 
@@ -203,9 +207,9 @@ upstream data is the following:
 
 connector will generate data as the following:
 
-| content |
-|---------|
-| {"code":  200, "data":  "get success", "success":  true}        |
+|                         content                          |
+|----------------------------------------------------------|
+| {"code":  200, "data":  "get success", "success":  true} |
 
 ### schema [config]
 
@@ -213,7 +217,7 @@ connector will generate data as the following:
 
 the schema fields of redis data
 
-### common options 
+### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
@@ -222,29 +226,29 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 simple:
 
 ```hocon
-  Redis {
-    host = localhost
-    port = 6379
-    keys = "key_test*"
-    data_type = key
-    format = text
-  }
+Redis {
+  host = localhost
+  port = 6379
+  keys = "key_test*"
+  data_type = key
+  format = text
+}
 ```
 
 ```hocon
-  Redis {
-    host = localhost
-    port = 6379
-    keys = "key_test*"
-    data_type = key
-    format = json
-    schema {
-      fields {
-        name = string
-        age = int
-      }
+Redis {
+  host = localhost
+  port = 6379
+  keys = "key_test*"
+  data_type = key
+  format = json
+  schema {
+    fields {
+      name = string
+      age = int
     }
   }
+}
 ```
 
 ## Changelog
@@ -256,3 +260,4 @@ simple:
 ### next version
 
 - [Improve] Support redis cluster mode connection and user authentication [3188](https://github.com/apache/incubator-seatunnel/pull/3188)
+

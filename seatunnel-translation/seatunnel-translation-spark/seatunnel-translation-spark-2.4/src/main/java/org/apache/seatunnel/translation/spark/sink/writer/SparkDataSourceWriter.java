@@ -36,13 +36,16 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-public class SparkDataSourceWriter<StateT, CommitInfoT, AggregatedCommitInfoT> implements DataSourceWriter {
+public class SparkDataSourceWriter<StateT, CommitInfoT, AggregatedCommitInfoT>
+        implements DataSourceWriter {
 
     protected final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
-    @Nullable
-    protected final SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> sinkAggregatedCommitter;
 
-    public SparkDataSourceWriter(SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink)
+    @Nullable protected final SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT>
+            sinkAggregatedCommitter;
+
+    public SparkDataSourceWriter(
+            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink)
             throws IOException {
         this.sink = sink;
         this.sinkAggregatedCommitter = sink.createAggregatedCommitter().orElse(null);
@@ -75,18 +78,18 @@ public class SparkDataSourceWriter<StateT, CommitInfoT, AggregatedCommitInfoT> i
         }
     }
 
-    /**
-     * {@link SparkDataWriter#commit()}
-     */
+    /** {@link SparkDataWriter#commit()} */
     @SuppressWarnings("unchecked")
-    private @Nonnull List<AggregatedCommitInfoT> combineCommitMessage(WriterCommitMessage[] messages) {
+    private @Nonnull List<AggregatedCommitInfoT> combineCommitMessage(
+            WriterCommitMessage[] messages) {
         if (sinkAggregatedCommitter == null || messages.length == 0) {
             return Collections.emptyList();
         }
-        List<CommitInfoT> commitInfos = Arrays.stream(messages)
-            .map(m -> ((SparkWriterCommitMessage<CommitInfoT>) m).getMessage())
-            .filter(Objects::nonNull)
-            .collect(Collectors.toList());
+        List<CommitInfoT> commitInfos =
+                Arrays.stream(messages)
+                        .map(m -> ((SparkWriterCommitMessage<CommitInfoT>) m).getMessage())
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toList());
         return Collections.singletonList(sinkAggregatedCommitter.combine(commitInfos));
     }
 }

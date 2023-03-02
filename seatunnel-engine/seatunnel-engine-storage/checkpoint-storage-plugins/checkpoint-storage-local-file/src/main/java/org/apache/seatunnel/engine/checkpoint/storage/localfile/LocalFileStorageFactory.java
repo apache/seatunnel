@@ -28,12 +28,12 @@ import com.google.auto.service.AutoService;
 import java.util.Map;
 
 /**
- * Local file storage plug-in, use local file storage,
- * only suitable for single-machine testing or small data scale use, use with caution in production environment
- * <p>
- * deprecated: use @see org.apache.seatunnel.engine.checkpoint.storage.hdfs.HdfsStorageFactory instead
+ * Local file storage plug-in, use local file storage, only suitable for single-machine testing or
+ * small data scale use, use with caution in production environment
+ *
+ * <p>deprecated: use @see org.apache.seatunnel.engine.checkpoint.storage.hdfs.HdfsStorageFactory
+ * instead
  */
-@Deprecated
 @AutoService(CheckpointStorageFactory.class)
 public class LocalFileStorageFactory implements CheckpointStorageFactory {
 

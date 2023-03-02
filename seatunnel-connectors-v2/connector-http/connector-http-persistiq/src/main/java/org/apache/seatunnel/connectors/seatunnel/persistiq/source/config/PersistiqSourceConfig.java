@@ -24,8 +24,9 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 public class PersistiqSourceConfig extends HttpConfig {
     public static final String X_API_KEY = "x-api-key";
 
-    public static final Option<String> PASSWORD = Options.key("password")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("Persistiq login api key");
+    public static final Option<String> PASSWORD =
+            Options.key("password")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Persistiq login api key");
 }

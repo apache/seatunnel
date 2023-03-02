@@ -54,7 +54,8 @@ public interface SplitAssigner {
     Optional<SourceSplitBase> getNext();
 
     /**
-     * Whether the split assigner is still waiting for callback of completed splits, i.e. {@link #onCompletedSplits}.
+     * Whether the split assigner is still waiting for callback of completed splits, i.e. {@link
+     * #onCompletedSplits}.
      */
     boolean waitingForCompletedSplits();
 
@@ -102,8 +103,7 @@ public interface SplitAssigner {
      * Called to close the assigner, in case it holds on to any resources, like threads or network
      * connections.
      */
-    default void close() {
-    }
+    default void close() {}
 
     @Data
     final class Context<C extends SourceConfig> {
@@ -113,9 +113,7 @@ public interface SplitAssigner {
 
         private final Map<String, SnapshotSplit> assignedSnapshotSplit;
 
-        /**
-         * key: SnapshotSplit id
-         */
+        /** key: SnapshotSplit id */
         private final Map<String, Offset> splitCompletedOffsets;
     }
 }

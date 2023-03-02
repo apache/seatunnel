@@ -19,9 +19,10 @@ package org.apache.seatunnel.connectors.cdc.base.relational.connection;
 
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 
-import com.zaxxer.hikari.HikariDataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.zaxxer.hikari.HikariDataSource;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -51,7 +52,7 @@ public class JdbcConnectionPools implements ConnectionPools<HikariDataSource, Jd
             ConnectionPoolId poolId, JdbcSourceConfig sourceConfig) {
         synchronized (pools) {
             if (!pools.containsKey(poolId)) {
-                LOG.info("Create and register connection pool {}", poolId);
+                LOG.debug("Create and register connection pool {}", poolId);
                 pools.put(poolId, JDBCCONNECTIONPOOLFACTORY.createPooledDataSource(sourceConfig));
             }
             return pools.get(poolId);

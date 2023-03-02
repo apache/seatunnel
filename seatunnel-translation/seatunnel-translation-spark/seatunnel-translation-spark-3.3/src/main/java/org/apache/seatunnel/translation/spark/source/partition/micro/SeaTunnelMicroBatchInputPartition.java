@@ -20,8 +20,9 @@ package org.apache.seatunnel.translation.spark.source.partition.micro;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
-import lombok.Getter;
 import org.apache.spark.sql.connector.read.InputPartition;
+
+import lombok.Getter;
 
 @Getter
 public class SeaTunnelMicroBatchInputPartition implements InputPartition {
@@ -34,14 +35,15 @@ public class SeaTunnelMicroBatchInputPartition implements InputPartition {
     protected final String hdfsRoot;
     protected final String hdfsUser;
 
-    public SeaTunnelMicroBatchInputPartition(SeaTunnelSource<SeaTunnelRow, ?, ?> source,
-                                             Integer parallelism,
-                                             Integer subtaskId,
-                                             Integer checkpointId,
-                                             Integer checkpointInterval,
-                                             String checkpointPath,
-                                             String hdfsRoot,
-                                             String hdfsUser) {
+    public SeaTunnelMicroBatchInputPartition(
+            SeaTunnelSource<SeaTunnelRow, ?, ?> source,
+            Integer parallelism,
+            Integer subtaskId,
+            Integer checkpointId,
+            Integer checkpointInterval,
+            String checkpointPath,
+            String hdfsRoot,
+            String hdfsUser) {
         this.source = source;
         this.parallelism = parallelism;
         this.subtaskId = subtaskId;

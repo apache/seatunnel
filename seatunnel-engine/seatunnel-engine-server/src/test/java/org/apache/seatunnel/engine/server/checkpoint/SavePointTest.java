@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
-import static org.awaitility.Awaitility.await;
-
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
@@ -27,15 +25,18 @@ import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.TestUtils;
 
-import com.hazelcast.internal.serialization.Data;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
+import com.hazelcast.internal.serialization.Data;
+
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
+
+import static org.awaitility.Awaitility.await;
 
 @DisabledOnOs(OS.WINDOWS)
 public class SavePointTest extends AbstractSeaTunnelServerTest {
@@ -59,51 +60,64 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
 
         FileUtils.createNewDir(OUT_PATH);
 
-        //1 Start a streaming mode job
+        // 1 Start a streaming mode job
         startJob(JOB_ID, CONF_PATH, false);
 
-        //2 Wait for the job to running and start outputting data
+        // 2 Wait for the job to running and start outputting data
         await().atMost(120000, TimeUnit.MILLISECONDS)
-            .untilAsserted(() -> {
-                Assertions.assertTrue(server.getCoordinatorService().getJobStatus(JOB_ID).equals(JobStatus.RUNNING) &&
-                    FileUtils.getFileLineNumberFromDir(OUT_PATH) > 10);
-            });
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertTrue(
+                                    server.getCoordinatorService()
+                                                    .getJobStatus(JOB_ID)
+                                                    .equals(JobStatus.RUNNING)
+                                            && FileUtils.getFileLineNumberFromDir(OUT_PATH) > 10);
+                        });
 
-        //3 start savePoint
+        // 3 start savePoint
         server.getCoordinatorService().savePoint(JOB_ID);
 
-        //4 Wait for savePoint to complete
+        // 4 Wait for savePoint to complete
         await().atMost(120000, TimeUnit.MILLISECONDS)
-            .untilAsserted(() -> {
-                Assertions.assertEquals(server.getCoordinatorService().getJobStatus(JOB_ID), JobStatus.FINISHED);
-            });
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    server.getCoordinatorService().getJobStatus(JOB_ID),
+                                    JobStatus.FINISHED);
+                        });
 
         Thread.sleep(1000);
 
-        //restart Server
-        if (needRestart){
+        // restart Server
+        if (needRestart) {
             this.restartServer();
         }
 
         Thread.sleep(1000);
 
-        //5 Resume from savePoint
+        // 5 Resume from savePoint
         startJob(JOB_ID, CONF_PATH, true);
 
         await().atMost(120000, TimeUnit.MILLISECONDS)
-            .untilAsserted(() -> {
-                Assertions.assertEquals(server.getCoordinatorService().getJobStatus(JOB_ID), JobStatus.RUNNING);
-            });
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    server.getCoordinatorService().getJobStatus(JOB_ID),
+                                    JobStatus.RUNNING);
+                        });
 
-        //6 Run long enough to ensure that the data write is complete
+        // 6 Run long enough to ensure that the data write is complete
         Thread.sleep(30000);
 
         server.getCoordinatorService().cancelJob(JOB_ID);
 
         await().atMost(120000, TimeUnit.MILLISECONDS)
-            .untilAsserted(() -> {
-                Assertions.assertEquals(server.getCoordinatorService().getJobStatus(JOB_ID), JobStatus.CANCELED);
-            });
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    server.getCoordinatorService().getJobStatus(JOB_ID),
+                                    JobStatus.CANCELED);
+                        });
 
         // 7 Check the final data count
         Assertions.assertEquals(100, FileUtils.getFileLineNumberFromDir(OUT_PATH));
@@ -111,18 +125,22 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
         Thread.sleep(1000);
     }
 
-    private void startJob(Long jobid, String path, boolean isStartWithSavePoint){
-        LogicalDag testLogicalDag =
-            TestUtils.createTestLogicalPlan(path, jobid.toString(), jobid);
+    private void startJob(Long jobid, String path, boolean isStartWithSavePoint) {
+        LogicalDag testLogicalDag = TestUtils.createTestLogicalPlan(path, jobid.toString(), jobid);
 
-        JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(jobid, isStartWithSavePoint,
-            nodeEngine.getSerializationService().toData(testLogicalDag), testLogicalDag.getJobConfig(),
-            Collections.emptyList());
+        JobImmutableInformation jobImmutableInformation =
+                new JobImmutableInformation(
+                        jobid,
+                        "Test",
+                        isStartWithSavePoint,
+                        nodeEngine.getSerializationService().toData(testLogicalDag),
+                        testLogicalDag.getJobConfig(),
+                        Collections.emptyList());
 
         Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);
 
         PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
-            server.getCoordinatorService().submitJob(jobid, data);
+                server.getCoordinatorService().submitJob(jobid, data);
         voidPassiveCompletableFuture.join();
     }
 }

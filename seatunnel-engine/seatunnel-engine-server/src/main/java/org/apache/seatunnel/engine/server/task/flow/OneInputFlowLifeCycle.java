@@ -20,7 +20,8 @@ package org.apache.seatunnel.engine.server.task.flow;
 import java.io.IOException;
 
 /**
- * A processing component that gets one piece of data at one time from other components inside the engine
+ * A processing component that gets one piece of data at one time from other components inside the
+ * engine
  *
  * @see OneOutputFlowLifeCycle
  * @see SourceFlowLifeCycle
@@ -28,5 +29,4 @@ import java.io.IOException;
 public interface OneInputFlowLifeCycle<T> extends FlowLifeCycle {
 
     void received(T record) throws IOException;
-
 }

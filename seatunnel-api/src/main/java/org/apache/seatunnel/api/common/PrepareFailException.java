@@ -17,23 +17,29 @@
 
 package org.apache.seatunnel.api.common;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-/**
- * This exception will throw when {@link SeaTunnelPluginLifeCycle#prepare(Config)} failed.
- */
+/** This exception will throw when {@link SeaTunnelPluginLifeCycle#prepare(Config)} failed. */
 public class PrepareFailException extends SeaTunnelRuntimeException {
 
     public PrepareFailException(String pluginName, PluginType type, String message) {
-        super(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED, String.format("PluginName: %s, PluginType: %s, Message: %s",
-                pluginName, type.getType(), message));
+        super(
+                SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                String.format(
+                        "PluginName: %s, PluginType: %s, Message: %s",
+                        pluginName, type.getType(), message));
     }
 
-    public PrepareFailException(String pluginName, PluginType type, String message, Throwable cause) {
-        super(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED, String.format("PluginName: %s, PluginType: %s, Message: %s",
-                pluginName, type.getType(), message), cause);
+    public PrepareFailException(
+            String pluginName, PluginType type, String message, Throwable cause) {
+        super(
+                SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                String.format(
+                        "PluginName: %s, PluginType: %s, Message: %s",
+                        pluginName, type.getType(), message),
+                cause);
     }
 }

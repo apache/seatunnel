@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
@@ -38,7 +39,8 @@ public class TransformSeaTunnelTask extends SeaTunnelTask {
 
     private static final ILogger LOGGER = Logger.getLogger(TransformSeaTunnelTask.class);
 
-    public TransformSeaTunnelTask(long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
+    public TransformSeaTunnelTask(
+            long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
         super(jobID, taskID, indexID, executionFlow);
     }
 
@@ -50,14 +52,20 @@ public class TransformSeaTunnelTask extends SeaTunnelTask {
         LOGGER.info("starting seatunnel transform task, index " + indexID);
         collector = new SeaTunnelTransformCollector(outputs);
         if (!(startFlowLifeCycle instanceof OneOutputFlowLifeCycle)) {
-            throw new TaskRuntimeException("TransformSeaTunnelTask only support OneOutputFlowLifeCycle, but get " + startFlowLifeCycle.getClass().getName());
+            throw new TaskRuntimeException(
+                    "TransformSeaTunnelTask only support OneOutputFlowLifeCycle, but get "
+                            + startFlowLifeCycle.getClass().getName());
         }
     }
 
     @Override
-    protected SourceFlowLifeCycle<?, ?> createSourceFlowLifeCycle(SourceAction<?, ?, ?> sourceAction,
-                                                                  SourceConfig config, CompletableFuture<Void> completableFuture) {
-        throw new UnsupportedOperationException("TransformSeaTunnelTask can't create SourceFlowLifeCycle");
+    protected SourceFlowLifeCycle<?, ?> createSourceFlowLifeCycle(
+            SourceAction<?, ?, ?> sourceAction,
+            SourceConfig config,
+            CompletableFuture<Void> completableFuture,
+            MetricsContext metricsContext) {
+        throw new UnsupportedOperationException(
+                "TransformSeaTunnelTask can't create SourceFlowLifeCycle");
     }
 
     @Override
@@ -65,8 +73,7 @@ public class TransformSeaTunnelTask extends SeaTunnelTask {
         ((OneOutputFlowLifeCycle<Record<?>>) startFlowLifeCycle).collect(collector);
     }
 
-    @NonNull
-    @Override
+    @NonNull @Override
     public ProgressState call() throws Exception {
         stateProcess();
         return progress.toState();

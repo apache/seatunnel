@@ -20,9 +20,7 @@ package org.apache.seatunnel.common.exception;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
-/**
- * SeaTunnel global exception, used to tell user more clearly error messages
- */
+/** SeaTunnel global exception, used to tell user more clearly error messages */
 public class SeaTunnelRuntimeException extends RuntimeException {
     private final SeaTunnelErrorCode seaTunnelErrorCode;
 
@@ -31,7 +29,8 @@ public class SeaTunnelRuntimeException extends RuntimeException {
         this.seaTunnelErrorCode = seaTunnelErrorCode;
     }
 
-    public SeaTunnelRuntimeException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+    public SeaTunnelRuntimeException(
+            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
         super(seaTunnelErrorCode.getErrorMessage() + " - " + errorMessage, cause);
         this.seaTunnelErrorCode = seaTunnelErrorCode;
     }

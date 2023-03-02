@@ -15,23 +15,24 @@ Source connector for Apache Iceberg. It can support batch and stream mode.
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 - [x] data format
-    - [x] parquet
-    - [x] orc
-    - [x] avro
+  - [x] parquet
+  - [x] orc
+  - [x] avro
 - [x] iceberg catalog
-    - [x] hadoop(2.7.1 , 2.7.5 , 3.1.3)
-    - [x] hive(2.3.9 , 3.1.2)
+  - [x] hadoop(2.7.1 , 2.7.5 , 3.1.3)
+  - [x] hive(2.3.9 , 3.1.2)
 
-##  Options
+## Options
 
-| name                     | type    | required | default value        |
-| ------------------------ | ------- | -------- | -------------------- |
+|           name           |  type   | required |    default value     |
+|--------------------------|---------|----------|----------------------|
 | catalog_name             | string  | yes      | -                    |
 | catalog_type             | string  | yes      | -                    |
 | uri                      | string  | no       | -                    |
 | warehouse                | string  | yes      | -                    |
 | namespace                | string  | yes      | -                    |
 | table                    | string  | yes      | -                    |
+| schema                   | config  | no       | -                    |
 | case_sensitive           | boolean | no       | false                |
 | start_snapshot_timestamp | long    | no       | -                    |
 | start_snapshot_id        | long    | no       | -                    |
@@ -69,11 +70,26 @@ The iceberg table name in the backend catalog.
 
 ### case_sensitive [boolean]
 
-If data columns where selected via fields(Collection), controls whether the match to the schema will be done with case sensitivity.
+If data columns where selected via schema [config], controls whether the match to the schema will be done with case sensitivity.
 
-### fields [array]
+### schema [config]
+
+#### fields [Config]
 
 Use projection to select data columns and columns order.
+
+e.g.
+
+```
+schema {
+    fields {
+      f2 = "boolean"
+      f1 = "bigint"
+      f3 = "int"
+      f4 = "bigint"
+    }
+}
+```
 
 ### start_snapshot_id [long]
 
@@ -105,7 +121,7 @@ The optional values are:
 - FROM_SNAPSHOT_ID: Start incremental mode from a snapshot with a specific id inclusive.
 - FROM_SNAPSHOT_TIMESTAMP: Start incremental mode from a snapshot with a specific timestamp inclusive.
 
-### common options 
+### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
@@ -124,6 +140,7 @@ source {
   }
 }
 ```
+
 Or
 
 ```hocon
@@ -150,11 +167,13 @@ source {
     namespace = "your_iceberg_database"
     table = "your_iceberg_table"
 
-    fields {
-      f2 = "boolean"
-      f1 = "bigint"
-      f3 = "int"
-      f4 = "bigint"
+    schema {
+      fields {
+        f2 = "boolean"
+        f1 = "bigint"
+        f3 = "int"
+        f4 = "bigint"
+      }
     }
   }
 }
@@ -171,7 +190,8 @@ flink-shaded-hadoop-x-xxx.jar
 hive-exec-xxx.jar
 libfb303-xxx.jar
 ```
-Some versions of the hive-exec package do not have libfb303-xxx.jar, so you also need to manually import the Jar package. 
+
+Some versions of the hive-exec package do not have libfb303-xxx.jar, so you also need to manually import the Jar package.
 
 ## Changelog
 
@@ -182,3 +202,5 @@ Some versions of the hive-exec package do not have libfb303-xxx.jar, so you also
 ### next version
 
 - [Feature] Support Hadoop3.x ([3046](https://github.com/apache/incubator-seatunnel/pull/3046))
+- [improve][api] Refactoring schema parse ([4157](https://github.com/apache/incubator-seatunnel/pull/4157))
+

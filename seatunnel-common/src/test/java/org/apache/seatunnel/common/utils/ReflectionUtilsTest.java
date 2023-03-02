@@ -28,11 +28,11 @@ public class ReflectionUtilsTest {
 
     @Test
     public void testInvoke() throws MalformedURLException {
-        ReflectionUtils.invoke(new String[]{}, "toString");
+        ReflectionUtils.invoke(new String[] {}, "toString");
 
-        URLClassLoader classLoader = new URLClassLoader(new URL[]{}, Thread.currentThread().getContextClassLoader());
+        URLClassLoader classLoader =
+                new URLClassLoader(new URL[] {}, Thread.currentThread().getContextClassLoader());
         ReflectionUtils.invoke(classLoader, "addURL", new URL("file:///test"));
-        Assertions.assertArrayEquals(classLoader.getURLs(), new URL[]{new URL("file:///test")});
+        Assertions.assertArrayEquals(classLoader.getURLs(), new URL[] {new URL("file:///test")});
     }
-
 }

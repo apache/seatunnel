@@ -28,14 +28,10 @@ import io.debezium.relational.TableId;
 import java.sql.SQLException;
 import java.util.Collection;
 
-/**
- * The {@code ChunkSplitter} used to split table into a set of chunks for JDBC data source.
- */
+/** The {@code ChunkSplitter} used to split table into a set of chunks for JDBC data source. */
 public interface JdbcSourceChunkSplitter extends ChunkSplitter {
 
-    /**
-     * Generates all snapshot splits (chunks) for the give table path.
-     */
+    /** Generates all snapshot splits (chunks) for the give table path. */
     @Override
     Collection<SnapshotSplit> generateSplits(TableId tableId);
 
@@ -43,51 +39,53 @@ public interface JdbcSourceChunkSplitter extends ChunkSplitter {
      * Query the maximum and minimum value of the column in the table. e.g. query string <code>
      * SELECT MIN(%s) FROM %s WHERE %s > ?</code>
      *
-     * @param jdbc       JDBC connection.
-     * @param tableId    table identity.
+     * @param jdbc JDBC connection.
+     * @param tableId table identity.
      * @param columnName column name.
      * @return maximum and minimum value.
      */
-    Object[] queryMinMax(JdbcConnection jdbc, TableId tableId, String columnName) throws SQLException;
+    Object[] queryMinMax(JdbcConnection jdbc, TableId tableId, String columnName)
+            throws SQLException;
 
     /**
      * Query the minimum value of the column in the table, and the minimum value must greater than
      * the excludedLowerBound value. e.g. prepare query string <code>
      * SELECT MIN(%s) FROM %s WHERE %s > ?</code>
      *
-     * @param jdbc               JDBC connection.
-     * @param tableId            table identity.
-     * @param columnName         column name.
+     * @param jdbc JDBC connection.
+     * @param tableId table identity.
+     * @param columnName column name.
      * @param excludedLowerBound the minimum value should be greater than this value.
      * @return minimum value.
      */
-    Object queryMin(JdbcConnection jdbc, TableId tableId, String columnName, Object excludedLowerBound)
-        throws SQLException;
+    Object queryMin(
+            JdbcConnection jdbc, TableId tableId, String columnName, Object excludedLowerBound)
+            throws SQLException;
 
     /**
      * Query the maximum value of the next chunk, and the next chunk must be greater than or equal
      * to <code>includedLowerBound</code> value [min_1, max_1), [min_2, max_2),... [min_n, null).
      * Each time this method is called it will return max1, max2...
      *
-     * @param jdbc               JDBC connection.
-     * @param tableId            table identity.
-     * @param columnName         column name.
-     * @param chunkSize          chunk size.
+     * @param jdbc JDBC connection.
+     * @param tableId table identity.
+     * @param columnName column name.
+     * @param chunkSize chunk size.
      * @param includedLowerBound the previous chunk end value.
      * @return next chunk end value.
      */
     Object queryNextChunkMax(
-        JdbcConnection jdbc,
-        TableId tableId,
-        String columnName,
-        int chunkSize,
-        Object includedLowerBound)
-        throws SQLException;
+            JdbcConnection jdbc,
+            TableId tableId,
+            String columnName,
+            int chunkSize,
+            Object includedLowerBound)
+            throws SQLException;
 
     /**
      * Approximate total number of entries in the lookup table.
      *
-     * @param jdbc    JDBC connection.
+     * @param jdbc JDBC connection.
      * @param tableId table identity.
      * @return approximate row count.
      */
@@ -96,13 +94,17 @@ public interface JdbcSourceChunkSplitter extends ChunkSplitter {
     /**
      * Build the scan query sql of the {@link SnapshotSplit}.
      *
-     * @param tableId      table identity.
+     * @param tableId table identity.
      * @param splitKeyType primary key type.
      * @param isFirstSplit whether the first split.
-     * @param isLastSplit  whether the last split.
+     * @param isLastSplit whether the last split.
      * @return query sql.
      */
-    String buildSplitScanQuery(TableId tableId, SeaTunnelRowType splitKeyType, boolean isFirstSplit, boolean isLastSplit);
+    String buildSplitScanQuery(
+            TableId tableId,
+            SeaTunnelRowType splitKeyType,
+            boolean isFirstSplit,
+            boolean isLastSplit);
 
     /**
      * Checks whether split column is evenly distributed across its range.
@@ -139,6 +141,8 @@ public interface JdbcSourceChunkSplitter extends ChunkSplitter {
      * @return SeaTunnel row type.
      */
     default SeaTunnelRowType getSplitType(Column splitColumn) {
-        return new SeaTunnelRowType(new String[]{splitColumn.name()}, new SeaTunnelDataType[]{fromDbzColumn(splitColumn)});
+        return new SeaTunnelRowType(
+                new String[] {splitColumn.name()},
+                new SeaTunnelDataType[] {fromDbzColumn(splitColumn)});
     }
 }

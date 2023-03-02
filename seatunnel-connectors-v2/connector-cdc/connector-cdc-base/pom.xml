@@ -17,41 +17,20 @@
     limitations under the License.
 
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
     <parent>
-        <artifactId>connector-cdc</artifactId>
         <groupId>org.apache.seatunnel</groupId>
+        <artifactId>connector-cdc</artifactId>
         <version>${revision}</version>
     </parent>
-    <modelVersion>4.0.0</modelVersion>
     <artifactId>connector-cdc-base</artifactId>
+    <name>SeaTunnel : Connectors V2 : CDC : Base</name>
 
     <properties>
         <hikaricp.version>4.0.3</hikaricp.version>
     </properties>
-
-    <dependencies>
-        <!-- Debezium dependencies -->
-        <dependency>
-            <groupId>io.debezium</groupId>
-            <artifactId>debezium-api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.debezium</groupId>
-            <artifactId>debezium-embedded</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.zaxxer</groupId>
-            <artifactId>HikariCP</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-common</artifactId>
-        </dependency>
-
-    </dependencies>
 
     <dependencyManagement>
         <dependencies>
@@ -78,8 +57,8 @@
                 <version>${debezium.version}</version>
                 <exclusions>
                     <exclusion>
-                        <artifactId>kafka-log4j-appender</artifactId>
                         <groupId>org.apache.kafka</groupId>
+                        <artifactId>kafka-log4j-appender</artifactId>
                     </exclusion>
                     <exclusion>
                         <groupId>org.glassfish.jersey.core</groupId>
@@ -89,6 +68,27 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <dependencies>
+        <!-- Debezium dependencies -->
+        <dependency>
+            <groupId>io.debezium</groupId>
+            <artifactId>debezium-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.debezium</groupId>
+            <artifactId>debezium-embedded</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-common</artifactId>
+        </dependency>
+
+    </dependencies>
 
     <build>
         <plugins>

@@ -24,15 +24,15 @@ It only supports hadoop version **2.9.X+**.
 By default, we use 2PC commit to ensure `exactly-once`
 
 - [x] file format
-    - [x] text
-    - [x] csv
-    - [x] parquet
-    - [x] orc
-    - [x] json
+  - [x] text
+  - [x] csv
+  - [x] parquet
+  - [x] orc
+  - [x] json
 
 ## Options
 
-| name                             | type    | required | default value                              | remarks                                                   |
+|               name               |  type   | required |               default value                |                          remarks                          |
 |----------------------------------|---------|----------|--------------------------------------------|-----------------------------------------------------------|
 | path                             | string  | yes      | -                                          |                                                           |
 | bucket                           | string  | yes      | -                                          |                                                           |
@@ -76,6 +76,7 @@ The access secret of oss file system.
 The endpoint of oss file system.
 
 ### custom_filename [boolean]
+
 Whether custom the filename
 
 ### file_name_expression [string]
@@ -93,8 +94,8 @@ Only used when `custom_filename` is `true`
 
 When the format in the `file_name_expression` parameter is `xxxx-${now}` , `filename_time_format` can specify the time format of the path, and the default value is `yyyy.MM.dd` . The commonly used time formats are listed as follows:
 
-| Symbol | Description        |
-| ------ | ------------------ |
+| Symbol |    Description     |
+|--------|--------------------|
 | y      | Year               |
 | M      | Month              |
 | d      | Day of month       |
@@ -243,3 +244,4 @@ For orc file format simple config
 ### Next version
 
 - [Improve] Support file compress ([3899](https://github.com/apache/incubator-seatunnel/pull/3899))
+

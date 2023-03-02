@@ -17,8 +17,5 @@
 
 package org.apache.seatunnel.api.source;
 
-/**
- * Mark whether the Source connector supports parallelism
- */
-public interface SupportParallelism {
-}
+/** Mark whether the Source connector supports parallelism */
+public interface SupportParallelism {}

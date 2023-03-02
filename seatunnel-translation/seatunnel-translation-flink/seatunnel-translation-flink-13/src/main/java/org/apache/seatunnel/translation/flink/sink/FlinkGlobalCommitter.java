@@ -19,9 +19,10 @@ package org.apache.seatunnel.translation.flink.sink;
 
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.flink.api.connector.sink.GlobalCommitter;
 import org.apache.flink.api.connector.sink.Sink;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -30,14 +31,16 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * The committer wrapper of {@link SinkAggregatedCommitter},
- * which is created by {@link Sink#createGlobalCommitter()},
- * used to unify the different implementations of {@link SinkAggregatedCommitter}
+ * The committer wrapper of {@link SinkAggregatedCommitter}, which is created by {@link
+ * Sink#createGlobalCommitter()}, used to unify the different implementations of {@link
+ * SinkAggregatedCommitter}
+ *
  * @param <CommT> The generic type of commit message type
  * @param <GlobalCommT> The generic type of global commit message type
  */
 @Slf4j
-public class FlinkGlobalCommitter<CommT, GlobalCommT> implements GlobalCommitter<CommitWrapper<CommT>, GlobalCommT> {
+public class FlinkGlobalCommitter<CommT, GlobalCommT>
+        implements GlobalCommitter<CommitWrapper<CommT>, GlobalCommT> {
 
     private final SinkAggregatedCommitter<CommT, GlobalCommT> aggregatedCommitter;
 
@@ -46,15 +49,15 @@ public class FlinkGlobalCommitter<CommT, GlobalCommT> implements GlobalCommitter
     }
 
     @Override
-    public List<GlobalCommT> filterRecoveredCommittables(List globalCommittables) throws IOException {
+    public List<GlobalCommT> filterRecoveredCommittables(List globalCommittables)
+            throws IOException {
         return Collections.emptyList();
     }
 
     @Override
     public GlobalCommT combine(List<CommitWrapper<CommT>> committables) throws IOException {
-        return aggregatedCommitter.combine(committables.stream()
-            .map(CommitWrapper::getCommit)
-            .collect(Collectors.toList()));
+        return aggregatedCommitter.combine(
+                committables.stream().map(CommitWrapper::getCommit).collect(Collectors.toList()));
     }
 
     @Override
@@ -68,8 +71,7 @@ public class FlinkGlobalCommitter<CommT, GlobalCommT> implements GlobalCommitter
     }
 
     @Override
-    public void endOfInput() throws IOException {
-    }
+    public void endOfInput() throws IOException {}
 
     @Override
     public void close() throws Exception {

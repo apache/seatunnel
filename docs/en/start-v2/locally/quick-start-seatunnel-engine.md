@@ -1,6 +1,7 @@
 ---
+
 sidebar_position: 2
----
+-------------------
 
 # Quick Start With SeaTunnel Engine
 
@@ -46,7 +47,7 @@ You could start the application by the following commands
 
 ```shell
 cd "apache-seatunnel-incubating-${version}"
-./bin/seatunnel.sh --config ./config/seatunnel.streaming.conf.template -e local
+./bin/seatunnel.sh --config ./config/v2.streaming.conf.template -e local
 
 ```
 

@@ -30,11 +30,12 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-| name                 | type   | required | default value |
+|         name         |  type  | required | default value |
 |----------------------|--------|----------|---------------|
 | table_name           | string | yes      | -             |
 | metastore_uri        | string | yes      | -             |
 | compress_codec       | string | no       | none          |
+| hdfs_site_path       | string | no       | -             |
 | kerberos_principal   | string | no       | -             |
 | kerberos_keytab_path | string | no       | -             |
 | common-options       |        | no       | -             |
@@ -46,6 +47,10 @@ Target Hive table name eg: db1.table1
 ### metastore_uri [string]
 
 Hive metastore uri
+
+### hdfs_site_path [string]
+
+The path of `hdfs-site.xml`, used to load ha configuration of namenodes
 
 ### kerberos_principal [string]
 
@@ -154,9 +159,11 @@ sink {
 - Add Hive Sink Connector
 
 ### 2.3.0-beta 2022-10-20
+
 - [Improve] Hive Sink supports automatic partition repair ([3133](https://github.com/apache/incubator-seatunnel/pull/3133))
 
 ### 2.3.0 2022-12-30
+
 - [BugFix] Fixed the following bugs that failed to write data to files ([3258](https://github.com/apache/incubator-seatunnel/pull/3258))
   - When field from upstream is null it will throw NullPointerException
   - Sink columns mapping failed
@@ -166,3 +173,4 @@ sink {
 
 - [Improve] Support kerberos authentication ([3840](https://github.com/apache/incubator-seatunnel/pull/3840))
 - [Improve] Added partition_dir_expression validation logic ([3886](https://github.com/apache/incubator-seatunnel/pull/3886))
+

@@ -27,7 +27,6 @@ import io.debezium.relational.Column;
 import lombok.extern.slf4j.Slf4j;
 
 /** Utilities for converting from MySQL types to SeaTunnel types. */
-
 @Slf4j
 public class MySqlTypeUtils {
 
@@ -124,10 +123,10 @@ public class MySqlTypeUtils {
                 return BasicType.STRING_TYPE;
             case MYSQL_LONGTEXT:
                 log.warn(
-                    "Type '{}' has a maximum precision of 536870911 in MySQL. "
-                        + "Due to limitations in the seatunnel type system, "
-                        + "the precision will be set to 2147483647.",
-                    MYSQL_LONGTEXT);
+                        "Type '{}' has a maximum precision of 536870911 in MySQL. "
+                                + "Due to limitations in the seatunnel type system, "
+                                + "the precision will be set to 2147483647.",
+                        MYSQL_LONGTEXT);
                 return BasicType.STRING_TYPE;
             case MYSQL_DATE:
                 return LocalTimeType.LOCAL_DATE_TYPE;
@@ -145,15 +144,15 @@ public class MySqlTypeUtils {
             case MYSQL_BINARY:
                 return PrimitiveByteArrayType.INSTANCE;
 
-            //Doesn't support yet
+                // Doesn't support yet
             case MYSQL_GEOMETRY:
             case MYSQL_UNKNOWN:
             default:
                 final String columnName = column.name();
                 throw new UnsupportedOperationException(
-                    String.format(
-                        "Doesn't support MySQL type '%s' on column '%s'  yet.",
-                        typeName, columnName));
+                        String.format(
+                                "Doesn't support MySQL type '%s' on column '%s'  yet.",
+                                typeName, columnName));
         }
     }
 }

@@ -38,9 +38,7 @@ public class DmdbTypeMapper implements JdbcDialectTypeMapper {
     private static final String DM_NUMERIC = "NUMERIC";
     private static final String DM_NUMBER = "NUMBER";
     private static final String DM_DECIMAL = "DECIMAL";
-    /**
-     * same to DECIMAL
-     */
+    /** same to DECIMAL */
     private static final String DM_DEC = "DEC";
 
     // ----------------------------int-----------------------------
@@ -116,7 +114,7 @@ public class DmdbTypeMapper implements JdbcDialectTypeMapper {
                                         String columnType,
                                         Integer precision,
                                         Integer scale) {
-        switch (columnType) {
+        switch (columnType.toUpperCase()) {
             case DM_BIT:
                 return BasicType.BOOLEAN_TYPE;
 
@@ -173,7 +171,7 @@ public class DmdbTypeMapper implements JdbcDialectTypeMapper {
             case DM_DATE:
                 return LocalTimeType.LOCAL_DATE_TYPE;
 
-            // 100G-1 byte
+                // 100G-1 byte
             case DM_BLOB:
             case DM_BINARY:
             case DM_VARBINARY:
@@ -182,7 +180,7 @@ public class DmdbTypeMapper implements JdbcDialectTypeMapper {
             case DM_BFILE:
                 return PrimitiveByteArrayType.INSTANCE;
 
-            //Doesn't support yet
+                // Doesn't support yet
             case DM_INTERVAL_YEAR_TO_MONTH:
             case DM_INTERVAL_YEAR:
             case DM_INTERVAL_MONTH:
@@ -200,8 +198,11 @@ public class DmdbTypeMapper implements JdbcDialectTypeMapper {
             case DM_TIMESTAMP_WITH_TIME_ZONE:
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
             default:
-                throw new JdbcConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
-                    String.format("Doesn't support Dmdb type '%s' on column '%s'  yet.", columnType, columnName));
+                throw new JdbcConnectorException(
+                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        String.format(
+                                "Doesn't support Dmdb type '%s' on column '%s'  yet.",
+                                columnType, columnName));
         }
     }
 }

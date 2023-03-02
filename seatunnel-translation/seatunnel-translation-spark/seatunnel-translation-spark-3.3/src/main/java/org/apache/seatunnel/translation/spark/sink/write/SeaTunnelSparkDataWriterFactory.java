@@ -30,11 +30,13 @@ import org.apache.spark.sql.connector.write.streaming.StreamingDataWriterFactory
 
 import java.io.IOException;
 
-public class SeaTunnelSparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFactory, StreamingDataWriterFactory {
+public class SeaTunnelSparkDataWriterFactory<CommitInfoT, StateT>
+        implements DataWriterFactory, StreamingDataWriterFactory {
 
     private final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink;
 
-    public SeaTunnelSparkDataWriterFactory(SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink) {
+    public SeaTunnelSparkDataWriterFactory(
+            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink) {
         this.sink = sink;
     }
 

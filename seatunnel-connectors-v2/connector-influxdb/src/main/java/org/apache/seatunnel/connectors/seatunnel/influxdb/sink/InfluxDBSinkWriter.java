@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.influxdb.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
@@ -28,14 +30,13 @@ import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConn
 import org.apache.seatunnel.connectors.seatunnel.influxdb.serialize.DefaultSerializer;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.serialize.Serializer;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.influxdb.InfluxDB;
+import org.influxdb.dto.BatchPoints;
+import org.influxdb.dto.Point;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.influxdb.InfluxDB;
-import org.influxdb.dto.BatchPoints;
-import org.influxdb.dto.Point;
 
 import java.io.IOException;
 import java.net.ConnectException;
@@ -59,28 +60,37 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private volatile Exception flushException;
     private final Integer batchIntervalMs;
 
-    public InfluxDBSinkWriter(Config pluginConfig,
-                              SeaTunnelRowType seaTunnelRowType) throws ConnectException {
+    public InfluxDBSinkWriter(Config pluginConfig, SeaTunnelRowType seaTunnelRowType)
+            throws ConnectException {
         this.sinkConfig = SinkConfig.loadConfig(pluginConfig);
         this.batchIntervalMs = sinkConfig.getBatchIntervalMs();
-        this.serializer = new DefaultSerializer(
-            seaTunnelRowType, sinkConfig.getPrecision().getTimeUnit(), sinkConfig.getKeyTags(), sinkConfig.getKeyTime(), sinkConfig.getMeasurement());
+        this.serializer =
+                new DefaultSerializer(
+                        seaTunnelRowType,
+                        sinkConfig.getPrecision().getTimeUnit(),
+                        sinkConfig.getKeyTags(),
+                        sinkConfig.getKeyTime(),
+                        sinkConfig.getMeasurement());
         this.batchList = new ArrayList<>();
 
         if (batchIntervalMs != null) {
-            scheduler = Executors.newSingleThreadScheduledExecutor(
-                new ThreadFactoryBuilder().setNameFormat("influxDB-sink-output-%s").build());
-            scheduledFuture = scheduler.scheduleAtFixedRate(
-                () -> {
-                    try {
-                        flush();
-                    } catch (IOException e) {
-                        flushException = e;
-                    }
-                },
-                batchIntervalMs,
-                batchIntervalMs,
-                TimeUnit.MILLISECONDS);
+            scheduler =
+                    Executors.newSingleThreadScheduledExecutor(
+                            new ThreadFactoryBuilder()
+                                    .setNameFormat("influxDB-sink-output-%s")
+                                    .build());
+            scheduledFuture =
+                    scheduler.scheduleAtFixedRate(
+                            () -> {
+                                try {
+                                    flush();
+                                } catch (IOException e) {
+                                    flushException = e;
+                                }
+                            },
+                            batchIntervalMs,
+                            batchIntervalMs,
+                            TimeUnit.MILLISECONDS);
         }
 
         connect();
@@ -119,8 +129,7 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         checkFlushException();
 
         batchList.add(record);
-        if (sinkConfig.getBatchSize() > 0
-            && batchList.size() >= sinkConfig.getBatchSize()) {
+        if (sinkConfig.getBatchSize() > 0 && batchList.size() >= sinkConfig.getBatchSize()) {
             flush();
         }
     }
@@ -138,18 +147,24 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             } catch (Exception e) {
                 log.error("Writing records to influxdb failed, retry times = {}", i, e);
                 if (i >= sinkConfig.getMaxRetries()) {
-                    throw new InfluxdbConnectorException(CommonErrorCode.FLUSH_DATA_FAILED,
-                        "Writing records to InfluxDB failed.", e);
+                    throw new InfluxdbConnectorException(
+                            CommonErrorCode.FLUSH_DATA_FAILED,
+                            "Writing records to InfluxDB failed.",
+                            e);
                 }
 
                 try {
-                    long backoff = Math.min(sinkConfig.getRetryBackoffMultiplierMs() * i,
-                        sinkConfig.getMaxRetryBackoffMs());
+                    long backoff =
+                            Math.min(
+                                    sinkConfig.getRetryBackoffMultiplierMs() * i,
+                                    sinkConfig.getMaxRetryBackoffMs());
                     Thread.sleep(backoff);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
-                    throw new InfluxdbConnectorException(CommonErrorCode.FLUSH_DATA_FAILED,
-                        "Unable to flush; interrupted while doing another attempt.", e);
+                    throw new InfluxdbConnectorException(
+                            CommonErrorCode.FLUSH_DATA_FAILED,
+                            "Unable to flush; interrupted while doing another attempt.",
+                            e);
                 }
             }
         }
@@ -159,8 +174,10 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private void checkFlushException() {
         if (flushException != null) {
-            throw new InfluxdbConnectorException(CommonErrorCode.FLUSH_DATA_FAILED,
-                "Writing records to InfluxDB failed.", flushException);
+            throw new InfluxdbConnectorException(
+                    CommonErrorCode.FLUSH_DATA_FAILED,
+                    "Writing records to InfluxDB failed.",
+                    flushException);
         }
     }
 
@@ -169,12 +186,11 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             influxdb = InfluxDBClient.getWriteClient(sinkConfig);
             String version = influxdb.version();
             if (!influxdb.ping().isGood()) {
-                throw new InfluxdbConnectorException(InfluxdbConnectorErrorCode.CONNECT_FAILED,
-                    String.format(
-                        "connect influxdb failed, due to influxdb version info is unknown, the url is: {%s}",
-                        sinkConfig.getUrl()
-                    )
-                );
+                throw new InfluxdbConnectorException(
+                        InfluxdbConnectorErrorCode.CONNECT_FAILED,
+                        String.format(
+                                "connect influxdb failed, due to influxdb version info is unknown, the url is: {%s}",
+                                sinkConfig.getUrl()));
             }
             log.info("connect influxdb successful. sever version :{}.", version);
         }

@@ -17,24 +17,24 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.CONNECTION_CHECK_TIMEOUT_SEC;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.DRIVER;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.FETCH_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.PARTITION_COLUMN;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.PARTITION_LOWER_BOUND;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.PARTITION_NUM;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.PARTITION_UPPER_BOUND;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.QUERY;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.URL;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.USER;
-
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
 import com.google.auto.service.AutoService;
+
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.CONNECTION_CHECK_TIMEOUT_SEC;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.DRIVER;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.FETCH_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.PARTITION_COLUMN;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.PARTITION_LOWER_BOUND;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.PARTITION_NUM;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.PARTITION_UPPER_BOUND;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.QUERY;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.URL;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.USER;
 
 @AutoService(Factory.class)
 public class JdbcSourceFactory implements TableSourceFactory {
@@ -46,20 +46,17 @@ public class JdbcSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-            .required(
-                URL,
-                DRIVER,
-                QUERY)
-            .optional(
-                USER,
-                PASSWORD,
-                CONNECTION_CHECK_TIMEOUT_SEC,
-                FETCH_SIZE,
-                PARTITION_COLUMN,
-                PARTITION_UPPER_BOUND,
-                PARTITION_LOWER_BOUND,
-                PARTITION_NUM)
-            .build();
+                .required(URL, DRIVER, QUERY)
+                .optional(
+                        USER,
+                        PASSWORD,
+                        CONNECTION_CHECK_TIMEOUT_SEC,
+                        FETCH_SIZE,
+                        PARTITION_COLUMN,
+                        PARTITION_UPPER_BOUND,
+                        PARTITION_LOWER_BOUND,
+                        PARTITION_NUM)
+                .build();
     }
 
     @Override

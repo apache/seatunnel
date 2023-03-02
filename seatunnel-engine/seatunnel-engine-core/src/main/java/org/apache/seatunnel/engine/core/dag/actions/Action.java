@@ -25,13 +25,11 @@ import java.util.List;
 import java.util.Set;
 
 public interface Action extends Serializable {
-    @NonNull
-    String getName();
+    @NonNull String getName();
 
     void setName(@NonNull String name);
 
-    @NonNull
-    List<Action> getUpstream();
+    @NonNull List<Action> getUpstream();
 
     void addUpstream(@NonNull Action action);
 
@@ -42,4 +40,6 @@ public interface Action extends Serializable {
     long getId();
 
     Set<URL> getJarUrls();
+
+    Config getConfig();
 }

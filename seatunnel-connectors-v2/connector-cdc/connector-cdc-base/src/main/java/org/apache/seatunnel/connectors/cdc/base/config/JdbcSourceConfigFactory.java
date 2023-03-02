@@ -18,11 +18,11 @@
 package org.apache.seatunnel.connectors.cdc.base.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 
@@ -36,6 +36,7 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
     protected String hostname;
     protected String username;
     protected String password;
+    protected String originUrl;
     protected List<String> databaseList;
     protected List<String> tableList;
     protected StartupConfig startupConfig;
@@ -60,6 +61,11 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
     /** Integer port number of the database server. */
     public JdbcSourceConfigFactory port(int port) {
         this.port = port;
+        return this;
+    }
+
+    public JdbcSourceConfigFactory originUrl(String originUrl) {
+        this.originUrl = originUrl;
         return this;
     }
 
@@ -189,12 +195,12 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         this.hostname = config.get(JdbcSourceOptions.HOSTNAME);
         this.username = config.get(JdbcSourceOptions.USERNAME);
         this.password = config.get(JdbcSourceOptions.PASSWORD);
-        // TODO: support multi-table
-        this.databaseList = Collections.singletonList(config.get(JdbcSourceOptions.DATABASE_NAME));
-        this.tableList = Collections.singletonList(config.get(JdbcSourceOptions.DATABASE_NAME)
-            + "." + config.get(JdbcSourceOptions.TABLE_NAME));
-        this.distributionFactorUpper = config.get(JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND);
-        this.distributionFactorLower = config.get(JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND);
+        this.databaseList = config.get(JdbcSourceOptions.DATABASE_NAMES);
+        this.tableList = config.get(CatalogOptions.TABLE_NAMES);
+        this.distributionFactorUpper =
+                config.get(JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND);
+        this.distributionFactorLower =
+                config.get(JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND);
         this.splitSize = config.get(SourceOptions.SNAPSHOT_SPLIT_SIZE);
         this.fetchSize = config.get(SourceOptions.SNAPSHOT_FETCH_SIZE);
         this.serverTimeZone = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
@@ -202,7 +208,8 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         this.connectMaxRetries = config.get(JdbcSourceOptions.CONNECT_MAX_RETRIES);
         this.connectionPoolSize = config.get(JdbcSourceOptions.CONNECTION_POOL_SIZE);
         this.dbzProperties = new Properties();
-        config.getOptional(SourceOptions.DEBEZIUM_PROPERTIES).ifPresent(map -> dbzProperties.putAll(map));
+        config.getOptional(SourceOptions.DEBEZIUM_PROPERTIES)
+                .ifPresent(map -> dbzProperties.putAll(map));
         return this;
     }
 

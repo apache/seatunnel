@@ -17,18 +17,20 @@
 
 package org.apache.seatunnel.api.env;
 
+import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 
 public class EnvOptionRule {
 
     public static OptionRule getEnvOptionRules() {
         return OptionRule.builder()
-            .required(EnvCommonOptions.JOB_MODE)
-            .optional(EnvCommonOptions.JOB_NAME,
-                EnvCommonOptions.PARALLELISM,
-                EnvCommonOptions.JARS,
-                EnvCommonOptions.CHECKPOINT_INTERVAL,
-                EnvCommonOptions.CUSTOM_PARAMETERS)
-            .build();
+                .required(EnvCommonOptions.JOB_MODE)
+                .optional(
+                        EnvCommonOptions.JOB_NAME,
+                        CommonOptions.PARALLELISM,
+                        EnvCommonOptions.JARS,
+                        EnvCommonOptions.CHECKPOINT_INTERVAL,
+                        EnvCommonOptions.CUSTOM_PARAMETERS)
+                .build();
     }
 }

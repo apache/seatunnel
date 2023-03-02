@@ -17,12 +17,16 @@
 
 package org.apache.seatunnel.engine.server.dag;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -38,10 +42,12 @@ import org.apache.seatunnel.engine.server.TestUtils;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
 
-import com.google.common.collect.Sets;
-import com.hazelcast.map.IMap;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
+import com.hazelcast.map.IMap;
 
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -59,12 +65,21 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
         JobConfig config = new JobConfig();
         config.setName("test");
 
-        JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(1,
-            nodeEngine.getSerializationService().toData(testLogicalDag), config, Collections.emptyList());
+        JobImmutableInformation jobImmutableInformation =
+                new JobImmutableInformation(
+                        1,
+                        "Test",
+                        nodeEngine.getSerializationService().toData(testLogicalDag),
+                        config,
+                        Collections.emptyList());
 
         PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
-            server.getCoordinatorService().submitJob(jobImmutableInformation.getJobId(),
-                nodeEngine.getSerializationService().toData(jobImmutableInformation));
+                server.getCoordinatorService()
+                        .submitJob(
+                                jobImmutableInformation.getJobId(),
+                                nodeEngine
+                                        .getSerializationService()
+                                        .toData(jobImmutableInformation));
 
         Assertions.assertNotNull(voidPassiveCompletableFuture);
     }
@@ -74,16 +89,28 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
 
         IdGenerator idGenerator = new IdGenerator();
 
-        Action fake = new SourceAction<>(idGenerator.getNextId(), "fake", new FakeSource(),
-            Sets.newHashSet(new URL("file:///fake.jar")));
+        Action fake =
+                new SourceAction<>(
+                        idGenerator.getNextId(),
+                        "fake",
+                        createFakeSource(),
+                        Sets.newHashSet(new URL("file:///fake.jar")));
         LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, 2);
 
-        Action fake2 = new SourceAction<>(idGenerator.getNextId(), "fake", new FakeSource(),
-            Sets.newHashSet(new URL("file:///fake.jar")));
+        Action fake2 =
+                new SourceAction<>(
+                        idGenerator.getNextId(),
+                        "fake",
+                        createFakeSource(),
+                        Sets.newHashSet(new URL("file:///fake.jar")));
         LogicalVertex fake2Vertex = new LogicalVertex(fake2.getId(), fake2, 2);
 
-        Action console = new SinkAction<>(idGenerator.getNextId(), "console", new ConsoleSink(),
-            Sets.newHashSet(new URL("file:///console.jar")));
+        Action console =
+                new SinkAction<>(
+                        idGenerator.getNextId(),
+                        "console",
+                        new ConsoleSink(),
+                        Sets.newHashSet(new URL("file:///console.jar")));
         LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, 2);
 
         LogicalEdge edge = new LogicalEdge(fakeVertex, consoleVertex);
@@ -96,24 +123,49 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
         JobConfig config = new JobConfig();
         config.setName("test");
 
-        JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(1,
-            nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
+        JobImmutableInformation jobImmutableInformation =
+                new JobImmutableInformation(
+                        1,
+                        "Test",
+                        nodeEngine.getSerializationService().toData(logicalDag),
+                        config,
+                        Collections.emptyList());
 
-        IMap<Object, Object> runningJobState = nodeEngine.getHazelcastInstance().getMap("testRunningJobState");
+        IMap<Object, Object> runningJobState =
+                nodeEngine.getHazelcastInstance().getMap("testRunningJobState");
         IMap<Object, Long[]> runningJobStateTimestamp =
-            nodeEngine.getHazelcastInstance().getMap("testRunningJobStateTimestamp");
+                nodeEngine.getHazelcastInstance().getMap("testRunningJobStateTimestamp");
 
-        PhysicalPlan physicalPlan = PlanUtils.fromLogicalDAG(logicalDag, nodeEngine,
-            jobImmutableInformation,
-            System.currentTimeMillis(),
-            Executors.newCachedThreadPool(),
-            instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME),
-            runningJobState,
-            runningJobStateTimestamp,
-            QueueType.BLOCKINGQUEUE).f0();
+        PhysicalPlan physicalPlan =
+                PlanUtils.fromLogicalDAG(
+                                logicalDag,
+                                nodeEngine,
+                                jobImmutableInformation,
+                                System.currentTimeMillis(),
+                                Executors.newCachedThreadPool(),
+                                instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME),
+                                runningJobState,
+                                runningJobStateTimestamp,
+                                QueueType.BLOCKINGQUEUE,
+                                new CheckpointConfig())
+                        .f0();
 
         Assertions.assertEquals(physicalPlan.getPipelineList().size(), 1);
-        Assertions.assertEquals(physicalPlan.getPipelineList().get(0).getCoordinatorVertexList().size(), 1);
-        Assertions.assertEquals(physicalPlan.getPipelineList().get(0).getPhysicalVertexList().size(), 2);
+        Assertions.assertEquals(
+                physicalPlan.getPipelineList().get(0).getCoordinatorVertexList().size(), 1);
+        Assertions.assertEquals(
+                physicalPlan.getPipelineList().get(0).getPhysicalVertexList().size(), 2);
+    }
+
+    private static FakeSource createFakeSource() {
+        FakeSource fakeSource = new FakeSource();
+        Config fakeSourceConfig =
+                ConfigFactory.parseMap(
+                        Collections.singletonMap(
+                                "schema",
+                                Collections.singletonMap(
+                                        "fields", ImmutableMap.of("id", "int", "name", "string"))));
+        fakeSource.prepare(fakeSourceConfig);
+        return fakeSource;
     }
 }

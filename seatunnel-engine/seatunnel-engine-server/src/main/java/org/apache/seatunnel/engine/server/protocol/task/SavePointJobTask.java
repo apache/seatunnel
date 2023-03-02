@@ -27,9 +27,12 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 
 public class SavePointJobTask extends AbstractSeaTunnelMessageTask<Long, Void> {
     protected SavePointJobTask(ClientMessage clientMessage, Node node, Connection connection) {
-        super(clientMessage, node, connection,
-            SeaTunnelSavePointJobCodec::decodeRequest,
-            x -> SeaTunnelSavePointJobCodec.encodeResponse());
+        super(
+                clientMessage,
+                node,
+                connection,
+                SeaTunnelSavePointJobCodec::decodeRequest,
+                x -> SeaTunnelSavePointJobCodec.encodeResponse());
     }
 
     @Override

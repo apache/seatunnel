@@ -37,15 +37,13 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
- * The split fetcher manager could be used to support different threading models by implementing
- * the {@link #addSplits(Collection)} method differently. For example, a single thread split fetcher
+ * The split fetcher manager could be used to support different threading models by implementing the
+ * {@link #addSplits(Collection)} method differently. For example, a single thread split fetcher
  * manager would only start a single fetcher and assign all the splits to it. A one-thread-per-split
  * fetcher may spawn a new thread every time a new split is assigned.
  *
  * @param <E>
- *
  * @param <SplitT>
- *
  */
 @Slf4j
 public abstract class SplitFetcherManager<E, SplitT extends SourceSplit> {
@@ -59,30 +57,34 @@ public abstract class SplitFetcherManager<E, SplitT extends SourceSplit> {
     private final ExecutorService executors;
     private volatile boolean closed;
 
-    public SplitFetcherManager(BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
-                               Supplier<SplitReader<E, SplitT>> splitReaderFactory) {
+    public SplitFetcherManager(
+            BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
+            Supplier<SplitReader<E, SplitT>> splitReaderFactory) {
         this(elementsQueue, splitReaderFactory, ignore -> {});
     }
 
-    public SplitFetcherManager(BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
-                               Supplier<SplitReader<E, SplitT>> splitReaderFactory,
-                               Consumer<Collection<String>> splitFinishedHook) {
+    public SplitFetcherManager(
+            BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
+            Supplier<SplitReader<E, SplitT>> splitReaderFactory,
+            Consumer<Collection<String>> splitFinishedHook) {
         this.fetchers = new ConcurrentHashMap<>();
         this.elementsQueue = elementsQueue;
         this.splitReaderFactory = splitReaderFactory;
         this.splitFinishedHook = splitFinishedHook;
         this.fetcherIdGenerator = new AtomicInteger(0);
         this.uncaughtFetcherException = new AtomicReference<>(null);
-        this.errorHandler = throwable -> {
-            log.error("Received uncaught exception.", throwable);
-            if (!uncaughtFetcherException.compareAndSet(null, throwable)) {
-                // Add the exception to the exception list.
-                uncaughtFetcherException.get().addSuppressed(throwable);
-            }
-        };
+        this.errorHandler =
+                throwable -> {
+                    log.error("Received uncaught exception.", throwable);
+                    if (!uncaughtFetcherException.compareAndSet(null, throwable)) {
+                        // Add the exception to the exception list.
+                        uncaughtFetcherException.get().addSuppressed(throwable);
+                    }
+                };
         String taskThreadName = Thread.currentThread().getName();
-        this.executors = Executors.newCachedThreadPool(
-            r -> new Thread(r, "Source Data Fetcher for " + taskThreadName));
+        this.executors =
+                Executors.newCachedThreadPool(
+                        r -> new Thread(r, "Source Data Fetcher for " + taskThreadName));
     }
 
     public abstract void addSplits(Collection<SplitT> splitsToAdd);
@@ -99,15 +101,15 @@ public abstract class SplitFetcherManager<E, SplitT extends SourceSplit> {
         SplitReader<E, SplitT> splitReader = splitReaderFactory.get();
         int fetcherId = fetcherIdGenerator.getAndIncrement();
         SplitFetcher<E, SplitT> splitFetcher =
-            new SplitFetcher<>(
-                fetcherId,
-                elementsQueue,
-                splitReader,
-                errorHandler,
-                () -> {
-                    fetchers.remove(fetcherId);
-                },
-                this.splitFinishedHook);
+                new SplitFetcher<>(
+                        fetcherId,
+                        elementsQueue,
+                        splitReader,
+                        errorHandler,
+                        () -> {
+                            fetchers.remove(fetcherId);
+                        },
+                        this.splitFinishedHook);
         fetchers.put(fetcherId, splitFetcher);
         return splitFetcher;
     }
@@ -131,16 +133,18 @@ public abstract class SplitFetcherManager<E, SplitT extends SourceSplit> {
         fetchers.values().forEach(SplitFetcher::shutdown);
         executors.shutdown();
         if (!executors.awaitTermination(timeoutMs, TimeUnit.MILLISECONDS)) {
-            log.warn("Failed to close the source reader in {} ms. There are still {} split fetchers running",
-                timeoutMs,
-                fetchers.size());
+            log.warn(
+                    "Failed to close the source reader in {} ms. There are still {} split fetchers running",
+                    timeoutMs,
+                    fetchers.size());
         }
     }
 
     public void checkErrors() {
         if (uncaughtFetcherException.get() != null) {
-            throw new RuntimeException("One or more fetchers have encountered exception",
-                uncaughtFetcherException.get());
+            throw new RuntimeException(
+                    "One or more fetchers have encountered exception",
+                    uncaughtFetcherException.get());
         }
     }
 }

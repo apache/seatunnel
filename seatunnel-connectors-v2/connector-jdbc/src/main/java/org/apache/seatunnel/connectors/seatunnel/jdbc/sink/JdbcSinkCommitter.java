@@ -19,10 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options.JdbcConnectionOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaFacade;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaGroupOps;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaGroupOpsImpl;
@@ -32,32 +32,33 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-public class JdbcSinkCommitter
-    implements SinkCommitter<XidInfo> {
+public class JdbcSinkCommitter implements SinkCommitter<XidInfo> {
     private final XaFacade xaFacade;
     private final XaGroupOps xaGroupOps;
-    private final JdbcConnectionOptions jdbcConnectionOptions;
+    private final JdbcConnectionConfig jdbcConnectionConfig;
 
-    public JdbcSinkCommitter(
-        JdbcSinkOptions jdbcSinkOptions
-    )
-        throws IOException {
-        this.jdbcConnectionOptions = jdbcSinkOptions.getJdbcConnectionOptions();
-        this.xaFacade = XaFacade.fromJdbcConnectionOptions(
-            jdbcConnectionOptions);
+    public JdbcSinkCommitter(JdbcSinkConfig jdbcSinkConfig) throws IOException {
+        this.jdbcConnectionConfig = jdbcSinkConfig.getJdbcConnectionConfig();
+        this.xaFacade = XaFacade.fromJdbcConnectionOptions(jdbcConnectionConfig);
         this.xaGroupOps = new XaGroupOpsImpl(xaFacade);
         try {
             xaFacade.open();
         } catch (Exception e) {
-            throw new JdbcConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, "unable to open JDBC sink committer", e);
+            throw new JdbcConnectorException(
+                    CommonErrorCode.WRITER_OPERATION_FAILED,
+                    "unable to open JDBC sink committer",
+                    e);
         }
     }
 
     @Override
     public List<XidInfo> commit(List<XidInfo> committables) {
         return xaGroupOps
-            .commit(new ArrayList<>(committables), false, jdbcConnectionOptions.getMaxCommitAttempts())
-            .getForRetry();
+                .commit(
+                        new ArrayList<>(committables),
+                        false,
+                        jdbcConnectionConfig.getMaxCommitAttempts())
+                .getForRetry();
     }
 
     @Override
@@ -65,7 +66,8 @@ public class JdbcSinkCommitter
         try {
             xaGroupOps.rollback(commitInfos);
         } catch (Exception e) {
-            throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED, "rollback failed", e);
+            throw new JdbcConnectorException(
+                    JdbcConnectorErrorCode.XA_OPERATION_FAILED, "rollback failed", e);
         }
     }
 }
