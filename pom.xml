@@ -130,7 +130,7 @@
         <skipUT>false</skipUT>
         <skipIT>true</skipIT>
         <elasticsearch>7</elasticsearch>
-        <guava.version>19.0</guava.version>
+        <guava.version>27.0-jre</guava.version>
         <auto-service.version>1.0.1</auto-service.version>
         <hadoop2.version>2.6.5</hadoop2.version>
         <seatunnel.shade.package>org.apache.seatunnel.shade</seatunnel.shade.package>

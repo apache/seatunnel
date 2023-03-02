@@ -23,21 +23,18 @@ package org.apache.seatunnel.engine.checkpoint.storage.hdfs;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 
 import java.util.HashMap;
 import java.util.Map;
 
-@Disabled(
-        "S3 is not available in CI, if you want to run this test, please set up your own S3 environment")
 public class S3FileCheckpointTest extends AbstractFileCheckPointTest {
 
     @BeforeAll
     public static void setup() throws CheckpointStorageException {
         Map<String, String> config = new HashMap<>();
         config.put("storage.type", "s3");
-        config.put("access.key", "your access key");
-        config.put("secret.key", "your secret key");
+        config.put("fs.s3a.access.key", "your access key");
+        config.put("fs.s3a.secret.key", "your secret key");
         config.put("s3.bucket", "s3a://calvin.test.cn");
         config.put(
                 "fs.s3a.aws.credentials.provider",
