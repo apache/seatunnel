@@ -19,7 +19,7 @@ By default, we will use 2pc to guarantee the message is sent to kafka exactly on
 | topic                | string | yes      | -             |
 | bootstrap.servers    | string | yes      | -             |
 | kafka.config         | map    | no       | -             |
-| semantic             | string | no       | NON           |
+| semantics            | string | no       | NON           |
 | partition_key_fields | array  | no       | -             |
 | partition            | int    | no       | -             |
 | assign_partitions    | array  | no       | -             |
@@ -57,7 +57,7 @@ In addition to the above parameters that must be specified by the `Kafka produce
 
 The way to specify the parameter is to add the prefix `kafka.` to the original parameter name. For example, the way to specify `request.timeout.ms` is: `kafka.request.timeout.ms = 60000` . If these non-essential parameters are not specified, they will use the default values given in the official Kafka documentation.
 
-### semantic [string]
+### semantics [string]
 
 Semantics that can be chosen EXACTLY_ONCE/AT_LEAST_ONCE/NON, default NON.
 
