@@ -80,6 +80,13 @@ public class JobClient {
                 List<JobStatusData> statusDataList =
                         OBJECT_MAPPER.readValue(
                                 jobStatusStr, new TypeReference<List<JobStatusData>>() {});
+                statusDataList.sort(
+                        (s1, s2) -> {
+                            if (s1.getSubmitTime() == s2.getSubmitTime()) {
+                                return 0;
+                            }
+                            return s1.getSubmitTime() > s2.getSubmitTime() ? -1 : 1;
+                        });
                 return ContentFormatUtil.format(statusDataList);
             } catch (JsonProcessingException e) {
                 throw new RuntimeException(e);
