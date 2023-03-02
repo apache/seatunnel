@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc;
+package org.apache.seatunnel.e2e.connector.doris;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
@@ -28,7 +28,6 @@ import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -65,9 +64,8 @@ import java.util.stream.Stream;
 import static org.awaitility.Awaitility.given;
 
 @Slf4j
-@Disabled
-public class JdbcDorisIT extends TestSuiteBase implements TestResource {
-    private static final String DOCKER_IMAGE = "taozex/doris:tagname";
+public class DorisIT extends TestSuiteBase implements TestResource {
+    private static final String DOCKER_IMAGE = "zykkk/doris:1.2.2.1-avx2-x86_84";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final String HOST = "doris_e2e";
     private static final int DOCKER_PORT = 9030;
@@ -184,7 +182,7 @@ public class JdbcDorisIT extends TestSuiteBase implements TestResource {
     public void startUp() throws Exception {
         dorisServer =
                 new GenericContainer<>(DOCKER_IMAGE)
-                        .withNetwork(TestSuiteBase.NETWORK)
+                        .withNetwork(NETWORK)
                         .withNetworkAliases(HOST)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
@@ -208,8 +206,8 @@ public class JdbcDorisIT extends TestSuiteBase implements TestResource {
             SeaTunnelRow row =
                     new SeaTunnelRow(
                             new Object[] {
-                                (long) i,
-                                1123456L,
+                                Long.valueOf(i),
+                                Long.valueOf(1123456),
                                 Short.parseShort("1"),
                                 Byte.parseByte("1"),
                                 Boolean.FALSE,
@@ -250,7 +248,7 @@ public class JdbcDorisIT extends TestSuiteBase implements TestResource {
             String sinkSql = String.format("select * from %s.%s", DATABASE, SINK_TABLE);
             List<String> columnList =
                     Arrays.stream(COLUMN_STRING.split(","))
-                            .map(String::trim)
+                            .map(x -> x.trim())
                             .collect(Collectors.toList());
             Statement sourceStatement = jdbcConnection.createStatement();
             Statement sinkStatement = jdbcConnection.createStatement();
@@ -290,8 +288,7 @@ public class JdbcDorisIT extends TestSuiteBase implements TestResource {
             throws SQLException, ClassNotFoundException, MalformedURLException,
                     InstantiationException, IllegalAccessException {
         URLClassLoader urlClassLoader =
-                new URLClassLoader(
-                        new URL[] {new URL(DRIVER_JAR)}, JdbcDorisIT.class.getClassLoader());
+                new URLClassLoader(new URL[] {new URL(DRIVER_JAR)}, DorisIT.class.getClassLoader());
         Thread.currentThread().setContextClassLoader(urlClassLoader);
         Driver driver = (Driver) urlClassLoader.loadClass(DRIVER_CLASS).newInstance();
         Properties props = new Properties();
@@ -318,13 +315,14 @@ public class JdbcDorisIT extends TestSuiteBase implements TestResource {
     }
 
     private void batchInsertData() {
+        List<SeaTunnelRow> rows = TEST_DATASET;
         try {
             jdbcConnection.setAutoCommit(false);
             try (PreparedStatement preparedStatement =
                     jdbcConnection.prepareStatement(INIT_DATA_SQL)) {
-                for (SeaTunnelRow row : TEST_DATASET) {
-                    for (int index = 0; index < row.getFields().length; index++) {
-                        preparedStatement.setObject(index + 1, row.getFields()[index]);
+                for (int i = 0; i < rows.size(); i++) {
+                    for (int index = 0; index < rows.get(i).getFields().length; index++) {
+                        preparedStatement.setObject(index + 1, rows.get(i).getFields()[index]);
                     }
                     preparedStatement.addBatch();
                 }

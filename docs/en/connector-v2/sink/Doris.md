@@ -50,7 +50,9 @@ Whether to enable two-phase commit (2pc), the default is true, to ensure Exactly
 
 ### sink.enable-delete [bool]
 
-Whether to enable deletion. This option requires Doris table to enable batch delete function (0.15+ version is enabled by default), and only supports Uniq model.
+Whether to enable deletion. This option requires Doris table to enable batch delete function (0.15+ version is enabled by default), and only supports Unique model. you can get more detail at this link:
+
+https://doris.apache.org/docs/dev/data-operate/update-delete/batch-delete-manual
 
 ### doris.config [map]
 
@@ -111,5 +113,5 @@ sink {
 
 ### Next version
 
-- [Improve] Refactor some Doris Sink code and support 2pc [4235](https://github.com/apache/incubator-seatunnel/pull/4235)
+- [Improve] Refactor some Doris Sink code as well as support 2pc and cdc [4235](https://github.com/apache/incubator-seatunnel/pull/4235)
 

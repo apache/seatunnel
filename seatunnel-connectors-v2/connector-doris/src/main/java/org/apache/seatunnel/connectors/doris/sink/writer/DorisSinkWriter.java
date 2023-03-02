@@ -88,14 +88,7 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
         this.scheduledExecutorService =
                 new ScheduledThreadPoolExecutor(
                         1, new ThreadFactoryBuilder().setNameFormat("stream-load-check").build());
-        this.serializer =
-                new SeaTunnelRowSerializer(
-                        dorisConfig.getStreamLoadProps().getProperty(LoadConstants.FORMAT_KEY).toLowerCase(),
-                        seaTunnelRowType,
-                        dorisConfig
-                                .getStreamLoadProps()
-                                .getProperty(LoadConstants.FIELD_DELIMITER_KEY),
-                        dorisConfig.getEnableDelete());
+        this.serializer = createSerializer(dorisConfig, seaTunnelRowType);
         this.intervalTime = dorisConfig.getCheckInterval();
         this.loading = false;
     }
@@ -255,5 +248,17 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
             pos++;
             return false;
         }
+    }
+
+    private DorisSerializer createSerializer(
+            DorisConfig dorisConfig, SeaTunnelRowType seaTunnelRowType) {
+        return new SeaTunnelRowSerializer(
+                dorisConfig
+                        .getStreamLoadProps()
+                        .getProperty(LoadConstants.FORMAT_KEY)
+                        .toLowerCase(),
+                seaTunnelRowType,
+                dorisConfig.getStreamLoadProps().getProperty(LoadConstants.FIELD_DELIMITER_KEY),
+                dorisConfig.getEnableDelete());
     }
 }
