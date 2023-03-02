@@ -31,7 +31,7 @@ seatunnel:
                 type: hdfs
                 max-retained: 3
                 plugin-config:
-                    storage-type: s3
-                    s3.access-key: access-key
-                    s3.secret-key: secret-key
+                    namespace: /tmp/seatunnel/checkpoint_snapshot
+                    storage.type: hdfs
+                    fs.defaultFS: /tmp/ # Ensure that the directory has written permission
                     

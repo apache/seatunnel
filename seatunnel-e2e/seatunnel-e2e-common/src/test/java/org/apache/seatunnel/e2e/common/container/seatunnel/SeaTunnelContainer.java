@@ -36,6 +36,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -64,12 +65,13 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(
                                                 "seatunnel-engine:" + JDK_DOCKER_IMAGE)))
-                        .waitingFor(Wait.forLogMessage(".*received new worker register.*\\n", 1));
+                        .waitingFor(Wait.forListeningPort());
         copySeaTunnelStarterToContainer(server);
+        server.setExposedPorts(Arrays.asList(5801));
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         PROJECT_ROOT_PATH
-                                + "/seatunnel-engine/seatunnel-engine-common/src/main/resources/"),
+                                + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/"),
                 Paths.get(SEATUNNEL_HOME, "config").toString());
         server.start();
         // execute extra commands
