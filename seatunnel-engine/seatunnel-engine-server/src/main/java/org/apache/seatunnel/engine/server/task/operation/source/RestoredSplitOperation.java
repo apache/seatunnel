@@ -82,14 +82,17 @@ public class RestoredSplitOperation extends TaskOperation {
         RetryUtils.retryWithException(
                 () -> {
                     ClassLoader classLoader =
-                        taskExecutionService
-                            .getExecutionContext(taskLocation.getTaskGroupLocation())
-                            .getClassLoader();
+                            taskExecutionService
+                                    .getExecutionContext(taskLocation.getTaskGroupLocation())
+                                    .getClassLoader();
 
                     List<SourceSplit> deserialize =
-                        Arrays.stream((Object[]) SerializationUtils.deserialize(splits, classLoader))
-                            .map(o -> (SourceSplit) o)
-                            .collect(Collectors.toList());
+                            Arrays.stream(
+                                            (Object[])
+                                                    SerializationUtils.deserialize(
+                                                            splits, classLoader))
+                                    .map(o -> (SourceSplit) o)
+                                    .collect(Collectors.toList());
                     SourceSplitEnumeratorTask<SourceSplit> task =
                             taskExecutionService.getTask(taskLocation);
                     task.addSplitsBack(deserialize, subtaskIndex);
