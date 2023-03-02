@@ -84,6 +84,10 @@ If name is set as the key, then the hash value of the name column will determine
 
 If not set partition key fields, the null message key will be sent to.
 
+The format of the message key is json, If name is set as the key, for example '{"name":"Jack"}'.
+
+The selected field must be an existing field in the upstream.
+
 ### partition [int]
 
 We can specify the partition, all messages will be sent to this partition.
