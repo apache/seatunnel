@@ -91,6 +91,7 @@ public class DorisCDCSinkIT extends TestSuiteBase implements TestResource {
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HOST)
                         .withExposedPorts(DORIS_DOCKER_PORT)
+                        .withPrivilegedMode(true)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
         Startables.deepStart(Stream.of(dorisServer)).join();
