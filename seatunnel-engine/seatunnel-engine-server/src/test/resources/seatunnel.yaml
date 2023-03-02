@@ -20,7 +20,7 @@ seatunnel:
         backup-count: 1
         print-execution-info-interval: 2
         slot-service:
-            dynamic-slot: false
+            dynamic-slot: true
             slot-num: 5
         checkpoint:
             interval: 6000

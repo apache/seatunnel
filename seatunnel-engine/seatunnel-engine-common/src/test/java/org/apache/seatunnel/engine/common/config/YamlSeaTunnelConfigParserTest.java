@@ -69,7 +69,7 @@ public class YamlSeaTunnelConfigParserTest {
                         .getStorage()
                         .getMaxRetainedCheckpoints());
         Assertions.assertEquals(
-                "/tmp/",
+                "file:///",
                 config.getEngineConfig()
                         .getCheckpointConfig()
                         .getStorage()
