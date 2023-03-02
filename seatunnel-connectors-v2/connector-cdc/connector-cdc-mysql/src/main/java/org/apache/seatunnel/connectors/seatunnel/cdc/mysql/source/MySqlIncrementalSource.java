@@ -39,7 +39,7 @@ import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDese
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffsetFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.MySqlCatalogFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalogFactory;
 
 import com.google.auto.service.AutoService;
 import lombok.NoArgsConstructor;

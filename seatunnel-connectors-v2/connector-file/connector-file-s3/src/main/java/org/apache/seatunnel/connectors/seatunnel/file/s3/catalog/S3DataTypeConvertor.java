@@ -55,6 +55,6 @@ public class S3DataTypeConvertor implements DataTypeConvertor<SeaTunnelRowType> 
 
     @Override
     public String getIdentity() {
-        return FileSystemType.S3.getFileSystemPluginName();
+        return "S3";
     }
 }
