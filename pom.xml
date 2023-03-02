@@ -27,52 +27,8 @@
     <artifactId>seatunnel</artifactId>
     <version>${revision}</version>
     <packaging>pom</packaging>
-
     <name>SeaTunnel :</name>
-
-<<<<<<< HEAD
-    <description>
-        Production ready big data processing product based on Apache Spark and Apache Flink.
-    </description>
-
-    <url>https://github.com/apache/incubator-seatunnel</url>
-
-    <licenses>
-        <license>
-            <name>The Apache License, Version 2.0</name>
-            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
-        </license>
-    </licenses>
-
-    <scm>
-        <connection>scm:git:https://github.com/WhaleOps/incubator-seatunnel.git</connection>
-        <developerConnection>scm:git:https://github.com/WhaleOps/incubator-seatunnel.git</developerConnection>
-        <url>https://github.com/WhaleOps/incubator-seatunnel.git</url>
-        <tag>HEAD</tag>
-    </scm>
-
-    <issueManagement>
-        <system>GitHub</system>
-        <url>https://github.com/apache/incubator-seatunnel/issues</url>
-    </issueManagement>
-
-    <mailingLists>
-        <mailingList>
-            <name>SeaTunnel Developer List</name>
-            <post>dev@seatunnel.apache.org</post>
-            <subscribe>dev-subscribe@seatunnel.apache.org</subscribe>
-            <unsubscribe>dev-unsubscribe@seatunnel.apache.org</unsubscribe>
-        </mailingList>
-        <mailingList>
-            <name>SeaTunnel Commits List</name>
-            <post>commits@seatunnel.apache.org</post>
-            <subscribe>commits-subscribe@seatunnel.apache.org</subscribe>
-            <unsubscribe>commits-unsubscribe@seatunnel.apache.org</unsubscribe>
-        </mailingList>
-    </mailingLists>
-=======
     <description>Production ready big data processing product based on Apache Spark and Apache Flink.</description>
->>>>>>> merge/cdc
 
     <modules>
         <!--
@@ -96,7 +52,7 @@
 
     <properties>
         <!--todo The classification is too confusing, reclassify by type-->
-        <revision>2.3.1-SNAPSHOT</revision>
+        <revision>WS-2.4.3-SNAPSHOT</revision>
         <seatunnel.config.shade.version>2.1.1</seatunnel.config.shade.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>1.8</java.version>
