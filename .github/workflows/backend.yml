@@ -281,36 +281,36 @@ jobs:
       - name: Check Dependencies Licenses
         run: tools/dependencies/checkLicense.sh
 
-#  unit-test:
-#    needs: [ changes, sanity-check ]
-#    if: needs.changes.outputs.api == 'true' || (needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != '')
-#    runs-on: ${{ matrix.os }}
-#    strategy:
-#      matrix:
-#        java: [ '8', '11' ]
-#        os: [ 'ubuntu-latest', 'windows-latest' ]
-#    timeout-minutes: 90
-#    steps:
-#      - uses: actions/checkout@v2
-#      - name: Set up JDK ${{ matrix.java }}
-#        uses: actions/setup-java@v3
-#        with:
-#          java-version: ${{ matrix.java }}
-#          distribution: 'temurin'
-#          cache: 'maven'
-#      - name: run all modules unit test
-#        if: needs.changes.outputs.api == 'true'
-#        run: |
-#          ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"license.skipAddThirdParty"=true --no-snapshot-updates
-#        env:
-#          MAVEN_OPTS: -Xmx4096m
-#
-#      - name: run updated modules unit test
-#        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != ''
-#        run: |
-#          ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl ${{needs.changes.outputs.ut-modules}} -am -Pci
-#        env:
-#          MAVEN_OPTS: -Xmx4096m
+  unit-test:
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'true' || (needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != '')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest', 'windows-latest' ]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: run all modules unit test
+        if: needs.changes.outputs.api == 'true'
+        run: |
+          ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"license.skipAddThirdParty"=true --no-snapshot-updates
+        env:
+          MAVEN_OPTS: -Xmx4096m
+
+      - name: run updated modules unit test
+        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != ''
+        run: |
+          ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl ${{needs.changes.outputs.ut-modules}} -am -Pci
+        env:
+          MAVEN_OPTS: -Xmx4096m
 
   updated-modules-integration-test:
     needs: [ changes, sanity-check ]
@@ -336,29 +336,29 @@ jobs:
         env:
           MAVEN_OPTS: -Xmx2048m
 
-#  engine-v2-it:
-#    needs: [ changes, sanity-check ]
-#    if: needs.changes.outputs.api == 'true'
-#    runs-on: ${{ matrix.os }}
-#    strategy:
-#      matrix:
-#        java: [ '8', '11' ]
-#        os: [ 'ubuntu-latest' ]
-#    timeout-minutes: 90
-#    steps:
-#      - uses: actions/checkout@v2
-#      - name: Set up JDK ${{ matrix.java }}
-#        uses: actions/setup-java@v3
-#        with:
-#          java-version: ${{ matrix.java }}
-#          distribution: 'temurin'
-#          cache: 'maven'
-#      - name: run some modules integration test
-#        if: needs.changes.outputs.api == 'true'
-#        run: |
-#          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-seatunnel-e2e-base -am -Pci
-#        env:
-#          MAVEN_OPTS: -Xmx4096m
+  engine-v2-it:
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: run some modules integration test
+        if: needs.changes.outputs.api == 'true'
+        run: |
+          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-seatunnel-e2e-base -am -Pci
+        env:
+          MAVEN_OPTS: -Xmx4096m
 
   transform-v2-it:
     needs: [ changes, sanity-check ]
@@ -384,171 +384,171 @@ jobs:
         env:
           MAVEN_OPTS: -Xmx4096m
 
-#  all-connectors-it-1:
-#    needs: [ changes, sanity-check ]
-#    if: needs.changes.outputs.api == 'true'
-#    runs-on: ${{ matrix.os }}
-#    strategy:
-#      matrix:
-#        java: [ '8', '11' ]
-#        os: [ 'ubuntu-latest' ]
-#    timeout-minutes: 90
-#    steps:
-#      - uses: actions/checkout@v2
-#      - name: Set up JDK ${{ matrix.java }}
-#        uses: actions/setup-java@v3
-#        with:
-#          java-version: ${{ matrix.java }}
-#          distribution: 'temurin'
-#          cache: 'maven'
-#      - name: run some modules integration test
-#        if: needs.changes.outputs.api == 'true'
-#        run: |
-#          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-flink-connector-v2-e2e > /tmp/sub_module.txt
-#          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-spark-connector-v2-e2e >> /tmp/sub_module.txt
-#          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
-#          sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
-#          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module $sub_modules 5 0`
-#          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
-#        env:
-#          MAVEN_OPTS: -Xmx4096m
-#
-#  all-connectors-it-2:
-#    needs: [ changes, sanity-check ]
-#    if: needs.changes.outputs.api == 'true'
-#    runs-on: ${{ matrix.os }}
-#    strategy:
-#      matrix:
-#        java: [ '8', '11' ]
-#        os: [ 'ubuntu-latest' ]
-#    timeout-minutes: 90
-#    steps:
-#      - uses: actions/checkout@v2
-#      - name: Set up JDK ${{ matrix.java }}
-#        uses: actions/setup-java@v3
-#        with:
-#          java-version: ${{ matrix.java }}
-#          distribution: 'temurin'
-#          cache: 'maven'
-#      - name: run some modules integration test
-#        if: needs.changes.outputs.api == 'true'
-#        run: |
-#          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-flink-connector-v2-e2e > /tmp/sub_module.txt
-#          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-spark-connector-v2-e2e >> /tmp/sub_module.txt
-#          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
-#          sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
-#          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module $sub_modules 5 1`
-#          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
-#        env:
-#          MAVEN_OPTS: -Xmx4096m
-#
-#  all-connectors-it-3:
-#    needs: [ changes, sanity-check ]
-#    if: needs.changes.outputs.api == 'true'
-#    runs-on: ${{ matrix.os }}
-#    strategy:
-#      matrix:
-#        java: [ '8', '11' ]
-#        os: [ 'ubuntu-latest' ]
-#    timeout-minutes: 90
-#    steps:
-#      - uses: actions/checkout@v2
-#      - name: Set up JDK ${{ matrix.java }}
-#        uses: actions/setup-java@v3
-#        with:
-#          java-version: ${{ matrix.java }}
-#          distribution: 'temurin'
-#          cache: 'maven'
-#      - name: run some modules integration test
-#        if: needs.changes.outputs.api == 'true'
-#        run: |
-#          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-flink-connector-v2-e2e > /tmp/sub_module.txt
-#          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-spark-connector-v2-e2e >> /tmp/sub_module.txt
-#          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
-#          sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
-#          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module $sub_modules 5 2`
-#          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
-#        env:
-#          MAVEN_OPTS: -Xmx4096m
-#
-#  all-connectors-it-4:
-#    needs: [ changes, sanity-check ]
-#    if: needs.changes.outputs.api == 'true'
-#    runs-on: ${{ matrix.os }}
-#    strategy:
-#      matrix:
-#        java: [ '8', '11' ]
-#        os: [ 'ubuntu-latest' ]
-#    timeout-minutes: 90
-#    steps:
-#      - uses: actions/checkout@v2
-#      - name: Set up JDK ${{ matrix.java }}
-#        uses: actions/setup-java@v3
-#        with:
-#          java-version: ${{ matrix.java }}
-#          distribution: 'temurin'
-#          cache: 'maven'
-#      - name: run some modules integration test
-#        if: needs.changes.outputs.api == 'true'
-#        run: |
-#          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-flink-connector-v2-e2e > /tmp/sub_module.txt
-#          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-spark-connector-v2-e2e >> /tmp/sub_module.txt
-#          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
-#          sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
-#          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module $sub_modules 5 3`
-#          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
-#        env:
-#          MAVEN_OPTS: -Xmx4096m
-#
-#  all-connectors-it-5:
-#    needs: [ changes, sanity-check ]
-#    if: needs.changes.outputs.api == 'true'
-#    runs-on: ${{ matrix.os }}
-#    strategy:
-#      matrix:
-#        java: [ '8', '11' ]
-#        os: [ 'ubuntu-latest' ]
-#    timeout-minutes: 90
-#    steps:
-#      - uses: actions/checkout@v2
-#      - name: Set up JDK ${{ matrix.java }}
-#        uses: actions/setup-java@v3
-#        with:
-#          java-version: ${{ matrix.java }}
-#          distribution: 'temurin'
-#          cache: 'maven'
-#      - name: run some modules integration test
-#        if: needs.changes.outputs.api == 'true'
-#        run: |
-#          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-flink-connector-v2-e2e > /tmp/sub_module.txt
-#          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-spark-connector-v2-e2e >> /tmp/sub_module.txt
-#          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
-#          sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
-#          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module $sub_modules 5 4`
-#          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
-#        env:
-#          MAVEN_OPTS: -Xmx4096m
-#
-#  jdbc-connectors-it:
-#    needs: [ changes, sanity-check ]
-#    if: needs.changes.outputs.api == 'true'
-#    runs-on: ${{ matrix.os }}
-#    strategy:
-#      matrix:
-#        java: [ '8', '11' ]
-#        os: [ 'ubuntu-latest' ]
-#    timeout-minutes: 90
-#    steps:
-#      - uses: actions/checkout@v2
-#      - name: Set up JDK ${{ matrix.java }}
-#        uses: actions/setup-java@v3
-#        with:
-#          java-version: ${{ matrix.java }}
-#          distribution: 'temurin'
-#          cache: 'maven'
-#      - name: run some modules integration test
-#        if: needs.changes.outputs.api == 'true'
-#        run: |
-#          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-jdbc-e2e -am -Pci
-#        env:
-#          MAVEN_OPTS: -Xmx4096m
+  all-connectors-it-1:
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: run some modules integration test
+        if: needs.changes.outputs.api == 'true'
+        run: |
+          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-flink-connector-v2-e2e > /tmp/sub_module.txt
+          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-spark-connector-v2-e2e >> /tmp/sub_module.txt
+          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
+          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module $sub_modules 5 0`
+          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
+        env:
+          MAVEN_OPTS: -Xmx4096m
+
+  all-connectors-it-2:
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: run some modules integration test
+        if: needs.changes.outputs.api == 'true'
+        run: |
+          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-flink-connector-v2-e2e > /tmp/sub_module.txt
+          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-spark-connector-v2-e2e >> /tmp/sub_module.txt
+          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
+          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module $sub_modules 5 1`
+          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
+        env:
+          MAVEN_OPTS: -Xmx4096m
+
+  all-connectors-it-3:
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: run some modules integration test
+        if: needs.changes.outputs.api == 'true'
+        run: |
+          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-flink-connector-v2-e2e > /tmp/sub_module.txt
+          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-spark-connector-v2-e2e >> /tmp/sub_module.txt
+          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
+          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module $sub_modules 5 2`
+          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
+        env:
+          MAVEN_OPTS: -Xmx4096m
+
+  all-connectors-it-4:
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: run some modules integration test
+        if: needs.changes.outputs.api == 'true'
+        run: |
+          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-flink-connector-v2-e2e > /tmp/sub_module.txt
+          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-spark-connector-v2-e2e >> /tmp/sub_module.txt
+          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
+          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module $sub_modules 5 3`
+          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
+        env:
+          MAVEN_OPTS: -Xmx4096m
+
+  all-connectors-it-5:
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: run some modules integration test
+        if: needs.changes.outputs.api == 'true'
+        run: |
+          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-flink-connector-v2-e2e > /tmp/sub_module.txt
+          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-spark-connector-v2-e2e >> /tmp/sub_module.txt
+          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
+          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module $sub_modules 5 4`
+          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
+        env:
+          MAVEN_OPTS: -Xmx4096m
+
+  jdbc-connectors-it:
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: run some modules integration test
+        if: needs.changes.outputs.api == 'true'
+        run: |
+          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-jdbc-e2e -am -Pci
+        env:
+          MAVEN_OPTS: -Xmx4096m
