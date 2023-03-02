@@ -152,7 +152,7 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
         // create source config for the given subtask (e.g. unique server id)
         C sourceConfig = configFactory.create(readerContext.getIndexOfSubtask());
         BlockingQueue<RecordsWithSplitIds<SourceRecords>> elementsQueue =
-                new LinkedBlockingQueue<>(1024);
+                new LinkedBlockingQueue<>(2);
 
         Supplier<IncrementalSourceSplitReader<C>> splitReaderSupplier =
                 () ->

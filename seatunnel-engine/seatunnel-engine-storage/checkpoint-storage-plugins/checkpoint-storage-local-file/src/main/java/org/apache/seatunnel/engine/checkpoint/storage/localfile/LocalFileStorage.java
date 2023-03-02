@@ -312,4 +312,11 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
                     }
                 });
     }
+
+    @Override
+    public void deleteCheckpoint(String jobId, String pipelineId, List<String> checkpointIdList)
+            throws CheckpointStorageException {
+        throw new CheckpointStorageException(
+                "LocalFile storage is abandoned, please don't use it.");
+    }
 }

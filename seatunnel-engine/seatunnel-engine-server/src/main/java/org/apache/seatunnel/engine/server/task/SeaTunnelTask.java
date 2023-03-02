@@ -321,6 +321,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
     }
 
     public void ack(Barrier barrier) {
+        log.debug("seatunnel task ack barrier[{}]", this.taskLocation);
         Integer ackSize =
                 cycleAcks.compute(barrier.getId(), (id, count) -> count == null ? 1 : ++count);
         if (ackSize == allCycles.size()) {
@@ -366,6 +367,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
+        log.debug("restoreState for SeaTunnelTask[{}]", actionStateList);
         Map<Long, List<ActionSubtaskState>> stateMap =
                 actionStateList.stream()
                         .collect(
@@ -386,6 +388,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
                             }
                         });
         restoreComplete.complete(null);
+        log.debug("restoreState for SeaTunnelTask finished, actionStateList: {}", actionStateList);
     }
 
     @Override

@@ -22,6 +22,7 @@ import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
+import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 
 import org.w3c.dom.Node;
 
@@ -30,6 +31,7 @@ import com.hazelcast.internal.config.AbstractDomConfigProcessor;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -117,6 +119,14 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                         getIntegerValue(
                                 ServerConfigOptions.JOB_METRICS_BACKUP_INTERVAL.key(),
                                 getTextContent(node)));
+            } else if (ServerConfigOptions.TASK_EXECUTION_THREAD_SHARE_MODE.key().equals(name)) {
+                String mode = getTextContent(node).toUpperCase(Locale.ROOT);
+                if (!Arrays.asList("ALL", "OFF", "PART").contains(mode)) {
+                    throw new IllegalArgumentException(
+                            ServerConfigOptions.TASK_EXECUTION_THREAD_SHARE_MODE
+                                    + " must in [ALL, OFF, PART]");
+                }
+                engineConfig.setTaskExecutionThreadShareMode(ThreadShareMode.valueOf(mode));
             } else if (ServerConfigOptions.SLOT_SERVICE.key().equals(name)) {
                 engineConfig.setSlotServiceConfig(parseSlotServiceConfig(node));
             } else if (ServerConfigOptions.CHECKPOINT.key().equals(name)) {
