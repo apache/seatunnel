@@ -25,6 +25,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarClientConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConsumerConfig;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.start.StartCursor;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.split.PulsarPartitionSplit;
@@ -225,20 +226,26 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
                     if (finishedSplits.contains(splitId)) {
                         return;
                     }
+                    try {
+                        splitReaders.get(splitId).committingCursor(messageId);
 
-                    splitReaders.get(splitId).committingCursor(messageId);
-
-                    if (pendingCursorsToFinish.containsKey(splitId)
-                            && pendingCursorsToFinish.get(splitId).compareTo(messageId) == 0) {
-                        finishedSplits.add(splitId);
-                        try {
-                            splitReaders.get(splitId).close();
-                        } catch (IOException e) {
-                            throw new PulsarConnectorException(
-                                    CommonErrorCode.READER_OPERATION_FAILED,
-                                    "Failed to close the split reader thread.",
-                                    e);
+                        if (pendingCursorsToFinish.containsKey(splitId)
+                                && pendingCursorsToFinish.get(splitId).compareTo(messageId) == 0) {
+                            finishedSplits.add(splitId);
+                            try {
+                                splitReaders.get(splitId).close();
+                            } catch (IOException e) {
+                                throw new PulsarConnectorException(
+                                        CommonErrorCode.READER_OPERATION_FAILED,
+                                        "Failed to close the split reader thread.",
+                                        e);
+                            }
                         }
+                    } catch (PulsarClientException e) {
+                        throw new PulsarConnectorException(
+                                PulsarConnectorErrorCode.ACK_CUMULATE_FAILED,
+                                "pulsar consumer acknowledgeCumulative failed.",
+                                e);
                     }
                 });
     }
