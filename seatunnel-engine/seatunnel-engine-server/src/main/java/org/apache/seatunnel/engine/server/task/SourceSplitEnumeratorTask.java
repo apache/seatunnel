@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
+import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
@@ -154,7 +155,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                                     (CheckpointBarrier) barrier,
                                     Collections.singletonList(
                                             new ActionSubtaskState(
-                                                    source.getId(),
+                                                    ActionStateKey.of(source),
                                                     -1,
                                                     Collections.singletonList(serialize)))));
         }

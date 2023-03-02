@@ -26,8 +26,8 @@ import com.hazelcast.logging.Logger;
 import lombok.NonNull;
 
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -39,13 +39,13 @@ public class LogicalDagGenerator {
     private JobConfig jobConfig;
     private IdGenerator idGenerator;
 
-    private final Map<Long, LogicalVertex> logicalVertexMap = new HashMap<>();
+    private final Map<Long, LogicalVertex> logicalVertexMap = new LinkedHashMap<>();
 
     /**
      * key: input vertex id; <br>
      * value: target vertices id;
      */
-    private final Map<Long, Set<Long>> inputVerticesMap = new HashMap<>();
+    private final Map<Long, LinkedHashSet<Long>> inputVerticesMap = new LinkedHashMap<>();
 
     public LogicalDagGenerator(
             @NonNull List<Action> actions,
@@ -79,7 +79,8 @@ public class LogicalDagGenerator {
                         inputAction -> {
                             createLogicalVertex(inputAction);
                             inputVerticesMap
-                                    .computeIfAbsent(inputAction.getId(), id -> new HashSet<>())
+                                    .computeIfAbsent(
+                                            inputAction.getId(), id -> new LinkedHashSet<>())
                                     .add(logicalVertexId);
                         });
 
@@ -101,6 +102,6 @@ public class LogicalDagGenerator {
                                                                 logicalVertexMap.get(targetId)))
                                         .collect(Collectors.toList()))
                 .flatMap(Collection::stream)
-                .collect(Collectors.toSet());
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 }

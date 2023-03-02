@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.task.flow;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.engine.core.dag.actions.ShuffleAction;
 import org.apache.seatunnel.engine.core.dag.actions.ShuffleStrategy;
+import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
@@ -80,7 +81,8 @@ public class ShuffleSinkFlowLifeCycle extends AbstractFlowLifeCycle
                 prepareClose = true;
             }
             if (barrier.snapshot()) {
-                runningTask.addState(barrier, shuffleAction.getId(), Collections.emptyList());
+                runningTask.addState(
+                        barrier, ActionStateKey.of(shuffleAction), Collections.emptyList());
             }
             runningTask.ack(barrier);
 
@@ -106,7 +108,7 @@ public class ShuffleSinkFlowLifeCycle extends AbstractFlowLifeCycle
     public void close() throws IOException {
         super.close();
         for (Map.Entry<String, IQueue<Record<?>>> shuffleItem : shuffles.entrySet()) {
-            log.info("destroy shuffle queue[{}]", shuffleItem.getKey());
+            log.info("destroy shuffle queue: {}", shuffleItem.getKey());
             shuffleItem.getValue().destroy();
         }
     }
