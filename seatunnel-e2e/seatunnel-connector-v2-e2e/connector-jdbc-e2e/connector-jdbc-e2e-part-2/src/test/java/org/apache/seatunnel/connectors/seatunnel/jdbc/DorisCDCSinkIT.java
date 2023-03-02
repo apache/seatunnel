@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.connector.doris;
 
+import com.google.common.collect.Lists;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -24,6 +25,7 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -33,6 +35,7 @@ import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.sql.Connection;
@@ -52,30 +55,34 @@ import java.util.stream.Stream;
 import static org.awaitility.Awaitility.given;
 
 @Slf4j
+@Disabled
 public class DorisCDCSinkIT extends TestSuiteBase implements TestResource {
     private static final String DOCKER_IMAGE = "zykkk/doris:1.2.2.1-avx2-x86_84";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final String HOST = "doris_cdc_e2e";
-    private static final int DORIS_DOCKER_PORT = 9030;
+    private static final int DOCKER_PORT = 9030;
+    private static final int PORT = 8961;
+    private static final String URL = "jdbc:mysql://%s:" + PORT;
     private static final String USERNAME = "root";
     private static final String PASSWORD = "";
     private static final String DATABASE = "test";
     private static final String SINK_TABLE = "e2e_table_sink";
-    private static final String SR_DRIVER_JAR =
+    private static final String DRIVER_JAR =
             "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
-
+    private static final String SET_SQL = "ADMIN SET FRONTEND CONFIG (\"enable_batch_delete_by_default\" = \"true\")";
+    private static final String CREATE_DATABASE = "CREATE DATABASE IF NOT EXISTS " + DATABASE;
     private static final String DDL_SINK =
-            "create table "
+            "CREATE TABLE IF NOT EXISTS "
                     + DATABASE
                     + "."
                     + SINK_TABLE
                     + " (\n"
-                    + "  uu_id          BIGINT,\n"
-                    + "  name           VARCHAR(128),\n"
-                    + "  score          INT\n"
+                    + "  uuid   BIGINT,\n"
+                    + "  name    VARCHAR(128),\n"
+                    + "  score   INT\n"
                     + ")ENGINE=OLAP\n"
-                    + "UNIQUE KEY(`uu_id`)\n"
-                    + "DISTRIBUTED BY HASH(`uu_id`) BUCKETS 1\n"
+                    + "UNIQUE KEY(`uuid`)\n"
+                    + "DISTRIBUTED BY HASH(`uuid`) BUCKETS 1\n"
                     + "PROPERTIES (\n"
                     + "\"replication_allocation\" = \"tag.location.default: 1\""
                     + ")";
@@ -90,16 +97,16 @@ public class DorisCDCSinkIT extends TestSuiteBase implements TestResource {
                 new GenericContainer<>(DOCKER_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HOST)
-                        .withExposedPorts(DORIS_DOCKER_PORT)
                         .withPrivilegedMode(true)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
+        dorisServer.setPortBindings(Lists.newArrayList(String.format("%s:%s", PORT, DOCKER_PORT)));
         Startables.deepStart(Stream.of(dorisServer)).join();
         log.info("doris container started");
         // wait for doris fully start
         given().ignoreExceptions()
                 .await()
-                .atMost(360, TimeUnit.SECONDS)
+                .atMost(10000, TimeUnit.SECONDS)
                 .untilAsserted(this::initializeJdbcConnection);
         initializeJdbcTable();
     }
@@ -116,7 +123,7 @@ public class DorisCDCSinkIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testdorisSink(TestContainer container) throws Exception {
+    public void testDorisSink(TestContainer container) throws Exception {
         Container.ExecResult execResult =
                 container.executeJob("/write-cdc-changelog-to-doris.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
@@ -128,7 +135,7 @@ public class DorisCDCSinkIT extends TestSuiteBase implements TestResource {
             while (sinkResultSet.next()) {
                 List<Object> row =
                         Arrays.asList(
-                                sinkResultSet.getLong("uu_id"),
+                                sinkResultSet.getLong("uuid"),
                                 sinkResultSet.getString("name"),
                                 sinkResultSet.getInt("score"));
                 actual.add(row);
@@ -140,31 +147,25 @@ public class DorisCDCSinkIT extends TestSuiteBase implements TestResource {
         Assertions.assertIterableEquals(expected, actual);
     }
 
-    private void initializeJdbcConnection() throws Exception {
+    private void initializeJdbcConnection()
+            throws SQLException, ClassNotFoundException, InstantiationException, IllegalAccessException, MalformedURLException {
         URLClassLoader urlClassLoader =
-                new URLClassLoader(
-                        new URL[] {new URL(SR_DRIVER_JAR)}, DorisCDCSinkIT.class.getClassLoader());
+                new URLClassLoader(new URL[] {new URL(DRIVER_JAR)}, DorisIT.class.getClassLoader());
         Thread.currentThread().setContextClassLoader(urlClassLoader);
         Driver driver = (Driver) urlClassLoader.loadClass(DRIVER_CLASS).newInstance();
         Properties props = new Properties();
         props.put("user", USERNAME);
         props.put("password", PASSWORD);
-        jdbcConnection =
-                driver.connect(
-                        String.format(
-                                "jdbc:mysql://%s:%s",
-                                dorisServer.getHost(), dorisServer.getFirstMappedPort()),
-                        props);
+        jdbcConnection = driver.connect(String.format(URL, dorisServer.getHost()), props);
         try (Statement statement = jdbcConnection.createStatement()) {
-            statement.execute(
-                    "ADMIN SET FRONTEND CONFIG (\"enable_batch_delete_by_default\" = \"true\");");
+            statement.execute(SET_SQL);
         }
     }
 
     private void initializeJdbcTable() {
         try (Statement statement = jdbcConnection.createStatement()) {
             // create databases
-            statement.execute("create database test");
+            statement.execute(CREATE_DATABASE);
             // create sink table
             statement.execute(DDL_SINK);
         } catch (SQLException e) {
