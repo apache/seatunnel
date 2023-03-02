@@ -85,7 +85,7 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
                                                 .listAllJob()
                                                 .contains(
                                                         String.format(
-                                                                "{\"jobId\":%s,\"jobStatus\":\"FINISHED\"}",
+                                                                "\"jobId\":%s,\"jobName\":\"Test\",\"jobStatus\":\"FINISHED\"",
                                                                 JOB_1))));
 
         JobMetrics jobMetrics = server.getCoordinatorService().getJobMetrics(JOB_1);

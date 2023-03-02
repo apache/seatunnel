@@ -58,7 +58,7 @@ class JobHistoryServiceTest extends AbstractSeaTunnelServerTest {
                                                 .listAllJob()
                                                 .contains(
                                                         String.format(
-                                                                "{\"jobId\":%s,\"jobStatus\":\"RUNNING\"}",
+                                                                "\"jobId\":%s,\"jobName\":\"Test\",\"jobStatus\":\"RUNNING\"",
                                                                 JOB_1))));
 
         // waiting for JOB_1 status turn to FINISHED
@@ -71,7 +71,7 @@ class JobHistoryServiceTest extends AbstractSeaTunnelServerTest {
                                                 .listAllJob()
                                                 .contains(
                                                         String.format(
-                                                                "{\"jobId\":%s,\"jobStatus\":\"FINISHED\"}",
+                                                                "\"jobId\":%s,\"jobName\":\"Test\",\"jobStatus\":\"FINISHED\"",
                                                                 JOB_1))));
 
         startJob(JOB_2, "fake_to_console.conf");
@@ -85,14 +85,14 @@ class JobHistoryServiceTest extends AbstractSeaTunnelServerTest {
                                                         .listAllJob()
                                                         .contains(
                                                                 String.format(
-                                                                        "{\"jobId\":%s,\"jobStatus\":\"FINISHED\"}",
+                                                                        "\"jobId\":%s,\"jobName\":\"Test\",\"jobStatus\":\"FINISHED\"",
                                                                         JOB_1))
                                                 && server.getCoordinatorService()
                                                         .getJobHistoryService()
                                                         .listAllJob()
                                                         .contains(
                                                                 String.format(
-                                                                        "{\"jobId\":%s,\"jobStatus\":\"RUNNING\"}",
+                                                                        "\"jobId\":%s,\"jobName\":\"Test\",\"jobStatus\":\"RUNNING\"",
                                                                         JOB_2))));
     }
 
