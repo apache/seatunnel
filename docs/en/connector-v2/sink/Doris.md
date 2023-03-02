@@ -10,6 +10,7 @@ The internal implementation of Doris sink connector is cached and imported by st
 ## Key features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [cdc](../../concept/connector-v2-features.md)
 
 ## Options
 
