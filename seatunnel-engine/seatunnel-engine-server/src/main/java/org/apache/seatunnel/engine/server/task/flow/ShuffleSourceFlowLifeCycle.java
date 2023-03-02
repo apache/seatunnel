@@ -20,11 +20,13 @@ package org.apache.seatunnel.engine.server.task.flow;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.engine.core.dag.actions.ShuffleAction;
+import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
 import com.hazelcast.collection.IQueue;
 import com.hazelcast.core.HazelcastInstance;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -34,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
+@Slf4j
 @SuppressWarnings("MagicNumber")
 public class ShuffleSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle
         implements OneOutputFlowLifeCycle<Record<?>> {
@@ -105,7 +108,9 @@ public class ShuffleSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle
                         }
                         if (barrier.snapshot()) {
                             runningTask.addState(
-                                    barrier, shuffleAction.getId(), Collections.emptyList());
+                                    barrier,
+                                    ActionStateKey.of(shuffleAction),
+                                    Collections.emptyList());
                         }
                         runningTask.ack(barrier);
 
@@ -139,6 +144,7 @@ public class ShuffleSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle
     public void close() throws IOException {
         super.close();
         for (IQueue<Record<?>> shuffleQueue : shuffles) {
+            log.info("destroy shuffle queue: {}", shuffleQueue.getName());
             shuffleQueue.destroy();
         }
     }
