@@ -73,6 +73,14 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                         PROJECT_ROOT_PATH
                                 + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/"),
                 Paths.get(SEATUNNEL_HOME, "config").toString());
+
+        server.withCopyFileToContainer(
+                MountableFile.forHostPath(PROJECT_ROOT_PATH + "/config/jvm_options"),
+                Paths.get(SEATUNNEL_HOME, "config/jvm_options").toString());
+
+        server.withCopyFileToContainer(
+                MountableFile.forHostPath(PROJECT_ROOT_PATH + "/config/log4j2.properties"),
+                Paths.get(SEATUNNEL_HOME, "config/log4j2.properties").toString());
         server.start();
         // execute extra commands
         executeExtraCommands(server);
