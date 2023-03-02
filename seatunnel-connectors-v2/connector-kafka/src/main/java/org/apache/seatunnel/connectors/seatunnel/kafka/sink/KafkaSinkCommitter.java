@@ -84,8 +84,6 @@ public class KafkaSinkCommitter implements SinkCommitter<KafkaCommitInfo> {
         } else {
             Properties kafkaProperties = commitInfo.getKafkaProperties();
             kafkaProperties.setProperty(
-                    ConsumerConfig.CLIENT_ID_CONFIG, "sink-committer-" + this.hashCode());
-            kafkaProperties.setProperty(
                     ProducerConfig.TRANSACTIONAL_ID_CONFIG, commitInfo.getTransactionId());
             kafkaProducer =
                     new KafkaInternalProducer<>(
