@@ -58,7 +58,7 @@ public class RetryUtils {
                             "Failed to execute due to {}. Retrying attempt ({}/{}) after backoff of {} ms";
                     if (retryMaterial.getSleepTimeMillis() > 0) {
                         long backoff = retryMaterial.computeRetryWaitTimeMillis(i);
-                        log.warn(
+                        log.debug(
                                 attemptMessage,
                                 ExceptionUtils.getMessage(e),
                                 i,
@@ -66,7 +66,7 @@ public class RetryUtils {
                                 backoff);
                         Thread.sleep(backoff);
                     } else {
-                        log.warn(attemptMessage, ExceptionUtils.getMessage(e), i, retryTimes, 0);
+                        log.debug(attemptMessage, ExceptionUtils.getMessage(e), i, retryTimes, 0);
                     }
                 }
             }

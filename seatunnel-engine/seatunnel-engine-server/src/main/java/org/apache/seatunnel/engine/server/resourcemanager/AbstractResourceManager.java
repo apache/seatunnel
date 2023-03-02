@@ -211,10 +211,10 @@ public abstract class AbstractResourceManager implements ResourceManager {
     @Override
     public void heartbeat(WorkerProfile workerProfile) {
         if (!registerWorker.containsKey(workerProfile.getAddress())) {
-            log.info("received new worker register: " + workerProfile.getAddress());
+            log.debug("received new worker register: " + workerProfile.getAddress());
             sendToMember(new ResetResourceOperation(), workerProfile.getAddress()).join();
         } else {
-            log.info("received worker heartbeat from: " + workerProfile.getAddress());
+            log.debug("received worker heartbeat from: " + workerProfile.getAddress());
         }
         registerWorker.put(workerProfile.getAddress(), workerProfile);
     }
