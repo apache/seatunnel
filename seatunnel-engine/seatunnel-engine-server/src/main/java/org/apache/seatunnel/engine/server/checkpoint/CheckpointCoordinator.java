@@ -206,12 +206,12 @@ public class CheckpointCoordinator {
 
     private void handleCoordinatorError(String message, Throwable e, CheckpointCloseReason reason) {
         LOG.error(message, e);
-        handleCoordinatorError(reason);
+        handleCoordinatorError(reason, e);
     }
 
-    private void handleCoordinatorError(CheckpointCloseReason reason) {
+    private void handleCoordinatorError(CheckpointCloseReason reason, Throwable e) {
         cleanPendingCheckpoint(reason);
-        checkpointManager.handleCheckpointError(pipelineId, new CheckpointException(reason));
+        checkpointManager.handleCheckpointError(pipelineId, new CheckpointException(reason, e));
     }
 
     private void restoreTaskState(TaskLocation taskLocation) {
@@ -437,7 +437,7 @@ public class CheckpointCoordinator {
                                         && !pendingCheckpoint.isFullyAcknowledged()) {
                                     if (tolerableFailureCheckpoints-- <= 0) {
                                         handleCoordinatorError(
-                                                CheckpointCloseReason.CHECKPOINT_EXPIRED);
+                                                CheckpointCloseReason.CHECKPOINT_EXPIRED, null);
                                     }
                                 }
                             },
