@@ -74,7 +74,10 @@ public class GetJobDetailStatusOperation extends Operation
                             return service.getCoordinatorService()
                                     .getJobHistoryService()
                                     .getJobDetailStateAsString(jobId);
-                        });
+                        },
+                        getNodeEngine()
+                                .getExecutionService()
+                                .getExecutor("get_job_detail_status_operation"));
 
         try {
             response = future.get();

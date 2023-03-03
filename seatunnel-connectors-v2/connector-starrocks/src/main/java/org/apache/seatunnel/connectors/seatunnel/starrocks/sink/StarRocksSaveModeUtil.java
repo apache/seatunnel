@@ -37,10 +37,13 @@ public class StarRocksSaveModeUtil {
 
     public static String fillingCreateSql(
             String template, String database, String table, TableSchema tableSchema) {
-        String primaryKey =
-                tableSchema.getPrimaryKey().getColumnNames().stream()
-                        .map(r -> "`" + r + "`")
-                        .collect(Collectors.joining(","));
+        String primaryKey = "";
+        if (tableSchema.getPrimaryKey() != null) {
+            primaryKey =
+                    tableSchema.getPrimaryKey().getColumnNames().stream()
+                            .map(r -> "`" + r + "`")
+                            .collect(Collectors.joining(","));
+        }
 
         Map<String, CreateTableParser.ColumnInfo> columnInTemplate =
                 CreateTableParser.getColumnList(template);
@@ -94,6 +97,8 @@ public class StarRocksSaveModeUtil {
                                     + newCol
                                     + template.substring(offset + columnInfo.getIndex());
                     offset += newCol.length() - columnInfo.getName().length();
+                } else {
+                    throw new IllegalArgumentException("Can't find column " + col + " in table.");
                 }
             }
         }

@@ -73,7 +73,10 @@ public class GetJobMetricsOperation extends Operation
                             return service.getCoordinatorService()
                                     .getJobMetrics(jobId)
                                     .toJsonString();
-                        });
+                        },
+                        getNodeEngine()
+                                .getExecutionService()
+                                .getExecutor("get_job_metrics_operation"));
 
         try {
             response = future.get();

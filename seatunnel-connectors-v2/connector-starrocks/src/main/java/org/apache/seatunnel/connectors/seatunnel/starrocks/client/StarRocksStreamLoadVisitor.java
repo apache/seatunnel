@@ -102,7 +102,12 @@ public class StarRocksStreamLoadVisitor {
             LOG.debug("StreamLoad response:\n" + JsonUtils.toJsonString(loadResult));
         }
         if (RESULT_FAILED.equals(loadResult.get(keyStatus))) {
-            StringBuilder errorBuilder = new StringBuilder("Failed to flush data to StarRocks.\n");
+            StringBuilder errorBuilder = new StringBuilder("Failed to flush data to StarRocks \n");
+            errorBuilder
+                    .append(sinkConfig.getDatabase())
+                    .append("/")
+                    .append(sinkConfig.getTable())
+                    .append("\n");
             if (loadResult.containsKey("Message")) {
                 errorBuilder.append(loadResult.get("Message"));
                 errorBuilder.append('\n');

@@ -27,11 +27,13 @@ import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorag
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -124,6 +126,7 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
                     "Failed to get all checkpoints for job " + jobId, e);
         }
         if (fileList.isEmpty()) {
+            log.info("No checkpoint found for this job, the job id is: " + jobId);
             return new ArrayList<>();
         }
         List<PipelineState> states = new ArrayList<>();
@@ -144,11 +147,18 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
 
     @Override
     public List<PipelineState> getLatestCheckpoint(String jobId) throws CheckpointStorageException {
-        Collection<File> fileList =
-                FileUtils.listFiles(
-                        new File(getStorageParentDirectory() + jobId), FILE_EXTENSIONS, false);
+        String parentPath = getStorageParentDirectory() + jobId;
+        Collection<File> fileList = new ArrayList<>();
+        try {
+            fileList = FileUtils.listFiles(new File(parentPath), FILE_EXTENSIONS, false);
+        } catch (Exception e) {
+            if (!(e.getCause() instanceof NoSuchFileException)) {
+                throw new CheckpointStorageException(ExceptionUtils.getMessage(e));
+            }
+        }
         if (fileList.isEmpty()) {
-            throw new CheckpointStorageException("No checkpoint found for job " + jobId);
+            log.info("No checkpoint found for this  job, the job id is: " + jobId);
+            return new ArrayList<>();
         }
         Map<String, File> fileMap =
                 fileList.stream()
@@ -171,7 +181,7 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
                     }
                 });
         if (latestPipelineFiles.isEmpty()) {
-            throw new CheckpointStorageException("Failed to read checkpoint data from file");
+            log.info("No checkpoint found for this job,  the job id:{} " + jobId);
         }
         return latestPipelineFiles;
     }
@@ -181,10 +191,17 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
             throws CheckpointStorageException {
 
         String parentPath = getStorageParentDirectory() + jobId;
-        Collection<File> fileList =
-                FileUtils.listFiles(new File(parentPath), FILE_EXTENSIONS, false);
+        Collection<File> fileList = new ArrayList<>();
+        try {
+            fileList = FileUtils.listFiles(new File(parentPath), FILE_EXTENSIONS, false);
+        } catch (Exception e) {
+            if (!(e.getCause() instanceof NoSuchFileException)) {
+                throw new CheckpointStorageException(ExceptionUtils.getMessage(e));
+            }
+        }
         if (fileList.isEmpty()) {
-            throw new CheckpointStorageException("No checkpoint found for job " + jobId);
+            log.info("No checkpoint found for job, job id is: " + jobId);
+            return null;
         }
         List<String> fileNames = fileList.stream().map(File::getName).collect(Collectors.toList());
 
@@ -207,8 +224,12 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
                 });
 
         if (latestFile.get() == null) {
-            throw new CheckpointStorageException(
-                    "Failed to read checkpoint data from file, file name " + latestFileName);
+            log.info(
+                    "No checkpoint found for this job, the job id is: "
+                            + jobId
+                            + ", pipeline id is: "
+                            + pipelineId);
+            return null;
         }
         return latestFile.get();
     }
@@ -216,11 +237,18 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
     @Override
     public List<PipelineState> getCheckpointsByJobIdAndPipelineId(String jobId, String pipelineId)
             throws CheckpointStorageException {
-        Collection<File> fileList =
-                FileUtils.listFiles(
-                        new File(getStorageParentDirectory() + jobId), FILE_EXTENSIONS, false);
+        String parentPath = getStorageParentDirectory() + jobId;
+        Collection<File> fileList = new ArrayList<>();
+        try {
+            fileList = FileUtils.listFiles(new File(parentPath), FILE_EXTENSIONS, false);
+        } catch (Exception e) {
+            if (!(e.getCause() instanceof NoSuchFileException)) {
+                throw new CheckpointStorageException(ExceptionUtils.getMessage(e));
+            }
+        }
         if (fileList.isEmpty()) {
-            throw new CheckpointStorageException("No checkpoint found for job " + jobId);
+            log.info("No checkpoint found for this job, the job id is: " + jobId);
+            return new ArrayList<>();
         }
 
         List<PipelineState> pipelineStates = new ArrayList<>();
@@ -256,11 +284,18 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
     @Override
     public PipelineState getCheckpoint(String jobId, String pipelineId, String checkpointId)
             throws CheckpointStorageException {
-        Collection<File> fileList =
-                FileUtils.listFiles(
-                        new File(getStorageParentDirectory() + jobId), FILE_EXTENSIONS, false);
+        String parentPath = getStorageParentDirectory() + jobId;
+        Collection<File> fileList = new ArrayList<>();
+        try {
+            fileList = FileUtils.listFiles(new File(parentPath), FILE_EXTENSIONS, false);
+        } catch (Exception e) {
+            if (!(e.getCause() instanceof NoSuchFileException)) {
+                throw new CheckpointStorageException(ExceptionUtils.getMessage(e));
+            }
+        }
         if (fileList.isEmpty()) {
-            throw new CheckpointStorageException("No checkpoint found for job " + jobId);
+            log.info("No checkpoint found for this job,  the job id is: " + jobId);
+            return null;
         }
         for (File file : fileList) {
             String fileName = file.getName();
@@ -288,9 +323,15 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
     @Override
     public synchronized void deleteCheckpoint(String jobId, String pipelineId, String checkpointId)
             throws CheckpointStorageException {
-        Collection<File> fileList =
-                FileUtils.listFiles(
-                        new File(getStorageParentDirectory() + jobId), FILE_EXTENSIONS, false);
+        String parentPath = getStorageParentDirectory() + jobId;
+        Collection<File> fileList = new ArrayList<>();
+        try {
+            fileList = FileUtils.listFiles(new File(parentPath), FILE_EXTENSIONS, false);
+        } catch (Exception e) {
+            if (!(e.getCause() instanceof NoSuchFileException)) {
+                throw new CheckpointStorageException(ExceptionUtils.getMessage(e));
+            }
+        }
         if (fileList.isEmpty()) {
             throw new CheckpointStorageException("No checkpoint found for job " + jobId);
         }
@@ -305,6 +346,42 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
                             log.error(
                                     "Failed to delete checkpoint {} for job {}, pipeline {}",
                                     checkpointId,
+                                    jobId,
+                                    pipelineId,
+                                    e);
+                        }
+                    }
+                });
+    }
+
+    @Override
+    public void deleteCheckpoint(String jobId, String pipelineId, List<String> checkpointIdList)
+            throws CheckpointStorageException {
+        String parentPath = getStorageParentDirectory() + jobId;
+        Collection<File> fileList = new ArrayList<>();
+        try {
+            fileList = FileUtils.listFiles(new File(parentPath), FILE_EXTENSIONS, false);
+        } catch (Exception e) {
+            if (!(e.getCause() instanceof NoSuchFileException)) {
+                throw new CheckpointStorageException(ExceptionUtils.getMessage(e));
+            }
+        }
+        if (fileList.isEmpty()) {
+            throw new CheckpointStorageException(
+                    "No checkpoint found for job, job id is: " + jobId);
+        }
+        fileList.forEach(
+                file -> {
+                    String fileName = file.getName();
+                    String checkpointIdByFileName = getCheckpointIdByFileName(fileName);
+                    if (pipelineId.equals(getPipelineIdByFileName(fileName))
+                            && checkpointIdList.contains(checkpointIdByFileName)) {
+                        try {
+                            FileUtils.delete(file);
+                        } catch (Exception e) {
+                            log.error(
+                                    "Failed to delete checkpoint {} for job {}, pipeline {}",
+                                    checkpointIdByFileName,
                                     jobId,
                                     pipelineId,
                                     e);

@@ -65,7 +65,7 @@ seatunnel:
         type: hdfs
         max-retained: 3
         plugin-config:
-          storage-type: oss
+          storage.type: oss
           oss.bucket: your-bucket
           fs.oss.accessKeyId: your-access-key
           fs.oss.accessKeySecret: your-secret-key
@@ -100,10 +100,10 @@ seatunnel:
                 type: hdfs
                 max-retained: 3
                 plugin-config:
-                    storage-type: s3
+                    storage.type: s3
                     s3.bucket: your-bucket
-                    fs.s3a.access-key: your-access-key
-                    fs.s3a.secret-key: your-secret-key
+                    fs.s3a.access.key: your-access-key
+                    fs.s3a.secret.key: your-secret-key
                     fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
                     
 
@@ -125,7 +125,7 @@ seatunnel:
         type: hdfs
         max-retained: 3
         plugin-config:
-          storage-type: s3
+          storage.type: s3
           s3.bucket: your-bucket
           fs.s3a.endpoint: your-endpoint
           fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.InstanceProfileCredentialsProvider
@@ -145,7 +145,7 @@ seatunnel:
         type: hdfs
         max-retained: 3
         plugin-config:
-          storage-type: hdfs
+          storage.type: hdfs
           fs.defaultFS: hdfs://localhost:9000
           // if you used kerberos, you can config like this:
           kerberosPrincipal: your-kerberos-principal
@@ -166,8 +166,8 @@ seatunnel:
         type: hdfs
         max-retained: 3
         plugin-config:
-          storage-type: hdfs
-          fs.defaultFS: /tmp/ # Ensure that the directory has written permission 
+          storage.type: hdfs
+          fs.defaultFS: file:/// # Ensure that the directory has written permission 
 
 ```
 

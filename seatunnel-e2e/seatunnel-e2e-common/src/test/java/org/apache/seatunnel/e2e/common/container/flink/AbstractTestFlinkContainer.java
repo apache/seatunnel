@@ -29,6 +29,7 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -43,6 +44,7 @@ import java.util.stream.Stream;
  * TestContainer#executeJob} to submit a seatunnel config and run a seatunnel job.
  */
 @NoArgsConstructor
+@Slf4j
 public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
 
     protected static final List<String> DEFAULT_FLINK_PROPERTIES =
@@ -134,6 +136,7 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
     @Override
     public Container.ExecResult executeJob(String confFile)
             throws IOException, InterruptedException {
+        log.info("test in container: {}", identifier());
         return executeJob(jobManager, confFile);
     }
 }

@@ -234,7 +234,7 @@ The text of each license is the standard Apache 2.0 license.
      (The Apache Software License, Version 2.0) Flink : Formats : Orc (org.apache.flink:flink-orc_2.11:1.13.6 - https://flink.apache.org/flink-formats/flink-orc_2.11)
      (The Apache Software License, Version 2.0) Flink : Formats : Parquet (org.apache.flink:flink-parquet_2.11:1.13.6 - https://flink.apache.org/flink-formats/flink-parquet_2.11)
      (Apache License, Version 2.0) Flink : Tools : Force Shading (org.apache.flink:force-shading:1.13.6 - https://www.apache.org/force-shading/)
-     (The Apache Software License, Version 2.0) Guava: Google Core Libraries for Java (com.google.guava:guava:19.0 - https://github.com/google/guava/guava)
+     (The Apache Software License, Version 2.0) Guava: Google Core Libraries for Java (com.google.guava:guava:27.0-jre - https://github.com/google/guava/guava)
      (Apache License, Version 2.0) Hive Storage API (org.apache.hive:hive-storage-api:2.6.0 - https://www.apache.org/hive-storage-api/)
      (The Apache Software License, Version 2.0) Jackson-annotations (com.fasterxml.jackson.core:jackson-annotations:2.12.6 - http://github.com/FasterXML/jackson)
      (The Apache Software License, Version 2.0) Jackson-core (com.fasterxml.jackson.core:jackson-core:2.12.6 - https://github.com/FasterXML/jackson-core)
@@ -244,6 +244,8 @@ The text of each license is the standard Apache 2.0 license.
      (The Apache Software License, Version 2.0) Data Mapper for Jackson (org.codehaus.jackson:jackson-mapper-asl:1.9.13 - http://jackson.codehaus.org)
      (Apache License, Version 2.0) jcommander (com.beust:jcommander:1.81 - https://jcommander.org)
      (The Apache Software License, Version 2.0) FindBugs-jsr305 (com.google.code.findbugs:jsr305:1.3.9 - http://findbugs.sourceforge.net/)
+     (The Apache Software License, Version 2.0) FindBugs-jsr305 (com.google.code.findbugs:jsr305:3.0.0 - http://findbugs.sourceforge.net/)
+     (The Apache Software License, Version 2.0) FindBugs-jsr305 (com.google.code.findbugs:jsr305:3.0.2 - http://findbugs.sourceforge.net/)
      (The Apache Software License, Version 2.0) Apache Log4j (org.apache.logging.log4j:log4j-api:2.17.1 - https://logging.apache.org/log4j/2.x/)
      (The Apache Software License, Version 2.0) Apache Log4j (org.apache.logging.log4j:log4j-core:2.17.1 - https://logging.apache.org/log4j/2.x/)
      (The Apache Software License, Version 2.0) Apache Log4j (org.apache.logging.log4j:log4j-slf4j-impl:2.17.1 - https://logging.apache.org/log4j/2.x/)
@@ -267,6 +269,11 @@ The text of each license is the standard Apache 2.0 license.
      (The Apache Software License, Version 2.0) protostuff (io.protostuff:protostuff-runtime:1.8.0 - https://github.com/protostuff/protostuff)     
      (The Apache Software License, Version 2.0) hazelcast (com.hazelcast:hazelcast:5.1 - https://github.com/hazelcast/hazelcast)
      (Apache-2.0) disruptor (com.lmax:disruptor:3.4.4 https://lmax-exchange.github.io/disruptor/)
+     (Apache-2.0) error_prone_annotations (com.google.errorprone:error_prone_annotations:2.2.0 https://mvnrepository.com/artifact/com.google.errorprone/error_prone_annotations/2.2.0)
+     (Apache-2.0) failureaccess (com.google.guava:failureaccess:1.0 https://mvnrepository.com/artifact/com.google.guava/failureaccess/1.0)
+     (Apache-2.0) j2objc-annotations (com.google.j2objc:j2objc-annotations:1.1 https://mvnrepository.com/artifact/com.google.j2objc/j2objc-annotations/1.1)
+     (Apache-2.0) listenablefuture (com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava https://mvnrepository.com/artifact/com.google.guava/listenablefuture/9999.0-empty-to-avoid-conflict-with-guava)
+
 
 ========================================================================
 MOZILLA PUBLIC LICENSE License
@@ -304,6 +311,8 @@ The text of each license is also included at licenses/LICENSE-[project].txt.
 
      (MIT License) slf4j-api (org.slf4j:slf4j-api:1.7.25 - http://www.slf4j.org)
      (MIT License) jcl-over-slf4j (org.slf4j:jcl-over-slf4j:1.7.25 - http://www.slf4j.org)
+     (MIT License) animal-sniffer-annotations (org.codehaus.mojo:animal-sniffer-annotations:1.17 - https://mvnrepository.com/artifact/org.codehaus.mojo/animal-sniffer-annotations/1.17)
+     (MIT License) checker-qual (org.checkerframework:checker-qual:3.10.0 - https://mvnrepository.com/)
 ========================================================================
 Public Domain License
 ========================================================================

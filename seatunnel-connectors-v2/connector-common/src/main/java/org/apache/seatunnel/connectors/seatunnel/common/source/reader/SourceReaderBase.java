@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.fetcher.SplitFetcherManager;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.splitreader.SplitReader;
 
@@ -116,13 +117,13 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
     public List<SplitT> snapshotState(long checkpointId) {
         List<SplitT> splits = new ArrayList<>();
         splitStates.forEach((id, context) -> splits.add(toSplitType(id, context.state)));
-        log.info("Snapshot state from splits: {}", splits);
+        log.debug("Snapshot state from splits: {}", splits);
         return splits;
     }
 
     @Override
     public void addSplits(List<SplitT> splits) {
-        log.info("Adding split(s) to reader: {}", splits);
+        log.debug("Adding split(s) to reader: {}", splits);
         splits.forEach(
                 split -> {
                     // Initialize the state for each split.
@@ -158,7 +159,12 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
         splitFetcherManager.checkErrors();
         RecordsWithSplitIds<E> recordsWithSplitId = elementsQueue.poll();
         if (recordsWithSplitId == null || !moveToNextSplit(recordsWithSplitId, output)) {
-            log.trace("Current fetch is finished.");
+            try {
+                log.trace("Current fetch is finished.");
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                throw new SeaTunnelException(e);
+            }
             return null;
         }
 

@@ -128,7 +128,7 @@ public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSourc
         ctx.offset = offsetContext;
 
         final BinlogOffset lowWatermark = currentBinlogOffset(jdbcConnection);
-        LOG.info(
+        LOG.debug(
                 "Snapshot step 1 - Determining low watermark {} for split {}",
                 lowWatermark,
                 snapshotSplit);
@@ -136,11 +136,11 @@ public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSourc
         dispatcher.dispatchWatermarkEvent(
                 offsetContext.getPartition(), snapshotSplit, lowWatermark, WatermarkKind.LOW);
 
-        LOG.info("Snapshot step 2 - Snapshotting data");
+        LOG.debug("Snapshot step 2 - Snapshotting data");
         createDataEvents(ctx, snapshotSplit.getTableId());
 
         final BinlogOffset highWatermark = currentBinlogOffset(jdbcConnection);
-        LOG.info(
+        LOG.debug(
                 "Snapshot step 3 - Determining high watermark {} for split {}",
                 highWatermark,
                 snapshotSplit);
@@ -182,7 +182,8 @@ public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSourc
             throws InterruptedException {
 
         long exportStart = clock.currentTimeInMillis();
-        LOG.info("Exporting data from split '{}' of table {}", snapshotSplit.splitId(), table.id());
+        LOG.debug(
+                "Exporting data from split '{}' of table {}", snapshotSplit.splitId(), table.id());
 
         final String selectSql =
                 buildSplitScanQuery(
@@ -190,7 +191,7 @@ public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSourc
                         snapshotSplit.getSplitKeyType(),
                         snapshotSplit.getSplitStart() == null,
                         snapshotSplit.getSplitEnd() == null);
-        LOG.info(
+        LOG.debug(
                 "For split '{}' of table {} using select statement: '{}'",
                 snapshotSplit.splitId(),
                 table.id(),
@@ -220,7 +221,7 @@ public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSourc
                 }
                 if (logTimer.expired()) {
                     long stop = clock.currentTimeInMillis();
-                    LOG.info(
+                    LOG.debug(
                             "Exported {} records for split '{}' after {}",
                             rows,
                             snapshotSplit.splitId(),
@@ -233,7 +234,7 @@ public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSourc
                         getChangeRecordEmitter(snapshotContext, table.id(), row),
                         snapshotReceiver);
             }
-            LOG.info(
+            LOG.debug(
                     "Finished exporting {} records for split '{}', total duration '{}'",
                     rows,
                     snapshotSplit.splitId(),
