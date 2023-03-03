@@ -64,6 +64,8 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
     private final DateTimeUtils.Formatter datetimeFormat = YYYY_MM_DD_HH_MM_SS;
     private final TimeUtils.Formatter timeFormat = TimeUtils.Formatter.HH_MM_SS;
 
+    private int[] indexes;
+
     @SneakyThrows
     @Override
     public void read(String path, Collector<SeaTunnelRow> output) {
@@ -78,13 +80,19 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                         ? workbook.getSheet(
                                 pluginConfig.getString(BaseSourceConfig.SHEET_NAME.key()))
                         : workbook.getSheetAt(0);
-        Row rowTitle = sheet.getRow(0);
-        int cellCount = rowTitle.getPhysicalNumberOfCells();
+        int cellCount = seaTunnelRowType.getTotalFields();
         cellCount = partitionsMap.isEmpty() ? cellCount : cellCount + partitionsMap.size();
         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(cellCount);
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
         int rowCount = sheet.getPhysicalNumberOfRows();
-        for (int i = 1; i < rowCount; i++) {
+        if (skipHeaderNumber > Integer.MAX_VALUE
+                || skipHeaderNumber < Integer.MIN_VALUE
+                || skipHeaderNumber > rowCount) {
+            throw new FileConnectorException(
+                    CommonErrorCode.UNSUPPORTED_OPERATION,
+                    "Skip the number of rows exceeds the maximum or minimum limit of Sheet");
+        }
+        for (int i = (int) skipHeaderNumber; i < rowCount; i++) {
             Row rowData = sheet.getRow(i);
             if (rowData != null) {
                 for (int j = 0; j < cellCount; j++) {
@@ -92,6 +100,8 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                     if (cell != null) {
                         seaTunnelRow.setField(
                                 j, convert(getCellValue(cell.getCellType(), cell), fieldTypes[j]));
+                    } else {
+                        seaTunnelRow.setField(j, null);
                     }
                 }
             }
@@ -102,6 +112,30 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                 }
             }
             output.collect(seaTunnelRow);
+        }
+    }
+
+    @Override
+    public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
+        SeaTunnelRowType userDefinedRowTypeWithPartition =
+                mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
+        // column projection
+        if (pluginConfig.hasPath(BaseSourceConfig.READ_COLUMNS.key())) {
+            // get the read column index from user-defined row type
+            indexes = new int[readColumns.size()];
+            String[] fields = new String[readColumns.size()];
+            SeaTunnelDataType<?>[] types = new SeaTunnelDataType[readColumns.size()];
+            for (int i = 0; i < indexes.length; i++) {
+                indexes[i] = seaTunnelRowType.indexOf(readColumns.get(i));
+                fields[i] = seaTunnelRowType.getFieldName(indexes[i]);
+                types[i] = seaTunnelRowType.getFieldType(indexes[i]);
+            }
+            this.seaTunnelRowType = new SeaTunnelRowType(fields, types);
+            this.seaTunnelRowTypeWithPartition =
+                    mergePartitionTypes(fileNames.get(0), this.seaTunnelRowType);
+        } else {
+            this.seaTunnelRowType = seaTunnelRowType;
+            this.seaTunnelRowTypeWithPartition = userDefinedRowTypeWithPartition;
         }
     }
 
