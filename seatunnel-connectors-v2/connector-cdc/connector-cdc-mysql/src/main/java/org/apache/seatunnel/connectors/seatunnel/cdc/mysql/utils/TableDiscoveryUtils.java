@@ -70,9 +70,9 @@ public class TableDiscoveryUtils {
                                 TableId tableId = new TableId(dbName, null, rs.getString(1));
                                 if (tableFilters.dataCollectionFilter().isIncluded(tableId)) {
                                     capturedTableIds.add(tableId);
-                                    LOG.info("\t including '{}' for further processing", tableId);
+                                    LOG.debug("\t including '{}' for further processing", tableId);
                                 } else {
-                                    LOG.info("\t '{}' is filtered out of capturing", tableId);
+                                    LOG.debug("\t '{}' is filtered out of capturing", tableId);
                                 }
                             }
                         });

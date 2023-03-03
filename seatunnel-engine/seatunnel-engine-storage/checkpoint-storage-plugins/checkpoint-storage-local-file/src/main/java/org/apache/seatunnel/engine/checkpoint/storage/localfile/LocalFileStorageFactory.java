@@ -34,7 +34,6 @@ import java.util.Map;
  * <p>deprecated: use @see org.apache.seatunnel.engine.checkpoint.storage.hdfs.HdfsStorageFactory
  * instead
  */
-@Deprecated
 @AutoService(CheckpointStorageFactory.class)
 public class LocalFileStorageFactory implements CheckpointStorageFactory {
 

@@ -32,7 +32,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class TaskGroupWithIntermediateBlockingQueue extends AbstractTaskGroupWithIntermediateQueue {
 
-    public static final int QUEUE_SIZE = 100000;
+    public static final int QUEUE_SIZE = 2048;
 
     public TaskGroupWithIntermediateBlockingQueue(
             TaskGroupLocation taskGroupLocation, String taskGroupName, Collection<Task> tasks) {

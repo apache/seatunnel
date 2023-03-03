@@ -118,6 +118,7 @@ public class PendingCheckpoint implements Checkpoint {
             TaskLocation taskLocation,
             List<ActionSubtaskState> states,
             SubtaskStatus subtaskStatus) {
+        LOG.debug("acknowledgeTask states [{}]", states);
         boolean exist = notYetAcknowledgedTasks.remove(taskLocation.getTaskID());
         if (!exist) {
             return;

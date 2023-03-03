@@ -39,6 +39,7 @@ import io.debezium.util.SchemaNameAdjuster;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -339,8 +340,12 @@ public class MySqlUtils {
             throws SQLException {
         final Connection connection = jdbc.connection();
         connection.setAutoCommit(false);
-        final PreparedStatement statement = connection.prepareStatement(sql);
-        statement.setFetchSize(fetchSize);
+        final PreparedStatement statement =
+                connection.prepareStatement(
+                        sql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+        if (fetchSize == 0) {
+            statement.setFetchSize(Integer.MIN_VALUE);
+        }
         return statement;
     }
 

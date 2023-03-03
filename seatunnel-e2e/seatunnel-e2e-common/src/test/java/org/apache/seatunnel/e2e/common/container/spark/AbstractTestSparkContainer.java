@@ -27,12 +27,15 @@ import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 
+@Slf4j
 public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
 
     private static final String DEFAULT_DOCKER_IMAGE = "bitnami/spark:2.4.6";
@@ -90,6 +93,7 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
 
     public Container.ExecResult executeJob(String confFile)
             throws IOException, InterruptedException {
+        log.info("test in container: {}", identifier());
         return executeJob(master, confFile);
     }
 }
