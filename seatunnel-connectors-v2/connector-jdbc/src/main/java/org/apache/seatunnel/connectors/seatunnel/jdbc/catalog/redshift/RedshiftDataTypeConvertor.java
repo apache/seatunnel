@@ -29,51 +29,51 @@ public class RedshiftDataTypeConvertor implements DataTypeConvertor<String> {
     public static final Integer DEFAULT_SCALE = 0;
 
     /* ============================ data types ===================== */
-    private static final String REDSHIFT_SMALLINT = "SMALLINT";
-    private static final String REDSHIFT_INT2 = "INT2";
-    private static final String REDSHIFT_INTEGER = "INTEGER";
-    private static final String REDSHIFT_INT = "INT";
-    private static final String REDSHIFT_INT4 = "INT4";
-    private static final String REDSHIFT_BIGINT = "BIGINT";
-    private static final String REDSHIFT_INT8 = "INT8";
+    private static final String REDSHIFT_SMALLINT = "smallint";
+    private static final String REDSHIFT_INT2 = "int2";
+    private static final String REDSHIFT_INTEGER = "integer";
+    private static final String REDSHIFT_INT = "int";
+    private static final String REDSHIFT_INT4 = "int4";
+    private static final String REDSHIFT_BIGINT = "bigint";
+    private static final String REDSHIFT_INT8 = "int8";
 
-    private static final String REDSHIFT_DECIMAL = "DECIMAL";
-    private static final String REDSHIFT_NUMERIC = "NUMERIC";
-    private static final String REDSHIFT_REAL = "REAL";
-    private static final String REDSHIFT_FLOAT4 = "FLOAT4";
-    private static final String REDSHIFT_DOUBLE_PRECISION = "DOUBLE PRECISION";
-    private static final String REDSHIFT_FLOAT8 = "FLOAT8";
-    private static final String REDSHIFT_FLOAT = "FLOAT";
+    private static final String REDSHIFT_DECIMAL = "decimal";
+    private static final String REDSHIFT_NUMERIC = "numeric";
+    private static final String REDSHIFT_REAL = "real";
+    private static final String REDSHIFT_FLOAT4 = "float4";
+    private static final String REDSHIFT_DOUBLE_PRECISION = "double precision";
+    private static final String REDSHIFT_FLOAT8 = "float8";
+    private static final String REDSHIFT_FLOAT = "float";
 
-    private static final String REDSHIFT_BOOLEAN = "BOOLEAN";
-    private static final String REDSHIFT_BOOL = "BOOL";
+    private static final String REDSHIFT_BOOLEAN = "boolean";
+    private static final String REDSHIFT_BOOL = "bool";
 
-    private static final String REDSHIFT_CHAR = "CHAR";
-    private static final String REDSHIFT_CHARACTER = "CHARACTER";
-    private static final String REDSHIFT_NCHAR = "NCHAR";
-    private static final String REDSHIFT_BPCHAR = "BPCHAR";
+    private static final String REDSHIFT_CHAR = "char";
+    private static final String REDSHIFT_CHARACTER = "character";
+    private static final String REDSHIFT_NCHAR = "nchar";
+    private static final String REDSHIFT_BPCHAR = "bpchar";
 
-    private static final String REDSHIFT_VARCHAR = "VARCHAR";
-    private static final String REDSHIFT_CHARACTER_VARYING = "CHARACTER VARYING";
-    private static final String REDSHIFT_NVARCHAR = "NVARCHAR";
-    private static final String REDSHIFT_TEXT = "TEXT";
+    private static final String REDSHIFT_VARCHAR = "varchar";
+    private static final String REDSHIFT_CHARACTER_VARYING = "character varying";
+    private static final String REDSHIFT_NVARCHAR = "nvarchar";
+    private static final String REDSHIFT_TEXT = "text";
 
-    private static final String REDSHIFT_DATE = "DATE";
+    private static final String REDSHIFT_DATE = "date";
     /*FIXME*/
 
-    private static final String REDSHIFT_GEOMETRY = "GEOMETRY";
-    private static final String REDSHIFT_OID = "OID";
-    private static final String REDSHIFT_SUPER = "SUPER";
+    private static final String REDSHIFT_GEOMETRY = "geometry";
+    private static final String REDSHIFT_OID = "oid";
+    private static final String REDSHIFT_SUPER = "super";
 
-    private static final String REDSHIFT_TIME = "TIME";
-    private static final String REDSHIFT_TIME_WITH_TIME_ZONE = "TIME WITH TIME ZONE";
+    private static final String REDSHIFT_TIME = "time";
+    private static final String REDSHIFT_TIME_WITH_TIME_ZONE = "time with time zone";
 
-    private static final String REDSHIFT_TIMETZ = "TIMETZ";
-    private static final String REDSHIFT_TIMESTAMP = "TIMESTAMP";
+    private static final String REDSHIFT_TIMETZ = "timetz";
+    private static final String REDSHIFT_TIMESTAMP = "timestamp";
     private static final String REDSHIFT_TIMESTAMP_WITH_OUT_TIME_ZONE =
-            "TIMESTAMP WITHOUT TIME ZONE";
+        "timestamp without time zone";
 
-    private static final String REDSHIFT_TIMESTAMPTZ = "TIMESTAMPTZ";
+    private static final String REDSHIFT_TIMESTAMPTZ = "timestamptz";
 
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(String connectorDataType) {
