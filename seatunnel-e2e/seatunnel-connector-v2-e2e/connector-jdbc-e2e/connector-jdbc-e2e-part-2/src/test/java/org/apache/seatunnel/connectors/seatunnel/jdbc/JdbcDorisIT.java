@@ -245,8 +245,9 @@ public class DorisIT extends TestSuiteBase implements TestResource {
         try {
             assertHasData(SINK_TABLE);
 
-            String sourceSql = String.format("select * from %s.%s", DATABASE, SOURCE_TABLE);
-            String sinkSql = String.format("select * from %s.%s", DATABASE, SINK_TABLE);
+            String sourceSql =
+                    String.format("select * from %s.%s order by 1", DATABASE, SOURCE_TABLE);
+            String sinkSql = String.format("select * from %s.%s order by 1", DATABASE, SINK_TABLE);
             List<String> columnList =
                     Arrays.stream(COLUMN_STRING.split(","))
                             .map(x -> x.trim())
