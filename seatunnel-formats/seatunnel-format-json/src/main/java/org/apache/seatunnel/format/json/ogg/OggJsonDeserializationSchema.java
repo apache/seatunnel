@@ -101,7 +101,9 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
 
     @Override
     public SeaTunnelRow deserialize(byte[] message) throws IOException {
-        throw new UnsupportedOperationException();
+        throw new SeaTunnelJsonFormatException(
+                CommonErrorCode.JSON_OPERATION_FAILED,
+                String.format("Failed to deserialize JSON '%s'.", new String(message)));
     }
 
     @Override
@@ -185,7 +187,7 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
     private JsonNode convertBytes(byte[] message) {
         try {
             return jsonDeserializer.deserializeToJsonNode(message);
-        } catch (Throwable t) {
+        } catch (Exception t) {
             if (ignoreParseErrors) {
                 return null;
             }

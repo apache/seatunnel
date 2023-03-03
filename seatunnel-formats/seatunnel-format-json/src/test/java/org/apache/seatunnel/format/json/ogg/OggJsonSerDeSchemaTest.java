@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -151,7 +152,7 @@ public class OggJsonSerDeSchemaTest {
 
     private static List<String> readLines(String resource) throws IOException {
         final URL url = OggJsonSerDeSchemaTest.class.getClassLoader().getResource(resource);
-        assert url != null;
+        Assertions.assertNotNull(url);
         Path path = new File(url.getFile()).toPath();
         return Files.readAllLines(path);
     }

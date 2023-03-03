@@ -106,6 +106,8 @@ Kafka distinguishes different transactions by different transactionId. This para
 
 ### format
 
+Data format. The default format is json. Optional text format. The default field separator is ",".
+If you customize the delimiter, add the "field_delimiter" option.
 If you use ogg format, please refer to [ogg-json](../formats/ogg-json.md) for details.
 
 ### field_delimiter
