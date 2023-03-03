@@ -99,7 +99,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
         if (pluginConfig.hasPath(BaseSourceConfig.DELIMITER.key())) {
             fieldDelimiter = pluginConfig.getString(BaseSourceConfig.DELIMITER.key());
         } else {
-            FileFormat fileFormat = FileFormat.valueOf(pluginConfig.getString(BaseSourceConfig.FILE_TYPE.key()).toUpperCase());
+            FileFormat fileFormat = FileFormat.valueOf(pluginConfig.getString(BaseSourceConfig.FILE_FORMAT_TYPE.key()).toUpperCase());
             if (fileFormat == FileFormat.CSV) {
                 fieldDelimiter = ",";
             }

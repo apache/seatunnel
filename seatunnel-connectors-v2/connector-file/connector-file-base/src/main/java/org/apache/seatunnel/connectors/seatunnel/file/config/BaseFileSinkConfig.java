@@ -73,9 +73,9 @@ public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
             this.fileNameExpression = config.getString(BaseSinkConfig.FILE_NAME_EXPRESSION.key());
         }
 
-        if (config.hasPath(BaseSinkConfig.FILE_FORMAT.key()) &&
-                !StringUtils.isBlank(config.getString(BaseSinkConfig.FILE_FORMAT.key()))) {
-            this.fileFormat = FileFormat.valueOf(config.getString(BaseSinkConfig.FILE_FORMAT.key()).toUpperCase(Locale.ROOT));
+        if (config.hasPath(BaseSinkConfig.FILE_FORMAT_TYPE.key()) &&
+                !StringUtils.isBlank(config.getString(BaseSinkConfig.FILE_FORMAT_TYPE.key()))) {
+            this.fileFormat = FileFormat.valueOf(config.getString(BaseSinkConfig.FILE_FORMAT_TYPE.key()).toUpperCase(Locale.ROOT));
         }
 
         if (config.hasPath(BaseSinkConfig.DATE_FORMAT.key())) {

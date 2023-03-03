@@ -51,7 +51,7 @@ public class OssFileSource extends BaseFileSource {
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig,
-                OssConfig.FILE_PATH.key(), OssConfig.FILE_TYPE.key(),
+                OssConfig.FILE_PATH.key(), OssConfig.FILE_FORMAT_TYPE.key(),
                 OssConfig.BUCKET.key(), OssConfig.ACCESS_KEY.key(),
                 OssConfig.ACCESS_SECRET.key(), OssConfig.BUCKET.key());
         if (!result.isSuccess()) {
@@ -59,7 +59,7 @@ public class OssFileSource extends BaseFileSource {
                     String.format("PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
-        readStrategy = ReadStrategyFactory.of(pluginConfig.getString(OssConfig.FILE_TYPE.key()));
+        readStrategy = ReadStrategyFactory.of(pluginConfig.getString(OssConfig.FILE_FORMAT_TYPE.key()));
         readStrategy.setPluginConfig(pluginConfig);
         String path = pluginConfig.getString(OssConfig.FILE_PATH.key());
         hadoopConf = OssConf.buildWithConfig(pluginConfig);
@@ -70,7 +70,7 @@ public class OssFileSource extends BaseFileSource {
             throw new FileConnectorException(FileConnectorErrorCode.FILE_LIST_GET_FAILED, errorMsg, e);
         }
         // support user-defined schema
-        FileFormat fileFormat = FileFormat.valueOf(pluginConfig.getString(OssConfig.FILE_TYPE.key()).toUpperCase());
+        FileFormat fileFormat = FileFormat.valueOf(pluginConfig.getString(OssConfig.FILE_FORMAT_TYPE.key()).toUpperCase());
         // only json text csv type support user-defined schema now
         if (pluginConfig.hasPath(CatalogTableUtil.SCHEMA.key())) {
             switch (fileFormat) {

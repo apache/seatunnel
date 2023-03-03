@@ -46,9 +46,9 @@ public class FtpFileSourceFactory implements TableSourceFactory {
             .required(FtpConfig.FTP_PORT)
             .required(FtpConfig.FTP_USERNAME)
             .required(FtpConfig.FTP_PASSWORD)
-            .required(FtpConfig.FILE_TYPE)
-            .conditional(BaseSourceConfig.FILE_TYPE, FileFormat.TEXT, BaseSourceConfig.DELIMITER)
-            .conditional(BaseSourceConfig.FILE_TYPE, Arrays.asList(FileFormat.TEXT, FileFormat.JSON),
+            .required(FtpConfig.FILE_FORMAT_TYPE)
+            .conditional(BaseSourceConfig.FILE_FORMAT_TYPE, FileFormat.TEXT, BaseSourceConfig.DELIMITER)
+            .conditional(BaseSourceConfig.FILE_FORMAT_TYPE, Arrays.asList(FileFormat.TEXT, FileFormat.JSON),
                 CatalogTableUtil.SCHEMA)
             .optional(BaseSourceConfig.PARSE_PARTITION_FROM_PATH)
             .optional(BaseSourceConfig.DATE_FORMAT)

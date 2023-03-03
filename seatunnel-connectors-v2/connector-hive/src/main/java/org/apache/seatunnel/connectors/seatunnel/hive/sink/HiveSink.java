@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.hive.sink;
 
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FIELD_DELIMITER;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FILE_FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FILE_FORMAT_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FILE_NAME_EXPRESSION;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FILE_PATH;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.IS_PARTITION_FIELD_WRITE_IN_FILE;
@@ -103,13 +103,13 @@ public class HiveSink extends BaseHdfsFileSink {
         String outputFormat = tableInformation.getSd().getOutputFormat();
         if (TEXT_OUTPUT_FORMAT_CLASSNAME.equals(outputFormat)) {
             Map<String, String> parameters = tableInformation.getSd().getSerdeInfo().getParameters();
-            pluginConfig = pluginConfig.withValue(FILE_FORMAT.key(), ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()))
+            pluginConfig = pluginConfig.withValue(FILE_FORMAT_TYPE.key(), ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()))
                 .withValue(FIELD_DELIMITER.key(), ConfigValueFactory.fromAnyRef(parameters.get("field.delim")))
                 .withValue(ROW_DELIMITER.key(), ConfigValueFactory.fromAnyRef(parameters.get("line.delim")));
         } else if (PARQUET_OUTPUT_FORMAT_CLASSNAME.equals(outputFormat)) {
-            pluginConfig = pluginConfig.withValue(FILE_FORMAT.key(), ConfigValueFactory.fromAnyRef(FileFormat.PARQUET.toString()));
+            pluginConfig = pluginConfig.withValue(FILE_FORMAT_TYPE.key(), ConfigValueFactory.fromAnyRef(FileFormat.PARQUET.toString()));
         } else if (ORC_OUTPUT_FORMAT_CLASSNAME.equals(outputFormat)) {
-            pluginConfig = pluginConfig.withValue(FILE_FORMAT.key(), ConfigValueFactory.fromAnyRef(FileFormat.ORC.toString()));
+            pluginConfig = pluginConfig.withValue(FILE_FORMAT_TYPE.key(), ConfigValueFactory.fromAnyRef(FileFormat.ORC.toString()));
         } else {
             throw new HiveConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
                     "Hive connector only support [text parquet orc] table now");

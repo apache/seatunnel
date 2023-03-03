@@ -39,13 +39,13 @@ public class HdfsFileSinkFactory implements TableSinkFactory {
         return OptionRule.builder()
             .required(HdfsSourceConfig.DEFAULT_FS)
             .required(BaseSinkConfig.FILE_PATH)
-            .optional(BaseSinkConfig.FILE_FORMAT)
-            .conditional(BaseSinkConfig.FILE_FORMAT, FileFormat.TEXT, BaseSinkConfig.ROW_DELIMITER,
+            .optional(BaseSinkConfig.FILE_FORMAT_TYPE)
+            .conditional(BaseSinkConfig.FILE_FORMAT_TYPE, FileFormat.TEXT, BaseSinkConfig.ROW_DELIMITER,
                 BaseSinkConfig.FIELD_DELIMITER, BaseSinkConfig.TXT_COMPRESS)
-            .conditional(BaseSinkConfig.FILE_FORMAT, FileFormat.CSV, BaseSinkConfig.TXT_COMPRESS)
-            .conditional(BaseSinkConfig.FILE_FORMAT, FileFormat.JSON, BaseSinkConfig.TXT_COMPRESS)
-            .conditional(BaseSinkConfig.FILE_FORMAT, FileFormat.ORC, BaseSinkConfig.ORC_COMPRESS)
-            .conditional(BaseSinkConfig.FILE_FORMAT, FileFormat.PARQUET, BaseSinkConfig.PARQUET_COMPRESS)
+            .conditional(BaseSinkConfig.FILE_FORMAT_TYPE, FileFormat.CSV, BaseSinkConfig.TXT_COMPRESS)
+            .conditional(BaseSinkConfig.FILE_FORMAT_TYPE, FileFormat.JSON, BaseSinkConfig.TXT_COMPRESS)
+            .conditional(BaseSinkConfig.FILE_FORMAT_TYPE, FileFormat.ORC, BaseSinkConfig.ORC_COMPRESS)
+            .conditional(BaseSinkConfig.FILE_FORMAT_TYPE, FileFormat.PARQUET, BaseSinkConfig.PARQUET_COMPRESS)
             .optional(BaseSinkConfig.CUSTOM_FILENAME)
             .conditional(BaseSinkConfig.CUSTOM_FILENAME, true, BaseSinkConfig.FILE_NAME_EXPRESSION,
                 BaseSinkConfig.FILENAME_TIME_FORMAT)

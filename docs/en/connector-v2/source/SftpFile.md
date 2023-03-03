@@ -22,7 +22,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 - [ ] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
-- [x] file format
+- [x] file format type
     - [x] text
     - [x] csv
     - [x] json
@@ -36,7 +36,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | user                      | string  | yes      | -                   |
 | password                  | string  | yes      | -                   |
 | path                      | string  | yes      | -                   |
-| type                      | string  | yes      | -                   |
+| file_format_type                      | string  | yes      | -                   |
 | delimiter                 | string  | no       | \001                |
 | parse_partition_from_path | boolean | no       | true                |
 | date_format               | string  | no       | yyyy-MM-dd          |
@@ -124,7 +124,7 @@ then Seatunnel will skip the first 2 lines from source files
 
 The schema information of upstream data.
 
-### type [string]
+### file_format_type [string]
 
 File type, supported as the following file types:
 
@@ -216,7 +216,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
     port = 21
     user = tyrantlucifer
     password = tianchao
-    type = "text"
+    file_format_type = "text"
     schema = {
       name = string
       age = int

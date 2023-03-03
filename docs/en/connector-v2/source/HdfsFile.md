@@ -25,7 +25,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 - [ ] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
-- [x] file format
+- [x] file format file
   - [x] text
   - [x] csv
   - [x] parquet
@@ -37,7 +37,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | name                      | type    | required | default value       |
 |---------------------------|---------|----------|---------------------|
 | path                      | string  | yes      | -                   |
-| type                      | string  | yes      | -                   |
+| file_format_type          | string  | yes      | -                   |
 | fs.defaultFS              | string  | yes      | -                   |
 | hdfs_site_path            | string  | no       | -                   |
 | delimiter                 | string  | no       | \001                |
@@ -109,7 +109,7 @@ For example, set like following:
 
 then Seatunnel will skip the first 2 lines from source files
 
-### type [string]
+### file_format_type [string]
 
 File type, supported as the following file types:
 
@@ -230,7 +230,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 
 HdfsFile {
   path = "/apps/hive/demo/student"
-  type = "parquet"
+  file_format_type = "parquet"
   fs.defaultFS = "hdfs://namenode001"
 }
 
