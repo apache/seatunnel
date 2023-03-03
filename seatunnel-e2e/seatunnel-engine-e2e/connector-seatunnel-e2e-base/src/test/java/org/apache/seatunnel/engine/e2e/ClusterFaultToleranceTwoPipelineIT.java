@@ -406,7 +406,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
     @Disabled
     public void testFor() throws ExecutionException, InterruptedException {
         for (int i = 0; i < 200; i++) {
-            testTwoPipelineBatchJobRestoreIn2NodeWorkerDown();
+            testTwoPipelineStreamJobRestoreIn2NodeMasterDown();
         }
     }
 
