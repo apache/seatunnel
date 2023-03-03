@@ -89,13 +89,13 @@ public class HiveSource extends BaseHdfsFileSource {
         tableInformation = tableInfo.getRight();
         String inputFormat = tableInformation.getSd().getInputFormat();
         if (TEXT_INPUT_FORMAT_CLASSNAME.equals(inputFormat)) {
-            pluginConfig = pluginConfig.withValue(BaseSourceConfig.FILE_TYPE.key(),
+            pluginConfig = pluginConfig.withValue(BaseSourceConfig.FILE_FORMAT_TYPE.key(),
                     ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()));
         } else if (PARQUET_INPUT_FORMAT_CLASSNAME.equals(inputFormat)) {
-            pluginConfig = pluginConfig.withValue(BaseSourceConfig.FILE_TYPE.key(),
+            pluginConfig = pluginConfig.withValue(BaseSourceConfig.FILE_FORMAT_TYPE.key(),
                     ConfigValueFactory.fromAnyRef(FileFormat.PARQUET.toString()));
         } else if (ORC_INPUT_FORMAT_CLASSNAME.equals(inputFormat)) {
-            pluginConfig = pluginConfig.withValue(BaseSourceConfig.FILE_TYPE.key(),
+            pluginConfig = pluginConfig.withValue(BaseSourceConfig.FILE_FORMAT_TYPE.key(),
                     ConfigValueFactory.fromAnyRef(FileFormat.ORC.toString()));
         } else {
             throw new HiveConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,

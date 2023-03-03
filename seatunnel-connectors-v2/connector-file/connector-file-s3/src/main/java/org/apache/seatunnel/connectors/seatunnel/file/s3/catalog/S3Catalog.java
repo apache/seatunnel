@@ -69,10 +69,10 @@ public class S3Catalog implements Catalog {
 
     @Override
     public void open() throws CatalogException {
-        ReadStrategy readStrategy = ReadStrategyFactory.of(s3Config.getString(S3Config.FILE_TYPE.key()));
+        ReadStrategy readStrategy = ReadStrategyFactory.of(s3Config.getString(S3Config.FILE_FORMAT_TYPE.key()));
         readStrategy.setPluginConfig(s3Config);
         this.defaultDatabase = s3Config.getString(S3Config.FILE_PATH.key());
-        readStrategy = ReadStrategyFactory.of(s3Config.getString(S3Config.FILE_TYPE.key()));
+        readStrategy = ReadStrategyFactory.of(s3Config.getString(S3Config.FILE_FORMAT_TYPE.key()));
         readStrategy.setPluginConfig(s3Config);
         try {
             fileSystem = FileSystem.get(readStrategy.getConfiguration(S3Conf.buildWithConfig(s3Config)));

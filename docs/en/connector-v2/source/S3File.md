@@ -27,7 +27,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 - [ ] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
-- [x] file format
+- [x] file format type
   - [x] text
   - [x] csv
   - [x] parquet
@@ -39,7 +39,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | name                            | type    | required | default value                                         |
 |---------------------------------|---------|----------|-------------------------------------------------------|
 | path                            | string  | yes      | -                                                     |
-| type                            | string  | yes      | -                                                     |
+| file_format_type                            | string  | yes      | -                                                     |
 | bucket                          | string  | yes      | -                                                     |
 | fs.s3a.endpoint                 | string  | yes      | -                                                     |
 | fs.s3a.aws.credentials.provider | string  | yes      | com.amazonaws.auth.InstanceProfileCredentialsProvider |
@@ -121,7 +121,7 @@ For example, set like following:
 
 then Seatunnel will skip the first 2 lines from source files
 
-### type [string]
+### file_format_type [string]
 
 File type, supported as the following file types:
 
@@ -251,7 +251,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
     access_key = "xxxxxxxxxxxxxxxxx"
     secret_key = "xxxxxxxxxxxxxxxxx"
     bucket = "s3a://seatunnel-test"
-    type = "orc"
+    file_format_type = "orc"
   }
 
 ```
@@ -263,7 +263,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
     bucket = "s3a://seatunnel-test"
     fs.s3a.endpoint="s3.cn-north-1.amazonaws.com.cn"
     fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
-    type = "json"
+    file_format_type = "json"
     schema {
       fields {
         id = int 

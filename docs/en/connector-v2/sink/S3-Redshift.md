@@ -18,7 +18,7 @@ Output data to AWS Redshift.
 
 By default, we use 2PC commit to ensure `exactly-once`
 
-- [x] file format
+- [x] file format type
     - [x] text
     - [x] csv
     - [x] parquet
@@ -39,7 +39,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | access_secret                    | string  | no       | -                                                         |
 | hadoop_s3_properties             | map     | no       | -                                                         |
 | file_name_expression             | string  | no       | "${transactionId}"                                        |
-| file_format                      | string  | no       | "text"                                                    |
+| file_format_type                 | string  | no       | "text"                                                    |
 | filename_time_format             | string  | no       | "yyyy.MM.dd"                                              |
 | field_delimiter                  | string  | no       | '\001'                                                    |
 | row_delimiter                    | string  | no       | "\n"                                                      |
@@ -117,7 +117,7 @@ If you need to add a other option, you could add it here and refer to this [Hado
 
 Please note that, If `is_enable_transaction` is `true`, we will auto add `${transactionId}_` in the head of the file.
 
-### file_format [string]
+### file_format_type [string]
 
 We supported as the following file types:
 
@@ -205,7 +205,7 @@ For text file format
     partition_dir_expression="${k0}=${v0}"
     is_partition_field_write_in_file=true
     file_name_expression="${transactionId}_${now}"
-    file_format="text"
+    file_format_type = "text"
     filename_time_format="yyyy.MM.dd"
     is_enable_transaction=true
     hadoop_s3_properties {
@@ -233,7 +233,7 @@ For parquet file format
     partition_dir_expression="${k0}=${v0}"
     is_partition_field_write_in_file=true
     file_name_expression="${transactionId}_${now}"
-    file_format="parquet"
+    file_format_type = "parquet"
     filename_time_format="yyyy.MM.dd"
     is_enable_transaction=true
     hadoop_s3_properties {
@@ -261,7 +261,7 @@ For orc file format
     partition_dir_expression="${k0}=${v0}"
     is_partition_field_write_in_file=true
     file_name_expression="${transactionId}_${now}"
-    file_format="orc"
+    file_format_type = "orc"
     filename_time_format="yyyy.MM.dd"
     is_enable_transaction=true
     hadoop_s3_properties {

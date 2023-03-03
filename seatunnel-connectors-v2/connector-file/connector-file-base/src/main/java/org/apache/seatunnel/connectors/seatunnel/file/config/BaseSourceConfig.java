@@ -26,10 +26,10 @@ import org.apache.seatunnel.common.utils.TimeUtils;
 import java.util.List;
 
 public class BaseSourceConfig {
-    public static final Option<FileFormat> FILE_TYPE = Options.key("type")
+    public static final Option<FileFormat> FILE_FORMAT_TYPE = Options.key("file_format_type")
             .objectType(FileFormat.class)
             .noDefaultValue()
-            .withDescription("File type");
+            .withDescription("File format type, e.g. json, csv, text, parquet, orc, avro....");
 
     public static final Option<String> FILE_PATH = Options.key("path")
             .stringType()
