@@ -18,9 +18,9 @@
 package org.apache.seatunnel.engine.server.checkpoint.operation;
 
 import org.apache.seatunnel.common.utils.RetryUtils;
-import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.CheckpointDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.AbstractTask;
@@ -58,7 +58,7 @@ public class NotifyTaskStartOperation extends TaskOperation {
                         Constant.OPERATION_RETRY_TIME,
                         true,
                         exception ->
-                                exception instanceof SeaTunnelException
+                                exception instanceof TaskGroupContextNotFoundException
                                         && !server.taskIsEnded(taskLocation.getTaskGroupLocation()),
                         Constant.OPERATION_RETRY_SLEEP));
     }

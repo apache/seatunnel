@@ -235,10 +235,10 @@ public class SeaTunnelServer
             return RetryUtils.retryWithException(
                     () -> nodeEngine.getMasterAddress().equals(nodeEngine.getThisAddress()),
                     new RetryUtils.RetryMaterial(
-                            20,
+                            Constant.OPERATION_RETRY_TIME,
                             true,
                             exception -> exception instanceof NullPointerException && isRunning,
-                            1000));
+                            Constant.OPERATION_RETRY_SLEEP));
         } catch (InterruptedException e) {
             LOGGER.info("master node check interrupted");
             return false;
