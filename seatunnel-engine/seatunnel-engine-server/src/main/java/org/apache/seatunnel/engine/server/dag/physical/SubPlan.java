@@ -184,6 +184,7 @@ public class SubPlan {
                                     pipelineStatus = PipelineStatus.FAILED;
                                     errorByPhysicalVertex.set(
                                             ExceptionUtils.getMessage(checkpointThrowable));
+                                    checkpointThrowable = null;
                                 } else {
                                     pipelineStatus = PipelineStatus.CANCELED;
                                 }
