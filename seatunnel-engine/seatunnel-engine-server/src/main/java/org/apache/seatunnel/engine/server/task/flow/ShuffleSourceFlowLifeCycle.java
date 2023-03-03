@@ -64,9 +64,12 @@ public class ShuffleSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle
 
     @Override
     public void collect(Collector<Record<?>> collector) throws Exception {
+        int emptyShuffleQueueCount = 0;
+
         for (int i = 0; i < shuffles.length; i++) {
             IQueue<Record<?>> shuffleQueue = shuffles[i];
             if (shuffleQueue.size() == 0) {
+                emptyShuffleQueueCount++;
                 continue;
             }
             // aligned barrier
@@ -81,9 +84,9 @@ public class ShuffleSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle
             } else if (unsentBuffer != null && !unsentBuffer.isEmpty()) {
                 shuffleBatch = unsentBuffer;
                 unsentBuffer = null;
-            } else if (shuffleQueue.drainTo(shuffleBatch, shuffleBatchSize) == 0) {
-                shuffleBatch.add(shuffleQueue.take());
             }
+
+            shuffleQueue.drainTo(shuffleBatch, shuffleBatchSize);
 
             for (int recordIndex = 0; recordIndex < shuffleBatch.size(); recordIndex++) {
                 Record<?> record = shuffleBatch.get(recordIndex);
@@ -125,6 +128,10 @@ public class ShuffleSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle
                     collector.collect(record);
                 }
             }
+        }
+
+        if (emptyShuffleQueueCount == shuffles.length) {
+            Thread.sleep(100);
         }
     }
 

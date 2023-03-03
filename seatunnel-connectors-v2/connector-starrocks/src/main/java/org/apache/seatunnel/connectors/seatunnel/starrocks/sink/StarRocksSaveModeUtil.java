@@ -37,10 +37,13 @@ public class StarRocksSaveModeUtil {
 
     public static String fillingCreateSql(
             String template, String database, String table, TableSchema tableSchema) {
-        String primaryKey =
-                tableSchema.getPrimaryKey().getColumnNames().stream()
-                        .map(r -> "`" + r + "`")
-                        .collect(Collectors.joining(","));
+        String primaryKey = "";
+        if (tableSchema.getPrimaryKey() != null) {
+            primaryKey =
+                    tableSchema.getPrimaryKey().getColumnNames().stream()
+                            .map(r -> "`" + r + "`")
+                            .collect(Collectors.joining(","));
+        }
 
         Map<String, CreateTableParser.ColumnInfo> columnInTemplate =
                 CreateTableParser.getColumnList(template);
