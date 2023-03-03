@@ -45,7 +45,7 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
                         HdfsSourceConfig.FILE_PATH.key(),
-                        HdfsSourceConfig.FILE_TYPE.key(),
+                        HdfsSourceConfig.FILE_FORMAT_TYPE.key(),
                         HdfsSourceConfig.DEFAULT_FS.key());
         if (!result.isSuccess()) {
             throw new FileConnectorException(
@@ -55,7 +55,8 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         readStrategy =
-                ReadStrategyFactory.of(pluginConfig.getString(HdfsSourceConfig.FILE_TYPE.key()));
+                ReadStrategyFactory.of(
+                        pluginConfig.getString(HdfsSourceConfig.FILE_FORMAT_TYPE.key()));
         readStrategy.setPluginConfig(pluginConfig);
         String path = pluginConfig.getString(HdfsSourceConfig.FILE_PATH.key());
         hadoopConf = new HadoopConf(pluginConfig.getString(HdfsSourceConfig.DEFAULT_FS.key()));
@@ -87,7 +88,9 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
         // support user-defined schema
         FileFormat fileFormat =
                 FileFormat.valueOf(
-                        pluginConfig.getString(HdfsSourceConfig.FILE_TYPE.key()).toUpperCase());
+                        pluginConfig
+                                .getString(HdfsSourceConfig.FILE_FORMAT_TYPE.key())
+                                .toUpperCase());
         // only json text csv type support user-defined schema now
         if (pluginConfig.hasPath(CatalogTableUtil.SCHEMA.key())) {
             switch (fileFormat) {

@@ -57,7 +57,7 @@ public class LocalFileSource extends BaseFileSource {
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
                         LocalSourceConfig.FILE_PATH.key(),
-                        LocalSourceConfig.FILE_TYPE.key());
+                        LocalSourceConfig.FILE_FORMAT_TYPE.key());
         if (!result.isSuccess()) {
             throw new FileConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -66,7 +66,8 @@ public class LocalFileSource extends BaseFileSource {
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         readStrategy =
-                ReadStrategyFactory.of(pluginConfig.getString(LocalSourceConfig.FILE_TYPE.key()));
+                ReadStrategyFactory.of(
+                        pluginConfig.getString(LocalSourceConfig.FILE_FORMAT_TYPE.key()));
         readStrategy.setPluginConfig(pluginConfig);
         String path = pluginConfig.getString(LocalSourceConfig.FILE_PATH.key());
         hadoopConf = new LocalConf(CommonConfigurationKeys.FS_DEFAULT_NAME_DEFAULT);
@@ -80,7 +81,9 @@ public class LocalFileSource extends BaseFileSource {
         // support user-defined schema
         FileFormat fileFormat =
                 FileFormat.valueOf(
-                        pluginConfig.getString(LocalSourceConfig.FILE_TYPE.key()).toUpperCase());
+                        pluginConfig
+                                .getString(LocalSourceConfig.FILE_FORMAT_TYPE.key())
+                                .toUpperCase());
         // only json text csv type support user-defined schema now
         if (pluginConfig.hasPath(CatalogTableUtil.SCHEMA.key())) {
             switch (fileFormat) {

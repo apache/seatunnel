@@ -144,7 +144,9 @@ public class TextReadStrategy extends AbstractReadStrategy {
         } else {
             FileFormat fileFormat =
                     FileFormat.valueOf(
-                            pluginConfig.getString(BaseSourceConfig.FILE_TYPE.key()).toUpperCase());
+                            pluginConfig
+                                    .getString(BaseSourceConfig.FILE_FORMAT_TYPE.key())
+                                    .toUpperCase());
             if (fileFormat == FileFormat.CSV) {
                 fieldDelimiter = ",";
             }

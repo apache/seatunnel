@@ -54,7 +54,7 @@ public class FtpFileSource extends BaseFileSource {
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
                         FtpConfig.FILE_PATH.key(),
-                        FtpConfig.FILE_TYPE.key(),
+                        FtpConfig.FILE_FORMAT_TYPE.key(),
                         FtpConfig.FTP_HOST.key(),
                         FtpConfig.FTP_PORT.key(),
                         FtpConfig.FTP_USERNAME.key(),
@@ -67,13 +67,15 @@ public class FtpFileSource extends BaseFileSource {
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         FileFormat fileFormat =
-                FileFormat.valueOf(pluginConfig.getString(FtpConfig.FILE_TYPE.key()).toUpperCase());
+                FileFormat.valueOf(
+                        pluginConfig.getString(FtpConfig.FILE_FORMAT_TYPE.key()).toUpperCase());
         if (fileFormat == FileFormat.ORC || fileFormat == FileFormat.PARQUET) {
             throw new FileConnectorException(
                     CommonErrorCode.ILLEGAL_ARGUMENT,
                     "Ftp file source connector only support read [text, csv, json] files");
         }
-        readStrategy = ReadStrategyFactory.of(pluginConfig.getString(FtpConfig.FILE_TYPE.key()));
+        readStrategy =
+                ReadStrategyFactory.of(pluginConfig.getString(FtpConfig.FILE_FORMAT_TYPE.key()));
         readStrategy.setPluginConfig(pluginConfig);
         String path = pluginConfig.getString(FtpConfig.FILE_PATH.key());
         hadoopConf = FtpConf.buildWithConfig(pluginConfig);
