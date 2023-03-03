@@ -20,7 +20,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 
 By default, we use 2PC commit to ensure `exactly-once`
 
-- [x] file format
+- [x] file format type
   - [x] text
   - [x] csv
   - [x] parquet
@@ -39,7 +39,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | custom_filename                  | boolean | no       | false                                      | Whether you need custom the filename                      |
 | file_name_expression             | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                    |
 | filename_time_format             | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                    |
-| file_format                      | string  | no       | "csv"                                      |                                                           |
+| file_format_type                 | string  | no       | "csv"                                      |                                                           |
 | field_delimiter                  | string  | no       | '\001'                                     | Only used when file_format is text                        |
 | row_delimiter                    | string  | no       | "\n"                                       | Only used when file_format is text                        |
 | have_partition                   | boolean | no       | false                                      | Whether you need processing partitions.                   |
@@ -100,7 +100,7 @@ When the format in the `file_name_expression` parameter is `xxxx-${now}` , `file
 | m      | Minute in hour     |
 | s      | Second in minute   |
 
-### file_format [string]
+### file_format_type [string]
 
 We supported as the following file types:
 
@@ -185,7 +185,7 @@ SftpFile {
     username = "username"
     password = "password"
     path = "/data/sftp"
-    file_format = "text"
+    file_format_type = "text"
     field_delimiter = "\t"
     row_delimiter = "\n"
     have_partition = true

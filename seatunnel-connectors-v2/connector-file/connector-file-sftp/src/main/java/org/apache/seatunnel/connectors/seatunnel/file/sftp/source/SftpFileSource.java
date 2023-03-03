@@ -54,7 +54,7 @@ public class SftpFileSource extends BaseFileSource {
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
                         SftpConfig.FILE_PATH.key(),
-                        SftpConfig.FILE_TYPE.key(),
+                        SftpConfig.FILE_FORMAT_TYPE.key(),
                         SftpConfig.SFTP_HOST.key(),
                         SftpConfig.SFTP_PORT.key(),
                         SftpConfig.SFTP_USERNAME.key(),
@@ -68,13 +68,14 @@ public class SftpFileSource extends BaseFileSource {
         }
         FileFormat fileFormat =
                 FileFormat.valueOf(
-                        pluginConfig.getString(SftpConfig.FILE_TYPE.key()).toUpperCase());
+                        pluginConfig.getString(SftpConfig.FILE_FORMAT_TYPE.key()).toUpperCase());
         if (fileFormat == FileFormat.ORC || fileFormat == FileFormat.PARQUET) {
             throw new FileConnectorException(
                     CommonErrorCode.ILLEGAL_ARGUMENT,
                     "Sftp file source connector only support read [text, csv, json] files");
         }
-        readStrategy = ReadStrategyFactory.of(pluginConfig.getString(SftpConfig.FILE_TYPE.key()));
+        readStrategy =
+                ReadStrategyFactory.of(pluginConfig.getString(SftpConfig.FILE_FORMAT_TYPE.key()));
         readStrategy.setPluginConfig(pluginConfig);
         String path = pluginConfig.getString(SftpConfig.FILE_PATH.key());
         hadoopConf = SftpConf.buildWithConfig(pluginConfig);
