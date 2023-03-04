@@ -28,12 +28,16 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
 import com.google.auto.service.AutoService;
+import lombok.NoArgsConstructor;
 
+@NoArgsConstructor
 @AutoService(SeaTunnelSink.class)
 public class ConsoleSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
-
-    private Config pluginConfig;
     private SeaTunnelRowType seaTunnelRowType;
+
+    public ConsoleSink(SeaTunnelRowType seaTunnelRowType) {
+        this.seaTunnelRowType = seaTunnelRowType;
+    }
 
     @Override
     public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
@@ -56,7 +60,5 @@ public class ConsoleSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     }
 
     @Override
-    public void prepare(Config pluginConfig) {
-        this.pluginConfig = pluginConfig;
-    }
+    public void prepare(Config pluginConfig) {}
 }

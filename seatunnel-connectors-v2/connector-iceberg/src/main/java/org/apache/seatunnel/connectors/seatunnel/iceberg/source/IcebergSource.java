@@ -27,15 +27,14 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.data.IcebergTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.IcebergBatchSplitEnumerator;
@@ -105,16 +104,10 @@ public class IcebergSource
                         columnDataTypes.toArray(new SeaTunnelDataType[0]));
 
         CheckResult checkResult =
-                CheckConfigUtil.checkAtLeastOneExists(
-                        pluginConfig, CommonConfig.KEY_FIELDS.key(), SeaTunnelSchema.SCHEMA.key());
-
+                CheckConfigUtil.checkAllExists(pluginConfig, CatalogTableUtil.SCHEMA.key());
         if (checkResult.isSuccess()) {
-            Config config =
-                    pluginConfig.hasPath(SeaTunnelSchema.SCHEMA.key())
-                            ? pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key())
-                            : pluginConfig;
-            SeaTunnelSchema configSchema = SeaTunnelSchema.buildWithConfig(config);
-            SeaTunnelRowType projectedRowType = configSchema.getSeaTunnelRowType();
+            SeaTunnelRowType projectedRowType =
+                    CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
             for (int i = 0; i < projectedRowType.getFieldNames().length; i++) {
                 String fieldName = projectedRowType.getFieldName(i);
                 SeaTunnelDataType<?> projectedFieldType = projectedRowType.getFieldType(i);

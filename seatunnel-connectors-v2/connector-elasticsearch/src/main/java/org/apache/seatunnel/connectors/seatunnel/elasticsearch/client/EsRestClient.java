@@ -33,6 +33,7 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.Elastic
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.util.SSLUtils;
 
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpStatus;
 import org.apache.http.auth.AuthScope;
@@ -61,6 +62,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class EsRestClient {
@@ -426,6 +429,84 @@ public class EsRestClient {
         }
     }
 
+    public List<String> listIndex() {
+        String endpoint = "/_cat/indices?format=json";
+        Request request = new Request("GET", endpoint);
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.LIST_INDEX_FAILED,
+                        "GET " + endpoint + " response null");
+            }
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                String entity = EntityUtils.toString(response.getEntity());
+                return JsonUtils.toList(entity, Map.class).stream()
+                        .map(map -> map.get("index").toString())
+                        .collect(Collectors.toList());
+            } else {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.LIST_INDEX_FAILED,
+                        String.format(
+                                "GET %s response status code=%d",
+                                endpoint, response.getStatusLine().getStatusCode()));
+            }
+        } catch (IOException ex) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.LIST_INDEX_FAILED, ex);
+        }
+    }
+
+    // todo: We don't support set the index mapping now.
+    public void createIndex(String indexName) {
+        String endpoint = String.format("/%s", indexName);
+        Request request = new Request("PUT", endpoint);
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.CREATE_INDEX_FAILED,
+                        "PUT " + endpoint + " response null");
+            }
+            if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.CREATE_INDEX_FAILED,
+                        String.format(
+                                "PUT %s response status code=%d",
+                                endpoint, response.getStatusLine().getStatusCode()));
+            }
+        } catch (IOException ex) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.CREATE_INDEX_FAILED, ex);
+        }
+    }
+
+    public void dropIndex(String tableName) {
+        String endpoint = String.format("/%s", tableName);
+        Request request = new Request("DELETE", endpoint);
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.DROP_INDEX_FAILED,
+                        "DELETE " + endpoint + " response null");
+            }
+            // todo: if the index doesn't exist, the response status code is 200?
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                return;
+            } else {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.DROP_INDEX_FAILED,
+                        String.format(
+                                "DELETE %s response status code=%d",
+                                endpoint, response.getStatusLine().getStatusCode()));
+            }
+        } catch (IOException ex) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.DROP_INDEX_FAILED, ex);
+        }
+    }
+
     /**
      * get es field name and type mapping realtion
      *
@@ -460,8 +541,7 @@ public class EsRestClient {
                     JsonNode properties = mappingsProperty.get("properties");
                     mapping = getFieldTypeMappingFromProperties(properties, source);
                 } else {
-                    for (Iterator<JsonNode> iter = mappingsProperty.iterator(); iter.hasNext(); ) {
-                        JsonNode typeNode = iter.next();
+                    for (JsonNode typeNode : mappingsProperty) {
                         JsonNode properties;
                         if (typeNode.has("properties")) {
                             properties = typeNode.get("properties");
@@ -481,24 +561,36 @@ public class EsRestClient {
 
     private static Map<String, String> getFieldTypeMappingFromProperties(
             JsonNode properties, List<String> source) {
-        Map<String, String> mapping = new HashMap<>();
-        for (String field : source) {
-            JsonNode fieldProperty = properties.get(field);
-            if (fieldProperty == null) {
-                mapping.put(field, "text");
-            } else {
-                if (fieldProperty.has("type")) {
-                    String type = fieldProperty.get("type").asText();
-                    mapping.put(field, type);
-                } else {
-                    log.warn(
-                            String.format(
-                                    "fail to get elasticsearch field %s mapping type,so give a default type text",
-                                    field));
-                    mapping.put(field, "text");
-                }
-            }
+        Map<String, String> allElasticSearchFieldTypeInfoMap = new HashMap<>();
+        properties
+                .fields()
+                .forEachRemaining(
+                        entry -> {
+                            String fieldName = entry.getKey();
+                            JsonNode fieldProperty = entry.getValue();
+                            if (fieldProperty.has("type")) {
+                                allElasticSearchFieldTypeInfoMap.put(
+                                        fieldName, fieldProperty.get("type").asText());
+                            }
+                        });
+        if (CollectionUtils.isEmpty(source)) {
+            return allElasticSearchFieldTypeInfoMap;
         }
-        return mapping;
+
+        return source.stream()
+                .collect(
+                        Collectors.toMap(
+                                Function.identity(),
+                                fieldName -> {
+                                    String fieldType =
+                                            allElasticSearchFieldTypeInfoMap.get(fieldName);
+                                    if (fieldType == null) {
+                                        log.warn(
+                                                "fail to get elasticsearch field {} mapping type,so give a default type text",
+                                                fieldName);
+                                        return "text";
+                                    }
+                                    return fieldType;
+                                }));
     }
 }

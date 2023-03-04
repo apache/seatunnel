@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.StopConfig;
@@ -54,6 +55,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordsWit
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SourceReaderOptions;
 
 import io.debezium.relational.TableId;
+import lombok.NoArgsConstructor;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -62,6 +64,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Supplier;
 
+@NoArgsConstructor
 public abstract class IncrementalSource<T, C extends SourceConfig>
         implements SeaTunnelSource<T, SourceSplitBase, PendingSplitsState> {
 
@@ -77,6 +80,21 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
 
     protected StopMode stopMode;
     protected DebeziumDeserializationSchema<T> deserializationSchema;
+
+    protected SeaTunnelDataType<SeaTunnelRow> dataType;
+
+    protected IncrementalSource(ReadonlyConfig options, SeaTunnelDataType<SeaTunnelRow> dataType) {
+        this.dataType = dataType;
+        this.readonlyConfig = options;
+        this.startupConfig = getStartupConfig(readonlyConfig);
+        this.stopConfig = getStopConfig(readonlyConfig);
+        this.stopMode = stopConfig.getStopMode();
+        this.incrementalParallelism = readonlyConfig.get(SourceOptions.INCREMENTAL_PARALLELISM);
+        this.configFactory = createSourceConfigFactory(readonlyConfig);
+        this.dataSourceDialect = createDataSourceDialect(readonlyConfig);
+        this.deserializationSchema = createDebeziumDeserializationSchema(readonlyConfig);
+        this.offsetFactory = createOffsetFactory(readonlyConfig);
+    }
 
     @Override
     public final void prepare(Config pluginConfig) throws PrepareFailException {
@@ -134,7 +152,7 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
         // create source config for the given subtask (e.g. unique server id)
         C sourceConfig = configFactory.create(readerContext.getIndexOfSubtask());
         BlockingQueue<RecordsWithSplitIds<SourceRecords>> elementsQueue =
-                new LinkedBlockingQueue<>(1024);
+                new LinkedBlockingQueue<>(2);
 
         Supplier<IncrementalSourceSplitReader<C>> splitReaderSupplier =
                 () ->

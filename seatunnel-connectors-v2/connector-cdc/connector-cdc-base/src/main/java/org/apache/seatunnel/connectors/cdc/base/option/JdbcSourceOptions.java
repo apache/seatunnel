@@ -21,6 +21,8 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
 
+import java.util.List;
+
 /** Configurations for {@link IncrementalSource} of JDBC data source. */
 @SuppressWarnings("checkstyle:MagicNumber")
 public class JdbcSourceOptions extends SourceOptions {
@@ -50,17 +52,11 @@ public class JdbcSourceOptions extends SourceOptions {
                     .noDefaultValue()
                     .withDescription("Password to use when connecting to the database server.");
 
-    public static final Option<String> DATABASE_NAME =
-            Options.key("database-name")
-                    .stringType()
+    public static final Option<List<String>> DATABASE_NAMES =
+            Options.key("database-names")
+                    .listType()
                     .noDefaultValue()
                     .withDescription("Database name of the database to monitor.");
-
-    public static final Option<String> TABLE_NAME =
-            Options.key("table-name")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Table name of the database to monitor.");
 
     public static final Option<String> SERVER_TIME_ZONE =
             Options.key("server-time-zone")

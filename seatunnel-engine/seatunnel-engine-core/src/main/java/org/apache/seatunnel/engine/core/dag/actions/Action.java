@@ -40,4 +40,6 @@ public interface Action extends Serializable {
     long getId();
 
     Set<URL> getJarUrls();
+
+    Config getConfig();
 }
