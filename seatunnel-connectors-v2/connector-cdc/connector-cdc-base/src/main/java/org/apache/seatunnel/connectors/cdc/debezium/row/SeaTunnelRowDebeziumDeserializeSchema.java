@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.cdc.debezium.row;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -113,12 +114,14 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
         Schema valueSchema = record.valueSchema();
 
         Struct sourceStruct = messageStruct.getStruct(Envelope.FieldName.SOURCE);
+        String databaseName = sourceStruct.getString(AbstractSourceInfo.DATABASE_NAME_KEY);
         String tableName = sourceStruct.getString(AbstractSourceInfo.TABLE_NAME_KEY);
+        String tableId = TablePath.of(databaseName, tableName).toString();
         SeaTunnelRowDebeziumDeserializationConverters converters;
         if (!multipleTableRowConverters.isEmpty()) {
-            converters = multipleTableRowConverters.get(tableName);
+            converters = multipleTableRowConverters.get(tableId);
             if (converters == null) {
-                log.debug("Ignore newly added table {}", tableName);
+                log.debug("Ignore newly added table {}", tableId);
                 return;
             }
         } else {
@@ -128,26 +131,26 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
         if (operation == Envelope.Operation.CREATE || operation == Envelope.Operation.READ) {
             SeaTunnelRow insert = extractAfterRow(converters, record, messageStruct, valueSchema);
             insert.setRowKind(RowKind.INSERT);
-            insert.setTableId(tableName);
+            insert.setTableId(tableId);
             validator.validate(insert, RowKind.INSERT);
             collector.collect(insert);
         } else if (operation == Envelope.Operation.DELETE) {
             SeaTunnelRow delete = extractBeforeRow(converters, record, messageStruct, valueSchema);
             validator.validate(delete, RowKind.DELETE);
             delete.setRowKind(RowKind.DELETE);
-            delete.setTableId(tableName);
+            delete.setTableId(tableId);
             collector.collect(delete);
         } else {
             SeaTunnelRow before = extractBeforeRow(converters, record, messageStruct, valueSchema);
             validator.validate(before, RowKind.UPDATE_BEFORE);
             before.setRowKind(RowKind.UPDATE_BEFORE);
-            before.setTableId(tableName);
+            before.setTableId(tableId);
             collector.collect(before);
 
             SeaTunnelRow after = extractAfterRow(converters, record, messageStruct, valueSchema);
             validator.validate(after, RowKind.UPDATE_AFTER);
             after.setRowKind(RowKind.UPDATE_AFTER);
-            after.setTableId(tableName);
+            after.setTableId(tableId);
             collector.collect(after);
         }
     }
