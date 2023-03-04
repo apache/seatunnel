@@ -209,7 +209,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                             x.replace(
                                     "c_timestamp",
                                     LocalDateTime.parse(x.get("c_timestamp").toString())
-                                            .toInstant(ZoneOffset.of("+8"))
+                                            .toInstant(ZoneOffset.UTC)
                                             .toEpochMilli());
                         });
         List<String> docs =
