@@ -33,9 +33,11 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IOUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -352,9 +354,10 @@ public class HdfsStorage extends AbstractCheckpointStorage {
         fileName =
                 getStorageParentDirectory() + jobId + DEFAULT_CHECKPOINT_FILE_PATH_SPLIT + fileName;
         try (FSDataInputStream in = fs.open(new Path(fileName))) {
-            byte[] datas = new byte[in.available()];
-            in.read(datas);
-            return deserializeCheckPointData(datas);
+            ByteArrayOutputStream stream = new ByteArrayOutputStream();
+            IOUtils.copyBytes(in, stream, 1024);
+            byte[] bytes = stream.toByteArray();
+            return deserializeCheckPointData(bytes);
         } catch (IOException e) {
             throw new CheckpointStorageException(
                     String.format(
