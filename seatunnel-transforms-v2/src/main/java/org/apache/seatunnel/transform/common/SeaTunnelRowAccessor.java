@@ -30,7 +30,7 @@ public class SeaTunnelRowAccessor {
         return row.getArity();
     }
 
-    public int getTableId() {
+    public String getTableId() {
         return row.getTableId();
     }
 

@@ -41,8 +41,6 @@ import java.util.stream.Collectors;
 public class PhysicalPlan {
 
     private static final ILogger LOGGER = Logger.getLogger(PhysicalPlan.class);
-    /** The max num pipeline can restore. */
-    public static final int PIPELINE_MAX_RESTORE_NUM = 3; // TODO should set by config
 
     private final List<SubPlan> pipelineList;
 
@@ -79,9 +77,6 @@ public class PhysicalPlan {
     private final long jobId;
 
     private JobMaster jobMaster;
-
-    /** If the job or pipeline cancel by user, needRestore will be false */
-    private volatile boolean needRestore = true;
 
     /** Whether we make the job end when pipeline turn to end state. */
     private boolean makeJobEndWhenPipelineEnded = true;
@@ -146,16 +141,21 @@ public class PhysicalPlan {
                     try {
                         // Notify checkpoint manager when the pipeline end, Whether the pipeline
                         // will be restarted or not
+                        LOGGER.info(
+                                String.format(
+                                        "received pipeline %s callback, state %s",
+                                        subPlan.getPipelineFullName(),
+                                        pipelineState.getPipelineStatus()));
                         if (jobMaster.getCheckpointManager() != null) {
                             jobMaster
                                     .getCheckpointManager()
                                     .listenPipelineRetry(
                                             subPlan.getPipelineLocation().getPipelineId(),
-                                            subPlan.getPipelineState())
+                                            pipelineState.getPipelineStatus())
                                     .join();
                         }
                         if (PipelineStatus.CANCELED.equals(pipelineState.getPipelineStatus())) {
-                            if (canRestorePipeline(subPlan)) {
+                            if (subPlan.canRestorePipeline()) {
                                 subPlan.restorePipeline();
                                 return;
                             }
@@ -167,13 +167,9 @@ public class PhysicalPlan {
                                                 jobFullName));
                                 cancelJob();
                             }
-                            LOGGER.info(
-                                    String.format(
-                                            "release the pipeline %s resource",
-                                            subPlan.getPipelineFullName()));
                         } else if (PipelineStatus.FAILED.equals(
                                 pipelineState.getPipelineStatus())) {
-                            if (canRestorePipeline(subPlan)) {
+                            if (subPlan.canRestorePipeline()) {
                                 LOGGER.info(
                                         String.format(
                                                 "Can restore pipeline %s",
@@ -184,62 +180,39 @@ public class PhysicalPlan {
                             failedPipelineNum.incrementAndGet();
                             errorBySubPlan.compareAndSet(null, pipelineState.getThrowableMsg());
                             if (makeJobEndWhenPipelineEnded) {
+                                LOGGER.info(
+                                        String.format(
+                                                "cancel job %s because makeJobEndWhenPipelineEnded is true",
+                                                jobFullName));
                                 cancelJob();
                             }
-                            LOGGER.severe(
-                                    "Pipeline Failed, Begin to cancel other pipelines in this job.");
                         }
-                        subPlanDone(subPlan, pipelineState.getPipelineStatus());
 
                         if (finishedPipelineNum.incrementAndGet() == this.pipelineList.size()) {
+                            JobStatus jobStatus = JobStatus.FAILING;
                             if (failedPipelineNum.get() > 0) {
-                                updateJobState(JobStatus.FAILING);
+                                jobStatus = JobStatus.FAILING;
+                                updateJobState(jobStatus);
                             } else if (canceledPipelineNum.get() > 0) {
-                                turnToEndState(JobStatus.CANCELED);
+                                jobStatus = JobStatus.CANCELED;
+                                turnToEndState(jobStatus);
                             } else {
-                                turnToEndState(JobStatus.FINISHED);
+                                jobStatus = JobStatus.FINISHED;
+                                turnToEndState(jobStatus);
                             }
-                            jobEndFuture.complete(
-                                    new JobResult(
-                                            (JobStatus) runningJobStateIMap.get(jobId),
-                                            errorBySubPlan.get()));
+                            jobEndFuture.complete(new JobResult(jobStatus, errorBySubPlan.get()));
                         }
                     } catch (Throwable e) {
                         // Because only cancelJob or releasePipelineResource can throw exception, so
                         // we only output log here
-                        LOGGER.severe("Never come here ", e);
+                        LOGGER.severe(ExceptionUtils.getMessage(e));
                     }
-                });
-    }
-
-    private void subPlanDone(SubPlan subPlan, PipelineStatus pipelineStatus) {
-        jobMaster.savePipelineMetricsToHistory(subPlan.getPipelineLocation());
-        jobMaster.removeMetricsContext(subPlan.getPipelineLocation(), pipelineStatus);
-        jobMaster.releasePipelineResource(subPlan);
-        notifyCheckpointManagerPipelineEnd(subPlan);
-    }
-
-    /**
-     * only call when the pipeline will never restart
-     *
-     * @param subPlan subPlan
-     */
-    private void notifyCheckpointManagerPipelineEnd(@NonNull SubPlan subPlan) {
-        if (jobMaster.getCheckpointManager() == null) {
-            return;
-        }
-        jobMaster
-                .getCheckpointManager()
-                .listenPipeline(
-                        subPlan.getPipelineLocation().getPipelineId(), subPlan.getPipelineState())
-                .join();
-    }
-
-    private boolean canRestorePipeline(SubPlan subPlan) {
-        return needRestore && subPlan.getPipelineRestoreNum() < PIPELINE_MAX_RESTORE_NUM;
+                },
+                jobMaster.getExecutorService());
     }
 
     public void cancelJob() {
+        jobMaster.neverNeedRestore();
         if (getJobStatus().isEndState()) {
             LOGGER.warning(
                     String.format(
@@ -262,7 +235,11 @@ public class PhysicalPlan {
     private void cancelJobPipelines() {
         List<CompletableFuture<Void>> collect =
                 pipelineList.stream()
-                        .map(pipeline -> CompletableFuture.runAsync(pipeline::cancelPipeline))
+                        .map(
+                                pipeline ->
+                                        CompletableFuture.runAsync(
+                                                pipeline::cancelPipeline,
+                                                jobMaster.getExecutorService()))
                         .collect(Collectors.toList());
 
         try {
@@ -364,9 +341,5 @@ public class PhysicalPlan {
 
     public String getJobFullName() {
         return jobFullName;
-    }
-
-    public void neverNeedRestore() {
-        this.needRestore = false;
     }
 }
