@@ -15,32 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hive.exception;
+package org.apache.seatunnel.connectors.seatunnel.redshift.exception;
 
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
-public enum HiveConnectorErrorCode implements SeaTunnelErrorCode {
-    GET_HDFS_NAMENODE_HOST_FAILED("HIVE-01", "Get name node host from table location failed"),
-    INITIALIZE_HIVE_METASTORE_CLIENT_FAILED("HIVE-02", "Initialize hive metastore client failed"),
-    GET_HIVE_TABLE_INFORMATION_FAILED(
-            "HIVE-03", "Get hive table information from hive metastore service failed"),
-    AGGREGATE_COMMIT_ERROR("HIVE-04", "Aggregate committer error");
+public enum S3RedshiftConnectorErrorCode implements SeaTunnelErrorCode {
+    AGGREGATE_COMMIT_ERROR("S3RedShift-01", "Aggregate committer error");
 
     private final String code;
+
     private final String description;
 
-    HiveConnectorErrorCode(String code, String description) {
+    S3RedshiftConnectorErrorCode(String code, String description) {
         this.code = code;
         this.description = description;
     }
 
     @Override
     public String getCode() {
-        return code;
+        return this.code;
     }
 
     @Override
     public String getDescription() {
-        return description;
+        return this.description;
     }
 }

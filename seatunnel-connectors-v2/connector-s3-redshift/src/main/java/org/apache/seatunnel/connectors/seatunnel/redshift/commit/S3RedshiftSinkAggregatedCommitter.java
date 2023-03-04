@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggreg
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 import org.apache.seatunnel.connectors.seatunnel.redshift.RedshiftJdbcClient;
 import org.apache.seatunnel.connectors.seatunnel.redshift.config.S3RedshiftConfig;
+import org.apache.seatunnel.connectors.seatunnel.redshift.exception.S3RedshiftConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.redshift.exception.S3RedshiftJdbcConnectorException;
 
 import org.apache.commons.lang3.StringUtils;
@@ -75,6 +76,8 @@ public class S3RedshiftSinkAggregatedCommitter extends FileSinkAggregatedCommitt
                     } catch (Exception e) {
                         log.error("commit aggregatedCommitInfo error ", e);
                         errorAggregatedCommitInfoList.add(aggregatedCommitInfo);
+                        throw new S3RedshiftJdbcConnectorException(
+                                S3RedshiftConnectorErrorCode.AGGREGATE_COMMIT_ERROR, e);
                     }
                 });
         return errorAggregatedCommitInfoList;

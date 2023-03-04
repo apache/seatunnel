@@ -100,7 +100,7 @@ public class CheckpointFinishedOperation extends TaskOperation {
                 },
                 new RetryUtils.RetryMaterial(
                         Constant.OPERATION_RETRY_TIME,
-                        false,
+                        true,
                         exception ->
                                 exception instanceof TaskGroupContextNotFoundException
                                         && !server.taskIsEnded(taskLocation.getTaskGroupLocation()),
