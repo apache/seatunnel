@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionVertex;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskDeployState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
@@ -33,6 +34,7 @@ import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.CancelTaskOperation;
 import org.apache.seatunnel.engine.server.task.operation.CheckTaskGroupIsExecutingOperation;
 import org.apache.seatunnel.engine.server.task.operation.DeployTaskOperation;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -54,6 +56,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -233,73 +236,69 @@ public class PhysicalVertex {
     }
 
     private SlotProfile getOwnedSlotProfilesByTaskGroup(
-            TaskGroupLocation taskGroupLocation,
-            IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap) {
+        TaskGroupLocation taskGroupLocation,
+        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap) {
         PipelineLocation pipelineLocation = taskGroupLocation.getPipelineLocation();
         if (ownedSlotProfilesIMap.containsKey(pipelineLocation)
-                && ownedSlotProfilesIMap.get(pipelineLocation).containsKey(taskGroupLocation)) {
+            && ownedSlotProfilesIMap.get(pipelineLocation).containsKey(taskGroupLocation)) {
             return ownedSlotProfilesIMap.get(pipelineLocation).get(taskGroupLocation);
         }
         return null;
     }
 
-    private void deployOnLocal(@NonNull SlotProfile slotProfile) {
-        deployInternal(
-                taskGroupImmutableInformation -> {
-                    SeaTunnelServer server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
-                    server.getSlotService()
-                            .getSlotContext(slotProfile)
-                            .getTaskExecutionService()
-                            .deployTask(taskGroupImmutableInformation);
-                });
+    private TaskDeployState deployOnLocal(@NonNull SlotProfile slotProfile) {
+        return deployInternal(
+            taskGroupImmutableInformation -> {
+                SeaTunnelServer server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
+                return server.getSlotService()
+                    .getSlotContext(slotProfile)
+                    .getTaskExecutionService()
+                    .deployTask(taskGroupImmutableInformation);
+            });
     }
 
-    private void deployOnRemote(@NonNull SlotProfile slotProfile) {
-        deployInternal(
-                taskGroupImmutableInformation -> {
-                    try {
-                        nodeEngine
-                                .getOperationService()
-                                .createInvocationBuilder(
-                                        Constant.SEATUNNEL_SERVICE_NAME,
-                                        new DeployTaskOperation(
-                                                slotProfile,
-                                                nodeEngine
-                                                        .getSerializationService()
-                                                        .toData(taskGroupImmutableInformation)),
-                                        slotProfile.getWorker())
-                                .invoke()
-                                .get();
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                });
+    private TaskDeployState deployOnRemote(@NonNull SlotProfile slotProfile) {
+        return deployInternal(
+            taskGroupImmutableInformation -> {
+                try {
+                    return (TaskDeployState) NodeEngineUtil.sendOperationToMemberNode(nodeEngine,
+                        new DeployTaskOperation(slotProfile,
+                            nodeEngine
+                                .getSerializationService()
+                                .toData(taskGroupImmutableInformation)), slotProfile.getWorker()).get();
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
     // This method must not throw an exception
-    public void deploy(@NonNull SlotProfile slotProfile) {
+    public TaskDeployState deploy(@NonNull SlotProfile slotProfile) {
         try {
             if (slotProfile.getWorker().equals(nodeEngine.getThisAddress())) {
-                deployOnLocal(slotProfile);
+                return deployOnLocal(slotProfile);
             } else {
-                deployOnRemote(slotProfile);
+                return deployOnRemote(slotProfile);
             }
         } catch (Throwable th) {
             failedByException(th);
+            return TaskDeployState.failed(th);
         }
     }
 
-    private void deployInternal(Consumer<TaskGroupImmutableInformation> taskGroupConsumer) {
+    private TaskDeployState deployInternal(Function<TaskGroupImmutableInformation, TaskDeployState> taskGroupConsumer) {
         TaskGroupImmutableInformation taskGroupImmutableInformation =
-                getTaskGroupImmutableInformation();
+            getTaskGroupImmutableInformation();
         synchronized (this) {
             ExecutionState currentState =
-                    (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
+                (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
             if (ExecutionState.DEPLOYING.equals(currentState)) {
-                taskGroupConsumer.accept(taskGroupImmutableInformation);
+                TaskDeployState state = taskGroupConsumer.apply(taskGroupImmutableInformation);
                 updateTaskState(ExecutionState.DEPLOYING, ExecutionState.RUNNING);
+                return state;
             }
+            return TaskDeployState.success();
         }
     }
 

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.task.operation;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.execution.TaskDeployState;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 
@@ -35,10 +36,13 @@ public class DeployTaskOperation extends Operation implements IdentifiedDataSeri
     private Data taskImmutableInformation;
     private SlotProfile slotProfile;
 
-    public DeployTaskOperation() {}
+    private TaskDeployState state;
+
+    public DeployTaskOperation() {
+    }
 
     public DeployTaskOperation(
-            @NonNull SlotProfile slotProfile, @NonNull Data taskImmutableInformation) {
+        @NonNull SlotProfile slotProfile, @NonNull Data taskImmutableInformation) {
         this.taskImmutableInformation = taskImmutableInformation;
         this.slotProfile = slotProfile;
     }
@@ -46,10 +50,10 @@ public class DeployTaskOperation extends Operation implements IdentifiedDataSeri
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        server.getSlotService()
-                .getSlotContext(slotProfile)
-                .getTaskExecutionService()
-                .deployTask(taskImmutableInformation);
+        state = server.getSlotService()
+            .getSlotContext(slotProfile)
+            .getTaskExecutionService()
+            .deployTask(taskImmutableInformation);
     }
 
     @Override
@@ -60,6 +64,11 @@ public class DeployTaskOperation extends Operation implements IdentifiedDataSeri
     @Override
     public int getClassId() {
         return TaskDataSerializerHook.DEPLOY_TASK_OPERATOR;
+    }
+
+    @Override
+    public Object getResponse() {
+        return state;
     }
 
     @Override

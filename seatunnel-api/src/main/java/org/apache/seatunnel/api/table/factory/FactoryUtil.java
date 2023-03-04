@@ -156,8 +156,7 @@ public final class FactoryUtil {
     }
 
     public static <T extends Factory> URL getFactoryUrl(T factory) {
-        URL jarUrl = factory.getClass().getProtectionDomain().getCodeSource().getLocation();
-        return jarUrl;
+        return factory.getClass().getProtectionDomain().getCodeSource().getLocation();
     }
 
     public static <T extends Factory> Optional<T> discoverOptionalFactory(
