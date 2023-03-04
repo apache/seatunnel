@@ -24,8 +24,8 @@ seatunnel:
     slot-service:
       dynamic-slot: true
     checkpoint:
-      interval: 300000
-      timeout: 10000
+      interval: 10000
+      timeout: 60000
       max-concurrent: 5
       tolerable-failure: 2
       storage:
@@ -34,4 +34,4 @@ seatunnel:
         plugin-config:
           namespace: /tmp/seatunnel/checkpoint_snapshot
           storage.type: hdfs
-          fs.defaultFS: /tmp/ # Ensure that the directory has written permission
+          fs.defaultFS: file:///tmp/ # Ensure that the directory has written permission
