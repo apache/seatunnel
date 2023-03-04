@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-hive</artifactId>
+    <name>SeaTunnel : Connectors V2 : Hive</name>
 
     <properties>
         <hive.exec.version>2.3.9</hive.exec.version>

@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>seatunnel-translation-spark-2.4</artifactId>
+    <name>SeaTunnel : Translation : Spark : 2.4</name>
 
     <dependencies>
 

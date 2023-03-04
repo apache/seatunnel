@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-file-base</artifactId>
+    <name>SeaTunnel : Connectors V2 : File : Base</name>
 
     <properties>
         <commons-net.version>3.6</commons-net.version>

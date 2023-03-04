@@ -27,6 +27,7 @@
     </parent>
     <artifactId>connector-cdc</artifactId>
     <packaging>pom</packaging>
+    <name>SeaTunnel : Connectors V2 : CDC :</name>
 
     <modules>
         <module>connector-cdc-base</module>

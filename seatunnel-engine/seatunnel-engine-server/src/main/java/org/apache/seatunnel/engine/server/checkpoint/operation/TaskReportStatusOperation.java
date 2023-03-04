@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.checkpoint.operation;
 
 import org.apache.seatunnel.common.utils.RetryUtils;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -38,10 +39,6 @@ import java.io.IOException;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TaskReportStatusOperation extends Operation implements IdentifiedDataSerializable {
-
-    private static final int RETRY_NUMBER = 20;
-
-    private static final int RETRY_INTERVAL = 2000;
 
     private TaskLocation location;
     private SeaTunnelTaskState status;
@@ -80,6 +77,10 @@ public class TaskReportStatusOperation extends Operation implements IdentifiedDa
                             .reportedTask(this);
                     return null;
                 },
-                new RetryUtils.RetryMaterial(RETRY_NUMBER, true, e -> true, RETRY_INTERVAL));
+                new RetryUtils.RetryMaterial(
+                        Constant.OPERATION_RETRY_TIME,
+                        true,
+                        e -> true,
+                        Constant.OPERATION_RETRY_SLEEP));
     }
 }

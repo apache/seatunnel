@@ -28,6 +28,7 @@
     </parent>
 
     <artifactId>serializer-protobuf</artifactId>
+    <name>SeaTunnel : Engine : Serializer : Protobuf</name>
 
     <dependencies>
         <dependency>

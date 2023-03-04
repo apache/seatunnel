@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-file-local</artifactId>
+    <name>SeaTunnel : Connectors V2 : File : Local</name>
 
     <dependencies>
         <dependency>

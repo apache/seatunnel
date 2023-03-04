@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
@@ -61,7 +62,8 @@ public class TransformSeaTunnelTask extends SeaTunnelTask {
     protected SourceFlowLifeCycle<?, ?> createSourceFlowLifeCycle(
             SourceAction<?, ?, ?> sourceAction,
             SourceConfig config,
-            CompletableFuture<Void> completableFuture) {
+            CompletableFuture<Void> completableFuture,
+            MetricsContext metricsContext) {
         throw new UnsupportedOperationException(
                 "TransformSeaTunnelTask can't create SourceFlowLifeCycle");
     }

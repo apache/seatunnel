@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>connector-iotdb-e2e</artifactId>
+    <name>SeaTunnel : E2E : Connector V2 : IotDB</name>
 
     <dependencies>
         <!-- SeaTunnel connectors -->

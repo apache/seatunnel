@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>connector-cdc-sqlserver-e2e</artifactId>
+    <name>SeaTunnel : E2E : Connector V2 : CDC SqlServer</name>
 
     <dependencies>
         <!-- SeaTunnel connectors -->

@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>seatunnel-spark-3-starter</artifactId>
+    <name>SeaTunnel : Core : Spark Starter : 3.3</name>
 
     <properties>
         <scala.binary.version>2.12</scala.binary.version>

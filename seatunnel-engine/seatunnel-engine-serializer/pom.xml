@@ -29,6 +29,8 @@
 
     <artifactId>seatunnel-engine-serializer</artifactId>
     <packaging>pom</packaging>
+    <name>SeaTunnel : Engine : Serializer :</name>
+
     <modules>
         <module>serializer-api</module>
         <module>serializer-protobuf</module>

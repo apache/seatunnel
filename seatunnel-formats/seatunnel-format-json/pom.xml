@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>seatunnel-format-json</artifactId>
+    <name>SeaTunnel : Formats : Json</name>
 
     <properties />
 

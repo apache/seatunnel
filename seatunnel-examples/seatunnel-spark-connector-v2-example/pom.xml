@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>seatunnel-spark-connector-v2-example</artifactId>
+    <name>SeaTunnel : Examples : Spark Connector V2</name>
 
     <properties>
         <spark.scope>compile</spark.scope>

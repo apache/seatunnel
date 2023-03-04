@@ -25,6 +25,7 @@
     </parent>
 
     <artifactId>connector-console-seatunnel-e2e</artifactId>
+    <name>SeaTunnel : E2E : Engine : Console</name>
 
     <dependencies>
         <dependency>

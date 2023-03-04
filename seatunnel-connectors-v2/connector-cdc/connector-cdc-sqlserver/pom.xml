@@ -26,6 +26,7 @@
         <version>${revision}</version>
     </parent>
     <artifactId>connector-cdc-sqlserver</artifactId>
+    <name>SeaTunnel : Connectors V2 : CDC : SqlServer</name>
 
     <dependencyManagement>
         <dependencies>

@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-iceberg</artifactId>
+    <name>SeaTunnel : Connectors V2 : Iceberg</name>
 
     <properties>
         <iceberg.version>0.14.0</iceberg.version>

@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>seatunnel-plugin-discovery</artifactId>
+    <name>SeaTunnel : Plugin Discovery</name>
 
     <dependencies>
         <dependency>

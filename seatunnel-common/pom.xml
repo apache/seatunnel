@@ -27,6 +27,8 @@
     </parent>
     <artifactId>seatunnel-common</artifactId>
 
+    <name>SeaTunnel : Common</name>
+
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>

@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>connector-file-local-e2e</artifactId>
+    <name>SeaTunnel : E2E : Connector V2 : File Local</name>
 
     <dependencies>
         <dependency>

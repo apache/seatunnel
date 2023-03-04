@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>connector-jdbc-flink-e2e</artifactId>
+    <name>SeaTunnel : E2E : Flink Connector V2 : Jdbc</name>
 
     <dependencyManagement>
         <dependencies>

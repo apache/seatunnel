@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>seatunnel-translation-flink-13</artifactId>
+    <name>SeaTunnel : Translation : Flink : 1.3</name>
 
     <dependencies>
 

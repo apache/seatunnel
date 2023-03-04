@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-google-sheets</artifactId>
+    <name>SeaTunnel : Connectors V2 : Google Sheets</name>
 
     <dependencies>
 

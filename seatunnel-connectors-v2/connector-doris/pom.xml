@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-doris</artifactId>
+    <name>SeaTunnel : Connectors V2 : Doris</name>
 
     <properties>
         <httpclient.version>4.5.13</httpclient.version>

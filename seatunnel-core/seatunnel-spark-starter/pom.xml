@@ -28,6 +28,8 @@
 
     <artifactId>seatunnel-spark-starter</artifactId>
     <packaging>pom</packaging>
+    <name>SeaTunnel : Core : Spark Starter :</name>
+
     <modules>
         <module>seatunnel-spark-2-starter</module>
         <module>seatunnel-spark-3-starter</module>
@@ -48,7 +50,7 @@
     </dependencies>
 
     <build>
-        <finalName>${project.name}</finalName>
+        <finalName>${project.artifactId}</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

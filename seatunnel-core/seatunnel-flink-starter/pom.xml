@@ -30,6 +30,8 @@
 
     <artifactId>seatunnel-flink-starter</artifactId>
     <packaging>pom</packaging>
+    <name>SeaTunnel : Core : Flink Starter :</name>
+
     <modules>
         <module>seatunnel-flink-13-starter</module>
         <module>seatunnel-flink-15-starter</module>
@@ -50,7 +52,7 @@
     </dependencies>
 
     <build>
-        <finalName>${project.name}</finalName>
+        <finalName>${project.artifactId}</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-openmldb</artifactId>
+    <name>SeaTunnel : Connectors V2 : OpenMldb</name>
 
     <properties>
         <openmldb.version>0.6.3</openmldb.version>

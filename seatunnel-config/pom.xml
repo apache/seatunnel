@@ -28,7 +28,7 @@
     <artifactId>seatunnel-config</artifactId>
     <packaging>pom</packaging>
 
-    <name>seatunnel-config</name>
+    <name>SeaTunnel : Config : </name>
 
     <modules>
         <module>seatunnel-config-shade</module>

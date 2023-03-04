@@ -27,6 +27,8 @@
     </parent>
 
     <artifactId>connector-hudi</artifactId>
+    <name>SeaTunnel : Connectors V2 : Hudi</name>
+
     <properties>
         <hive.exec.version>2.3.9</hive.exec.version>
         <hudi.version>0.11.1</hudi.version>

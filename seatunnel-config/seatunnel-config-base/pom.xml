@@ -28,7 +28,8 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>seatunnel-config-base</artifactId>
-    <name>seatunnel-config-base</name>
+    <name>SeaTunnel : Config : Base</name>
+
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>${java.version}</maven.compiler.source>

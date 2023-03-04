@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>connector-assert-e2e</artifactId>
+    <name>SeaTunnel : E2E : Connector V2 : Assert</name>
 
     <dependencies>
         <!-- SeaTunnel connectors -->

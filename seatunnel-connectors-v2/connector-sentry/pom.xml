@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-sentry</artifactId>
+    <name>SeaTunnel : Connectors V2 : Sentry</name>
 
     <properties>
         <sentry.version>5.0.1</sentry.version>

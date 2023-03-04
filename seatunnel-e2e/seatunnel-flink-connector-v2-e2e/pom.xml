@@ -24,6 +24,7 @@
 
     <artifactId>seatunnel-flink-connector-v2-e2e</artifactId>
     <packaging>pom</packaging>
+    <name>SeaTunnel : E2E : Flink Connector V2 :</name>
 
     <modules>
         <module>connector-flink-e2e-base</module>

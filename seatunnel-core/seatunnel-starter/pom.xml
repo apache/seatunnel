@@ -25,6 +25,7 @@
     </parent>
 
     <artifactId>seatunnel-starter</artifactId>
+    <name>SeaTunnel : Core : Starter</name>
 
     <dependencies>
         <dependency>
@@ -62,7 +63,7 @@
     </dependencies>
 
     <build>
-        <finalName>${project.name}</finalName>
+        <finalName>${project.artifactId}</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

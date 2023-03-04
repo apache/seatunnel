@@ -27,6 +27,7 @@
     </parent>
     <artifactId>seatunnel-connectors-v2</artifactId>
     <packaging>pom</packaging>
+    <name>SeaTunnel : Connectors V2 :</name>
 
     <modules>
         <module>connector-common</module>

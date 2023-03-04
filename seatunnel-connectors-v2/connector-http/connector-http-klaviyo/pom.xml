@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-http-klaviyo</artifactId>
+    <name>SeaTunnel : Connectors V2 : Http : Klaviyo</name>
 
     <dependencies>
         <dependency>

@@ -142,7 +142,7 @@ public class DefaultSlotService implements SlotService {
                     profile.getSlotID(),
                     p -> new SlotContext(profile.getSlotID(), taskExecutionService));
         }
-        LOGGER.info(
+        LOGGER.fine(
                 String.format(
                         "received slot request, jobID: %d, resource profile: %s, return: %s",
                         jobId, resourceProfile, profile));

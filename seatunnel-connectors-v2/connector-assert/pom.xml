@@ -25,6 +25,7 @@
     </parent>
 
     <artifactId>connector-assert</artifactId>
+    <name>SeaTunnel : Connectors V2 : Assert</name>
 
     <dependencies>
         <dependency>

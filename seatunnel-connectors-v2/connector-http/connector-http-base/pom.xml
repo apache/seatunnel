@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-http-base</artifactId>
+    <name>SeaTunnel : Connectors V2 : Http : Base</name>
 
     <properties>
         <httpclient.version>4.5.13</httpclient.version>

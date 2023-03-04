@@ -47,7 +47,7 @@ public final class TableIdentifier implements Serializable {
         return databaseName;
     }
 
-    public String gettableName() {
+    public String getTableName() {
         return tableName;
     }
 

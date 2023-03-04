@@ -23,7 +23,9 @@
     </parent>
 
     <artifactId>seatunnel-translation-flink</artifactId>
+
     <packaging>pom</packaging>
+    <name>SeaTunnel : Translation : Flink :</name>
     <modules>
         <module>seatunnel-translation-flink-13</module>
         <module>seatunnel-translation-flink-15</module>
