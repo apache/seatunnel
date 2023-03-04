@@ -30,14 +30,17 @@ public class CoordinatedEnumeratorContext<SplitT extends SourceSplit>
         implements SourceSplitEnumerator.Context<SplitT> {
 
     protected final CoordinatedSource<?, SplitT, ?> coordinatedSource;
+    protected final Integer parallelism;
 
-    public CoordinatedEnumeratorContext(CoordinatedSource<?, SplitT, ?> coordinatedSource) {
+    public CoordinatedEnumeratorContext(
+            CoordinatedSource<?, SplitT, ?> coordinatedSource, Integer parallelism) {
         this.coordinatedSource = coordinatedSource;
+        this.parallelism = parallelism;
     }
 
     @Override
     public int currentParallelism() {
-        return coordinatedSource.currentReaderCount();
+        return parallelism;
     }
 
     @Override

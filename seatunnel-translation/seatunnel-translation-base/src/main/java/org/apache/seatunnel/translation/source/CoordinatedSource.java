@@ -76,7 +76,7 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
         this.splitSerializer = source.getSplitSerializer();
         this.enumeratorStateSerializer = source.getEnumeratorStateSerializer();
 
-        this.coordinatedEnumeratorContext = new CoordinatedEnumeratorContext<>(this);
+        this.coordinatedEnumeratorContext = new CoordinatedEnumeratorContext<>(this, parallelism);
         this.readerContextMap = new ConcurrentHashMap<>(parallelism);
         this.readerRunningMap = new ConcurrentHashMap<>(parallelism);
         try {
