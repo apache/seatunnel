@@ -82,8 +82,9 @@ public class MySqlIncrementalSourceFactory implements TableSourceFactory, Suppor
             } else {
                 Map<String, SeaTunnelRowType> rowTypeMap = new HashMap<>();
                 for (CatalogTable catalogTable : context.getCatalogTables()) {
-                    String tableId = catalogTable.getTableId().getTableName();
-                    rowTypeMap.put(tableId, catalogTable.getTableSchema().toPhysicalRowDataType());
+                    rowTypeMap.put(
+                            catalogTable.getTableId().toTablePath().toString(),
+                            catalogTable.getTableSchema().toPhysicalRowDataType());
                 }
                 dataType = new MultipleRowType(rowTypeMap);
             }

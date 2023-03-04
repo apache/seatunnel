@@ -298,7 +298,7 @@ public class MultipleTableJobConfigParser {
                             Collections.singletonList(leftAction),
                             sink,
                             factoryUrls,
-                            new SinkConfig(catalogTable.getTableId().getTableName()));
+                            new SinkConfig(catalogTable.getTableId().toTablePath().toString()));
             handleSaveMode(sink);
             sinkAction.setParallelism(leftAction.getParallelism());
             sinkActions.add(sinkAction);
