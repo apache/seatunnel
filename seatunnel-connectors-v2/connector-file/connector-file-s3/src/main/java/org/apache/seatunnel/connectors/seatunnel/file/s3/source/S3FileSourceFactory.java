@@ -42,7 +42,7 @@ public class S3FileSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(S3Config.FILE_PATH)
-                .required(S3Config.FILE_TYPE)
+                .required(S3Config.FILE_FORMAT_TYPE)
                 .required(S3Config.S3_BUCKET)
                 .required(S3Config.FS_S3A_ENDPOINT)
                 .required(S3Config.S3A_AWS_CREDENTIALS_PROVIDER)
@@ -53,9 +53,11 @@ public class S3FileSourceFactory implements TableSourceFactory {
                         S3Config.S3_SECRET_KEY)
                 .optional(S3Config.S3_PROPERTIES)
                 .conditional(
-                        BaseSourceConfig.FILE_TYPE, FileFormat.TEXT, BaseSourceConfig.DELIMITER)
+                        BaseSourceConfig.FILE_FORMAT_TYPE,
+                        FileFormat.TEXT,
+                        BaseSourceConfig.DELIMITER)
                 .conditional(
-                        BaseSourceConfig.FILE_TYPE,
+                        BaseSourceConfig.FILE_FORMAT_TYPE,
                         Arrays.asList(FileFormat.TEXT, FileFormat.JSON),
                         CatalogTableUtil.SCHEMA)
                 .optional(BaseSourceConfig.PARSE_PARTITION_FROM_PATH)

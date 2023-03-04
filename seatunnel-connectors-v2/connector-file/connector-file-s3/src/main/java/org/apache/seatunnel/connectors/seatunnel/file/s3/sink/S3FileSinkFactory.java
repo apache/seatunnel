@@ -47,21 +47,27 @@ public class S3FileSinkFactory implements TableSinkFactory {
                         S3Config.S3_ACCESS_KEY,
                         S3Config.S3_SECRET_KEY)
                 .optional(S3Config.S3_PROPERTIES)
-                .optional(BaseSinkConfig.FILE_FORMAT)
+                .optional(BaseSinkConfig.FILE_FORMAT_TYPE)
                 .conditional(
-                        BaseSinkConfig.FILE_FORMAT,
+                        BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,
                         BaseSinkConfig.ROW_DELIMITER,
                         BaseSinkConfig.FIELD_DELIMITER,
                         BaseSinkConfig.TXT_COMPRESS)
                 .conditional(
-                        BaseSinkConfig.FILE_FORMAT, FileFormat.CSV, BaseSinkConfig.TXT_COMPRESS)
+                        BaseSinkConfig.FILE_FORMAT_TYPE,
+                        FileFormat.CSV,
+                        BaseSinkConfig.TXT_COMPRESS)
                 .conditional(
-                        BaseSinkConfig.FILE_FORMAT, FileFormat.JSON, BaseSinkConfig.TXT_COMPRESS)
+                        BaseSinkConfig.FILE_FORMAT_TYPE,
+                        FileFormat.JSON,
+                        BaseSinkConfig.TXT_COMPRESS)
                 .conditional(
-                        BaseSinkConfig.FILE_FORMAT, FileFormat.ORC, BaseSinkConfig.ORC_COMPRESS)
+                        BaseSinkConfig.FILE_FORMAT_TYPE,
+                        FileFormat.ORC,
+                        BaseSinkConfig.ORC_COMPRESS)
                 .conditional(
-                        BaseSinkConfig.FILE_FORMAT,
+                        BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.PARQUET,
                         BaseSinkConfig.PARQUET_COMPRESS)
                 .optional(BaseSinkConfig.CUSTOM_FILENAME)

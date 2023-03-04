@@ -54,7 +54,7 @@ import java.util.stream.Collectors;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FIELD_DELIMITER;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FILE_FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FILE_FORMAT_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FILE_NAME_EXPRESSION;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FILE_PATH;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.HAVE_PARTITION;
@@ -95,7 +95,7 @@ public class HiveSink extends BaseHdfsFileSink {
         result =
                 CheckConfigUtil.checkAtLeastOneExists(
                         pluginConfig,
-                        FILE_FORMAT.key(),
+                        FILE_FORMAT_TYPE.key(),
                         FILE_PATH.key(),
                         FIELD_DELIMITER.key(),
                         ROW_DELIMITER.key(),
@@ -111,7 +111,7 @@ public class HiveSink extends BaseHdfsFileSink {
                             "Hive sink connector does not support these setting [%s]",
                             String.join(
                                     ",",
-                                    FILE_FORMAT.key(),
+                                    FILE_FORMAT_TYPE.key(),
                                     FILE_PATH.key(),
                                     FIELD_DELIMITER.key(),
                                     ROW_DELIMITER.key(),
@@ -141,7 +141,7 @@ public class HiveSink extends BaseHdfsFileSink {
             pluginConfig =
                     pluginConfig
                             .withValue(
-                                    FILE_FORMAT.key(),
+                                    FILE_FORMAT_TYPE.key(),
                                     ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()))
                             .withValue(
                                     FIELD_DELIMITER.key(),
@@ -152,12 +152,12 @@ public class HiveSink extends BaseHdfsFileSink {
         } else if (PARQUET_OUTPUT_FORMAT_CLASSNAME.equals(outputFormat)) {
             pluginConfig =
                     pluginConfig.withValue(
-                            FILE_FORMAT.key(),
+                            FILE_FORMAT_TYPE.key(),
                             ConfigValueFactory.fromAnyRef(FileFormat.PARQUET.toString()));
         } else if (ORC_OUTPUT_FORMAT_CLASSNAME.equals(outputFormat)) {
             pluginConfig =
                     pluginConfig.withValue(
-                            FILE_FORMAT.key(),
+                            FILE_FORMAT_TYPE.key(),
                             ConfigValueFactory.fromAnyRef(FileFormat.ORC.toString()));
         } else {
             throw new HiveConnectorException(

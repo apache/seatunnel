@@ -42,11 +42,13 @@ public class LocalFileSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(LocalSourceConfig.FILE_PATH)
-                .required(BaseSourceConfig.FILE_TYPE)
+                .required(BaseSourceConfig.FILE_FORMAT_TYPE)
                 .conditional(
-                        BaseSourceConfig.FILE_TYPE, FileFormat.TEXT, BaseSourceConfig.DELIMITER)
+                        BaseSourceConfig.FILE_FORMAT_TYPE,
+                        FileFormat.TEXT,
+                        BaseSourceConfig.DELIMITER)
                 .conditional(
-                        BaseSourceConfig.FILE_TYPE,
+                        BaseSourceConfig.FILE_FORMAT_TYPE,
                         Arrays.asList(FileFormat.TEXT, FileFormat.JSON),
                         CatalogTableUtil.SCHEMA)
                 .optional(BaseSourceConfig.PARSE_PARTITION_FROM_PATH)

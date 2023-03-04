@@ -53,8 +53,8 @@ import java.util.Map;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
 import static org.apache.seatunnel.api.table.catalog.CatalogTableUtil.SCHEMA;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FILE_FORMAT_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig.FILE_PATH;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig.FILE_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.ORC_INPUT_FORMAT_CLASSNAME;
 import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.PARQUET_INPUT_FORMAT_CLASSNAME;
 import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.TEXT_INPUT_FORMAT_CLASSNAME;
@@ -84,7 +84,7 @@ public class HiveSource extends BaseHdfsFileSource {
                 CheckConfigUtil.checkAtLeastOneExists(
                         pluginConfig,
                         SCHEMA.key(),
-                        FILE_TYPE.key(),
+                        FILE_FORMAT_TYPE.key(),
                         FILE_PATH.key(),
                         FS_DEFAULT_NAME_KEY);
         if (result.isSuccess()) {
@@ -95,7 +95,7 @@ public class HiveSource extends BaseHdfsFileSource {
                             String.join(
                                     ",",
                                     SCHEMA.key(),
-                                    FILE_TYPE.key(),
+                                    FILE_FORMAT_TYPE.key(),
                                     FILE_PATH.key(),
                                     FS_DEFAULT_NAME_KEY)));
         }
@@ -126,7 +126,7 @@ public class HiveSource extends BaseHdfsFileSource {
         if (TEXT_INPUT_FORMAT_CLASSNAME.equals(inputFormat)) {
             pluginConfig =
                     pluginConfig.withValue(
-                            FILE_TYPE.key(),
+                            FILE_FORMAT_TYPE.key(),
                             ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()));
             // Build schema from hive table information
             // Because the entrySet in typesafe config couldn't keep key-value order
@@ -140,12 +140,12 @@ public class HiveSource extends BaseHdfsFileSource {
         } else if (PARQUET_INPUT_FORMAT_CLASSNAME.equals(inputFormat)) {
             pluginConfig =
                     pluginConfig.withValue(
-                            FILE_TYPE.key(),
+                            FILE_FORMAT_TYPE.key(),
                             ConfigValueFactory.fromAnyRef(FileFormat.PARQUET.toString()));
         } else if (ORC_INPUT_FORMAT_CLASSNAME.equals(inputFormat)) {
             pluginConfig =
                     pluginConfig.withValue(
-                            FILE_TYPE.key(),
+                            FILE_FORMAT_TYPE.key(),
                             ConfigValueFactory.fromAnyRef(FileFormat.ORC.toString()));
         } else {
             throw new HiveConnectorException(
