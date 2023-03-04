@@ -71,7 +71,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    @Disabled
     public void testTwoPipelineBatchJobRunOkIn2Node()
             throws ExecutionException, InterruptedException {
         String testCaseName = "testTwoPipelineBatchJobRunOkIn2Node";
@@ -201,7 +200,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    @Disabled
     public void testTwoPipelineStreamJobRunOkIn2Node()
             throws ExecutionException, InterruptedException {
         String testCaseName = "testTwoPipelineStreamJobRunOkIn2Node";
@@ -299,7 +297,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    @Disabled
     public void testTwoPipelineBatchJobRestoreIn2NodeWorkerDown()
             throws ExecutionException, InterruptedException {
         String testCaseName = "testTwoPipelineBatchJobRestoreIn2NodeWorkerDown";
@@ -412,7 +409,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    @Disabled
     public void testTwoPipelineStreamJobRestoreIn2NodeWorkerDown()
             throws ExecutionException, InterruptedException {
         String testCaseName = "testTwoPipelineStreamJobRestoreIn2NodeWorkerDown";
@@ -538,7 +534,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    @Disabled
     public void testTwoPipelineBatchJobRestoreIn2NodeMasterDown()
             throws ExecutionException, InterruptedException {
         String testCaseName = "testTwoPipelineBatchJobRestoreIn2NodeMasterDown";
@@ -644,7 +639,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    @Disabled
     public void testTwoPipelineStreamJobRestoreIn2NodeMasterDown()
             throws ExecutionException, InterruptedException {
         String testCaseName = "testTwoPipelineStreamJobRestoreIn2NodeMasterDown";
