@@ -50,7 +50,7 @@ public class Common {
 
     private static DeployMode MODE;
 
-    private static final String SEATUNNEL_HOME = getSeaTunnelHome();
+    private static String SEATUNNEL_HOME;
 
     private static boolean STARTER = false;
 
@@ -68,6 +68,10 @@ public class Common {
     }
 
     private static String getSeaTunnelHome() {
+
+        if (StringUtils.isNotEmpty(SEATUNNEL_HOME)) {
+            return SEATUNNEL_HOME;
+        }
         String seatunnelHome = System.getProperty("SEATUNNEL_HOME");
         if (StringUtils.isBlank(seatunnelHome)) {
             seatunnelHome = System.getenv("SEATUNNEL_HOME");
@@ -75,7 +79,8 @@ public class Common {
         if (StringUtils.isBlank(seatunnelHome)) {
             seatunnelHome = appRootDir().toString();
         }
-        return seatunnelHome;
+        SEATUNNEL_HOME = seatunnelHome;
+        return SEATUNNEL_HOME;
     }
 
     /**
@@ -114,27 +119,22 @@ public class Common {
 
     /** Plugin Root Dir */
     public static Path pluginRootDir() {
-        String seatunnelHome = System.getProperty("SEATUNNEL_HOME");
-        if (StringUtils.isBlank(seatunnelHome)) {
-            return Paths.get(appRootDir().toString(), "plugins");
-        } else {
-            return Paths.get(seatunnelHome, "plugins");
-        }
+        return Paths.get(getSeaTunnelHome(), "plugins");
     }
 
     /** Plugin Connector Jar Dir */
     public static Path connectorJarDir(String engine) {
-        return Paths.get(SEATUNNEL_HOME, "connectors", engine.toLowerCase());
+        return Paths.get(getSeaTunnelHome(), "connectors", engine.toLowerCase());
     }
 
     /** Plugin Connector Dir */
     public static Path connectorDir() {
-        return Paths.get(SEATUNNEL_HOME, "connectors");
+        return Paths.get(getSeaTunnelHome(), "connectors");
     }
 
     /** lib Dir */
     public static Path libDir() {
-        return Paths.get(SEATUNNEL_HOME, "lib");
+        return Paths.get(getSeaTunnelHome(), "lib");
     }
 
     /** return lib jars, which located in 'lib/*' or 'lib/{dir}/*'. */
