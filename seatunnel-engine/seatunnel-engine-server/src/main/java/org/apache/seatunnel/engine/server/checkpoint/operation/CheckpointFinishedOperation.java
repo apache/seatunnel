@@ -17,8 +17,10 @@
 
 package org.apache.seatunnel.engine.server.checkpoint.operation;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.Task;
@@ -94,13 +96,13 @@ public class CheckpointFinishedOperation extends TaskOperation {
                         }
                         Thread.currentThread().setContextClassLoader(classLoader);
                     } catch (Exception e) {
-                        sneakyThrow(e);
+                        sneakyThrow(new SeaTunnelEngineException(ExceptionUtils.getMessage(e)));
                     }
                     return null;
                 },
                 new RetryUtils.RetryMaterial(
                         Constant.OPERATION_RETRY_TIME,
-                        false,
+                        true,
                         exception ->
                                 exception instanceof TaskGroupContextNotFoundException
                                         && !server.taskIsEnded(taskLocation.getTaskGroupLocation()),
