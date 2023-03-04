@@ -319,13 +319,13 @@ public class JobMaster {
         }
     }
 
-    public void handleCheckpointError(long pipelineId, Throwable e) {
+    public void handleCheckpointError(long pipelineId) {
         this.physicalPlan
                 .getPipelineList()
                 .forEach(
                         pipeline -> {
                             if (pipeline.getPipelineLocation().getPipelineId() == pipelineId) {
-                                pipeline.handleCheckpointError(e);
+                                pipeline.handleCheckpointError();
                             }
                         });
     }

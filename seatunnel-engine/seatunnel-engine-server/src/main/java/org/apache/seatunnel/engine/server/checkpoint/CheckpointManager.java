@@ -171,8 +171,8 @@ public class CheckpointManager {
         getCheckpointCoordinator(pipelineId).restoreCoordinator(alreadyStarted);
     }
 
-    protected void handleCheckpointError(int pipelineId, Throwable e) {
-        jobMaster.handleCheckpointError(pipelineId, e);
+    protected void handleCheckpointError(int pipelineId) {
+        jobMaster.handleCheckpointError(pipelineId);
     }
 
     private CheckpointCoordinator getCheckpointCoordinator(TaskLocation taskLocation) {
@@ -209,18 +209,6 @@ public class CheckpointManager {
      */
     public void readyToClose(TaskLocation taskLocation) {
         getCheckpointCoordinator(taskLocation).readyToClose(taskLocation);
-    }
-
-    /**
-     * Called by the JobMaster. <br>
-     * Listen to the {@link PipelineStatus} of the {@link SubPlan}, which is used to cancel the
-     * running {@link PendingCheckpoint} when the SubPlan is abnormal.
-     */
-    public CompletableFuture<Void> listenPipelineRetry(
-            int pipelineId, PipelineStatus pipelineStatus) {
-        getCheckpointCoordinator(pipelineId)
-                .cleanPendingCheckpoint(CheckpointCloseReason.PIPELINE_END);
-        return CompletableFuture.completedFuture(null);
     }
 
     /**
@@ -286,5 +274,28 @@ public class CheckpointManager {
                 operation,
                 jobMaster.queryTaskGroupAddress(
                         operation.getTaskLocation().getTaskGroupLocation().getTaskGroupId()));
+    }
+
+    /**
+     * Call By JobMaster If all the tasks canceled or some task failed, JobMaster will call this
+     * method to cancel checkpoint coordinator.
+     *
+     * @param pipelineId
+     * @return
+     */
+    public PassiveCompletableFuture<CheckpointCoordinatorState> cancelCheckpoint(int pipelineId) {
+        return getCheckpointCoordinator(pipelineId).cancelCheckpoint();
+    }
+
+    /**
+     * Call By JobMaster If all the tasks is finished, JobMaster will call this method to wait
+     * checkpoint coordinator complete.
+     *
+     * @param pipelineId
+     * @return
+     */
+    public PassiveCompletableFuture<CheckpointCoordinatorState> waitCheckpointCoordinatorComplete(
+            int pipelineId) {
+        return getCheckpointCoordinator(pipelineId).waitCheckpointCoordinatorComplete();
     }
 }
