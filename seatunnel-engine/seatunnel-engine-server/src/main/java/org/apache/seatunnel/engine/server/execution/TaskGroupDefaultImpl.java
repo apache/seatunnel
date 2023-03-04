@@ -29,7 +29,8 @@ public class TaskGroupDefaultImpl implements TaskGroup {
 
     private final Map<Long, Task> tasks;
 
-    public TaskGroupDefaultImpl(TaskGroupLocation taskGroupLocation, String taskGroupName, Collection<Task> tasks) {
+    public TaskGroupDefaultImpl(
+            TaskGroupLocation taskGroupLocation, String taskGroupName, Collection<Task> tasks) {
         this.taskGroupLocation = taskGroupLocation;
         this.taskGroupName = taskGroupName;
         this.tasks = tasks.stream().collect(Collectors.toMap(Task::getTaskID, Function.identity()));
@@ -45,9 +46,7 @@ public class TaskGroupDefaultImpl implements TaskGroup {
     }
 
     @Override
-    public void init() {
-
-    }
+    public void init() {}
 
     @Override
     public Collection<Task> getTasks() {
@@ -60,7 +59,5 @@ public class TaskGroupDefaultImpl implements TaskGroup {
     }
 
     @Override
-    public void setTasksContext(Map<Long, TaskExecutionContext> taskExecutionContextMap) {
-
-    }
+    public void setTasksContext(Map<Long, TaskExecutionContext> taskExecutionContextMap) {}
 }

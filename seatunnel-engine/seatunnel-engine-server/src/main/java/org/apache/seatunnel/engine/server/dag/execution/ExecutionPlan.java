@@ -29,7 +29,9 @@ public class ExecutionPlan {
 
     private final JobImmutableInformation jobImmutableInformation;
 
-    public ExecutionPlan(@NonNull List<Pipeline> pipelines, @NonNull JobImmutableInformation jobImmutableInformation) {
+    public ExecutionPlan(
+            @NonNull List<Pipeline> pipelines,
+            @NonNull JobImmutableInformation jobImmutableInformation) {
         this.pipelines = pipelines;
         this.jobImmutableInformation = jobImmutableInformation;
     }

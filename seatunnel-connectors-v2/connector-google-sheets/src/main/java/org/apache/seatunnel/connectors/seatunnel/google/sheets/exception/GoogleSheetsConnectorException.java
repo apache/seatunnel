@@ -22,11 +22,13 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 public class GoogleSheetsConnectorException extends SeaTunnelRuntimeException {
 
-    public GoogleSheetsConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
+    public GoogleSheetsConnectorException(
+            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
         super(seaTunnelErrorCode, errorMessage);
     }
 
-    public GoogleSheetsConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+    public GoogleSheetsConnectorException(
+            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
         super(seaTunnelErrorCode, errorMessage, cause);
     }
 

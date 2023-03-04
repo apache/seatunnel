@@ -76,7 +76,7 @@ public class ProtoStuffSerializerTest {
     @Test
     public void testArrayInit() {
 
-        Long[] arr = new Long[]{1L, null, 2L};
+        Long[] arr = new Long[] {1L, null, 2L};
         ProtoStuffSerializer p = new ProtoStuffSerializer();
         byte[] serialize = p.serialize(arr);
 

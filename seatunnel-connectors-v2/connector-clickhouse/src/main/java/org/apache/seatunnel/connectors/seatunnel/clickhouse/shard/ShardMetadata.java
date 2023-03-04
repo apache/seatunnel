@@ -41,28 +41,48 @@ public class ShardMetadata implements Serializable {
     private String username;
     private String password;
 
-    public ShardMetadata(String shardKey,
-                         String shardKeyType,
-                         String sortingKey,
-                         String database,
-                         String table,
-                         String tableEngine,
-                         boolean splitMode,
-                         Shard defaultShard) {
-        this(shardKey, shardKeyType, sortingKey, database, table, tableEngine,
-            splitMode, defaultShard, null, null);
+    public ShardMetadata(
+            String shardKey,
+            String shardKeyType,
+            String sortingKey,
+            String database,
+            String table,
+            String tableEngine,
+            boolean splitMode,
+            Shard defaultShard) {
+        this(
+                shardKey,
+                shardKeyType,
+                sortingKey,
+                database,
+                table,
+                tableEngine,
+                splitMode,
+                defaultShard,
+                null,
+                null);
     }
 
-    public ShardMetadata(String shardKey,
-                         String shardKeyType,
-                         String database,
-                         String table,
-                         String tableEngine,
-                         boolean splitMode,
-                         Shard defaultShard,
-                         String username,
-                         String password) {
-        this(shardKey, shardKeyType, null, database, table, tableEngine,
-            splitMode, defaultShard, username, password);
+    public ShardMetadata(
+            String shardKey,
+            String shardKeyType,
+            String database,
+            String table,
+            String tableEngine,
+            boolean splitMode,
+            Shard defaultShard,
+            String username,
+            String password) {
+        this(
+                shardKey,
+                shardKeyType,
+                null,
+                database,
+                table,
+                tableEngine,
+                splitMode,
+                defaultShard,
+                username,
+                password);
     }
 }

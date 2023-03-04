@@ -30,5 +30,4 @@ public class SourceIndexInfo implements Serializable {
     private List<String> source;
     private String scrollTime;
     private int scrollSize;
-
 }

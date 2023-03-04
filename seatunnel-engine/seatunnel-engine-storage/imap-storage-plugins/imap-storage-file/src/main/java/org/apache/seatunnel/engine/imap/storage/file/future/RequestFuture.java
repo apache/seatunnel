@@ -70,5 +70,4 @@ public class RequestFuture implements Future<Boolean> {
         this.success = success;
         latch.countDown();
     }
-
 }

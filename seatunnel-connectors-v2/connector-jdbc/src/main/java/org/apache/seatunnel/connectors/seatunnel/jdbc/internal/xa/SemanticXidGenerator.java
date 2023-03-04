@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SinkWriter;
 
@@ -26,6 +24,8 @@ import javax.transaction.xa.Xid;
 
 import java.security.SecureRandom;
 import java.util.Arrays;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 /**
  * Generates {@link Xid} from:
@@ -42,8 +42,7 @@ import java.util.Arrays;
  * <p>Each {@link SemanticXidGenerator} instance MUST be used for only one Sink (otherwise Xids will
  * collide).
  */
-class SemanticXidGenerator
-    implements XidGenerator {
+class SemanticXidGenerator implements XidGenerator {
     private static final long serialVersionUID = 1L;
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();

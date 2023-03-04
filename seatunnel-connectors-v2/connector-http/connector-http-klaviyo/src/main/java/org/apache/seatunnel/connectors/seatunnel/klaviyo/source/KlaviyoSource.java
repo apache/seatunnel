@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.klaviyo.source;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -31,8 +33,6 @@ import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.klaviyo.source.config.KlaviyoSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.klaviyo.source.config.KlaviyoSourceParameter;
 import org.apache.seatunnel.connectors.seatunnel.klaviyo.source.config.exception.KlaviyoConnectorException;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
@@ -49,10 +49,17 @@ public class KlaviyoSource extends HttpSource {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, KlaviyoSourceConfig.URL.key(), KlaviyoSourceConfig.PRIVATE_KEY.key(), KlaviyoSourceConfig.REVISION.key());
+        CheckResult result =
+                CheckConfigUtil.checkAllExists(
+                        pluginConfig,
+                        KlaviyoSourceConfig.URL.key(),
+                        KlaviyoSourceConfig.PRIVATE_KEY.key(),
+                        KlaviyoSourceConfig.REVISION.key());
         if (!result.isSuccess()) {
-            throw new KlaviyoConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+            throw new KlaviyoConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         this.klaviyoSourceParameter.buildWithConfig(pluginConfig);
@@ -60,7 +67,13 @@ public class KlaviyoSource extends HttpSource {
     }
 
     @Override
-    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new HttpSourceReader(this.klaviyoSourceParameter, readerContext, this.deserializationSchema, jsonField, contentField);
+    public AbstractSingleSplitReader<SeaTunnelRow> createReader(
+            SingleSplitReaderContext readerContext) throws Exception {
+        return new HttpSourceReader(
+                this.klaviyoSourceParameter,
+                readerContext,
+                this.deserializationSchema,
+                jsonField,
+                contentField);
     }
 }

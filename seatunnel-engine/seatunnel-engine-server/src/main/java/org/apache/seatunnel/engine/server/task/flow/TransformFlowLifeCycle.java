@@ -33,7 +33,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 @Slf4j
-public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>> {
+public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
+        implements OneInputFlowLifeCycle<Record<?>> {
 
     private final TransformChainAction<T> action;
 
@@ -41,10 +42,11 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle implements On
 
     private final Collector<Record<?>> collector;
 
-    public TransformFlowLifeCycle(TransformChainAction<T> action,
-                                  SeaTunnelTask runningTask,
-                                  Collector<Record<?>> collector,
-                                  CompletableFuture<Void> completableFuture) {
+    public TransformFlowLifeCycle(
+            TransformChainAction<T> action,
+            SeaTunnelTask runningTask,
+            Collector<Record<?>> collector,
+            CompletableFuture<Void> completableFuture) {
         super(action, runningTask, completableFuture);
         this.action = action;
         this.transform = action.getTransforms();

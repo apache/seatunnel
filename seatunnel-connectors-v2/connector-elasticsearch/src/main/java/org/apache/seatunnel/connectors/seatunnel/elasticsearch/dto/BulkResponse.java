@@ -17,17 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto;
 
-/**
- * the response of bulk ES by http request
- */
+/** the response of bulk ES by http request */
 public class BulkResponse {
 
     private boolean errors;
     private int took;
     private String response;
 
-    public BulkResponse() {
-    }
+    public BulkResponse() {}
 
     public BulkResponse(boolean errors, int took, String response) {
         this.errors = errors;

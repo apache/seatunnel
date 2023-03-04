@@ -18,10 +18,9 @@ supports query SQL and can achieve projection effect.
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
-
 ## Options
 
-| name               | type   | required | default value |
+|        name        |  type  | required | default value |
 |--------------------|--------|----------|---------------|
 | url                | string | yes      | -             |
 | sql                | string | yes      | -             |
@@ -39,12 +38,15 @@ supports query SQL and can achieve projection effect.
 | common-options     | config | no       | -             |
 
 ### url
+
 the url to connect to influxDB e.g.
-``` 
+
+```
 http://influxdb-host:8086
 ```
 
 ### sql [string]
+
 The query sql used to search data
 
 ```
@@ -115,6 +117,7 @@ lower bound of the `split_column` column
 ### partition_num [int]
 
 the `partition_num` of the InfluxDB when you select
+
 > Tips: Ensure that `upper_bound` minus `lower_bound` is divided `bypartition_num`, otherwise the query results will overlap
 
 ### epoch [string]
@@ -136,7 +139,9 @@ the timeout for connecting to InfluxDB, in milliseconds
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
 ## Examples
-Example of multi parallelism and multi partition scanning 
+
+Example of multi parallelism and multi partition scanning
+
 ```hocon
 source {
 
@@ -160,7 +165,9 @@ source {
 }
 
 ```
-Example of not using partition scan 
+
+Example of not using partition scan
+
 ```hocon
 source {
 
@@ -185,3 +192,4 @@ source {
 ### 2.2.0-beta 2022-09-26
 
 - Add InfluxDB Source Connector
+

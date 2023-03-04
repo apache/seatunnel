@@ -43,7 +43,7 @@ public class CheckpointException extends Exception {
     }
 
     public CheckpointException(
-        String message, CheckpointCloseReason failureReason, Throwable cause) {
+            String message, CheckpointCloseReason failureReason, Throwable cause) {
         super(message + " Failure reason: " + failureReason.message(), cause);
         this.checkpointCloseReason = checkNotNull(failureReason);
     }

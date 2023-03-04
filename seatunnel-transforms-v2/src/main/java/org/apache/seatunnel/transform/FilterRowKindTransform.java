@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.transform;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.table.type.RowKind;
@@ -25,8 +27,6 @@ import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.transform.common.FilterRowTransform;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
 import lombok.ToString;
@@ -39,14 +39,16 @@ import java.util.Set;
 @ToString(of = {"includeKinds", "excludeKinds"})
 @AutoService(SeaTunnelTransform.class)
 public class FilterRowKindTransform extends FilterRowTransform {
-    public static final Option<List<RowKind>> INCLUDE_KINDS = Options.key("include_kinds")
-        .listType(RowKind.class)
-        .noDefaultValue()
-        .withDescription("the row kinds to include");
-    public static final Option<List<RowKind>> EXCLUDE_KINDS = Options.key("exclude_kinds")
-        .listType(RowKind.class)
-        .noDefaultValue()
-        .withDescription("the row kinds to exclude");
+    public static final Option<List<RowKind>> INCLUDE_KINDS =
+            Options.key("include_kinds")
+                    .listType(RowKind.class)
+                    .noDefaultValue()
+                    .withDescription("the row kinds to include");
+    public static final Option<List<RowKind>> EXCLUDE_KINDS =
+            Options.key("exclude_kinds")
+                    .listType(RowKind.class)
+                    .noDefaultValue()
+                    .withDescription("the row kinds to exclude");
 
     private Set<RowKind> includeKinds = Collections.emptySet();
     private Set<RowKind> excludeKinds = Collections.emptySet();
@@ -59,16 +61,20 @@ public class FilterRowKindTransform extends FilterRowTransform {
     @Override
     protected void setConfig(Config pluginConfig) {
         if (pluginConfig.hasPath(INCLUDE_KINDS.key())) {
-            includeKinds = new HashSet<>(pluginConfig.getEnumList(RowKind.class, INCLUDE_KINDS.key()));
+            includeKinds =
+                    new HashSet<>(pluginConfig.getEnumList(RowKind.class, INCLUDE_KINDS.key()));
         }
         if (pluginConfig.hasPath(EXCLUDE_KINDS.key())) {
-            excludeKinds = new HashSet<>(pluginConfig.getEnumList(RowKind.class, EXCLUDE_KINDS.key()));
+            excludeKinds =
+                    new HashSet<>(pluginConfig.getEnumList(RowKind.class, EXCLUDE_KINDS.key()));
         }
         if ((includeKinds.isEmpty() && excludeKinds.isEmpty())
-            || (!includeKinds.isEmpty() && !excludeKinds.isEmpty())) {
-            throw new SeaTunnelRuntimeException(CommonErrorCode.ILLEGAL_ARGUMENT,
-                String.format("These options(%s,%s) are mutually exclusive, allowing only one set of options to be configured.",
-                    INCLUDE_KINDS.key(), EXCLUDE_KINDS.key()));
+                || (!includeKinds.isEmpty() && !excludeKinds.isEmpty())) {
+            throw new SeaTunnelRuntimeException(
+                    CommonErrorCode.ILLEGAL_ARGUMENT,
+                    String.format(
+                            "These options(%s,%s) are mutually exclusive, allowing only one set of options to be configured.",
+                            INCLUDE_KINDS.key(), EXCLUDE_KINDS.key()));
         }
     }
 
@@ -80,7 +86,8 @@ public class FilterRowKindTransform extends FilterRowTransform {
         if (!includeKinds.isEmpty()) {
             return includeKinds.contains(inputRow.getRowKind()) ? inputRow : null;
         }
-        throw new SeaTunnelRuntimeException(CommonErrorCode.UNSUPPORTED_OPERATION,
-            "Transform config error! Either excludeKinds or includeKinds must be configured");
+        throw new SeaTunnelRuntimeException(
+                CommonErrorCode.UNSUPPORTED_OPERATION,
+                "Transform config error! Either excludeKinds or includeKinds must be configured");
     }
 }

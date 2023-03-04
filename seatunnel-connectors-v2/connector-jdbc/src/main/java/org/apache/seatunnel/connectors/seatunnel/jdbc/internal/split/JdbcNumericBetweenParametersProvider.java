@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.split;
 
+import java.io.Serializable;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-
-import java.io.Serializable;
 
 /**
  * This query parameters generator is an helper class to parameterize from/to queries on a numeric

@@ -12,8 +12,8 @@ Write data to `MongoDB`
 
 ## Options
 
-| name           | type   | required | default value |
-|--------------- |--------|----------| ------------- |
+|      name      |  type  | required | default value |
+|----------------|--------|----------|---------------|
 | uri            | string | yes      | -             |
 | database       | string | yes      | -             |
 | collection     | string | yes      | -             |
@@ -50,3 +50,4 @@ mongodb {
 ### 2.2.0-beta 2022-09-26
 
 - Add MongoDB Sink Connector
+

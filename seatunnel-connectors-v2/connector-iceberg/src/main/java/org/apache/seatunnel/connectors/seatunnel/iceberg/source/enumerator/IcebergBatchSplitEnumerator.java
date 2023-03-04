@@ -23,9 +23,10 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan.
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan.IcebergScanSplitPlanner;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFileScanTaskSplit;
 
+import org.apache.iceberg.Table;
+
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.iceberg.Table;
 
 import java.util.Collections;
 import java.util.List;
@@ -36,12 +37,15 @@ public class IcebergBatchSplitEnumerator extends AbstractSplitEnumerator {
 
     private final IcebergScanContext icebergScanContext;
 
-    public IcebergBatchSplitEnumerator(@NonNull SourceSplitEnumerator.Context<IcebergFileScanTaskSplit> context,
-                                       @NonNull IcebergScanContext icebergScanContext,
-                                       @NonNull SourceConfig sourceConfig,
-                                       IcebergSplitEnumeratorState restoreState) {
-        super(context, sourceConfig, restoreState != null ?
-            restoreState.getPendingSplits() : Collections.emptyMap());
+    public IcebergBatchSplitEnumerator(
+            @NonNull SourceSplitEnumerator.Context<IcebergFileScanTaskSplit> context,
+            @NonNull IcebergScanContext icebergScanContext,
+            @NonNull SourceConfig sourceConfig,
+            IcebergSplitEnumeratorState restoreState) {
+        super(
+                context,
+                sourceConfig,
+                restoreState != null ? restoreState.getPendingSplits() : Collections.emptyMap());
         this.icebergScanContext = icebergScanContext;
     }
 
@@ -50,8 +54,8 @@ public class IcebergBatchSplitEnumerator extends AbstractSplitEnumerator {
         super.run();
 
         Set<Integer> readers = context.registeredReaders();
-        log.debug("No more splits to assign." +
-            " Sending NoMoreSplitsEvent to reader {}.", readers);
+        log.debug(
+                "No more splits to assign." + " Sending NoMoreSplitsEvent to reader {}.", readers);
         readers.forEach(context::signalNoMoreSplits);
     }
 
@@ -61,8 +65,7 @@ public class IcebergBatchSplitEnumerator extends AbstractSplitEnumerator {
     }
 
     @Override
-    public void handleSplitRequest(int subtaskId) {
-    }
+    public void handleSplitRequest(int subtaskId) {}
 
     @Override
     protected List<IcebergFileScanTaskSplit> loadNewSplits(Table table) {

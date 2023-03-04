@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.sink;
 
-import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.MAX_BATCH_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.MAX_RETRY_COUNT;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -30,15 +29,20 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.Elasticsear
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.ElasticsearchCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.ElasticsearchSinkState;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import com.google.auto.service.AutoService;
 
 import java.util.Collections;
 
-@AutoService(SeaTunnelSink.class)
-public class ElasticsearchSink implements SeaTunnelSink<SeaTunnelRow, ElasticsearchSinkState, ElasticsearchCommitInfo, ElasticsearchAggregatedCommitInfo> {
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.MAX_BATCH_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.MAX_RETRY_COUNT;
 
+@AutoService(SeaTunnelSink.class)
+public class ElasticsearchSink
+        implements SeaTunnelSink<
+                SeaTunnelRow,
+                ElasticsearchSinkState,
+                ElasticsearchCommitInfo,
+                ElasticsearchAggregatedCommitInfo> {
 
     private Config pluginConfig;
     private SeaTunnelRowType seaTunnelRowType;
@@ -74,8 +78,14 @@ public class ElasticsearchSink implements SeaTunnelSink<SeaTunnelRow, Elasticsea
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, ElasticsearchCommitInfo, ElasticsearchSinkState> createWriter(SinkWriter.Context context) {
-        return new ElasticsearchSinkWriter(context, seaTunnelRowType, pluginConfig, maxBatchSize, maxRetryCount, Collections.emptyList());
+    public SinkWriter<SeaTunnelRow, ElasticsearchCommitInfo, ElasticsearchSinkState> createWriter(
+            SinkWriter.Context context) {
+        return new ElasticsearchSinkWriter(
+                context,
+                seaTunnelRowType,
+                pluginConfig,
+                maxBatchSize,
+                maxRetryCount,
+                Collections.emptyList());
     }
-
 }

@@ -19,18 +19,19 @@ package org.apache.seatunnel.e2e.common;
 
 import org.apache.seatunnel.e2e.common.container.flink.AbstractTestFlinkContainer;
 
-import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.containers.Container;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 
 /**
- * This class is the base class of FlinkEnvironment test.
- * The before method will create a Flink cluster, and after method will close the Flink cluster.
- * You can use {@link AbstractFlinkContainer#executeJob} to submit a seatunnel config and run a seatunnel job.
+ * This class is the base class of FlinkEnvironment test. The before method will create a Flink
+ * cluster, and after method will close the Flink cluster. You can use {@link
+ * AbstractFlinkContainer#executeJob} to submit a seatunnel config and run a seatunnel job.
  */
 @Slf4j
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -50,7 +51,8 @@ public abstract class AbstractFlinkContainer extends AbstractTestFlinkContainer 
         log.info("The TestContainer[{}] is closed.", identifier());
     }
 
-    public Container.ExecResult executeSeaTunnelFlinkJob(String confFile) throws IOException, InterruptedException {
+    public Container.ExecResult executeSeaTunnelFlinkJob(String confFile)
+            throws IOException, InterruptedException {
         return executeJob(confFile);
     }
 }

@@ -21,15 +21,17 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class OptionTest {
-    public static final Option<Integer> TEST_NUM = Options.key("option.num")
-        .intType()
-        .defaultValue(100)
-        .withDescription("test int option");
+    public static final Option<Integer> TEST_NUM =
+            Options.key("option.num")
+                    .intType()
+                    .defaultValue(100)
+                    .withDescription("test int option");
 
-    public static final Option<TestMode> TEST_MODE = Options.key("option.mode")
-        .enumType(TestMode.class)
-        .defaultValue(TestMode.LATEST)
-        .withDescription("test enum option");
+    public static final Option<TestMode> TEST_MODE =
+            Options.key("option.mode")
+                    .enumType(TestMode.class)
+                    .defaultValue(TestMode.LATEST)
+                    .withDescription("test enum option");
 
     public enum TestMode {
         EARLIEST,
@@ -40,6 +42,8 @@ public class OptionTest {
     @Test
     public void testEquals() {
         Assertions.assertEquals(TEST_NUM, Options.key("option.num").intType().defaultValue(100));
-        Assertions.assertEquals(TEST_MODE, Options.key("option.mode").enumType(TestMode.class).defaultValue(TestMode.LATEST));
+        Assertions.assertEquals(
+                TEST_MODE,
+                Options.key("option.mode").enumType(TestMode.class).defaultValue(TestMode.LATEST));
     }
 }

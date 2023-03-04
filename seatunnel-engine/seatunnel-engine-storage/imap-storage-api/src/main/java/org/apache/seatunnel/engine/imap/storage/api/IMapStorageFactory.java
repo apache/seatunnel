@@ -29,5 +29,4 @@ public interface IMapStorageFactory {
     String factoryIdentifier();
 
     IMapStorage create(Map<String, Object> configuration) throws IMapStorageException;
-
 }

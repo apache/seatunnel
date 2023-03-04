@@ -17,26 +17,23 @@
 
 package org.apache.seatunnel.api.table.type;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 import java.util.Arrays;
 import java.util.List;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class SeaTunnelRowType implements CompositeType<SeaTunnelRow> {
     private static final long serialVersionUID = 2L;
 
-    /**
-     * The field name of the {@link SeaTunnelRow}.
-     */
+    /** The field name of the {@link SeaTunnelRow}. */
     private final String[] fieldNames;
-    /**
-     * The type of the field.
-     */
+    /** The type of the field. */
     private final SeaTunnelDataType<?>[] fieldTypes;
 
     public SeaTunnelRowType(String[] fieldNames, SeaTunnelDataType<?>[] fieldTypes) {
-        checkArgument(fieldNames.length == fieldTypes.length,
-            "The number of field names must be the same as the number of field types.");
+        checkArgument(
+                fieldNames.length == fieldTypes.length,
+                "The number of field names must be the same as the number of field types.");
         this.fieldNames = fieldNames;
         this.fieldTypes = fieldTypes;
     }
@@ -94,7 +91,8 @@ public class SeaTunnelRowType implements CompositeType<SeaTunnelRow> {
             return false;
         }
         SeaTunnelRowType that = (SeaTunnelRowType) obj;
-        return Arrays.equals(fieldNames, that.fieldNames) && Arrays.equals(fieldTypes, that.fieldTypes);
+        return Arrays.equals(fieldNames, that.fieldNames)
+                && Arrays.equals(fieldTypes, that.fieldTypes);
     }
 
     @Override
@@ -111,9 +109,7 @@ public class SeaTunnelRowType implements CompositeType<SeaTunnelRow> {
             if (i > 0) {
                 builder.append(",");
             }
-            builder.append(fieldNames[i])
-                .append(" ")
-                .append(fieldTypes[i]);
+            builder.append(fieldNames[i]).append(" ").append(fieldTypes[i]);
         }
         return builder.append(">").toString();
     }

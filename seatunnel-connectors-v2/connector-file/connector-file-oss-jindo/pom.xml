@@ -17,29 +17,22 @@
     limitations under the License.
 
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
     <parent>
-        <artifactId>connector-file</artifactId>
         <groupId>org.apache.seatunnel</groupId>
+        <artifactId>connector-file</artifactId>
         <version>${revision}</version>
     </parent>
-    <modelVersion>4.0.0</modelVersion>
 
     <artifactId>connector-file-oss-jindo</artifactId>
+    <name>SeaTunnel : Connectors V2 : File : Oss Jindo</name>
 
     <properties>
         <jindo-sdk.version>4.6.1</jindo-sdk.version>
         <hadoop-common.version>2.9.2</hadoop-common.version>
     </properties>
-
-    <repositories>
-        <repository>
-            <id>jindodata</id>
-            <url>https://jindodata-binary.oss-cn-shanghai.aliyuncs.com/mvn-repo/</url>
-        </repository>
-    </repositories>
 
     <dependencies>
 
@@ -68,12 +61,19 @@
             <scope>provided</scope>
             <exclusions>
                 <exclusion>
-                    <artifactId>avro</artifactId>
                     <groupId>org.apache.avro</groupId>
+                    <artifactId>avro</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
 
     </dependencies>
+
+    <repositories>
+        <repository>
+            <id>jindodata</id>
+            <url>https://jindodata-binary.oss-cn-shanghai.aliyuncs.com/mvn-repo/</url>
+        </repository>
+    </repositories>
 
 </project>

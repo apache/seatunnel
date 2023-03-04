@@ -1,6 +1,7 @@
 ---
+
 sidebar_position: 2
----
+-------------------
 
 # Run Job With Local Mode
 
@@ -17,3 +18,4 @@ The most recommended way to use SeaTunnel Engine in the production environment i
 ```shell
 $SEATUNNEL_HOME/bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template -e local
 ```
+

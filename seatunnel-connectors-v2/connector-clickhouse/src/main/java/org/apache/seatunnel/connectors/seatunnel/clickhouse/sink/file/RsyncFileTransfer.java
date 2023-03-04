@@ -21,10 +21,11 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.sshd.client.SshClient;
 import org.apache.sshd.client.session.ClientSession;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -62,18 +63,27 @@ public class RsyncFileTransfer implements FileTransfer {
             }
             // TODO support add publicKey to identity
             if (!clientSession.auth().verify().isSuccess()) {
-                throw new ClickhouseConnectorException(ClickhouseConnectorErrorCode.SSH_OPERATION_FAILED, "ssh host " + host + "authentication failed");
+                throw new ClickhouseConnectorException(
+                        ClickhouseConnectorErrorCode.SSH_OPERATION_FAILED,
+                        "ssh host " + host + "authentication failed");
             }
         } catch (IOException e) {
-            throw new ClickhouseConnectorException(ClickhouseConnectorErrorCode.SSH_OPERATION_FAILED,
-                "Failed to connect to host: " + host + " by user: " + user + " on port 22", e);
+            throw new ClickhouseConnectorException(
+                    ClickhouseConnectorErrorCode.SSH_OPERATION_FAILED,
+                    "Failed to connect to host: " + host + " by user: " + user + " on port 22",
+                    e);
         }
     }
 
     @Override
     public void transferAndChown(String sourcePath, String targetPath) {
         try {
-            String sshParameter = password != null ? String.format("'sshpass -p %s ssh -o StrictHostKeyChecking=no -p %s'", password, SSH_PORT) : String.format("'ssh -o StrictHostKeyChecking=no -p %s'", SSH_PORT);
+            String sshParameter =
+                    password != null
+                            ? String.format(
+                                    "'sshpass -p %s ssh -o StrictHostKeyChecking=no -p %s'",
+                                    password, SSH_PORT)
+                            : String.format("'ssh -o StrictHostKeyChecking=no -p %s'", SSH_PORT);
             List<String> rsyncCommand = new ArrayList<>();
             rsyncCommand.add("rsync");
             // recursive with -r
@@ -88,12 +98,13 @@ public class RsyncFileTransfer implements FileTransfer {
             rsyncCommand.add(sourcePath);
             rsyncCommand.add(String.format("root@%s:%s", host, targetPath));
             log.info("Generate rsync command: {}", String.join(" ", rsyncCommand));
-            ProcessBuilder processBuilder = new ProcessBuilder("bash", "-c", String.join(" ", rsyncCommand));
+            ProcessBuilder processBuilder =
+                    new ProcessBuilder("bash", "-c", String.join(" ", rsyncCommand));
             Process start = processBuilder.start();
             // we just wait for the process to finish
             try (InputStream inputStream = start.getInputStream();
-                 InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
-                 BufferedReader bufferedReader = new BufferedReader(inputStreamReader)) {
+                    InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
+                    BufferedReader bufferedReader = new BufferedReader(inputStreamReader)) {
                 String line;
                 while ((line = bufferedReader.readLine()) != null) {
                     log.info(line);
@@ -101,15 +112,20 @@ public class RsyncFileTransfer implements FileTransfer {
             }
             start.waitFor();
         } catch (IOException | InterruptedException ex) {
-            throw new ClickhouseConnectorException(CommonErrorCode.FILE_OPERATION_FAILED, "Rsync failed to transfer file: " + sourcePath + " to: " + targetPath, ex);
+            throw new ClickhouseConnectorException(
+                    CommonErrorCode.FILE_OPERATION_FAILED,
+                    "Rsync failed to transfer file: " + sourcePath + " to: " + targetPath,
+                    ex);
         }
-        // remote exec command to change file owner. Only file owner equal with server's clickhouse user can
+        // remote exec command to change file owner. Only file owner equal with server's clickhouse
+        // user can
         // make ATTACH command work.
         List<String> command = new ArrayList<>();
         command.add("ls");
         command.add("-l");
-        command.add(targetPath.substring(0,
-            StringUtils.stripEnd(targetPath, "/").lastIndexOf("/")) + "/");
+        command.add(
+                targetPath.substring(0, StringUtils.stripEnd(targetPath, "/").lastIndexOf("/"))
+                        + "/");
         command.add("| tail -n 1 | awk '{print $3}' | xargs -t -i chown -R {}:{} " + targetPath);
         try {
             String finalCommand = String.join(" ", command);
@@ -123,7 +139,8 @@ public class RsyncFileTransfer implements FileTransfer {
     @Override
     public void transferAndChown(List<String> sourcePaths, String targetPath) {
         if (sourcePaths == null) {
-            throw new ClickhouseConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, "sourcePath is null");
+            throw new ClickhouseConnectorException(
+                    CommonErrorCode.ILLEGAL_ARGUMENT, "sourcePath is null");
         }
         sourcePaths.forEach(sourcePath -> transferAndChown(sourcePath, targetPath));
     }
@@ -134,7 +151,10 @@ public class RsyncFileTransfer implements FileTransfer {
             try {
                 clientSession.close();
             } catch (IOException e) {
-                throw new ClickhouseConnectorException(ClickhouseConnectorErrorCode.SSH_OPERATION_FAILED, "Failed to close ssh session", e);
+                throw new ClickhouseConnectorException(
+                        ClickhouseConnectorErrorCode.SSH_OPERATION_FAILED,
+                        "Failed to close ssh session",
+                        e);
             }
         }
         if (sshClient != null && sshClient.isOpen()) {
@@ -142,7 +162,10 @@ public class RsyncFileTransfer implements FileTransfer {
             try {
                 sshClient.close();
             } catch (IOException e) {
-                throw new ClickhouseConnectorException(ClickhouseConnectorErrorCode.SSH_OPERATION_FAILED, "Failed to close ssh client", e);
+                throw new ClickhouseConnectorException(
+                        ClickhouseConnectorErrorCode.SSH_OPERATION_FAILED,
+                        "Failed to close ssh client",
+                        e);
             }
         }
     }

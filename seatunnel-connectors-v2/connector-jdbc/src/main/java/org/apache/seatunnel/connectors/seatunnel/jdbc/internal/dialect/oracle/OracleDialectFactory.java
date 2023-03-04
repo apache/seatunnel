@@ -22,10 +22,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 
 import com.google.auto.service.AutoService;
 
-/**
- * Factory for {@link OracleDialect}.
- */
-
+/** Factory for {@link OracleDialect}. */
 @AutoService(JdbcDialectFactory.class)
 public class OracleDialectFactory implements JdbcDialectFactory {
     @Override

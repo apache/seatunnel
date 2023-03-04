@@ -24,8 +24,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Array;
 import java.util.ArrayList;
@@ -36,7 +37,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private final SeaTunnelRowType seaTunnelRowType;
-    public static final AtomicLong CNT = new AtomicLong(0);
+    public final AtomicLong rowCounter = new AtomicLong(0);
     public SinkWriter.Context context;
 
     public ConsoleSinkWriter(SeaTunnelRowType seaTunnelRowType, SinkWriter.Context context) {
@@ -54,7 +55,13 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         for (int i = 0; i < fieldTypes.length; i++) {
             arr[i] = fieldToString(fieldTypes[i], fields[i]);
         }
-        log.info("subtaskIndex={}  rowIndex={}:  SeaTunnelRow#tableId={} SeaTunnelRow#kind={} : {}", context.getIndexOfSubtask(), CNT.incrementAndGet(), element.getTableId(), element.getRowKind(), StringUtils.join(arr, ", "));
+        log.info(
+                "subtaskIndex={}  rowIndex={}:  SeaTunnelRow#tableId={} SeaTunnelRow#kind={} : {}",
+                context.getIndexOfSubtask(),
+                rowCounter.incrementAndGet(),
+                element.getTableId(),
+                element.getRowKind(),
+                StringUtils.join(arr, ", "));
     }
 
     @Override
@@ -65,7 +72,10 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private String fieldsInfo(SeaTunnelRowType seaTunnelRowType) {
         String[] fieldsInfo = new String[seaTunnelRowType.getTotalFields()];
         for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
-            fieldsInfo[i] = String.format("%s<%s>", seaTunnelRowType.getFieldName(i), seaTunnelRowType.getFieldType(i));
+            fieldsInfo[i] =
+                    String.format(
+                            "%s<%s>",
+                            seaTunnelRowType.getFieldName(i), seaTunnelRowType.getFieldType(i));
         }
         return StringUtils.join(fieldsInfo, ", ");
     }
@@ -88,7 +98,10 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                 List<String> rowData = new ArrayList<>();
                 SeaTunnelRowType rowType = (SeaTunnelRowType) type;
                 for (int i = 0; i < rowType.getTotalFields(); i++) {
-                    rowData.add(fieldToString(rowType.getFieldTypes()[i], ((SeaTunnelRow) value).getField(i)));
+                    rowData.add(
+                            fieldToString(
+                                    rowType.getFieldTypes()[i],
+                                    ((SeaTunnelRow) value).getField(i)));
                 }
                 return rowData.toString();
             default:

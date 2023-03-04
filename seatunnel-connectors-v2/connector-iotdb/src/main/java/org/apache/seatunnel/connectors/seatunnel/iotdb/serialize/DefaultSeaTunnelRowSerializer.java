@@ -23,9 +23,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
 
+import org.apache.iotdb.tsfile.file.metadata.enums.TSDataType;
+
 import com.google.common.base.Strings;
 import lombok.NonNull;
-import org.apache.iotdb.tsfile.file.metadata.enums.TSDataType;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -43,16 +44,19 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
     private final List<String> measurements;
     private final List<TSDataType> measurementsType;
 
-    public DefaultSeaTunnelRowSerializer(@NonNull SeaTunnelRowType seaTunnelRowType,
-                                         String storageGroup,
-                                         String timestampKey,
-                                         @NonNull String deviceKey,
-                                         List<String> measurementKeys) {
+    public DefaultSeaTunnelRowSerializer(
+            @NonNull SeaTunnelRowType seaTunnelRowType,
+            String storageGroup,
+            String timestampKey,
+            @NonNull String deviceKey,
+            List<String> measurementKeys) {
         this.timestampExtractor = createTimestampExtractor(seaTunnelRowType, timestampKey);
         this.deviceExtractor = createDeviceExtractor(seaTunnelRowType, deviceKey, storageGroup);
-        this.measurements = createMeasurements(seaTunnelRowType, timestampKey, deviceKey, measurementKeys);
+        this.measurements =
+                createMeasurements(seaTunnelRowType, timestampKey, deviceKey, measurementKeys);
         this.measurementsType = createMeasurementTypes(seaTunnelRowType, measurements);
-        this.valuesExtractor = createValuesExtractor(seaTunnelRowType, measurements, measurementsType);
+        this.valuesExtractor =
+                createValuesExtractor(seaTunnelRowType, measurements, measurementsType);
     }
 
     @Override
@@ -63,8 +67,8 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
         return new IoTDBRecord(device, timestamp, measurements, measurementsType, values);
     }
 
-    private Function<SeaTunnelRow, Long> createTimestampExtractor(SeaTunnelRowType seaTunnelRowType,
-                                                                  String timestampKey) {
+    private Function<SeaTunnelRow, Long> createTimestampExtractor(
+            SeaTunnelRowType seaTunnelRowType, String timestampKey) {
         if (Strings.isNullOrEmpty(timestampKey)) {
             return row -> System.currentTimeMillis();
         }
@@ -75,27 +79,28 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             if (timestamp == null) {
                 return System.currentTimeMillis();
             }
-            SeaTunnelDataType<?> timestampFieldType = seaTunnelRowType.getFieldType(timestampFieldIndex);
+            SeaTunnelDataType<?> timestampFieldType =
+                    seaTunnelRowType.getFieldType(timestampFieldIndex);
             switch (timestampFieldType.getSqlType()) {
                 case STRING:
                     return Long.parseLong((String) timestamp);
                 case TIMESTAMP:
                     return ((LocalDateTime) timestamp)
-                        .atZone(ZoneOffset.UTC)
-                        .toInstant()
-                        .toEpochMilli();
+                            .atZone(ZoneOffset.UTC)
+                            .toInstant()
+                            .toEpochMilli();
                 case BIGINT:
                     return (Long) timestamp;
                 default:
-                    throw new IotdbConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        "Unsupported data type: " + timestampFieldType);
+                    throw new IotdbConnectorException(
+                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            "Unsupported data type: " + timestampFieldType);
             }
         };
     }
 
-    private Function<SeaTunnelRow, String> createDeviceExtractor(SeaTunnelRowType seaTunnelRowType,
-                                                                 String deviceKey,
-                                                                 String storageGroup) {
+    private Function<SeaTunnelRow, String> createDeviceExtractor(
+            SeaTunnelRowType seaTunnelRowType, String deviceKey, String storageGroup) {
         int deviceIndex = seaTunnelRowType.indexOf(deviceKey);
         return seaTunnelRow -> {
             String device = seaTunnelRow.getField(deviceIndex).toString();
@@ -109,33 +114,37 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
         };
     }
 
-    private List<String> createMeasurements(SeaTunnelRowType seaTunnelRowType,
-                                            String timestampKey,
-                                            String deviceKey,
-                                            List<String> measurementKeys) {
+    private List<String> createMeasurements(
+            SeaTunnelRowType seaTunnelRowType,
+            String timestampKey,
+            String deviceKey,
+            List<String> measurementKeys) {
         if (measurementKeys == null || measurementKeys.isEmpty()) {
             return Stream.of(seaTunnelRowType.getFieldNames())
-                .filter(name -> !name.equals(deviceKey))
-                .filter(name -> !name.equals(timestampKey))
-                .collect(Collectors.toList());
+                    .filter(name -> !name.equals(deviceKey))
+                    .filter(name -> !name.equals(timestampKey))
+                    .collect(Collectors.toList());
         }
         return measurementKeys;
     }
 
-    private List<TSDataType> createMeasurementTypes(SeaTunnelRowType seaTunnelRowType,
-                                                    List<String> measurements) {
+    private List<TSDataType> createMeasurementTypes(
+            SeaTunnelRowType seaTunnelRowType, List<String> measurements) {
         return measurements.stream()
-            .map(measurement -> {
-                int indexOfSeaTunnelRow = seaTunnelRowType.indexOf(measurement);
-                SeaTunnelDataType<?> seaTunnelType = seaTunnelRowType.getFieldType(indexOfSeaTunnelRow);
-                return convert(seaTunnelType);
-            })
-            .collect(Collectors.toList());
+                .map(
+                        measurement -> {
+                            int indexOfSeaTunnelRow = seaTunnelRowType.indexOf(measurement);
+                            SeaTunnelDataType<?> seaTunnelType =
+                                    seaTunnelRowType.getFieldType(indexOfSeaTunnelRow);
+                            return convert(seaTunnelType);
+                        })
+                .collect(Collectors.toList());
     }
 
-    private Function<SeaTunnelRow, List<Object>> createValuesExtractor(SeaTunnelRowType seaTunnelRowType,
-                                                                       List<String> measurements,
-                                                                       List<TSDataType> measurementTypes) {
+    private Function<SeaTunnelRow, List<Object>> createValuesExtractor(
+            SeaTunnelRowType seaTunnelRowType,
+            List<String> measurements,
+            List<TSDataType> measurementTypes) {
         return row -> {
             List<Object> measurementValues = new ArrayList<>(measurements.size());
             for (int i = 0; i < measurements.size(); i++) {
@@ -143,10 +152,12 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                 TSDataType measurementDataType = measurementsType.get(i);
 
                 int indexOfSeaTunnelRow = seaTunnelRowType.indexOf(measurement);
-                SeaTunnelDataType seaTunnelDataType = seaTunnelRowType.getFieldType(indexOfSeaTunnelRow);
+                SeaTunnelDataType seaTunnelDataType =
+                        seaTunnelRowType.getFieldType(indexOfSeaTunnelRow);
                 Object seaTunnelFieldValue = row.getField(indexOfSeaTunnelRow);
 
-                Object measurementValue = convert(seaTunnelDataType, measurementDataType, seaTunnelFieldValue);
+                Object measurementValue =
+                        convert(seaTunnelDataType, measurementDataType, seaTunnelFieldValue);
                 measurementValues.add(measurementValue);
             }
             return measurementValues;
@@ -170,14 +181,14 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             case DOUBLE:
                 return TSDataType.DOUBLE;
             default:
-                throw new IotdbConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                    "Unsupported data type: " + dataType);
+                throw new IotdbConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "Unsupported data type: " + dataType);
         }
     }
 
-    private static Object convert(SeaTunnelDataType seaTunnelType,
-                                  TSDataType tsDataType,
-                                  Object value) {
+    private static Object convert(
+            SeaTunnelDataType seaTunnelType, TSDataType tsDataType, Object value) {
         if (value == null) {
             return null;
         }
@@ -195,8 +206,9 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             case TEXT:
                 return value.toString();
             default:
-                throw new IotdbConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                    "Unsupported data type: " + tsDataType);
+                throw new IotdbConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "Unsupported data type: " + tsDataType);
         }
     }
 }

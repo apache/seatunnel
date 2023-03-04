@@ -24,36 +24,46 @@ import java.io.Serializable;
 
 public class MaxcomputeConfig implements Serializable {
     private static final int SPLIT_ROW_DEFAULT = 10000;
-    public static final Option<String> ACCESS_ID = Options.key("accessId")
-        .stringType()
-        .noDefaultValue()
-        .withDescription("Your Maxcompute accessId which cloud be access from Alibaba Cloud");
-    public static final Option<String> ACCESS_KEY = Options.key("accesskey")
-        .stringType()
-        .noDefaultValue()
-        .withDescription("Your Maxcompute accessKey which cloud be access from Alibaba Cloud");
-    public static final Option<String> ENDPOINT = Options.key("endpoint")
-        .stringType()
-        .noDefaultValue()
-        .withDescription("Your Maxcompute endpoint start with http");
-    public static final Option<String> PROJECT = Options.key("project")
-        .stringType()
-        .noDefaultValue()
-        .withDescription("Your Maxcompute project which is created in Alibaba Cloud");
-    public static final Option<String> TABLE_NAME = Options.key("table_name")
-        .stringType()
-        .noDefaultValue()
-        .withDescription("Target Maxcompute table name eg: fake");
-    public static final Option<String> PARTITION_SPEC = Options.key("partition_spec")
-        .stringType()
-        .noDefaultValue()
-        .withDescription("This spec of Maxcompute partition table.");
-    public static final Option<Integer> SPLIT_ROW = Options.key("split_row")
-        .intType()
-        .defaultValue(SPLIT_ROW_DEFAULT)
-        .withDescription("Number of rows per split. default: 10000");
-    public static final Option<Boolean> OVERWRITE = Options.key("overwrite")
-        .booleanType()
-        .defaultValue(false)
-        .withDescription("Whether to overwrite the table or partition");
+    public static final Option<String> ACCESS_ID =
+            Options.key("accessId")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Your Maxcompute accessId which cloud be access from Alibaba Cloud");
+    public static final Option<String> ACCESS_KEY =
+            Options.key("accesskey")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Your Maxcompute accessKey which cloud be access from Alibaba Cloud");
+    public static final Option<String> ENDPOINT =
+            Options.key("endpoint")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Your Maxcompute endpoint start with http");
+    public static final Option<String> PROJECT =
+            Options.key("project")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Your Maxcompute project which is created in Alibaba Cloud");
+    public static final Option<String> TABLE_NAME =
+            Options.key("table_name")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Target Maxcompute table name eg: fake");
+    public static final Option<String> PARTITION_SPEC =
+            Options.key("partition_spec")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("This spec of Maxcompute partition table.");
+    public static final Option<Integer> SPLIT_ROW =
+            Options.key("split_row")
+                    .intType()
+                    .defaultValue(SPLIT_ROW_DEFAULT)
+                    .withDescription("Number of rows per split. default: 10000");
+    public static final Option<Boolean> OVERWRITE =
+            Options.key("overwrite")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Whether to overwrite the table or partition");
 }

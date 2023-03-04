@@ -30,12 +30,9 @@ import java.util.function.Function;
 
 @RequiredArgsConstructor
 public class BufferedBatchStatementExecutor implements JdbcBatchStatementExecutor {
-    @NonNull
-    private final JdbcBatchStatementExecutor statementExecutor;
-    @NonNull
-    private final Function<SeaTunnelRow, SeaTunnelRow> valueTransform;
-    @NonNull
-    private final List<SeaTunnelRow> buffer = new ArrayList<>();
+    @NonNull private final JdbcBatchStatementExecutor statementExecutor;
+    @NonNull private final Function<SeaTunnelRow, SeaTunnelRow> valueTransform;
+    @NonNull private final List<SeaTunnelRow> buffer = new ArrayList<>();
 
     @Override
     public void prepareStatements(Connection connection) throws SQLException {

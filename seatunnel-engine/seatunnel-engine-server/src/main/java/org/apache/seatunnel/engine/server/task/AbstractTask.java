@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.engine.server.task;
 
-import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
-
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
@@ -32,8 +30,11 @@ import lombok.NonNull;
 import java.net.URL;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
+
+import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
 
 public abstract class AbstractTask implements Task {
     private static final long serialVersionUID = -2524701323779523718L;
@@ -41,7 +42,7 @@ public abstract class AbstractTask implements Task {
     protected TaskExecutionContext executionContext;
     protected final long jobID;
     protected final TaskLocation taskLocation;
-    protected volatile boolean restoreComplete;
+    protected volatile CompletableFuture<Void> restoreComplete;
     protected volatile boolean startCalled;
     protected volatile boolean closeCalled;
     protected volatile boolean prepareCloseStatus;
@@ -54,7 +55,6 @@ public abstract class AbstractTask implements Task {
         this.taskLocation = taskLocation;
         this.jobID = jobID;
         this.progress = new Progress();
-        this.restoreComplete = false;
         this.startCalled = false;
         this.closeCalled = false;
         this.prepareCloseStatus = false;
@@ -74,11 +74,11 @@ public abstract class AbstractTask implements Task {
 
     @Override
     public void init() throws Exception {
+        this.restoreComplete = new CompletableFuture<>();
         progress.start();
     }
 
-    @NonNull
-    @Override
+    @NonNull @Override
     public ProgressState call() throws Exception {
         return progress.toState();
     }
@@ -87,19 +87,20 @@ public abstract class AbstractTask implements Task {
         return this.taskLocation;
     }
 
-    @NonNull
-    @Override
+    @NonNull @Override
     public Long getTaskID() {
         return taskLocation.getTaskID();
     }
 
     protected void reportTaskStatus(SeaTunnelTaskState status) {
-        getExecutionContext().sendToMaster(new TaskReportStatusOperation(taskLocation, status)).join();
+        getExecutionContext()
+                .sendToMaster(new TaskReportStatusOperation(taskLocation, status))
+                .join();
     }
 
     public static <T> List<byte[]> serializeStates(Serializer<T> serializer, List<T> states) {
         return states.stream()
-            .map(state -> sneaky(() -> serializer.serialize(state)))
+                .map(state -> sneaky(() -> serializer.serialize(state)))
                 .collect(Collectors.toList());
     }
 

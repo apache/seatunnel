@@ -55,7 +55,8 @@ public class DynamoDbSinkClient {
     private final List<WriteRequest> batchList;
     protected SeaTunnelRowDeserializer seaTunnelRowDeserializer;
 
-    public DynamoDbSinkClient(AmazonDynamoDBSourceOptions amazondynamodbSourceOptions, SeaTunnelRowType typeInfo) {
+    public DynamoDbSinkClient(
+            AmazonDynamoDBSourceOptions amazondynamodbSourceOptions, SeaTunnelRowType typeInfo) {
         this.amazondynamodbSourceOptions = amazondynamodbSourceOptions;
         this.batchList = new ArrayList<>();
         this.seaTunnelRowDeserializer = new DefaultSeaTunnelRowDeserializer(typeInfo);
@@ -65,27 +66,36 @@ public class DynamoDbSinkClient {
         if (initialize) {
             return;
         }
-        dynamoDbClient = DynamoDbClient.builder()
-            .endpointOverride(URI.create(amazondynamodbSourceOptions.getUrl()))
-            // The region is meaningless for local DynamoDb but required for client builder validation
-            .region(Region.of(amazondynamodbSourceOptions.getRegion()))
-            .credentialsProvider(StaticCredentialsProvider.create(
-                AwsBasicCredentials.create(amazondynamodbSourceOptions.getAccessKeyId(), amazondynamodbSourceOptions.getSecretAccessKey())))
-            .build();
+        dynamoDbClient =
+                DynamoDbClient.builder()
+                        .endpointOverride(URI.create(amazondynamodbSourceOptions.getUrl()))
+                        // The region is meaningless for local DynamoDb but required for client
+                        // builder validation
+                        .region(Region.of(amazondynamodbSourceOptions.getRegion()))
+                        .credentialsProvider(
+                                StaticCredentialsProvider.create(
+                                        AwsBasicCredentials.create(
+                                                amazondynamodbSourceOptions.getAccessKeyId(),
+                                                amazondynamodbSourceOptions.getSecretAccessKey())))
+                        .build();
 
-        scheduler = Executors.newSingleThreadScheduledExecutor(
-            new ThreadFactoryBuilder().setNameFormat("DdynamoDb-sink-output-%s").build());
-        scheduledFuture = scheduler.scheduleAtFixedRate(
-            () -> {
-                try {
-                    flush();
-                } catch (IOException e) {
-                    flushException = e;
-                }
-            },
-            amazondynamodbSourceOptions.getBatchIntervalMs(),
-            amazondynamodbSourceOptions.getBatchIntervalMs(),
-            TimeUnit.MILLISECONDS);
+        scheduler =
+                Executors.newSingleThreadScheduledExecutor(
+                        new ThreadFactoryBuilder()
+                                .setNameFormat("DdynamoDb-sink-output-%s")
+                                .build());
+        scheduledFuture =
+                scheduler.scheduleAtFixedRate(
+                        () -> {
+                            try {
+                                flush();
+                            } catch (IOException e) {
+                                flushException = e;
+                            }
+                        },
+                        amazondynamodbSourceOptions.getBatchIntervalMs(),
+                        amazondynamodbSourceOptions.getBatchIntervalMs(),
+                        TimeUnit.MILLISECONDS);
 
         initialize = true;
     }
@@ -93,10 +103,12 @@ public class DynamoDbSinkClient {
     public synchronized void write(PutItemRequest putItemRequest) throws IOException {
         tryInit();
         checkFlushException();
-        batchList.add(WriteRequest.builder().putRequest(
-            PutRequest.builder().item(putItemRequest.item()).build()).build());
+        batchList.add(
+                WriteRequest.builder()
+                        .putRequest(PutRequest.builder().item(putItemRequest.item()).build())
+                        .build());
         if (amazondynamodbSourceOptions.getBatchSize() > 0
-            && batchList.size() >= amazondynamodbSourceOptions.getBatchSize()) {
+                && batchList.size() >= amazondynamodbSourceOptions.getBatchSize()) {
             flush();
         }
     }
@@ -119,19 +131,18 @@ public class DynamoDbSinkClient {
         }
         Map<String, List<WriteRequest>> requestItems = new HashMap<>(1);
         requestItems.put(amazondynamodbSourceOptions.getTable(), batchList);
-        dynamoDbClient.batchWriteItem(BatchWriteItemRequest
-            .builder()
-            .requestItems(requestItems)
-            .build());
+        dynamoDbClient.batchWriteItem(
+                BatchWriteItemRequest.builder().requestItems(requestItems).build());
 
         batchList.clear();
     }
 
     private void checkFlushException() {
         if (flushException != null) {
-            throw new AmazonDynamoDBConnectorException(CommonErrorCode.FLUSH_DATA_FAILED,
-                    "Flush data to AmazonDynamoDB failed.", flushException);
+            throw new AmazonDynamoDBConnectorException(
+                    CommonErrorCode.FLUSH_DATA_FAILED,
+                    "Flush data to AmazonDynamoDB failed.",
+                    flushException);
         }
     }
-
 }

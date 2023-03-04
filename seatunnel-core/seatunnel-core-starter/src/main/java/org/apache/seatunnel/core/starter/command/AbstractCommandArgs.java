@@ -27,38 +27,32 @@ import lombok.EqualsAndHashCode;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Abstract class of {@link CommandArgs} implementation to save common configuration settings
- */
+/** Abstract class of {@link CommandArgs} implementation to save common configuration settings */
 @EqualsAndHashCode(callSuper = true)
 @Data
 public abstract class AbstractCommandArgs extends CommandArgs {
 
-    /**
-     * config file path
-     */
-    @Parameter(names = {"-c", "--config"},
+    /** config file path */
+    @Parameter(
+            names = {"-c", "--config"},
             description = "Config file")
     protected String configFile;
 
-    /**
-     * user-defined parameters
-     */
-    @Parameter(names = {"-i", "--variable"},
-        description = "Variable substitution, such as -i city=beijing, or -i date=20190318")
+    /** user-defined parameters */
+    @Parameter(
+            names = {"-i", "--variable"},
+            description = "Variable substitution, such as -i city=beijing, or -i date=20190318")
     protected List<String> variables = Collections.emptyList();
 
-    /**
-     * check config flag
-     */
-    @Parameter(names = {"--check"},
+    /** check config flag */
+    @Parameter(
+            names = {"--check"},
             description = "Whether check config")
     protected boolean checkConfig = false;
 
-    /**
-     * SeaTunnel job name
-     */
-    @Parameter(names = {"-n", "--name"},
+    /** SeaTunnel job name */
+    @Parameter(
+            names = {"-n", "--name"},
             description = "SeaTunnel job name")
     protected String jobName = Constants.LOGO;
 

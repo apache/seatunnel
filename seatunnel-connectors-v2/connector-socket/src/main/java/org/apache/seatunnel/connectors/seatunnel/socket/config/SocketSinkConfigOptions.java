@@ -24,20 +24,14 @@ public class SocketSinkConfigOptions {
     private static final int DEFAULT_MAX_RETRIES = 3;
 
     public static final Option<String> HOST =
-        Options.key("host")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("socket host");
+            Options.key("host").stringType().noDefaultValue().withDescription("socket host");
 
     public static final Option<Integer> PORT =
-        Options.key("port")
-            .intType()
-            .noDefaultValue()
-            .withDescription("socket port");
+            Options.key("port").intType().noDefaultValue().withDescription("socket port");
 
     public static final Option<Integer> MAX_RETRIES =
-        Options.key("max_retries")
-            .intType()
-            .defaultValue(DEFAULT_MAX_RETRIES)
-            .withDescription("default value is " + DEFAULT_MAX_RETRIES + ", max retries");
+            Options.key("max_retries")
+                    .intType()
+                    .defaultValue(DEFAULT_MAX_RETRIES)
+                    .withDescription("default value is " + DEFAULT_MAX_RETRIES + ", max retries");
 }

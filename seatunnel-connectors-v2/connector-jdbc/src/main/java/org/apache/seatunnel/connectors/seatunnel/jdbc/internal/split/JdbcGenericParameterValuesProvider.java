@@ -21,7 +21,8 @@ import java.io.Serializable;
 
 /**
  * This splits generator actually does nothing but wrapping the query parameters computed by the
- * user before creating the {@link org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSource} instance.
+ * user before creating the {@link org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSource}
+ * instance.
  */
 public class JdbcGenericParameterValuesProvider implements JdbcParameterValuesProvider {
 

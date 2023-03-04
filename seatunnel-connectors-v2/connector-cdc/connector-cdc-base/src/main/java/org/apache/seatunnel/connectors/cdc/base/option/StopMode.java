@@ -17,24 +17,14 @@
 
 package org.apache.seatunnel.connectors.cdc.base.option;
 
-/**
- * Stop mode for the CDC Connectors, see {@link SourceOptions#STOP_MODE}.
- */
+/** Stop mode for the CDC Connectors, see {@link SourceOptions#STOP_MODE}. */
 public enum StopMode {
-    /**
-     * Stop from the latest offset.
-     */
+    /** Stop from the latest offset. */
     LATEST,
-    /**
-     * Stop from user-supplied timestamp.
-     */
+    /** Stop from user-supplied timestamp. */
     TIMESTAMP,
-    /**
-     * Stop from user-supplied specific offset.
-     */
+    /** Stop from user-supplied specific offset. */
     SPECIFIC,
-    /**
-     * Real-time job don't stop the source.
-     */
+    /** Real-time job don't stop the source. */
     NEVER
 }

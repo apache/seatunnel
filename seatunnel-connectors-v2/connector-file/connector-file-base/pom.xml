@@ -17,17 +17,17 @@
     limitations under the License.
 
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
     <parent>
-        <artifactId>connector-file</artifactId>
         <groupId>org.apache.seatunnel</groupId>
+        <artifactId>connector-file</artifactId>
         <version>${revision}</version>
     </parent>
-    <modelVersion>4.0.0</modelVersion>
 
     <artifactId>connector-file-base</artifactId>
+    <name>SeaTunnel : Connectors V2 : File : Base</name>
 
     <properties>
         <commons-net.version>3.6</commons-net.version>
@@ -94,12 +94,12 @@
             <classifier>nohive</classifier>
             <exclusions>
                 <exclusion>
-                    <artifactId>hadoop-common</artifactId>
                     <groupId>org.apache.hadoop</groupId>
+                    <artifactId>hadoop-common</artifactId>
                 </exclusion>
                 <exclusion>
-                    <artifactId>hadoop-hdfs</artifactId>
                     <groupId>org.apache.hadoop</groupId>
+                    <artifactId>hadoop-hdfs</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -124,8 +124,8 @@
             <scope>provided</scope>
             <exclusions>
                 <exclusion>
-                    <artifactId>avro</artifactId>
                     <groupId>org.apache.avro</groupId>
+                    <artifactId>avro</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>

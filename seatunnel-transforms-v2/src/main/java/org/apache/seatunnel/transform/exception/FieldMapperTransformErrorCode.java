@@ -20,8 +20,8 @@ package org.apache.seatunnel.transform.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum FieldMapperTransformErrorCode implements SeaTunnelErrorCode {
-
-    INPUT_FIELD_NOT_FOUND("FIELD_MAPPER_TRANSFORM-01", "field mapper input field not found in inputRowType");
+    INPUT_FIELD_NOT_FOUND(
+            "FIELD_MAPPER_TRANSFORM-01", "field mapper input field not found in inputRowType");
 
     private final String code;
     private final String description;

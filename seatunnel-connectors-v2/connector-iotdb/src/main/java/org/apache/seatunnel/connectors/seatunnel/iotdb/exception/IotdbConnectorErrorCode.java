@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.iotdb.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum IotdbConnectorErrorCode implements SeaTunnelErrorCode {
-
     CLOSE_SESSION_FAILED("IOTDB-01", "Close IoTDB session failed"),
     INITIALIZE_CLIENT_FAILED("IOTDB-02", "Initialize IoTDB client failed"),
     CLOSE_CLIENT_FAILED("IOTDB-03", "Close IoTDB client failed");

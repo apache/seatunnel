@@ -29,23 +29,25 @@ import java.nio.file.Paths;
 
 public class SeaTunnelEngineExample {
 
-    public static void main(String[] args) throws FileNotFoundException, URISyntaxException, CommandException {
+    public static void main(String[] args)
+            throws FileNotFoundException, URISyntaxException, CommandException {
         String configFile = getTestConfigFile("/examples/fake_to_console.conf");
         ClientCommandArgs clientCommandArgs = new ClientCommandArgs();
         clientCommandArgs.setConfigFile(configFile);
         clientCommandArgs.setCheckConfig(false);
         clientCommandArgs.setJobName("fake_to_console");
-        // Change Execution Mode to CLUSTER to use client mode, before do this, you should start SeaTunnelEngineServerExample
+        // Change Execution Mode to CLUSTER to use client mode, before do this, you should start
+        // SeaTunnelEngineServerExample
         clientCommandArgs.setMasterType(MasterType.LOCAL);
         SeaTunnel.run(clientCommandArgs.buildCommand());
     }
 
-    public static String getTestConfigFile(String configFile) throws FileNotFoundException, URISyntaxException {
+    public static String getTestConfigFile(String configFile)
+            throws FileNotFoundException, URISyntaxException {
         URL resource = SeaTunnelEngineExample.class.getResource(configFile);
         if (resource == null) {
             throw new FileNotFoundException("Can't find config file: " + configFile);
         }
         return Paths.get(resource.toURI()).toString();
     }
-
 }

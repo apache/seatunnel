@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerConnectionUtils.createSqlServerConnection;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerTypeUtils.convertFromTable;
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportParallelism;
@@ -43,13 +40,18 @@ import io.debezium.relational.TableId;
 
 import java.time.ZoneId;
 
+import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerConnectionUtils.createSqlServerConnection;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerTypeUtils.convertFromTable;
+
 @AutoService(SeaTunnelSource.class)
-public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig> implements
-    SupportParallelism {
+public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig>
+        implements SupportParallelism {
+
+    static final String IDENTIFIER = "SqlServer-CDC";
 
     @Override
     public String getPluginName() {
-        return "SqlServer-CDC";
+        return IDENTIFIER;
     }
 
     @Override
@@ -63,23 +65,30 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
 
     @SuppressWarnings("unchecked")
     @Override
-    public DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(ReadonlyConfig config) {
-        SqlServerSourceConfig sqlServerSourceConfig = (SqlServerSourceConfig) this.configFactory.create(0);
-        TableId tableId = this.dataSourceDialect.discoverDataCollections(sqlServerSourceConfig).get(0);
+    public DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(
+            ReadonlyConfig config) {
+        SqlServerSourceConfig sqlServerSourceConfig =
+                (SqlServerSourceConfig) this.configFactory.create(0);
+        TableId tableId =
+                this.dataSourceDialect.discoverDataCollections(sqlServerSourceConfig).get(0);
 
-        SqlServerConnection sqlServerConnection = createSqlServerConnection(sqlServerSourceConfig.getDbzConfiguration());
+        SqlServerConnection sqlServerConnection =
+                createSqlServerConnection(sqlServerSourceConfig.getDbzConfiguration());
 
-        Table table = ((SqlServerDialect) dataSourceDialect).queryTableSchema(sqlServerConnection, tableId).getTable();
+        Table table =
+                ((SqlServerDialect) dataSourceDialect)
+                        .queryTableSchema(sqlServerConnection, tableId)
+                        .getTable();
 
         SeaTunnelRowType seaTunnelRowType = convertFromTable(table);
 
         String zoneId = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
-        return (DebeziumDeserializationSchema<T>) SeaTunnelRowDebeziumDeserializeSchema.builder()
-            .setPhysicalRowType(seaTunnelRowType)
-            .setResultTypeInfo(seaTunnelRowType)
-            .setServerTimeZone(ZoneId.of(zoneId))
-            .build();
-
+        return (DebeziumDeserializationSchema<T>)
+                SeaTunnelRowDebeziumDeserializeSchema.builder()
+                        .setPhysicalRowType(seaTunnelRowType)
+                        .setResultTypeInfo(seaTunnelRowType)
+                        .setServerTimeZone(ZoneId.of(zoneId))
+                        .build();
     }
 
     @Override
@@ -89,6 +98,7 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
 
     @Override
     public OffsetFactory createOffsetFactory(ReadonlyConfig config) {
-        return new LsnOffsetFactory((SqlServerSourceConfigFactory) configFactory, (SqlServerDialect) dataSourceDialect);
+        return new LsnOffsetFactory(
+                (SqlServerSourceConfigFactory) configFactory, (SqlServerDialect) dataSourceDialect);
     }
 }

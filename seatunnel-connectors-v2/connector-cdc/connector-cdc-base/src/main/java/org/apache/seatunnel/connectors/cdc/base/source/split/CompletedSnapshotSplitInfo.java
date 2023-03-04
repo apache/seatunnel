@@ -34,12 +34,13 @@ public class CompletedSnapshotSplitInfo implements Serializable {
     private final Object splitEnd;
     private final Offset watermark;
 
-    public CompletedSnapshotSplitInfo(String splitId,
-                                      TableId tableId,
-                                      SeaTunnelRowType splitKeyType,
-                                      Object splitStart,
-                                      Object splitEnd,
-                                      Offset watermark) {
+    public CompletedSnapshotSplitInfo(
+            String splitId,
+            TableId tableId,
+            SeaTunnelRowType splitKeyType,
+            Object splitStart,
+            Object splitEnd,
+            Offset watermark) {
         this.splitId = splitId;
         this.tableId = tableId;
         this.splitKeyType = splitKeyType;
@@ -49,11 +50,6 @@ public class CompletedSnapshotSplitInfo implements Serializable {
     }
 
     public SnapshotSplit asSnapshotSplit() {
-        return new SnapshotSplit(splitId,
-            tableId,
-            splitKeyType,
-            splitStart,
-            splitEnd,
-            watermark);
+        return new SnapshotSplit(splitId, tableId, splitKeyType, splitStart, splitEnd, watermark);
     }
 }

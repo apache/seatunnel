@@ -22,10 +22,8 @@ import org.apache.seatunnel.api.source.SourceSplit;
 import lombok.Getter;
 
 public class MaxcomputeSourceSplit implements SourceSplit {
-    @Getter
-    private int splitId;
-    @Getter
-    private long rowNum;
+    @Getter private int splitId;
+    @Getter private long rowNum;
 
     public MaxcomputeSourceSplit(int splitId, long rowNum) {
         this.splitId = splitId;

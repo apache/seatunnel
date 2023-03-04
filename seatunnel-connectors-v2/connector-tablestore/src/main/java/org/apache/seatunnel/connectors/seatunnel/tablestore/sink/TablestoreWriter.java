@@ -31,7 +31,8 @@ public class TablestoreWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private final TablestoreSinkClient tablestoreSinkClient;
     private final SeaTunnelRowSerializer serializer;
 
-    public TablestoreWriter(TablestoreOptions tablestoreOptions, SeaTunnelRowType seaTunnelRowType) {
+    public TablestoreWriter(
+            TablestoreOptions tablestoreOptions, SeaTunnelRowType seaTunnelRowType) {
         tablestoreSinkClient = new TablestoreSinkClient(tablestoreOptions, seaTunnelRowType);
         serializer = new DefaultSeaTunnelRowSerializer(seaTunnelRowType, tablestoreOptions);
     }

@@ -20,21 +20,21 @@
 
 package org.apache.seatunnel.engine.checkpoint.storage.hdfs.common;
 
-import static org.apache.hadoop.fs.FileSystem.FS_DEFAULT_NAME_KEY;
-
 import org.apache.hadoop.conf.Configuration;
 
 import java.util.Map;
 
+import static org.apache.hadoop.fs.FileSystem.FS_DEFAULT_NAME_KEY;
+
 public class OssConfiguration extends AbstractConfiguration {
 
-    /**************** OSS required keys ***************/
+    /** ************** OSS required keys ************** */
     public static final String OSS_BUCKET_KEY = "oss.bucket";
-
 
     /* OSS constants */
     private static final String OSS_IMPL_KEY = "fs.oss.impl";
-    private static final String HDFS_OSS_IMPL = "org.apache.hadoop.fs.aliyun.oss.AliyunOSSFileSystem";
+    private static final String HDFS_OSS_IMPL =
+            "org.apache.hadoop.fs.aliyun.oss.AliyunOSSFileSystem";
     private static final String OSS_KEY = "fs.oss.";
 
     @Override

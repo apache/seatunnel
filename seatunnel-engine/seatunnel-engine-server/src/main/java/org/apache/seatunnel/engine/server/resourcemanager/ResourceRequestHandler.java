@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
-import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
-
 import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.RequestSlotOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
@@ -33,6 +31,7 @@ import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -40,9 +39,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-/**
- * Handle each slot request from resource manager
- */
+import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
+
+/** Handle each slot request from resource manager */
 public class ResourceRequestHandler {
 
     private static final ILogger LOGGER = Logger.getLogger(ResourceRequestHandler.class);
@@ -61,10 +60,11 @@ public class ResourceRequestHandler {
 
     private final AbstractResourceManager resourceManager;
 
-    public ResourceRequestHandler(long jobId,
-                                  List<ResourceProfile> resourceProfile,
-                                  ConcurrentMap<Address, WorkerProfile> registerWorker,
-                                  AbstractResourceManager resourceManager) {
+    public ResourceRequestHandler(
+            long jobId,
+            List<ResourceProfile> resourceProfile,
+            ConcurrentMap<Address, WorkerProfile> registerWorker,
+            AbstractResourceManager resourceManager) {
         this.completableFuture = new CompletableFuture<>();
         this.resultSlotProfiles = new ConcurrentHashMap<>();
         this.jobId = jobId;
@@ -80,24 +80,33 @@ public class ResourceRequestHandler {
             Optional<WorkerProfile> workerProfile = preCheckWorkerResource(r);
             if (workerProfile.isPresent()) {
                 // request slot to member
-                CompletableFuture<SlotAndWorkerProfile> internalCompletableFuture = singleResourceRequestToMember(i, r, workerProfile.get());
+                CompletableFuture<SlotAndWorkerProfile> internalCompletableFuture =
+                        singleResourceRequestToMember(i, r, workerProfile.get());
                 allRequestFuture.add(internalCompletableFuture);
             }
         }
         // all resource preCheck done, also had sent request to worker
-        getAllOfFuture(allRequestFuture).whenComplete(withTryCatch(LOGGER, (unused, error) -> {
-            if (error != null) {
-                completeRequestWithException(error);
-            }
-            if (resultSlotProfiles.size() < resourceProfile.size()) {
-                // meaning have some slot not request success
-                if (resourceManager.supportDynamicWorker()) {
-                    applyByDynamicWorker();
-                } else {
-                    completeRequestWithException(new NoEnoughResourceException("can't apply resource request: " + resourceProfile.get(findNullIndexInResultSlotProfiles())));
-                }
-            }
-        }));
+        getAllOfFuture(allRequestFuture)
+                .whenComplete(
+                        withTryCatch(
+                                LOGGER,
+                                (unused, error) -> {
+                                    if (error != null) {
+                                        completeRequestWithException(error);
+                                    }
+                                    if (resultSlotProfiles.size() < resourceProfile.size()) {
+                                        // meaning have some slot not request success
+                                        if (resourceManager.supportDynamicWorker()) {
+                                            applyByDynamicWorker();
+                                        } else {
+                                            completeRequestWithException(
+                                                    new NoEnoughResourceException(
+                                                            "can't apply resource request: "
+                                                                    + resourceProfile.get(
+                                                                            findNullIndexInResultSlotProfiles())));
+                                        }
+                                    }
+                                }));
         return completableFuture;
     }
 
@@ -128,29 +137,47 @@ public class ResourceRequestHandler {
         }
     }
 
-    private CompletableFuture<SlotAndWorkerProfile> singleResourceRequestToMember(int i, ResourceProfile r, WorkerProfile workerProfile) {
-        InvocationFuture<SlotAndWorkerProfile> future = resourceManager.sendToMember(new RequestSlotOperation(jobId, r), workerProfile.getAddress());
+    private CompletableFuture<SlotAndWorkerProfile> singleResourceRequestToMember(
+            int i, ResourceProfile r, WorkerProfile workerProfile) {
+        InvocationFuture<SlotAndWorkerProfile> future =
+                resourceManager.sendToMember(
+                        new RequestSlotOperation(jobId, r), workerProfile.getAddress());
         return future.whenComplete(
-            withTryCatch(LOGGER, (slotAndWorkerProfile, error) -> {
-                if (error != null) {
-                    throw new RuntimeException(error);
-                } else {
-                    resourceManager.heartbeat(slotAndWorkerProfile.getWorkerProfile());
-                    addSlotToCacheMap(i, slotAndWorkerProfile.getSlotProfile());
-                }
-            }
-        ));
+                withTryCatch(
+                        LOGGER,
+                        (slotAndWorkerProfile, error) -> {
+                            if (error != null) {
+                                throw new RuntimeException(error);
+                            } else {
+                                resourceManager.heartbeat(slotAndWorkerProfile.getWorkerProfile());
+                                addSlotToCacheMap(i, slotAndWorkerProfile.getSlotProfile());
+                            }
+                        }));
     }
 
     private Optional<WorkerProfile> preCheckWorkerResource(ResourceProfile r) {
+        // Shuffle the order to ensure random selection of workers
+        List<WorkerProfile> workerProfiles =
+                Arrays.asList(registerWorker.values().toArray(new WorkerProfile[0]));
+        Collections.shuffle(workerProfiles);
         // Check if there are still unassigned slots
         Optional<WorkerProfile> workerProfile =
-            registerWorker.values().stream().filter(worker -> Arrays.stream(worker.getUnassignedSlots()).anyMatch(slot -> slot.getResourceProfile().enoughThan(r))).findAny();
+                workerProfiles.stream()
+                        .filter(
+                                worker ->
+                                        Arrays.stream(worker.getUnassignedSlots())
+                                                .anyMatch(
+                                                        slot ->
+                                                                slot.getResourceProfile()
+                                                                        .enoughThan(r)))
+                        .findAny();
 
         if (!workerProfile.isPresent()) {
             // Check if there are still unassigned resources
             workerProfile =
-                registerWorker.values().stream().filter(worker -> worker.getUnassignedResource().enoughThan(r)).findAny();
+                    workerProfiles.stream()
+                            .filter(worker -> worker.getUnassignedResource().enoughThan(r))
+                            .findAny();
         }
 
         return workerProfile;
@@ -158,8 +185,9 @@ public class ResourceRequestHandler {
 
     /**
      * When the {@link DeployType} supports dynamic workers and the resources of the current worker
-     * cannot meet the requirements of resource application, we can dynamically request the third-party
-     * resource management to create a new worker, and then complete the resource application
+     * cannot meet the requirements of resource application, we can dynamically request the
+     * third-party resource management to create a new worker, and then complete the resource
+     * application
      */
     private void applyByDynamicWorker() {
         List<ResourceProfile> needApplyResource = new ArrayList<>();
@@ -171,27 +199,34 @@ public class ResourceRequestHandler {
             }
         }
         resourceManager.findNewWorker(needApplyResource);
-        resourceManager.applyResources(jobId, needApplyResource).whenComplete(withTryCatch(LOGGER, (s, e) -> {
-            if (e != null) {
-                completeRequestWithException(e);
-                return;
-            }
-            for (int i = 0; i < s.size(); i++) {
-                addSlotToCacheMap(needApplyIndex.get(i), s.get(i));
-            }
-        }));
+        resourceManager
+                .applyResources(jobId, needApplyResource)
+                .whenComplete(
+                        withTryCatch(
+                                LOGGER,
+                                (s, e) -> {
+                                    if (e != null) {
+                                        completeRequestWithException(e);
+                                        return;
+                                    }
+                                    for (int i = 0; i < s.size(); i++) {
+                                        addSlotToCacheMap(needApplyIndex.get(i), s.get(i));
+                                    }
+                                }));
     }
 
     private void releaseAllResourceInternal() {
         LOGGER.warning("apply resource not success, release all already applied resource");
-        resultSlotProfiles.values().stream().filter(Objects::nonNull).forEach(profile -> {
-            resourceManager.releaseResource(jobId, profile);
-        });
+        resultSlotProfiles.values().stream()
+                .filter(Objects::nonNull)
+                .forEach(
+                        profile -> {
+                            resourceManager.releaseResource(jobId, profile);
+                        });
     }
 
     private <T> CompletableFuture<T> getAllOfFuture(List<CompletableFuture<T>> allRequestFuture) {
-        return (CompletableFuture<T>) CompletableFuture.allOf(allRequestFuture.toArray(new CompletableFuture[0]));
+        return (CompletableFuture<T>)
+                CompletableFuture.allOf(allRequestFuture.toArray(new CompletableFuture[0]));
     }
-
 }
-

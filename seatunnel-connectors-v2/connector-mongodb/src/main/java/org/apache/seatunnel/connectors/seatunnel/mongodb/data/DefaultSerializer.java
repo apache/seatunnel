@@ -23,11 +23,12 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
-import lombok.NonNull;
 import org.bson.BsonTimestamp;
 import org.bson.Document;
 import org.bson.types.Binary;
 import org.bson.types.Decimal128;
+
+import lombok.NonNull;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -101,8 +102,8 @@ public class DefaultSerializer implements Serializer {
                 Document mapDocument = new Document();
                 for (Map.Entry<String, Object> entry : map.entrySet()) {
                     String mapKeyName = entry.getKey();
-                    mapDocument.append(mapKeyName,
-                        convert(mapType.getValueType(), entry.getValue()));
+                    mapDocument.append(
+                            mapKeyName, convert(mapType.getValueType(), entry.getValue()));
                 }
                 return mapDocument;
             case ROW:

@@ -1,6 +1,7 @@
 ---
+
 sidebar_position: 1
----
+-------------------
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
@@ -25,23 +26,31 @@ export version="2.3.0-beta"
 wget "https://archive.apache.org/dist/incubator/seatunnel/${version}/apache-seatunnel-incubating-${version}-bin.tar.gz"
 tar -xzvf "apache-seatunnel-incubating-${version}-bin.tar.gz"
 ```
+
 <!-- TODO: We should add example module as quick start which is no need for install Spark or Flink -->
 
 ## Step 3: Install connectors plugin
+
 Since 2.2.0-beta, the binary package does not provide connector dependencies by default, so when using it for the first time, we need to execute the following command to install the connector: (Of course, you can also manually download the connector from [Apache Maven Repository](https://repo.maven.apache.org/maven2/org/apache/seatunnel/ to download, then manually move to the seatunnel subdirectory under the connectors directory).
+
 ```bash
 sh bin/install_plugin.sh 2.3.0-beta
 ```
+
 If you need to specify the version of the connector, take 2.3.0-beta as an example, we need to execute
+
 ```bash
 sh bin/install_plugin.sh 2.3.0-beta
 ```
+
 Usually we don't need all the connector plugins, so you can specify the plugins you need by configuring `config/plugin_config`, for example, you only need the `connector-console` plugin, then you can modify plugin.properties as
+
 ```plugin_config
 --seatunnel-connectors--
 connector-console
 --end--
 ```
+
 If we want our sample application to work properly, we need to add the following plugins
 
 ```plugin_config

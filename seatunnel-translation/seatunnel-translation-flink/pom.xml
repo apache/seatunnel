@@ -13,43 +13,30 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
     <parent>
-        <artifactId>seatunnel-translation</artifactId>
         <groupId>org.apache.seatunnel</groupId>
+        <artifactId>seatunnel-translation</artifactId>
         <version>${revision}</version>
     </parent>
-    <modelVersion>4.0.0</modelVersion>
 
     <artifactId>seatunnel-translation-flink</artifactId>
 
+    <packaging>pom</packaging>
+    <name>SeaTunnel : Translation : Flink :</name>
+    <modules>
+        <module>seatunnel-translation-flink-13</module>
+        <module>seatunnel-translation-flink-15</module>
+    </modules>
+
     <dependencies>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-translation-base</artifactId>
             <version>${project.version}</version>
-        </dependency>
-        <!-- apache flink table -->
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-table-planner_${scala.binary.version}</artifactId>
-            <version>${flink.1.13.6.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-table-planner-blink_${scala.binary.version}</artifactId>
-            <version>${flink.1.13.6.version}</version>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-java</artifactId>
-            <version>${flink.1.13.6.version}</version>
-            <scope>provided</scope>
         </dependency>
 
     </dependencies>

@@ -18,24 +18,19 @@
   ~ under the License.
   ~
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
     <parent>
-        <artifactId>imap-storage-plugins</artifactId>
         <groupId>org.apache.seatunnel</groupId>
+        <artifactId>imap-storage-plugins</artifactId>
         <version>${revision}</version>
     </parent>
-    <modelVersion>4.0.0</modelVersion>
 
     <artifactId>imap-storage-file</artifactId>
+    <name>SeaTunnel : Engine : Storage : IMap Storage Plugins : File</name>
 
     <dependencies>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>imap-storage-api</artifactId>
-            <version>${project.version}</version>
-        </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>serializer-protobuf</artifactId>
@@ -45,12 +40,12 @@
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
             <version>${project.version}</version>
-            <scope>provided</scope>
             <classifier>optional</classifier>
+            <scope>provided</scope>
             <exclusions>
                 <exclusion>
-                    <artifactId>*</artifactId>
                     <groupId>*</groupId>
+                    <artifactId>*</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>

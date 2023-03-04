@@ -24,7 +24,8 @@ public class FilterRowKindTransformFactoryTest {
 
     @Test
     public void testOptionRule() throws Exception {
-        FilterRowKindTransformFactory filterRowKindTransformFactory = new FilterRowKindTransformFactory();
+        FilterRowKindTransformFactory filterRowKindTransformFactory =
+                new FilterRowKindTransformFactory();
         Assertions.assertNotNull(filterRowKindTransformFactory.optionRule());
     }
 }

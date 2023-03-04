@@ -23,41 +23,49 @@ import org.apache.seatunnel.common.constants.JobMode;
 
 import java.util.Map;
 
-public class EnvCommonOptions {
-    public static final Option<Integer> PARALLELISM =
-        Options.key("parallelism")
-            .intType()
-            .defaultValue(1)
-            .withDescription("When parallelism is not specified in connector, the parallelism in env is used by default. " +
-                "When parallelism is specified, it will override the parallelism in env.");
+public interface EnvCommonOptions {
+    Option<Integer> PARALLELISM =
+            Options.key("parallelism")
+                    .intType()
+                    .defaultValue(1)
+                    .withDescription(
+                            "When parallelism is not specified in connector, the parallelism in env is used by default. "
+                                    + "When parallelism is specified, it will override the parallelism in env.");
 
-    public static final Option<String> JOB_NAME =
-        Options.key("job.name")
-            .stringType()
-            .defaultValue("SeaTunnel_Job")
-            .withDescription("The job name of this job");
+    Option<String> JOB_NAME =
+            Options.key("job.name")
+                    .stringType()
+                    .defaultValue("SeaTunnel_Job")
+                    .withDescription("The job name of this job");
 
-    public static final Option<JobMode> JOB_MODE =
-        Options.key("job.mode")
-            .enumType(JobMode.class)
-            .noDefaultValue()
-            .withDescription("The job mode of this job, support Batch and Stream");
+    Option<JobMode> JOB_MODE =
+            Options.key("job.mode")
+                    .enumType(JobMode.class)
+                    .noDefaultValue()
+                    .withDescription("The job mode of this job, support Batch and Stream");
 
-    public static final Option<Long> CHECKPOINT_INTERVAL =
-        Options.key("checkpoint.interval")
-            .longType()
-            .noDefaultValue()
-            .withDescription("The interval (in milliseconds) between two consecutive checkpoints.");
+    Option<ParsingMode> DAG_PARSING_MODE =
+            Options.key("dag-parsing.mode")
+                    .enumType(ParsingMode.class)
+                    .defaultValue(ParsingMode.SINGLENESS)
+                    .withDescription("Whether to enable parsing support for multi-table jobs");
 
-    public static final Option<String> JARS =
-        Options.key("jars")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("third-party packages can be loaded via `jars`");
+    Option<Long> CHECKPOINT_INTERVAL =
+            Options.key("checkpoint.interval")
+                    .longType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The interval (in milliseconds) between two consecutive checkpoints.");
 
-    public static final Option<Map<String, String>> CUSTOM_PARAMETERS =
-        Options.key("custom_parameters")
-            .mapType()
-            .noDefaultValue()
-            .withDescription("custom parameters for run engine");
+    Option<String> JARS =
+            Options.key("jars")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("third-party packages can be loaded via `jars`");
+
+    Option<Map<String, String>> CUSTOM_PARAMETERS =
+            Options.key("custom_parameters")
+                    .mapType()
+                    .noDefaultValue()
+                    .withDescription("custom parameters for run engine");
 }

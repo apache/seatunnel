@@ -17,25 +17,25 @@
     limitations under the License.
 
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
     <parent>
-        <artifactId>seatunnel-connectors-v2</artifactId>
         <groupId>org.apache.seatunnel</groupId>
+        <artifactId>seatunnel-connectors-v2</artifactId>
         <version>${revision}</version>
     </parent>
-    <modelVersion>4.0.0</modelVersion>
     <artifactId>connector-cdc</artifactId>
     <packaging>pom</packaging>
-
-    <properties>
-        <debezium.version>1.6.4.Final</debezium.version>
-    </properties>
+    <name>SeaTunnel : Connectors V2 : CDC :</name>
 
     <modules>
         <module>connector-cdc-base</module>
         <module>connector-cdc-mysql</module>
         <module>connector-cdc-sqlserver</module>
     </modules>
+
+    <properties>
+        <debezium.version>1.6.4.Final</debezium.version>
+    </properties>
 </project>

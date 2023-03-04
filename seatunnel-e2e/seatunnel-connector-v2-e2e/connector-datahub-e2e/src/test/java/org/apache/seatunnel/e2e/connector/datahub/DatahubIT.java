@@ -35,15 +35,11 @@ public class DatahubIT extends TestSuiteBase implements TestResource {
 
     @BeforeEach
     @Override
-    public void startUp() throws Exception {
-
-    }
+    public void startUp() throws Exception {}
 
     @AfterEach
     @Override
-    public void tearDown() throws Exception {
-
-    }
+    public void tearDown() throws Exception {}
 
     @TestTemplate
     public void testDatahub(TestContainer container) throws IOException, InterruptedException {

@@ -44,9 +44,10 @@ public class OpenMldbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
     private final SeaTunnelRowType seaTunnelRowType;
     private final SingleSplitReaderContext readerContext;
 
-    public OpenMldbSourceReader(OpenMldbParameters openMldbParameters,
-                                SeaTunnelRowType seaTunnelRowType,
-                                SingleSplitReaderContext readerContext) {
+    public OpenMldbSourceReader(
+            OpenMldbParameters openMldbParameters,
+            SeaTunnelRowType seaTunnelRowType,
+            SingleSplitReaderContext readerContext) {
         this.openMldbParameters = openMldbParameters;
         this.seaTunnelRowType = seaTunnelRowType;
         this.readerContext = readerContext;
@@ -67,8 +68,9 @@ public class OpenMldbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
         int totalFields = seaTunnelRowType.getTotalFields();
         Object[] objects = new Object[totalFields];
         SqlClusterExecutor sqlExecutor = OpenMldbSqlExecutor.getSqlExecutor();
-        try (ResultSet resultSet = sqlExecutor.executeSQL(openMldbParameters.getDatabase(),
-                openMldbParameters.getSql())) {
+        try (ResultSet resultSet =
+                sqlExecutor.executeSQL(
+                        openMldbParameters.getDatabase(), openMldbParameters.getSql())) {
             while (resultSet.next()) {
                 for (int i = 0; i < totalFields; i++) {
                     objects[i] = getObject(resultSet, i, seaTunnelRowType.getFieldType(i));
@@ -84,7 +86,8 @@ public class OpenMldbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
         }
     }
 
-    private Object getObject(ResultSet resultSet, int index, SeaTunnelDataType<?> dataType) throws SQLException {
+    private Object getObject(ResultSet resultSet, int index, SeaTunnelDataType<?> dataType)
+            throws SQLException {
         index = index + 1;
         switch (dataType.getSqlType()) {
             case BOOLEAN:
@@ -108,8 +111,8 @@ public class OpenMldbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
                 Timestamp timestamp = resultSet.getTimestamp(index);
                 return timestamp.toLocalDateTime();
             default:
-                throw new OpenMldbConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        "Unsupported this data type");
+                throw new OpenMldbConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported this data type");
         }
     }
 }

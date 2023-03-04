@@ -150,6 +150,7 @@ def get_deleted_modules(files):
 
 def get_sub_it_modules(modules, total_num, current_num):
     modules_arr = modules.split(",")
+    modules_arr.remove("connector-jdbc-e2e")
     output = ""
     for i,module in enumerate(modules_arr):
         if len(module) > 0 and i % int(total_num) == int(current_num):

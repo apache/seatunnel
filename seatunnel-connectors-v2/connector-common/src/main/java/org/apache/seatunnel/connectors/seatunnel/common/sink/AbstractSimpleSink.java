@@ -27,13 +27,16 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
-public abstract class AbstractSimpleSink<T, StateT> implements SeaTunnelSink<T, StateT, Void, Void> {
+public abstract class AbstractSimpleSink<T, StateT>
+        implements SeaTunnelSink<T, StateT, Void, Void> {
 
     @Override
-    public abstract AbstractSinkWriter<T, StateT> createWriter(SinkWriter.Context context) throws IOException;
+    public abstract AbstractSinkWriter<T, StateT> createWriter(SinkWriter.Context context)
+            throws IOException;
 
     @Override
-    public SinkWriter<T, Void, StateT> restoreWriter(SinkWriter.Context context, List<StateT> states) throws IOException {
+    public SinkWriter<T, Void, StateT> restoreWriter(
+            SinkWriter.Context context, List<StateT> states) throws IOException {
         return createWriter(context);
     }
 
@@ -48,7 +51,8 @@ public abstract class AbstractSimpleSink<T, StateT> implements SeaTunnelSink<T, 
     }
 
     @Override
-    public final Optional<SinkAggregatedCommitter<Void, Void>> createAggregatedCommitter() throws IOException {
+    public final Optional<SinkAggregatedCommitter<Void, Void>> createAggregatedCommitter()
+            throws IOException {
         return Optional.empty();
     }
 

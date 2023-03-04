@@ -42,14 +42,15 @@ public class LogicalDagGenerator {
     private final Map<Long, LogicalVertex> logicalVertexMap = new HashMap<>();
 
     /**
-     * key: input vertex id;
-     * <br> value: target vertices id;
+     * key: input vertex id; <br>
+     * value: target vertices id;
      */
     private final Map<Long, Set<Long>> inputVerticesMap = new HashMap<>();
 
-    public LogicalDagGenerator(@NonNull List<Action> actions,
-                               @NonNull JobConfig jobConfig,
-                               @NonNull IdGenerator idGenerator) {
+    public LogicalDagGenerator(
+            @NonNull List<Action> actions,
+            @NonNull JobConfig jobConfig,
+            @NonNull IdGenerator idGenerator) {
         this.actions = actions;
         this.jobConfig = jobConfig;
         this.idGenerator = idGenerator;
@@ -73,24 +74,32 @@ public class LogicalDagGenerator {
             return;
         }
         // connection vertices info
-        action.getUpstream().forEach(inputAction -> {
-            createLogicalVertex(inputAction);
-            inputVerticesMap.computeIfAbsent(inputAction.getId(), id -> new HashSet<>())
-                .add(logicalVertexId);
-        });
+        action.getUpstream()
+                .forEach(
+                        inputAction -> {
+                            createLogicalVertex(inputAction);
+                            inputVerticesMap
+                                    .computeIfAbsent(inputAction.getId(), id -> new HashSet<>())
+                                    .add(logicalVertexId);
+                        });
 
-        final LogicalVertex logicalVertex = new LogicalVertex(logicalVertexId, action, action.getParallelism());
+        final LogicalVertex logicalVertex =
+                new LogicalVertex(logicalVertexId, action, action.getParallelism());
         logicalVertexMap.put(logicalVertexId, logicalVertex);
     }
 
     private Set<LogicalEdge> createLogicalEdges() {
-        return inputVerticesMap.entrySet()
-                .stream()
-                .map(entry -> entry.getValue()
-                        .stream()
-                        .map(targetId -> new LogicalEdge(logicalVertexMap.get(entry.getKey()),
-                                logicalVertexMap.get(targetId)))
-                        .collect(Collectors.toList()))
+        return inputVerticesMap.entrySet().stream()
+                .map(
+                        entry ->
+                                entry.getValue().stream()
+                                        .map(
+                                                targetId ->
+                                                        new LogicalEdge(
+                                                                logicalVertexMap.get(
+                                                                        entry.getKey()),
+                                                                logicalVertexMap.get(targetId)))
+                                        .collect(Collectors.toList()))
                 .flatMap(Collection::stream)
                 .collect(Collectors.toSet());
     }

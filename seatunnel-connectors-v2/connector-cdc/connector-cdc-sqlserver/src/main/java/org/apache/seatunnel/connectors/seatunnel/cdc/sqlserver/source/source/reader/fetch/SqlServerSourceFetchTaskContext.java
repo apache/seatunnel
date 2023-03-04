@@ -23,11 +23,16 @@ import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.JdbcSourceFetchTaskContext;
+import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
+import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.cdc.debezium.EmbeddedDatabaseHistory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.config.SqlServerSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.offset.LsnOffset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerUtils;
+
+import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.source.SourceRecord;
 
 import io.debezium.connector.base.ChangeEventQueue;
 import io.debezium.connector.sqlserver.SourceInfo;
@@ -53,16 +58,13 @@ import io.debezium.relational.history.TableChanges;
 import io.debezium.schema.DataCollectionId;
 import io.debezium.schema.TopicSelector;
 import io.debezium.util.Collect;
-import org.apache.kafka.connect.data.Struct;
-import org.apache.kafka.connect.source.SourceRecord;
 
 import java.time.Instant;
-import java.util.Collection;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
-/**
- * The context for fetch task that fetching data of snapshot split from MySQL data source.
- */
+/** The context for fetch task that fetching data of snapshot split from MySQL data source. */
 public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
 
     private final SqlServerConnection dataConnection;
@@ -80,82 +82,78 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
 
     private SnapshotChangeEventSourceMetrics snapshotChangeEventSourceMetrics;
 
-    private Collection<TableChanges.TableChange> engineHistory;
-
     public SqlServerSourceFetchTaskContext(
-        JdbcSourceConfig sourceConfig,
-        JdbcDataSourceDialect dataSourceDialect,
-        SqlServerConnection dataConnection,
-        SqlServerConnection metadataConnection,
-        Collection<TableChanges.TableChange> engineHistory) {
+            JdbcSourceConfig sourceConfig,
+            JdbcDataSourceDialect dataSourceDialect,
+            SqlServerConnection dataConnection,
+            SqlServerConnection metadataConnection) {
         super(sourceConfig, dataSourceDialect);
         this.dataConnection = dataConnection;
         this.metadataConnection = metadataConnection;
         this.metadataProvider = new SqlServerEventMetadataProvider();
-        this.engineHistory = engineHistory;
     }
 
     @Override
     public void configure(SourceSplitBase sourceSplitBase) {
-
-        EmbeddedDatabaseHistory.registerHistory(
-            sourceConfig
-                .getDbzConfiguration()
-                .getString(EmbeddedDatabaseHistory.DATABASE_HISTORY_INSTANCE_NAME),
-            engineHistory);
+        registerDatabaseHistory(sourceSplitBase);
 
         // initial stateful objects
         final SqlServerConnectorConfig connectorConfig = getDbzConnectorConfig();
 
-        final SqlServerValueConverters valueConverters = new SqlServerValueConverters(connectorConfig.getDecimalMode(),
-            connectorConfig.getTemporalPrecisionMode(), connectorConfig.binaryHandlingMode());
+        final SqlServerValueConverters valueConverters =
+                new SqlServerValueConverters(
+                        connectorConfig.getDecimalMode(),
+                        connectorConfig.getTemporalPrecisionMode(),
+                        connectorConfig.binaryHandlingMode());
 
         this.topicSelector = SqlServerTopicSelector.defaultSelector(connectorConfig);
 
-        this.databaseSchema = new SqlServerDatabaseSchema(connectorConfig, valueConverters, topicSelector, schemaNameAdjuster);
+        this.databaseSchema =
+                new SqlServerDatabaseSchema(
+                        connectorConfig, valueConverters, topicSelector, schemaNameAdjuster);
 
         this.offsetContext =
-            loadStartingOffsetState(
-                new SqlServerOffsetContext.Loader(connectorConfig), sourceSplitBase);
+                loadStartingOffsetState(
+                        new SqlServerOffsetContext.Loader(connectorConfig), sourceSplitBase);
         validateAndLoadDatabaseHistory(offsetContext, databaseSchema);
 
-        this.taskContext =
-            new SqlServerTaskContext(connectorConfig, databaseSchema);
+        this.taskContext = new SqlServerTaskContext(connectorConfig, databaseSchema);
 
         final int queueSize =
-            sourceSplitBase.isSnapshotSplit() ? Integer.MAX_VALUE
-                : getSourceConfig().getDbzConnectorConfig().getMaxQueueSize();
+                sourceSplitBase.isSnapshotSplit()
+                        ? Integer.MAX_VALUE
+                        : getSourceConfig().getDbzConnectorConfig().getMaxQueueSize();
 
         this.queue =
-            new ChangeEventQueue.Builder<DataChangeEvent>()
-                .pollInterval(connectorConfig.getPollInterval())
-                .maxBatchSize(connectorConfig.getMaxBatchSize())
-                .maxQueueSize(queueSize)
-                .maxQueueSizeInBytes(connectorConfig.getMaxQueueSizeInBytes())
-                .loggingContextSupplier(
-                    () ->
-                        taskContext.configureLoggingContext(
-                            "sqlServer-cdc-connector-task"))
-                // do not buffer any element, we use signal event
-                // .buffering()
-                .build();
+                new ChangeEventQueue.Builder<DataChangeEvent>()
+                        .pollInterval(connectorConfig.getPollInterval())
+                        .maxBatchSize(connectorConfig.getMaxBatchSize())
+                        .maxQueueSize(queueSize)
+                        .maxQueueSizeInBytes(connectorConfig.getMaxQueueSizeInBytes())
+                        .loggingContextSupplier(
+                                () ->
+                                        taskContext.configureLoggingContext(
+                                                "sqlServer-cdc-connector-task"))
+                        // do not buffer any element, we use signal event
+                        // .buffering()
+                        .build();
         this.dispatcher =
-            new JdbcSourceEventDispatcher(
-                connectorConfig,
-                topicSelector,
-                databaseSchema,
-                queue,
-                connectorConfig.getTableFilters().dataCollectionFilter(),
-                DataChangeEvent::new,
-                metadataProvider,
-                schemaNameAdjuster);
+                new JdbcSourceEventDispatcher(
+                        connectorConfig,
+                        topicSelector,
+                        databaseSchema,
+                        queue,
+                        connectorConfig.getTableFilters().dataCollectionFilter(),
+                        DataChangeEvent::new,
+                        metadataProvider,
+                        schemaNameAdjuster);
 
         final DefaultChangeEventSourceMetricsFactory changeEventSourceMetricsFactory =
-            new DefaultChangeEventSourceMetricsFactory();
+                new DefaultChangeEventSourceMetricsFactory();
 
         this.snapshotChangeEventSourceMetrics =
-            changeEventSourceMetricsFactory.getSnapshotMetrics(
-                taskContext, queue, metadataProvider);
+                changeEventSourceMetricsFactory.getSnapshotMetrics(
+                        taskContext, queue, metadataProvider);
 
         this.errorHandler = new SqlServerErrorHandler(connectorConfig.getLogicalName(), queue);
     }
@@ -223,30 +221,50 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
     }
 
     private void validateAndLoadDatabaseHistory(
-        SqlServerOffsetContext offset, SqlServerDatabaseSchema schema) {
+            SqlServerOffsetContext offset, SqlServerDatabaseSchema schema) {
         schema.initializeStorage();
         schema.recover(offset);
     }
 
-    /**
-     * Loads the connector's persistent offset (if present) via the given loader.
-     */
+    /** Loads the connector's persistent offset (if present) via the given loader. */
     private SqlServerOffsetContext loadStartingOffsetState(
-        SqlServerOffsetContext.Loader loader, SourceSplitBase split) {
+            SqlServerOffsetContext.Loader loader, SourceSplitBase split) {
         Offset offset =
-            split.isSnapshotSplit() ? LsnOffset.INITIAL_OFFSET
-                : split.asIncrementalSplit().getStartupOffset();
+                split.isSnapshotSplit()
+                        ? LsnOffset.INITIAL_OFFSET
+                        : split.asIncrementalSplit().getStartupOffset();
 
         SqlServerOffsetContext sqlServerOffsetContext = loader.load(offset.getOffset());
 
         return sqlServerOffsetContext;
     }
 
+    private void registerDatabaseHistory(SourceSplitBase sourceSplitBase) {
+        List<TableChanges.TableChange> engineHistory = new ArrayList<>();
+        // TODO: support save table schema
+        if (sourceSplitBase instanceof SnapshotSplit) {
+            SnapshotSplit snapshotSplit = (SnapshotSplit) sourceSplitBase;
+            engineHistory.add(
+                    dataSourceDialect.queryTableSchema(dataConnection, snapshotSplit.getTableId()));
+        } else {
+            IncrementalSplit incrementalSplit = (IncrementalSplit) sourceSplitBase;
+            for (TableId tableId : incrementalSplit.getTableIds()) {
+                engineHistory.add(dataSourceDialect.queryTableSchema(dataConnection, tableId));
+            }
+        }
+
+        EmbeddedDatabaseHistory.registerHistory(
+                sourceConfig
+                        .getDbzConfiguration()
+                        .getString(EmbeddedDatabaseHistory.DATABASE_HISTORY_INSTANCE_NAME),
+                engineHistory);
+    }
+
     public static class SqlServerEventMetadataProvider implements EventMetadataProvider {
 
         @Override
         public Instant getEventTimestamp(
-            DataCollectionId source, OffsetContext offset, Object key, Struct value) {
+                DataCollectionId source, OffsetContext offset, Object key, Struct value) {
             if (value == null) {
                 return null;
             }
@@ -260,7 +278,7 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
 
         @Override
         public Map<String, String> getEventSourcePosition(
-            DataCollectionId source, OffsetContext offset, Object key, Struct value) {
+                DataCollectionId source, OffsetContext offset, Object key, Struct value) {
             if (value == null) {
                 return null;
             }
@@ -269,13 +287,13 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
                 return null;
             }
             return Collect.hashMapOf(
-                SourceInfo.COMMIT_LSN_KEY, sourceInfo.getString(SourceInfo.COMMIT_LSN_KEY),
-                SourceInfo.CHANGE_LSN_KEY, sourceInfo.getString(SourceInfo.CHANGE_LSN_KEY));
+                    SourceInfo.COMMIT_LSN_KEY, sourceInfo.getString(SourceInfo.COMMIT_LSN_KEY),
+                    SourceInfo.CHANGE_LSN_KEY, sourceInfo.getString(SourceInfo.CHANGE_LSN_KEY));
         }
 
         @Override
         public String getTransactionId(
-            DataCollectionId source, OffsetContext offset, Object key, Struct value) {
+                DataCollectionId source, OffsetContext offset, Object key, Struct value) {
             if (value == null) {
                 return null;
             }
@@ -286,5 +304,4 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
             return sourceInfo.getString(SourceInfo.COMMIT_LSN_KEY);
         }
     }
-
 }

@@ -18,7 +18,9 @@
 package org.apache.seatunnel.engine.server.task.operation.sink;
 
 import org.apache.seatunnel.common.utils.RetryUtils;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.SinkAggregatedCommitterTask;
@@ -36,13 +38,10 @@ import java.io.IOException;
 public class SinkRegisterOperation extends Operation implements IdentifiedDataSerializable {
 
     private static final ILogger LOGGER = Logger.getLogger(SinkRegisterOperation.class);
-    private static final int RETRY_NUMBER = 5;
-    private static final int RETRY_INTERVAL = 2000;
     private TaskLocation writerTaskID;
     private TaskLocation committerTaskID;
 
-    public SinkRegisterOperation() {
-    }
+    public SinkRegisterOperation() {}
 
     public SinkRegisterOperation(TaskLocation writerTaskID, TaskLocation committerTaskID) {
         this.writerTaskID = writerTaskID;
@@ -53,11 +52,20 @@ public class SinkRegisterOperation extends Operation implements IdentifiedDataSe
     public void run() throws Exception {
         SeaTunnelServer server = getService();
         Address readerAddress = getCallerAddress();
-        RetryUtils.retryWithException(() -> {
-            SinkAggregatedCommitterTask<?, ?> task = server.getTaskExecutionService().getTask(committerTaskID);
-            task.receivedWriterRegister(writerTaskID, readerAddress);
-            return null;
-        }, new RetryUtils.RetryMaterial(RETRY_NUMBER, true, e -> true, RETRY_INTERVAL));
+        RetryUtils.retryWithException(
+                () -> {
+                    SinkAggregatedCommitterTask<?, ?> task =
+                            server.getTaskExecutionService().getTask(committerTaskID);
+                    task.receivedWriterRegister(writerTaskID, readerAddress);
+                    return null;
+                },
+                new RetryUtils.RetryMaterial(
+                        Constant.OPERATION_RETRY_TIME,
+                        true,
+                        e ->
+                                e instanceof TaskGroupContextNotFoundException
+                                        || e instanceof NullPointerException,
+                        Constant.OPERATION_RETRY_SLEEP));
     }
 
     @Override

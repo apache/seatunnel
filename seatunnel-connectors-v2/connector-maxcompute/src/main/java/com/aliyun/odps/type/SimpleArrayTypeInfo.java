@@ -27,7 +27,8 @@ public class SimpleArrayTypeInfo implements ArrayTypeInfo {
 
     SimpleArrayTypeInfo(TypeInfo typeInfo) {
         if (typeInfo == null) {
-            throw new MaxcomputeConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Invalid element type.");
+            throw new MaxcomputeConnectorException(
+                    CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Invalid element type.");
         } else {
             this.valueType = typeInfo;
         }
@@ -49,4 +50,3 @@ public class SimpleArrayTypeInfo implements ArrayTypeInfo {
         return this.getTypeName();
     }
 }
-

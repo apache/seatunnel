@@ -32,7 +32,8 @@ import java.util.List;
 public abstract class MultipleFieldOutputTransform extends AbstractSeaTunnelTransform {
 
     private static final String[] TYPE_ARRAY_STRING = new String[0];
-    private static final SeaTunnelDataType[] TYPE_ARRAY_SEATUNNEL_DATA_TYPE = new SeaTunnelDataType[0];
+    private static final SeaTunnelDataType[] TYPE_ARRAY_SEATUNNEL_DATA_TYPE =
+            new SeaTunnelDataType[0];
 
     private String[] outputFieldNames;
     private int[] fieldsIndex;
@@ -45,17 +46,22 @@ public abstract class MultipleFieldOutputTransform extends AbstractSeaTunnelTran
         this.outputFieldNames = getOutputFieldNames();
         this.fieldsIndex = new int[outputFieldNames.length];
         if (outputFieldNames.length != new HashSet<>(Arrays.asList(outputFieldNames)).size()) {
-            throw new IllegalStateException("Duplicate field names are not allowed. field names: " + outputFieldNames);
+            throw new IllegalStateException(
+                    "Duplicate field names are not allowed. field names: " + outputFieldNames);
         }
 
         SeaTunnelDataType[] outputFieldDataTypes = getOutputFieldDataTypes();
         if (outputFieldNames.length != outputFieldDataTypes.length) {
-            throw new IllegalStateException("Field name and field type count mismatch, field names: "
-                + outputFieldNames + ", field types: " + outputFieldDataTypes);
+            throw new IllegalStateException(
+                    "Field name and field type count mismatch, field names: "
+                            + outputFieldNames
+                            + ", field types: "
+                            + outputFieldDataTypes);
         }
 
         List<String> fieldNames = new ArrayList<>(Arrays.asList(inputRowType.getFieldNames()));
-        List<SeaTunnelDataType> fieldDataTypes = new ArrayList<>(Arrays.asList(inputRowType.getFieldTypes()));
+        List<SeaTunnelDataType> fieldDataTypes =
+                new ArrayList<>(Arrays.asList(inputRowType.getFieldTypes()));
 
         int addFieldCount = 0;
         for (int i = 0; i < outputFieldNames.length; i++) {
@@ -81,25 +87,33 @@ public abstract class MultipleFieldOutputTransform extends AbstractSeaTunnelTran
             int inputFieldLength = inputRowType.getTotalFields();
             int outputFieldLength = fieldNames.size();
 
-            rowContainerGenerator = new SeaTunnelRowContainerGenerator() {
-                @Override
-                public SeaTunnelRow apply(SeaTunnelRow inputRow) {
-                    // todo reuse array container
-                    Object[] outputFieldValues = new Object[outputFieldLength];
-                    System.arraycopy(inputRow.getFields(), 0, outputFieldValues, 0, inputFieldLength);
+            rowContainerGenerator =
+                    new SeaTunnelRowContainerGenerator() {
+                        @Override
+                        public SeaTunnelRow apply(SeaTunnelRow inputRow) {
+                            // todo reuse array container
+                            Object[] outputFieldValues = new Object[outputFieldLength];
+                            System.arraycopy(
+                                    inputRow.getFields(),
+                                    0,
+                                    outputFieldValues,
+                                    0,
+                                    inputFieldLength);
 
-                    SeaTunnelRow outputRow = new SeaTunnelRow(outputFieldValues);
-                    outputRow.setTableId(inputRow.getTableId());
-                    outputRow.setRowKind(inputRow.getRowKind());
-                    return outputRow;
-                }
-            };
+                            SeaTunnelRow outputRow = new SeaTunnelRow(outputFieldValues);
+                            outputRow.setTableId(inputRow.getTableId());
+                            outputRow.setRowKind(inputRow.getRowKind());
+                            return outputRow;
+                        }
+                    };
         } else {
             rowContainerGenerator = SeaTunnelRowContainerGenerator.REUSE_ROW;
         }
 
-        SeaTunnelRowType outputRowType = new SeaTunnelRowType(fieldNames.toArray(TYPE_ARRAY_STRING),
-            fieldDataTypes.toArray(TYPE_ARRAY_SEATUNNEL_DATA_TYPE));
+        SeaTunnelRowType outputRowType =
+                new SeaTunnelRowType(
+                        fieldNames.toArray(TYPE_ARRAY_STRING),
+                        fieldDataTypes.toArray(TYPE_ARRAY_SEATUNNEL_DATA_TYPE));
         log.info("Changed input row type: {} to output row type: {}", inputRowType, outputRowType);
 
         return outputRowType;

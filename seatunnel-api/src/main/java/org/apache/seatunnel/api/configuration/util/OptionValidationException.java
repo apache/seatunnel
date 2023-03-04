@@ -18,11 +18,10 @@
 package org.apache.seatunnel.api.configuration.util;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-/**
- * Exception for all errors occurring during option validation phase.
- */
+/** Exception for all errors occurring during option validation phase. */
 public class OptionValidationException extends SeaTunnelRuntimeException {
 
     public OptionValidationException(String message, Throwable cause) {
@@ -35,5 +34,13 @@ public class OptionValidationException extends SeaTunnelRuntimeException {
 
     public OptionValidationException(String formatMessage, Object... args) {
         super(SeaTunnelAPIErrorCode.OPTION_VALIDATION_FAILED, String.format(formatMessage, args));
+    }
+
+    public OptionValidationException(Option<?> option) {
+        super(
+                SeaTunnelAPIErrorCode.OPTION_VALIDATION_FAILED,
+                String.format(
+                        "The option(\"%s\")  is incorrectly configured, please refer to the doc: %s",
+                        option.key(), option.getDescription()));
     }
 }

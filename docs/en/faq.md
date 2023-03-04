@@ -6,7 +6,7 @@ Now SeaTunnel uses computing engines such as spark and flink to complete resourc
 
 ## I have a question, but I can not solve it by myself
 
-I encounter a problem when using SeaTunnel and I cannot solve it by myself. What should I do? Firstly search in [Issue list](https://github.com/apache/incubator-seatunnel/issues) or [mailing list](https://lists.apache.org/list.html?dev@seatunnel.apache.org) to see if someone has already asked the same question and got the answer. If you still cannot find the answer, you can contact community members for help in[ these ways](https://github.com/apache/incubator-seatunnel#contact-us) .
+I encounter a problem when using SeaTunnel and I cannot solve it by myself. What should I do? Firstly search in [Issue list](https://github.com/apache/incubator-seatunnel/issues) or [mailing list](https://lists.apache.org/list.html?dev@seatunnel.apache.org) to see if someone has already asked the same question and got the answer. If you still cannot find the answer, you can contact community members for help in[these ways](https://github.com/apache/incubator-seatunnel#contact-us) .
 
 ## how to declare variable
 
@@ -140,7 +140,6 @@ In addition, SeaTunnel has implemented `Hive` output plugin after `1.5.7` in `1.
        }
    }
    ```
-
 3. Configure multiple instances in the configuration:
 
    ```
@@ -154,7 +153,6 @@ In addition, SeaTunnel has implemented `Hive` output plugin after `1.5.7` in `1.
        }
    }
    ```
-
 4. Use cluster mode:
 
    ```
@@ -216,15 +214,14 @@ For example, if you want to set the JDK version to JDK8, there are two cases:
 
 - The Yarn cluster has deployed JDK8, but the default JDK is not JDK8. you should only add 2 configurations to the SeaTunnel config file:
 
-    ```
-      env {
-     ...
-     spark.executorEnv.JAVA_HOME="/your/java_8_home/directory"
-     spark.yarn.appMasterEnv.JAVA_HOME="/your/java_8_home/directory"
-     ...
-    }
   ```
-
+    env {
+   ...
+   spark.executorEnv.JAVA_HOME="/your/java_8_home/directory"
+   spark.yarn.appMasterEnv.JAVA_HOME="/your/java_8_home/directory"
+   ...
+  }
+  ```
 - Yarn cluster does not deploy JDK8. At this time, when you start SeaTunnel attached with JDK8.For detailed operations, see the link below:
   https://www.cnblogs.com/jasondan/p/spark-specific-jdk-version.html
 
@@ -249,26 +246,26 @@ cp third-part.jar plugins/my_plugins/lib
 There are 3 ways to configure Logging related parameters (such as Log Level):
 
 - [Not recommended] Change the default `$SPARK_HOME/conf/log4j.properties`
-   - This will affect all programs submitted via `$SPARK_HOME/bin/spark-submit`
+  - This will affect all programs submitted via `$SPARK_HOME/bin/spark-submit`
 - [Not recommended] Modify logging related parameters directly in the Spark code of SeaTunnel
-   - This is equivalent to writing dead, and each change needs to be recompiled
+  - This is equivalent to writing dead, and each change needs to be recompiled
 - [Recommended] Use the following methods to change the logging configuration in the SeaTunnel configuration file(It only takes effect after SeaTunnel >= 1.5.5 ):
 
-    ```
-    env {
-        spark.driver.extraJavaOptions = "-Dlog4j.configuration=file:<file path>/log4j.properties"
-        spark.executor.extraJavaOptions = "-Dlog4j.configuration=file:<file path>/log4j.properties"
-    }
-    source {
-      ...
-    }
-    transform {
-     ...
-    }
-    sink {
-      ...
-    }
-    ```
+  ```
+  env {
+      spark.driver.extraJavaOptions = "-Dlog4j.configuration=file:<file path>/log4j.properties"
+      spark.executor.extraJavaOptions = "-Dlog4j.configuration=file:<file path>/log4j.properties"
+  }
+  source {
+    ...
+  }
+  transform {
+   ...
+  }
+  sink {
+    ...
+  }
+  ```
 
 The contents of the log4j configuration file for reference are as follows:
 

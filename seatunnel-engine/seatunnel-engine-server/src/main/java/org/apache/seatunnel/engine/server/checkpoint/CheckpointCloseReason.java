@@ -18,7 +18,6 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 public enum CheckpointCloseReason {
-
     PIPELINE_END("Pipeline turn to end state."),
     CHECKPOINT_EXPIRED("Checkpoint expired before completing."),
     CHECKPOINT_COORDINATOR_COMPLETED("CheckpointCoordinator completed."),

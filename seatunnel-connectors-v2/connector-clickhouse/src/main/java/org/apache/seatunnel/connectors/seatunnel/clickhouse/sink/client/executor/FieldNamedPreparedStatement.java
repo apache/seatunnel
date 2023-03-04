@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.executor;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import lombok.RequiredArgsConstructor;
 
 import java.io.InputStream;
@@ -48,6 +45,9 @@ import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 @RequiredArgsConstructor
 public class FieldNamedPreparedStatement implements PreparedStatement {
@@ -263,7 +263,8 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
     }
 
     @Override
-    public void setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength) throws SQLException {
+    public void setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength)
+            throws SQLException {
         for (int index : indexMapping[parameterIndex - 1]) {
             statement.setObject(index, x, targetSqlType, scaleOrLength);
         }
@@ -275,7 +276,8 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
     }
 
     @Override
-    public void setUnicodeStream(int parameterIndex, InputStream x, int length) throws SQLException {
+    public void setUnicodeStream(int parameterIndex, InputStream x, int length)
+            throws SQLException {
         throw new UnsupportedOperationException();
     }
 
@@ -285,12 +287,14 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
     }
 
     @Override
-    public void setCharacterStream(int parameterIndex, Reader reader, int length) throws SQLException {
+    public void setCharacterStream(int parameterIndex, Reader reader, int length)
+            throws SQLException {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void setNCharacterStream(int parameterIndex, Reader value, long length) throws SQLException {
+    public void setNCharacterStream(int parameterIndex, Reader value, long length)
+            throws SQLException {
         throw new UnsupportedOperationException();
     }
 
@@ -300,7 +304,8 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
     }
 
     @Override
-    public void setBlob(int parameterIndex, InputStream inputStream, long length) throws SQLException {
+    public void setBlob(int parameterIndex, InputStream inputStream, long length)
+            throws SQLException {
         throw new UnsupportedOperationException();
     }
 
@@ -310,12 +315,14 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
     }
 
     @Override
-    public void setBinaryStream(int parameterIndex, InputStream x, long length) throws SQLException {
+    public void setBinaryStream(int parameterIndex, InputStream x, long length)
+            throws SQLException {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void setCharacterStream(int parameterIndex, Reader reader, long length) throws SQLException {
+    public void setCharacterStream(int parameterIndex, Reader reader, long length)
+            throws SQLException {
         throw new UnsupportedOperationException();
     }
 
@@ -610,7 +617,7 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
     }
 
     public static FieldNamedPreparedStatement prepareStatement(
-        Connection connection, String sql, String[] fieldNames) throws SQLException {
+            Connection connection, String sql, String[] fieldNames) throws SQLException {
         checkNotNull(connection, "connection must not be null.");
         checkNotNull(sql, "sql must not be null.");
         checkNotNull(fieldNames, "fieldNames must not be null.");
@@ -631,13 +638,13 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
             for (int i = 0; i < fieldNames.length; i++) {
                 String fieldName = fieldNames[i];
                 checkArgument(
-                    parameterMap.containsKey(fieldName),
-                    fieldName + " doesn't exist in the parameters of SQL statement: " + sql);
+                        parameterMap.containsKey(fieldName),
+                        fieldName + " doesn't exist in the parameters of SQL statement: " + sql);
                 indexMapping[i] = parameterMap.get(fieldName).stream().mapToInt(v -> v).toArray();
             }
         }
         return new FieldNamedPreparedStatement(
-            connection.prepareStatement(parsedSQL), indexMapping);
+                connection.prepareStatement(parsedSQL), indexMapping);
     }
 
     public static String parseNamedStatement(String sql, Map<String, List<Integer>> paramMap) {
@@ -648,13 +655,15 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
             char c = sql.charAt(i);
             if (':' == c) {
                 int j = i + 1;
-                while (j < length && (Character.isJavaIdentifierPart(sql.charAt(j)) || ".".equals(String.valueOf(sql.charAt(j))))) {
+                while (j < length
+                        && (Character.isJavaIdentifierPart(sql.charAt(j))
+                                || ".".equals(String.valueOf(sql.charAt(j))))) {
                     j++;
                 }
                 String parameterName = sql.substring(i + 1, j);
                 checkArgument(
-                    !parameterName.isEmpty(),
-                    "Named parameters in SQL statement must not be empty.");
+                        !parameterName.isEmpty(),
+                        "Named parameters in SQL statement must not be empty.");
                 paramMap.computeIfAbsent(parameterName, n -> new ArrayList<>()).add(fieldIndex);
                 fieldIndex++;
                 i = j - 1;

@@ -32,25 +32,22 @@ import java.util.function.Function;
 @RequiredArgsConstructor
 public class InsertOrUpdateBatchStatementExecutor implements JdbcBatchStatementExecutor {
     private final StatementFactory existStmtFactory;
-    @NonNull
-    private final StatementFactory insertStmtFactory;
-    @NonNull
-    private final StatementFactory updateStmtFactory;
+    @NonNull private final StatementFactory insertStmtFactory;
+    @NonNull private final StatementFactory updateStmtFactory;
     private final Function<SeaTunnelRow, SeaTunnelRow> keyExtractor;
     private final JdbcRowConverter keyRowConverter;
-    @NonNull
-    private final JdbcRowConverter valueRowConverter;
+    @NonNull private final JdbcRowConverter valueRowConverter;
     private transient PreparedStatement existStatement;
     private transient PreparedStatement insertStatement;
     private transient PreparedStatement updateStatement;
     private transient Boolean preChangeFlag;
     private transient boolean submitted;
 
-    public InsertOrUpdateBatchStatementExecutor(StatementFactory insertStmtFactory,
-                                                StatementFactory updateStmtFactory,
-                                                JdbcRowConverter rowConverter) {
-        this(null, insertStmtFactory, updateStmtFactory,
-            null, null, rowConverter);
+    public InsertOrUpdateBatchStatementExecutor(
+            StatementFactory insertStmtFactory,
+            StatementFactory updateStmtFactory,
+            JdbcRowConverter rowConverter) {
+        this(null, insertStmtFactory, updateStmtFactory, null, null, rowConverter);
     }
 
     @Override
@@ -122,7 +119,8 @@ public class InsertOrUpdateBatchStatementExecutor implements JdbcBatchStatementE
         if (!submitted) {
             executeBatch();
         }
-        for (PreparedStatement statement : Arrays.asList(existStatement, insertStatement, updateStatement)) {
+        for (PreparedStatement statement :
+                Arrays.asList(existStatement, insertStatement, updateStatement)) {
             if (statement != null) {
                 statement.close();
             }

@@ -31,7 +31,6 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
-import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -44,6 +43,8 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.shaded.org.apache.commons.lang3.tuple.Pair;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
+
+import lombok.extern.slf4j.Slf4j;
 import redis.clients.jedis.Jedis;
 
 import java.io.IOException;
@@ -64,7 +65,8 @@ public class RedisIT extends TestSuiteBase implements TestResource {
     private static final int PORT = 6379;
     private static final String PASSWORD = "SeaTunnel";
 
-    private static final Pair<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET = generateTestDataSet();
+    private static final Pair<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET =
+            generateTestDataSet();
 
     private GenericContainer<?> redisContainer;
 
@@ -73,14 +75,16 @@ public class RedisIT extends TestSuiteBase implements TestResource {
     @BeforeAll
     @Override
     public void startUp() {
-        this.redisContainer = new GenericContainer<>(DockerImageName.parse(IMAGE))
-            .withNetwork(NETWORK)
-            .withNetworkAliases(HOST)
-            .withExposedPorts(PORT)
-            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
-            .withCommand(String.format("redis-server --requirepass %s", PASSWORD))
-            .waitingFor(new HostPortWaitStrategy()
-                .withStartupTimeout(Duration.ofMinutes(2)));
+        this.redisContainer =
+                new GenericContainer<>(DockerImageName.parse(IMAGE))
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(HOST)
+                        .withExposedPorts(PORT)
+                        .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
+                        .withCommand(String.format("redis-server --requirepass %s", PASSWORD))
+                        .waitingFor(
+                                new HostPortWaitStrategy()
+                                        .withStartupTimeout(Duration.ofMinutes(2)));
         Startables.deepStart(Stream.of(redisContainer)).join();
         log.info("Redis container started");
         this.initJedis();
@@ -88,7 +92,8 @@ public class RedisIT extends TestSuiteBase implements TestResource {
     }
 
     private void initSourceData() {
-        JsonSerializationSchema jsonSerializationSchema = new JsonSerializationSchema(TEST_DATASET.getKey());
+        JsonSerializationSchema jsonSerializationSchema =
+                new JsonSerializationSchema(TEST_DATASET.getKey());
         List<SeaTunnelRow> rows = TEST_DATASET.getValue();
         for (int i = 0; i < rows.size(); i++) {
             jedis.set("key_test" + i, new String(jsonSerializationSchema.serialize(rows.get(i))));
@@ -96,63 +101,64 @@ public class RedisIT extends TestSuiteBase implements TestResource {
     }
 
     private static Pair<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
-        SeaTunnelRowType rowType = new SeaTunnelRowType(
-            new String[]{
-                "id",
-                "c_map",
-                "c_array",
-                "c_string",
-                "c_boolean",
-                "c_tinyint",
-                "c_smallint",
-                "c_int",
-                "c_bigint",
-                "c_float",
-                "c_double",
-                "c_decimal",
-                "c_bytes",
-                "c_date",
-                "c_timestamp"
-            },
-            new SeaTunnelDataType[]{
-                BasicType.LONG_TYPE,
-                new MapType<>(BasicType.STRING_TYPE, BasicType.SHORT_TYPE),
-                ArrayType.BYTE_ARRAY_TYPE,
-                BasicType.STRING_TYPE,
-                BasicType.BOOLEAN_TYPE,
-                BasicType.BYTE_TYPE,
-                BasicType.SHORT_TYPE,
-                BasicType.INT_TYPE,
-                BasicType.LONG_TYPE,
-                BasicType.FLOAT_TYPE,
-                BasicType.DOUBLE_TYPE,
-                new DecimalType(2, 1),
-                PrimitiveByteArrayType.INSTANCE,
-                LocalTimeType.LOCAL_DATE_TYPE,
-                LocalTimeType.LOCAL_DATE_TIME_TYPE
-            }
-        );
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {
+                            "id",
+                            "c_map",
+                            "c_array",
+                            "c_string",
+                            "c_boolean",
+                            "c_tinyint",
+                            "c_smallint",
+                            "c_int",
+                            "c_bigint",
+                            "c_float",
+                            "c_double",
+                            "c_decimal",
+                            "c_bytes",
+                            "c_date",
+                            "c_timestamp"
+                        },
+                        new SeaTunnelDataType[] {
+                            BasicType.LONG_TYPE,
+                            new MapType<>(BasicType.STRING_TYPE, BasicType.SHORT_TYPE),
+                            ArrayType.BYTE_ARRAY_TYPE,
+                            BasicType.STRING_TYPE,
+                            BasicType.BOOLEAN_TYPE,
+                            BasicType.BYTE_TYPE,
+                            BasicType.SHORT_TYPE,
+                            BasicType.INT_TYPE,
+                            BasicType.LONG_TYPE,
+                            BasicType.FLOAT_TYPE,
+                            BasicType.DOUBLE_TYPE,
+                            new DecimalType(2, 1),
+                            PrimitiveByteArrayType.INSTANCE,
+                            LocalTimeType.LOCAL_DATE_TYPE,
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE
+                        });
 
         List<SeaTunnelRow> rows = new ArrayList<>();
         for (int i = 0; i < 100; i++) {
-            SeaTunnelRow row = new SeaTunnelRow(
-                new Object[]{
-                    Long.valueOf(i),
-                    Collections.singletonMap("key", Short.parseShort("1")),
-                    new Byte[]{Byte.parseByte("1")},
-                    "string",
-                    Boolean.FALSE,
-                    Byte.parseByte("1"),
-                    Short.parseShort("1"),
-                    Integer.parseInt("1"),
-                    Long.parseLong("1"),
-                    Float.parseFloat("1.1"),
-                    Double.parseDouble("1.1"),
-                    BigDecimal.valueOf(11, 1),
-                    "test".getBytes(),
-                    LocalDate.now(),
-                    LocalDateTime.now()
-                });
+            SeaTunnelRow row =
+                    new SeaTunnelRow(
+                            new Object[] {
+                                Long.valueOf(i),
+                                Collections.singletonMap("key", Short.parseShort("1")),
+                                new Byte[] {Byte.parseByte("1")},
+                                "string",
+                                Boolean.FALSE,
+                                Byte.parseByte("1"),
+                                Short.parseShort("1"),
+                                Integer.parseInt("1"),
+                                Long.parseLong("1"),
+                                Float.parseFloat("1.1"),
+                                Double.parseDouble("1.1"),
+                                BigDecimal.valueOf(11, 1),
+                                "test".getBytes(),
+                                LocalDate.now(),
+                                LocalDateTime.now()
+                            });
             rows.add(row);
         }
         return Pair.of(rowType, rows);

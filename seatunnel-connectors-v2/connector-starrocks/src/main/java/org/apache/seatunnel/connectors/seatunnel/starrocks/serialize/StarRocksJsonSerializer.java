@@ -24,14 +24,14 @@ import org.apache.seatunnel.common.utils.JsonUtils;
 import java.util.HashMap;
 import java.util.Map;
 
-public class StarRocksJsonSerializer extends StarRocksBaseSerializer implements StarRocksISerializer {
+public class StarRocksJsonSerializer extends StarRocksBaseSerializer
+        implements StarRocksISerializer {
 
     private static final long serialVersionUID = 1L;
     private final SeaTunnelRowType seaTunnelRowType;
     private final boolean enableUpsertDelete;
 
-    public StarRocksJsonSerializer(SeaTunnelRowType seaTunnelRowType,
-                                   boolean enableUpsertDelete) {
+    public StarRocksJsonSerializer(SeaTunnelRowType seaTunnelRowType, boolean enableUpsertDelete) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.enableUpsertDelete = enableUpsertDelete;
     }
@@ -45,7 +45,8 @@ public class StarRocksJsonSerializer extends StarRocksBaseSerializer implements 
             rowMap.put(seaTunnelRowType.getFieldName(i), value);
         }
         if (enableUpsertDelete) {
-            rowMap.put(StarRocksSinkOP.COLUMN_KEY, StarRocksSinkOP.parse(row.getRowKind()).ordinal());
+            rowMap.put(
+                    StarRocksSinkOP.COLUMN_KEY, StarRocksSinkOP.parse(row.getRowKind()).ordinal());
         }
         return JsonUtils.toJsonString(rowMap);
     }

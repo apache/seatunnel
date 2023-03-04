@@ -44,6 +44,5 @@ public class SeaTunnelTransformCollector implements Collector<Record<?>> {
     }
 
     @Override
-    public void close() {
-    }
+    public void close() {}
 }

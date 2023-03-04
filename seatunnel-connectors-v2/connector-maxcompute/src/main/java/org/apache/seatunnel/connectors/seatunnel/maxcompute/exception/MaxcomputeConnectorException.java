@@ -22,11 +22,13 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 public class MaxcomputeConnectorException extends SeaTunnelRuntimeException {
 
-    public MaxcomputeConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
+    public MaxcomputeConnectorException(
+            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
         super(seaTunnelErrorCode, errorMessage);
     }
 
-    public MaxcomputeConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+    public MaxcomputeConnectorException(
+            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
         super(seaTunnelErrorCode, errorMessage, cause);
     }
 

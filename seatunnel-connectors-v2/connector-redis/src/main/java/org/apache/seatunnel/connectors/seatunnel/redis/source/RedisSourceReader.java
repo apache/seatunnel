@@ -43,7 +43,10 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private Jedis jedis;
 
-    public RedisSourceReader(RedisParameters redisParameters, SingleSplitReaderContext context, DeserializationSchema<SeaTunnelRow> deserializationSchema) {
+    public RedisSourceReader(
+            RedisParameters redisParameters,
+            SingleSplitReaderContext context,
+            DeserializationSchema<SeaTunnelRow> deserializationSchema) {
         this.redisParameters = redisParameters;
         this.context = context;
         this.deserializationSchema = deserializationSchema;
@@ -69,19 +72,21 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             List<String> values = redisDataType.get(jedis, key);
             for (String value : values) {
                 if (deserializationSchema == null) {
-                    output.collect(new SeaTunnelRow(new Object[]{value}));
+                    output.collect(new SeaTunnelRow(new Object[] {value}));
                 } else {
-                    if (redisParameters.getHashKeyParseMode() == RedisConfig.HashKeyParseMode.KV &&
-                            redisDataType == RedisDataType.HASH) {
+                    if (redisParameters.getHashKeyParseMode() == RedisConfig.HashKeyParseMode.KV
+                            && redisDataType == RedisDataType.HASH) {
                         // Treat each key-value pair in the hash-key as one piece of data
                         Map<String, String> recordsMap = JsonUtils.toMap(value);
                         for (Map.Entry<String, String> entry : recordsMap.entrySet()) {
                             String k = entry.getKey();
                             String v = entry.getValue();
                             Map<String, String> valuesMap = JsonUtils.toMap(v);
-                            SeaTunnelDataType<SeaTunnelRow> seaTunnelRowType = deserializationSchema.getProducedType();
+                            SeaTunnelDataType<SeaTunnelRow> seaTunnelRowType =
+                                    deserializationSchema.getProducedType();
                             valuesMap.put(((SeaTunnelRowType) seaTunnelRowType).getFieldName(0), k);
-                            deserializationSchema.deserialize(JsonUtils.toJsonString(valuesMap).getBytes(), output);
+                            deserializationSchema.deserialize(
+                                    JsonUtils.toJsonString(valuesMap).getBytes(), output);
                         }
                     } else {
                         deserializationSchema.deserialize(value.getBytes(), output);

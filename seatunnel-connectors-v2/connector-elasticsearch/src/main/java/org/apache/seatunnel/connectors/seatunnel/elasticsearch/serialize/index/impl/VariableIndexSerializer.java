@@ -25,9 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * index include variable
- */
+/** index include variable */
 public class VariableIndexSerializer implements IndexSerializer {
 
     private final String index;
@@ -35,7 +33,8 @@ public class VariableIndexSerializer implements IndexSerializer {
 
     private final String nullDefault = "null";
 
-    public VariableIndexSerializer(SeaTunnelRowType seaTunnelRowType, String index, List<String> fieldNames) {
+    public VariableIndexSerializer(
+            SeaTunnelRowType seaTunnelRowType, String index, List<String> fieldNames) {
         this.index = index;
         String[] rowFieldNames = seaTunnelRowType.getFieldNames();
         fieldIndexMap = new HashMap<>(rowFieldNames.length);

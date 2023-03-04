@@ -21,9 +21,6 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.data.IcebergRecordProjection;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorException;
 
-import com.google.common.collect.Sets;
-import lombok.Builder;
-import lombok.NonNull;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.Schema;
@@ -48,6 +45,10 @@ import org.apache.iceberg.parquet.Parquet;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.util.PartitionUtil;
 
+import com.google.common.collect.Sets;
+import lombok.Builder;
+import lombok.NonNull;
+
 import java.io.Closeable;
 import java.util.Map;
 
@@ -66,7 +67,8 @@ public class IcebergFileScanTaskReader implements Closeable {
     }
 
     private CloseableIterable<Record> icebergGenericRead(FileScanTask task) {
-        DeleteFilter<Record> deletes = new GenericDeleteFilter(fileIO, task, tableSchema, projectedSchema);
+        DeleteFilter<Record> deletes =
+                new GenericDeleteFilter(fileIO, task, tableSchema, projectedSchema);
         Schema readSchema = deletes.requiredSchema();
 
         CloseableIterable<Record> records = openFile(task, readSchema);
@@ -75,15 +77,20 @@ public class IcebergFileScanTaskReader implements Closeable {
 
         if (!projectedSchema.sameSchema(readSchema)) {
             // filter metadata columns
-            records = CloseableIterable.transform(records, record ->
-                new IcebergRecordProjection(record, readSchema.asStruct(), projectedSchema.asStruct()));
+            records =
+                    CloseableIterable.transform(
+                            records,
+                            record ->
+                                    new IcebergRecordProjection(
+                                            record,
+                                            readSchema.asStruct(),
+                                            projectedSchema.asStruct()));
         }
         return records;
     }
 
-    private CloseableIterable<Record> applyResidual(CloseableIterable<Record> records,
-                                                    Schema recordSchema,
-                                                    Expression residual) {
+    private CloseableIterable<Record> applyResidual(
+            CloseableIterable<Record> records, Schema recordSchema, Expression residual) {
         if (residual != null && residual != Expressions.alwaysTrue()) {
             InternalRecordWrapper wrapper = new InternalRecordWrapper(recordSchema.asStruct());
             Evaluator filter = new Evaluator(recordSchema.asStruct(), residual, caseSensitive);
@@ -96,49 +103,63 @@ public class IcebergFileScanTaskReader implements Closeable {
     private CloseableIterable<Record> openFile(FileScanTask task, Schema fileProjection) {
         if (task.isDataTask()) {
             throw new IcebergConnectorException(
-                CommonErrorCode.UNSUPPORTED_OPERATION,
-                "Cannot read data task.");
+                    CommonErrorCode.UNSUPPORTED_OPERATION, "Cannot read data task.");
         }
         InputFile input = fileIO.newInputFile(task.file().path().toString());
-        Map<Integer, ?> partition = PartitionUtil.constantsMap(task, IdentityPartitionConverters::convertConstant);
+        Map<Integer, ?> partition =
+                PartitionUtil.constantsMap(task, IdentityPartitionConverters::convertConstant);
 
         switch (task.file().format()) {
             case AVRO:
-                Avro.ReadBuilder avro = Avro.read(input)
-                    .project(fileProjection)
-                    .createReaderFunc(
-                        avroSchema -> DataReader.create(fileProjection, avroSchema, partition))
-                    .split(task.start(), task.length());
+                Avro.ReadBuilder avro =
+                        Avro.read(input)
+                                .project(fileProjection)
+                                .createReaderFunc(
+                                        avroSchema ->
+                                                DataReader.create(
+                                                        fileProjection, avroSchema, partition))
+                                .split(task.start(), task.length());
                 if (reuseContainers) {
                     avro.reuseContainers();
                 }
                 return avro.build();
             case PARQUET:
-                Parquet.ReadBuilder parquet = Parquet.read(input)
-                    .caseSensitive(caseSensitive)
-                    .project(fileProjection)
-                    .createReaderFunc(fileSchema -> GenericParquetReaders.buildReader(fileProjection, fileSchema, partition))
-                    .split(task.start(), task.length())
-                    .filter(task.residual());
+                Parquet.ReadBuilder parquet =
+                        Parquet.read(input)
+                                .caseSensitive(caseSensitive)
+                                .project(fileProjection)
+                                .createReaderFunc(
+                                        fileSchema ->
+                                                GenericParquetReaders.buildReader(
+                                                        fileProjection, fileSchema, partition))
+                                .split(task.start(), task.length())
+                                .filter(task.residual());
                 if (reuseContainers) {
                     parquet.reuseContainers();
                 }
                 return parquet.build();
             case ORC:
-                Schema projectionWithoutConstantAndMetadataFields = TypeUtil.selectNot(fileProjection,
-                    Sets.union(partition.keySet(), MetadataColumns.metadataFieldIds()));
-                ORC.ReadBuilder orc = ORC.read(input)
-                    .caseSensitive(caseSensitive)
-                    .project(projectionWithoutConstantAndMetadataFields)
-                    .createReaderFunc(fileSchema -> GenericOrcReader.buildReader(fileProjection, fileSchema, partition))
-                    .split(task.start(), task.length())
-                    .filter(task.residual());
+                Schema projectionWithoutConstantAndMetadataFields =
+                        TypeUtil.selectNot(
+                                fileProjection,
+                                Sets.union(partition.keySet(), MetadataColumns.metadataFieldIds()));
+                ORC.ReadBuilder orc =
+                        ORC.read(input)
+                                .caseSensitive(caseSensitive)
+                                .project(projectionWithoutConstantAndMetadataFields)
+                                .createReaderFunc(
+                                        fileSchema ->
+                                                GenericOrcReader.buildReader(
+                                                        fileProjection, fileSchema, partition))
+                                .split(task.start(), task.length())
+                                .filter(task.residual());
                 return orc.build();
             default:
                 throw new IcebergConnectorException(
-                    CommonErrorCode.UNSUPPORTED_OPERATION,
-                    String.format("Cannot read %s file: %s",
-                        task.file().format().name(), task.file().path()));
+                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        String.format(
+                                "Cannot read %s file: %s",
+                                task.file().format().name(), task.file().path()));
         }
     }
 

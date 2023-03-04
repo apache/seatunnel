@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.core.starter.utils;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -26,6 +24,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class CompressionUtilsTest {
 
@@ -41,9 +41,9 @@ public class CompressionUtilsTest {
         assertTrue(Files.exists(outputFile));
 
         Files.walk(pluginRootDir)
-            .sorted(Comparator.reverseOrder())
-            .map(Path::toFile)
-            .forEach(File::delete);
+                .sorted(Comparator.reverseOrder())
+                .map(Path::toFile)
+                .forEach(File::delete);
 
         Files.delete(outputFile);
     }

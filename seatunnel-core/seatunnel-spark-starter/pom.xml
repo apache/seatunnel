@@ -17,17 +17,23 @@
     limitations under the License.
 
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel-core</artifactId>
         <version>${revision}</version>
     </parent>
-    <modelVersion>4.0.0</modelVersion>
 
     <artifactId>seatunnel-spark-starter</artifactId>
+    <packaging>pom</packaging>
+    <name>SeaTunnel : Core : Spark Starter :</name>
+
+    <modules>
+        <module>seatunnel-spark-2-starter</module>
+        <module>seatunnel-spark-3-starter</module>
+    </modules>
 
     <properties>
         <docker.repo>seatunnel-spark</docker.repo>
@@ -41,37 +47,10 @@
             <version>${project.version}</version>
         </dependency>
 
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-streaming_${scala.binary.version}</artifactId>
-            <version>${spark.2.4.0.version}</version>
-            <scope>${spark.scope}</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-core_${scala.binary.version}</artifactId>
-            <version>${spark.2.4.0.version}</version>
-            <scope>${spark.scope}</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-sql_${scala.binary.version}</artifactId>
-            <version>${spark.2.4.0.version}</version>
-            <scope>${spark.scope}</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-translation-spark-2.4</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
     </dependencies>
 
     <build>
-        <finalName>${project.name}</finalName>
+        <finalName>${project.artifactId}</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -127,78 +106,4 @@
         </plugins>
     </build>
 
-    <!-- todo <profiles>
-        <profile>
-            <id>docker</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>exec-maven-plugin</artifactId>
-                        <version>${exec-maven-plugin.version}</version>
-                        <executions>
-                            <execution>
-                                <id>docker-build</id>
-                                <phase>package</phase>
-                                <goals>
-                                    <goal>exec</goal>
-                                </goals>
-                                <configuration>
-                                    <environmentVariables>
-                                        <DOCKER_BUILDKIT>1</DOCKER_BUILDKIT>
-                                    </environmentVariables>
-                                    <executable>docker</executable>
-                                    <workingDirectory>${project.basedir}</workingDirectory>
-                                    <arguments>
-                                        <argument>build</argument>
-                                        <argument>&#45;&#45;no-cache</argument>
-                                        <argument>&#45;&#45;build-arg</argument>
-                                        <argument>SPARK_VERSION=${spark.version}</argument>
-                                        <argument>&#45;&#45;build-arg</argument>
-                                        <argument>HADOOP_VERSION=${hadoop.binary.version}</argument>
-                                        <argument>-t</argument>
-                                        <argument>${docker.hub}/${docker.repo}:${docker.tag}</argument>
-                                        <argument>-t</argument>
-                                        <argument>${docker.hub}/${docker.repo}:latest</argument>
-                                        <argument>.</argument>
-                                        <argument>&#45;&#45;file=src/main/docker/Dockerfile</argument>
-                                    </arguments>
-                                </configuration>
-                            </execution>
-                            <execution>
-                                <id>docker-push</id>
-                                <phase>deploy</phase>
-                                <goals>
-                                    <goal>exec</goal>
-                                </goals>
-                                <configuration>
-                                    <environmentVariables>
-                                        <DOCKER_BUILDKIT>1</DOCKER_BUILDKIT>
-                                    </environmentVariables>
-                                    <executable>docker</executable>
-                                    <workingDirectory>${project.basedir}</workingDirectory>
-                                    <arguments>
-                                        <argument>buildx</argument>
-                                        <argument>build</argument>
-                                        <argument>&#45;&#45;no-cache</argument>
-                                        <argument>&#45;&#45;build-arg</argument>
-                                        <argument>SPARK_VERSION=${spark.version}</argument>
-                                        <argument>&#45;&#45;build-arg</argument>
-                                        <argument>HADOOP_VERSION=${hadoop.binary.version}</argument>
-                                        <argument>&#45;&#45;push</argument>
-                                        <argument>-t</argument>
-                                        <argument>${docker.hub}/${docker.repo}:${docker.tag}</argument>
-                                        <argument>-t</argument>
-                                        <argument>${docker.hub}/${docker.repo}:latest</argument>
-                                        <argument>.</argument>
-                                        <argument>&#45;&#45;file=src/main/docker/Dockerfile</argument>
-                                    </arguments>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>-->
 </project>

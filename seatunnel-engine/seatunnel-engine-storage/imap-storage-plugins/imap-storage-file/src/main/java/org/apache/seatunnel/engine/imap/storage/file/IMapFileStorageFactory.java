@@ -20,16 +20,19 @@
 
 package org.apache.seatunnel.engine.imap.storage.file;
 
-import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.HDFS_CONFIG_KEY;
-
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorageFactory;
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 
 import org.apache.hadoop.conf.Configuration;
 
+import com.google.auto.service.AutoService;
+
 import java.util.Map;
 
+import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.HDFS_CONFIG_KEY;
+
+@AutoService(IMapStorageFactory.class)
 public class IMapFileStorageFactory implements IMapStorageFactory {
     @Override
     public String factoryIdentifier() {

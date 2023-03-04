@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.engine.core.protocol.codec;
 
+import com.hazelcast.client.impl.protocol.ClientMessage;
+import com.hazelcast.client.impl.protocol.Generated;
+import com.hazelcast.client.impl.protocol.codec.builtin.StringCodec;
+
 import static com.hazelcast.client.impl.protocol.ClientMessage.ForwardFrameIterator;
 import static com.hazelcast.client.impl.protocol.ClientMessage.Frame;
 import static com.hazelcast.client.impl.protocol.ClientMessage.PARTITION_ID_FIELD_OFFSET;
@@ -27,10 +31,6 @@ import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCod
 import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCodec.INT_SIZE_IN_BYTES;
 import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCodec.encodeInt;
 
-import com.hazelcast.client.impl.protocol.ClientMessage;
-import com.hazelcast.client.impl.protocol.Generated;
-import com.hazelcast.client.impl.protocol.codec.builtin.StringCodec;
-
 /*
  * definitions on the https://github.com/hazelcast/hazelcast-client-protocol
  * to seatunnel-engine/seatunnel-engine-core/src/main/resources/client-protocol-definition/SeaTunnelEngine.yaml
@@ -38,15 +38,16 @@ import com.hazelcast.client.impl.protocol.codec.builtin.StringCodec;
 
 @Generated("ee7ee4fc67d26f72ccdf418fcb868148")
 public final class SeaTunnelListJobStatusCodec {
-    //hex: 0xDE0700
+    // hex: 0xDE0700
     public static final int REQUEST_MESSAGE_TYPE = 14550784;
-    //hex: 0xDE0701
+    // hex: 0xDE0701
     public static final int RESPONSE_MESSAGE_TYPE = 14550785;
-    private static final int REQUEST_INITIAL_FRAME_SIZE = PARTITION_ID_FIELD_OFFSET + INT_SIZE_IN_BYTES;
-    private static final int RESPONSE_INITIAL_FRAME_SIZE = RESPONSE_BACKUP_ACKS_FIELD_OFFSET + BYTE_SIZE_IN_BYTES;
+    private static final int REQUEST_INITIAL_FRAME_SIZE =
+            PARTITION_ID_FIELD_OFFSET + INT_SIZE_IN_BYTES;
+    private static final int RESPONSE_INITIAL_FRAME_SIZE =
+            RESPONSE_BACKUP_ACKS_FIELD_OFFSET + BYTE_SIZE_IN_BYTES;
 
-    private SeaTunnelListJobStatusCodec() {
-    }
+    private SeaTunnelListJobStatusCodec() {}
 
     public static ClientMessage encodeRequest() {
         ClientMessage clientMessage = ClientMessage.createForEncode();
@@ -69,11 +70,10 @@ public final class SeaTunnelListJobStatusCodec {
         return clientMessage;
     }
 
-    /**
-     */
+    /** */
     public static String decodeResponse(ClientMessage clientMessage) {
         ForwardFrameIterator iterator = clientMessage.frameIterator();
-        //empty initial frame
+        // empty initial frame
         iterator.next();
         return StringCodec.decode(iterator);
     }

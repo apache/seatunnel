@@ -34,8 +34,14 @@ public class WaitForJobCompleteOperation extends AbstractJobAsyncOperation {
     @Override
     protected PassiveCompletableFuture<?> doRun() throws Exception {
         SeaTunnelServer service = getService();
-        return new PassiveCompletableFuture<>(service.getCoordinatorService().waitForJobComplete(jobId)
-            .thenApply(jobResult -> this.getNodeEngine().getSerializationService().toData(jobResult)));
+        return new PassiveCompletableFuture<>(
+                service.getCoordinatorService()
+                        .waitForJobComplete(jobId)
+                        .thenApply(
+                                jobResult ->
+                                        this.getNodeEngine()
+                                                .getSerializationService()
+                                                .toData(jobResult)));
     }
 
     @Override

@@ -65,15 +65,21 @@ public class DorisSinkManager {
         }
         initialize = true;
 
-        scheduler = Executors.newSingleThreadScheduledExecutor(
-                new ThreadFactoryBuilder().setNameFormat("Doris-sink-output-%s").build());
-        scheduledFuture = scheduler.scheduleAtFixedRate(() -> {
-            try {
-                flush();
-            } catch (IOException e) {
-                flushException = e;
-            }
-        }, batchIntervalMs, batchIntervalMs, TimeUnit.MILLISECONDS);
+        scheduler =
+                Executors.newSingleThreadScheduledExecutor(
+                        new ThreadFactoryBuilder().setNameFormat("Doris-sink-output-%s").build());
+        scheduledFuture =
+                scheduler.scheduleAtFixedRate(
+                        () -> {
+                            try {
+                                flush();
+                            } catch (IOException e) {
+                                flushException = e;
+                            }
+                        },
+                        batchIntervalMs,
+                        batchIntervalMs,
+                        TimeUnit.MILLISECONDS);
     }
 
     public synchronized void write(String record) throws IOException {
@@ -83,7 +89,8 @@ public class DorisSinkManager {
         batchList.add(bts);
         batchRowCount++;
         batchBytesSize += bts.length;
-        if (batchRowCount >= sinkConfig.getBatchMaxSize() || batchBytesSize >= sinkConfig.getBatchMaxBytes()) {
+        if (batchRowCount >= sinkConfig.getBatchMaxSize()
+                || batchBytesSize >= sinkConfig.getBatchMaxBytes()) {
             flush();
         }
     }
@@ -113,23 +120,34 @@ public class DorisSinkManager {
             } catch (Exception e) {
                 log.warn("Writing records to Doris failed, retry times = {}", i, e);
                 if (i >= sinkConfig.getMaxRetries()) {
-                    throw new DorisConnectorException(DorisConnectorErrorCode.WRITE_RECORDS_FAILED, "The number of retries was exceeded,writing records to Doris failed.", e);
+                    throw new DorisConnectorException(
+                            DorisConnectorErrorCode.WRITE_RECORDS_FAILED,
+                            "The number of retries was exceeded,writing records to Doris failed.",
+                            e);
                 }
 
-                if (e instanceof DorisConnectorException && ((DorisConnectorException) e).needReCreateLabel()) {
+                if (e instanceof DorisConnectorException
+                        && ((DorisConnectorException) e).needReCreateLabel()) {
                     String newLabel = createBatchLabel();
-                    log.warn(String.format("Batch label changed from [%s] to [%s]", tuple.getLabel(), newLabel));
+                    log.warn(
+                            String.format(
+                                    "Batch label changed from [%s] to [%s]",
+                                    tuple.getLabel(), newLabel));
                     tuple.setLabel(newLabel);
                 }
 
                 try {
-                    long backoff = Math.min(sinkConfig.getRetryBackoffMultiplierMs() * i,
-                            sinkConfig.getMaxRetryBackoffMs());
+                    long backoff =
+                            Math.min(
+                                    sinkConfig.getRetryBackoffMultiplierMs() * i,
+                                    sinkConfig.getMaxRetryBackoffMs());
                     Thread.sleep(backoff);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
-                    throw new DorisConnectorException(CommonErrorCode.FLUSH_DATA_FAILED,
-                            "Unable to flush, interrupted while doing another attempt.", e);
+                    throw new DorisConnectorException(
+                            CommonErrorCode.FLUSH_DATA_FAILED,
+                            "Unable to flush, interrupted while doing another attempt.",
+                            e);
                 }
             }
         }

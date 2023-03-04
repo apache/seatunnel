@@ -29,6 +29,4 @@ public class CheckpointStorageException extends Exception {
     public CheckpointStorageException(String message, Throwable cause) {
         super(message, cause);
     }
-
 }
-

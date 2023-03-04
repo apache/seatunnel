@@ -25,7 +25,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 - [ ] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
-- [x] file format
+- [x] file format type
   - [x] text
   - [x] csv
   - [x] parquet
@@ -34,10 +34,11 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 
 ## Options
 
-| name                      | type    | required | default value       |
+|           name            |  type   | required |    default value    |
 |---------------------------|---------|----------|---------------------|
 | path                      | string  | yes      | -                   |
-| type                      | string  | yes      | -                   |
+| file_format_type          | string  | yes      | -                   |
+| read_columns              | list    | no       | -                   |
 | delimiter                 | string  | no       | \001                |
 | parse_partition_from_path | boolean | no       | true                |
 | date_format               | string  | no       | yyyy-MM-dd          |
@@ -65,9 +66,9 @@ For example if you read a file from path `file://hadoop-cluster/tmp/seatunnel/pa
 
 Every record data from file will be added these two fields:
 
-| name           | age |
-|----------------|-----|
-| tyrantlucifer  | 26  |
+|     name      | age |
+|---------------|-----|
+| tyrantlucifer | 26  |
 
 Tips: **Do not define partition fields in schema option**
 
@@ -105,7 +106,7 @@ For example, set like following:
 
 then Seatunnel will skip the first 2 lines from source files
 
-### type [string]
+### file_format_type [string]
 
 File type, supported as the following file types:
 
@@ -148,7 +149,7 @@ schema {
 
 connector will generate data as the following:
 
-| code | data        | success |
+| code |    data     | success |
 |------|-------------|---------|
 | 200  | get success | true    |
 
@@ -166,9 +167,9 @@ tyrantlucifer#26#male
 
 If you do not assign data schema connector will treat the upstream data as the following:
 
-| content                |
-|------------------------|
-| tyrantlucifer#26#male  | 
+|        content        |
+|-----------------------|
+| tyrantlucifer#26#male |
 
 If you assign data schema, you should also assign the option `delimiter` too except CSV file type
 
@@ -189,7 +190,7 @@ schema {
 
 connector will generate data as the following:
 
-| name          | age | gender |
+|     name      | age | gender |
 |---------------|-----|--------|
 | tyrantlucifer | 26  | male   |
 
@@ -199,7 +200,21 @@ connector will generate data as the following:
 
 The schema information of upstream data.
 
-### common options 
+### read_columns [list]
+
+The read column list of the data source, user can use it to implement field projection.
+
+The file type supported column projection as the following shown:
+
+- text
+- json
+- csv
+- orc
+- parquet
+
+**Tips: If the user wants to use this feature when reading `text` `json` `csv` files, the schema option must be configured**
+
+### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
@@ -209,7 +224,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 
 LocalFile {
   path = "/apps/hive/demo/student"
-  type = "parquet"
+  file_format_type = "parquet"
 }
 
 ```
@@ -224,7 +239,7 @@ LocalFile {
     }
   }
   path = "/apps/hive/demo/student"
-  type = "json"
+  file_format_type = "json"
 }
 
 ```
@@ -240,3 +255,4 @@ LocalFile {
 - [BugFix] Fix the bug of incorrect path in windows environment ([2980](https://github.com/apache/incubator-seatunnel/pull/2980))
 - [Improve] Support extract partition from SeaTunnelRow fields ([3085](https://github.com/apache/incubator-seatunnel/pull/3085))
 - [Improve] Support parse field from file path ([2985](https://github.com/apache/incubator-seatunnel/pull/2985))
+

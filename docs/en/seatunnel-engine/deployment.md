@@ -1,6 +1,7 @@
 ---
+
 sidebar_position: 4
----
+-------------------
 
 # Deployment SeaTunnel Engine
 
@@ -24,6 +25,7 @@ SeaTunnel Engine supported two ways to set jvm options.
 1. Add JVM Options to `$SEATUNNEL_HOME/bin/seatunnel-cluster.sh`.
 
    Modify the `$SEATUNNEL_HOME/bin/seatunnel-cluster.sh` file and add `JAVA_OPTS="-Xms2G -Xmx2G"` in the first line.
+
 2. Add JVM Options when start SeaTunnel Engine. For example `seatunnel-cluster.sh -DJvmOption="-Xms2G -Xmx2G"`
 
 ## 4. Config SeaTunnel Engine
@@ -73,7 +75,6 @@ The interval between two checkpoints, unit is milliseconds. If the `checkpoint.i
 
 The timeout of a checkpoint. If a checkpoint cannot be completed within the timeout period, a checkpoint failure will be triggered. Therefore, Job will be restored.
 
-
 **max-concurrent**
 
 How many checkpoints can be performed simultaneously at most.
@@ -101,6 +102,17 @@ seatunnel:
 **checkpoint storage**
 
 About the checkpoint storage, you can see [checkpoint storage](checkpoint-storage.md)
+
+### 4.4 Intermediate Queue Type
+
+Task internal exchange queue type. There are currently two types of `disruptor` and `blockingqueue`.
+
+```
+seatunnel:
+    engine:
+        queue-type: disruptor
+        # other config
+```
 
 ## 5. Config SeaTunnel Engine Server
 
@@ -144,6 +156,59 @@ TCP is our suggest way in a standalone SeaTunnel Engine cluster.
 
 On the other hand, Hazelcast provides some other service discovery methods. For details, please refer to [hazelcast network](https://docs.hazelcast.com/imdg/4.1/clusters/setting-up-clusters)
 
+### 5.3 Map
+
+MapStores connect to an external data store only when they are configured on a map. This topic explains how to configure a map with a MapStore. For details, please refer to [hazelcast map](https://docs.hazelcast.com/imdg/4.2/data-structures/map)
+
+**type**
+
+The type of imap persistence, currently only supports `hdfs`.
+
+**namespace**
+
+It is used to distinguish data storage locations of different business, like OSS bucket name.
+
+**clusterName**
+
+This parameter is primarily used for cluster isolation, we can use this to distinguish different cluster, like cluster1,
+cluster2 and this is also used to distinguish different business
+
+**fs.defaultFS**
+
+We used hdfs api read/write file, so used this storage need provide hdfs configuration
+
+if you used HDFS, you can config like this:
+
+```yaml
+map:
+    engine*:
+       map-store:
+         enabled: true
+         initial-mode: EAGER
+         factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+         properties:
+           type: hdfs
+           namespace: /tmp/seatunnel/imap
+           clusterName: seatunnel-cluster
+           fs.defaultFS: hdfs://localhost:9000
+```
+
+If there is no HDFS and your cluster only have one node, you can config to use local file like this:
+
+```yaml
+map:
+    engine*:
+       map-store:
+         enabled: true
+         initial-mode: EAGER
+         factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+         properties:
+           type: hdfs
+           namespace: /tmp/seatunnel/imap
+           clusterName: seatunnel-cluster
+           fs.defaultFS: file:///
+```
+
 ## 6. Config SeaTunnel Engine Client
 
 All SeaTunnel Engine Client config in `hazelcast-client.yaml`.
@@ -172,7 +237,7 @@ hazelcast-client:
 
 ```shell
 mkdir -p $SEATUNNEL_HOME/logs
-nohup seatunnel-cluster.sh &
+nohup bin/seatunnel-cluster.sh 2>&1 &
 ```
 
 The logs will write in `$SEATUNNEL_HOME/logs/seatunnel-engine-server.log`

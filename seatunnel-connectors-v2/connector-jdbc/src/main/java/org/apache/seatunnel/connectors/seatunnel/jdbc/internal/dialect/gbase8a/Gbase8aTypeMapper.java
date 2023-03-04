@@ -34,7 +34,7 @@ import java.sql.SQLException;
 @Slf4j
 public class Gbase8aTypeMapper implements JdbcDialectTypeMapper {
 
-    //ref http://www.gbase.cn/down/4419.html
+    // ref http://www.gbase.cn/down/4419.html
     // ============================data types=====================
     private static final String GBASE8A_UNKNOWN = "UNKNOWN";
 
@@ -51,7 +51,6 @@ public class Gbase8aTypeMapper implements JdbcDialectTypeMapper {
     private static final String GBASE8A_CHAR = "CHAR";
     private static final String GBASE8A_VARCHAR = "VARCHAR";
 
-
     // ------------------------------time-------------------------
     private static final String GBASE8A_DATE = "DATE";
     private static final String GBASE8A_TIME = "TIME";
@@ -64,7 +63,8 @@ public class Gbase8aTypeMapper implements JdbcDialectTypeMapper {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
-    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException {
+    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
+            throws SQLException {
         String gbase8aType = metadata.getColumnTypeName(colIndex).toUpperCase();
         int precision = metadata.getPrecision(colIndex);
         int scale = metadata.getScale(colIndex);
@@ -99,14 +99,15 @@ public class Gbase8aTypeMapper implements JdbcDialectTypeMapper {
             case GBASE8A_BLOB:
             case GBASE8A_TEXT:
                 return PrimitiveByteArrayType.INSTANCE;
-            //Doesn't support yet
+                // Doesn't support yet
             case GBASE8A_UNKNOWN:
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
-                throw new JdbcConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
-                    String.format(
-                        "Doesn't support GBASE8A type '%s' on column '%s'  yet.",
-                        gbase8aType, jdbcColumnName));
+                throw new JdbcConnectorException(
+                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        String.format(
+                                "Doesn't support GBASE8A type '%s' on column '%s'  yet.",
+                                gbase8aType, jdbcColumnName));
         }
     }
 }

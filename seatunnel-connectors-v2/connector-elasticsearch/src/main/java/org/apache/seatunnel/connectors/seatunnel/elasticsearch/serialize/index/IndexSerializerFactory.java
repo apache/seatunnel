@@ -26,7 +26,8 @@ import java.util.List;
 
 public class IndexSerializerFactory {
 
-    public static IndexSerializer getIndexSerializer(String index, SeaTunnelRowType seaTunnelRowType) {
+    public static IndexSerializer getIndexSerializer(
+            String index, SeaTunnelRowType seaTunnelRowType) {
         List<String> fieldNames = RegexUtils.extractDatas(index, "\\$\\{(.*?)\\}");
         if (fieldNames != null && fieldNames.size() > 0) {
             return new VariableIndexSerializer(seaTunnelRowType, index, fieldNames);

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.oss.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -28,8 +30,6 @@ import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConf;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.exception.OssJindoConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
 
@@ -43,13 +43,19 @@ public class OssFileSink extends BaseFileSink {
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         super.prepare(pluginConfig);
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig,
-                OssConfig.FILE_PATH.key(),
-                OssConfig.BUCKET.key(), OssConfig.ACCESS_KEY.key(),
-                OssConfig.ACCESS_SECRET.key(), OssConfig.BUCKET.key());
+        CheckResult result =
+                CheckConfigUtil.checkAllExists(
+                        pluginConfig,
+                        OssConfig.FILE_PATH.key(),
+                        OssConfig.BUCKET.key(),
+                        OssConfig.ACCESS_KEY.key(),
+                        OssConfig.ACCESS_SECRET.key(),
+                        OssConfig.BUCKET.key());
         if (!result.isSuccess()) {
-            throw new OssJindoConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+            throw new OssJindoConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SINK, result.getMsg()));
         }
         hadoopConf = OssConf.buildWithConfig(pluginConfig);

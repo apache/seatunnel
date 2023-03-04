@@ -52,15 +52,16 @@ public class WALWriter implements AutoCloseable {
     public void flush() throws IOException {
         // hsync to flag
         if (out instanceof HdfsDataOutputStream) {
-            ((HdfsDataOutputStream) out).hsync(EnumSet.of(HdfsDataOutputStream.SyncFlag.UPDATE_LENGTH));
+            ((HdfsDataOutputStream) out)
+                    .hsync(EnumSet.of(HdfsDataOutputStream.SyncFlag.UPDATE_LENGTH));
         }
         if (out.getWrappedStream() instanceof DFSOutputStream) {
-            ((DFSOutputStream) out.getWrappedStream()).hsync(EnumSet.of(HdfsDataOutputStream.SyncFlag.UPDATE_LENGTH));
+            ((DFSOutputStream) out.getWrappedStream())
+                    .hsync(EnumSet.of(HdfsDataOutputStream.SyncFlag.UPDATE_LENGTH));
         } else {
             out.hsync();
         }
         this.out.hflush();
-
     }
 
     private void write(byte[] bytes) throws IOException {

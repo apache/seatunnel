@@ -19,5 +19,4 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.state;
 
 import java.io.Serializable;
 
-public class CKCommitInfo implements Serializable {
-}
+public class CKCommitInfo implements Serializable {}

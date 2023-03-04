@@ -31,12 +31,18 @@ public class SimpleMapTypeInfo implements MapTypeInfo {
             this.keyType = keyType;
             this.valueType = valueType;
         } else {
-            throw new MaxcomputeConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Invalid key or value type for map.");
+            throw new MaxcomputeConnectorException(
+                    CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Invalid key or value type for map.");
         }
     }
 
     public String getTypeName() {
-        return this.getOdpsType().name() + "<" + this.keyType.getTypeName() + "," + this.valueType.getTypeName() + ">";
+        return this.getOdpsType().name()
+                + "<"
+                + this.keyType.getTypeName()
+                + ","
+                + this.valueType.getTypeName()
+                + ">";
     }
 
     public TypeInfo getKeyTypeInfo() {
@@ -55,4 +61,3 @@ public class SimpleMapTypeInfo implements MapTypeInfo {
         return this.getTypeName();
     }
 }
-

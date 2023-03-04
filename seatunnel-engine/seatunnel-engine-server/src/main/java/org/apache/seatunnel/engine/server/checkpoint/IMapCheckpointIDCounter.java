@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
@@ -29,22 +27,28 @@ import com.hazelcast.map.IMap;
 
 import java.util.concurrent.CompletableFuture;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public class IMapCheckpointIDCounter implements CheckpointIDCounter {
     private final Integer pipelineId;
     private final IMap<Integer, Long> checkpointIdMap;
 
-    public IMapCheckpointIDCounter(Integer pipelineId,
-                                   IMap<Integer, Long> checkpointIdMap) {
+    public IMapCheckpointIDCounter(Integer pipelineId, IMap<Integer, Long> checkpointIdMap) {
         this.pipelineId = pipelineId;
         this.checkpointIdMap = checkpointIdMap;
     }
 
     @Override
     public void start() throws Exception {
-        RetryUtils.retryWithException(() -> {
-            return checkpointIdMap.putIfAbsent(pipelineId, INITIAL_CHECKPOINT_ID);
-        }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-            exception -> exception instanceof HazelcastInstanceNotActiveException, Constant.OPERATION_RETRY_SLEEP));
+        RetryUtils.retryWithException(
+                () -> {
+                    return checkpointIdMap.putIfAbsent(pipelineId, INITIAL_CHECKPOINT_ID);
+                },
+                new RetryUtils.RetryMaterial(
+                        Constant.OPERATION_RETRY_TIME,
+                        true,
+                        exception -> exception instanceof HazelcastInstanceNotActiveException,
+                        Constant.OPERATION_RETRY_SLEEP));
     }
 
     @Override

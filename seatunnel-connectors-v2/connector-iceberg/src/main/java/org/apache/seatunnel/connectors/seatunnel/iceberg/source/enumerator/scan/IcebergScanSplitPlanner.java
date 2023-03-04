@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorException;
@@ -26,7 +24,6 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.Icebe
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.IcebergEnumeratorPosition;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFileScanTaskSplit;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.IncrementalAppendScan;
@@ -38,18 +35,23 @@ import org.apache.iceberg.TableScan;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.util.SnapshotUtil;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 @Slf4j
 public class IcebergScanSplitPlanner {
 
-    public static IcebergEnumerationResult planStreamSplits(Table table,
-                                                            IcebergScanContext icebergScanContext,
-                                                            IcebergEnumeratorPosition lastPosition) {
+    public static IcebergEnumerationResult planStreamSplits(
+            Table table,
+            IcebergScanContext icebergScanContext,
+            IcebergEnumeratorPosition lastPosition) {
         // Load increment files
         table.refresh();
 
@@ -59,66 +61,86 @@ public class IcebergScanSplitPlanner {
         return incrementalStreamSplits(table, icebergScanContext, lastPosition);
     }
 
-    private static IcebergEnumerationResult incrementalStreamSplits(Table table,
-                                                                    IcebergScanContext icebergScanContext,
-                                                                    IcebergEnumeratorPosition lastPosition) {
+    private static IcebergEnumerationResult incrementalStreamSplits(
+            Table table,
+            IcebergScanContext icebergScanContext,
+            IcebergEnumeratorPosition lastPosition) {
         Snapshot currentSnapshot = table.currentSnapshot();
         if (currentSnapshot == null) {
-            checkArgument(lastPosition.getSnapshotId() == null,
-                "Invalid last enumerated position for an empty table: not null");
+            checkArgument(
+                    lastPosition.getSnapshotId() == null,
+                    "Invalid last enumerated position for an empty table: not null");
             log.info("Skip incremental scan because table is empty");
-            return new IcebergEnumerationResult(Collections.emptyList(), lastPosition, lastPosition);
+            return new IcebergEnumerationResult(
+                    Collections.emptyList(), lastPosition, lastPosition);
         } else if (lastPosition.getSnapshotId() != null
-            && currentSnapshot.snapshotId() == lastPosition.getSnapshotId()) {
-            log.debug("Current table snapshot is already enumerated: {}", currentSnapshot.snapshotId());
-            return new IcebergEnumerationResult(Collections.emptyList(), lastPosition, lastPosition);
+                && currentSnapshot.snapshotId() == lastPosition.getSnapshotId()) {
+            log.debug(
+                    "Current table snapshot is already enumerated: {}",
+                    currentSnapshot.snapshotId());
+            return new IcebergEnumerationResult(
+                    Collections.emptyList(), lastPosition, lastPosition);
         }
 
-        IcebergEnumeratorPosition newPosition = new IcebergEnumeratorPosition(
-            currentSnapshot.snapshotId(), currentSnapshot.timestampMillis());
-        IcebergScanContext incrementalScan = icebergScanContext
-            .copyWithAppendsBetween(lastPosition.getSnapshotId(), currentSnapshot.snapshotId());
+        IcebergEnumeratorPosition newPosition =
+                new IcebergEnumeratorPosition(
+                        currentSnapshot.snapshotId(), currentSnapshot.timestampMillis());
+        IcebergScanContext incrementalScan =
+                icebergScanContext.copyWithAppendsBetween(
+                        lastPosition.getSnapshotId(), currentSnapshot.snapshotId());
         List<IcebergFileScanTaskSplit> splits = planSplits(table, incrementalScan);
-        log.info("Discovered {} splits from incremental scan: " +
-                "from snapshot (exclusive) is {}, to snapshot (inclusive) is {}",
-            splits.size(), lastPosition, newPosition);
+        log.info(
+                "Discovered {} splits from incremental scan: "
+                        + "from snapshot (exclusive) is {}, to snapshot (inclusive) is {}",
+                splits.size(),
+                lastPosition,
+                newPosition);
         return new IcebergEnumerationResult(splits, lastPosition, newPosition);
     }
 
-    private static IcebergEnumerationResult initialStreamSplits(Table table,
-                                                                IcebergScanContext icebergScanContext) {
-        Optional<Snapshot> startSnapshotOptional = getStreamStartSnapshot(table, icebergScanContext);
+    private static IcebergEnumerationResult initialStreamSplits(
+            Table table, IcebergScanContext icebergScanContext) {
+        Optional<Snapshot> startSnapshotOptional =
+                getStreamStartSnapshot(table, icebergScanContext);
         if (!startSnapshotOptional.isPresent()) {
-            return new IcebergEnumerationResult(Collections.emptyList(),
-                null, IcebergEnumeratorPosition.EMPTY);
+            return new IcebergEnumerationResult(
+                    Collections.emptyList(), null, IcebergEnumeratorPosition.EMPTY);
         }
 
         Snapshot startSnapshot = startSnapshotOptional.get();
         List<IcebergFileScanTaskSplit> splits = Collections.emptyList();
         IcebergEnumeratorPosition toPosition = IcebergEnumeratorPosition.EMPTY;
-        if (IcebergStreamScanStrategy.TABLE_SCAN_THEN_INCREMENTAL.equals(icebergScanContext.getStreamScanStrategy())) {
+        if (IcebergStreamScanStrategy.TABLE_SCAN_THEN_INCREMENTAL.equals(
+                icebergScanContext.getStreamScanStrategy())) {
             splits = planSplits(table, icebergScanContext);
-            log.info("Discovered {} splits from initial batch table scan with snapshot Id {}",
-                splits.size(), startSnapshot.snapshotId());
+            log.info(
+                    "Discovered {} splits from initial batch table scan with snapshot Id {}",
+                    splits.size(),
+                    startSnapshot.snapshotId());
 
-            toPosition = new IcebergEnumeratorPosition(startSnapshot.snapshotId(),
-                startSnapshot.timestampMillis());
+            toPosition =
+                    new IcebergEnumeratorPosition(
+                            startSnapshot.snapshotId(), startSnapshot.timestampMillis());
         } else {
             Long parentSnapshotId = startSnapshot.parentId();
             if (parentSnapshotId != null) {
                 Snapshot parentSnapshot = table.snapshot(parentSnapshotId);
-                Long parentSnapshotTimestampMs = parentSnapshot != null ? parentSnapshot.timestampMillis() : null;
-                toPosition = new IcebergEnumeratorPosition(parentSnapshotId, parentSnapshotTimestampMs);
+                Long parentSnapshotTimestampMs =
+                        parentSnapshot != null ? parentSnapshot.timestampMillis() : null;
+                toPosition =
+                        new IcebergEnumeratorPosition(parentSnapshotId, parentSnapshotTimestampMs);
             }
-            log.info("Start incremental scan with start snapshot (inclusive): id = {}, timestamp = {}",
-                startSnapshot.snapshotId(), startSnapshot.timestampMillis());
+            log.info(
+                    "Start incremental scan with start snapshot (inclusive): id = {}, timestamp = {}",
+                    startSnapshot.snapshotId(),
+                    startSnapshot.timestampMillis());
         }
 
         return new IcebergEnumerationResult(splits, null, toPosition);
     }
 
-    private static Optional<Snapshot> getStreamStartSnapshot(Table table,
-                                                             IcebergScanContext icebergScanContext) {
+    private static Optional<Snapshot> getStreamStartSnapshot(
+            Table table, IcebergScanContext icebergScanContext) {
         switch (icebergScanContext.getStreamScanStrategy()) {
             case TABLE_SCAN_THEN_INCREMENTAL:
             case FROM_LATEST_SNAPSHOT:
@@ -128,24 +150,26 @@ public class IcebergScanSplitPlanner {
             case FROM_SNAPSHOT_ID:
                 return Optional.of(table.snapshot(icebergScanContext.getStartSnapshotId()));
             case FROM_SNAPSHOT_TIMESTAMP:
-                long snapshotIdAsOfTime = SnapshotUtil.snapshotIdAsOfTime(table,
-                    icebergScanContext.getStartSnapshotTimestamp());
+                long snapshotIdAsOfTime =
+                        SnapshotUtil.snapshotIdAsOfTime(
+                                table, icebergScanContext.getStartSnapshotTimestamp());
                 Snapshot matchedSnapshot = table.snapshot(snapshotIdAsOfTime);
-                if (matchedSnapshot.timestampMillis() == icebergScanContext.getStartSnapshotTimestamp()) {
+                if (matchedSnapshot.timestampMillis()
+                        == icebergScanContext.getStartSnapshotTimestamp()) {
                     return Optional.of(matchedSnapshot);
                 } else {
                     return Optional.of(SnapshotUtil.snapshotAfter(table, snapshotIdAsOfTime));
                 }
             default:
                 throw new IcebergConnectorException(
-                    CommonErrorCode.UNSUPPORTED_OPERATION,
-                    "Unsupported stream scan strategy: " +
-                        icebergScanContext.getStreamScanStrategy());
+                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        "Unsupported stream scan strategy: "
+                                + icebergScanContext.getStreamScanStrategy());
         }
     }
 
-    public static List<IcebergFileScanTaskSplit> planSplits(Table table,
-                                                            IcebergScanContext context) {
+    public static List<IcebergFileScanTaskSplit> planSplits(
+            Table table, IcebergScanContext context) {
         try (CloseableIterable<CombinedScanTask> tasksIterable = planTasks(table, context)) {
             List<IcebergFileScanTaskSplit> splits = new ArrayList<>();
             for (CombinedScanTask combinedScanTask : tasksIterable) {
@@ -156,16 +180,17 @@ public class IcebergScanSplitPlanner {
             return splits;
         } catch (IOException e) {
             throw new IcebergConnectorException(
-                IcebergConnectorErrorCode.FILE_SCAN_SPLIT_FAILED,
-                "Failed to scan iceberg splits from: " + table.name(), e);
+                    IcebergConnectorErrorCode.FILE_SCAN_SPLIT_FAILED,
+                    "Failed to scan iceberg splits from: " + table.name(),
+                    e);
         }
     }
 
-    private static CloseableIterable<CombinedScanTask> planTasks(Table table,
-                                                                 IcebergScanContext context) {
+    private static CloseableIterable<CombinedScanTask> planTasks(
+            Table table, IcebergScanContext context) {
         if (context.isStreaming()
-            || context.getStartSnapshotId() != null
-            || context.getEndSnapshotId() != null) {
+                || context.getStartSnapshotId() != null
+                || context.getEndSnapshotId() != null) {
             IncrementalAppendScan scan = table.newIncrementalAppendScan();
             scan = rebuildScanWithBaseConfig(scan, context);
             if (context.getStartSnapshotId() != null) {
@@ -189,23 +214,24 @@ public class IcebergScanSplitPlanner {
     }
 
     private static <T extends Scan<T, FileScanTask, CombinedScanTask>> T rebuildScanWithBaseConfig(
-        T scan, IcebergScanContext context) {
-        T newScan = scan.caseSensitive(context.isCaseSensitive())
-            .project(context.getSchema());
+            T scan, IcebergScanContext context) {
+        T newScan = scan.caseSensitive(context.isCaseSensitive()).project(context.getSchema());
         if (context.getFilter() != null) {
             newScan = newScan.filter(context.getFilter());
         }
         if (context.getSplitSize() != null) {
-            newScan = newScan.option(TableProperties.SPLIT_SIZE,
-                context.getSplitSize().toString());
+            newScan = newScan.option(TableProperties.SPLIT_SIZE, context.getSplitSize().toString());
         }
         if (context.getSplitLookback() != null) {
-            newScan = newScan.option(TableProperties.SPLIT_LOOKBACK,
-                context.getSplitLookback().toString());
+            newScan =
+                    newScan.option(
+                            TableProperties.SPLIT_LOOKBACK, context.getSplitLookback().toString());
         }
         if (context.getSplitOpenFileCost() != null) {
-            newScan = newScan.option(TableProperties.SPLIT_OPEN_FILE_COST,
-                context.getSplitOpenFileCost().toString());
+            newScan =
+                    newScan.option(
+                            TableProperties.SPLIT_OPEN_FILE_COST,
+                            context.getSplitOpenFileCost().toString());
         }
         return newScan;
     }

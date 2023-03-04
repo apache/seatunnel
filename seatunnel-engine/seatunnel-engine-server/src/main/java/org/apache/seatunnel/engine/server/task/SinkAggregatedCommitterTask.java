@@ -17,16 +17,6 @@
 
 package org.apache.seatunnel.engine.server.task;
 
-import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
-import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.CANCELED;
-import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.CLOSED;
-import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.INIT;
-import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.PREPARE_CLOSE;
-import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.READY_START;
-import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.RUNNING;
-import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.STARTING;
-import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.WAITING_RESTORE;
-
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
@@ -39,9 +29,8 @@ import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
 import com.hazelcast.cluster.Address;
-import com.hazelcast.logging.ILogger;
-import com.hazelcast.logging.Logger;
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.net.URL;
@@ -58,9 +47,20 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
-public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT> extends CoordinatorTask {
+import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.CANCELED;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.CLOSED;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.INIT;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.PREPARE_CLOSE;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.READY_START;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.RUNNING;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.STARTING;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.WAITING_RESTORE;
 
-    private static final ILogger LOGGER = Logger.getLogger(SinkAggregatedCommitterTask.class);
+@Slf4j
+public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
+        extends CoordinatorTask {
+
     private static final long serialVersionUID = 5906594537520393503L;
 
     private SeaTunnelTaskState currState;
@@ -81,8 +81,11 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT> ex
 
     private volatile boolean receivedSinkWriter;
 
-    public SinkAggregatedCommitterTask(long jobID, TaskLocation taskID, SinkAction<?, ?, CommandInfoT, AggregatedCommitInfoT> sink,
-                                       SinkAggregatedCommitter<CommandInfoT, AggregatedCommitInfoT> aggregatedCommitter) {
+    public SinkAggregatedCommitterTask(
+            long jobID,
+            TaskLocation taskID,
+            SinkAction<?, ?, CommandInfoT, AggregatedCommitInfoT> sink,
+            SinkAggregatedCommitter<CommandInfoT, AggregatedCommitInfoT> aggregatedCommitter) {
         super(jobID, taskID);
         this.sink = sink;
         this.aggregatedCommitter = aggregatedCommitter;
@@ -99,8 +102,11 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT> ex
         this.writerAddressMap = new ConcurrentHashMap<>();
         this.checkpointCommitInfoMap = new ConcurrentHashMap<>();
         this.completableFuture = new CompletableFuture<>();
-        this.aggregatedCommitInfoSerializer = sink.getSink().getAggregatedCommitInfoSerializer().get();
-        LOGGER.info("starting seatunnel sink aggregated committer task, sink name: " + sink.getName());
+        this.aggregatedCommitInfoSerializer =
+                sink.getSink().getAggregatedCommitInfoSerializer().get();
+        log.debug(
+                "starting seatunnel sink aggregated committer task, sink name[{}] ",
+                sink.getName());
     }
 
     public void receivedWriterRegister(TaskLocation writerID, Address address) {
@@ -110,8 +116,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT> ex
         }
     }
 
-    @NonNull
-    @Override
+    @NonNull @Override
     public ProgressState call() throws Exception {
         stateProcess();
         return progress.toState();
@@ -125,7 +130,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT> ex
                 reportTaskStatus(WAITING_RESTORE);
                 break;
             case WAITING_RESTORE:
-                if (restoreComplete) {
+                if (restoreComplete.isDone()) {
                     currState = READY_START;
                     reportTaskStatus(READY_START);
                 }
@@ -157,7 +162,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT> ex
             case CLOSED:
                 this.close();
                 return;
-            // TODO support cancel by outside
+                // TODO support cancel by outside
             case CANCELLING:
                 this.close();
                 currState = CANCELED;
@@ -176,7 +181,10 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT> ex
 
     @Override
     public void triggerBarrier(Barrier barrier) throws Exception {
-        Integer count = checkpointBarrierCounter.compute(barrier.getId(), (id, num) -> num == null ? 1 : ++num);
+        log.debug("trigger barrier for sink agg commit [{}]", barrier);
+        Integer count =
+                checkpointBarrierCounter.compute(
+                        barrier.getId(), (id, num) -> num == null ? 1 : ++num);
         if (count != maxWriterSize) {
             return;
         }
@@ -186,28 +194,57 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT> ex
         }
         if (barrier.snapshot()) {
             if (commitInfoCache.containsKey(barrier.getId())) {
-                AggregatedCommitInfoT aggregatedCommitInfoT = aggregatedCommitter.combine(commitInfoCache.get(barrier.getId()));
-                checkpointCommitInfoMap.put(barrier.getId(), Collections.singletonList(aggregatedCommitInfoT));
+                log.debug("commitInfoCache contains Key [{}]", barrier.getId());
+                AggregatedCommitInfoT aggregatedCommitInfoT =
+                        aggregatedCommitter.combine(commitInfoCache.get(barrier.getId()));
+                log.debug("get the aggregatedCommitInfoT [{}]", aggregatedCommitInfoT);
+                checkpointCommitInfoMap.put(
+                        barrier.getId(), Collections.singletonList(aggregatedCommitInfoT));
             }
-            List<byte[]> states = serializeStates(aggregatedCommitInfoSerializer, checkpointCommitInfoMap.getOrDefault(barrier.getId(), Collections.emptyList()));
-            this.getExecutionContext().sendToMaster(new TaskAcknowledgeOperation(this.taskLocation, (CheckpointBarrier) barrier,
-                Collections.singletonList(new ActionSubtaskState(sink.getId(), -1, states))));
+            List<AggregatedCommitInfoT> orDefault =
+                    checkpointCommitInfoMap.getOrDefault(barrier.getId(), Collections.emptyList());
+            log.debug("final store commit info size [{}]", orDefault.size());
+            log.debug("final store commit info [{}]", orDefault);
+
+            List<byte[]> states =
+                    serializeStates(
+                            aggregatedCommitInfoSerializer,
+                            checkpointCommitInfoMap.getOrDefault(
+                                    barrier.getId(), Collections.emptyList()));
+            this.getExecutionContext()
+                    .sendToMaster(
+                            new TaskAcknowledgeOperation(
+                                    this.taskLocation,
+                                    (CheckpointBarrier) barrier,
+                                    Collections.singletonList(
+                                            new ActionSubtaskState(sink.getId(), -1, states))));
         }
     }
 
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
-        List<AggregatedCommitInfoT> aggregatedCommitInfos = actionStateList.stream()
-            .map(ActionSubtaskState::getState)
-            .flatMap(Collection::stream)
-            .map(bytes -> sneaky(() -> aggregatedCommitInfoSerializer.deserialize(bytes)))
-            .collect(Collectors.toList());
+        log.debug("restoreState for sink agg committer [{}]", actionStateList);
+        List<AggregatedCommitInfoT> aggregatedCommitInfos =
+                actionStateList.stream()
+                        .map(ActionSubtaskState::getState)
+                        .flatMap(Collection::stream)
+                        .map(
+                                bytes ->
+                                        sneaky(
+                                                () ->
+                                                        aggregatedCommitInfoSerializer.deserialize(
+                                                                bytes)))
+                        .collect(Collectors.toList());
         aggregatedCommitter.commit(aggregatedCommitInfos);
-        restoreComplete = true;
+        restoreComplete.complete(null);
+        log.debug("restoreState for sink agg committer [{}] finished", actionStateList);
     }
 
-    public void receivedWriterCommitInfo(long checkpointID,
-                                         CommandInfoT commitInfos) {
+    public void receivedWriterCommitInfo(long checkpointID, CommandInfoT commitInfos) {
+        log.debug(
+                "received writer commit infos checkpoint id [{}], commitInfos [{}]",
+                checkpointID,
+                commitInfos);
         commitInfoCache.computeIfAbsent(checkpointID, id -> new CopyOnWriteArrayList<>());
         commitInfoCache.get(checkpointID).add(commitInfos);
     }
@@ -220,13 +257,14 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT> ex
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         List<AggregatedCommitInfoT> aggregatedCommitInfo = new ArrayList<>();
-        checkpointCommitInfoMap.forEach((key, value) -> {
-            if (key > checkpointId) {
-                return;
-            }
-            aggregatedCommitInfo.addAll(value);
-            checkpointCommitInfoMap.remove(key);
-        });
+        checkpointCommitInfoMap.forEach(
+                (key, value) -> {
+                    if (key > checkpointId) {
+                        return;
+                    }
+                    aggregatedCommitInfo.addAll(value);
+                    checkpointCommitInfoMap.remove(key);
+                });
         aggregatedCommitter.commit(aggregatedCommitInfo);
         tryClose(checkpointId);
     }

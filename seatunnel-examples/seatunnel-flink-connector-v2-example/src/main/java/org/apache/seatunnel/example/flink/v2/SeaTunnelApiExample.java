@@ -28,8 +28,9 @@ import java.nio.file.Paths;
 
 public class SeaTunnelApiExample {
 
-    public static void main(String[] args) throws FileNotFoundException, URISyntaxException, CommandException {
-        String configurePath = args.length > 0 ?  args[0] : "/examples/fake_to_console.conf";
+    public static void main(String[] args)
+            throws FileNotFoundException, URISyntaxException, CommandException {
+        String configurePath = args.length > 0 ? args[0] : "/examples/fake_to_console.conf";
         String configFile = getTestConfigFile(configurePath);
         FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
         flinkCommandArgs.setConfigFile(configFile);
@@ -38,7 +39,8 @@ public class SeaTunnelApiExample {
         SeaTunnel.run(flinkCommandArgs.buildCommand());
     }
 
-    public static String getTestConfigFile(String configFile) throws FileNotFoundException, URISyntaxException {
+    public static String getTestConfigFile(String configFile)
+            throws FileNotFoundException, URISyntaxException {
         URL resource = SeaTunnelApiExample.class.getResource(configFile);
         if (resource == null) {
             throw new FileNotFoundException("Can't find config file: " + configFile);

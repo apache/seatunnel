@@ -20,9 +20,9 @@ package org.apache.seatunnel.engine.common.exception;
 import com.hazelcast.client.impl.protocol.ClientExceptionFactory;
 import com.hazelcast.core.HazelcastException;
 
-public class SeaTunnelEngineException extends HazelcastException implements ClientExceptionFactory.ExceptionFactory {
-    public SeaTunnelEngineException() {
-    }
+public class SeaTunnelEngineException extends HazelcastException
+        implements ClientExceptionFactory.ExceptionFactory {
+    public SeaTunnelEngineException() {}
 
     public SeaTunnelEngineException(String message) {
         super(message);

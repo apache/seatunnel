@@ -28,7 +28,8 @@ import org.junit.jupiter.api.Disabled;
 import java.util.HashMap;
 import java.util.Map;
 
-@Disabled("OSS is not available in CI, if you want to run this test, please set up your own oss environment")
+@Disabled(
+        "OSS is not available in CI, if you want to run this test, please set up your own oss environment")
 public class OssFileCheckpointTest extends AbstractFileCheckPointTest {
     @BeforeAll
     public static void setup() throws CheckpointStorageException {
@@ -38,7 +39,9 @@ public class OssFileCheckpointTest extends AbstractFileCheckPointTest {
         config.put("fs.oss.accessKeySecret", "your access key secret");
         config.put("fs.oss.endpoint", "oss-cn-hangzhou.aliyuncs.com");
         config.put("oss.bucket", "oss://seatunnel-test/");
-        config.put("fs.oss.credentials.provider", "org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider");
+        config.put(
+                "fs.oss.credentials.provider",
+                "org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider");
         STORAGE = new HdfsStorage(config);
         initStorageData();
     }

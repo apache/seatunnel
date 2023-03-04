@@ -28,9 +28,7 @@ public class IoTDBSourceSplit implements SourceSplit {
 
     private final String splitId;
 
-    /**
-     * final query statement
-     */
+    /** final query statement */
     private final String query;
 
     @Override

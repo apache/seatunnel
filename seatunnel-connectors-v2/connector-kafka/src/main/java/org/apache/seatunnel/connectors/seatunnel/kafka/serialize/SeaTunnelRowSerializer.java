@@ -29,5 +29,5 @@ public interface SeaTunnelRowSerializer<K, V> {
      * @param row seatunnel row
      * @return kafka record.
      */
-    ProducerRecord<K, V> serializeRow(SeaTunnelRow row);
+    ProducerRecord<K, V> serializeRow(String topic, SeaTunnelRow row);
 }
