@@ -102,12 +102,13 @@ problems encountered by users.
 
 ## Elasticsearch Connector Error Codes
 
-|       code       |                  description                  |                                                            solution                                                            |
+| code             | description                                   | solution                                                                                                                       |
 |------------------|-----------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
 | ELASTICSEARCH-01 | Bulk es response error                        | When the user encounters this error code, it means that the connection was aborted, please check it whether is work            |
 | ELASTICSEARCH-02 | Get elasticsearch version failed              | When the user encounters this error code, it means that the connection was aborted, please check it whether is work            |
 | ELASTICSEARCH-03 | Fail to scroll request                        | When the user encounters this error code, it means that the connection was aborted, please check it whether is work            |
 | ELASTICSEARCH-04 | Get elasticsearch document index count failed | When the user encounters this error code, it means that the es index may not wrong or the connection was aborted, please check |
+| ELASTICSEARCH-05 | Not support the elasticsearch field type      | When the user encounters this error code, it means that the es document type not be supported currently, plase submit an issue |
 
 ## Kafka Connector Error Codes
 

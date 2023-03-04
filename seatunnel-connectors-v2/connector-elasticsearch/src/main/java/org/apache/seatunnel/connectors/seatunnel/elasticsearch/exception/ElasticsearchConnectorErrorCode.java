@@ -24,7 +24,8 @@ public enum ElasticsearchConnectorErrorCode implements SeaTunnelErrorCode {
     GET_ES_VERSION_FAILED("ELASTICSEARCH-02", "Get elasticsearch version failed"),
     SCROLL_REQUEST_ERROR("ELASTICSEARCH-03", "Fail to scroll request"),
     GET_INDEX_DOCS_COUNT_FAILED(
-            "ELASTICSEARCH-04", "Get elasticsearch document index count failed");
+            "ELASTICSEARCH-04", "Get elasticsearch document index count failed"),
+    ES_FIELD_TYPE_NOT_SUPPORT("ELASTICSEARCH-05", "Not support the elasticsearch field type");
 
     private final String code;
     private final String description;
