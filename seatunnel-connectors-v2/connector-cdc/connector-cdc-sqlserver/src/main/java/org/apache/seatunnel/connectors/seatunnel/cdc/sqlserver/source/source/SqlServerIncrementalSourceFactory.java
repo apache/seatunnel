@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.CatalogOptions;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 
@@ -36,9 +37,9 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
                         JdbcSourceOptions.HOSTNAME,
                         JdbcSourceOptions.USERNAME,
                         JdbcSourceOptions.PASSWORD,
-                        JdbcSourceOptions.DATABASE_NAME,
-                        JdbcSourceOptions.TABLE_NAME)
+                        CatalogOptions.TABLE_NAMES)
                 .optional(
+                        JdbcSourceOptions.DATABASE_NAMES,
                         JdbcSourceOptions.PORT,
                         JdbcSourceOptions.SERVER_TIME_ZONE,
                         JdbcSourceOptions.CONNECT_TIMEOUT_MS,

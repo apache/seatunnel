@@ -179,11 +179,11 @@ public class BaseSinkConfig {
                     .withDescription(
                             "Only used when `custom_filename` is true. The time format of the path");
 
-    public static final Option<FileFormat> FILE_FORMAT =
-            Options.key("file_format")
+    public static final Option<FileFormat> FILE_FORMAT_TYPE =
+            Options.key("file_format_type")
                     .enumType(FileFormat.class)
                     .defaultValue(FileFormat.CSV)
-                    .withDescription("File format type");
+                    .withDescription("File format type, e.g. csv, orc, parquet, text");
 
     public static final Option<List<String>> SINK_COLUMNS =
             Options.key("sink_columns")

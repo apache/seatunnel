@@ -18,8 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection;
 
 import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options.JdbcConnectionOptions;
 
 import com.google.common.base.CaseFormat;
 import lombok.NonNull;
@@ -41,23 +41,23 @@ public class DataSourceUtils implements Serializable {
     private static final String SETTER_PREFIX = "set";
 
     public static CommonDataSource buildCommonDataSource(
-            @NonNull JdbcConnectionOptions jdbcConnectionOptions)
+            @NonNull JdbcConnectionConfig jdbcConnectionConfig)
             throws InvocationTargetException, IllegalAccessException {
         CommonDataSource dataSource =
-                (CommonDataSource) loadDataSource(jdbcConnectionOptions.getXaDataSourceClassName());
-        setProperties(dataSource, buildDatabaseAccessConfig(jdbcConnectionOptions));
+                (CommonDataSource) loadDataSource(jdbcConnectionConfig.getXaDataSourceClassName());
+        setProperties(dataSource, buildDatabaseAccessConfig(jdbcConnectionConfig));
         return dataSource;
     }
 
     private static Map<String, Object> buildDatabaseAccessConfig(
-            JdbcConnectionOptions jdbcConnectionOptions) {
+            JdbcConnectionConfig jdbcConnectionConfig) {
         HashMap<String, Object> accessConfig = new HashMap<>();
-        accessConfig.put("url", jdbcConnectionOptions.getUrl());
-        if (jdbcConnectionOptions.getUsername().isPresent()) {
-            accessConfig.put("user", jdbcConnectionOptions.getUsername().get());
+        accessConfig.put("url", jdbcConnectionConfig.getUrl());
+        if (jdbcConnectionConfig.getUsername().isPresent()) {
+            accessConfig.put("user", jdbcConnectionConfig.getUsername().get());
         }
-        if (jdbcConnectionOptions.getPassword().isPresent()) {
-            accessConfig.put("password", jdbcConnectionOptions.getPassword().get());
+        if (jdbcConnectionConfig.getPassword().isPresent()) {
+            accessConfig.put("password", jdbcConnectionConfig.getPassword().get());
         }
 
         return accessConfig;

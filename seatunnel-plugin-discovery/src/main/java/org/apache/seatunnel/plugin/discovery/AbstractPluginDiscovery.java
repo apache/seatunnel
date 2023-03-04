@@ -169,6 +169,10 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         return pluginIdentifiers;
     }
 
+    public Path getPluginDir() {
+        return pluginDir;
+    }
+
     @Override
     public T createPluginInstance(PluginIdentifier pluginIdentifier) {
         return (T) createPluginInstance(pluginIdentifier, Collections.EMPTY_LIST);

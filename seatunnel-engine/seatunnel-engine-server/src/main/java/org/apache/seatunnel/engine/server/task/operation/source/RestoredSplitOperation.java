@@ -19,11 +19,11 @@ package org.apache.seatunnel.engine.server.task.operation.source;
 
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.common.utils.RetryUtils;
-import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
+import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
@@ -79,17 +79,20 @@ public class RestoredSplitOperation extends TaskOperation {
     public void run() throws Exception {
         SeaTunnelServer server = getService();
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
-        ClassLoader classLoader =
-                taskExecutionService
-                        .getExecutionContext(taskLocation.getTaskGroupLocation())
-                        .getClassLoader();
-
-        List<SourceSplit> deserialize =
-                Arrays.stream((Object[]) SerializationUtils.deserialize(splits, classLoader))
-                        .map(o -> (SourceSplit) o)
-                        .collect(Collectors.toList());
         RetryUtils.retryWithException(
                 () -> {
+                    ClassLoader classLoader =
+                            taskExecutionService
+                                    .getExecutionContext(taskLocation.getTaskGroupLocation())
+                                    .getClassLoader();
+
+                    List<SourceSplit> deserialize =
+                            Arrays.stream(
+                                            (Object[])
+                                                    SerializationUtils.deserialize(
+                                                            splits, classLoader))
+                                    .map(o -> (SourceSplit) o)
+                                    .collect(Collectors.toList());
                     SourceSplitEnumeratorTask<SourceSplit> task =
                             taskExecutionService.getTask(taskLocation);
                     task.addSplitsBack(deserialize, subtaskIndex);
@@ -99,7 +102,7 @@ public class RestoredSplitOperation extends TaskOperation {
                         Constant.OPERATION_RETRY_TIME,
                         true,
                         exception ->
-                                exception instanceof SeaTunnelException
+                                exception instanceof TaskGroupContextNotFoundException
                                         && !server.taskIsEnded(taskLocation.getTaskGroupLocation()),
                         Constant.OPERATION_RETRY_SLEEP));
     }

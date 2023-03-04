@@ -19,10 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options.JdbcConnectionOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaFacade;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaGroupOps;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaGroupOpsImpl;
@@ -35,11 +35,11 @@ import java.util.List;
 public class JdbcSinkCommitter implements SinkCommitter<XidInfo> {
     private final XaFacade xaFacade;
     private final XaGroupOps xaGroupOps;
-    private final JdbcConnectionOptions jdbcConnectionOptions;
+    private final JdbcConnectionConfig jdbcConnectionConfig;
 
-    public JdbcSinkCommitter(JdbcSinkOptions jdbcSinkOptions) throws IOException {
-        this.jdbcConnectionOptions = jdbcSinkOptions.getJdbcConnectionOptions();
-        this.xaFacade = XaFacade.fromJdbcConnectionOptions(jdbcConnectionOptions);
+    public JdbcSinkCommitter(JdbcSinkConfig jdbcSinkConfig) throws IOException {
+        this.jdbcConnectionConfig = jdbcSinkConfig.getJdbcConnectionConfig();
+        this.xaFacade = XaFacade.fromJdbcConnectionOptions(jdbcConnectionConfig);
         this.xaGroupOps = new XaGroupOpsImpl(xaFacade);
         try {
             xaFacade.open();
@@ -57,7 +57,7 @@ public class JdbcSinkCommitter implements SinkCommitter<XidInfo> {
                 .commit(
                         new ArrayList<>(committables),
                         false,
-                        jdbcConnectionOptions.getMaxCommitAttempts())
+                        jdbcConnectionConfig.getMaxCommitAttempts())
                 .getForRetry();
     }
 

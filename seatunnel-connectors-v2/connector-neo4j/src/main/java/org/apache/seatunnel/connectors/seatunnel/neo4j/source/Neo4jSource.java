@@ -24,13 +24,13 @@ import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
@@ -74,7 +74,7 @@ public class Neo4jSource extends AbstractSingleSplitSource<SeaTunnelRow>
 
         final CheckResult configCheck =
                 CheckConfigUtil.checkAllExists(
-                        pluginConfig, KEY_QUERY.key(), SeaTunnelSchema.SCHEMA.key());
+                        pluginConfig, KEY_QUERY.key(), CatalogTableUtil.SCHEMA.key());
 
         if (!configCheck.isSuccess()) {
             throw new Neo4jConnectorException(
@@ -87,10 +87,7 @@ public class Neo4jSource extends AbstractSingleSplitSource<SeaTunnelRow>
         }
         neo4jSourceQueryInfo.setQuery(pluginConfig.getString(KEY_QUERY.key()));
 
-        this.rowType =
-                SeaTunnelSchema.buildWithConfig(
-                                pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key()))
-                        .getSeaTunnelRowType();
+        this.rowType = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
     }
 
     @Override

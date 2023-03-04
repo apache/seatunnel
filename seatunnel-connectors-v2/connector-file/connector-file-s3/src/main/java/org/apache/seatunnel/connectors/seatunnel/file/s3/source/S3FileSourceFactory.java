@@ -19,9 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.file.s3.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
@@ -42,7 +42,7 @@ public class S3FileSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(S3Config.FILE_PATH)
-                .required(S3Config.FILE_TYPE)
+                .required(S3Config.FILE_FORMAT_TYPE)
                 .required(S3Config.S3_BUCKET)
                 .required(S3Config.FS_S3A_ENDPOINT)
                 .required(S3Config.S3A_AWS_CREDENTIALS_PROVIDER)
@@ -53,11 +53,13 @@ public class S3FileSourceFactory implements TableSourceFactory {
                         S3Config.S3_SECRET_KEY)
                 .optional(S3Config.S3_PROPERTIES)
                 .conditional(
-                        BaseSourceConfig.FILE_TYPE, FileFormat.TEXT, BaseSourceConfig.DELIMITER)
+                        BaseSourceConfig.FILE_FORMAT_TYPE,
+                        FileFormat.TEXT,
+                        BaseSourceConfig.DELIMITER)
                 .conditional(
-                        BaseSourceConfig.FILE_TYPE,
+                        BaseSourceConfig.FILE_FORMAT_TYPE,
                         Arrays.asList(FileFormat.TEXT, FileFormat.JSON),
-                        SeaTunnelSchema.SCHEMA)
+                        CatalogTableUtil.SCHEMA)
                 .optional(BaseSourceConfig.PARSE_PARTITION_FROM_PATH)
                 .optional(BaseSourceConfig.DATE_FORMAT)
                 .optional(BaseSourceConfig.DATETIME_FORMAT)

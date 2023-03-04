@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.tablestore;
 
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
@@ -46,7 +46,7 @@ public class TablestoreDialect implements JdbcDialect {
 
     @Override
     public Optional<String> getUpsertStatement(
-            String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+            String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
         return Optional.empty();
     }
 
@@ -60,8 +60,8 @@ public class TablestoreDialect implements JdbcDialect {
 
     @Override
     public ResultSetMetaData getResultSetMetaData(
-            Connection conn, JdbcSourceOptions jdbcSourceOptions) throws SQLException {
-        PreparedStatement ps = conn.prepareStatement(jdbcSourceOptions.getQuery());
+            Connection conn, JdbcSourceConfig jdbcSourceConfig) throws SQLException {
+        PreparedStatement ps = conn.prepareStatement(jdbcSourceConfig.getQuery());
         return ps.executeQuery().getMetaData();
     }
 }

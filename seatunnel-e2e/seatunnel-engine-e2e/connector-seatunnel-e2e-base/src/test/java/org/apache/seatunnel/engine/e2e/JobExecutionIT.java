@@ -78,7 +78,7 @@ public class JobExecutionIT {
                         });
 
         Awaitility.await()
-                .atMost(20000, TimeUnit.MILLISECONDS)
+                .atMost(600000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertTrue(

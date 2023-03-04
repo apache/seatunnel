@@ -50,7 +50,7 @@ public class PostgresDialect implements JdbcDialect {
 
     @Override
     public Optional<String> getUpsertStatement(
-            String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+            String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
         String uniqueColumns =
                 Arrays.stream(uniqueKeyFields)
                         .map(this::quoteIdentifier)
@@ -66,7 +66,9 @@ public class PostgresDialect implements JdbcDialect {
         String upsertSQL =
                 String.format(
                         "%s ON CONFLICT (%s) DO UPDATE SET %s",
-                        getInsertIntoStatement(tableName, fieldNames), uniqueColumns, updateClause);
+                        getInsertIntoStatement(database, tableName, fieldNames),
+                        uniqueColumns,
+                        updateClause);
         return Optional.of(upsertSQL);
     }
 

@@ -19,9 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.pulsar.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties;
 
@@ -62,7 +62,7 @@ public class PulsarSourceFactory implements TableSourceFactory {
                         POLL_TIMEOUT,
                         POLL_INTERVAL,
                         POLL_BATCH_SIZE,
-                        SeaTunnelSchema.SCHEMA)
+                        CatalogTableUtil.SCHEMA)
                 .exclusive(TOPIC, TOPIC_PATTERN)
                 .conditional(
                         CURSOR_STARTUP_MODE,

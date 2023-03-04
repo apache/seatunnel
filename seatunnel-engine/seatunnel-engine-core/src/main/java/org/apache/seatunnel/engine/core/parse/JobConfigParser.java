@@ -19,19 +19,18 @@ package org.apache.seatunnel.engine.core.parse;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.sink.SupportDataSaveMode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.source.SourceCommonOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.PartitionSeaTunnelTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
-import org.apache.seatunnel.api.transform.TransformCommonOptions;
+import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -146,15 +145,17 @@ public class JobConfigParser {
         }
     }
 
-    private void jobConfigAnalyze(@NonNull Config envConfigs) {
+    void jobConfigAnalyze(@NonNull Config envConfigs) {
         if (envConfigs.hasPath(EnvCommonOptions.JOB_MODE.key())) {
-            String jobMode = envConfigs.getString(EnvCommonOptions.JOB_MODE.key());
-            jobConfig.getJobContext().setJobMode(JobMode.valueOf(jobMode.toUpperCase()));
+            jobConfig
+                    .getJobContext()
+                    .setJobMode(envConfigs.getEnum(JobMode.class, EnvCommonOptions.JOB_MODE.key()));
         } else {
             jobConfig.getJobContext().setJobMode(EnvCommonOptions.JOB_MODE.defaultValue());
         }
 
-        if (StringUtils.isEmpty(jobConfig.getName())) {
+        if (StringUtils.isEmpty(jobConfig.getName())
+                || jobConfig.getName().equals(Constants.LOGO)) {
             if (envConfigs.hasPath(EnvCommonOptions.JOB_NAME.key())) {
                 jobConfig.setName(envConfigs.getString(EnvCommonOptions.JOB_NAME.key()));
             } else {
@@ -167,7 +168,7 @@ public class JobConfigParser {
                     .getEnvOptions()
                     .put(
                             EnvCommonOptions.CHECKPOINT_INTERVAL.key(),
-                            envConfigs.getInt(EnvCommonOptions.CHECKPOINT_INTERVAL.key()));
+                            envConfigs.getLong(EnvCommonOptions.CHECKPOINT_INTERVAL.key()));
         }
     }
 
@@ -200,12 +201,12 @@ public class JobConfigParser {
                             sinkListImmutablePair.getRight());
 
             actions.add(sinkAction);
-            if (!config.hasPath(SinkCommonOptions.SOURCE_TABLE_NAME.key())) {
+            if (!config.hasPath(CommonOptions.SOURCE_TABLE_NAME.key())) {
                 throw new JobDefineCheckException(
-                        SinkCommonOptions.SOURCE_TABLE_NAME
+                        CommonOptions.SOURCE_TABLE_NAME
                                 + " must be set in the sink plugin config when the job have complex dependencies");
             }
-            String sourceTableName = config.getString(SinkCommonOptions.SOURCE_TABLE_NAME.key());
+            String sourceTableName = config.getString(CommonOptions.SOURCE_TABLE_NAME.key());
             List<Config> transformConfigList = transformResultTableNameMap.get(sourceTableName);
             SeaTunnelDataType<?> dataType;
             if (CollectionUtils.isEmpty(transformConfigList)) {
@@ -287,7 +288,7 @@ public class JobConfigParser {
                 action.addUpstream(transformAction);
                 SeaTunnelDataType dataType =
                         transformAnalyze(
-                                config.getString(SinkCommonOptions.SOURCE_TABLE_NAME.key()),
+                                config.getString(CommonOptions.SOURCE_TABLE_NAME.key()),
                                 transformAction);
                 transformListImmutablePair.getLeft().setTypeInfo(dataType);
                 dataTypeResult = transformListImmutablePair.getLeft().getProducedType();
@@ -301,30 +302,30 @@ public class JobConfigParser {
     private void initRelationMap(
             List<? extends Config> sourceConfigs, List<? extends Config> transformConfigs) {
         for (Config config : sourceConfigs) {
-            if (!config.hasPath(SourceCommonOptions.RESULT_TABLE_NAME.key())) {
+            if (!config.hasPath(CommonOptions.RESULT_TABLE_NAME.key())) {
                 throw new JobDefineCheckException(
-                        SourceCommonOptions.RESULT_TABLE_NAME.key()
+                        CommonOptions.RESULT_TABLE_NAME.key()
                                 + " must be set in the source plugin config when the job have complex dependencies");
             }
-            String resultTableName = config.getString(SourceCommonOptions.RESULT_TABLE_NAME.key());
+            String resultTableName = config.getString(CommonOptions.RESULT_TABLE_NAME.key());
             sourceResultTableNameMap.computeIfAbsent(resultTableName, k -> new ArrayList<>());
             sourceResultTableNameMap.get(resultTableName).add(config);
         }
 
         for (Config config : transformConfigs) {
-            if (!config.hasPath(SourceCommonOptions.RESULT_TABLE_NAME.key())) {
+            if (!config.hasPath(CommonOptions.RESULT_TABLE_NAME.key())) {
                 throw new JobDefineCheckException(
-                        SourceCommonOptions.RESULT_TABLE_NAME.key()
+                        CommonOptions.RESULT_TABLE_NAME.key()
                                 + " must be set in the transform plugin config when the job have complex dependencies");
             }
 
-            if (!config.hasPath(SinkCommonOptions.SOURCE_TABLE_NAME.key())) {
+            if (!config.hasPath(CommonOptions.SOURCE_TABLE_NAME.key())) {
                 throw new JobDefineCheckException(
-                        SinkCommonOptions.SOURCE_TABLE_NAME.key()
+                        CommonOptions.SOURCE_TABLE_NAME.key()
                                 + " must be set in the transform plugin config when the job have complex dependencies");
             }
-            String resultTableName = config.getString(SourceCommonOptions.RESULT_TABLE_NAME.key());
-            String sourceTableName = config.getString(SinkCommonOptions.SOURCE_TABLE_NAME.key());
+            String resultTableName = config.getString(CommonOptions.RESULT_TABLE_NAME.key());
+            String sourceTableName = config.getString(CommonOptions.SOURCE_TABLE_NAME.key());
             if (Objects.equals(sourceTableName, resultTableName)) {
                 throw new JobDefineCheckException(
                         String.format(
@@ -416,9 +417,9 @@ public class JobConfigParser {
             SeaTunnelTransform seaTunnelTransform,
             TransformAction transformAction) {
         if (seaTunnelTransform instanceof PartitionSeaTunnelTransform
-                && transformConfigs.get(0).hasPath(TransformCommonOptions.PARALLELISM.key())) {
+                && transformConfigs.get(0).hasPath(CommonOptions.PARALLELISM.key())) {
             transformAction.setParallelism(
-                    transformConfigs.get(0).getInt(TransformCommonOptions.PARALLELISM.key()));
+                    transformConfigs.get(0).getInt(CommonOptions.PARALLELISM.key()));
         } else {
             // If transform type is not RePartitionTransform, Using the parallelism of its upstream
             // operators.
@@ -427,13 +428,13 @@ public class JobConfigParser {
     }
 
     private int getSourceParallelism(Config sourceConfig) {
-        if (sourceConfig.hasPath(SourceCommonOptions.PARALLELISM.key())) {
-            int sourceParallelism = sourceConfig.getInt(SourceCommonOptions.PARALLELISM.key());
+        if (sourceConfig.hasPath(CommonOptions.PARALLELISM.key())) {
+            int sourceParallelism = sourceConfig.getInt(CommonOptions.PARALLELISM.key());
             return Math.max(sourceParallelism, 1);
         }
         int executionParallelism = 0;
-        if (envConfigs.hasPath(EnvCommonOptions.PARALLELISM.key())) {
-            executionParallelism = envConfigs.getInt(EnvCommonOptions.PARALLELISM.key());
+        if (envConfigs.hasPath(CommonOptions.PARALLELISM.key())) {
+            executionParallelism = envConfigs.getInt(CommonOptions.PARALLELISM.key());
         }
         return Math.max(executionParallelism, 1);
     }

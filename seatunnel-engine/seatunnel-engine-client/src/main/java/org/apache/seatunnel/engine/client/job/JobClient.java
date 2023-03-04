@@ -18,15 +18,18 @@
 package org.apache.seatunnel.engine.client.job;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.engine.client.SeaTunnelHazelcastClient;
+import org.apache.seatunnel.engine.client.util.ContentFormatUtil;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.core.job.JobStatusData;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelCancelJobCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobDetailStatusCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobInfoCodec;
@@ -36,6 +39,8 @@ import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelListJobStatusCod
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelSavePointJobCodec;
 
 import lombok.NonNull;
+
+import java.util.List;
 
 public class JobClient {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -56,6 +61,10 @@ public class JobClient {
         return new ClientJobProxy(hazelcastClient, jobImmutableInformation);
     }
 
+    public ClientJobProxy getJobProxy(@NonNull Long jobId) {
+        return new ClientJobProxy(hazelcastClient, jobId);
+    }
+
     public String getJobDetailStatus(Long jobId) {
         return hazelcastClient.requestOnMasterAndDecodeResponse(
                 SeaTunnelGetJobDetailStatusCodec.encodeRequest(jobId),
@@ -63,10 +72,30 @@ public class JobClient {
     }
 
     /** list all jobId and job status */
-    public String listJobStatus() {
-        return hazelcastClient.requestOnMasterAndDecodeResponse(
-                SeaTunnelListJobStatusCodec.encodeRequest(),
-                SeaTunnelListJobStatusCodec::decodeResponse);
+    public String listJobStatus(boolean format) {
+        String jobStatusStr =
+                hazelcastClient.requestOnMasterAndDecodeResponse(
+                        SeaTunnelListJobStatusCodec.encodeRequest(),
+                        SeaTunnelListJobStatusCodec::decodeResponse);
+        if (!format) {
+            return jobStatusStr;
+        } else {
+            try {
+                List<JobStatusData> statusDataList =
+                        OBJECT_MAPPER.readValue(
+                                jobStatusStr, new TypeReference<List<JobStatusData>>() {});
+                statusDataList.sort(
+                        (s1, s2) -> {
+                            if (s1.getSubmitTime() == s2.getSubmitTime()) {
+                                return 0;
+                            }
+                            return s1.getSubmitTime() > s2.getSubmitTime() ? -1 : 1;
+                        });
+                return ContentFormatUtil.format(statusDataList);
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     /**

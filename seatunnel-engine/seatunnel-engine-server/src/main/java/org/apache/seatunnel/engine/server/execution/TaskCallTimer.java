@@ -91,6 +91,7 @@ public class TaskCallTimer extends Thread {
     }
 
     public void timerStop() {
+        // Wait until the next time the timer is enabled to wake up
         wait0.set(true);
     }
 

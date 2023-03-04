@@ -65,7 +65,8 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
                         new AssignSplitOperation<>(
                                 task.getTaskMemberLocationByIndex(subtaskIndex),
                                 SerializationUtils.serialize(splits.toArray())),
-                        task.getTaskMemberAddressByIndex(subtaskIndex));
+                        task.getTaskMemberAddressByIndex(subtaskIndex))
+                .join();
     }
 
     @Override
@@ -75,7 +76,8 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
                         new AssignSplitOperation<>(
                                 task.getTaskMemberLocationByIndex(subtaskIndex),
                                 SerializationUtils.serialize(Collections.emptyList().toArray())),
-                        task.getTaskMemberAddressByIndex(subtaskIndex));
+                        task.getTaskMemberAddressByIndex(subtaskIndex))
+                .join();
     }
 
     @Override
