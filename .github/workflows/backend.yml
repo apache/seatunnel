@@ -29,20 +29,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  license-header:
-    if: github.repository == 'apache/incubator-seatunnel'
-    name: License header
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: true
-      - name: Check license header
-        uses: apache/skywalking-eyes@985866ce7e324454f61e22eb2db2e998db09d6f3
 
   code-style:
-    if: github.repository == 'apache/incubator-seatunnel'
+    if: github.repository == 'WhaleOps/SeaTunnel'
     name: Code style
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -53,36 +42,21 @@ jobs:
       - name: Check code style
         run: ./mvnw --batch-mode --quiet --no-snapshot-updates clean spotless:check
 
-  dead-link:
-    if: github.repository == 'apache/incubator-seatunnel'
-    name: Dead links
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v2
-      - run: sudo npm install -g markdown-link-check@3.8.7
-      - run: |
-          for file in $(find . -name "*.md"); do
-            markdown-link-check -c .dlc.json -q "$file"
-          done
-
   sanity-check:
-    if: github.repository == 'apache/incubator-seatunnel'
+    if: github.repository == 'WhaleOps/SeaTunnel'
     name: Sanity check results
-    needs: [ license-header, code-style, dead-link ]
+    needs: [ code-style ]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Check results
         run: |
-          [[ ${{ needs.license-header.result }} == 'success' ]] || exit 1;
           [[ ${{ needs.code-style.result }} == 'success' ]] || exit 1;
-          [[ ${{ needs.dead-link.result }} == 'success' ]] || exit 1;
 
   changes:
     runs-on: ubuntu-latest
     # To prevent error when there's no base branch
-    if: github.repository == 'apache/incubator-seatunnel'
+    if: github.repository == 'WhaleOps/SeaTunnel'
     timeout-minutes: 10
     outputs:
       api: ${{ steps.filter.outputs.api }}
@@ -256,30 +230,6 @@ jobs:
           build_modules=`python tools/update_modules_check/update_modules_check.py final_it /tmp/tree_out.txt`
           echo $build_modules
           echo "modules=$build_modules" >> $GITHUB_OUTPUT
-
-  dependency-license:
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
-    name: Dependency licenses
-    needs: [ changes, sanity-check ]
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: true
-      - uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: '8'
-          cache: 'maven'
-      - name: Install
-        run: >-
-          ./mvnw -B -q install -DskipTests
-          -D"maven.test.skip"=true
-          -D"maven.javadoc.skip"=true
-          -D"license.skipAddThirdParty"
-      - name: Check Dependencies Licenses
-        run: tools/dependencies/checkLicense.sh
 
   unit-test:
     needs: [ changes, sanity-check ]

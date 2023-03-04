@@ -24,8 +24,8 @@ on:
       - '**-release'
 
 env:
-  GITHUB_USERNAME: x-access-token
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  GITHUB_USERNAME: ${{ secrets.GH_USER }}
+  GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
 jobs:
   deploy:

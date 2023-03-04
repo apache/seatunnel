@@ -25,7 +25,7 @@ public class ThreadPoolExecutorFactory {
 
     public static ScheduledThreadPoolExecutor createScheduledThreadPoolExecutor(
             int corePoolSize, String name) {
-        AtomicInteger cnt = new AtomicInteger(0);
+        AtomicInteger cnt = new AtomicInteger();
         return new ScheduledThreadPoolExecutor(
                 corePoolSize,
                 runnable -> {
