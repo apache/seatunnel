@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -35,7 +36,8 @@ import java.util.List;
 
 public abstract class BaseFileSource
         implements SeaTunnelSource<SeaTunnelRow, FileSourceSplit, FileSourceState>,
-                SupportParallelism {
+                SupportParallelism,
+                SupportColumnProjection {
     protected SeaTunnelRowType rowType;
     protected ReadStrategy readStrategy;
     protected HadoopConf hadoopConf;

@@ -67,6 +67,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.seatunnel.connectors.seatunnel.file.sink.writer.OrcWriteStrategy.buildFieldWithRowType;
+
 @Slf4j
 public class OrcReadStrategy extends AbstractReadStrategy {
     private static final long MIN_SIZE = 16 * 1024;
@@ -86,10 +88,15 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
         OrcFile.ReaderOptions readerOptions = OrcFile.readerOptions(configuration);
         try (Reader reader = OrcFile.createReader(filePath, readerOptions)) {
-            TypeDescription schema = reader.getSchema();
+            TypeDescription schema = TypeDescription.createStruct();
+            for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
+                TypeDescription typeDescription =
+                        buildFieldWithRowType(seaTunnelRowType.getFieldType(i));
+                schema.addField(seaTunnelRowType.getFieldName(i), typeDescription);
+            }
             List<TypeDescription> children = schema.getChildren();
-            RecordReader rows = reader.rows();
-            VectorizedRowBatch rowBatch = reader.getSchema().createRowBatch();
+            RecordReader rows = reader.rows(reader.options().schema(schema));
+            VectorizedRowBatch rowBatch = schema.createRowBatch();
             while (rows.nextBatch(rowBatch)) {
                 int num = 0;
                 for (int i = 0; i < rowBatch.size; i++) {
@@ -128,11 +135,23 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         Path dstDir = new Path(path);
         try (Reader reader = OrcFile.createReader(dstDir, readerOptions)) {
             TypeDescription schema = reader.getSchema();
-            String[] fields = new String[schema.getFieldNames().size()];
-            SeaTunnelDataType<?>[] types = new SeaTunnelDataType[schema.getFieldNames().size()];
-            for (int i = 0; i < schema.getFieldNames().size(); i++) {
-                fields[i] = schema.getFieldNames().get(i);
-                types[i] = orcDataType2SeaTunnelDataType(schema.getChildren().get(i));
+            List<String> fieldNames = schema.getFieldNames();
+            if (readColumns.isEmpty()) {
+                readColumns.addAll(fieldNames);
+            }
+            String[] fields = new String[readColumns.size()];
+            SeaTunnelDataType<?>[] types = new SeaTunnelDataType[readColumns.size()];
+            for (int i = 0; i < readColumns.size(); i++) {
+                fields[i] = readColumns.get(i);
+                int index = fieldNames.indexOf(readColumns.get(i));
+                if (index == -1) {
+                    throw new FileConnectorException(
+                            CommonErrorCode.TABLE_SCHEMA_GET_FAILED,
+                            String.format(
+                                    "Column [%s] does not exists in table schema [%s]",
+                                    readColumns.get(i), String.join(",", fieldNames)));
+                }
+                types[i] = orcDataType2SeaTunnelDataType(schema.getChildren().get(index));
             }
             seaTunnelRowType = new SeaTunnelRowType(fields, types);
             seaTunnelRowTypeWithPartition = mergePartitionTypes(path, seaTunnelRowType);

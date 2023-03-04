@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.api.common.metrics;
 
-public interface Metric {
+import java.io.Serializable;
+
+public interface Metric extends Serializable {
 
     /** Returns the name of the associated metric. */
     String name();
@@ -29,19 +31,4 @@ public interface Metric {
      * MetricTags#UNIT} tag in the metric's description.
      */
     Unit unit();
-
-    /** Increments the current value by 1. */
-    void increment();
-
-    /** Increments the current value by the specified amount. */
-    void increment(long amount);
-
-    /** Decrements the current value by 1. */
-    void decrement();
-
-    /** Decrements the current value by the specified amount. */
-    void decrement(long amount);
-
-    /** Sets the current value. */
-    void set(long newValue);
 }

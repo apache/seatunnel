@@ -41,8 +41,10 @@ public class ListJobStatusOperation extends Operation implements AllowedDuringPa
                             return service.getCoordinatorService()
                                     .getJobHistoryService()
                                     .listAllJob();
-                        });
-
+                        },
+                        getNodeEngine()
+                                .getExecutionService()
+                                .getExecutor("list_job_status_operation"));
         try {
             response = future.get();
         } catch (InterruptedException | ExecutionException e) {

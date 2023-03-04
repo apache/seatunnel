@@ -32,7 +32,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import java.util.List;
 import java.util.function.Function;
 
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CANNAL_FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CANAL_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TEXT_FORMAT;
 
@@ -88,7 +88,7 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<byt
                         .seaTunnelRowType(rowType)
                         .delimiter(delimiter)
                         .build();
-            case CANNAL_FORMAT:
+            case CANAL_FORMAT:
                 return new CanalJsonSerializationSchema(rowType);
             default:
                 throw new SeaTunnelJsonFormatException(
