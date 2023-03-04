@@ -58,6 +58,10 @@ public final class TablePath implements Serializable {
         return String.format("%s.%s", databaseName, tableName);
     }
 
+    public String getFullNameWithQuoted() {
+        return String.format("`%s`.`%s`", databaseName, tableName);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {

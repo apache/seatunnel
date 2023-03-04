@@ -43,6 +43,7 @@ connector-hive
 connector-http-base
 connector-http-feishu
 connector-http-gitlab
+connector-http-github
 connector-http-jira
 connector-http-klaviyo
 connector-http-lemlist

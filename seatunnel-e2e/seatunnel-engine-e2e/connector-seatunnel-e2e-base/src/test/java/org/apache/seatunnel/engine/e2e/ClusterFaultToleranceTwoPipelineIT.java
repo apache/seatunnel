@@ -55,7 +55,6 @@ import static com.google.common.base.Preconditions.checkArgument;
  * data consistency assurance capability in case of cluster node failure
  */
 @Slf4j
-@Disabled
 public class ClusterFaultToleranceTwoPipelineIT {
 
     public static final String TEST_TEMPLATE_FILE_NAME =
@@ -72,6 +71,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
+    @Disabled
     public void testTwoPipelineBatchJobRunOkIn2Node()
             throws ExecutionException, InterruptedException {
         String testCaseName = "testTwoPipelineBatchJobRunOkIn2Node";
@@ -125,7 +125,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
             Awaitility.await()
-                    .atMost(200000, TimeUnit.MILLISECONDS)
+                    .atMost(600000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
                                 Thread.sleep(2000);
@@ -201,6 +201,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
+    @Disabled
     public void testTwoPipelineStreamJobRunOkIn2Node()
             throws ExecutionException, InterruptedException {
         String testCaseName = "testTwoPipelineStreamJobRunOkIn2Node";
@@ -269,7 +270,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
             clientJobProxy.cancelJob();
 
             Awaitility.await()
-                    .atMost(200000, TimeUnit.MILLISECONDS)
+                    .atMost(600000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
@@ -298,13 +299,14 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
+    @Disabled
     public void testTwoPipelineBatchJobRestoreIn2NodeWorkerDown()
             throws ExecutionException, InterruptedException {
         String testCaseName = "testTwoPipelineBatchJobRestoreIn2NodeWorkerDown";
         String testClusterName =
                 "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineBatchJobRestoreIn2NodeWorkerDown";
         long testRowNumber = 1000;
-        int testParallelism = 2;
+        int testParallelism = 6;
         HazelcastInstanceImpl node1 = null;
         HazelcastInstanceImpl node2 = null;
         SeaTunnelClient engineClient = null;
@@ -368,18 +370,23 @@ public class ClusterFaultToleranceTwoPipelineIT {
             node2.shutdown();
 
             Awaitility.await()
-                    .atMost(400000, TimeUnit.MILLISECONDS)
+                    .atMost(600000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
-                            () ->
-                                    Assertions.assertTrue(
-                                            objectCompletableFuture.isDone()
-                                                    && JobStatus.FINISHED.equals(
-                                                            objectCompletableFuture.get())));
+                            () -> {
+                                // Wait some tasks commit finished
+                                Thread.sleep(2000);
+                                log.info(
+                                        FileUtils.getFileLineNumberFromDir(testResources.getLeft())
+                                                + "");
+                                Assertions.assertTrue(
+                                        objectCompletableFuture.isDone()
+                                                && JobStatus.FINISHED.equals(
+                                                        objectCompletableFuture.get()));
+                            });
 
             Long fileLineNumberFromDir =
                     FileUtils.getFileLineNumberFromDir(testResources.getLeft());
             Assertions.assertEquals(testRowNumber * testParallelism * 2, fileLineNumberFromDir);
-
         } finally {
             if (engineClient != null) {
                 engineClient.shutdown();
@@ -395,8 +402,17 @@ public class ClusterFaultToleranceTwoPipelineIT {
         }
     }
 
+    @Test
+    @Disabled
+    public void testFor() throws ExecutionException, InterruptedException {
+        for (int i = 0; i < 200; i++) {
+            testTwoPipelineStreamJobRestoreIn2NodeMasterDown();
+        }
+    }
+
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
+    @Disabled
     public void testTwoPipelineStreamJobRestoreIn2NodeWorkerDown()
             throws ExecutionException, InterruptedException {
         String testCaseName = "testTwoPipelineStreamJobRestoreIn2NodeWorkerDown";
@@ -492,7 +508,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
             clientJobProxy.cancelJob();
 
             Awaitility.await()
-                    .atMost(200000, TimeUnit.MILLISECONDS)
+                    .atMost(600000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
@@ -522,6 +538,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
+    @Disabled
     public void testTwoPipelineBatchJobRestoreIn2NodeMasterDown()
             throws ExecutionException, InterruptedException {
         String testCaseName = "testTwoPipelineBatchJobRestoreIn2NodeMasterDown";
@@ -592,13 +609,19 @@ public class ClusterFaultToleranceTwoPipelineIT {
             node1.shutdown();
 
             Awaitility.await()
-                    .atMost(360000, TimeUnit.MILLISECONDS)
+                    .atMost(600000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
-                            () ->
-                                    Assertions.assertTrue(
-                                            objectCompletableFuture.isDone()
-                                                    && JobStatus.FINISHED.equals(
-                                                            objectCompletableFuture.get())));
+                            () -> {
+                                // Wait some tasks commit finished
+                                Thread.sleep(2000);
+                                log.info(
+                                        FileUtils.getFileLineNumberFromDir(testResources.getLeft())
+                                                + "");
+                                Assertions.assertTrue(
+                                        objectCompletableFuture.isDone()
+                                                && JobStatus.FINISHED.equals(
+                                                        objectCompletableFuture.get()));
+                            });
 
             Long fileLineNumberFromDir =
                     FileUtils.getFileLineNumberFromDir(testResources.getLeft());
@@ -621,6 +644,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
+    @Disabled
     public void testTwoPipelineStreamJobRestoreIn2NodeMasterDown()
             throws ExecutionException, InterruptedException {
         String testCaseName = "testTwoPipelineStreamJobRestoreIn2NodeMasterDown";

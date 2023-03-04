@@ -25,6 +25,9 @@ import java.util.Map;
 
 public class Config {
 
+    public static final String CONNECTOR_IDENTITY = "Kafka";
+    public static final String REPLICATION_FACTOR = "replication.factor";
+
     /** The default data format is JSON */
     public static final String DEFAULT_FORMAT = "json";
 
