@@ -70,9 +70,9 @@ import static org.awaitility.Awaitility.given;
 @DisabledOnContainer(
         value = {},
         type = {EngineType.FLINK, EngineType.SPARK})
-public class CannalToKafakIT extends TestSuiteBase implements TestResource {
+public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
 
-    private static final Logger LOG = LoggerFactory.getLogger(CannalToKafakIT.class);
+    private static final Logger LOG = LoggerFactory.getLogger(CanalToKafkaIT.class);
 
     private static GenericContainer<?> CANAL_CONTAINER;
 
@@ -228,7 +228,7 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testKafakSinkCannalFormat(TestContainer container)
+    public void testKafkaSinkCanalFormat(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/kafkasource_canal_to_kafka.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
@@ -262,7 +262,7 @@ public class CannalToKafakIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testCannalFormatKafakCdcToPgsql(TestContainer container)
+    public void testCanalFormatKafkaCdcToPgsql(TestContainer container)
             throws IOException, InterruptedException, SQLException {
         Container.ExecResult execResult =
                 container.executeJob("/kafkasource_canal_cdc_to_pgsql.conf");
