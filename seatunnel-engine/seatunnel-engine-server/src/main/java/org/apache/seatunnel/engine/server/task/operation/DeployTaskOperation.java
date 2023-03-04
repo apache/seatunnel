@@ -38,11 +38,10 @@ public class DeployTaskOperation extends Operation implements IdentifiedDataSeri
 
     private TaskDeployState state;
 
-    public DeployTaskOperation() {
-    }
+    public DeployTaskOperation() {}
 
     public DeployTaskOperation(
-        @NonNull SlotProfile slotProfile, @NonNull Data taskImmutableInformation) {
+            @NonNull SlotProfile slotProfile, @NonNull Data taskImmutableInformation) {
         this.taskImmutableInformation = taskImmutableInformation;
         this.slotProfile = slotProfile;
     }
@@ -50,10 +49,11 @@ public class DeployTaskOperation extends Operation implements IdentifiedDataSeri
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        state = server.getSlotService()
-            .getSlotContext(slotProfile)
-            .getTaskExecutionService()
-            .deployTask(taskImmutableInformation);
+        state =
+                server.getSlotService()
+                        .getSlotContext(slotProfile)
+                        .getTaskExecutionService()
+                        .deployTask(taskImmutableInformation);
     }
 
     @Override

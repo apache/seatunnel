@@ -155,12 +155,12 @@ public class KafkaSourceSplitEnumerator
             default:
                 break;
         }
-        topicPartitionOffsets
-            .forEach((key, value) -> {
-                if (pendingSplit.containsKey(key)) {
-                    pendingSplit.get(key).setStartOffset(value);
-                }
-            });
+        topicPartitionOffsets.forEach(
+                (key, value) -> {
+                    if (pendingSplit.containsKey(key)) {
+                        pendingSplit.get(key).setStartOffset(value);
+                    }
+                });
     }
 
     @Override

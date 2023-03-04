@@ -135,16 +135,16 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
         MetricsRegistry registry = nodeEngine.getMetricsRegistry();
         MetricDescriptor descriptor =
-            registry.newMetricDescriptor()
-                .withTag(MetricTags.SERVICE, this.getClass().getSimpleName());
+                registry.newMetricDescriptor()
+                        .withTag(MetricTags.SERVICE, this.getClass().getSimpleName());
         registry.registerStaticMetrics(descriptor, this);
 
         scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
         scheduledExecutorService.scheduleAtFixedRate(
-            this::updateMetricsContextInImap,
-            0,
-            seaTunnelConfig.getEngineConfig().getJobMetricsBackupInterval(),
-            TimeUnit.SECONDS);
+                this::updateMetricsContextInImap,
+                0,
+                seaTunnelConfig.getEngineConfig().getJobMetricsBackupInterval(),
+                TimeUnit.SECONDS);
     }
 
     public void start() {
@@ -217,8 +217,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         uncheckRun(startedLatch::await);
     }
 
-    public TaskDeployState deployTask(
-            @NonNull Data taskImmutableInformation) {
+    public TaskDeployState deployTask(@NonNull Data taskImmutableInformation) {
         TaskGroupImmutableInformation taskImmutableInfo =
                 nodeEngine.getSerializationService().toObject(taskImmutableInformation);
         return deployTask(taskImmutableInfo);
@@ -230,12 +229,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         return executionContext.getTaskGroup().getTask(taskLocation.getTaskID());
     }
 
-    public TaskDeployState deployTask(
-        @NonNull TaskGroupImmutableInformation taskImmutableInfo) {
+    public TaskDeployState deployTask(@NonNull TaskGroupImmutableInformation taskImmutableInfo) {
         logger.info(
-            String.format(
-                "received deploying task executionId [%s]",
-                taskImmutableInfo.getExecutionId()));
+                String.format(
+                        "received deploying task executionId [%s]",
+                        taskImmutableInfo.getExecutionId()));
         TaskGroup taskGroup = null;
         try {
             Set<URL> jars = taskImmutableInfo.getJars();
@@ -259,9 +257,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             synchronized (this) {
                 if (executionContexts.containsKey(taskGroup.getTaskGroupLocation())) {
                     throw new RuntimeException(
-                        String.format(
-                            "TaskGroupLocation: %s already exists",
-                            taskGroup.getTaskGroupLocation()));
+                            String.format(
+                                    "TaskGroupLocation: %s already exists",
+                                    taskGroup.getTaskGroupLocation()));
                 }
                 deployLocalTask(taskGroup, classLoader);
                 return TaskDeployState.success();
@@ -282,14 +280,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     public PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
             @NonNull TaskGroup taskGroup,
             @NonNull CompletableFuture<TaskExecutionState> resultFuture) {
-        return deployLocalTask(
-            taskGroup, Thread.currentThread().getContextClassLoader());
+        return deployLocalTask(taskGroup, Thread.currentThread().getContextClassLoader());
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
     public PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
-            @NonNull TaskGroup taskGroup,
-            @NonNull ClassLoader classLoader) {
+            @NonNull TaskGroup taskGroup, @NonNull ClassLoader classLoader) {
         CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
         try {
             taskGroup.init();
@@ -490,16 +486,16 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             long completedTaskCount = threadPoolExecutor.getCompletedTaskCount();
             long taskCount = threadPoolExecutor.getTaskCount();
             logger.fine(
-                StringFormatUtils.formatTable(
-                    "TaskExecutionServer Thread Pool Status",
-                    "activeCount",
-                    activeCount,
-                    "threadShareTaskQueueSize",
-                    taskQueueSize,
-                    "completedTaskCount",
-                    completedTaskCount,
-                    "taskCount",
-                    taskCount));
+                    StringFormatUtils.formatTable(
+                            "TaskExecutionServer Thread Pool Status",
+                            "activeCount",
+                            activeCount,
+                            "threadShareTaskQueueSize",
+                            taskQueueSize,
+                            "completedTaskCount",
+                            completedTaskCount,
+                            "taskCount",
+                            taskCount));
         }
     }
 

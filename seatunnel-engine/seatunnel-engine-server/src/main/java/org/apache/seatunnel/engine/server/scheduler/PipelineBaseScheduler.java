@@ -44,7 +44,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -252,14 +251,15 @@ public class PipelineBaseScheduler implements JobScheduler {
                         try {
                             TaskDeployState state = task.deploy(slotProfile);
                             if (!state.isSuccess()) {
-                                jobMaster.updateTaskExecutionState(new TaskExecutionState(
-                                    task.getTaskGroupLocation(),
-                                    ExecutionState.FAILED,
-                                    state.getThrowableMsg()));
+                                jobMaster.updateTaskExecutionState(
+                                        new TaskExecutionState(
+                                                task.getTaskGroupLocation(),
+                                                ExecutionState.FAILED,
+                                                state.getThrowableMsg()));
                                 throw new SeaTunnelEngineException(
-                                    String.format(
-                                        "deploy task %s failed, error msg: \n%s",
-                                        task.getTaskFullName(), state.getThrowableMsg()));
+                                        String.format(
+                                                "deploy task %s failed, error msg: \n%s",
+                                                task.getTaskFullName(), state.getThrowableMsg()));
                             }
                         } catch (Exception e) {
                             throw new SeaTunnelEngineException(e);

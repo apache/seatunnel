@@ -55,7 +55,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -236,11 +235,11 @@ public class PhysicalVertex {
     }
 
     private SlotProfile getOwnedSlotProfilesByTaskGroup(
-        TaskGroupLocation taskGroupLocation,
-        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap) {
+            TaskGroupLocation taskGroupLocation,
+            IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap) {
         PipelineLocation pipelineLocation = taskGroupLocation.getPipelineLocation();
         if (ownedSlotProfilesIMap.containsKey(pipelineLocation)
-            && ownedSlotProfilesIMap.get(pipelineLocation).containsKey(taskGroupLocation)) {
+                && ownedSlotProfilesIMap.get(pipelineLocation).containsKey(taskGroupLocation)) {
             return ownedSlotProfilesIMap.get(pipelineLocation).get(taskGroupLocation);
         }
         return null;
@@ -248,28 +247,34 @@ public class PhysicalVertex {
 
     private TaskDeployState deployOnLocal(@NonNull SlotProfile slotProfile) {
         return deployInternal(
-            taskGroupImmutableInformation -> {
-                SeaTunnelServer server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
-                return server.getSlotService()
-                    .getSlotContext(slotProfile)
-                    .getTaskExecutionService()
-                    .deployTask(taskGroupImmutableInformation);
-            });
+                taskGroupImmutableInformation -> {
+                    SeaTunnelServer server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
+                    return server.getSlotService()
+                            .getSlotContext(slotProfile)
+                            .getTaskExecutionService()
+                            .deployTask(taskGroupImmutableInformation);
+                });
     }
 
     private TaskDeployState deployOnRemote(@NonNull SlotProfile slotProfile) {
         return deployInternal(
-            taskGroupImmutableInformation -> {
-                try {
-                    return (TaskDeployState) NodeEngineUtil.sendOperationToMemberNode(nodeEngine,
-                        new DeployTaskOperation(slotProfile,
-                            nodeEngine
-                                .getSerializationService()
-                                .toData(taskGroupImmutableInformation)), slotProfile.getWorker()).get();
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            });
+                taskGroupImmutableInformation -> {
+                    try {
+                        return (TaskDeployState)
+                                NodeEngineUtil.sendOperationToMemberNode(
+                                                nodeEngine,
+                                                new DeployTaskOperation(
+                                                        slotProfile,
+                                                        nodeEngine
+                                                                .getSerializationService()
+                                                                .toData(
+                                                                        taskGroupImmutableInformation)),
+                                                slotProfile.getWorker())
+                                        .get();
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
@@ -287,12 +292,13 @@ public class PhysicalVertex {
         }
     }
 
-    private TaskDeployState deployInternal(Function<TaskGroupImmutableInformation, TaskDeployState> taskGroupConsumer) {
+    private TaskDeployState deployInternal(
+            Function<TaskGroupImmutableInformation, TaskDeployState> taskGroupConsumer) {
         TaskGroupImmutableInformation taskGroupImmutableInformation =
-            getTaskGroupImmutableInformation();
+                getTaskGroupImmutableInformation();
         synchronized (this) {
             ExecutionState currentState =
-                (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
+                    (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
             if (ExecutionState.DEPLOYING.equals(currentState)) {
                 TaskDeployState state = taskGroupConsumer.apply(taskGroupImmutableInformation);
                 updateTaskState(ExecutionState.DEPLOYING, ExecutionState.RUNNING);

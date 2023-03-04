@@ -31,5 +31,4 @@ public class TaskDeployState {
     public static TaskDeployState failed(Throwable e) {
         return new TaskDeployState(false, e);
     }
-
 }
