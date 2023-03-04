@@ -42,6 +42,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class TextSerializationSchema implements SerializationSchema {
+
     private final SeaTunnelRowType seaTunnelRowType;
     private final String[] separators;
     private final DateUtils.Formatter dateFormatter;

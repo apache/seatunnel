@@ -17,7 +17,6 @@
 
 hazelcast-client:
   cluster-name: seatunnel
-
   network:
     cluster-members:
       - localhost:5801

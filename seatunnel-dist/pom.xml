@@ -263,12 +263,12 @@
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
-                <dependency>
-                    <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>connector-file-oss-jindo</artifactId>
-                    <version>${project.version}</version>
-                    <scope>provided</scope>
-                </dependency>
+                <!--                <dependency>-->
+                <!--                    <groupId>org.apache.seatunnel</groupId>-->
+                <!--                    <artifactId>connector-file-oss-jindo</artifactId>-->
+                <!--                    <version>${project.version}</version>-->
+                <!--                    <scope>provided</scope>-->
+                <!--                </dependency>-->
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-file-ftp</artifactId>
@@ -451,6 +451,12 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-cdc-oracle</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-cdc-sqlserver</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
@@ -464,6 +470,12 @@
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-selectdb-cloud</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-cdc-dameng</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
