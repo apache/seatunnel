@@ -99,7 +99,7 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
     /** list all jobId and job status */
     @Deprecated
     public String listJobStatus() {
-        return jobClient.listJobStatus();
+        return jobClient.listJobStatus(false);
     }
 
     /**

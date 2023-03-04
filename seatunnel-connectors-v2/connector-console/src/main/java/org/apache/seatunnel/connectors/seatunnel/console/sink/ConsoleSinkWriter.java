@@ -37,7 +37,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private final SeaTunnelRowType seaTunnelRowType;
-    public static final AtomicLong CNT = new AtomicLong(0);
+    public final AtomicLong rowCounter = new AtomicLong(0);
     public SinkWriter.Context context;
 
     public ConsoleSinkWriter(SeaTunnelRowType seaTunnelRowType, SinkWriter.Context context) {
@@ -58,7 +58,7 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         log.info(
                 "subtaskIndex={}  rowIndex={}:  SeaTunnelRow#tableId={} SeaTunnelRow#kind={} : {}",
                 context.getIndexOfSubtask(),
-                CNT.incrementAndGet(),
+                rowCounter.incrementAndGet(),
                 element.getTableId(),
                 element.getRowKind(),
                 StringUtils.join(arr, ", "));

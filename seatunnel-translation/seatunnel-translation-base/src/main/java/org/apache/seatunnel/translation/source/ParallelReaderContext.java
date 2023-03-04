@@ -58,8 +58,9 @@ public class ParallelReaderContext implements SourceReader.Context {
 
     @Override
     public void sendSourceEventToEnumerator(SourceEvent sourceEvent) {
-        // TODO: exception
-        throw new RuntimeException("");
+        throw new UnsupportedOperationException(
+                "Flink ParallelSource don't support sending SourceEvent. "
+                        + "Please implement the `SupportCoordinate` marker interface on the SeaTunnel source.");
     }
 
     @Override

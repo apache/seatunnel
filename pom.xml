@@ -84,7 +84,7 @@
         <javax.servlet.jap.version>2.1</javax.servlet.jap.version>
         <hadoop.binary.version>2.7</hadoop.binary.version>
         <jackson.version>2.12.6</jackson.version>
-        <lombok.version>1.18.0</lombok.version>
+        <lombok.version>1.18.24</lombok.version>
         <commons-compress.version>1.20</commons-compress.version>
         <skip.pmd.check>false</skip.pmd.check>
         <maven.deploy.skip>false</maven.deploy.skip>
@@ -130,7 +130,7 @@
         <skipUT>false</skipUT>
         <skipIT>true</skipIT>
         <elasticsearch>7</elasticsearch>
-        <guava.version>19.0</guava.version>
+        <guava.version>27.0-jre</guava.version>
         <auto-service.version>1.0.1</auto-service.version>
         <hadoop2.version>2.6.5</hadoop2.version>
         <seatunnel.shade.package>org.apache.seatunnel.shade</seatunnel.shade.package>
@@ -760,7 +760,6 @@
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>flatten-maven-plugin</artifactId>
             </plugin>
-
             <plugin>
                 <groupId>com.diffplug.spotless</groupId>
                 <artifactId>spotless-maven-plugin</artifactId>

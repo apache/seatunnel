@@ -19,26 +19,22 @@ package org.apache.seatunnel.connectors.seatunnel.hive.utils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.Table;
-import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.thrift.TException;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 
@@ -55,34 +51,8 @@ public class HiveMetaStoreProxy {
                 && config.hasPath(BaseSourceConfig.KERBEROS_KEYTAB_PATH.key())) {
             String principal = config.getString(BaseSourceConfig.KERBEROS_PRINCIPAL.key());
             String keytabPath = config.getString(BaseSourceConfig.KERBEROS_KEYTAB_PATH.key());
-            if (StringUtils.isBlank(principal) || StringUtils.isBlank(keytabPath)) {
-                String errorMsg =
-                        String.format(
-                                "Kerberos principal [%s] or keytab file path [%s] is blank,"
-                                        + "please check",
-                                principal, keytabPath);
-                throw new HiveConnectorException(
-                        CommonErrorCode.KERBEROS_AUTHORIZED_FAILED, errorMsg);
-            }
             Configuration configuration = new Configuration();
-            configuration.set("hadoop.security.authentication", "kerberos");
-            UserGroupInformation.setConfiguration(configuration);
-            try {
-                log.info(
-                        "Start Kerberos authentication using principal {} and keytab {}",
-                        principal,
-                        keytabPath);
-                UserGroupInformation.loginUserFromKeytab(principal, keytabPath);
-                log.info("Kerberos authentication successful");
-            } catch (IOException e) {
-                String errorMsg =
-                        String.format(
-                                "Kerberos authentication failed using this "
-                                        + "principal [%s] and keytab path [%s]",
-                                principal, keytabPath);
-                throw new FileConnectorException(
-                        CommonErrorCode.KERBEROS_AUTHORIZED_FAILED, errorMsg, e);
-            }
+            FileSystemUtils.doKerberosAuthentication(configuration, principal, keytabPath);
         }
         try {
             hiveMetaStoreClient = new HiveMetaStoreClient(hiveConf);
