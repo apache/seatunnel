@@ -71,7 +71,7 @@ public class Config {
     public static final Option<String> CONSUMER_GROUP =
             Options.key("consumer.group")
                     .stringType()
-                    .noDefaultValue()
+                    .defaultValue("SeaTunnel-Consumer-Group")
                     .withDescription(
                             "Kafka consumer group id, used to distinguish different consumer groups.");
 

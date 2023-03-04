@@ -79,8 +79,6 @@ public class KafkaSource
         implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSplit, KafkaSourceState>,
                 SupportParallelism {
 
-    private static final String DEFAULT_CONSUMER_GROUP = "SeaTunnel-Consumer-Group";
-
     private final ConsumerMetadata metadata = new ConsumerMetadata();
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private SeaTunnelRowType typeInfo;
@@ -113,6 +111,8 @@ public class KafkaSource
         this.metadata.setTopic(config.getString(TOPIC.key()));
         if (config.hasPath(PATTERN.key())) {
             this.metadata.setPattern(config.getBoolean(PATTERN.key()));
+        } else {
+            this.metadata.setPattern(PATTERN.defaultValue());
         }
         this.metadata.setBootstrapServers(config.getString(BOOTSTRAP_SERVERS.key()));
         this.metadata.setProperties(new Properties());
@@ -120,7 +120,7 @@ public class KafkaSource
         if (config.hasPath(CONSUMER_GROUP.key())) {
             this.metadata.setConsumerGroup(config.getString(CONSUMER_GROUP.key()));
         } else {
-            this.metadata.setConsumerGroup(DEFAULT_CONSUMER_GROUP);
+            this.metadata.setConsumerGroup(CONSUMER_GROUP.defaultValue());
         }
 
         if (config.hasPath(COMMIT_ON_CHECKPOINT.key())) {
