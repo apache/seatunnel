@@ -353,8 +353,8 @@ public class HdfsStorage extends AbstractCheckpointStorage {
             throws CheckpointStorageException {
         fileName =
                 getStorageParentDirectory() + jobId + DEFAULT_CHECKPOINT_FILE_PATH_SPLIT + fileName;
-        try (FSDataInputStream in = fs.open(new Path(fileName))) {
-            ByteArrayOutputStream stream = new ByteArrayOutputStream();
+        try (FSDataInputStream in = fs.open(new Path(fileName));
+                ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
             IOUtils.copyBytes(in, stream, 1024);
             byte[] bytes = stream.toByteArray();
             return deserializeCheckPointData(bytes);
