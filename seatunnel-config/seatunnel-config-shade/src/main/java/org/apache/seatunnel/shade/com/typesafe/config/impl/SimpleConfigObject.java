@@ -19,6 +19,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -101,7 +102,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
         HashMap<String, AbstractConfigValue> smaller;
         if (next != null && v instanceof AbstractConfigObject) {
             v = ((AbstractConfigObject) v).withoutPath(next);
-            smaller = new HashMap<>(this.value);
+            smaller = new LinkedHashMap<>(this.value);
             smaller.put(key, v);
             return new SimpleConfigObject(
                     this.origin(),
@@ -109,7 +110,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
                     ResolveStatus.fromValues(smaller.values()),
                     this.ignoresFallbacks);
         } else if (next == null && v != null) {
-            smaller = new HashMap<>(this.value.size() - 1);
+            smaller = new LinkedHashMap<>(this.value.size() - 1);
 
             for (Entry<String, AbstractConfigValue> stringAbstractConfigValueEntry :
                     this.value.entrySet()) {
@@ -139,7 +140,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
             if (this.value.isEmpty()) {
                 newMap = Collections.singletonMap(key, (AbstractConfigValue) v);
             } else {
-                newMap = new HashMap<>(this.value);
+                newMap = new LinkedHashMap<>(this.value);
                 newMap.put(key, v);
             }
 
@@ -197,7 +198,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
 
     public SimpleConfigObject replaceChild(
             AbstractConfigValue child, AbstractConfigValue replacement) {
-        Map<String, AbstractConfigValue> newChildren = new HashMap<>(this.value);
+        Map<String, AbstractConfigValue> newChildren = new LinkedHashMap<>(this.value);
         Iterator<Entry<String, AbstractConfigValue>> var4 = newChildren.entrySet().iterator();
 
         Entry<String, AbstractConfigValue> old;
@@ -254,7 +255,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
     }
 
     public Map<String, Object> unwrapped() {
-        Map<String, Object> m = new HashMap<>();
+        Map<String, Object> m = new LinkedHashMap<>();
 
         for (Entry<String, AbstractConfigValue> stringAbstractConfigValueEntry :
                 this.value.entrySet()) {
@@ -275,7 +276,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
             SimpleConfigObject fallback = (SimpleConfigObject) abstractFallback;
             boolean changed = false;
             boolean allResolved = true;
-            Map<String, AbstractConfigValue> merged = new HashMap<>();
+            Map<String, AbstractConfigValue> merged = new LinkedHashMap<>();
             Set<String> allKeys = new HashSet<>();
             allKeys.addAll(this.keySet());
             allKeys.addAll(fallback.keySet());
@@ -337,7 +338,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
             AbstractConfigValue modified = modifier.modifyChildMayThrow(k, v);
             if (modified != v) {
                 if (changes == null) {
-                    changes = new HashMap<>();
+                    changes = new LinkedHashMap<>();
                 }
 
                 changes.put(k, modified);
@@ -347,7 +348,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
         if (changes == null) {
             return this;
         } else {
-            Map<String, AbstractConfigValue> modified = new HashMap<>();
+            Map<String, AbstractConfigValue> modified = new LinkedHashMap<>();
             boolean sawUnresolved = false;
 
             for (String k : this.keySet()) {
