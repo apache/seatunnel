@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.e2e.connector.elasticsearch;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.ScrollResult;
@@ -35,8 +38,6 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
@@ -44,7 +45,6 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -127,8 +127,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Assertions.assertIterableEquals(testDataset, sinkData);
     }
 
-    private List<String> generateTestDataSet()
-            throws com.fasterxml.jackson.core.JsonProcessingException {
+    private List<String> generateTestDataSet() throws JsonProcessingException {
         String[] fields =
                 new String[] {
                     "c_map",
@@ -149,8 +148,6 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
 
         List<String> documents = new ArrayList<>();
         ObjectMapper objectMapper = new ObjectMapper();
-        // registerModule for support Java 8 date/time type java.time.LocalDateTime
-        objectMapper.registerModule(new JavaTimeModule());
         for (int i = 0; i < 100; i++) {
             Map<String, Object> doc = new HashMap<>();
             Object[] values =
@@ -168,7 +165,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         BigDecimal.valueOf(11, 1),
                         "test".getBytes(),
                         LocalDate.now().toString(),
-                        LocalDateTime.now()
+                        System.currentTimeMillis()
                     };
             for (int j = 0; j < fields.length; j++) {
                 doc.put(fields[j], values[j]);
