@@ -36,6 +36,7 @@
             you need to open this annotation and change the dependency of config-shade to project.
             <module>seatunnel-config</module>
         -->
+        <module>seatunnel-config</module>
         <module>seatunnel-common</module>
         <module>seatunnel-core</module>
         <module>seatunnel-transforms-v2</module>
@@ -281,7 +282,7 @@
             <dependency>
                 <groupId>org.apache.seatunnel</groupId>
                 <artifactId>seatunnel-config-shade</artifactId>
-                <version>${seatunnel.config.shade.version}</version>
+                <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>commons-codec</groupId>
