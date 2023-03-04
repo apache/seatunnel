@@ -405,8 +405,7 @@ public class ZetaSQLFunction {
             default:
                 throw new TransformException(
                         CommonErrorCode.UNSUPPORTED_OPERATION,
-                        String.format(
-                                "Function: %s unsupported for SimpleSQL transform", functionName));
+                        String.format("Unsupported function: %s", functionName));
         }
     }
 
@@ -424,7 +423,7 @@ public class ZetaSQLFunction {
         }
         throw new TransformException(
                 CommonErrorCode.UNSUPPORTED_OPERATION,
-                String.format("TimeKeyExpr: %s unsupported for SimpleSQL transform", timeKeyExpr));
+                String.format("Unsupported TimeKey expression: %s", timeKeyExpr));
     }
 
     public Object executeCastExpr(CastExpression castExpression, Object arg) {

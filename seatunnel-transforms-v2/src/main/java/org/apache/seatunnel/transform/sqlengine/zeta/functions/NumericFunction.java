@@ -102,9 +102,7 @@ public class NumericFunction {
         }
         double d = Math.tan(arg.doubleValue());
         if (d == 0) {
-            throw new TransformException(
-                    CommonErrorCode.UNSUPPORTED_OPERATION,
-                    String.format("Division by zero for function: %s", ZetaSQLFunction.COT));
+            throw new TransformException(CommonErrorCode.UNSUPPORTED_OPERATION, "Division by zero");
         }
         return 1d / d;
     }
@@ -163,9 +161,7 @@ public class NumericFunction {
             return null;
         }
         if (rightValue.doubleValue() == 0) {
-            throw new TransformException(
-                    CommonErrorCode.UNSUPPORTED_OPERATION,
-                    String.format("Mod by zero for function: %s", ZetaSQLFunction.MOD));
+            throw new TransformException(CommonErrorCode.UNSUPPORTED_OPERATION, "Mod by zero");
         }
         BigDecimal leftBD = BigDecimal.valueOf(leftValue.doubleValue());
         BigDecimal rightBD = BigDecimal.valueOf(rightValue.doubleValue());

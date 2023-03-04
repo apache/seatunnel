@@ -154,8 +154,7 @@ public class ZetaSQLFilter {
      */
     private boolean likeExpr(LikeExpression likeExpression, Object[] inputFields) {
         throw new TransformException(
-                CommonErrorCode.UNSUPPORTED_OPERATION,
-                "Unsupported [like] filter for SimpleSQL yet");
+                CommonErrorCode.UNSUPPORTED_OPERATION, "Unsupported [LIKE] filter expression yet");
     }
 
     private Pair<Object, Object> executeComparisonOperator(
@@ -215,7 +214,7 @@ public class ZetaSQLFilter {
         throw new TransformException(
                 CommonErrorCode.UNSUPPORTED_OPERATION,
                 String.format(
-                        "Filed types not matched, left: %s, right:%s ",
+                        "Filed types not matched, left is: %s, right is: %s ",
                         leftVal.getClass().getSimpleName(), rightVal.getClass().getSimpleName()));
     }
 
@@ -245,7 +244,7 @@ public class ZetaSQLFilter {
         throw new TransformException(
                 CommonErrorCode.UNSUPPORTED_OPERATION,
                 String.format(
-                        "Filed types not matched, left: %s, right:%s ",
+                        "Filed types not matched, left is: %s, right is: %s ",
                         leftVal.getClass().getSimpleName(), rightVal.getClass().getSimpleName()));
     }
 
@@ -273,7 +272,7 @@ public class ZetaSQLFilter {
         throw new TransformException(
                 CommonErrorCode.UNSUPPORTED_OPERATION,
                 String.format(
-                        "Filed types not matched, left: %s, right:%s ",
+                        "Filed types not matched, left is: %s, right is: %s ",
                         leftVal.getClass().getSimpleName(), rightVal.getClass().getSimpleName()));
     }
 
@@ -303,7 +302,7 @@ public class ZetaSQLFilter {
         throw new TransformException(
                 CommonErrorCode.UNSUPPORTED_OPERATION,
                 String.format(
-                        "Filed types not matched, left: %s, right:%s ",
+                        "Filed types not matched, left is: %s, right is: %s ",
                         leftVal.getClass().getSimpleName(), rightVal.getClass().getSimpleName()));
     }
 

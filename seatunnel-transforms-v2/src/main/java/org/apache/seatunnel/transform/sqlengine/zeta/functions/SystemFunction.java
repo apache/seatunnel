@@ -120,6 +120,6 @@ public class SystemFunction {
         }
         throw new TransformException(
                 CommonErrorCode.UNSUPPORTED_OPERATION,
-                String.format("Unsupported cast as type: %s", v2));
+                String.format("Unsupported CAST AS type: %s", v2));
     }
 }

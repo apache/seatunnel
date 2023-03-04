@@ -175,7 +175,7 @@ public class ZetaSQLType {
             default:
                 throw new TransformException(
                         CommonErrorCode.UNSUPPORTED_OPERATION,
-                        String.format("Unsupported cast as type: %s", dataType));
+                        String.format("Unsupported CAST AS type: %s", dataType));
         }
     }
 
@@ -302,7 +302,7 @@ public class ZetaSQLType {
             default:
                 throw new TransformException(
                         CommonErrorCode.UNSUPPORTED_OPERATION,
-                        String.format("Function: %s unsupported", function.getName()));
+                        String.format("Unsupported function: %s ", function.getName()));
         }
     }
 
@@ -321,7 +321,7 @@ public class ZetaSQLType {
                 throw new TransformException(
                         CommonErrorCode.UNSUPPORTED_OPERATION,
                         String.format(
-                                "TimeKeyExpression: %s unsupported",
+                                "Unsupported TimeKey expression: %s ",
                                 timeKeyExpression.getStringValue()));
         }
     }
