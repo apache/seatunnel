@@ -18,6 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.commit;
 
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 
 import lombok.extern.slf4j.Slf4j;
@@ -60,9 +62,11 @@ public class FileSinkAggregatedCommitter
                                 "commit aggregatedCommitInfo error, aggregatedCommitInfo = {} ",
                                 aggregatedCommitInfo,
                                 e);
-                        errorAggregatedCommitInfoList.add(aggregatedCommitInfo);
+                        throw new FileConnectorException(
+                                FileConnectorErrorCode.AGGREGATE_COMMIT_ERROR, e);
                     }
                 });
+        // TODO errorAggregatedCommitInfoList Always empty, So return is no use
         return errorAggregatedCommitInfoList;
     }
 
