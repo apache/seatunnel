@@ -45,6 +45,6 @@ public class EsTypeMappingSeaTunnelType {
             };
 
     public static SeaTunnelDataType getSeaTunnelDataType(String esType) {
-        return MAPPING.get(esType);
+        return MAPPING.getOrDefault(esType, BasicType.STRING_TYPE);
     }
 }
