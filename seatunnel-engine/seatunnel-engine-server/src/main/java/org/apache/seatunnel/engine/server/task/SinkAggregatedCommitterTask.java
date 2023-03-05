@@ -271,7 +271,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
                 });
         List<AggregatedCommitInfoT> commit = aggregatedCommitter.commit(aggregatedCommitInfo);
         tryClose(checkpointId);
-        if (!CollectionUtils.isEmpty(aggregatedCommitter.commit(aggregatedCommitInfo))) {
+        if (!CollectionUtils.isEmpty(commit)) {
             log.error("aggregated committer error: {}", commit.size());
             throw new CheckpointException(CheckpointCloseReason.AGGREGATE_COMMIT_ERROR);
         }

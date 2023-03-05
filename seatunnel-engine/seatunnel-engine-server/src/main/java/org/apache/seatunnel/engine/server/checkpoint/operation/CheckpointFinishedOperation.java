@@ -36,8 +36,6 @@ import lombok.NoArgsConstructor;
 
 import java.io.IOException;
 
-import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow;
-
 @Getter
 @NoArgsConstructor
 public class CheckpointFinishedOperation extends TaskOperation {
@@ -96,7 +94,7 @@ public class CheckpointFinishedOperation extends TaskOperation {
                         }
                         Thread.currentThread().setContextClassLoader(classLoader);
                     } catch (Exception e) {
-                        sneakyThrow(new SeaTunnelEngineException(ExceptionUtils.getMessage(e)));
+                        throw new SeaTunnelEngineException(ExceptionUtils.getMessage(e));
                     }
                     return null;
                 },
