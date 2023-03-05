@@ -35,7 +35,6 @@ import org.apache.commons.collections4.CollectionUtils;
 import com.hazelcast.cluster.Address;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections4.CollectionUtils;
 
 import java.io.IOException;
 import java.net.URL;
@@ -272,7 +271,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
                 });
         List<AggregatedCommitInfoT> commit = aggregatedCommitter.commit(aggregatedCommitInfo);
         tryClose(checkpointId);
-        if (!CollectionUtils.isEmpty(aggregatedCommitter.commit(aggregatedCommitInfo))) {
+        if (!CollectionUtils.isEmpty(commit)) {
             log.error("aggregated committer error: {}", commit.size());
             throw new CheckpointException(CheckpointCloseReason.AGGREGATE_COMMIT_ERROR);
         }
