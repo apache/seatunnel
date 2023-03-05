@@ -35,6 +35,7 @@ import org.apache.commons.collections4.CollectionUtils;
 import com.hazelcast.cluster.Address;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
 
 import java.io.IOException;
 import java.net.URL;
