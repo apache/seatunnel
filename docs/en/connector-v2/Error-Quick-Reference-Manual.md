@@ -13,6 +13,8 @@ problems encountered by users.
 | API-04 | Database not existed               | When users encounter this error code, it is usually because the database that you want to access is not existed, please double check the database exists                                       |
 | API-05 | Table not existed                  | When users encounter this error code, it is usually because the table that you want to access is not existed, please double check the table exists                                             |
 | API-06 | Factory initialize failed          | When users encounter this error code, it is usually because there is a problem with the jar package dependency, please check whether your local SeaTunnel installation package is complete     |
+| API-07 | Database already existed           | When users encounter this error code, it means that the database you want to create has already existed, please delete database and try again                                                  |
+| API-08 | Table already existed              | When users encounter this error code, it means that the table you want to create has already existed, please delete table and try again                                                        |
 
 ## SeaTunnel Common Error Codes
 

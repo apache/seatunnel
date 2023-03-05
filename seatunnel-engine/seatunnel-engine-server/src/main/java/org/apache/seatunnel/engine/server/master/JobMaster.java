@@ -596,7 +596,7 @@ public class JobMaster {
     /** Execute savePoint, which will cause the job to end. */
     public CompletableFuture<Void> savePoint() {
         PassiveCompletableFuture<CompletedCheckpoint>[] passiveCompletableFutures =
-                checkpointManager.triggerSavepoints();
+                checkpointManager.triggerSavePoints();
         return CompletableFuture.allOf(passiveCompletableFutures);
     }
 

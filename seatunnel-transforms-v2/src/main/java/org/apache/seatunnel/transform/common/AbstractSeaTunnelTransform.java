@@ -33,11 +33,11 @@ public abstract class AbstractSeaTunnelTransform implements SeaTunnelTransform<S
     private static final String RESULT_TABLE_NAME = CommonOptions.RESULT_TABLE_NAME.key();
     private static final String SOURCE_TABLE_NAME = CommonOptions.SOURCE_TABLE_NAME.key();
 
-    private String inputTableName;
-    private SeaTunnelRowType inputRowType;
+    protected String inputTableName;
+    protected SeaTunnelRowType inputRowType;
 
-    private String outputTableName;
-    private SeaTunnelRowType outputRowType;
+    protected String outputTableName;
+    protected SeaTunnelRowType outputRowType;
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {

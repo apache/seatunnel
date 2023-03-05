@@ -151,7 +151,7 @@ public class CheckpointManager {
      * After the savepoint is triggered, it will cause the job to stop automatically.
      */
     @SuppressWarnings("unchecked")
-    public PassiveCompletableFuture<CompletedCheckpoint>[] triggerSavepoints() {
+    public PassiveCompletableFuture<CompletedCheckpoint>[] triggerSavePoints() {
         return coordinatorMap
                 .values()
                 .parallelStream()
