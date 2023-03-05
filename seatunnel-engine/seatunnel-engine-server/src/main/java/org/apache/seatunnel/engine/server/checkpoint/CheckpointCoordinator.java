@@ -21,7 +21,6 @@ import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
-import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.Checkpoint;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
@@ -266,11 +265,14 @@ public class CheckpointCoordinator {
     }
 
     private void scheduleTriggerPendingCheckpoint(long delayMills) {
-        scheduler.schedule(() -> tryTriggerPendingCheckpoint(), delayMills, TimeUnit.MILLISECONDS);
+        scheduleTriggerPendingCheckpoint(CHECKPOINT_TYPE, delayMills);
     }
 
-    protected void tryTriggerPendingCheckpoint() {
-        tryTriggerPendingCheckpoint(CHECKPOINT_TYPE);
+    private void scheduleTriggerPendingCheckpoint(CheckpointType checkpointType, long delayMills) {
+        scheduler.schedule(
+                () -> tryTriggerPendingCheckpoint(checkpointType),
+                delayMills,
+                TimeUnit.MILLISECONDS);
     }
 
     protected void readyToClose(TaskLocation taskLocation) {
@@ -286,18 +288,27 @@ public class CheckpointCoordinator {
         shutdown = false;
         if (alreadyStarted) {
             isAllTaskReady = true;
-            tryTriggerPendingCheckpoint();
+            tryTriggerPendingCheckpoint(CHECKPOINT_TYPE);
         } else {
             isAllTaskReady = false;
         }
     }
 
     protected void tryTriggerPendingCheckpoint(CheckpointType checkpointType) {
-        synchronized (lock) {
-            if (Thread.currentThread().isInterrupted()) {
-                LOG.warn("currentThread already be interrupted, skip trigger checkpoint");
+        if (Thread.currentThread().isInterrupted()) {
+            LOG.warn("currentThread already be interrupted, skip trigger checkpoint");
+            return;
+        }
+        final long currentTimestamp = Instant.now().toEpochMilli();
+        if (notFinalCheckpoint(checkpointType)) {
+            if (currentTimestamp - latestTriggerTimestamp.get()
+                            < coordinatorConfig.getCheckpointInterval()
+                    || pendingCounter.get() >= coordinatorConfig.getMaxConcurrentCheckpoints()
+                    || !isAllTaskReady) {
                 return;
             }
+        }
+        synchronized (lock) {
             if (isCompleted() || isShutdown()) {
                 LOG.warn(
                         String.format(
@@ -309,16 +320,11 @@ public class CheckpointCoordinator {
                                 shutdown));
                 return;
             }
-            final long currentTimestamp = Instant.now().toEpochMilli();
-            if (notFinalCheckpoint(checkpointType)) {
-                if (currentTimestamp - latestTriggerTimestamp.get()
-                                < coordinatorConfig.getCheckpointInterval()
-                        || pendingCounter.get() >= coordinatorConfig.getMaxConcurrentCheckpoints()
-                        || !isAllTaskReady) {
+            if (!notFinalCheckpoint(checkpointType)) {
+                if (pendingCounter.get() > 0) {
+                    scheduleTriggerPendingCheckpoint(checkpointType, 500L);
                     return;
                 }
-            } else {
-                waitingPendingCheckpointDone();
             }
             CompletableFuture<PendingCheckpoint> pendingCheckpoint =
                     createPendingCheckpoint(currentTimestamp, checkpointType);
@@ -333,24 +339,6 @@ public class CheckpointCoordinator {
 
     private boolean notFinalCheckpoint(CheckpointType checkpointType) {
         return checkpointType.equals(CHECKPOINT_TYPE);
-    }
-
-    @SuppressWarnings("checkstyle:MagicNumber")
-    private void waitingPendingCheckpointDone() {
-        while (pendingCounter.get() != 0) {
-            try {
-                LOG.info(
-                        "waiting pending checkpoint completed, pending counter: "
-                                + pendingCounter.get());
-                Thread.sleep(500);
-            } catch (InterruptedException e) {
-                throw new SeaTunnelEngineException(e);
-            }
-        }
-    }
-
-    private boolean canTriggered() {
-        return !isCompleted() && !isShutdown();
     }
 
     public boolean isShutdown() {
@@ -402,12 +390,7 @@ public class CheckpointCoordinator {
                             });
 
                     // Trigger the barrier and wait for all tasks to ACK
-                    LOG.debug(
-                            "trigger checkpoint barrier {}/{}/{}, {}",
-                            pendingCheckpoint.getJobId(),
-                            pendingCheckpoint.getPipelineId(),
-                            pendingCheckpoint.getCheckpointId(),
-                            pendingCheckpoint.getCheckpointType());
+                    LOG.debug("trigger checkpoint barrier {}", pendingCheckpoint.getInfo());
                     CompletableFuture<InvocationFuture<?>[]> completableFutureArray =
                             CompletableFuture.supplyAsync(
                                             () ->
@@ -428,7 +411,9 @@ public class CheckpointCoordinator {
                         return;
                     }
 
-                    LOG.debug("Start a scheduled task to prevent checkpoint timeouts");
+                    LOG.debug(
+                            "Start a scheduled task to prevent checkpoint timeouts for barrier "
+                                    + pendingCheckpoint.getInfo());
                     scheduler.schedule(
                             () -> {
                                 // If any task is not acked within the checkpoint timeout
@@ -436,6 +421,9 @@ public class CheckpointCoordinator {
                                                 != null
                                         && !pendingCheckpoint.isFullyAcknowledged()) {
                                     if (tolerableFailureCheckpoints-- <= 0) {
+                                        LOG.debug(
+                                                "timeout checkpoint: "
+                                                        + pendingCheckpoint.getInfo());
                                         handleCoordinatorError(
                                                 CheckpointCloseReason.CHECKPOINT_EXPIRED, null);
                                     }
