@@ -236,6 +236,7 @@ hazelcast-client:
 ## 7. Start SeaTunnel Engine Server Node
 
 Can be started by a daemon with `-d`.
+
 ```shell
 ./bin/seatunnel-cluster.sh -d
 ```
