@@ -152,7 +152,7 @@ public class CheckpointCoordinator {
                 new ArrayDeque<>(coordinatorConfig.getStorage().getMaxRetainedCheckpoints() + 1);
         this.scheduler =
                 Executors.newScheduledThreadPool(
-                        1,
+                        2,
                         runnable -> {
                             Thread thread = new Thread(runnable);
                             thread.setDaemon(true);
@@ -616,7 +616,7 @@ public class CheckpointCoordinator {
         if (pendingCheckpoints.size() + 1 == coordinatorConfig.getMaxConcurrentCheckpoints()) {
             // latest checkpoint completed time > checkpoint interval
             if (notFinalCheckpoint(completedCheckpoint.getCheckpointType())) {
-                tryTriggerPendingCheckpoint();
+                scheduleTriggerPendingCheckpoint(0L);
             }
         }
         completedCheckpoints.addLast(completedCheckpoint);
