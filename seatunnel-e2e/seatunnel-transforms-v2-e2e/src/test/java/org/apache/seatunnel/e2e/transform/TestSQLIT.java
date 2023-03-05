@@ -34,27 +34,52 @@ import java.io.IOException;
 public class TestSQLIT extends TestSuiteBase {
 
     @TestTemplate
-    public void testSQL(TestContainer container) throws IOException, InterruptedException {
-
+    public void testSQLTransform(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/sql_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
+    }
 
-        execResult = container.executeJob("/sql_transform/binary_expression.conf");
+    @TestTemplate
+    public void testSQLTransBinaryExpr(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/sql_transform/binary_expression.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
+    }
 
-        execResult = container.executeJob("/sql_transform/func_string.conf");
+    @TestTemplate
+    public void testSQLTransStringFunction(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/sql_transform/func_string.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
+    }
 
-        execResult = container.executeJob("/sql_transform/func_numeric.conf");
+    @TestTemplate
+    public void testSQLTransNumericFunction(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/sql_transform/func_numeric.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
+    }
 
-        execResult = container.executeJob("/sql_transform/func_datetime.conf");
+    @TestTemplate
+    public void testSQLTransDatetimeFunction(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/sql_transform/func_datetime.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
+    }
 
-        execResult = container.executeJob("/sql_transform/func_system.conf");
+    @TestTemplate
+    public void testSQLTransSystemFunction(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/sql_transform/func_system.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
+    }
 
-        execResult = container.executeJob("/sql_transform/criteria_filter.conf");
+    @TestTemplate
+    public void testSQLTransCriteriaFilter(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/sql_transform/criteria_filter.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }
