@@ -5,6 +5,7 @@
 - [Script]Add support close engine instance shell
 - [Client]Add Zeta Client ShutdownHook To Cancel Job
 - [Script]Add a jvm.properties file to define the SeaTunnel Zeta JVM Options
+- [Script] Run the server through daemon #4161
 ### Core
 - [Starter][Flink]Support transform-v2 for flink #3396
 - [Flink] Support flink 1.14.x #3963

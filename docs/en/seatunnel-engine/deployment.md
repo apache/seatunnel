@@ -235,9 +235,9 @@ hazelcast-client:
 
 ## 7. Start SeaTunnel Engine Server Node
 
+Can be started by a daemon with `-d`.
 ```shell
-mkdir -p $SEATUNNEL_HOME/logs
-nohup bin/seatunnel-cluster.sh 2>&1 &
+./bin/seatunnel-cluster.sh -d
 ```
 
 The logs will write in `$SEATUNNEL_HOME/logs/seatunnel-engine-server.log`
