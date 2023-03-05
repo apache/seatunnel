@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.doris.client;
 import org.apache.seatunnel.common.utils.JsonUtils;
 
 import org.apache.http.HttpEntity;
+import org.apache.http.HttpRequestInterceptor;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -30,6 +31,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.DefaultRedirectStrategy;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.protocol.HTTP;
 import org.apache.http.util.EntityUtils;
 
 import lombok.extern.slf4j.Slf4j;
@@ -99,6 +101,14 @@ public class HttpHelper {
             throws IOException {
         final HttpClientBuilder httpClientBuilder =
                 HttpClients.custom()
+                        .addInterceptorFirst(
+                                (HttpRequestInterceptor)
+                                        (request, context) -> {
+                                            // fighting org.apache.http.protocol.RequestContent's
+                                            // ProtocolException("Content-Length header already
+                                            // present");
+                                            request.removeHeaders(HTTP.CONTENT_LEN);
+                                        })
                         .setRedirectStrategy(
                                 new DefaultRedirectStrategy() {
                                     @Override
