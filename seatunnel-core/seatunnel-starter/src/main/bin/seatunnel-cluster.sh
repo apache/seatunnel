@@ -70,7 +70,8 @@ do
   if [[ "${i}" == *"JvmOption"* ]]; then
     JVM_OPTION="${i}"
     JAVA_OPTS="${JAVA_OPTS} ${JVM_OPTION#*=}"
-    break
+  elif [[ "${i}" == "-d" ]]; then
+    DAEMON=true
   fi
 done
 
@@ -93,4 +94,9 @@ JVM_OPTIONS=`java -cp ${CLASS_PATH} org.apache.seatunnel.core.starter.seatunnel.
 JAVA_OPTS="${JAVA_OPTS} ${JVM_OPTIONS//\$\{loggc\}/${ST_TMPDIR}}"
 echo "JAVA_OPTS:" ${JAVA_OPTS}
 
-java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args} > "$OUT" 200<&- 2>&1 < /dev/null &
+if [[ $DAEMON == true ]]; then
+ java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args} > "$OUT" 200<&- 2>&1 < /dev/null &
+ else
+ java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}
+fi
+
