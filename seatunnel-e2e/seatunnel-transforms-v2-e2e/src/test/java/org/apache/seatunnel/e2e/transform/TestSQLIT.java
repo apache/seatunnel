@@ -19,7 +19,6 @@ package org.apache.seatunnel.e2e.transform;
 
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.container.spark.AbstractTestSparkContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.junit.jupiter.api.Assertions;
@@ -36,9 +35,6 @@ public class TestSQLIT extends TestSuiteBase {
 
     @TestTemplate
     public void testSQL(TestContainer container) throws IOException, InterruptedException {
-        if (container instanceof AbstractTestSparkContainer) {
-            return; // skip test for spark, because .
-        }
 
         Container.ExecResult execResult = container.executeJob("/sql_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
