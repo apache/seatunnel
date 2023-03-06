@@ -23,6 +23,8 @@ import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.JdbcSourceFetchTaskContext;
+import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
+import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.cdc.debezium.EmbeddedDatabaseHistory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfig;
@@ -62,7 +64,7 @@ import io.debezium.schema.TopicSelector;
 import io.debezium.util.Collect;
 
 import java.time.Instant;
-import java.util.Collection;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -86,32 +88,26 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     private ChangeEventQueue<DataChangeEvent> queue;
     private MySqlErrorHandler errorHandler;
 
-    private Collection<TableChanges.TableChange> engineHistory;
-
     public MySqlSourceFetchTaskContext(
             JdbcSourceConfig sourceConfig,
             JdbcDataSourceDialect dataSourceDialect,
             MySqlConnection connection,
-            BinaryLogClient binaryLogClient,
-            Collection<TableChanges.TableChange> engineHistory) {
+            BinaryLogClient binaryLogClient) {
         super(sourceConfig, dataSourceDialect);
         this.connection = connection;
         this.binaryLogClient = binaryLogClient;
         this.metadataProvider = new MySqlEventMetadataProvider();
-        this.engineHistory = engineHistory;
     }
 
     @Override
     public void configure(SourceSplitBase sourceSplitBase) {
+        registerDatabaseHistory(sourceSplitBase);
+
         // initial stateful objects
         final MySqlConnectorConfig connectorConfig = getDbzConnectorConfig();
         final boolean tableIdCaseInsensitive = connection.isTableIdCaseSensitive();
         this.topicSelector = MySqlTopicSelector.defaultSelector(connectorConfig);
-        EmbeddedDatabaseHistory.registerHistory(
-                sourceConfig
-                        .getDbzConfiguration()
-                        .getString(EmbeddedDatabaseHistory.DATABASE_HISTORY_INSTANCE_NAME),
-                engineHistory);
+
         this.databaseSchema =
                 MySqlUtils.createMySqlDatabaseSchema(connectorConfig, tableIdCaseInsensitive);
         this.offsetContext =
@@ -282,6 +278,27 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
             MySqlOffsetContext offset, MySqlDatabaseSchema schema) {
         schema.initializeStorage();
         schema.recover(offset);
+    }
+
+    private void registerDatabaseHistory(SourceSplitBase sourceSplitBase) {
+        List<TableChanges.TableChange> engineHistory = new ArrayList<>();
+        // TODO: support save table schema
+        if (sourceSplitBase instanceof SnapshotSplit) {
+            SnapshotSplit snapshotSplit = (SnapshotSplit) sourceSplitBase;
+            engineHistory.add(
+                    dataSourceDialect.queryTableSchema(connection, snapshotSplit.getTableId()));
+        } else {
+            IncrementalSplit incrementalSplit = (IncrementalSplit) sourceSplitBase;
+            for (TableId tableId : incrementalSplit.getTableIds()) {
+                engineHistory.add(dataSourceDialect.queryTableSchema(connection, tableId));
+            }
+        }
+
+        EmbeddedDatabaseHistory.registerHistory(
+                sourceConfig
+                        .getDbzConfiguration()
+                        .getString(EmbeddedDatabaseHistory.DATABASE_HISTORY_INSTANCE_NAME),
+                engineHistory);
     }
 
     /** A subclass implementation of {@link MySqlTaskContext} which reuses one BinaryLogClient. */

@@ -50,6 +50,8 @@ public class Common {
 
     private static DeployMode MODE;
 
+    private static String SEATUNNEL_HOME;
+
     private static boolean STARTER = false;
 
     /** Set mode. return false in case of failure */
@@ -63,6 +65,22 @@ public class Common {
 
     public static DeployMode getDeployMode() {
         return MODE;
+    }
+
+    private static String getSeaTunnelHome() {
+
+        if (StringUtils.isNotEmpty(SEATUNNEL_HOME)) {
+            return SEATUNNEL_HOME;
+        }
+        String seatunnelHome = System.getProperty("SEATUNNEL_HOME");
+        if (StringUtils.isBlank(seatunnelHome)) {
+            seatunnelHome = System.getenv("SEATUNNEL_HOME");
+        }
+        if (StringUtils.isBlank(seatunnelHome)) {
+            seatunnelHome = appRootDir().toString();
+        }
+        SEATUNNEL_HOME = seatunnelHome;
+        return SEATUNNEL_HOME;
     }
 
     /**
@@ -101,41 +119,22 @@ public class Common {
 
     /** Plugin Root Dir */
     public static Path pluginRootDir() {
-        return Paths.get(appRootDir().toString(), "plugins");
-    }
-
-    /** Plugin Root Dir */
-    public static Path connectorRootDir(String engine) {
-        return Paths.get(appRootDir().toString(), "connectors", engine.toLowerCase());
+        return Paths.get(getSeaTunnelHome(), "plugins");
     }
 
     /** Plugin Connector Jar Dir */
     public static Path connectorJarDir(String engine) {
-        String seatunnelHome = System.getProperty("SEATUNNEL_HOME");
-        if (StringUtils.isBlank(seatunnelHome)) {
-            return Paths.get(appRootDir().toString(), "connectors", engine.toLowerCase());
-        } else {
-            return Paths.get(seatunnelHome, "connectors", engine.toLowerCase());
-        }
+        return Paths.get(getSeaTunnelHome(), "connectors", engine.toLowerCase());
     }
 
     /** Plugin Connector Dir */
     public static Path connectorDir() {
-        String seatunnelHome = System.getProperty("SEATUNNEL_HOME");
-        if (StringUtils.isBlank(seatunnelHome)) {
-            return Paths.get(appRootDir().toString(), "connectors");
-        } else {
-            return Paths.get(seatunnelHome, "connectors");
-        }
+        return Paths.get(getSeaTunnelHome(), "connectors");
     }
 
     /** lib Dir */
     public static Path libDir() {
-        String seatunnelHome = System.getProperty("SEATUNNEL_HOME");
-        if (StringUtils.isBlank(seatunnelHome)) {
-            seatunnelHome = appRootDir().toString();
-        }
-        return Paths.get(seatunnelHome, "lib");
+        return Paths.get(getSeaTunnelHome(), "lib");
     }
 
     /** return lib jars, which located in 'lib/*' or 'lib/{dir}/*'. */
@@ -165,21 +164,6 @@ public class Common {
 
     public static Path pluginTarball() {
         return appRootDir().resolve("plugins.tar.gz");
-    }
-
-    /** Get specific plugin dir */
-    public static Path pluginDir(String pluginName) {
-        return Paths.get(pluginRootDir().toString(), pluginName);
-    }
-
-    /** Get files dir of specific plugin */
-    public static Path pluginFilesDir(String pluginName) {
-        return Paths.get(pluginDir(pluginName).toString(), "files");
-    }
-
-    /** Get lib dir of specific plugin */
-    public static Path pluginLibDir(String pluginName) {
-        return Paths.get(pluginDir(pluginName).toString(), "lib");
     }
 
     /** return plugin's dependent jars, which located in 'plugins/${pluginName}/lib/*'. */

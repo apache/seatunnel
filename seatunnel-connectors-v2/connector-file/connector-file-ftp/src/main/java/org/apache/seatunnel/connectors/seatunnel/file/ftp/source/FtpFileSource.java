@@ -22,12 +22,12 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
@@ -54,7 +54,7 @@ public class FtpFileSource extends BaseFileSource {
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
                         FtpConfig.FILE_PATH.key(),
-                        FtpConfig.FILE_TYPE.key(),
+                        FtpConfig.FILE_FORMAT_TYPE.key(),
                         FtpConfig.FTP_HOST.key(),
                         FtpConfig.FTP_PORT.key(),
                         FtpConfig.FTP_USERNAME.key(),
@@ -67,13 +67,15 @@ public class FtpFileSource extends BaseFileSource {
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         FileFormat fileFormat =
-                FileFormat.valueOf(pluginConfig.getString(FtpConfig.FILE_TYPE.key()).toUpperCase());
+                FileFormat.valueOf(
+                        pluginConfig.getString(FtpConfig.FILE_FORMAT_TYPE.key()).toUpperCase());
         if (fileFormat == FileFormat.ORC || fileFormat == FileFormat.PARQUET) {
             throw new FileConnectorException(
                     CommonErrorCode.ILLEGAL_ARGUMENT,
                     "Ftp file source connector only support read [text, csv, json] files");
         }
-        readStrategy = ReadStrategyFactory.of(pluginConfig.getString(FtpConfig.FILE_TYPE.key()));
+        readStrategy =
+                ReadStrategyFactory.of(pluginConfig.getString(FtpConfig.FILE_FORMAT_TYPE.key()));
         readStrategy.setPluginConfig(pluginConfig);
         String path = pluginConfig.getString(FtpConfig.FILE_PATH.key());
         hadoopConf = FtpConf.buildWithConfig(pluginConfig);
@@ -86,14 +88,13 @@ public class FtpFileSource extends BaseFileSource {
         }
         // support user-defined schema
         // only json type support user-defined schema now
-        if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA.key())) {
+        if (pluginConfig.hasPath(CatalogTableUtil.SCHEMA.key())) {
             switch (fileFormat) {
                 case CSV:
                 case TEXT:
                 case JSON:
-                    Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
                     SeaTunnelRowType userDefinedSchema =
-                            SeaTunnelSchema.buildWithConfig(schemaConfig).getSeaTunnelRowType();
+                            CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
                     readStrategy.setSeaTunnelRowTypeInfo(userDefinedSchema);
                     rowType = readStrategy.getActualSeaTunnelRowTypeInfo();
                     break;

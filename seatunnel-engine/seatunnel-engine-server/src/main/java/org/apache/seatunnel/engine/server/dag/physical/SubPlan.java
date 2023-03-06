@@ -22,6 +22,8 @@ import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineExecutionState;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinatorState;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinatorStatus;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.master.JobMaster;
@@ -43,6 +45,9 @@ import java.util.stream.Collectors;
 @Data
 public class SubPlan {
     private static final ILogger LOGGER = Logger.getLogger(SubPlan.class);
+
+    /** The max num pipeline can restore. */
+    public static final int PIPELINE_MAX_RESTORE_NUM = 2; // TODO should set by config
 
     private final List<PhysicalVertex> physicalVertexList;
 
@@ -86,6 +91,8 @@ public class SubPlan {
     private PassiveCompletableFuture<Void> reSchedulerPipelineFuture;
 
     private Integer pipelineRestoreNum;
+
+    private final Object restoreLock = new Object();
 
     public SubPlan(
             int pipelineId,
@@ -132,7 +139,7 @@ public class SubPlan {
         this.executorService = executorService;
     }
 
-    public PassiveCompletableFuture<PipelineExecutionState> initStateFuture() {
+    public synchronized PassiveCompletableFuture<PipelineExecutionState> initStateFuture() {
         physicalVertexList.forEach(
                 physicalVertex -> {
                     addPhysicalVertexCallBack(physicalVertex.initStateFuture());
@@ -169,29 +176,66 @@ public class SubPlan {
 
                         if (finishedTaskNum.incrementAndGet()
                                 == (physicalVertexList.size() + coordinatorVertexList.size())) {
+                            PipelineStatus pipelineStatus = null;
                             if (failedTaskNum.get() > 0) {
-                                turnToEndState(PipelineStatus.FAILED);
-                                LOGGER.info(
-                                        String.format(
-                                                "%s end with state FAILED", this.pipelineFullName));
+                                pipelineStatus = PipelineStatus.FAILED;
+                                // we don't care the checkpoint error reason when the task is
+                                // failed.
+                                jobMaster
+                                        .getCheckpointManager()
+                                        .cancelCheckpoint(getPipelineId())
+                                        .join();
                             } else if (canceledTaskNum.get() > 0) {
-                                turnToEndState(PipelineStatus.CANCELED);
-                                LOGGER.info(
-                                        String.format(
-                                                "%s end with state CANCELED",
-                                                this.pipelineFullName));
+                                pipelineStatus = PipelineStatus.CANCELED;
+                                CheckpointCoordinatorState checkpointCoordinatorState =
+                                        jobMaster
+                                                .getCheckpointManager()
+                                                .cancelCheckpoint(getPipelineId())
+                                                .join();
+                                if (CheckpointCoordinatorStatus.FAILED.equals(
+                                        checkpointCoordinatorState
+                                                .getCheckpointCoordinatorStatus())) {
+                                    pipelineStatus = PipelineStatus.FAILED;
+                                    errorByPhysicalVertex.set(
+                                            checkpointCoordinatorState.getThrowableMsg());
+                                }
                             } else {
-                                turnToEndState(PipelineStatus.FINISHED);
-                                LOGGER.info(
-                                        String.format(
-                                                "%s end with state FINISHED",
-                                                this.pipelineFullName));
+                                pipelineStatus = PipelineStatus.FINISHED;
+                                CheckpointCoordinatorState checkpointCoordinatorState =
+                                        jobMaster
+                                                .getCheckpointManager()
+                                                .waitCheckpointCoordinatorComplete(getPipelineId())
+                                                .join();
+
+                                if (CheckpointCoordinatorStatus.FAILED.equals(
+                                        checkpointCoordinatorState
+                                                .getCheckpointCoordinatorStatus())) {
+                                    pipelineStatus = PipelineStatus.FAILED;
+                                    errorByPhysicalVertex.set(
+                                            checkpointCoordinatorState.getThrowableMsg());
+                                } else if (CheckpointCoordinatorStatus.CANCELED.equals(
+                                        checkpointCoordinatorState
+                                                .getCheckpointCoordinatorStatus())) {
+                                    pipelineStatus = PipelineStatus.CANCELED;
+                                    errorByPhysicalVertex.set(
+                                            checkpointCoordinatorState.getThrowableMsg());
+                                }
                             }
+
+                            if (!checkNeedRestore(pipelineStatus)) {
+                                subPlanDone(pipelineStatus);
+                            }
+
+                            turnToEndState(pipelineStatus);
+                            LOGGER.info(
+                                    String.format(
+                                            "%s end with state %s",
+                                            this.pipelineFullName, pipelineStatus));
+
                             pipelineFuture.complete(
                                     new PipelineExecutionState(
                                             pipelineId,
-                                            (PipelineStatus)
-                                                    runningJobStateIMap.get(pipelineLocation),
+                                            pipelineStatus,
                                             errorByPhysicalVertex.get()));
                         }
                     } catch (Throwable e) {
@@ -202,14 +246,41 @@ public class SubPlan {
                                         executionState.getExecutionState()),
                                 e);
                     }
-                });
+                },
+                executorService);
+    }
+
+    private boolean checkNeedRestore(PipelineStatus pipelineStatus) {
+        return canRestorePipeline() && !PipelineStatus.FINISHED.equals(pipelineStatus);
+    }
+
+    /** only call when the pipeline will never restart */
+    private void notifyCheckpointManagerPipelineEnd(PipelineStatus pipelineStatus) {
+        if (jobMaster.getCheckpointManager() == null) {
+            return;
+        }
+        jobMaster
+                .getCheckpointManager()
+                .listenPipeline(getPipelineLocation().getPipelineId(), pipelineStatus)
+                .join();
+    }
+
+    private void subPlanDone(PipelineStatus pipelineStatus) {
+        jobMaster.savePipelineMetricsToHistory(getPipelineLocation());
+        jobMaster.removeMetricsContext(getPipelineLocation(), pipelineStatus);
+        jobMaster.releasePipelineResource(this);
+        notifyCheckpointManagerPipelineEnd(pipelineStatus);
+    }
+
+    public boolean canRestorePipeline() {
+        return jobMaster.isNeedRestore() && getPipelineRestoreNum() < PIPELINE_MAX_RESTORE_NUM;
     }
 
     private void turnToEndState(@NonNull PipelineStatus endState) {
         synchronized (this) {
             // consistency check
             PipelineStatus current = (PipelineStatus) runningJobStateIMap.get(pipelineLocation);
-            if (current.isEndState()) {
+            if (current.isEndState() && !endState.isEndState()) {
                 String message = "Pipeline is trying to leave terminal state " + current;
                 LOGGER.severe(message);
                 throw new IllegalStateException(message);
@@ -278,7 +349,7 @@ public class SubPlan {
         }
     }
 
-    public void cancelPipeline() {
+    public synchronized void cancelPipeline() {
         if (getPipelineState().isEndState()) {
             LOGGER.warning(
                     String.format(
@@ -298,10 +369,7 @@ public class SubPlan {
 
     private void cancelCheckpointCoordinator() {
         if (jobMaster.getCheckpointManager() != null) {
-            jobMaster
-                    .getCheckpointManager()
-                    .listenPipelineRetry(pipelineId, PipelineStatus.CANCELING)
-                    .join();
+            jobMaster.getCheckpointManager().cancelCheckpoint(pipelineId).join();
         }
     }
 
@@ -347,7 +415,7 @@ public class SubPlan {
     }
 
     /** Before restore a pipeline, the pipeline must do reset */
-    private void reset() {
+    private synchronized void reset() {
         resetPipelineState();
         finishedTaskNum.set(0);
         canceledTaskNum.set(0);
@@ -383,10 +451,13 @@ public class SubPlan {
 
     /** restore the pipeline when pipeline failed or canceled by error. */
     public void restorePipeline() {
-        synchronized (pipelineRestoreNum) {
+        synchronized (restoreLock) {
             try {
                 pipelineRestoreNum++;
-                LOGGER.info(String.format("Restore pipeline %s", pipelineFullName));
+                LOGGER.info(
+                        String.format(
+                                "Restore time %s, pipeline %s",
+                                pipelineRestoreNum + "", pipelineFullName));
                 // We must ensure the scheduler complete and then can handle pipeline state change.
                 if (jobMaster.getScheduleFuture() != null) {
                     jobMaster.getScheduleFuture().join();
@@ -435,8 +506,10 @@ public class SubPlan {
     }
 
     /** restore the pipeline state after new Master Node active */
-    public void restorePipelineState() {
-        // only need restore from RUNNING or CANCELING state
+    public synchronized void restorePipelineState() {
+        // if PipelineStatus is less than RUNNING or equals CANCELING, may some task is in state
+        // CREATED, we can not schedule this tasks because have no PipelineBaseScheduler instance.
+        // So, we need cancel the pipeline and restore it.
         if (getPipelineState().ordinal() < PipelineStatus.RUNNING.ordinal()) {
             cancelPipelineTasks();
         } else if (PipelineStatus.CANCELING.equals(getPipelineState())) {
@@ -476,5 +549,12 @@ public class SubPlan {
 
     public int getPipelineRestoreNum() {
         return pipelineRestoreNum;
+    }
+
+    public void handleCheckpointError() {
+        LOGGER.warning(
+                String.format(
+                        "%s checkpoint have error, cancel the pipeline", getPipelineFullName()));
+        this.cancelPipeline();
     }
 }

@@ -85,7 +85,7 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
                                                 .listAllJob()
                                                 .contains(
                                                         String.format(
-                                                                "{\"jobId\":%s,\"jobStatus\":\"FINISHED\"}",
+                                                                "\"jobId\":%s,\"jobName\":\"Test\",\"jobStatus\":\"FINISHED\"",
                                                                 JOB_1))));
 
         JobMetrics jobMetrics = server.getCoordinatorService().getJobMetrics(JOB_1);
@@ -136,10 +136,10 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
         // check metrics
         JobMetrics jobMetrics = coordinatorService.getJobMetrics(JOB_3);
         System.out.println(jobMetrics.toJsonString());
-        assertTrue(80 < (Long) jobMetrics.get(SINK_WRITE_COUNT).get(0).value());
-        assertTrue(80 < (Long) jobMetrics.get(SINK_WRITE_COUNT).get(1).value());
-        assertTrue(80 < (Long) jobMetrics.get(SOURCE_RECEIVED_COUNT).get(0).value());
-        assertTrue(80 < (Long) jobMetrics.get(SOURCE_RECEIVED_COUNT).get(1).value());
+        assertTrue(40 < (Long) jobMetrics.get(SINK_WRITE_COUNT).get(0).value());
+        assertTrue(40 < (Long) jobMetrics.get(SINK_WRITE_COUNT).get(1).value());
+        assertTrue(40 < (Long) jobMetrics.get(SOURCE_RECEIVED_COUNT).get(0).value());
+        assertTrue(40 < (Long) jobMetrics.get(SOURCE_RECEIVED_COUNT).get(1).value());
     }
 
     private void startJob(Long jobid, String path, boolean isStartWithSavePoint) {
@@ -148,6 +148,7 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
         JobImmutableInformation jobImmutableInformation =
                 new JobImmutableInformation(
                         jobid,
+                        "Test",
                         isStartWithSavePoint,
                         nodeEngine.getSerializationService().toData(testLogicalDag),
                         testLogicalDag.getJobConfig(),

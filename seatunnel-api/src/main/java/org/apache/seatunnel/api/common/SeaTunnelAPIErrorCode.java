@@ -26,6 +26,8 @@ public enum SeaTunnelAPIErrorCode implements SeaTunnelErrorCode {
     DATABASE_NOT_EXISTED("API-04", "Database not existed"),
     TABLE_NOT_EXISTED("API-05", "Table not existed"),
     FACTORY_INITIALIZE_FAILED("API-06", "Factory initialize failed"),
+    DATABASE_ALREADY_EXISTED("API-07", "Database already existed"),
+    TABLE_ALREADY_EXISTED("API-08", "Table already existed"),
     ;
 
     private final String code;

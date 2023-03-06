@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
@@ -38,7 +39,6 @@ import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
@@ -47,6 +47,7 @@ import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.debezium.DebeziumJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
+import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
 import org.apache.kafka.common.TopicPartition;
 
@@ -57,7 +58,7 @@ import java.util.Map;
 import java.util.Properties;
 
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.BOOTSTRAP_SERVERS;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CANNAL_FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CANAL_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.COMMIT_ON_CHECKPOINT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CONSUMER_GROUP;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEBEZIUM_FORMAT;
@@ -80,8 +81,6 @@ public class KafkaSource
         implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSplit, KafkaSourceState>,
                 SupportParallelism {
 
-    private static final String DEFAULT_CONSUMER_GROUP = "SeaTunnel-Consumer-Group";
-
     private final ConsumerMetadata metadata = new ConsumerMetadata();
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private SeaTunnelRowType typeInfo;
@@ -97,7 +96,7 @@ public class KafkaSource
 
     @Override
     public String getPluginName() {
-        return "Kafka";
+        return org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CONNECTOR_IDENTITY;
     }
 
     @Override
@@ -114,6 +113,8 @@ public class KafkaSource
         this.metadata.setTopic(config.getString(TOPIC.key()));
         if (config.hasPath(PATTERN.key())) {
             this.metadata.setPattern(config.getBoolean(PATTERN.key()));
+        } else {
+            this.metadata.setPattern(PATTERN.defaultValue());
         }
         this.metadata.setBootstrapServers(config.getString(BOOTSTRAP_SERVERS.key()));
         this.metadata.setProperties(new Properties());
@@ -121,7 +122,7 @@ public class KafkaSource
         if (config.hasPath(CONSUMER_GROUP.key())) {
             this.metadata.setConsumerGroup(config.getString(CONSUMER_GROUP.key()));
         } else {
-            this.metadata.setConsumerGroup(DEFAULT_CONSUMER_GROUP);
+            this.metadata.setConsumerGroup(CONSUMER_GROUP.defaultValue());
         }
 
         if (config.hasPath(COMMIT_ON_CHECKPOINT.key())) {
@@ -226,7 +227,8 @@ public class KafkaSource
     private void setDeserialization(Config config) {
         if (config.hasPath(SCHEMA.key())) {
             Config schema = config.getConfig(SCHEMA.key());
-            typeInfo = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
+            // todo: use KafkaDataTypeConvertor here?
+            typeInfo = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
             String format = DEFAULT_FORMAT;
             if (config.hasPath(FORMAT.key())) {
                 format = config.getString(FORMAT.key());
@@ -246,7 +248,7 @@ public class KafkaSource
                                     .delimiter(delimiter)
                                     .build();
                     break;
-                case CANNAL_FORMAT:
+                case CANAL_FORMAT:
                     deserializationSchema =
                             CanalJsonDeserializationSchema.builder(typeInfo)
                                     .setIgnoreParseErrors(true)
@@ -261,11 +263,11 @@ public class KafkaSource
                             CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + format);
             }
         } else {
-            typeInfo = SeaTunnelSchema.buildSimpleTextSchema();
+            typeInfo = CatalogTableUtil.buildSimpleTextSchema();
             this.deserializationSchema =
                     TextDeserializationSchema.builder()
                             .seaTunnelRowType(typeInfo)
-                            .delimiter(String.valueOf('\002'))
+                            .delimiter(TextFormatConstant.PLACEHOLDER)
                             .build();
         }
     }
