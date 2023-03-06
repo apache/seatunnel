@@ -120,7 +120,7 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 );
 ```
 
-The connector will automatically obtain the corresponding type from the upstream to complete the filling, 
+The connector will automatically obtain the corresponding type from the upstream to complete the filling,
 and remove the id field from `rowtype_fields`. This method can be used to customize the modification of field types and attributes.
 
 You can use the following placeholders
