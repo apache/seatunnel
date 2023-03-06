@@ -59,7 +59,9 @@ public class NotifyTaskStartOperation extends TaskOperation {
                         true,
                         exception ->
                                 exception instanceof TaskGroupContextNotFoundException
-                                        && !server.taskIsEnded(taskLocation.getTaskGroupLocation()),
+                                        || exception instanceof NullPointerException
+                                                && !server.taskIsEnded(
+                                                        taskLocation.getTaskGroupLocation()),
                         Constant.OPERATION_RETRY_SLEEP));
     }
 }

@@ -22,6 +22,8 @@ import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineExecutionState;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinatorState;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinatorStatus;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.master.JobMaster;
@@ -91,8 +93,6 @@ public class SubPlan {
     private Integer pipelineRestoreNum;
 
     private final Object restoreLock = new Object();
-
-    private Throwable checkpointThrowable;
 
     public SubPlan(
             int pipelineId,
@@ -179,17 +179,47 @@ public class SubPlan {
                             PipelineStatus pipelineStatus = null;
                             if (failedTaskNum.get() > 0) {
                                 pipelineStatus = PipelineStatus.FAILED;
+                                // we don't care the checkpoint error reason when the task is
+                                // failed.
+                                jobMaster
+                                        .getCheckpointManager()
+                                        .cancelCheckpoint(getPipelineId())
+                                        .join();
                             } else if (canceledTaskNum.get() > 0) {
-                                if (checkpointThrowable != null) {
+                                pipelineStatus = PipelineStatus.CANCELED;
+                                CheckpointCoordinatorState checkpointCoordinatorState =
+                                        jobMaster
+                                                .getCheckpointManager()
+                                                .cancelCheckpoint(getPipelineId())
+                                                .join();
+                                if (CheckpointCoordinatorStatus.FAILED.equals(
+                                        checkpointCoordinatorState
+                                                .getCheckpointCoordinatorStatus())) {
                                     pipelineStatus = PipelineStatus.FAILED;
                                     errorByPhysicalVertex.set(
-                                            ExceptionUtils.getMessage(checkpointThrowable));
-                                    checkpointThrowable = null;
-                                } else {
-                                    pipelineStatus = PipelineStatus.CANCELED;
+                                            checkpointCoordinatorState.getThrowableMsg());
                                 }
                             } else {
                                 pipelineStatus = PipelineStatus.FINISHED;
+                                CheckpointCoordinatorState checkpointCoordinatorState =
+                                        jobMaster
+                                                .getCheckpointManager()
+                                                .waitCheckpointCoordinatorComplete(getPipelineId())
+                                                .join();
+
+                                if (CheckpointCoordinatorStatus.FAILED.equals(
+                                        checkpointCoordinatorState
+                                                .getCheckpointCoordinatorStatus())) {
+                                    pipelineStatus = PipelineStatus.FAILED;
+                                    errorByPhysicalVertex.set(
+                                            checkpointCoordinatorState.getThrowableMsg());
+                                } else if (CheckpointCoordinatorStatus.CANCELED.equals(
+                                        checkpointCoordinatorState
+                                                .getCheckpointCoordinatorStatus())) {
+                                    pipelineStatus = PipelineStatus.CANCELED;
+                                    errorByPhysicalVertex.set(
+                                            checkpointCoordinatorState.getThrowableMsg());
+                                }
                             }
 
                             if (!checkNeedRestore(pipelineStatus)) {
@@ -339,10 +369,7 @@ public class SubPlan {
 
     private void cancelCheckpointCoordinator() {
         if (jobMaster.getCheckpointManager() != null) {
-            jobMaster
-                    .getCheckpointManager()
-                    .listenPipelineRetry(pipelineId, PipelineStatus.CANCELING)
-                    .join();
+            jobMaster.getCheckpointManager().cancelCheckpoint(pipelineId).join();
         }
     }
 
@@ -524,12 +551,10 @@ public class SubPlan {
         return pipelineRestoreNum;
     }
 
-    public void handleCheckpointError(Throwable e) {
+    public void handleCheckpointError() {
         LOGGER.warning(
                 String.format(
-                        "%s checkpoint have error, cancel the pipeline", getPipelineFullName()),
-                e);
-        this.checkpointThrowable = e;
+                        "%s checkpoint have error, cancel the pipeline", getPipelineFullName()));
         this.cancelPipeline();
     }
 }

@@ -126,6 +126,8 @@ public class CheckpointCoordinator {
 
     private final ExecutorService executorService;
 
+    private CompletableFuture<CheckpointCoordinatorState> checkpointCoordinatorFuture;
+
     @SneakyThrows
     public CheckpointCoordinator(
             CheckpointManager manager,
@@ -168,6 +170,7 @@ public class CheckpointCoordinator {
             this.latestCompletedCheckpoint =
                     serializer.deserialize(pipelineState.getStates(), CompletedCheckpoint.class);
         }
+        this.checkpointCoordinatorFuture = new CompletableFuture();
     }
 
     public int getPipelineId() {
@@ -210,8 +213,13 @@ public class CheckpointCoordinator {
     }
 
     private void handleCoordinatorError(CheckpointCloseReason reason, Throwable e) {
+        CheckpointException checkpointException = new CheckpointException(reason, e);
         cleanPendingCheckpoint(reason);
-        checkpointManager.handleCheckpointError(pipelineId, new CheckpointException(reason, e));
+        checkpointCoordinatorFuture.complete(
+                new CheckpointCoordinatorState(
+                        CheckpointCoordinatorStatus.FAILED,
+                        ExceptionUtils.getMessage(checkpointException)));
+        checkpointManager.handleCheckpointError(pipelineId);
     }
 
     private void restoreTaskState(TaskLocation taskLocation) {
@@ -282,6 +290,7 @@ public class CheckpointCoordinator {
 
     protected void restoreCoordinator(boolean alreadyStarted) {
         LOG.info("received restore CheckpointCoordinator with alreadyStarted= " + alreadyStarted);
+        checkpointCoordinatorFuture = new CompletableFuture<>();
         cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET);
         shutdown = false;
         if (alreadyStarted) {
@@ -653,6 +662,8 @@ public class CheckpointCoordinator {
         latestCompletedCheckpoint = completedCheckpoint;
         if (isCompleted()) {
             cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_COMPLETED);
+            checkpointCoordinatorFuture.complete(
+                    new CheckpointCoordinatorState(CheckpointCoordinatorStatus.FINISHED, null));
         }
     }
 
@@ -669,7 +680,8 @@ public class CheckpointCoordinator {
         if (latestCompletedCheckpoint == null) {
             return false;
         }
-        return latestCompletedCheckpoint.getCheckpointType() == COMPLETED_POINT_TYPE;
+        return latestCompletedCheckpoint.getCheckpointType() == COMPLETED_POINT_TYPE
+                || latestCompletedCheckpoint.getCheckpointType() == SAVEPOINT_TYPE;
     }
 
     public boolean isEndOfSavePoint() {
@@ -677,5 +689,22 @@ public class CheckpointCoordinator {
             return false;
         }
         return latestCompletedCheckpoint.getCheckpointType() == SAVEPOINT_TYPE;
+    }
+
+    public PassiveCompletableFuture<CheckpointCoordinatorState>
+            waitCheckpointCoordinatorComplete() {
+        return new PassiveCompletableFuture<>(checkpointCoordinatorFuture);
+    }
+
+    public PassiveCompletableFuture<CheckpointCoordinatorState> cancelCheckpoint() {
+        // checkpoint maybe already failed before all tasks complete.
+        if (checkpointCoordinatorFuture.isDone()) {
+            return new PassiveCompletableFuture<>(checkpointCoordinatorFuture);
+        }
+        cleanPendingCheckpoint(CheckpointCloseReason.PIPELINE_END);
+        CheckpointCoordinatorState checkpointCoordinatorState =
+                new CheckpointCoordinatorState(CheckpointCoordinatorStatus.CANCELED, null);
+        checkpointCoordinatorFuture.complete(checkpointCoordinatorState);
+        return new PassiveCompletableFuture<>(checkpointCoordinatorFuture);
     }
 }
