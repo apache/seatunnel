@@ -23,8 +23,7 @@ public enum FileConnectorErrorCode implements SeaTunnelErrorCode {
     FILE_TYPE_INVALID("FILE-01", "File type is invalid"),
     DATA_DESERIALIZE_FAILED("FILE-02", "Data deserialization failed"),
     FILE_LIST_GET_FAILED("FILE-03", "Get file list failed"),
-    FILE_LIST_EMPTY("FILE-04", "File list is empty"),
-    AGGREGATE_COMMIT_ERROR("FILE-05", "Aggregate committer error");
+    FILE_LIST_EMPTY("FILE-04", "File list is empty");
 
     private final String code;
     private final String description;
