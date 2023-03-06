@@ -106,6 +106,23 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 );
 ```
 
+If a custom field is filled in the template, such as adding an `id` field
+
+```sql
+CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
+(   
+    id,
+    ${rowtype_fields}
+) ENGINE = OLAP DISTRIBUTED BY HASH (${rowtype_primary_key})
+    PROPERTIES
+(
+    "replication_num" = "1"
+);
+```
+
+The connector will automatically obtain the corresponding type from the upstream to complete the filling,
+and remove the id field from `rowtype_fields`. This method can be used to customize the modification of field types and attributes.
+
 You can use the following placeholders
 
 - database: Used to get the database in the upstream schema
