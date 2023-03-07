@@ -423,7 +423,8 @@ public class PhysicalVertex {
         // In order not to generate uncontrolled tasks, We will try again until the taskFuture is
         // completed
         while (!taskFuture.isDone()
-                && nodeEngine.getClusterService().getMember(getCurrentExecutionAddress()) != null) {
+                && nodeEngine.getClusterService().getMember(getCurrentExecutionAddress()) != null
+                && i < Constant.OPERATION_RETRY_TIME) {
             try {
                 i++;
                 LOGGER.info(
@@ -478,6 +479,8 @@ public class PhysicalVertex {
             }
             updateStateTimestamps(ExecutionState.CREATED);
             runningJobStateIMap.set(taskGroupLocation, ExecutionState.CREATED);
+            LOGGER.info(
+                    String.format("%s turn to state %s.", taskFullName, ExecutionState.CREATED));
         }
     }
 

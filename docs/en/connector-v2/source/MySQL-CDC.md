@@ -20,12 +20,10 @@ describes how to setup the MySQL CDC connector to run SQL queries against MySQL 
 
 |                      name                      |   type   | required | default value |
 |------------------------------------------------|----------|----------|---------------|
-| hostname                                       | String   | Yes      | -             |
-| port                                           | Integer  | No       | 3306          |
 | username                                       | String   | Yes      | -             |
 | password                                       | String   | Yes      | -             |
-| database-name                                  | String   | Yes      | -             |
-| table-name                                     | String   | Yes      | -             |
+| database-names                                 | List     | No       | -             |
+| table-names                                    | List     | Yes      | -             |
 | base-url                                       | String   | Yes      | -             |
 | startup.mode                                   | Enum     | No       | INITIAL       |
 | startup.timestamp                              | Long     | No       | -             |
@@ -48,14 +46,6 @@ describes how to setup the MySQL CDC connector to run SQL queries against MySQL 
 | debezium.*                                     | config   | No       | -             |
 | common-options                                 |          | no       | -             |
 
-### hostname [String]
-
-IP address or hostname of the database server.
-
-### port [Integer]
-
-Integer port number of the database server.
-
 ### username [String]
 
 Name of the database to use when connecting to the database server.
@@ -64,18 +54,17 @@ Name of the database to use when connecting to the database server.
 
 Password to use when connecting to the database server.
 
-### database-name [String]
+### database-names [List]
 
 Database name of the database to monitor.
 
-### table-name [String]
+### table-names [List]
 
-Table name of the database to monitor.
+Table name of the database to monitor. The table name needs to include the database name, for example: database_name.table_name
 
 ### base-url [String]
 
-URL has to be without database, like "jdbc:mysql://localhost:5432/" or "jdbc:mariadb://localhost:5432" rather than "
-jdbc:polardb://localhost:5432/db"
+URL has to be with database, like "jdbc:mysql://localhost:5432/db" or "jdbc:mysql://localhost:5432/db?useSSL=true".
 
 ### startup.mode [Enum]
 
@@ -192,13 +181,10 @@ source {
     result_table_name = "fake"
     parallelism = 1
     server-id = 5656
-    port = 56725
-    hostname = "127.0.0.1"
     username = "mysqluser"
     password = "mysqlpw"
-    database-name = "inventory_vwyw0n"
-    table-name = "products"
-    base-url = "jdbc:mysql://localhost:56725"
+    table-names = ["inventory_vwyw0n.products"]
+    base-url = "jdbc:mysql://localhost:56725/inventory_vwyw0n"
   }
 }
 ```

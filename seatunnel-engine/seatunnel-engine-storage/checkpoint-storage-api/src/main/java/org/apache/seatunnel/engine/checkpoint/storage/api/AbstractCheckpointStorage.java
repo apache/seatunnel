@@ -115,6 +115,9 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
 
     public void setStorageNameSpace(String storageNameSpace) {
         if (storageNameSpace != null) {
+            if (!storageNameSpace.endsWith(DEFAULT_CHECKPOINT_FILE_PATH_SPLIT)) {
+                storageNameSpace = storageNameSpace + DEFAULT_CHECKPOINT_FILE_PATH_SPLIT;
+            }
             this.storageNameSpace = storageNameSpace;
         }
     }

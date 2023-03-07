@@ -135,7 +135,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
         return writer;
     }
 
-    private TypeDescription buildFieldWithRowType(SeaTunnelDataType<?> type) {
+    public static TypeDescription buildFieldWithRowType(SeaTunnelDataType<?> type) {
         switch (type.getSqlType()) {
             case ARRAY:
                 BasicType<?> elementType = ((ArrayType<?, ?>) type).getElementType();

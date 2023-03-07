@@ -33,6 +33,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | user                                      | String  | No       | -             |
 | password                                  | String  | No       | -             |
 | query                                     | String  | No       | -             |
+| database                                  | String  | No       | -             |
 | table                                     | String  | No       | -             |
 | primary_keys                              | Array   | No       | -             |
 | support_upsert_by_query_primary_key_exist | Boolean | No       | false         |
@@ -67,9 +68,15 @@ The URL of the JDBC connection. Refer to a case: jdbc:postgresql://localhost/tes
 
 Use this sql write upstream input datas to database. e.g `INSERT ...`
 
+### database [string]
+
+Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.
+
+This option is mutually exclusive with `query` and has a higher priority.
+
 ### table [string]
 
-Use this `table-name` auto-generate sql and receive upstream input datas write to database.
+Use `database` and this `table-name` auto-generate sql and receive upstream input datas write to database.
 
 This option is mutually exclusive with `query` and has a higher priority.
 
@@ -229,4 +236,5 @@ sink {
 - [Feature] Support Doris JDBC Sink
 - [Feature] Support Redshift JDBC Sink([#3615](https://github.com/apache/incubator-seatunnel/pull/3615))
 - [Improve] Add config item enable upsert by query([#3708](https://github.com/apache/incubator-seatunnel/pull/3708))
+- [Improve] Add database field to sink config([#4199](https://github.com/apache/incubator-seatunnel/pull/4199))
 

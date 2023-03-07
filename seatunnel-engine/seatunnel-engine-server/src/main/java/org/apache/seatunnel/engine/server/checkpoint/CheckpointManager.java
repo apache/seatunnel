@@ -49,6 +49,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -77,14 +78,18 @@ public class CheckpointManager {
 
     private final JobMaster jobMaster;
 
+    private final ExecutorService executorService;
+
     public CheckpointManager(
             long jobId,
             boolean isStartWithSavePoint,
             NodeEngine nodeEngine,
             JobMaster jobMaster,
             Map<Integer, CheckpointPlan> checkpointPlanMap,
-            CheckpointConfig checkpointConfig)
+            CheckpointConfig checkpointConfig,
+            ExecutorService executorService)
             throws CheckpointStorageException {
+        this.executorService = executorService;
         this.jobId = jobId;
         this.nodeEngine = nodeEngine;
         this.jobMaster = jobMaster;
@@ -107,27 +112,20 @@ public class CheckpointManager {
                                                     plan.getPipelineId(), checkpointIdMap);
                                     try {
                                         idCounter.start();
-                                        PipelineState pipelineState = null;
-                                        if (isStartWithSavePoint) {
-                                            pipelineState =
-                                                    checkpointStorage
-                                                            .getLatestCheckpointByJobIdAndPipelineId(
-                                                                    String.valueOf(jobId),
-                                                                    String.valueOf(
-                                                                            plan.getPipelineId()));
+                                        PipelineState pipelineState =
+                                                checkpointStorage
+                                                        .getLatestCheckpointByJobIdAndPipelineId(
+                                                                String.valueOf(jobId),
+                                                                String.valueOf(
+                                                                        plan.getPipelineId()));
+                                        if (pipelineState != null) {
                                             long checkpointId = pipelineState.getCheckpointId();
-                                            idCounter.setCount(checkpointId);
+                                            idCounter.setCount(checkpointId + 1);
+
                                             log.info(
                                                     "pipeline({}) start with savePoint on checkPointId({})",
                                                     plan.getPipelineId(),
                                                     checkpointId);
-                                        } else if (idCounter.get()
-                                                != CheckpointIDCounter.INITIAL_CHECKPOINT_ID) {
-                                            pipelineState =
-                                                    checkpointStorage.getCheckpoint(
-                                                            String.valueOf(jobId),
-                                                            String.valueOf(plan.getPipelineId()),
-                                                            String.valueOf(idCounter.get() - 1));
                                         }
                                         return new CheckpointCoordinator(
                                                 this,
@@ -136,7 +134,8 @@ public class CheckpointManager {
                                                 jobId,
                                                 plan,
                                                 idCounter,
-                                                pipelineState);
+                                                pipelineState,
+                                                executorService);
                                     } catch (Exception e) {
                                         ExceptionUtil.sneakyThrow(e);
                                     }
@@ -152,7 +151,7 @@ public class CheckpointManager {
      * After the savepoint is triggered, it will cause the job to stop automatically.
      */
     @SuppressWarnings("unchecked")
-    public PassiveCompletableFuture<CompletedCheckpoint>[] triggerSavepoints() {
+    public PassiveCompletableFuture<CompletedCheckpoint>[] triggerSavePoints() {
         return coordinatorMap
                 .values()
                 .parallelStream()
@@ -172,8 +171,8 @@ public class CheckpointManager {
         getCheckpointCoordinator(pipelineId).restoreCoordinator(alreadyStarted);
     }
 
-    protected void handleCheckpointError(int pipelineId, Throwable e) {
-        jobMaster.handleCheckpointError(pipelineId, e);
+    protected void handleCheckpointError(int pipelineId) {
+        jobMaster.handleCheckpointError(pipelineId);
     }
 
     private CheckpointCoordinator getCheckpointCoordinator(TaskLocation taskLocation) {
@@ -214,18 +213,6 @@ public class CheckpointManager {
 
     /**
      * Called by the JobMaster. <br>
-     * Listen to the {@link PipelineStatus} of the {@link SubPlan}, which is used to cancel the
-     * running {@link PendingCheckpoint} when the SubPlan is abnormal.
-     */
-    public CompletableFuture<Void> listenPipelineRetry(
-            int pipelineId, PipelineStatus pipelineStatus) {
-        getCheckpointCoordinator(pipelineId)
-                .cleanPendingCheckpoint(CheckpointCloseReason.PIPELINE_END);
-        return CompletableFuture.completedFuture(null);
-    }
-
-    /**
-     * Called by the JobMaster. <br>
      * Listen to the {@link PipelineStatus} of the {@link Pipeline}, which is used to shut down the
      * running {@link CheckpointIDCounter} at the end of the pipeline.
      */
@@ -262,6 +249,7 @@ public class CheckpointManager {
      * the {@link Task}.
      */
     public void acknowledgeTask(TaskAcknowledgeOperation ackOperation) {
+        log.debug("checkpoint manager received ack {}", ackOperation.getTaskLocation());
         CheckpointCoordinator coordinator =
                 getCheckpointCoordinator(ackOperation.getTaskLocation());
         if (coordinator.isCompleted()) {
@@ -286,5 +274,28 @@ public class CheckpointManager {
                 operation,
                 jobMaster.queryTaskGroupAddress(
                         operation.getTaskLocation().getTaskGroupLocation().getTaskGroupId()));
+    }
+
+    /**
+     * Call By JobMaster If all the tasks canceled or some task failed, JobMaster will call this
+     * method to cancel checkpoint coordinator.
+     *
+     * @param pipelineId
+     * @return
+     */
+    public PassiveCompletableFuture<CheckpointCoordinatorState> cancelCheckpoint(int pipelineId) {
+        return getCheckpointCoordinator(pipelineId).cancelCheckpoint();
+    }
+
+    /**
+     * Call By JobMaster If all the tasks is finished, JobMaster will call this method to wait
+     * checkpoint coordinator complete.
+     *
+     * @param pipelineId
+     * @return
+     */
+    public PassiveCompletableFuture<CheckpointCoordinatorState> waitCheckpointCoordinatorComplete(
+            int pipelineId) {
+        return getCheckpointCoordinator(pipelineId).waitCheckpointCoordinatorComplete();
     }
 }

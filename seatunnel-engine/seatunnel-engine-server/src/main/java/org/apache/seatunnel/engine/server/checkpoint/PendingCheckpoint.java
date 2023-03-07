@@ -118,6 +118,7 @@ public class PendingCheckpoint implements Checkpoint {
             TaskLocation taskLocation,
             List<ActionSubtaskState> states,
             SubtaskStatus subtaskStatus) {
+        LOG.debug("acknowledgeTask states [{}]", states);
         boolean exist = notYetAcknowledgedTasks.remove(taskLocation.getTaskID());
         if (!exist) {
             return;
@@ -128,7 +129,7 @@ public class PendingCheckpoint implements Checkpoint {
         for (ActionSubtaskState state : states) {
             ActionState actionState = actionStates.get(state.getActionId());
             if (actionState == null) {
-                return;
+                continue;
             }
             stateSize +=
                     state.getState().stream().filter(Objects::nonNull).map(s -> s.length).count();
@@ -170,5 +171,14 @@ public class PendingCheckpoint implements Checkpoint {
             this.failureCause = new CheckpointException(closedReason, cause);
             completableFuture.completeExceptionally(failureCause);
         }
+    }
+
+    public String getInfo() {
+        return String.format(
+                "%s/%s/%s, %s",
+                this.getJobId(),
+                this.getPipelineId(),
+                this.getCheckpointId(),
+                this.getCheckpointType());
     }
 }

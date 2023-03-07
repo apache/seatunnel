@@ -224,7 +224,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
-    private Type seaTunnelDataType2ParquetDataType(
+    public static Type seaTunnelDataType2ParquetDataType(
             String fieldName, SeaTunnelDataType<?> seaTunnelDataType) {
         switch (seaTunnelDataType.getSqlType()) {
             case ARRAY:

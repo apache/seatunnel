@@ -22,6 +22,7 @@ import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
+import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
@@ -58,5 +59,9 @@ public class TaskExecutionContext {
 
     public <T> T getTask() {
         return (T) task;
+    }
+
+    public HazelcastInstance getInstance() {
+        return nodeEngine.getHazelcastInstance();
     }
 }

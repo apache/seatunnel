@@ -112,6 +112,6 @@ public class KafkaSink
 
     @Override
     public String getPluginName() {
-        return "Kafka";
+        return org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CONNECTOR_IDENTITY;
     }
 }
