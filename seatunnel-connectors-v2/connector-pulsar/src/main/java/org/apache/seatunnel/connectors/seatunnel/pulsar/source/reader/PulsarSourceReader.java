@@ -172,6 +172,9 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
                     PulsarSplitReaderThread splitReaderThread =
                             createPulsarSplitReaderThread(split);
                     try {
+                        splitReaderThread.setName(
+                                "Pulsar Source Data Consumer "
+                                        + split.getPartition().getPartition());
                         splitReaderThread.open();
                         splitReaders.put(split.splitId(), splitReaderThread);
                         splitReaderThread.start();
