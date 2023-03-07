@@ -35,51 +35,25 @@ public class TestSQLIT extends TestSuiteBase {
 
     @TestTemplate
     public void testSQLTransform(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/sql_transform.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-    }
-
-    @TestTemplate
-    public void testSQLTransBinaryExpr(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult execResult =
+        Container.ExecResult sqlTransform = container.executeJob("/sql_transform.conf");
+        Assertions.assertEquals(0, sqlTransform.getExitCode());
+        Container.ExecResult sqlBinaryExpression =
                 container.executeJob("/sql_transform/binary_expression.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-    }
-
-    @TestTemplate
-    public void testSQLTransStringFunction(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/sql_transform/func_string.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-    }
-
-    @TestTemplate
-    public void testSQLTransNumericFunction(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/sql_transform/func_numeric.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-    }
-
-    @TestTemplate
-    public void testSQLTransDatetimeFunction(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/sql_transform/func_datetime.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-    }
-
-    @TestTemplate
-    public void testSQLTransSystemFunction(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/sql_transform/func_system.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-    }
-
-    @TestTemplate
-    public void testSQLTransCriteriaFilter(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult execResult =
+        Assertions.assertEquals(0, sqlBinaryExpression.getExitCode());
+        Container.ExecResult sqlFuncString =
+                container.executeJob("/sql_transform/func_string.conf");
+        Assertions.assertEquals(0, sqlFuncString.getExitCode());
+        Container.ExecResult sqlFuncNumeric =
+                container.executeJob("/sql_transform/func_numeric.conf");
+        Assertions.assertEquals(0, sqlFuncNumeric.getExitCode());
+        Container.ExecResult sqlFuncDatetime =
+                container.executeJob("/sql_transform/func_datetime.conf");
+        Assertions.assertEquals(0, sqlFuncDatetime.getExitCode());
+        Container.ExecResult sqlFuncSystem =
+                container.executeJob("/sql_transform/func_system.conf");
+        Assertions.assertEquals(0, sqlFuncSystem.getExitCode());
+        Container.ExecResult sqlCriteriaFilter =
                 container.executeJob("/sql_transform/criteria_filter.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, sqlCriteriaFilter.getExitCode());
     }
 }
