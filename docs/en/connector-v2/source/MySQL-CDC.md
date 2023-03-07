@@ -5,7 +5,7 @@
 ## Description
 
 The MySQL CDC connector allows for reading snapshot data and incremental data from MySQL database. This document
-describes how to set up the MySQL CDC connector to run SQL queries against MySQL databases.
+describes how to setup the MySQL CDC connector to run SQL queries against MySQL databases.
 
 ## Key features
 
@@ -18,7 +18,7 @@ describes how to set up the MySQL CDC connector to run SQL queries against MySQL
 
 ## Options
 
-| name                                           |   type   | required | default value |
+|                      name                      |   type   | required | default value |
 |------------------------------------------------|----------|----------|---------------|
 | username                                       | String   | Yes      | -             |
 | password                                       | String   | Yes      | -             |
@@ -38,7 +38,7 @@ describes how to set up the MySQL CDC connector to run SQL queries against MySQL
 | snapshot.fetch.size                            | Integer  | No       | 1024          |
 | server-id                                      | String   | No       | -             |
 | server-time-zone                               | String   | No       | UTC           |
-| connect.timeout.ms                             | Duration | No       | 30000         |
+| connect.timeout                                | Duration | No       | 30s           |
 | connect.max-retries                            | Integer  | No       | 3             |
 | connection.pool.size                           | Integer  | No       | 20            |
 | chunk-key.even-distribution.factor.upper-bound | Double   | No       | 1000          |
@@ -137,7 +137,7 @@ By default, a random number is generated between 5400 and 6400, though we recomm
 
 The session time zone in database server.
 
-### connect.timeout.ms [long]
+### connect.timeout [Duration]
 
 The maximum time that the connector should wait after trying to connect to the database server before timing out.
 
@@ -191,6 +191,7 @@ source {
 
 ## Changelog
 
+### next version
+
 - Add MySQL CDC Source Connector
 
-### next version
