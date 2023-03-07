@@ -7,6 +7,16 @@
 Used to send data to Doris. Both support streaming and batch mode.
 The internal implementation of Doris sink connector is cached and imported by stream load in batches.
 
+:::tip
+
+Version Supported
+
+* exactly-once & cdc supported  `Doris version is >= 1.1.x`
+* Array data type supported  `Doris version is >= 1.2.x`
+* Map data type will be support in `Doris version is 2.x`
+
+:::
+
 ## Key features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
@@ -25,7 +35,7 @@ The internal implementation of Doris sink connector is cached and imported by st
 | sink.enable-delete | bool   | no       | false         |
 | doris.config       | map    | yes      | -             |
 
-### node_urls [string]
+### fenodes [string]
 
 `Doris` cluster fenodes address, the format is `"fe_ip:fe_http_port, ..."`
 
