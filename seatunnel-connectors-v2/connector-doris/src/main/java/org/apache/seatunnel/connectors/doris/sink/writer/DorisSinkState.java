@@ -27,9 +27,11 @@ import lombok.ToString;
 @ToString
 @EqualsAndHashCode
 public class DorisSinkState {
-    String labelPrefix;
+    private final String labelPrefix;
+    private final long checkpointId;
 
-    public DorisSinkState(String labelPrefix) {
+    public DorisSinkState(String labelPrefix, long checkpointId) {
         this.labelPrefix = labelPrefix;
+        this.checkpointId = checkpointId;
     }
 }

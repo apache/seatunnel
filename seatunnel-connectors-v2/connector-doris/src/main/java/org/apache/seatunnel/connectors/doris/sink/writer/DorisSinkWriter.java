@@ -59,7 +59,7 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
     private static final int CONNECT_TIMEOUT = 1000;
     private static final List<String> DORIS_SUCCESS_STATUS =
             new ArrayList<>(Arrays.asList(LoadStatus.SUCCESS, LoadStatus.PUBLISH_TIMEOUT));
-    private final long lastCheckpointId = 0;
+    private final long lastCheckpointId;
     private DorisStreamLoad dorisStreamLoad;
     volatile boolean loading;
     private final DorisConfig dorisConfig;
@@ -80,9 +80,10 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
             SeaTunnelRowType seaTunnelRowType,
             Config pluginConfig) {
         this.dorisConfig = DorisConfig.loadConfig(pluginConfig);
+        this.lastCheckpointId = state.size() != 0 ? state.get(0).getCheckpointId() : 0;
         log.info("restore checkpointId {}", lastCheckpointId);
         log.info("labelPrefix " + dorisConfig.getLabelPrefix());
-        this.dorisSinkState = new DorisSinkState(dorisConfig.getLabelPrefix());
+        this.dorisSinkState = new DorisSinkState(dorisConfig.getLabelPrefix(), lastCheckpointId);
         this.labelPrefix = dorisConfig.getLabelPrefix() + "_" + context.getIndexOfSubtask();
         this.labelGenerator = new LabelGenerator(labelPrefix, dorisConfig.getEnable2PC());
         this.scheduledExecutorService =
@@ -157,7 +158,15 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
     }
 
     @Override
-    public void abortPrepare() {}
+    public void abortPrepare() {
+        if (dorisConfig.getEnable2PC()) {
+            try {
+                dorisStreamLoad.abortPreCommit(labelPrefix, lastCheckpointId + 1);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
 
     private void checkDone() {
         // the load future is done and checked in prepareCommit().

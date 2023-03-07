@@ -74,7 +74,11 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
     }
 
     @Override
-    public void abort(List<DorisCommitInfo> commitInfos) throws IOException {}
+    public void abort(List<DorisCommitInfo> commitInfos) throws IOException {
+        for (DorisCommitInfo commitInfo : commitInfos) {
+            abortTransaction(commitInfo);
+        }
+    }
 
     private void commitTransaction(DorisCommitInfo committable)
             throws IOException, DorisConnectorException {
@@ -126,6 +130,50 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
             } else {
                 log.info("load result {}", loadResult);
             }
+        }
+    }
+
+    private void abortTransaction(DorisCommitInfo committable)
+            throws IOException, DorisConnectorException {
+        int statusCode;
+        int retry = 0;
+        String hostPort = committable.getHostPort();
+        CloseableHttpResponse response = null;
+        while (retry++ <= maxRetry) {
+            HttpPutBuilder builder = new HttpPutBuilder();
+            builder.setUrl(String.format(COMMIT_PATTERN, hostPort, committable.getDb()))
+                    .baseAuth(dorisConfig.getUsername(), dorisConfig.getPassword())
+                    .addCommonHeader()
+                    .addTxnId(committable.getTxbID())
+                    .setEmptyEntity()
+                    .abort();
+            response = httpClient.execute(builder.build());
+            statusCode = response.getStatusLine().getStatusCode();
+            if (statusCode != HTTP_TEMPORARY_REDIRECT || response.getEntity() == null) {
+                log.warn("abort transaction response: " + response.getStatusLine().toString());
+                throw new DorisConnectorException(
+                        DorisConnectorErrorCode.STREAM_LOAD_FAILED,
+                        "Fail to abort transaction "
+                                + committable.getTxbID()
+                                + " with url "
+                                + String.format(COMMIT_PATTERN, hostPort, committable.getDb()));
+            }
+        }
+
+        ObjectMapper mapper = new ObjectMapper();
+        String loadResult = EntityUtils.toString(response.getEntity());
+        Map<String, String> res =
+                mapper.readValue(loadResult, new TypeReference<HashMap<String, String>>() {});
+        if (!LoadStatus.SUCCESS.equals(res.get("status"))) {
+            if (ResponseUtil.isCommitted(res.get("msg"))) {
+                throw new DorisConnectorException(
+                        DorisConnectorErrorCode.STREAM_LOAD_FAILED,
+                        "try abort committed transaction, " + "do you recover from old savepoint?");
+            }
+            log.warn(
+                    "Fail to abort transaction. txnId: {}, error: {}",
+                    committable.getTxbID(),
+                    res.get("msg"));
         }
     }
 }

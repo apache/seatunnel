@@ -42,7 +42,8 @@ public class DorisSinkStateSerializer implements Serializer<DorisSinkState> {
         try (final ByteArrayInputStream bais = new ByteArrayInputStream(serialized);
                 final DataInputStream in = new DataInputStream(bais)) {
             final String labelPrefix = in.readUTF();
-            return new DorisSinkState(labelPrefix);
+            final long checkpointId = in.readLong();
+            return new DorisSinkState(labelPrefix, checkpointId);
         }
     }
 }
