@@ -57,10 +57,11 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
 
     @Override
     public void close() throws IOException {
-        //nothing
+        // nothing
     }
 
-    private void handleRecord(Record<?> record, ConsumerWithException<Record<?>> consumer) throws Exception {
+    private void handleRecord(Record<?> record, ConsumerWithException<Record<?>> consumer)
+            throws Exception {
         if (record.getData() instanceof Barrier) {
             CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
             getRunningTask().ack(barrier);

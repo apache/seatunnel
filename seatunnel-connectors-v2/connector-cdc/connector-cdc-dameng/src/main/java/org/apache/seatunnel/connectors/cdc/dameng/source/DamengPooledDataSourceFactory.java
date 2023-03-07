@@ -22,13 +22,14 @@ import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnec
 
 import java.io.Serializable;
 
-public class DamengPooledDataSourceFactory extends JdbcConnectionPoolFactory implements Serializable {
+public class DamengPooledDataSourceFactory extends JdbcConnectionPoolFactory
+        implements Serializable {
 
-    public static final String JDBC_URL_PATTERN = "jdbc:dm://%s:%s?useUnicode=true&characterEncoding=PG_UTF8";
+    public static final String JDBC_URL_PATTERN =
+            "jdbc:dm://%s:%s?useUnicode=true&characterEncoding=PG_UTF8";
 
     @Override
     public String getJdbcUrl(JdbcSourceConfig sourceConfig) {
-        return String.format(JDBC_URL_PATTERN,
-            sourceConfig.getHostname(), sourceConfig.getPort());
+        return String.format(JDBC_URL_PATTERN, sourceConfig.getHostname(), sourceConfig.getPort());
     }
 }

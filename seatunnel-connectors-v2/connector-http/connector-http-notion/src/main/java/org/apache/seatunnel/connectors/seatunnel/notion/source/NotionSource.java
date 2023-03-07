@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.notion.source;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -32,8 +34,6 @@ import org.apache.seatunnel.connectors.seatunnel.notion.source.config.NotionSour
 import org.apache.seatunnel.connectors.seatunnel.notion.source.config.NotionSourceParameter;
 import org.apache.seatunnel.connectors.seatunnel.notion.source.exception.NotionConnectorException;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
@@ -41,6 +41,7 @@ import lombok.extern.slf4j.Slf4j;
 @AutoService(SeaTunnelSource.class)
 public class NotionSource extends HttpSource {
     private final NotionSourceParameter notionSourceParameter = new NotionSourceParameter();
+
     @Override
     public String getPluginName() {
         return "Notion";
@@ -48,10 +49,17 @@ public class NotionSource extends HttpSource {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, NotionSourceConfig.URL.key(), NotionSourceConfig.PASSWORD.key(), NotionSourceConfig.VERSION.key());
+        CheckResult result =
+                CheckConfigUtil.checkAllExists(
+                        pluginConfig,
+                        NotionSourceConfig.URL.key(),
+                        NotionSourceConfig.PASSWORD.key(),
+                        NotionSourceConfig.VERSION.key());
         if (!result.isSuccess()) {
-            throw new NotionConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+            throw new NotionConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         notionSourceParameter.buildWithConfig(pluginConfig);
@@ -59,7 +67,13 @@ public class NotionSource extends HttpSource {
     }
 
     @Override
-    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new HttpSourceReader(this.notionSourceParameter, readerContext, this.deserializationSchema, jsonField, contentField);
+    public AbstractSingleSplitReader<SeaTunnelRow> createReader(
+            SingleSplitReaderContext readerContext) throws Exception {
+        return new HttpSourceReader(
+                this.notionSourceParameter,
+                readerContext,
+                this.deserializationSchema,
+                jsonField,
+                contentField);
     }
 }

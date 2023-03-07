@@ -17,6 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.client;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
@@ -27,13 +33,7 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.Elastic
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.util.SSLUtils;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpStatus;
 import org.apache.http.auth.AuthScope;
@@ -45,10 +45,13 @@ import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.ssl.SSLContexts;
 import org.apache.http.util.Asserts;
 import org.apache.http.util.EntityUtils;
+
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
+
+import lombok.extern.slf4j.Slf4j;
 
 import javax.net.ssl.SSLContext;
 
@@ -59,6 +62,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class EsRestClient {
@@ -78,101 +83,149 @@ public class EsRestClient {
         Optional<String> username = Optional.empty();
         Optional<String> password = Optional.empty();
         if (pluginConfig.hasPath(EsClusterConnectionConfig.USERNAME.key())) {
-            username = Optional.of(pluginConfig.getString(EsClusterConnectionConfig.USERNAME.key()));
+            username =
+                    Optional.of(pluginConfig.getString(EsClusterConnectionConfig.USERNAME.key()));
             if (pluginConfig.hasPath(EsClusterConnectionConfig.PASSWORD.key())) {
-                password = Optional.of(pluginConfig.getString(EsClusterConnectionConfig.PASSWORD.key()));
+                password =
+                        Optional.of(
+                                pluginConfig.getString(EsClusterConnectionConfig.PASSWORD.key()));
             }
         }
         Optional<String> keystorePath = Optional.empty();
         Optional<String> keystorePassword = Optional.empty();
         Optional<String> truststorePath = Optional.empty();
         Optional<String> truststorePassword = Optional.empty();
-        boolean tlsVerifyCertificate = EsClusterConnectionConfig.TLS_VERIFY_CERTIFICATE.defaultValue();
+        boolean tlsVerifyCertificate =
+                EsClusterConnectionConfig.TLS_VERIFY_CERTIFICATE.defaultValue();
         if (pluginConfig.hasPath(EsClusterConnectionConfig.TLS_VERIFY_CERTIFICATE.key())) {
-            tlsVerifyCertificate = pluginConfig.getBoolean(EsClusterConnectionConfig.TLS_VERIFY_CERTIFICATE.key());
+            tlsVerifyCertificate =
+                    pluginConfig.getBoolean(EsClusterConnectionConfig.TLS_VERIFY_CERTIFICATE.key());
         }
         if (tlsVerifyCertificate) {
             if (pluginConfig.hasPath(EsClusterConnectionConfig.TLS_KEY_STORE_PATH.key())) {
-                keystorePath = Optional.of(pluginConfig.getString(EsClusterConnectionConfig.TLS_KEY_STORE_PATH.key()));
+                keystorePath =
+                        Optional.of(
+                                pluginConfig.getString(
+                                        EsClusterConnectionConfig.TLS_KEY_STORE_PATH.key()));
             }
             if (pluginConfig.hasPath(EsClusterConnectionConfig.TLS_KEY_STORE_PASSWORD.key())) {
-                keystorePassword = Optional.of(pluginConfig.getString(EsClusterConnectionConfig.TLS_KEY_STORE_PASSWORD.key()));
+                keystorePassword =
+                        Optional.of(
+                                pluginConfig.getString(
+                                        EsClusterConnectionConfig.TLS_KEY_STORE_PASSWORD.key()));
             }
             if (pluginConfig.hasPath(EsClusterConnectionConfig.TLS_TRUST_STORE_PATH.key())) {
-                truststorePath = Optional.of(pluginConfig.getString(EsClusterConnectionConfig.TLS_TRUST_STORE_PATH.key()));
+                truststorePath =
+                        Optional.of(
+                                pluginConfig.getString(
+                                        EsClusterConnectionConfig.TLS_TRUST_STORE_PATH.key()));
             }
             if (pluginConfig.hasPath(EsClusterConnectionConfig.TLS_TRUST_STORE_PASSWORD.key())) {
-                truststorePassword = Optional.of(pluginConfig.getString(EsClusterConnectionConfig.TLS_TRUST_STORE_PASSWORD.key()));
+                truststorePassword =
+                        Optional.of(
+                                pluginConfig.getString(
+                                        EsClusterConnectionConfig.TLS_TRUST_STORE_PASSWORD.key()));
             }
         }
         boolean tlsVerifyHostnames = EsClusterConnectionConfig.TLS_VERIFY_HOSTNAME.defaultValue();
         if (pluginConfig.hasPath(EsClusterConnectionConfig.TLS_VERIFY_HOSTNAME.key())) {
-            tlsVerifyHostnames = pluginConfig.getBoolean(EsClusterConnectionConfig.TLS_VERIFY_HOSTNAME.key());
+            tlsVerifyHostnames =
+                    pluginConfig.getBoolean(EsClusterConnectionConfig.TLS_VERIFY_HOSTNAME.key());
         }
-        return createInstance(hosts, username, password, tlsVerifyCertificate, tlsVerifyHostnames,
-            keystorePath, keystorePassword, truststorePath, truststorePassword);
+        return createInstance(
+                hosts,
+                username,
+                password,
+                tlsVerifyCertificate,
+                tlsVerifyHostnames,
+                keystorePath,
+                keystorePassword,
+                truststorePath,
+                truststorePassword);
     }
 
-    public static EsRestClient createInstance(List<String> hosts,
-                                              Optional<String> username,
-                                              Optional<String> password,
-                                              boolean tlsVerifyCertificate,
-                                              boolean tlsVerifyHostnames,
-                                              Optional<String> keystorePath,
-                                              Optional<String> keystorePassword,
-                                              Optional<String> truststorePath,
-                                              Optional<String> truststorePassword) {
-        RestClientBuilder restClientBuilder = getRestClientBuilder(
-            hosts, username, password, tlsVerifyCertificate, tlsVerifyHostnames,
-            keystorePath, keystorePassword, truststorePath, truststorePassword);
+    public static EsRestClient createInstance(
+            List<String> hosts,
+            Optional<String> username,
+            Optional<String> password,
+            boolean tlsVerifyCertificate,
+            boolean tlsVerifyHostnames,
+            Optional<String> keystorePath,
+            Optional<String> keystorePassword,
+            Optional<String> truststorePath,
+            Optional<String> truststorePassword) {
+        RestClientBuilder restClientBuilder =
+                getRestClientBuilder(
+                        hosts,
+                        username,
+                        password,
+                        tlsVerifyCertificate,
+                        tlsVerifyHostnames,
+                        keystorePath,
+                        keystorePassword,
+                        truststorePath,
+                        truststorePassword);
         return new EsRestClient(restClientBuilder.build());
     }
 
-    private static RestClientBuilder getRestClientBuilder(List<String> hosts,
-                                                          Optional<String> username,
-                                                          Optional<String> password,
-                                                          boolean tlsVerifyCertificate,
-                                                          boolean tlsVerifyHostnames,
-                                                          Optional<String> keystorePath,
-                                                          Optional<String> keystorePassword,
-                                                          Optional<String> truststorePath,
-                                                          Optional<String> truststorePassword) {
+    private static RestClientBuilder getRestClientBuilder(
+            List<String> hosts,
+            Optional<String> username,
+            Optional<String> password,
+            boolean tlsVerifyCertificate,
+            boolean tlsVerifyHostnames,
+            Optional<String> keystorePath,
+            Optional<String> keystorePassword,
+            Optional<String> truststorePath,
+            Optional<String> truststorePassword) {
         HttpHost[] httpHosts = new HttpHost[hosts.size()];
         for (int i = 0; i < hosts.size(); i++) {
             httpHosts[i] = HttpHost.create(hosts.get(i));
         }
 
-        RestClientBuilder restClientBuilder = RestClient.builder(httpHosts)
-            .setRequestConfigCallback(requestConfigBuilder -> requestConfigBuilder
-                .setConnectionRequestTimeout(CONNECTION_REQUEST_TIMEOUT)
-                .setSocketTimeout(SOCKET_TIMEOUT));
+        RestClientBuilder restClientBuilder =
+                RestClient.builder(httpHosts)
+                        .setRequestConfigCallback(
+                                requestConfigBuilder ->
+                                        requestConfigBuilder
+                                                .setConnectionRequestTimeout(
+                                                        CONNECTION_REQUEST_TIMEOUT)
+                                                .setSocketTimeout(SOCKET_TIMEOUT));
 
-        restClientBuilder.setHttpClientConfigCallback(httpClientBuilder -> {
-            if (username.isPresent()) {
-                CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-                credentialsProvider.setCredentials(AuthScope.ANY,
-                    new UsernamePasswordCredentials(username.get(), password.get()));
-                httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
-            }
+        restClientBuilder.setHttpClientConfigCallback(
+                httpClientBuilder -> {
+                    if (username.isPresent()) {
+                        CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+                        credentialsProvider.setCredentials(
+                                AuthScope.ANY,
+                                new UsernamePasswordCredentials(username.get(), password.get()));
+                        httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
+                    }
 
-            try {
-                if (tlsVerifyCertificate) {
-                    Optional<SSLContext> sslContext = SSLUtils.buildSSLContext(keystorePath,
-                        keystorePassword, truststorePath, truststorePassword);
-                    sslContext.ifPresent(e -> httpClientBuilder.setSSLContext(e));
-                } else {
-                    SSLContext sslContext = SSLContexts.custom()
-                        .loadTrustMaterial(new TrustAllStrategy()).build();
-                    httpClientBuilder.setSSLContext(sslContext);
-                }
-                if (!tlsVerifyHostnames) {
-                    httpClientBuilder.setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE);
-                }
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-            return httpClientBuilder;
-        });
+                    try {
+                        if (tlsVerifyCertificate) {
+                            Optional<SSLContext> sslContext =
+                                    SSLUtils.buildSSLContext(
+                                            keystorePath,
+                                            keystorePassword,
+                                            truststorePath,
+                                            truststorePassword);
+                            sslContext.ifPresent(e -> httpClientBuilder.setSSLContext(e));
+                        } else {
+                            SSLContext sslContext =
+                                    SSLContexts.custom()
+                                            .loadTrustMaterial(new TrustAllStrategy())
+                                            .build();
+                            httpClientBuilder.setSSLContext(sslContext);
+                        }
+                        if (!tlsVerifyHostnames) {
+                            httpClientBuilder.setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE);
+                        }
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                    return httpClientBuilder;
+                });
         return restClientBuilder;
     }
 
@@ -182,7 +235,9 @@ public class EsRestClient {
         try {
             Response response = restClient.performRequest(request);
             if (response == null) {
-                throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.BULK_RESPONSE_ERROR, "bulk es Response is null");
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.BULK_RESPONSE_ERROR,
+                        "bulk es Response is null");
             }
             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
                 ObjectMapper objectMapper = new ObjectMapper();
@@ -192,10 +247,17 @@ public class EsRestClient {
                 boolean errors = json.get("errors").asBoolean();
                 return new BulkResponse(errors, took, entity);
             } else {
-                throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.BULK_RESPONSE_ERROR, String.format("bulk es response status code=%d,request boy=%s", response.getStatusLine().getStatusCode(), requestBody));
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.BULK_RESPONSE_ERROR,
+                        String.format(
+                                "bulk es response status code=%d,request boy=%s",
+                                response.getStatusLine().getStatusCode(), requestBody));
             }
         } catch (IOException e) {
-            throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.BULK_RESPONSE_ERROR, String.format("bulk es error,request boy=%s", requestBody), e);
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.BULK_RESPONSE_ERROR,
+                    String.format("bulk es error,request boy=%s", requestBody),
+                    e);
         }
     }
 
@@ -208,13 +270,17 @@ public class EsRestClient {
             JsonNode jsonNode = objectMapper.readTree(result);
             JsonNode versionNode = jsonNode.get("version");
             return ElasticsearchClusterInfo.builder()
-                .clusterVersion(versionNode.get("number").asText())
-                .distribution(Optional.ofNullable(versionNode.get("distribution"))
-                    .map(e -> e.asText())
-                    .orElse(null))
-                .build();
+                    .clusterVersion(versionNode.get("number").asText())
+                    .distribution(
+                            Optional.ofNullable(versionNode.get("distribution"))
+                                    .map(e -> e.asText())
+                                    .orElse(null))
+                    .build();
         } catch (IOException e) {
-            throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.GET_ES_VERSION_FAILED, "fail to get elasticsearch version.", e);
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.GET_ES_VERSION_FAILED,
+                    "fail to get elasticsearch version.",
+                    e);
         }
     }
 
@@ -227,39 +293,40 @@ public class EsRestClient {
     }
 
     /**
-     * first time to request search documents by scroll
-     * call /${index}/_search?scroll=${scroll}
+     * first time to request search documents by scroll call /${index}/_search?scroll=${scroll}
      *
-     * @param index      index name
-     * @param source     select fields
+     * @param index index name
+     * @param source select fields
      * @param scrollTime such as:1m
      * @param scrollSize fetch documents count in one request
      */
-    public ScrollResult searchByScroll(String index, List<String> source, String scrollTime, int scrollSize) {
+    public ScrollResult searchByScroll(
+            String index, List<String> source, String scrollTime, int scrollSize) {
         Map<String, Object> param = new HashMap<>();
         Map<String, Object> query = new HashMap<>();
         query.put("match_all", new HashMap<String, String>());
         param.put("query", query);
         param.put("_source", source);
-        param.put("sort", new String[]{"_doc"});
+        param.put("sort", new String[] {"_doc"});
         param.put("size", scrollSize);
         String endpoint = "/" + index + "/_search?scroll=" + scrollTime;
-        ScrollResult scrollResult = getDocsFromScrollRequest(endpoint, JsonUtils.toJsonString(param));
+        ScrollResult scrollResult =
+                getDocsFromScrollRequest(endpoint, JsonUtils.toJsonString(param));
         return scrollResult;
     }
 
     /**
-     * scroll to get result
-     * call _search/scroll
+     * scroll to get result call _search/scroll
      *
-     * @param scrollId   the scroll id of the last request
+     * @param scrollId the scroll id of the last request
      * @param scrollTime such as:1m
      */
     public ScrollResult searchWithScrollId(String scrollId, String scrollTime) {
         Map<String, String> param = new HashMap<>();
         param.put("scroll_id", scrollId);
         param.put("scroll", scrollTime);
-        ScrollResult scrollResult = getDocsFromScrollRequest("/_search/scroll", JsonUtils.toJsonString(param));
+        ScrollResult scrollResult =
+                getDocsFromScrollRequest("/_search/scroll", JsonUtils.toJsonString(param));
         return scrollResult;
     }
 
@@ -269,7 +336,9 @@ public class EsRestClient {
         try {
             Response response = restClient.performRequest(request);
             if (response == null) {
-                throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.SCROLL_REQUEST_ERROR, "POST " + endpoint + " response null");
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.SCROLL_REQUEST_ERROR,
+                        "POST " + endpoint + " response null");
             }
             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
                 String entity = EntityUtils.toString(response.getEntity());
@@ -278,18 +347,26 @@ public class EsRestClient {
                 JsonNode shards = responseJson.get("_shards");
                 int totalShards = shards.get("total").intValue();
                 int successful = shards.get("successful").intValue();
-                Asserts.check(totalShards == successful, String.format("POST %s,total shards(%d)!= successful shards(%d)", endpoint, totalShards, successful));
+                Asserts.check(
+                        totalShards == successful,
+                        String.format(
+                                "POST %s,total shards(%d)!= successful shards(%d)",
+                                endpoint, totalShards, successful));
 
                 ScrollResult scrollResult = getDocsFromScrollResponse(responseJson);
                 return scrollResult;
             } else {
-                throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.SCROLL_REQUEST_ERROR,
-                    String.format("POST %s response status code=%d,request boy=%s", endpoint, response.getStatusLine().getStatusCode(), requestBody));
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.SCROLL_REQUEST_ERROR,
+                        String.format(
+                                "POST %s response status code=%d,request boy=%s",
+                                endpoint, response.getStatusLine().getStatusCode(), requestBody));
             }
         } catch (IOException e) {
-            throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.SCROLL_REQUEST_ERROR,
-                String.format("POST %s error,request boy=%s", endpoint, requestBody), e);
-
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.SCROLL_REQUEST_ERROR,
+                    String.format("POST %s error,request boy=%s", endpoint, requestBody),
+                    e);
         }
     }
 
@@ -309,7 +386,8 @@ public class EsRestClient {
             doc.put("_index", hitNode.get("_index").textValue());
             doc.put("_id", hitNode.get("_id").textValue());
             JsonNode source = hitNode.get("_source");
-            for (Iterator<Map.Entry<String, JsonNode>> iterator = source.fields(); iterator.hasNext(); ) {
+            for (Iterator<Map.Entry<String, JsonNode>> iterator = source.fields();
+                    iterator.hasNext(); ) {
                 Map.Entry<String, JsonNode> entry = iterator.next();
                 String fieldName = entry.getKey();
                 if (entry.getValue() instanceof TextNode) {
@@ -329,19 +407,103 @@ public class EsRestClient {
         try {
             Response response = restClient.performRequest(request);
             if (response == null) {
-                throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.GET_INDEX_DOCS_COUNT_FAILED,
-                    "GET " + endpoint + " response null");
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.GET_INDEX_DOCS_COUNT_FAILED,
+                        "GET " + endpoint + " response null");
             }
             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
                 String entity = EntityUtils.toString(response.getEntity());
-                List<IndexDocsCount> indexDocsCounts = JsonUtils.toList(entity, IndexDocsCount.class);
+                List<IndexDocsCount> indexDocsCounts =
+                        JsonUtils.toList(entity, IndexDocsCount.class);
                 return indexDocsCounts;
             } else {
-                throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.GET_INDEX_DOCS_COUNT_FAILED,
-                    String.format("GET %s response status code=%d", endpoint, response.getStatusLine().getStatusCode()));
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.GET_INDEX_DOCS_COUNT_FAILED,
+                        String.format(
+                                "GET %s response status code=%d",
+                                endpoint, response.getStatusLine().getStatusCode()));
             }
         } catch (IOException ex) {
-            throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.GET_INDEX_DOCS_COUNT_FAILED, ex);
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.GET_INDEX_DOCS_COUNT_FAILED, ex);
+        }
+    }
+
+    public List<String> listIndex() {
+        String endpoint = "/_cat/indices?format=json";
+        Request request = new Request("GET", endpoint);
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.LIST_INDEX_FAILED,
+                        "GET " + endpoint + " response null");
+            }
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                String entity = EntityUtils.toString(response.getEntity());
+                return JsonUtils.toList(entity, Map.class).stream()
+                        .map(map -> map.get("index").toString())
+                        .collect(Collectors.toList());
+            } else {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.LIST_INDEX_FAILED,
+                        String.format(
+                                "GET %s response status code=%d",
+                                endpoint, response.getStatusLine().getStatusCode()));
+            }
+        } catch (IOException ex) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.LIST_INDEX_FAILED, ex);
+        }
+    }
+
+    // todo: We don't support set the index mapping now.
+    public void createIndex(String indexName) {
+        String endpoint = String.format("/%s", indexName);
+        Request request = new Request("PUT", endpoint);
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.CREATE_INDEX_FAILED,
+                        "PUT " + endpoint + " response null");
+            }
+            if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.CREATE_INDEX_FAILED,
+                        String.format(
+                                "PUT %s response status code=%d",
+                                endpoint, response.getStatusLine().getStatusCode()));
+            }
+        } catch (IOException ex) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.CREATE_INDEX_FAILED, ex);
+        }
+    }
+
+    public void dropIndex(String tableName) {
+        String endpoint = String.format("/%s", tableName);
+        Request request = new Request("DELETE", endpoint);
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.DROP_INDEX_FAILED,
+                        "DELETE " + endpoint + " response null");
+            }
+            // todo: if the index doesn't exist, the response status code is 200?
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                return;
+            } else {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.DROP_INDEX_FAILED,
+                        String.format(
+                                "DELETE %s response status code=%d",
+                                endpoint, response.getStatusLine().getStatusCode()));
+            }
+        } catch (IOException ex) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.DROP_INDEX_FAILED, ex);
         }
     }
 
@@ -358,12 +520,16 @@ public class EsRestClient {
         try {
             Response response = restClient.performRequest(request);
             if (response == null) {
-                throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.GET_INDEX_DOCS_COUNT_FAILED,
-                    "GET " + endpoint + " response null");
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.GET_INDEX_DOCS_COUNT_FAILED,
+                        "GET " + endpoint + " response null");
             }
             if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-                throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.GET_INDEX_DOCS_COUNT_FAILED,
-                    String.format("GET %s response status code=%d", endpoint, response.getStatusLine().getStatusCode()));
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.GET_INDEX_DOCS_COUNT_FAILED,
+                        String.format(
+                                "GET %s response status code=%d",
+                                endpoint, response.getStatusLine().getStatusCode()));
             }
             String entity = EntityUtils.toString(response.getEntity());
             log.info(String.format("GET %s respnse=%s", endpoint, entity));
@@ -375,37 +541,56 @@ public class EsRestClient {
                     JsonNode properties = mappingsProperty.get("properties");
                     mapping = getFieldTypeMappingFromProperties(properties, source);
                 } else {
-                    for (Iterator<JsonNode> iter = mappingsProperty.iterator(); iter.hasNext(); ) {
-                        JsonNode typeNode = iter.next();
-                        JsonNode properties = typeNode.get("properties");
+                    for (JsonNode typeNode : mappingsProperty) {
+                        JsonNode properties;
+                        if (typeNode.has("properties")) {
+                            properties = typeNode.get("properties");
+                        } else {
+                            properties = typeNode;
+                        }
                         mapping.putAll(getFieldTypeMappingFromProperties(properties, source));
                     }
                 }
-
             }
         } catch (IOException ex) {
-            throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.GET_INDEX_DOCS_COUNT_FAILED, ex);
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.GET_INDEX_DOCS_COUNT_FAILED, ex);
         }
         return mapping;
     }
 
-    private static Map<String, String> getFieldTypeMappingFromProperties(JsonNode properties, List<String> source) {
-        Map<String, String> mapping = new HashMap<>();
-        for (String field : source) {
-            JsonNode fieldProperty = properties.get(field);
-            if (fieldProperty == null) {
-                mapping.put(field, "text");
-            } else {
-                if (fieldProperty.has("type")) {
-                    String type = fieldProperty.get("type").asText();
-                    mapping.put(field, type);
-                } else {
-                    log.warn(String.format("fail to get elasticsearch field %s mapping type,so give a default type text", field));
-                    mapping.put(field, "text");
-                }
-            }
+    private static Map<String, String> getFieldTypeMappingFromProperties(
+            JsonNode properties, List<String> source) {
+        Map<String, String> allElasticSearchFieldTypeInfoMap = new HashMap<>();
+        properties
+                .fields()
+                .forEachRemaining(
+                        entry -> {
+                            String fieldName = entry.getKey();
+                            JsonNode fieldProperty = entry.getValue();
+                            if (fieldProperty.has("type")) {
+                                allElasticSearchFieldTypeInfoMap.put(
+                                        fieldName, fieldProperty.get("type").asText());
+                            }
+                        });
+        if (CollectionUtils.isEmpty(source)) {
+            return allElasticSearchFieldTypeInfoMap;
         }
-        return mapping;
-    }
 
+        return source.stream()
+                .collect(
+                        Collectors.toMap(
+                                Function.identity(),
+                                fieldName -> {
+                                    String fieldType =
+                                            allElasticSearchFieldTypeInfoMap.get(fieldName);
+                                    if (fieldType == null) {
+                                        log.warn(
+                                                "fail to get elasticsearch field {} mapping type,so give a default type text",
+                                                fieldName);
+                                        return "text";
+                                    }
+                                    return fieldType;
+                                }));
+    }
 }

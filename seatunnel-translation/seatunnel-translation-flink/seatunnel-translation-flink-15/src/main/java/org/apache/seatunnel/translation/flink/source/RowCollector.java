@@ -33,7 +33,10 @@ public class RowCollector implements Collector<SeaTunnelRow> {
     protected final FlinkRowConverter rowSerialization;
     protected final Object checkpointLock;
 
-    public RowCollector(SourceFunction.SourceContext<Row> internalCollector, Object checkpointLock, SeaTunnelDataType<?> dataType) {
+    public RowCollector(
+            SourceFunction.SourceContext<Row> internalCollector,
+            Object checkpointLock,
+            SeaTunnelDataType<?> dataType) {
         this.internalCollector = internalCollector;
         this.checkpointLock = checkpointLock;
         this.rowSerialization = new FlinkRowConverter(dataType);

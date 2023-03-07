@@ -40,9 +40,8 @@ public enum ProgressState {
     }
 
     public static ProgressState valueOf(boolean isMadeProgress, boolean isDone) {
-        return isDone ? isMadeProgress ? ProgressState.DONE : ProgressState.WAS_ALREADY_DONE
-            : isMadeProgress ? ProgressState.MADE_PROGRESS : ProgressState.NO_PROGRESS;
-
+        return isDone
+                ? isMadeProgress ? ProgressState.DONE : ProgressState.WAS_ALREADY_DONE
+                : isMadeProgress ? ProgressState.MADE_PROGRESS : ProgressState.NO_PROGRESS;
     }
-
 }

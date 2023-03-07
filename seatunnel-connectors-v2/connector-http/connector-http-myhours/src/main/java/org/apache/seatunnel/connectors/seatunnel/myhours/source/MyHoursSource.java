@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.myhours.source;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -35,8 +37,6 @@ import org.apache.seatunnel.connectors.seatunnel.myhours.source.config.MyHoursSo
 import org.apache.seatunnel.connectors.seatunnel.myhours.source.config.MyHoursSourceParameter;
 import org.apache.seatunnel.connectors.seatunnel.myhours.source.exception.MyHoursConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.myhours.source.exception.MyHoursConnectorException;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
 import com.google.common.base.Strings;
@@ -57,11 +57,17 @@ public class MyHoursSource extends HttpSource {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, MyHoursSourceConfig.URL.key(),
-                MyHoursSourceConfig.EMAIL.key(), MyHoursSourceConfig.PASSWORD.key());
+        CheckResult result =
+                CheckConfigUtil.checkAllExists(
+                        pluginConfig,
+                        MyHoursSourceConfig.URL.key(),
+                        MyHoursSourceConfig.EMAIL.key(),
+                        MyHoursSourceConfig.PASSWORD.key());
         if (!result.isSuccess()) {
-            throw new MyHoursConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+            throw new MyHoursConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         // Login to get accessToken
@@ -71,16 +77,24 @@ public class MyHoursSource extends HttpSource {
     }
 
     @Override
-    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new HttpSourceReader(this.myHoursSourceParameter, readerContext, this.deserializationSchema, jsonField, contentField);
+    public AbstractSingleSplitReader<SeaTunnelRow> createReader(
+            SingleSplitReaderContext readerContext) throws Exception {
+        return new HttpSourceReader(
+                this.myHoursSourceParameter,
+                readerContext,
+                this.deserializationSchema,
+                jsonField,
+                contentField);
     }
 
-    private String getAccessToken(Config pluginConfig){
+    private String getAccessToken(Config pluginConfig) {
         MyHoursSourceParameter myHoursLoginParameter = new MyHoursSourceParameter();
         myHoursLoginParameter.buildWithLoginConfig(pluginConfig);
         HttpClientProvider loginHttpClient = new HttpClientProvider(myHoursLoginParameter);
         try {
-            HttpResponse response = loginHttpClient.doPost(myHoursLoginParameter.getUrl(), myHoursLoginParameter.getBody());
+            HttpResponse response =
+                    loginHttpClient.doPost(
+                            myHoursLoginParameter.getUrl(), myHoursLoginParameter.getBody());
             if (HttpResponse.STATUS_OK == response.getCode()) {
                 String content = response.getContent();
                 if (!Strings.isNullOrEmpty(content)) {
@@ -88,12 +102,14 @@ public class MyHoursSource extends HttpSource {
                     return contentMap.get(MyHoursSourceConfig.ACCESS_TOKEN);
                 }
             }
-            throw new MyHoursConnectorException(MyHoursConnectorErrorCode.GET_MYHOURS_TOKEN_FAILE,
-                    String.format("Login http client execute exception, http response status code:[%d], content:[%s]",
-                            response.getCode(),
-                            response.getContent()));
+            throw new MyHoursConnectorException(
+                    MyHoursConnectorErrorCode.GET_MYHOURS_TOKEN_FAILE,
+                    String.format(
+                            "Login http client execute exception, http response status code:[%d], content:[%s]",
+                            response.getCode(), response.getContent()));
         } catch (Exception e) {
-            throw new MyHoursConnectorException(MyHoursConnectorErrorCode.GET_MYHOURS_TOKEN_FAILE,
+            throw new MyHoursConnectorException(
+                    MyHoursConnectorErrorCode.GET_MYHOURS_TOKEN_FAILE,
                     "Login http client execute exception");
         } finally {
             try {
@@ -103,5 +119,4 @@ public class MyHoursSource extends HttpSource {
             }
         }
     }
-
 }

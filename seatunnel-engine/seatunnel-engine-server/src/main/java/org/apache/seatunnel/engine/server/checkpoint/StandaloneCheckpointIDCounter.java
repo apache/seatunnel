@@ -28,8 +28,7 @@ public class StandaloneCheckpointIDCounter implements CheckpointIDCounter {
     private final AtomicLong checkpointIdCounter = new AtomicLong(INITIAL_CHECKPOINT_ID);
 
     @Override
-    public void start() throws Exception {
-    }
+    public void start() throws Exception {}
 
     @Override
     public CompletableFuture<Void> shutdown(PipelineStatus pipelineStatus) {

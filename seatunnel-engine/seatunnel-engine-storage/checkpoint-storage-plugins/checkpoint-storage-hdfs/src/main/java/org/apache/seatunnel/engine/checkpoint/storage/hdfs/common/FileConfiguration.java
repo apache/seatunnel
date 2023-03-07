@@ -26,14 +26,10 @@ public enum FileConfiguration {
     S3("s3", new S3Configuration()),
     OSS("oss", new OssConfiguration());
 
-    /**
-     * file system type
-     */
+    /** file system type */
     private final String name;
 
-    /**
-     * file system configuration
-     */
+    /** file system configuration */
     private final AbstractConfiguration configuration;
 
     FileConfiguration(String name, AbstractConfiguration configuration) {
@@ -48,5 +44,4 @@ public enum FileConfiguration {
     public String getName() {
         return name;
     }
-
 }

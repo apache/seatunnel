@@ -18,7 +18,7 @@ describes how to setup the SqlServer CDC connector to run SQL queries against Sq
 
 ## Options
 
-| name                                           | type     | required | default value |
+|                      name                      |   type   | required | default value |
 |------------------------------------------------|----------|----------|---------------|
 | hostname                                       | String   | Yes      | -             |
 | port                                           | Integer  | No       | 3306          |
@@ -189,3 +189,4 @@ source {
 
 - Add SqlServer CDC Source Connector
 - [Doc] Add SqlServer CDC Source Connector document ([3993](https://github.com/apache/incubator-seatunnel/pull/3993))
+

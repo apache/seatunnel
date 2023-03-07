@@ -23,7 +23,8 @@ import java.sql.SQLException;
 
 public class DateInjectFunction implements ClickhouseFieldInjectFunction {
     @Override
-    public void injectFields(PreparedStatement statement, int index, Object value) throws SQLException {
+    public void injectFields(PreparedStatement statement, int index, Object value)
+            throws SQLException {
         if (value instanceof Date) {
             statement.setDate(index, (Date) value);
         } else {

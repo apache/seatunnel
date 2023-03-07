@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum IcebergConnectorErrorCode implements SeaTunnelErrorCode {
-
     FILE_SCAN_SPLIT_FAILED("ICEBERG-01", "File Scan Split failed"),
     INVALID_STARTING_RECORD_OFFSET("ICEBERG-02", "Invalid starting record offset");
 

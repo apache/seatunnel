@@ -2,8 +2,8 @@
 
 > Common parameters of source connectors
 
-| name              | type   | required | default value |
-|-------------------| ------ | -------- | ------------- |
+|       name        |  type  | required | default value |
+|-------------------|--------|----------|---------------|
 | result_table_name | string | no       | -             |
 | source_table_name | string | no       | -             |
 

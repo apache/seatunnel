@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.cdc.dameng.source.reader.fetch.logminer;
 
-import static org.apache.seatunnel.connectors.cdc.dameng.source.offset.LogMinerOffset.NO_STOPPING_OFFSET;
-
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkKind;
@@ -39,6 +37,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.apache.seatunnel.connectors.cdc.dameng.source.offset.LogMinerOffset.NO_STOPPING_OFFSET;
+
 @Slf4j
 public class DamengLogMinerSplitReadTask extends DamengStreamingChangeEventSource {
 
@@ -48,15 +48,22 @@ public class DamengLogMinerSplitReadTask extends DamengStreamingChangeEventSourc
     private final ErrorHandler errorHandler;
     private ChangeEventSourceContext context;
 
-    public DamengLogMinerSplitReadTask(DamengOffsetContext offsetContext,
-                                       DamengSourceConfig sourceConfig,
-                                       DamengConnection connection,
-                                       JdbcSourceEventDispatcher eventDispatcher,
-                                       ErrorHandler errorHandler,
-                                       DamengDatabaseSchema databaseSchema,
-                                       IncrementalSplit split) {
-        super(sourceConfig, connection, split.getTableIds(), eventDispatcher,
-            errorHandler, Clock.SYSTEM, databaseSchema);
+    public DamengLogMinerSplitReadTask(
+            DamengOffsetContext offsetContext,
+            DamengSourceConfig sourceConfig,
+            DamengConnection connection,
+            JdbcSourceEventDispatcher eventDispatcher,
+            ErrorHandler errorHandler,
+            DamengDatabaseSchema databaseSchema,
+            IncrementalSplit split) {
+        super(
+                sourceConfig,
+                connection,
+                split.getTableIds(),
+                eventDispatcher,
+                errorHandler,
+                Clock.SYSTEM,
+                databaseSchema);
         this.split = split;
         this.offsetContext = offsetContext;
         this.eventDispatcher = eventDispatcher;
@@ -74,24 +81,24 @@ public class DamengLogMinerSplitReadTask extends DamengStreamingChangeEventSourc
         super.handleEvent(offsetContext, event);
         // check do we need to stop for fetch logminer for snapshot split.
         if (isBoundedRead()) {
-            LogMinerOffset currentLogMinerOffset =
-                getLogMinerPosition(offsetContext.getOffset());
+            LogMinerOffset currentLogMinerOffset = getLogMinerPosition(offsetContext.getOffset());
             // reach the high watermark, the logminer fetcher should be finished
             if (currentLogMinerOffset.isAtOrAfter(split.getStopOffset())) {
                 // send logminer end event
                 try {
                     eventDispatcher.dispatchWatermarkEvent(
-                        offsetContext.getPartition(),
-                        split,
-                        currentLogMinerOffset,
-                        WatermarkKind.END);
+                            offsetContext.getPartition(),
+                            split,
+                            currentLogMinerOffset,
+                            WatermarkKind.END);
                 } catch (InterruptedException e) {
                     log.error("Send signal event error.", e);
                     errorHandler.setProducerThrowable(
-                        new DebeziumException("Error processing logminer signal event", e));
+                            new DebeziumException("Error processing logminer signal event", e));
                 }
                 // tell fetcher the logminer task finished
-                ((DamengSnapshotFetchTask.SnapshotScnSplitChangeEventSourceContext) context).finished();
+                ((DamengSnapshotFetchTask.SnapshotScnSplitChangeEventSourceContext) context)
+                        .finished();
             }
         }
     }
@@ -104,8 +111,7 @@ public class DamengLogMinerSplitReadTask extends DamengStreamingChangeEventSourc
         Map<String, String> offsetStrMap = new HashMap<>();
         for (Map.Entry<String, ?> entry : offset.entrySet()) {
             offsetStrMap.put(
-                entry.getKey(),
-                entry.getValue() == null ? null : entry.getValue().toString());
+                    entry.getKey(), entry.getValue() == null ? null : entry.getValue().toString());
         }
         return new LogMinerOffset(offsetStrMap);
     }

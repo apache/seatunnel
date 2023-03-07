@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleConnectionUtils.createOracleConnection;
-
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
@@ -46,6 +44,8 @@ import io.debezium.relational.history.TableChanges.TableChange;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+
+import static org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleConnectionUtils.createOracleConnection;
 
 public class OracleDialect implements JdbcDataSourceDialect {
 
@@ -77,8 +77,7 @@ public class OracleDialect implements JdbcDataSourceDialect {
 
     @Override
     public JdbcConnection openJdbcConnection(JdbcSourceConfig sourceConfig) {
-        return createOracleConnection(
-            sourceConfig.getDbzConfiguration());
+        return createOracleConnection(sourceConfig.getDbzConfiguration());
     }
 
     @Override
@@ -113,7 +112,7 @@ public class OracleDialect implements JdbcDataSourceDialect {
 
     @Override
     public OracleSourceFetchTaskContext createFetchTaskContext(
-        SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig) {
+            SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig) {
         final OracleConnection jdbcConnection =
                 createOracleConnection(taskSourceConfig.getDbzConfiguration());
 
@@ -129,7 +128,8 @@ public class OracleDialect implements JdbcDataSourceDialect {
             }
         }
 
-        return new OracleSourceFetchTaskContext(taskSourceConfig, this, jdbcConnection, tableChangeList);
+        return new OracleSourceFetchTaskContext(
+                taskSourceConfig, this, jdbcConnection, tableChangeList);
     }
 
     @Override

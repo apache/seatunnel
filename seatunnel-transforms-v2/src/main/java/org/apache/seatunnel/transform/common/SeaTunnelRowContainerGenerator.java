@@ -22,11 +22,13 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import java.io.Serializable;
 import java.util.function.Function;
 
-public abstract class SeaTunnelRowContainerGenerator implements Function<SeaTunnelRow, SeaTunnelRow>, Serializable {
-    public static final SeaTunnelRowContainerGenerator REUSE_ROW = new SeaTunnelRowContainerGenerator() {
-        @Override
-        public SeaTunnelRow apply(SeaTunnelRow inputRow) {
-            return inputRow;
-        }
-    };
+public abstract class SeaTunnelRowContainerGenerator
+        implements Function<SeaTunnelRow, SeaTunnelRow>, Serializable {
+    public static final SeaTunnelRowContainerGenerator REUSE_ROW =
+            new SeaTunnelRowContainerGenerator() {
+                @Override
+                public SeaTunnelRow apply(SeaTunnelRow inputRow) {
+                    return inputRow;
+                }
+            };
 }

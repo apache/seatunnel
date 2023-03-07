@@ -17,9 +17,7 @@
 
 package org.apache.seatunnel.api.common;
 
-/**
- * todo: unified with Plugin
- */
+/** todo: unified with Plugin */
 public interface PluginIdentifierInterface {
     /**
      * Returns a unique identifier among same factory interfaces.

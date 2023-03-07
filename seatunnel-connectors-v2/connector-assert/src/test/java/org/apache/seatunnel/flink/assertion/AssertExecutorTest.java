@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.flink.assertion;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -27,14 +24,21 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.assertion.excecutor.AssertExecutor;
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertFieldRule;
 
-import com.google.common.collect.Lists;
 import org.junit.jupiter.api.Test;
+
+import com.google.common.collect.Lists;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
 public class AssertExecutorTest {
-    SeaTunnelRow row = new SeaTunnelRow(new Object[]{"jared", 17});
-    SeaTunnelRowType rowType = new SeaTunnelRowType(new String[]{"name", "age"}, new SeaTunnelDataType[]{BasicType.STRING_TYPE, BasicType.INT_TYPE});
+    SeaTunnelRow row = new SeaTunnelRow(new Object[] {"jared", 17});
+    SeaTunnelRowType rowType =
+            new SeaTunnelRowType(
+                    new String[] {"name", "age"},
+                    new SeaTunnelDataType[] {BasicType.STRING_TYPE, BasicType.INT_TYPE});
     AssertExecutor assertExecutor = new AssertExecutor();
 
     @Test

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -26,15 +28,13 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 
 /**
- * Kudu Sink implementation by using SeaTunnel sink API.
- * This class contains the method to create {@link AbstractSimpleSink}.
+ * Kudu Sink implementation by using SeaTunnel sink API. This class contains the method to create
+ * {@link AbstractSimpleSink}.
  */
 @AutoService(SeaTunnelSink.class)
 public class KuduSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
@@ -63,7 +63,8 @@ public class KuduSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) throws IOException {
+    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
+            throws IOException {
         return new KuduSinkWriter(seaTunnelRowType, config);
     }
 }

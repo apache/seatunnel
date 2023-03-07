@@ -17,9 +17,7 @@
 
 package org.apache.seatunnel.connector.selectdb.sink.writer;
 
-/**
- * enum of LoadStatus.
- */
+/** enum of LoadStatus. */
 public class LoadStatus {
     public static final int SUCCESS = 0;
     public static final String FAIL = "1";

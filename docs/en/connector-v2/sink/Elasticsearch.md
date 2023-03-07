@@ -19,7 +19,7 @@ Engine Supported
 
 ## Options
 
-| name                    | type    | required | default value | 
+|          name           |  type   | required | default value |
 |-------------------------|---------|----------|---------------|
 | hosts                   | array   | yes      | -             |
 | index                   | string  | yes      | -             |
@@ -27,7 +27,7 @@ Engine Supported
 | primary_keys            | list    | no       |               |
 | key_delimiter           | string  | no       | `_`           |
 | username                | string  | no       |               |
-| password                | string  | no       |               | 
+| password                | string  | no       |               |
 | max_retry_count         | int     | no       | 3             |
 | max_batch_size          | int     | no       | 10            |
 | tls_verify_certificate  | boolean | no       | true          |
@@ -38,33 +38,41 @@ Engine Supported
 | tls_truststore_password | string  | no       | -             |
 | common-options          |         | no       | -             |
 
-
 ### hosts [array]
+
 `Elasticsearch` cluster http address, the format is `host:port` , allowing multiple hosts to be specified. Such as `["host1:9200", "host2:9200"]`.
 
 ### index [string]
+
 `Elasticsearch`  `index` name.Index support contains variables of field name,such as `seatunnel_${age}`,and the field must appear at seatunnel row.
 If not, we will treat it as a normal index.
 
 ### index_type [string]
+
 `Elasticsearch` index type, it is recommended not to specify in elasticsearch 6 and above
 
 ### primary_keys [list]
+
 Primary key fields used to generate the document `_id`, this is cdc required options.
 
 ### key_delimiter [string]
+
 Delimiter for composite keys ("_" by default), e.g., "$" would result in document `_id` "KEY1$KEY2$KEY3".
 
 ### username [string]
+
 x-pack username
 
 ### password [string]
+
 x-pack password
 
 ### max_retry_count [int]
+
 one bulk request max try size
 
 ### max_batch_size [int]
+
 batch bulk doc max size
 
 ### tls_verify_certificate [boolean]
@@ -175,3 +183,4 @@ sink {
 
 - [Feature] Support CDC write DELETE/UPDATE/INSERT events ([3673](https://github.com/apache/incubator-seatunnel/pull/3673))
 - [Feature] Support https protocol & compatible with opensearch ([3997](https://github.com/apache/incubator-seatunnel/pull/3997))
+

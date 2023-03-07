@@ -27,8 +27,6 @@ public interface SplitFetcherTask {
      */
     void run() throws IOException;
 
-    /**
-     * Wake up the running thread.
-     */
+    /** Wake up the running thread. */
     void wakeUp();
 }

@@ -24,8 +24,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import java.io.Serializable;
 
-public interface SeaTunnelTransform<T> extends Serializable,
-    PluginIdentifierInterface, SeaTunnelPluginLifeCycle, SeaTunnelJobAware {
+public interface SeaTunnelTransform<T>
+        extends Serializable,
+                PluginIdentifierInterface,
+                SeaTunnelPluginLifeCycle,
+                SeaTunnelJobAware {
 
     /**
      * Set the data type info of input data.

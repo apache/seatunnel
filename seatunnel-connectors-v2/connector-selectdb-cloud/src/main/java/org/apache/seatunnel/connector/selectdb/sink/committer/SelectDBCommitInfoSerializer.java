@@ -25,15 +25,13 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
-/**
- * define how to serialize SelectDBCommitInfo.
- */
+/** define how to serialize SelectDBCommitInfo. */
 public class SelectDBCommitInfoSerializer implements Serializer<SelectDBCommitInfo> {
 
     @Override
     public byte[] serialize(SelectDBCommitInfo obj) throws IOException {
         try (final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-             final DataOutputStream out = new DataOutputStream(baos)) {
+                final DataOutputStream out = new DataOutputStream(baos)) {
             out.writeUTF(obj.getHostPort());
             out.writeUTF(obj.getClusterName());
             out.writeUTF(obj.getCopySQL());
@@ -45,7 +43,7 @@ public class SelectDBCommitInfoSerializer implements Serializer<SelectDBCommitIn
     @Override
     public SelectDBCommitInfo deserialize(byte[] serialized) throws IOException {
         try (final ByteArrayInputStream bais = new ByteArrayInputStream(serialized);
-             final DataInputStream in = new DataInputStream(bais)) {
+                final DataInputStream in = new DataInputStream(bais)) {
             final String hostPort = in.readUTF();
             final String clusterName = in.readUTF();
             final String copySQL = in.readUTF();

@@ -38,6 +38,7 @@ import org.apache.flink.streaming.api.functions.source.RichSourceFunction;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
 import org.apache.flink.types.Row;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,10 +48,11 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * The abstract implementation of {@link RichSourceFunction}, the entrypoint of flink source translation
+ * The abstract implementation of {@link RichSourceFunction}, the entrypoint of flink source
+ * translation
  */
 public abstract class BaseSeaTunnelSourceFunction extends RichSourceFunction<Row>
-    implements CheckpointListener, ResultTypeQueryable<Row>, CheckpointedFunction {
+        implements CheckpointListener, ResultTypeQueryable<Row>, CheckpointedFunction {
     private static final Logger LOG = LoggerFactory.getLogger(BaseSeaTunnelSourceFunction.class);
 
     protected final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
@@ -62,9 +64,7 @@ public abstract class BaseSeaTunnelSourceFunction extends RichSourceFunction<Row
     protected final AtomicLong latestCompletedCheckpointId = new AtomicLong(0);
     protected final AtomicLong latestTriggerCheckpointId = new AtomicLong(0);
 
-    /**
-     * Flag indicating whether the consumer is still running.
-     */
+    /** Flag indicating whether the consumer is still running. */
     private volatile boolean running = true;
 
     public BaseSeaTunnelSourceFunction(SeaTunnelSource<SeaTunnelRow, ?, ?> source) {
@@ -83,12 +83,18 @@ public abstract class BaseSeaTunnelSourceFunction extends RichSourceFunction<Row
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void run(SourceFunction.SourceContext<Row> sourceContext) throws Exception {
-        internalSource.run(new RowCollector(sourceContext, sourceContext.getCheckpointLock(), source.getProducedType()));
+        internalSource.run(
+                new RowCollector(
+                        sourceContext,
+                        sourceContext.getCheckpointLock(),
+                        source.getProducedType()));
         // Wait for a checkpoint to complete:
-        // In the current version(version < 1.14.0), when the operator state of the source changes to FINISHED, jobs cannot be checkpoint executed.
+        // In the current version(version < 1.14.0), when the operator state of the source changes
+        // to FINISHED, jobs cannot be checkpoint executed.
         final long prevCheckpointId = latestTriggerCheckpointId.get();
         // Ensured Checkpoint enabled
-        if (getRuntimeContext() instanceof StreamingRuntimeContext && ((StreamingRuntimeContext) getRuntimeContext()).isCheckpointingEnabled()) {
+        if (getRuntimeContext() instanceof StreamingRuntimeContext
+                && ((StreamingRuntimeContext) getRuntimeContext()).isCheckpointingEnabled()) {
             while (running && prevCheckpointId >= latestCompletedCheckpointId.get()) {
                 Thread.sleep(100);
             }
@@ -146,20 +152,27 @@ public abstract class BaseSeaTunnelSourceFunction extends RichSourceFunction<Row
     @Override
     public void initializeState(FunctionInitializationContext initializeContext) throws Exception {
         this.restoredState = new HashMap<>();
-        this.sourceState = initializeContext.getOperatorStateStore()
-            .getListState(
-                new ListStateDescriptor<>(
-                    getStateName(),
-                    Types.MAP(
-                        BasicTypeInfo.INT_TYPE_INFO,
-                        Types.LIST(PrimitiveArrayTypeInfo.BYTE_PRIMITIVE_ARRAY_TYPE_INFO))
-                ));
+        this.sourceState =
+                initializeContext
+                        .getOperatorStateStore()
+                        .getListState(
+                                new ListStateDescriptor<>(
+                                        getStateName(),
+                                        Types.MAP(
+                                                BasicTypeInfo.INT_TYPE_INFO,
+                                                Types.LIST(
+                                                        PrimitiveArrayTypeInfo
+                                                                .BYTE_PRIMITIVE_ARRAY_TYPE_INFO))));
         if (initializeContext.isRestored()) {
             // populate actual holder for restored state
             sourceState.get().forEach(map -> restoredState.putAll(map));
-            LOG.info("Consumer subtask {} restored state", getRuntimeContext().getIndexOfThisSubtask());
+            LOG.info(
+                    "Consumer subtask {} restored state",
+                    getRuntimeContext().getIndexOfThisSubtask());
         } else {
-            LOG.info("Consumer subtask {} has no restore state.", getRuntimeContext().getIndexOfThisSubtask());
+            LOG.info(
+                    "Consumer subtask {} has no restore state.",
+                    getRuntimeContext().getIndexOfThisSubtask());
         }
     }
 

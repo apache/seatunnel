@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.common.config;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class CommonTest {
 
@@ -31,11 +31,15 @@ public class CommonTest {
 
     @Test
     public void appLibDir() {
-        assertEquals(Common.appRootDir().toString() + File.separator + "starter", Common.appStarterDir().toString());
+        assertEquals(
+                Common.appRootDir().toString() + File.separator + "starter",
+                Common.appStarterDir().toString());
     }
 
     @Test
     public void pluginTarFile() {
-        assertEquals(Common.appRootDir().toString() + File.separator + "plugins.tar.gz", Common.pluginTarball().toString());
+        assertEquals(
+                Common.appRootDir().toString() + File.separator + "plugins.tar.gz",
+                Common.pluginTarball().toString());
     }
 }

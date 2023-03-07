@@ -28,10 +28,8 @@ import java.sql.SQLException;
 
 @RequiredArgsConstructor
 public class SimpleBatchStatementExecutor implements JdbcBatchStatementExecutor {
-    @NonNull
-    private final StatementFactory statementFactory;
-    @NonNull
-    private final JdbcRowConverter converter;
+    @NonNull private final StatementFactory statementFactory;
+    @NonNull private final JdbcRowConverter converter;
     private transient PreparedStatement statement;
 
     @Override

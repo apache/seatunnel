@@ -36,14 +36,17 @@ import java.util.List;
 @Data
 public class SparkCommandArgs extends AbstractCommandArgs {
 
-    @Parameter(names = {"-e", "--deploy-mode"},
-        description = "Spark deploy mode, support [cluster, client]",
-        converter = SparkDeployModeConverter.class)
+    @Parameter(
+            names = {"-e", "--deploy-mode"},
+            description = "Spark deploy mode, support [cluster, client]",
+            converter = SparkDeployModeConverter.class)
     private DeployMode deployMode = DeployMode.CLIENT;
 
-    @Parameter(names = {"-m", "--master"},
-        description = "Spark master, support [spark://host:port, mesos://host:port, yarn, " +
-            "k8s://https://host:port, local], default local[*]")
+    @Parameter(
+            names = {"-m", "--master"},
+            description =
+                    "Spark master, support [spark://host:port, mesos://host:port, yarn, "
+                            + "k8s://https://host:port, local], default local[*]")
     private String master = "local[*]";
 
     @Override
@@ -70,8 +73,9 @@ public class SparkCommandArgs extends AbstractCommandArgs {
             if (DEPLOY_MODE_TYPE_LIST.contains(deployMode)) {
                 return deployMode;
             } else {
-                throw new IllegalArgumentException("SeaTunnel job on spark engine deploy mode only " +
-                    "support these options: [cluster, client]");
+                throw new IllegalArgumentException(
+                        "SeaTunnel job on spark engine deploy mode only "
+                                + "support these options: [cluster, client]");
             }
         }
     }

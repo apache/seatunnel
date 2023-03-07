@@ -18,7 +18,7 @@ describes how to setup the Oracle CDC connector to run SQL queries against Oracl
 
 ## Options
 
-| name                                           | type     | required | default value |
+|                      name                      |   type   | required | default value |
 |------------------------------------------------|----------|----------|---------------|
 | hostname                                       | String   | Yes      | -             |
 | port                                           | Integer  | No       | 3306          |
@@ -69,7 +69,6 @@ Database name of the database to monitor.
 ### table-name [String]
 
 Table name is a combination of schema name and table name (schemaName.tableName).
-
 
 ### startup.mode [Enum]
 
@@ -127,7 +126,6 @@ of table.
 ### snapshot.fetch.size [Integer]
 
 The maximum fetch size for per poll when read table snapshot.
-
 
 ### server-time-zone [String]
 
@@ -190,3 +188,4 @@ source {
 ### next version
 
 - Add Oracle CDC Source Connector
+

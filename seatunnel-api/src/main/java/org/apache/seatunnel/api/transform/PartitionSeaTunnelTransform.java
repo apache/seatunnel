@@ -24,5 +24,4 @@ public interface PartitionSeaTunnelTransform extends SeaTunnelTransform<Record<?
     int getPartitionCount();
 
     int getTargetCount();
-
 }

@@ -35,13 +35,16 @@ public class AbstractPluginDiscoveryTest {
     @Test
     public void testGetAllPlugins() {
         Common.setDeployMode(DeployMode.CLIENT);
-        System.setProperty("SEATUNNEL_HOME", Objects.requireNonNull(AbstractPluginDiscoveryTest.class.getResource("/home")).getPath());
-        Map<PluginIdentifier, String> sourcePlugins = AbstractPluginDiscovery.getAllSupportedPlugins(PluginType.SOURCE);
+        System.setProperty(
+                "SEATUNNEL_HOME",
+                Objects.requireNonNull(AbstractPluginDiscoveryTest.class.getResource("/home"))
+                        .getPath());
+        Map<PluginIdentifier, String> sourcePlugins =
+                AbstractPluginDiscovery.getAllSupportedPlugins(PluginType.SOURCE);
         Assertions.assertEquals(27, sourcePlugins.size());
 
-        Map<PluginIdentifier, String> sinkPlugins = AbstractPluginDiscovery.getAllSupportedPlugins(PluginType.SINK);
+        Map<PluginIdentifier, String> sinkPlugins =
+                AbstractPluginDiscovery.getAllSupportedPlugins(PluginType.SINK);
         Assertions.assertEquals(30, sinkPlugins.size());
-
     }
-
 }

@@ -24,12 +24,35 @@ public class SentryConfig {
 
     public static final String SENTRY = "Sentry";
 
-    public static final Option<String> DSN = Options.key("dsn").stringType().noDefaultValue().withDescription("sentry dsn");
-    public static final Option<String> ENV = Options.key("env").stringType().noDefaultValue().withDescription("env");
-    public static final Option<String> RELEASE = Options.key("release").stringType().noDefaultValue().withDescription("release");
-    public static final Option<String> CACHE_DIRPATH = Options.key("cacheDirPath").stringType().noDefaultValue().withDescription("sentry cache dir path");
-    public static final Option<String> ENABLE_EXTERNAL_CONFIGURATION = Options.key("enableExternalConfiguration").stringType().noDefaultValue().withDescription("enable external configuration");
-    public static final Option<String> MAX_CACHEITEMS = Options.key("maxCacheItems").stringType().noDefaultValue().withDescription("max cache items");
-    public static final Option<String> FLUSH_TIMEOUTMILLIS = Options.key("flushTimeoutMillis").stringType().noDefaultValue().withDescription("flush timeout millis");
-    public static final Option<String> MAX_QUEUESIZE = Options.key("maxQueueSize").stringType().noDefaultValue().withDescription("flush queue size");
+    public static final Option<String> DSN =
+            Options.key("dsn").stringType().noDefaultValue().withDescription("sentry dsn");
+    public static final Option<String> ENV =
+            Options.key("env").stringType().noDefaultValue().withDescription("env");
+    public static final Option<String> RELEASE =
+            Options.key("release").stringType().noDefaultValue().withDescription("release");
+    public static final Option<String> CACHE_DIRPATH =
+            Options.key("cacheDirPath")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("sentry cache dir path");
+    public static final Option<String> ENABLE_EXTERNAL_CONFIGURATION =
+            Options.key("enableExternalConfiguration")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("enable external configuration");
+    public static final Option<String> MAX_CACHEITEMS =
+            Options.key("maxCacheItems")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("max cache items");
+    public static final Option<String> FLUSH_TIMEOUTMILLIS =
+            Options.key("flushTimeoutMillis")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("flush timeout millis");
+    public static final Option<String> MAX_QUEUESIZE =
+            Options.key("maxQueueSize")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("flush queue size");
 }

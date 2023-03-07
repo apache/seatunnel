@@ -23,10 +23,7 @@ import io.debezium.schema.DataCollectionId;
 
 import java.io.Serializable;
 
-/**
- * Unique identifier for a database table.
- *
- */
+/** Unique identifier for a database table. */
 @Immutable
 public final class TableId implements DataCollectionId, Comparable<TableId>, Serializable {
     private static final long serialVersionUID = 1L;
@@ -45,9 +42,9 @@ public final class TableId implements DataCollectionId, Comparable<TableId>, Ser
      * Parse the supplied string, extracting up to the first 3 parts into a TableID.
      *
      * @param str the string representation of the table identifier; may not be null
-     * @param useCatalogBeforeSchema {@code true} if the parsed string contains only 2 items and the first should be used as
-     *            the catalog and the second as the table name, or {@code false} if the first should be used as the schema and the
-     *            second as the table name
+     * @param useCatalogBeforeSchema {@code true} if the parsed string contains only 2 items and the
+     *     first should be used as the catalog and the second as the table name, or {@code false} if
+     *     the first should be used as the schema and the second as the table name
      * @return the table ID, or null if it could not be parsed
      */
     public static TableId parse(String str, boolean useCatalogBeforeSchema) {
@@ -61,9 +58,9 @@ public final class TableId implements DataCollectionId, Comparable<TableId>, Ser
      *
      * @param parts the parts of the identifier; may not be null
      * @param numParts the number of parts to use for the table identifier
-     * @param useCatalogBeforeSchema {@code true} if the parsed string contains only 2 items and the first should be used as
-     *            the catalog and the second as the table name, or {@code false} if the first should be used as the schema and the
-     *            second as the table name
+     * @param useCatalogBeforeSchema {@code true} if the parsed string contains only 2 items and the
+     *     first should be used as the catalog and the second as the table name, or {@code false} if
+     *     the first should be used as the schema and the second as the table name
      * @return the table ID, or null if it could not be parsed
      */
     protected static TableId parse(String[] parts, int numParts, boolean useCatalogBeforeSchema) {
@@ -90,28 +87,35 @@ public final class TableId implements DataCollectionId, Comparable<TableId>, Ser
     /**
      * Create a new table identifier.
      *
-     * @param catalogName the name of the database catalog that contains the table; may be null if the JDBC driver does not
-     *            show a schema for this table
-     * @param schemaName the name of the database schema that contains the table; may be null if the JDBC driver does not
-     *            show a schema for this table
+     * @param catalogName the name of the database catalog that contains the table; may be null if
+     *     the JDBC driver does not show a schema for this table
+     * @param schemaName the name of the database schema that contains the table; may be null if the
+     *     JDBC driver does not show a schema for this table
      * @param tableName the name of the table; may not be null
      * @param tableIdMapper the customization of fully quailified table name
      */
-    public TableId(String catalogName, String schemaName, String tableName, TableIdToStringMapper tableIdMapper) {
+    public TableId(
+            String catalogName,
+            String schemaName,
+            String tableName,
+            TableIdToStringMapper tableIdMapper) {
         this.catalogName = catalogName;
         this.schemaName = schemaName;
         this.tableName = tableName;
         assert this.tableName != null;
-        this.id = tableIdMapper == null ? tableId(this.catalogName, this.schemaName, this.tableName) : tableIdMapper.toString(this);
+        this.id =
+                tableIdMapper == null
+                        ? tableId(this.catalogName, this.schemaName, this.tableName)
+                        : tableIdMapper.toString(this);
     }
 
     /**
      * Create a new table identifier.
      *
-     * @param catalogName the name of the database catalog that contains the table; may be null if the JDBC driver does not
-     *            show a schema for this table
-     * @param schemaName the name of the database schema that contains the table; may be null if the JDBC driver does not
-     *            show a schema for this table
+     * @param catalogName the name of the database catalog that contains the table; may be null if
+     *     the JDBC driver does not show a schema for this table
+     * @param schemaName the name of the database schema that contains the table; may be null if the
+     *     JDBC driver does not show a schema for this table
      * @param tableName the name of the table; may not be null
      */
     public TableId(String catalogName, String schemaName, String tableName) {
@@ -184,16 +188,14 @@ public final class TableId implements DataCollectionId, Comparable<TableId>, Ser
     }
 
     /**
-     * Returns a dot-separated String representation of this identifier, quoting all
-     * name parts with the {@code "} char.
+     * Returns a dot-separated String representation of this identifier, quoting all name parts with
+     * the {@code "} char.
      */
     public String toDoubleQuotedString() {
         return toQuotedString('"');
     }
 
-    /**
-     * Returns a new {@link TableId} with all parts of the identifier using {@code "} character.
-     */
+    /** Returns a new {@link TableId} with all parts of the identifier using {@code "} character. */
     public TableId toDoubleQuoted() {
         return toQuoted('"');
     }
@@ -218,8 +220,8 @@ public final class TableId implements DataCollectionId, Comparable<TableId>, Ser
     }
 
     /**
-     * Returns a dot-separated String representation of this identifier, quoting all
-     * name parts with the given quoting char.
+     * Returns a dot-separated String representation of this identifier, quoting all name parts with
+     * the given quoting char.
      */
     public String toQuotedString(char quotingChar) {
         StringBuilder quoted = new StringBuilder();
@@ -250,9 +252,7 @@ public final class TableId implements DataCollectionId, Comparable<TableId>, Ser
         return catalog + "." + schema + "." + table;
     }
 
-    /**
-     * Quotes the given identifier part, e.g. schema or table name.
-     */
+    /** Quotes the given identifier part, e.g. schema or table name. */
     private static String quote(String identifierPart, char quotingChar) {
         if (identifierPart == null) {
             return null;
@@ -262,7 +262,8 @@ public final class TableId implements DataCollectionId, Comparable<TableId>, Ser
             return new StringBuilder().append(quotingChar).append(quotingChar).toString();
         }
 
-        if (identifierPart.charAt(0) != quotingChar && identifierPart.charAt(identifierPart.length() - 1) != quotingChar) {
+        if (identifierPart.charAt(0) != quotingChar
+                && identifierPart.charAt(identifierPart.length() - 1) != quotingChar) {
             identifierPart = identifierPart.replace(quotingChar + "", repeat(quotingChar));
             identifierPart = quotingChar + identifierPart + quotingChar;
         }

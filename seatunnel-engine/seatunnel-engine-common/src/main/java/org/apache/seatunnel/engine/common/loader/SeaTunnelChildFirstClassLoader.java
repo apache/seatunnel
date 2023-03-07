@@ -27,31 +27,33 @@ import java.util.function.Consumer;
 
 public class SeaTunnelChildFirstClassLoader extends SeaTunnelBaseClassLoader {
     private final String[] alwaysParentFirstPatterns;
-    private static final String[] DEFAULT_PARENT_FIRST_PATTERNS = new String[]{
-        "java.",
-        "javax.xml",
-        "org.xml",
-        "org.w3c",
-        "org.apache.hadoop",
-        "scala.",
-        "org.apache.seatunnel.",
-        "javax.annotation.",
-        "org.slf4j",
-        "org.apache.log4j",
-        "org.apache.logging",
-        "org.apache.commons.logging",
-        "com.fasterxml.jackson"
-    };
+    private static final String[] DEFAULT_PARENT_FIRST_PATTERNS =
+            new String[] {
+                "java.",
+                "javax.xml",
+                "org.xml",
+                "org.w3c",
+                "org.apache.hadoop",
+                "scala.",
+                "org.apache.seatunnel.",
+                "javax.annotation.",
+                "org.slf4j",
+                "org.apache.log4j",
+                "org.apache.logging",
+                "org.apache.commons.logging",
+                "com.fasterxml.jackson"
+            };
 
     public SeaTunnelChildFirstClassLoader(List<URL> urls) {
         this(urls, DEFAULT_PARENT_FIRST_PATTERNS);
     }
 
     public SeaTunnelChildFirstClassLoader(List<URL> urls, String[] alwaysParentFirstPatterns) {
-        this(urls.toArray(new URL[0]),
-            SeaTunnelChildFirstClassLoader.class.getClassLoader(),
-            alwaysParentFirstPatterns,
-            NOOP_EXCEPTION_HANDLER);
+        this(
+                urls.toArray(new URL[0]),
+                SeaTunnelChildFirstClassLoader.class.getClassLoader(),
+                alwaysParentFirstPatterns,
+                NOOP_EXCEPTION_HANDLER);
     }
 
     public SeaTunnelChildFirstClassLoader(
@@ -64,9 +66,8 @@ public class SeaTunnelChildFirstClassLoader extends SeaTunnelBaseClassLoader {
     }
 
     @Override
-    protected synchronized Class<?> loadClassWithoutExceptionHandling(
-            String name,
-            boolean resolve) throws ClassNotFoundException {
+    protected synchronized Class<?> loadClassWithoutExceptionHandling(String name, boolean resolve)
+            throws ClassNotFoundException {
         // First, check if the class has already been loaded
         Class<?> c = findLoadedClass(name);
 

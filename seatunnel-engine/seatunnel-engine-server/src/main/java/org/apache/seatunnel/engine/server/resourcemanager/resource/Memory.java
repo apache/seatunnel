@@ -35,8 +35,6 @@ public class Memory implements Resource {
 
     @Override
     public String toString() {
-        return "Memory{" +
-            "bytes=" + bytes +
-            '}';
+        return "Memory{" + "bytes=" + bytes + '}';
     }
 }

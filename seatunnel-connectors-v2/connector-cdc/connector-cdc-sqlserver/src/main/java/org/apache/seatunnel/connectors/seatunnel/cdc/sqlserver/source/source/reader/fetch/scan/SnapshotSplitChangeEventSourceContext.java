@@ -23,11 +23,11 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.off
 import io.debezium.pipeline.source.spi.ChangeEventSource;
 
 /**
- * {@link ChangeEventSource.ChangeEventSourceContext} implementation that keeps low/high
- * watermark for each {@link SnapshotSplit}.
+ * {@link ChangeEventSource.ChangeEventSourceContext} implementation that keeps low/high watermark
+ * for each {@link SnapshotSplit}.
  */
 public class SnapshotSplitChangeEventSourceContext
-    implements ChangeEventSource.ChangeEventSourceContext {
+        implements ChangeEventSource.ChangeEventSourceContext {
 
     private LsnOffset lowWatermark;
     private LsnOffset highWatermark;

@@ -20,15 +20,12 @@
 
 package org.apache.seatunnel.engine.imap.storage.file;
 
-import static org.awaitility.Awaitility.await;
-import static org.junit.jupiter.api.condition.OS.LINUX;
-import static org.junit.jupiter.api.condition.OS.MAC;
-
 import org.apache.seatunnel.engine.imap.storage.file.common.FileConstants;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -41,6 +38,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.WRITE_DATA_TIMEOUT_MILLISECONDS_KEY;
+import static org.awaitility.Awaitility.await;
+import static org.junit.jupiter.api.condition.OS.LINUX;
+import static org.junit.jupiter.api.condition.OS.MAC;
 
 @EnabledOnOs({LINUX, MAC})
 public class IMapFileStorageTest {
@@ -59,6 +61,7 @@ public class IMapFileStorageTest {
         properties.put(FileConstants.FileInitProperties.NAMESPACE_KEY, "/tmp/imap-kris-test/2");
         properties.put(FileConstants.FileInitProperties.CLUSTER_NAME, "test-one");
         properties.put(FileConstants.FileInitProperties.HDFS_CONFIG_KEY, CONF);
+        properties.put(WRITE_DATA_TIMEOUT_MILLISECONDS_KEY, 60L);
 
         STORAGE.initialize(properties);
     }
@@ -81,7 +84,7 @@ public class IMapFileStorageTest {
                 // delete
                 STORAGE.delete(key1Index);
                 keys.remove(key1Index);
-                //update
+                // update
                 STORAGE.store(key2Index, keyValue);
                 keys.add(key2Index);
                 value = keyValue;

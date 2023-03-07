@@ -38,8 +38,7 @@ public class ReaderOption implements Serializable {
     private boolean supportUpsert;
     private String tableEngine;
     private Map<String, String> tableSchema;
-    @Setter
-    private SeaTunnelRowType seaTunnelRowType;
+    @Setter private SeaTunnelRowType seaTunnelRowType;
     private Properties properties;
     private int bulkSize;
 }

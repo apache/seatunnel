@@ -29,20 +29,22 @@ import java.util.Map;
 public class FileCommitInfo implements Serializable {
     /**
      * Storage the commit info in map.
-     * <p>K is the file path need to be moved to target dir.</p>
-     * <p>V is the target file path of the data file.</p>
+     *
+     * <p>K is the file path need to be moved to target dir.
+     *
+     * <p>V is the target file path of the data file.
      */
     private final Map<String, String> needMoveFiles;
 
     /**
      * Storage the partition information in map.
-     * <p>K is the partition column's name.</p>
-     * <p>V is the list of partition column's values.</p>
+     *
+     * <p>K is the partition column's name.
+     *
+     * <p>V is the list of partition column's values.
      */
     private final Map<String, List<String>> partitionDirAndValuesMap;
 
-    /**
-     * Storage the transaction directory
-     */
+    /** Storage the transaction directory */
     private final String transactionDir;
 }

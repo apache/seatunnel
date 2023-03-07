@@ -17,10 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils;
 
-import static io.debezium.config.CommonConnectorConfig.DATABASE_CONFIG_PREFIX;
-
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.offset.RedoLogOffset;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.debezium.config.Configuration;
 import io.debezium.connector.oracle.OracleConnection;
@@ -28,14 +29,14 @@ import io.debezium.connector.oracle.Scn;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.RelationalTableFilters;
 import io.debezium.relational.TableId;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
+import static io.debezium.config.CommonConnectorConfig.DATABASE_CONFIG_PREFIX;
 
 /** Oracle connection Utilities. */
 public class OracleConnectionUtils {

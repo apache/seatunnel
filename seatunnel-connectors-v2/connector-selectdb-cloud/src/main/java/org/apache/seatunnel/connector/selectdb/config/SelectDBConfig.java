@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.connector.selectdb.config;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -40,81 +40,83 @@ public class SelectDBConfig {
     private static final int DEFAULT_SINK_BUFFER_SIZE = 1024 * 1024;
     private static final int DEFAULT_SINK_BUFFER_COUNT = 3;
     // common option
-    public static final Option<String> LOAD_URL = Options
-            .key("load-url").stringType()
-            .noDefaultValue()
-            .withDescription("SelectDB load http address.");
-    public static final Option<String> JDBC_URL = Options
-            .key("jdbc-url")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("SelectDB jdbc query address.");
-    public static final Option<String> CLUSTER_NAME = Options
-            .key("cluster-name")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("SelectDB cluster name.");
+    public static final Option<String> LOAD_URL =
+            Options.key("load-url")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("SelectDB load http address.");
+    public static final Option<String> JDBC_URL =
+            Options.key("jdbc-url")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("SelectDB jdbc query address.");
+    public static final Option<String> CLUSTER_NAME =
+            Options.key("cluster-name")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("SelectDB cluster name.");
 
-    public static final Option<String> TABLE_IDENTIFIER = Options
-            .key("table.identifier")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("the jdbc table name.");
-    public static final Option<String> USERNAME = Options
-            .key("username")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("the jdbc user name.");
-    public static final Option<String> PASSWORD = Options
-            .key("password")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("the jdbc password.");
+    public static final Option<String> TABLE_IDENTIFIER =
+            Options.key("table.identifier")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("the jdbc table name.");
+    public static final Option<String> USERNAME =
+            Options.key("username")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("the jdbc user name.");
+    public static final Option<String> PASSWORD =
+            Options.key("password")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("the jdbc password.");
 
     // sink config options
-    public static final Option<Boolean> SINK_ENABLE_2PC = Options
-            .key("sink.enable-2pc")
-            .booleanType()
-            .defaultValue(true)
-            .withDescription("enable 2PC while loading");
+    public static final Option<Boolean> SINK_ENABLE_2PC =
+            Options.key("sink.enable-2pc")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription("enable 2PC while loading");
 
-    public static final Option<Integer> SINK_CHECK_INTERVAL = Options
-            .key("sink.check-interval")
-            .intType()
-            .defaultValue(DEFAULT_SINK_CHECK_INTERVAL)
-            .withDescription("check exception with the interval while loading");
-    public static final Option<Integer> SINK_MAX_RETRIES = Options
-            .key("sink.max-retries")
-            .intType()
-            .defaultValue(DEFAULT_SINK_MAX_RETRIES)
-            .withDescription("the max retry times if writing records to database failed.");
-    public static final Option<Integer> SINK_BUFFER_SIZE = Options
-            .key("sink.buffer-size")
-            .intType()
-            .defaultValue(DEFAULT_SINK_BUFFER_SIZE)
-            .withDescription("the buffer size to cache data for stream load.");
-    public static final Option<Integer> SINK_BUFFER_COUNT = Options
-            .key("sink.buffer-count")
-            .intType()
-            .defaultValue(DEFAULT_SINK_BUFFER_COUNT)
-            .withDescription("the buffer count to cache data for stream load.");
-    public static final Option<String> SINK_LABEL_PREFIX = Options
-            .key("sink.label-prefix")
-            .stringType()
-            .defaultValue(UUID.randomUUID().toString())
-            .withDescription("the unique label prefix.");
-    public static final Option<Boolean> SINK_ENABLE_DELETE = Options
-            .key("sink.enable-delete")
-            .booleanType()
-            .defaultValue(false)
-            .withDescription("whether to enable the delete function");
+    public static final Option<Integer> SINK_CHECK_INTERVAL =
+            Options.key("sink.check-interval")
+                    .intType()
+                    .defaultValue(DEFAULT_SINK_CHECK_INTERVAL)
+                    .withDescription("check exception with the interval while loading");
+    public static final Option<Integer> SINK_MAX_RETRIES =
+            Options.key("sink.max-retries")
+                    .intType()
+                    .defaultValue(DEFAULT_SINK_MAX_RETRIES)
+                    .withDescription("the max retry times if writing records to database failed.");
+    public static final Option<Integer> SINK_BUFFER_SIZE =
+            Options.key("sink.buffer-size")
+                    .intType()
+                    .defaultValue(DEFAULT_SINK_BUFFER_SIZE)
+                    .withDescription("the buffer size to cache data for stream load.");
+    public static final Option<Integer> SINK_BUFFER_COUNT =
+            Options.key("sink.buffer-count")
+                    .intType()
+                    .defaultValue(DEFAULT_SINK_BUFFER_COUNT)
+                    .withDescription("the buffer count to cache data for stream load.");
+    public static final Option<String> SINK_LABEL_PREFIX =
+            Options.key("sink.label-prefix")
+                    .stringType()
+                    .defaultValue(UUID.randomUUID().toString())
+                    .withDescription("the unique label prefix.");
+    public static final Option<Boolean> SINK_ENABLE_DELETE =
+            Options.key("sink.enable-delete")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("whether to enable the delete function");
 
-    public static final Option<Map<String, String>> SELECTDB_SINK_CONFIG_PREFIX = Options
-            .key("selectdb.config")
-            .mapType()
-            .noDefaultValue()
-            .withDescription("The parameter of the Copy Into data_desc. " +
-                    "The way to specify the parameter is to add the prefix `selectdb.config` to the original load parameter name ");
+    public static final Option<Map<String, String>> SELECTDB_SINK_CONFIG_PREFIX =
+            Options.key("selectdb.config")
+                    .mapType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The parameter of the Copy Into data_desc. "
+                                    + "The way to specify the parameter is to add the prefix `selectdb.config` to the original load parameter name ");
 
     private String loadUrl;
     private String jdbcUrl;
@@ -182,12 +184,14 @@ public class SelectDBConfig {
     private static Properties parseCopyIntoProperties(Config pluginConfig) {
         Properties streamLoadProps = new Properties();
         if (CheckConfigUtil.isValidParam(pluginConfig, SELECTDB_SINK_CONFIG_PREFIX.key())) {
-            pluginConfig.getObject(SELECTDB_SINK_CONFIG_PREFIX.key()).forEach((key, value) -> {
-                final String configKey = key.toLowerCase();
-                streamLoadProps.put(configKey, value.unwrapped().toString());
-            });
+            pluginConfig
+                    .getObject(SELECTDB_SINK_CONFIG_PREFIX.key())
+                    .forEach(
+                            (key, value) -> {
+                                final String configKey = key.toLowerCase();
+                                streamLoadProps.put(configKey, value.unwrapped().toString());
+                            });
         }
         return streamLoadProps;
     }
-
 }

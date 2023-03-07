@@ -19,5 +19,4 @@ package org.apache.seatunnel.connectors.seatunnel.file.local.source.config;
 
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 
-public class LocalSourceConfig extends BaseSourceConfig {
-}
+public class LocalSourceConfig extends BaseSourceConfig {}

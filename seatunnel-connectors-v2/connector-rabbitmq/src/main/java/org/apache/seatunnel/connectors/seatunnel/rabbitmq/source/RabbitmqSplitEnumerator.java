@@ -26,22 +26,22 @@ public class RabbitmqSplitEnumerator implements SourceSplitEnumerator {
 
     @Override
     public void open() {
-        //do nothing
+        // do nothing
     }
 
     @Override
     public void run() throws Exception {
-        //do nothing
+        // do nothing
     }
 
     @Override
     public void close() throws IOException {
-        //do nothing
+        // do nothing
     }
 
     @Override
     public void addSplitsBack(List splits, int subtaskId) {
-        //do nothing
+        // do nothing
     }
 
     @Override
@@ -51,12 +51,12 @@ public class RabbitmqSplitEnumerator implements SourceSplitEnumerator {
 
     @Override
     public void handleSplitRequest(int subtaskId) {
-        //do nothing
+        // do nothing
     }
 
     @Override
     public void registerReader(int subtaskId) {
-        //do nothing
+        // do nothing
     }
 
     @Override
@@ -66,6 +66,6 @@ public class RabbitmqSplitEnumerator implements SourceSplitEnumerator {
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
-        //do nothing
+        // do nothing
     }
 }

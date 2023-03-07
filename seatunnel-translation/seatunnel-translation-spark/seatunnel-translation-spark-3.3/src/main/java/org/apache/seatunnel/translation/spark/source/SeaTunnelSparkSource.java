@@ -26,15 +26,11 @@ import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 
 import java.util.Map;
 
-/**
- * SeaTunnel source class of Spark 3+, can be used as source
- */
+/** SeaTunnel source class of Spark 3+, can be used as source */
 public class SeaTunnelSparkSource implements DataSourceRegister, TableProvider {
     private static final String SOURCE_NAME = "SeaTunnelSource";
 
-    /**
-     * The identifier of spark SPI discovery, refer to {@link DataSourceRegister}
-     */
+    /** The identifier of spark SPI discovery, refer to {@link DataSourceRegister} */
     @Override
     public String shortName() {
         return SOURCE_NAME;
@@ -42,6 +38,7 @@ public class SeaTunnelSparkSource implements DataSourceRegister, TableProvider {
 
     /**
      * SeaTunnel spark source <b>not support</b> infer schema information
+     *
      * @param caseInsensitiveStringMap case insensitive properties
      */
     @Override
@@ -51,17 +48,20 @@ public class SeaTunnelSparkSource implements DataSourceRegister, TableProvider {
 
     /**
      * The basic unit {@link SeaTunnelSourceTable} of SeaTunnel spark source read
+     *
      * @param structType The specified table schema
      * @param transforms The specified table partitioning
      * @param properties The specified table properties
      */
     @Override
-    public Table getTable(StructType structType, Transform[] transforms, Map<String, String> properties) {
+    public Table getTable(
+            StructType structType, Transform[] transforms, Map<String, String> properties) {
         return new SeaTunnelSourceTable(properties);
     }
 
     /**
      * SeaTunnel DataSource whether support external metadata
+     *
      * @return Flag indicating whether support external metadata
      */
     @Override

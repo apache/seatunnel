@@ -20,10 +20,6 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.common;
 
-import static org.awaitility.Awaitility.await;
-import static org.junit.jupiter.api.condition.OS.LINUX;
-import static org.junit.jupiter.api.condition.OS.MAC;
-
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
@@ -31,6 +27,7 @@ import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -40,6 +37,10 @@ import org.junit.jupiter.api.condition.EnabledOnOs;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Map;
+
+import static org.awaitility.Awaitility.await;
+import static org.junit.jupiter.api.condition.OS.LINUX;
+import static org.junit.jupiter.api.condition.OS.MAC;
 
 @EnabledOnOs({LINUX, MAC})
 public class WALReaderAndWriterTest {
@@ -62,13 +63,14 @@ public class WALReaderAndWriterTest {
         IMapFileData data;
         boolean isDelete;
         for (int i = 0; i < 1024; i++) {
-            data = IMapFileData.builder()
-                .key(SERIALIZER.serialize("key" + i))
-                .keyClassName(String.class.getName())
-                .value(SERIALIZER.serialize("value" + i))
-                .valueClassName(Integer.class.getName())
-                .timestamp(System.nanoTime())
-                .build();
+            data =
+                    IMapFileData.builder()
+                            .key(SERIALIZER.serialize("key" + i))
+                            .keyClassName(String.class.getName())
+                            .value(SERIALIZER.serialize("value" + i))
+                            .valueClassName(Integer.class.getName())
+                            .timestamp(System.nanoTime())
+                            .build();
             if (i % 2 == 0) {
                 isDelete = true;
                 data.setKey(SERIALIZER.serialize(i));
@@ -80,23 +82,25 @@ public class WALReaderAndWriterTest {
 
             writer.write(data);
         }
-        //update key 511
-        data = IMapFileData.builder()
-            .key(SERIALIZER.serialize("key" + 511))
-            .keyClassName(String.class.getName())
-            .value(SERIALIZER.serialize("Kristen"))
-            .valueClassName(String.class.getName())
-            .deleted(false)
-            .timestamp(System.nanoTime())
-            .build();
+        // update key 511
+        data =
+                IMapFileData.builder()
+                        .key(SERIALIZER.serialize("key" + 511))
+                        .keyClassName(String.class.getName())
+                        .value(SERIALIZER.serialize("Kristen"))
+                        .valueClassName(String.class.getName())
+                        .deleted(false)
+                        .timestamp(System.nanoTime())
+                        .build();
         writer.write(data);
-        //delete key 519
-        data = IMapFileData.builder()
-            .key(SERIALIZER.serialize("key" + 519))
-            .keyClassName(String.class.getName())
-            .deleted(true)
-            .timestamp(System.nanoTime())
-            .build();
+        // delete key 519
+        data =
+                IMapFileData.builder()
+                        .key(SERIALIZER.serialize("key" + 519))
+                        .keyClassName(String.class.getName())
+                        .deleted(true)
+                        .timestamp(System.nanoTime())
+                        .build();
 
         writer.write(data);
         writer.close();
@@ -107,13 +111,11 @@ public class WALReaderAndWriterTest {
         Assertions.assertEquals("Kristen", result.get("key511"));
         Assertions.assertEquals(511, result.size());
         Assertions.assertNull(result.get("key519"));
-
     }
 
     @AfterAll
     public static void close() throws IOException {
         FS.delete(PARENT_PATH, true);
         FS.close();
-
     }
 }

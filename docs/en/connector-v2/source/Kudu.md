@@ -6,7 +6,7 @@
 
 Used to read data from Kudu.
 
- The tested kudu version is 1.11.1.
+The tested kudu version is 1.11.1.
 
 ## Key features
 
@@ -19,12 +19,12 @@ Used to read data from Kudu.
 
 ## Options
 
-| name                     | type    | required | default value |
-|--------------------------|---------|----------|---------------|
-| kudu_master              | string  | yes      | -             |
-| kudu_table               | string  | yes      | -             |
-| columnsList              | string  | yes      | -             |
-| common-options           |         | no       | -             |
+|      name      |  type  | required | default value |
+|----------------|--------|----------|---------------|
+| kudu_master    | string | yes      | -             |
+| kudu_table     | string | yes      | -             |
+| columnsList    | string | yes      | -             |
+| common-options |        | no       | -             |
 
 ### kudu_master [string]
 
@@ -38,7 +38,7 @@ Used to read data from Kudu.
 
 `columnsList` Specifies the column names of the table.
 
-### common options 
+### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
@@ -65,3 +65,4 @@ source {
 ### Next Version
 
 - Change plugin name from `KuduSource` to `Kudu` [3432](https://github.com/apache/incubator-seatunnel/pull/3432)
+

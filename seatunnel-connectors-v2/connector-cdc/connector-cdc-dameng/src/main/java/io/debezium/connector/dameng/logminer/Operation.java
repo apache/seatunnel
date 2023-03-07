@@ -46,8 +46,11 @@ public enum Operation {
 
     public static Operation parse(int operationCode) throws IllegalArgumentException {
         return Arrays.stream(Operation.values())
-            .filter(o -> o.code == operationCode)
-            .findFirst()
-            .orElseThrow(() -> new IllegalArgumentException("Illegal operationCode: " + operationCode));
+                .filter(o -> o.code == operationCode)
+                .findFirst()
+                .orElseThrow(
+                        () ->
+                                new IllegalArgumentException(
+                                        "Illegal operationCode: " + operationCode));
     }
 }

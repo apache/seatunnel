@@ -26,24 +26,18 @@ import lombok.Setter;
 
 import java.util.List;
 
-/**
- * The state of split to describe the change log of table(s).
- */
+/** The state of split to describe the change log of table(s). */
 @Getter
 @Setter
 public class IncrementalSplitState extends SourceSplitStateBase {
 
-    private  List<TableId> tableIds;
+    private List<TableId> tableIds;
 
-    /**
-     * Minimum watermark for SnapshotSplits for all tables in this IncrementalSplit
-     */
+    /** Minimum watermark for SnapshotSplits for all tables in this IncrementalSplit */
     private Offset startupOffset;
 
-    /**
-     * Obtained by configuration, may not end
-     */
-    private  Offset stopOffset;
+    /** Obtained by configuration, may not end */
+    private Offset stopOffset;
 
     public IncrementalSplitState(IncrementalSplit split) {
         super(split);
@@ -56,11 +50,10 @@ public class IncrementalSplitState extends SourceSplitStateBase {
     public IncrementalSplit toSourceSplit() {
         final IncrementalSplit incrementalSplit = split.asIncrementalSplit();
         return new IncrementalSplit(
-            incrementalSplit.splitId(),
-            getTableIds(),
-            getStartupOffset(),
-            getStopOffset(),
-            incrementalSplit.getCompletedSnapshotSplitInfos()
-        );
+                incrementalSplit.splitId(),
+                getTableIds(),
+                getStartupOffset(),
+                getStopOffset(),
+                incrementalSplit.getCompletedSnapshotSplitInfos());
     }
 }

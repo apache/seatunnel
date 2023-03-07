@@ -22,6 +22,8 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkKind;
 
+import org.apache.kafka.connect.source.SourceRecord;
+
 import io.debezium.config.CommonConnectorConfig;
 import io.debezium.connector.base.ChangeEventQueue;
 import io.debezium.pipeline.DataChangeEvent;
@@ -34,7 +36,6 @@ import io.debezium.schema.DataCollectionFilters;
 import io.debezium.schema.DatabaseSchema;
 import io.debezium.schema.TopicSelector;
 import io.debezium.util.SchemaNameAdjuster;
-import org.apache.kafka.connect.source.SourceRecord;
 
 import java.util.Map;
 
@@ -80,15 +81,15 @@ public class JdbcSourceEventDispatcher extends EventDispatcher<TableId> {
     }
 
     public void dispatchWatermarkEvent(
-        Map<String, ?> sourcePartition,
-        SourceSplitBase sourceSplit,
-        Offset watermark,
-        WatermarkKind watermarkKind)
-        throws InterruptedException {
+            Map<String, ?> sourcePartition,
+            SourceSplitBase sourceSplit,
+            Offset watermark,
+            WatermarkKind watermarkKind)
+            throws InterruptedException {
 
         SourceRecord sourceRecord =
-            WatermarkEvent.create(
-                sourcePartition, topic, sourceSplit.splitId(), watermarkKind, watermark);
+                WatermarkEvent.create(
+                        sourcePartition, topic, sourceSplit.splitId(), watermarkKind, watermark);
         queue.enqueue(new DataChangeEvent(sourceRecord));
     }
 }

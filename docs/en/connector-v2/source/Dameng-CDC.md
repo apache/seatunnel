@@ -16,7 +16,7 @@ describes how to setup the Dameng CDC connector to run SQL queries against Damen
 
 ## Options
 
-| name                                           | type     | required | default value |
+|                      name                      |   type   | required | default value |
 |------------------------------------------------|----------|----------|---------------|
 | hostname                                       | String   | Yes      | -             |
 | port                                           | Integer  | No       | 3306          |
@@ -191,3 +191,4 @@ source {
 ### next version
 
 - Add Dameng CDC Source Connector
+

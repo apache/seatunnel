@@ -21,15 +21,15 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 By default, we use 2PC commit to ensure `exactly-once`
 
 - [x] file format
-    - [x] text
-    - [x] csv
-    - [x] parquet
-    - [x] orc
-    - [x] json
+  - [x] text
+  - [x] csv
+  - [x] parquet
+  - [x] orc
+  - [x] json
 
 ## Options
 
-| name                             | type    | required | default value                              | remarks                                                   |
+|               name               |  type   | required |               default value                |                          remarks                          |
 |----------------------------------|---------|----------|--------------------------------------------|-----------------------------------------------------------|
 | path                             | string  | yes      | -                                          |                                                           |
 | custom_filename                  | boolean | no       | false                                      | Whether you need custom the filename                      |
@@ -53,6 +53,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 The target dir path is required.
 
 ### custom_filename [boolean]
+
 Whether custom the filename
 
 ### file_name_expression [string]
@@ -70,8 +71,8 @@ Only used when `custom_filename` is `true`
 
 When the format in the `file_name_expression` parameter is `xxxx-${now}` , `filename_time_format` can specify the time format of the path, and the default value is `yyyy.MM.dd` . The commonly used time formats are listed as follows:
 
-| Symbol | Description        |
-| ------ | ------------------ |
+| Symbol |    Description     |
+|--------|--------------------|
 | y      | Year               |
 | M      | Month              |
 | d      | Day of month       |
@@ -206,16 +207,17 @@ LocalFile {
 - Add Local File Sink Connector
 
 ### 2.3.0-beta 2022-10-20
+
 - [BugFix] Fix the bug of incorrect path in windows environment ([2980](https://github.com/apache/incubator-seatunnel/pull/2980))
 - [BugFix] Fix filesystem get error ([3117](https://github.com/apache/incubator-seatunnel/pull/3117))
 - [BugFix] Solved the bug of can not parse '\t' as delimiter from config file ([3083](https://github.com/apache/incubator-seatunnel/pull/3083))
 
 ### Next version
+
 - [BugFix] Fixed the following bugs that failed to write data to files ([3258](https://github.com/apache/incubator-seatunnel/pull/3258))
   - When field from upstream is null it will throw NullPointerException
   - Sink columns mapping failed
   - When restore writer from states getting transaction directly failed
-
 - [Improve] Support setting batch size for every file ([3625](https://github.com/apache/incubator-seatunnel/pull/3625))
-
 - [Improve] Support file compress ([3899](https://github.com/apache/incubator-seatunnel/pull/3899))
+

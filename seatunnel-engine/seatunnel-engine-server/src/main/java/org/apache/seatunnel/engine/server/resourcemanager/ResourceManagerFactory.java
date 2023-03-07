@@ -25,7 +25,6 @@ import com.hazelcast.spi.impl.NodeEngine;
 
 public class ResourceManagerFactory {
 
-
     private final NodeEngine nodeEngine;
 
     public ResourceManagerFactory(NodeEngine nodeEngine) {
@@ -47,5 +46,4 @@ public class ResourceManagerFactory {
     public ResourceManager getResourceManager() {
         return this.getResourceManager(DeployType.STANDALONE);
     }
-
 }

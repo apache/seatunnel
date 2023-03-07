@@ -17,15 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.commit;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
+import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
+import org.apache.thrift.TException;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.thrift.TException;
 
 import java.io.IOException;
 import java.util.List;
@@ -38,8 +42,8 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
     private final String dbName;
     private final String tableName;
 
-    public HiveSinkAggregatedCommitter(Config pluginConfig, String dbName,
-                                       String tableName, FileSystemUtils fileSystemUtils) {
+    public HiveSinkAggregatedCommitter(
+            Config pluginConfig, String dbName, String tableName, FileSystemUtils fileSystemUtils) {
         super(fileSystemUtils);
         this.pluginConfig = pluginConfig;
         this.dbName = dbName;
@@ -47,21 +51,32 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
     }
 
     @Override
-    public List<FileAggregatedCommitInfo> commit(List<FileAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
+    public List<FileAggregatedCommitInfo> commit(
+            List<FileAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
         HiveMetaStoreProxy hiveMetaStore = HiveMetaStoreProxy.getInstance(pluginConfig);
         List<FileAggregatedCommitInfo> errorCommitInfos = super.commit(aggregatedCommitInfos);
         if (errorCommitInfos.isEmpty()) {
             for (FileAggregatedCommitInfo aggregatedCommitInfo : aggregatedCommitInfos) {
-                Map<String, List<String>> partitionDirAndValuesMap = aggregatedCommitInfo.getPartitionDirAndValuesMap();
-                List<String> partitions = partitionDirAndValuesMap.keySet().stream()
-                        .map(partition -> partition.replaceAll("\\\\", "/"))
-                        .collect(Collectors.toList());
+                Map<String, List<String>> partitionDirAndValuesMap =
+                        aggregatedCommitInfo.getPartitionDirAndValuesMap();
+                List<String> partitions =
+                        partitionDirAndValuesMap.keySet().stream()
+                                .map(partition -> partition.replaceAll("\\\\", "/"))
+                                .collect(Collectors.toList());
                 try {
                     hiveMetaStore.addPartitions(dbName, tableName, partitions);
                     log.info("Add these partitions {}", partitions);
+                } catch (AlreadyExistsException e) {
+                    hiveMetaStore.close();
+                    log.warn("These partitions {} are already exists", partitions);
+                    throw new HiveConnectorException(
+                            HiveConnectorErrorCode.AGGREGATE_COMMIT_ERROR, e);
                 } catch (TException e) {
+                    hiveMetaStore.close();
                     log.error("Failed to add these partitions {}", partitions, e);
                     errorCommitInfos.add(aggregatedCommitInfo);
+                    throw new HiveConnectorException(
+                            HiveConnectorErrorCode.AGGREGATE_COMMIT_ERROR, e);
                 }
             }
         }
@@ -74,10 +89,12 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
         super.abort(aggregatedCommitInfos);
         HiveMetaStoreProxy hiveMetaStore = HiveMetaStoreProxy.getInstance(pluginConfig);
         for (FileAggregatedCommitInfo aggregatedCommitInfo : aggregatedCommitInfos) {
-            Map<String, List<String>> partitionDirAndValuesMap = aggregatedCommitInfo.getPartitionDirAndValuesMap();
-            List<String> partitions = partitionDirAndValuesMap.keySet().stream()
-                    .map(partition -> partition.replaceAll("\\\\", "/"))
-                    .collect(Collectors.toList());
+            Map<String, List<String>> partitionDirAndValuesMap =
+                    aggregatedCommitInfo.getPartitionDirAndValuesMap();
+            List<String> partitions =
+                    partitionDirAndValuesMap.keySet().stream()
+                            .map(partition -> partition.replaceAll("\\\\", "/"))
+                            .collect(Collectors.toList());
             try {
                 hiveMetaStore.dropPartitions(dbName, tableName, partitions);
                 log.info("Remove these partitions {}", partitions);

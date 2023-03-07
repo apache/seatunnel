@@ -32,23 +32,25 @@ import lombok.extern.slf4j.Slf4j;
 public class DamengDatabaseSchema extends HistorizedRelationalDatabaseSchema {
     private final ValueConverterProvider valueConverter;
 
-    public DamengDatabaseSchema(DamengConnectorConfig connectorConfig,
-                                ValueConverterProvider valueConverter,
-                                TopicSelector<TableId> topicSelector,
-                                SchemaNameAdjuster schemaNameAdjuster,
-                                boolean tableIdCaseInsensitive) {
-        super(connectorConfig,
-            topicSelector,
-            connectorConfig.getTableFilters().dataCollectionFilter(),
-            connectorConfig.getColumnFilter(),
-            new TableSchemaBuilder(
-                valueConverter,
-                schemaNameAdjuster,
-                connectorConfig.customConverterRegistry(),
-                connectorConfig.getSourceInfoStructMaker().schema(),
-                connectorConfig.getSanitizeFieldNames()),
-            tableIdCaseInsensitive,
-            connectorConfig.getKeyMapper());
+    public DamengDatabaseSchema(
+            DamengConnectorConfig connectorConfig,
+            ValueConverterProvider valueConverter,
+            TopicSelector<TableId> topicSelector,
+            SchemaNameAdjuster schemaNameAdjuster,
+            boolean tableIdCaseInsensitive) {
+        super(
+                connectorConfig,
+                topicSelector,
+                connectorConfig.getTableFilters().dataCollectionFilter(),
+                connectorConfig.getColumnFilter(),
+                new TableSchemaBuilder(
+                        valueConverter,
+                        schemaNameAdjuster,
+                        connectorConfig.customConverterRegistry(),
+                        connectorConfig.getSourceInfoStructMaker().schema(),
+                        connectorConfig.getSanitizeFieldNames()),
+                tableIdCaseInsensitive,
+                connectorConfig.getKeyMapper());
         this.valueConverter = valueConverter;
     }
 
@@ -59,10 +61,13 @@ public class DamengDatabaseSchema extends HistorizedRelationalDatabaseSchema {
         switch (schemaChange.getType()) {
             case CREATE:
             case ALTER:
-                schemaChange.getTableChanges().forEach(x -> {
-                    buildAndRegisterSchema(x.getTable());
-                    tables().overwriteTable(x.getTable());
-                });
+                schemaChange
+                        .getTableChanges()
+                        .forEach(
+                                x -> {
+                                    buildAndRegisterSchema(x.getTable());
+                                    tables().overwriteTable(x.getTable());
+                                });
                 break;
             case DROP:
                 schemaChange.getTableChanges().forEach(x -> removeSchema(x.getId()));
@@ -70,8 +75,13 @@ public class DamengDatabaseSchema extends HistorizedRelationalDatabaseSchema {
             default:
         }
 
-        if (schemaChange.getTables().stream().map(Table::id).anyMatch(getTableFilter()::isIncluded)) {
-            log.debug("Recorded DDL statements for database '{}': {}", schemaChange.getDatabase(), schemaChange.getDdl());
+        if (schemaChange.getTables().stream()
+                .map(Table::id)
+                .anyMatch(getTableFilter()::isIncluded)) {
+            log.debug(
+                    "Recorded DDL statements for database '{}': {}",
+                    schemaChange.getDatabase(),
+                    schemaChange.getDdl());
             record(schemaChange, schemaChange.getTableChanges());
         }
     }

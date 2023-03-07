@@ -18,5 +18,6 @@
 package org.apache.seatunnel.engine.common.config.server;
 
 public enum QueueType {
-    DISRUPTOR, BLOCKINGQUEUE
+    DISRUPTOR,
+    BLOCKINGQUEUE
 }

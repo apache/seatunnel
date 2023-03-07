@@ -40,15 +40,16 @@ public class ClickhouseTable implements Serializable {
     private final DistributedEngine distributedEngine;
     private Map<String, String> tableSchema;
 
-    public ClickhouseTable(String database,
-                           String tableName,
-                           DistributedEngine distributedEngine,
-                           String engine,
-                           String createTableDDL,
-                           String engineFull,
-                           List<String> dataPaths,
-                           String sortingKey,
-                           Map<String, String> tableSchema) {
+    public ClickhouseTable(
+            String database,
+            String tableName,
+            DistributedEngine distributedEngine,
+            String engine,
+            String createTableDDL,
+            String engineFull,
+            List<String> dataPaths,
+            String sortingKey,
+            Map<String, String> tableSchema) {
         this.database = database;
         this.tableName = tableName;
         this.distributedEngine = distributedEngine;

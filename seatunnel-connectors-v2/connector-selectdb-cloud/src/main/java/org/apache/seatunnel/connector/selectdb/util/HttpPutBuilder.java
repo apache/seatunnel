@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connector.selectdb.util;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import org.apache.commons.codec.binary.Base64;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
@@ -28,6 +26,8 @@ import org.apache.http.entity.StringEntity;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class HttpPutBuilder {
     String url;

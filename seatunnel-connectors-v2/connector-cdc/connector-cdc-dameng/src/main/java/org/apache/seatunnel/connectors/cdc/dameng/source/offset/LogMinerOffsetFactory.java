@@ -33,13 +33,11 @@ public class LogMinerOffsetFactory extends OffsetFactory {
     private final DamengSourceConfig sourceConfig;
     private final DamengDialect dialect;
 
-    public LogMinerOffsetFactory(DamengSourceConfigFactory configFactory,
-                                 DamengDialect dialect) {
+    public LogMinerOffsetFactory(DamengSourceConfigFactory configFactory, DamengDialect dialect) {
         this(configFactory.create(0), dialect);
     }
 
-    public LogMinerOffsetFactory(DamengSourceConfig sourceConfig,
-                                 DamengDialect dialect) {
+    public LogMinerOffsetFactory(DamengSourceConfig sourceConfig, DamengDialect dialect) {
         this.sourceConfig = sourceConfig;
         this.dialect = dialect;
     }
@@ -74,7 +72,8 @@ public class LogMinerOffsetFactory extends OffsetFactory {
 
     @Override
     public Offset specific(String filename, Long position) {
-        throw new UnsupportedOperationException("not supported create new Offset by filename and position.");
+        throw new UnsupportedOperationException(
+                "not supported create new Offset by filename and position.");
     }
 
     @Override

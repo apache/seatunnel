@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jira.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.http.util.AuthorizationUtil.getTokenByBasicAuth;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.source.Boundedness;
@@ -34,10 +34,10 @@ import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.jira.source.config.JiraSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jira.source.config.JiraSourceParameter;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
+
+import static org.apache.seatunnel.connectors.seatunnel.http.util.AuthorizationUtil.getTokenByBasicAuth;
 
 @Slf4j
 @AutoService(SeaTunnelSource.class)
@@ -54,23 +54,38 @@ public class JiraSource extends HttpSource {
         if (JobMode.BATCH.equals(jobContext.getJobMode())) {
             return Boundedness.BOUNDED;
         }
-        throw new UnsupportedOperationException("Jira source connector not support unbounded operation");
+        throw new UnsupportedOperationException(
+                "Jira source connector not support unbounded operation");
     }
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, JiraSourceConfig.URL.key(), JiraSourceConfig.EMAIL.key(), JiraSourceConfig.API_TOKEN.key());
+        CheckResult result =
+                CheckConfigUtil.checkAllExists(
+                        pluginConfig,
+                        JiraSourceConfig.URL.key(),
+                        JiraSourceConfig.EMAIL.key(),
+                        JiraSourceConfig.API_TOKEN.key());
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
-        //get accessToken by basic auth
-        String accessToken = getTokenByBasicAuth(pluginConfig.getString(JiraSourceConfig.EMAIL.key()), pluginConfig.getString(JiraSourceConfig.API_TOKEN.key()));
+        // get accessToken by basic auth
+        String accessToken =
+                getTokenByBasicAuth(
+                        pluginConfig.getString(JiraSourceConfig.EMAIL.key()),
+                        pluginConfig.getString(JiraSourceConfig.API_TOKEN.key()));
         jiraSourceParameter.buildWithConfig(pluginConfig, accessToken);
         buildSchemaWithConfig(pluginConfig);
     }
 
     @Override
-    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new HttpSourceReader(this.jiraSourceParameter, readerContext, this.deserializationSchema, jsonField, contentField);
+    public AbstractSingleSplitReader<SeaTunnelRow> createReader(
+            SingleSplitReaderContext readerContext) throws Exception {
+        return new HttpSourceReader(
+                this.jiraSourceParameter,
+                readerContext,
+                this.deserializationSchema,
+                jsonField,
+                contentField);
     }
 }

@@ -25,8 +25,8 @@ import java.util.Properties;
 import java.util.StringJoiner;
 
 public class CopySQLBuilder {
-    private static final  String COPY_SYNC = "copy.async";
-    private static final  String COPY_DELETE = "copy.use_delete_sign";
+    private static final String COPY_SYNC = "copy.async";
+    private static final String COPY_DELETE = "copy.use_delete_sign";
     private final SelectDBConfig selectdbConfig;
     private final List<String> fileList;
     private Properties properties;
@@ -41,10 +41,12 @@ public class CopySQLBuilder {
         StringBuilder sb = new StringBuilder();
         sb.append("COPY INTO ")
                 .append(selectdbConfig.getTableIdentifier())
-                .append(" FROM @~('{").append(String.join(",", fileList)).append("}') ")
+                .append(" FROM @~('{")
+                .append(String.join(",", fileList))
+                .append("}') ")
                 .append("PROPERTIES (");
 
-        //copy into must be sync
+        // copy into must be sync
         properties.put(COPY_SYNC, false);
         if (selectdbConfig.getEnableDelete()) {
             properties.put(COPY_DELETE, true);

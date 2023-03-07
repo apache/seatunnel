@@ -22,7 +22,8 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * Plugins discovery interface, used to find plugin. Each plugin type should have its own implementation.
+ * Plugins discovery interface, used to find plugin. Each plugin type should have its own
+ * implementation.
  *
  * @param <T> plugin type
  */
@@ -47,7 +48,7 @@ public interface PluginDiscovery<T> {
      * Get plugin instance by plugin identifier.
      *
      * @param pluginIdentifier plugin identifier.
-     * @param pluginJars       used to help plugin load
+     * @param pluginJars used to help plugin load
      * @return plugin instance. If not found, throw IllegalArgumentException.
      */
     T createPluginInstance(PluginIdentifier pluginIdentifier, Collection<URL> pluginJars);
@@ -58,5 +59,4 @@ public interface PluginDiscovery<T> {
      * @return plugin instances.
      */
     List<T> getAllPlugins(List<PluginIdentifier> pluginIdentifiers);
-
 }

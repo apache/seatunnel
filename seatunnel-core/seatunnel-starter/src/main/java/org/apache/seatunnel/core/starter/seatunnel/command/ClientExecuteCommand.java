@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.core.starter.seatunnel.command;
 
-import static org.apache.seatunnel.core.starter.utils.FileUtils.checkConfigExist;
-
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.core.starter.command.Command;
@@ -36,6 +34,7 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
@@ -45,20 +44,23 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Random;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-/**
- * This command is used to execute the SeaTunnel engine job by SeaTunnel API.
- */
+import static org.apache.seatunnel.core.starter.utils.FileUtils.checkConfigExist;
+
+/** This command is used to execute the SeaTunnel engine job by SeaTunnel API. */
 @Slf4j
 public class ClientExecuteCommand implements Command<ClientCommandArgs> {
 
     private final ClientCommandArgs clientCommandArgs;
 
     private JobStatus jobStatus;
+    private SeaTunnelClient engineClient;
+    private HazelcastInstance instance;
+    private ScheduledExecutorService executorService;
 
     public ClientExecuteCommand(ClientCommandArgs clientCommandArgs) {
         this.clientCommandArgs = clientCommandArgs;
@@ -67,9 +69,6 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
     @SuppressWarnings({"checkstyle:RegexpSingleline", "checkstyle:MagicNumber"})
     @Override
     public void execute() throws CommandExecuteException {
-        HazelcastInstance instance = null;
-        SeaTunnelClient engineClient = null;
-        ScheduledExecutorService executorService = null;
         JobMetricsRunner.JobMetricsSummary jobMetricsSummary = null;
         LocalDateTime startTime = LocalDateTime.now();
         LocalDateTime endTime = LocalDateTime.now();
@@ -85,18 +84,28 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             clientConfig.setClusterName(clusterName);
             engineClient = new SeaTunnelClient(clientConfig);
             if (clientCommandArgs.isListJob()) {
-                String jobStatus = engineClient.listJobStatus();
+                String jobStatus = engineClient.getJobClient().listJobStatus(true);
                 System.out.println(jobStatus);
             } else if (null != clientCommandArgs.getJobId()) {
-                String jobState = engineClient.getJobDetailStatus(Long.parseLong(clientCommandArgs.getJobId()));
+                String jobState =
+                        engineClient
+                                .getJobClient()
+                                .getJobDetailStatus(Long.parseLong(clientCommandArgs.getJobId()));
                 System.out.println(jobState);
             } else if (null != clientCommandArgs.getCancelJobId()) {
-                engineClient.cancelJob(Long.parseLong(clientCommandArgs.getCancelJobId()));
+                engineClient
+                        .getJobClient()
+                        .cancelJob(Long.parseLong(clientCommandArgs.getCancelJobId()));
             } else if (null != clientCommandArgs.getMetricsJobId()) {
-                String jobMetrics = engineClient.getJobMetrics(Long.parseLong(clientCommandArgs.getMetricsJobId()));
+                String jobMetrics =
+                        engineClient
+                                .getJobClient()
+                                .getJobMetrics(Long.parseLong(clientCommandArgs.getMetricsJobId()));
                 System.out.println(jobMetrics);
             } else if (null != clientCommandArgs.getSavePointJobId()) {
-                engineClient.savePointJob(Long.parseLong(clientCommandArgs.getSavePointJobId()));
+                engineClient
+                        .getJobClient()
+                        .savePointJob(Long.parseLong(clientCommandArgs.getSavePointJobId()));
             } else {
                 Path configFile = FileUtils.getConfigPath(clientCommandArgs);
                 checkConfigExist(configFile);
@@ -104,10 +113,14 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 JobExecutionEnvironment jobExecutionEnv;
                 jobConfig.setName(clientCommandArgs.getJobName());
                 if (null != clientCommandArgs.getRestoreJobId()) {
-                    jobExecutionEnv = engineClient.restoreExecutionContext(configFile.toString(), jobConfig,
-                        Long.parseLong(clientCommandArgs.getRestoreJobId()));
+                    jobExecutionEnv =
+                            engineClient.restoreExecutionContext(
+                                    configFile.toString(),
+                                    jobConfig,
+                                    Long.parseLong(clientCommandArgs.getRestoreJobId()));
                 } else {
-                    jobExecutionEnv = engineClient.createExecutionContext(configFile.toString(), jobConfig);
+                    jobExecutionEnv =
+                            engineClient.createExecutionContext(configFile.toString(), jobConfig);
                 }
 
                 // get job start time
@@ -115,21 +128,37 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 // create job proxy
                 ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
                 // register cancelJob hook
-                if (clientCommandArgs.isCloseJob()) {
-                    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                        try {
-                            shutdownHook(clientJobProxy);
-                        } catch (Exception e) {
-                            log.error("Cancel job failed.", e);
-                        }
-                    }));
-                }
+                Runtime.getRuntime()
+                        .addShutdownHook(
+                                new Thread(
+                                        () -> {
+                                            CompletableFuture<Void> future =
+                                                    CompletableFuture.runAsync(
+                                                            () -> {
+                                                                log.info(
+                                                                        "run shutdown hook because get close signal");
+                                                                shutdownHook(clientJobProxy);
+                                                            });
+                                            try {
+                                                future.get(15, TimeUnit.SECONDS);
+                                            } catch (Exception e) {
+                                                log.error("Cancel job failed.", e);
+                                            }
+                                        }));
                 // get job id
                 long jobId = clientJobProxy.getJobId();
                 JobMetricsRunner jobMetricsRunner = new JobMetricsRunner(engineClient, jobId);
-                executorService = Executors.newSingleThreadScheduledExecutor();
-                executorService.scheduleAtFixedRate(jobMetricsRunner, 0,
-                    seaTunnelConfig.getEngineConfig().getPrintJobMetricsInfoInterval(), TimeUnit.SECONDS);
+                executorService =
+                        Executors.newSingleThreadScheduledExecutor(
+                                new ThreadFactoryBuilder()
+                                        .setNameFormat("job-metrics-runner-%d")
+                                        .setDaemon(true)
+                                        .build());
+                executorService.scheduleAtFixedRate(
+                        jobMetricsRunner,
+                        0,
+                        seaTunnelConfig.getEngineConfig().getPrintJobMetricsInfoInterval(),
+                        TimeUnit.SECONDS);
                 // wait for job complete
                 jobStatus = clientJobProxy.waitForJobComplete();
                 // get job end time
@@ -137,49 +166,56 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 // get job statistic information when job finished
                 jobMetricsSummary = engineClient.getJobMetricsSummary(jobId);
             }
-        } catch (ExecutionException | InterruptedException e) {
+        } catch (Exception e) {
             throw new CommandExecuteException("SeaTunnel job executed failed", e);
         } finally {
-            if (engineClient != null) {
-                engineClient.close();
-            }
-            if (instance != null) {
-                instance.shutdown();
-            }
-            if (executorService != null) {
-                executorService.shutdown();
-            }
             if (jobMetricsSummary != null) {
                 // print job statistics information when job finished
-                log.info(StringFormatUtils.formatTable(
-                    "Job Statistic Information",
-                    "Start Time",
-                    DateTimeUtils.toString(startTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS),
-
-                    "End Time",
-                    DateTimeUtils.toString(endTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS),
-
-                    "Total Time(s)",
-                    Duration.between(startTime, endTime).getSeconds(),
-
-                    "Total Read Count",
-                    jobMetricsSummary.getSourceReadCount(),
-
-                    "Total Write Count",
-                    jobMetricsSummary.getSinkWriteCount(),
-
-                    "Total Failed Count",
-                    jobMetricsSummary.getSourceReadCount() - jobMetricsSummary.getSinkWriteCount()));
+                log.info(
+                        StringFormatUtils.formatTable(
+                                "Job Statistic Information",
+                                "Start Time",
+                                DateTimeUtils.toString(
+                                        startTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS),
+                                "End Time",
+                                DateTimeUtils.toString(
+                                        endTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS),
+                                "Total Time(s)",
+                                Duration.between(startTime, endTime).getSeconds(),
+                                "Total Read Count",
+                                jobMetricsSummary.getSourceReadCount(),
+                                "Total Write Count",
+                                jobMetricsSummary.getSinkWriteCount(),
+                                "Total Failed Count",
+                                jobMetricsSummary.getSourceReadCount()
+                                        - jobMetricsSummary.getSinkWriteCount()));
             }
+            closeClient();
+        }
+    }
+
+    private void closeClient() {
+        if (engineClient != null) {
+            engineClient.close();
+            log.info("Closed SeaTunnel client......");
+        }
+        if (instance != null) {
+            instance.shutdown();
+            log.info("Closed HazelcastInstance ......");
+        }
+        if (executorService != null) {
+            executorService.shutdownNow();
+            log.info("Closed metrics executor service ......");
         }
     }
 
     private HazelcastInstance createServerInLocal(String clusterName) {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
-        return HazelcastInstanceFactory.newHazelcastInstance(seaTunnelConfig.getHazelcastConfig(),
-            Thread.currentThread().getName(),
-            new SeaTunnelNodeContext(seaTunnelConfig));
+        return HazelcastInstanceFactory.newHazelcastInstance(
+                seaTunnelConfig.getHazelcastConfig(),
+                Thread.currentThread().getName(),
+                new SeaTunnelNodeContext(seaTunnelConfig));
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
@@ -189,10 +225,12 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
     }
 
     private void shutdownHook(ClientJobProxy clientJobProxy) {
-        if (jobStatus == null || !jobStatus.isEndState()) {
-            log.warn("Task will be closed due to client shutdown.");
-            clientJobProxy.cancelJob();
+        if (clientCommandArgs.isCloseJob()) {
+            if (clientJobProxy.getJobResultCache() == null
+                    && (jobStatus == null || !jobStatus.isEndState())) {
+                log.warn("Task will be closed due to client shutdown.");
+                clientJobProxy.cancelJob();
+            }
         }
     }
-
 }

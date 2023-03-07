@@ -18,8 +18,9 @@
 package org.apache.seatunnel.translation.flink.sink;
 
 /**
- * The commit message wrapper, which is used to wrapper the different commit messages
- * and unify the different implementations of {@link CommitT}
+ * The commit message wrapper, which is used to wrapper the different commit messages and unify the
+ * different implementations of {@link CommitT}
+ *
  * @param <CommitT> The generic type of commit message
  */
 public class CommitWrapper<CommitT> {

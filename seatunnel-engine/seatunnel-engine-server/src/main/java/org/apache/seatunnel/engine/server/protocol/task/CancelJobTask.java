@@ -27,9 +27,12 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 
 public class CancelJobTask extends AbstractSeaTunnelMessageTask<Long, Void> {
     protected CancelJobTask(ClientMessage clientMessage, Node node, Connection connection) {
-        super(clientMessage, node, connection,
-            SeaTunnelCancelJobCodec::decodeRequest,
-            x -> SeaTunnelCancelJobCodec.encodeResponse());
+        super(
+                clientMessage,
+                node,
+                connection,
+                SeaTunnelCancelJobCodec::decodeRequest,
+                x -> SeaTunnelCancelJobCodec.encodeResponse());
     }
 
     @Override

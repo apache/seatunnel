@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.tdengine.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
@@ -24,14 +26,13 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.exception.TDengineConnectorException;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.ArrayUtils;
-import org.apache.commons.lang3.StringUtils;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -48,7 +49,8 @@ import java.util.Objects;
 @Slf4j
 public class TDengineSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
-    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+    private static final DateTimeFormatter FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
     private final Connection conn;
     private final TDengineSourceConfig config;
     private int tagsNum;
@@ -56,10 +58,19 @@ public class TDengineSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     @SneakyThrows
     public TDengineSinkWriter(Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
         config = TDengineSourceConfig.buildSourceConfig(pluginConfig);
-        String jdbcUrl = StringUtils.join(config.getUrl(), config.getDatabase(), "?user=", config.getUsername(), "&password=", config.getPassword());
+        String jdbcUrl =
+                StringUtils.join(
+                        config.getUrl(),
+                        config.getDatabase(),
+                        "?user=",
+                        config.getUsername(),
+                        "&password=",
+                        config.getPassword());
         conn = DriverManager.getConnection(jdbcUrl);
         try (Statement statement = conn.createStatement()) {
-            final ResultSet metaResultSet = statement.executeQuery("desc " + config.getDatabase() + "." + config.getStable());
+            final ResultSet metaResultSet =
+                    statement.executeQuery(
+                            "desc " + config.getDatabase() + "." + config.getStable());
             while (metaResultSet.next()) {
                 if (StringUtils.equals("TAG", metaResultSet.getString("note"))) {
                     tagsNum++;
@@ -78,17 +89,23 @@ public class TDengineSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         }
         final String tagValues = StringUtils.join(convertDataType(tags.toArray()), ",");
 
-        final Object[] metrics = ArrayUtils.subarray(element.getFields(), 1, element.getArity() - tagsNum);
+        final Object[] metrics =
+                ArrayUtils.subarray(element.getFields(), 1, element.getArity() - tagsNum);
 
-        try (Statement statement = conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
-            String sql = String.format("INSERT INTO %s using %s tags ( %s ) VALUES ( %s );",
-                element.getField(0),
-                config.getStable(),
-                tagValues,
-                StringUtils.join(convertDataType(metrics), ","));
+        try (Statement statement =
+                conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
+            String sql =
+                    String.format(
+                            "INSERT INTO %s using %s tags ( %s ) VALUES ( %s );",
+                            element.getField(0),
+                            config.getStable(),
+                            tagValues,
+                            StringUtils.join(convertDataType(metrics), ","));
             final int rowCount = statement.executeUpdate(sql);
             if (rowCount == 0) {
-                Throwables.propagateIfPossible(new TDengineConnectorException(CommonErrorCode.SQL_OPERATION_FAILED, "insert error:" + element));
+                Throwables.propagateIfPossible(
+                        new TDengineConnectorException(
+                                CommonErrorCode.SQL_OPERATION_FAILED, "insert error:" + element));
             }
         }
     }
@@ -99,22 +116,32 @@ public class TDengineSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             try {
                 conn.close();
             } catch (SQLException e) {
-                throw new TDengineConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, "TDengine writer connection close failed", e);
+                throw new TDengineConnectorException(
+                        CommonErrorCode.WRITER_OPERATION_FAILED,
+                        "TDengine writer connection close failed",
+                        e);
             }
         }
     }
 
     private Object[] convertDataType(Object[] objects) {
         return Arrays.stream(objects)
-            .map(object -> {
-                if (LocalDateTime.class.equals(object.getClass())) {
-                    //transform timezone according to the config
-                    return "'" + ((LocalDateTime) object).atZone(ZoneId.systemDefault()).withZoneSameInstant(ZoneId.of(config.getTimezone())).format(FORMATTER) + "'";
-                } else if (String.class.equals(object.getClass())) {
-                    return "'" + object + "'";
-                }
-                return object;
-            })
-            .toArray();
+                .map(
+                        object -> {
+                            if (LocalDateTime.class.equals(object.getClass())) {
+                                // transform timezone according to the config
+                                return "'"
+                                        + ((LocalDateTime) object)
+                                                .atZone(ZoneId.systemDefault())
+                                                .withZoneSameInstant(
+                                                        ZoneId.of(config.getTimezone()))
+                                                .format(FORMATTER)
+                                        + "'";
+                            } else if (String.class.equals(object.getClass())) {
+                                return "'" + object + "'";
+                            }
+                            return object;
+                        })
+                .toArray();
     }
 }

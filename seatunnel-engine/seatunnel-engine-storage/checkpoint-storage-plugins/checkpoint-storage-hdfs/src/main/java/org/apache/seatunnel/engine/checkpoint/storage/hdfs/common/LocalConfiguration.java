@@ -20,12 +20,12 @@
 
 package org.apache.seatunnel.engine.checkpoint.storage.hdfs.common;
 
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
-import static org.apache.hadoop.fs.FileSystem.FS_DEFAULT_NAME_KEY;
-
 import org.apache.hadoop.conf.Configuration;
 
 import java.util.Map;
+
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
+import static org.apache.hadoop.fs.FileSystem.FS_DEFAULT_NAME_KEY;
 
 public class LocalConfiguration extends AbstractConfiguration {
 
@@ -36,7 +36,9 @@ public class LocalConfiguration extends AbstractConfiguration {
     public Configuration buildConfiguration(Map<String, String> config) {
         Configuration hadoopConf = new Configuration();
         hadoopConf.set(HDFS_LOCAL_IMPL_KEY, HDFS_LOCAL_IMPL);
-        hadoopConf.set(FS_DEFAULT_NAME_KEY, config.getOrDefault(FS_DEFAULT_NAME_KEY, FS_DEFAULT_NAME_DEFAULT));
+        hadoopConf.set(
+                FS_DEFAULT_NAME_KEY,
+                config.getOrDefault(FS_DEFAULT_NAME_KEY, FS_DEFAULT_NAME_DEFAULT));
         return hadoopConf;
     }
 }

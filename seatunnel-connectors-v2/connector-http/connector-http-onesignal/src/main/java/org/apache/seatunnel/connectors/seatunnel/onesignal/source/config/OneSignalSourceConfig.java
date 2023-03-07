@@ -27,8 +27,9 @@ public class OneSignalSourceConfig extends HttpConfig {
     public static final String APPLICATION_JSON = "application/json";
     public static final String BASIC = "Basic";
 
-    public static final Option<String> PASSWORD = Options.key("password")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("OneSignal login auth key");
+    public static final Option<String> PASSWORD =
+            Options.key("password")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("OneSignal login auth key");
 }

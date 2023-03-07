@@ -32,14 +32,11 @@ import lombok.experimental.Accessors;
 @EqualsAndHashCode(of = {"operation", "newValues", "oldValues"})
 @RequiredArgsConstructor
 public class LogMinerDmlEntryImpl implements LogMinerDmlEntry {
-    @NonNull
-    private final Operation operation;
+    @NonNull private final Operation operation;
     private final Object[] newValues;
     private final Object[] oldValues;
-    @Setter
-    private String objectOwner;
-    @Setter
-    private String objectName;
+    @Setter private String objectOwner;
+    @Setter private String objectName;
 
     public static LogMinerDmlEntry forInsert(Object[] newColumnValues) {
         return new LogMinerDmlEntryImpl(Operation.INSERT, newColumnValues, null);

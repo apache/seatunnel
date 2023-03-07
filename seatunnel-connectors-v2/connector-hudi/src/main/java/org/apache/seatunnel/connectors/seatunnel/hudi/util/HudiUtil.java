@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi.util;
 
-import static org.apache.parquet.format.converter.ParquetMetadataConverter.NO_FILTER;
-
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -38,11 +36,14 @@ import org.apache.parquet.schema.MessageType;
 import java.io.IOException;
 import java.util.Arrays;
 
+import static org.apache.parquet.format.converter.ParquetMetadataConverter.NO_FILTER;
+
 public class HudiUtil {
 
     public static Configuration getConfiguration(String confPaths) {
         Configuration configuration = new Configuration();
-        Arrays.stream(confPaths.split(";")).forEach(file -> configuration.addResource(new Path(file)));
+        Arrays.stream(confPaths.split(";"))
+                .forEach(file -> configuration.addResource(new Path(file)));
         return configuration;
     }
 
@@ -69,15 +70,16 @@ public class HudiUtil {
         return null;
     }
 
-    public static SeaTunnelRowType getSeaTunnelRowTypeInfo(String confPaths, String path) throws HudiConnectorException {
+    public static SeaTunnelRowType getSeaTunnelRowTypeInfo(String confPaths, String path)
+            throws HudiConnectorException {
         Configuration configuration = getConfiguration(confPaths);
         Path dstDir = new Path(path);
         ParquetMetadata footer;
         try {
             footer = ParquetFileReader.readFooter(configuration, dstDir, NO_FILTER);
         } catch (IOException e) {
-            throw new HudiConnectorException(CommonErrorCode.TABLE_SCHEMA_GET_FAILED,
-                "Create ParquetMetadata Fail!", e);
+            throw new HudiConnectorException(
+                    CommonErrorCode.TABLE_SCHEMA_GET_FAILED, "Create ParquetMetadata Fail!", e);
         }
         MessageType schema = footer.getFileMetaData().getSchema();
         String[] fields = new String[schema.getFields().size()];
@@ -97,14 +99,15 @@ public class HudiUtil {
         return new JobConf(conf);
     }
 
-    public static void initKerberosAuthentication(Configuration conf, String principal, String principalFile) throws HudiConnectorException {
+    public static void initKerberosAuthentication(
+            Configuration conf, String principal, String principalFile)
+            throws HudiConnectorException {
         try {
             UserGroupInformation.setConfiguration(conf);
             UserGroupInformation.loginUserFromKeytab(principal, principalFile);
         } catch (IOException e) {
-            throw new HudiConnectorException(CommonErrorCode.KERBEROS_AUTHORIZED_FAILED,
-                "Kerberos Authorized Fail!", e);
+            throw new HudiConnectorException(
+                    CommonErrorCode.KERBEROS_AUTHORIZED_FAILED, "Kerberos Authorized Fail!", e);
         }
     }
-
 }

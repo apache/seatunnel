@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.connectors.cdc.dameng.source.eumerator;
 
-import static org.apache.seatunnel.connectors.cdc.base.utils.ObjectUtils.doubleCompare;
-import static java.math.BigDecimal.ROUND_CEILING;
-
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
@@ -45,6 +42,9 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+
+import static java.math.BigDecimal.ROUND_CEILING;
+import static org.apache.seatunnel.connectors.cdc.base.utils.ObjectUtils.doubleCompare;
 
 @Slf4j
 @AllArgsConstructor
@@ -73,39 +73,54 @@ public class DamengChunkSplitter implements JdbcSourceChunkSplitter {
             SeaTunnelRowType splitColumnType = getSplitType(splitColumn);
             for (int i = 0; i < chunks.size(); i++) {
                 ChunkRange chunk = chunks.get(i);
-                SnapshotSplit split = new SnapshotSplit(
-                    splitId(tableId, i),
-                    tableId,
-                    splitColumnType,
-                    chunk.getChunkStart(),
-                    chunk.getChunkEnd(),
-                    null);
+                SnapshotSplit split =
+                        new SnapshotSplit(
+                                splitId(tableId, i),
+                                tableId,
+                                splitColumnType,
+                                chunk.getChunkStart(),
+                                chunk.getChunkEnd(),
+                                null);
                 splits.add(split);
             }
 
             long end = System.currentTimeMillis();
-            log.info("Split table {} into {} chunks, time cost: {}ms.",
-                tableId, splits.size(), end - start);
+            log.info(
+                    "Split table {} into {} chunks, time cost: {}ms.",
+                    tableId,
+                    splits.size(),
+                    end - start);
             return splits;
         } catch (Exception e) {
-            throw new RuntimeException(String.format("Generate Splits for table %s error", tableId), e);
+            throw new RuntimeException(
+                    String.format("Generate Splits for table %s error", tableId), e);
         }
     }
 
     @Override
-    public Object[] queryMinMax(JdbcConnection jdbc, TableId tableId, String columnName) throws SQLException {
+    public Object[] queryMinMax(JdbcConnection jdbc, TableId tableId, String columnName)
+            throws SQLException {
         return DamengConncetionUtils.queryMinMax(jdbc, tableId, columnName);
     }
 
     @Override
-    public Object queryMin(JdbcConnection jdbc, TableId tableId, String columnName, Object excludedLowerBound) throws SQLException {
+    public Object queryMin(
+            JdbcConnection jdbc, TableId tableId, String columnName, Object excludedLowerBound)
+            throws SQLException {
         return DamengConncetionUtils.queryMin(jdbc, tableId, columnName, excludedLowerBound);
     }
 
     @Override
-    public Object queryNextChunkMax(JdbcConnection jdbc, TableId tableId, String columnName, int chunkSize, Object includedLowerBound) throws SQLException {
+    public Object queryNextChunkMax(
+            JdbcConnection jdbc,
+            TableId tableId,
+            String columnName,
+            int chunkSize,
+            Object includedLowerBound)
+            throws SQLException {
         return DamengConncetionUtils.queryNextChunkMax(
-            jdbc, tableId, columnName, chunkSize, includedLowerBound);    }
+                jdbc, tableId, columnName, chunkSize, includedLowerBound);
+    }
 
     @Override
     public Long queryApproximateRowCnt(JdbcConnection jdbc, TableId tableId) throws SQLException {
@@ -113,8 +128,13 @@ public class DamengChunkSplitter implements JdbcSourceChunkSplitter {
     }
 
     @Override
-    public String buildSplitScanQuery(TableId tableId, SeaTunnelRowType splitKeyType, boolean isFirstSplit, boolean isLastSplit) {
-        return DamengConncetionUtils.buildSplitQuery(tableId, splitKeyType, isFirstSplit, isLastSplit);
+    public String buildSplitScanQuery(
+            TableId tableId,
+            SeaTunnelRowType splitKeyType,
+            boolean isFirstSplit,
+            boolean isLastSplit) {
+        return DamengConncetionUtils.buildSplitQuery(
+                tableId, splitKeyType, isFirstSplit, isLastSplit);
     }
 
     @Override
@@ -126,9 +146,10 @@ public class DamengChunkSplitter implements JdbcSourceChunkSplitter {
         List<Column> primaryKeys = table.primaryKeyColumns();
         if (primaryKeys.isEmpty()) {
             throw new UnsupportedOperationException(
-                String.format("Incremental snapshot for tables requires primary key,"
-                        + " but table %s doesn't have primary key.",
-                    table.id()));
+                    String.format(
+                            "Incremental snapshot for tables requires primary key,"
+                                    + " but table %s doesn't have primary key.",
+                            table.id()));
         }
 
         Column splitColumn = primaryKeys.get(0);
@@ -140,13 +161,13 @@ public class DamengChunkSplitter implements JdbcSourceChunkSplitter {
 
     @SuppressWarnings("MagicNumber")
     private double calculateDistributionFactor(
-        TableId tableId, Object min, Object max, long approximateRowCnt) {
+            TableId tableId, Object min, Object max, long approximateRowCnt) {
 
         if (!min.getClass().equals(max.getClass())) {
             throw new IllegalStateException(
-                String.format(
-                    "Unsupported operation type, the MIN value type %s is different with MAX value type %s.",
-                    min.getClass().getSimpleName(), max.getClass().getSimpleName()));
+                    String.format(
+                            "Unsupported operation type, the MIN value type %s is different with MAX value type %s.",
+                            min.getClass().getSimpleName(), max.getClass().getSimpleName()));
         }
         if (approximateRowCnt == 0) {
             return Double.MAX_VALUE;
@@ -155,20 +176,19 @@ public class DamengChunkSplitter implements JdbcSourceChunkSplitter {
         // factor = (max - min + 1) / rowCount
         final BigDecimal subRowCnt = difference.add(BigDecimal.valueOf(1));
         double distributionFactor =
-            subRowCnt.divide(new BigDecimal(approximateRowCnt), 4, ROUND_CEILING).doubleValue();
+                subRowCnt.divide(new BigDecimal(approximateRowCnt), 4, ROUND_CEILING).doubleValue();
         log.info(
-            "The distribution factor of table {} is {} according to the min split key {}, max split key {} and approximate row count {}",
-            tableId,
-            distributionFactor,
-            min,
-            max,
-            approximateRowCnt);
+                "The distribution factor of table {} is {} according to the min split key {}, max split key {} and approximate row count {}",
+                tableId,
+                distributionFactor,
+                min,
+                max,
+                approximateRowCnt);
         return distributionFactor;
     }
 
-    private List<ChunkRange> splitTableIntoChunks(JdbcConnection jdbc,
-                                                  TableId tableId,
-                                                  Column splitColumn) throws SQLException {
+    private List<ChunkRange> splitTableIntoChunks(
+            JdbcConnection jdbc, TableId tableId, Column splitColumn) throws SQLException {
         final String splitColumnName = splitColumn.name();
         final Object[] minMax = queryMinMax(jdbc, tableId, splitColumnName);
         final Object min = minMax[0];
@@ -185,20 +205,20 @@ public class DamengChunkSplitter implements JdbcSourceChunkSplitter {
         if (isEvenlySplitColumn(splitColumn)) {
             long approximateRowCnt = queryApproximateRowCnt(jdbc, tableId);
             double distributionFactor =
-                calculateDistributionFactor(tableId, min, max, approximateRowCnt);
+                    calculateDistributionFactor(tableId, min, max, approximateRowCnt);
 
             boolean dataIsEvenlyDistributed =
-                doubleCompare(distributionFactor, distributionFactorLower) >= 0
-                    && doubleCompare(distributionFactor, distributionFactorUpper) <= 0;
+                    doubleCompare(distributionFactor, distributionFactorLower) >= 0
+                            && doubleCompare(distributionFactor, distributionFactorUpper) <= 0;
 
             if (dataIsEvenlyDistributed) {
                 // the minimum dynamic chunk size is at least 1
                 final int dynamicChunkSize = Math.max((int) (distributionFactor * chunkSize), 1);
                 return splitEvenlySizedChunks(
-                    tableId, min, max, approximateRowCnt, chunkSize, dynamicChunkSize);
+                        tableId, min, max, approximateRowCnt, chunkSize, dynamicChunkSize);
             } else {
                 return splitUnevenlySizedChunks(
-                    jdbc, tableId, splitColumnName, min, max, chunkSize);
+                        jdbc, tableId, splitColumnName, min, max, chunkSize);
             }
         } else {
             return splitUnevenlySizedChunks(jdbc, tableId, splitColumnName, min, max, chunkSize);
@@ -206,18 +226,18 @@ public class DamengChunkSplitter implements JdbcSourceChunkSplitter {
     }
 
     private List<ChunkRange> splitEvenlySizedChunks(
-        TableId tableId,
-        Object min,
-        Object max,
-        long approximateRowCnt,
-        int chunkSize,
-        int dynamicChunkSize) {
+            TableId tableId,
+            Object min,
+            Object max,
+            long approximateRowCnt,
+            int chunkSize,
+            int dynamicChunkSize) {
         log.info(
-            "Use evenly-sized chunk optimization for table {}, the approximate row count is {}, the chunk size is {}, the dynamic chunk size is {}",
-            tableId,
-            approximateRowCnt,
-            chunkSize,
-            dynamicChunkSize);
+                "Use evenly-sized chunk optimization for table {}, the approximate row count is {}, the chunk size is {}, the dynamic chunk size is {}",
+                tableId,
+                approximateRowCnt,
+                chunkSize,
+                dynamicChunkSize);
         if (approximateRowCnt <= chunkSize) {
             // there is no more than one chunk, return full table as a chunk
             return Collections.singletonList(ChunkRange.all());
@@ -243,15 +263,15 @@ public class DamengChunkSplitter implements JdbcSourceChunkSplitter {
 
     @SuppressWarnings("MagicNumber")
     private List<ChunkRange> splitUnevenlySizedChunks(
-        JdbcConnection jdbc,
-        TableId tableId,
-        String splitColumnName,
-        Object min,
-        Object max,
-        int chunkSize)
-        throws SQLException {
+            JdbcConnection jdbc,
+            TableId tableId,
+            String splitColumnName,
+            Object min,
+            Object max,
+            int chunkSize)
+            throws SQLException {
         log.info(
-            "Use unevenly-sized chunks for table {}, the chunk size is {}", tableId, chunkSize);
+                "Use unevenly-sized chunks for table {}, the chunk size is {}", tableId, chunkSize);
         final List<ChunkRange> splits = new ArrayList<>();
         Object chunkStart = null;
         Object chunkEnd = nextChunkEnd(jdbc, min, tableId, splitColumnName, max, chunkSize);
@@ -278,16 +298,16 @@ public class DamengChunkSplitter implements JdbcSourceChunkSplitter {
     }
 
     private Object nextChunkEnd(
-        JdbcConnection jdbc,
-        Object previousChunkEnd,
-        TableId tableId,
-        String splitColumnName,
-        Object max,
-        int chunkSize)
-        throws SQLException {
+            JdbcConnection jdbc,
+            Object previousChunkEnd,
+            TableId tableId,
+            String splitColumnName,
+            Object max,
+            int chunkSize)
+            throws SQLException {
         // chunk end might be null when max values are removed
         Object chunkEnd =
-            queryNextChunkMax(jdbc, tableId, splitColumnName, chunkSize, previousChunkEnd);
+                queryNextChunkMax(jdbc, tableId, splitColumnName, chunkSize, previousChunkEnd);
         if (Objects.equals(previousChunkEnd, chunkEnd)) {
             // we don't allow equal chunk start and end,
             // should query the next one larger than chunkEnd

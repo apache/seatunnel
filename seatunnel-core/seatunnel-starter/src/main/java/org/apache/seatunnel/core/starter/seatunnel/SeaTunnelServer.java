@@ -25,8 +25,12 @@ import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
 public class SeaTunnelServer {
     public static void main(String[] args) throws CommandException {
-        ServerCommandArgs serverCommandArgs = CommandLineUtils.parse(args, new ServerCommandArgs(),
-                EngineType.SEATUNNEL.getStarterShellName(), true);
+        ServerCommandArgs serverCommandArgs =
+                CommandLineUtils.parse(
+                        args,
+                        new ServerCommandArgs(),
+                        EngineType.SEATUNNEL.getStarterShellName(),
+                        true);
         SeaTunnel.run(serverCommandArgs.buildCommand());
     }
 }

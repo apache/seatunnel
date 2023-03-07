@@ -43,9 +43,10 @@ public enum CompressFormat implements Serializable {
     private final CompressionKind orcCompression;
     private final CompressionCodecName parquetCompression;
 
-    CompressFormat(String compressCodec,
-                   CompressionKind orcCompression,
-                   CompressionCodecName parentCompression) {
+    CompressFormat(
+            String compressCodec,
+            CompressionKind orcCompression,
+            CompressionCodecName parentCompression) {
         this.compressCodec = compressCodec;
         this.orcCompression = orcCompression;
         this.parquetCompression = parentCompression;

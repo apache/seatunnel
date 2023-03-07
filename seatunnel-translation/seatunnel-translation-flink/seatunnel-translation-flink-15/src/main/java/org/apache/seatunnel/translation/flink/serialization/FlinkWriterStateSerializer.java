@@ -30,12 +30,14 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 
 /**
- * The serializer wrapper of writer state serializer,
- * which is created by {@link Sink#getWriterStateSerializer()},
- * used to unify the different implementations of {@link Serializer}
+ * The serializer wrapper of writer state serializer, which is created by {@link
+ * Sink#getWriterStateSerializer()}, used to unify the different implementations of {@link
+ * Serializer}
+ *
  * @param <T> The generic type of writer state
  */
-public class FlinkWriterStateSerializer<T> implements SimpleVersionedSerializer<FlinkWriterState<T>> {
+public class FlinkWriterStateSerializer<T>
+        implements SimpleVersionedSerializer<FlinkWriterState<T>> {
     private final Serializer<T> serializer;
 
     public FlinkWriterStateSerializer(Serializer<T> serializer) {
@@ -50,7 +52,7 @@ public class FlinkWriterStateSerializer<T> implements SimpleVersionedSerializer<
     @Override
     public byte[] serialize(FlinkWriterState<T> state) throws IOException {
         try (final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-             final DataOutputStream out = new DataOutputStream(baos)) {
+                final DataOutputStream out = new DataOutputStream(baos)) {
             out.writeLong(state.getCheckpointId());
             byte[] serialize = serializer.serialize(state.getState());
             out.writeInt(serialize.length);
@@ -63,7 +65,7 @@ public class FlinkWriterStateSerializer<T> implements SimpleVersionedSerializer<
     @Override
     public FlinkWriterState<T> deserialize(int version, byte[] serialized) throws IOException {
         try (final ByteArrayInputStream bais = new ByteArrayInputStream(serialized);
-             final DataInputStream in = new DataInputStream(bais)) {
+                final DataInputStream in = new DataInputStream(bais)) {
             final long checkpointId = in.readLong();
             final int size = in.readInt();
             final byte[] stateBytes = new byte[size];

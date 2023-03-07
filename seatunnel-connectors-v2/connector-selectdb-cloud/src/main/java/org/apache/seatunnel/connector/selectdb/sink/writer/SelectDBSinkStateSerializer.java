@@ -25,15 +25,13 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
-/**
- * Serializer for SelectDBSinkState.
- */
+/** Serializer for SelectDBSinkState. */
 public class SelectDBSinkStateSerializer implements Serializer<SelectDBSinkState> {
 
     @Override
     public byte[] serialize(SelectDBSinkState obj) throws IOException {
         try (final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-             final DataOutputStream out = new DataOutputStream(baos)) {
+                final DataOutputStream out = new DataOutputStream(baos)) {
             out.writeUTF(obj.getLabelPrefix());
             out.flush();
             return baos.toByteArray();
@@ -43,7 +41,7 @@ public class SelectDBSinkStateSerializer implements Serializer<SelectDBSinkState
     @Override
     public SelectDBSinkState deserialize(byte[] serialized) throws IOException {
         try (final ByteArrayInputStream bais = new ByteArrayInputStream(serialized);
-             final DataInputStream in = new DataInputStream(bais)) {
+                final DataInputStream in = new DataInputStream(bais)) {
             final String labelPrefix = in.readUTF();
             return new SelectDBSinkState(labelPrefix);
         }

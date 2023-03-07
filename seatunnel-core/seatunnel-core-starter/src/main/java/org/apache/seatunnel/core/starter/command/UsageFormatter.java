@@ -27,15 +27,17 @@ import java.util.List;
 
 public class UsageFormatter extends UnixStyleUsageFormatter {
     private static final int INDENT = 3;
+
     public UsageFormatter(JCommander commander) {
         super(commander);
     }
 
     @Override
-    public void appendAllParametersDetails(StringBuilder out,
-                                           int indentCount,
-                                           String indent,
-                                           List<ParameterDescription> sortedParameters) {
+    public void appendAllParametersDetails(
+            StringBuilder out,
+            int indentCount,
+            String indent,
+            List<ParameterDescription> sortedParameters) {
         if (sortedParameters.size() > 0) {
             out.append(indent).append("  Options:\n");
         }
@@ -69,19 +71,26 @@ public class UsageFormatter extends UnixStyleUsageFormatter {
             Object def = pd.getDefault();
 
             if (pd.isDynamicParameter()) {
-                String syntax = "(syntax: " + parameter.names()[0] + "key" + parameter.getAssignment() + "value)";
+                String syntax =
+                        "(syntax: "
+                                + parameter.names()[0]
+                                + "key"
+                                + parameter.getAssignment()
+                                + "value)";
                 description += (description.length() == 0 ? "" : " ") + syntax;
             }
             Class<?> type = pd.getParameterized().getType();
             if (def != null && !pd.isHelp()) {
                 String displayText = type.isEnum() ? def.toString().toLowerCase() : def.toString();
-                String displayedDef = Strings.isStringEmpty(displayText) ? "<empty string>" : displayText;
-                String defaultText = "(default: " + (parameter.password() ? "********" : displayedDef) + ")";
+                String displayedDef =
+                        Strings.isStringEmpty(displayText) ? "<empty string>" : displayText;
+                String defaultText =
+                        "(default: " + (parameter.password() ? "********" : displayedDef) + ")";
                 description += (description.length() == 0 ? "" : " ") + defaultText;
             }
-            wrapDescription(out, indentCount + prefixIndent - INDENT, initialLinePrefixLength, description);
+            wrapDescription(
+                    out, indentCount + prefixIndent - INDENT, initialLinePrefixLength, description);
             out.append("\n");
         }
     }
 }
-

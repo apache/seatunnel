@@ -208,3 +208,19 @@ methods:
           since: 2.0
           doc: ''
     response: {}
+
+  - id: 11
+    name: getClusterHealthMetrics
+    since: 2.0
+    doc: ''
+    request:
+      retryable: true
+      partitionIdentifier: -1
+      params: []
+    response:
+      params:
+        - name: response
+          type: String
+          nullable: false
+          since: 2.0
+          doc: ''

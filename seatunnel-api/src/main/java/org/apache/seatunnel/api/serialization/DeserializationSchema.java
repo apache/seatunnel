@@ -29,7 +29,8 @@ public interface DeserializationSchema<T> extends Serializable {
      * Deserializes the byte message.
      *
      * @param message The message, as a byte array.
-     * @return The deserialized message as an SeaTunnel Row (null if the message cannot be deserialized).
+     * @return The deserialized message as an SeaTunnel Row (null if the message cannot be
+     *     deserialized).
      */
     T deserialize(byte[] message) throws IOException;
 

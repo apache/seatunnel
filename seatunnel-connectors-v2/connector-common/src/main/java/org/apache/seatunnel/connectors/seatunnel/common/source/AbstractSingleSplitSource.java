@@ -17,31 +17,40 @@
 
 package org.apache.seatunnel.connectors.seatunnel.common.source;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 
-public abstract class AbstractSingleSplitSource<T> implements SeaTunnelSource<T, SingleSplit, SingleSplitEnumeratorState> {
+import static com.google.common.base.Preconditions.checkArgument;
+
+public abstract class AbstractSingleSplitSource<T>
+        implements SeaTunnelSource<T, SingleSplit, SingleSplitEnumeratorState> {
 
     @Override
-    public final AbstractSingleSplitReader<T> createReader(SourceReader.Context readerContext) throws Exception {
-        checkArgument(readerContext.getIndexOfSubtask() == 0, "A single split source allows only one single reader to be created. Please make sure source parallelism = 1");
+    public final AbstractSingleSplitReader<T> createReader(SourceReader.Context readerContext)
+            throws Exception {
+        checkArgument(
+                readerContext.getIndexOfSubtask() == 0,
+                "A single split source allows only one single reader to be created. Please make sure source parallelism = 1");
         return createReader(new SingleSplitReaderContext(readerContext));
     }
 
-    public abstract AbstractSingleSplitReader<T> createReader(SingleSplitReaderContext readerContext) throws Exception;
+    public abstract AbstractSingleSplitReader<T> createReader(
+            SingleSplitReaderContext readerContext) throws Exception;
 
     @Override
-    public final SourceSplitEnumerator<SingleSplit, SingleSplitEnumeratorState> createEnumerator(SourceSplitEnumerator.Context<SingleSplit> enumeratorContext) throws Exception {
+    public final SourceSplitEnumerator<SingleSplit, SingleSplitEnumeratorState> createEnumerator(
+            SourceSplitEnumerator.Context<SingleSplit> enumeratorContext) throws Exception {
         return new SingleSplitEnumerator(enumeratorContext);
     }
 
     @Override
-    public final SourceSplitEnumerator<SingleSplit, SingleSplitEnumeratorState> restoreEnumerator(SourceSplitEnumerator.Context<SingleSplit> enumeratorContext, SingleSplitEnumeratorState checkpointState) throws Exception {
+    public final SourceSplitEnumerator<SingleSplit, SingleSplitEnumeratorState> restoreEnumerator(
+            SourceSplitEnumerator.Context<SingleSplit> enumeratorContext,
+            SingleSplitEnumeratorState checkpointState)
+            throws Exception {
         return createEnumerator(enumeratorContext);
     }
 
@@ -49,5 +58,4 @@ public abstract class AbstractSingleSplitSource<T> implements SeaTunnelSource<T,
     public final Serializer<SingleSplit> getSplitSerializer() {
         return new DefaultSerializer<>();
     }
-
 }

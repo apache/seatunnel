@@ -17,13 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.datahub.sink;
 
-import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.ACCESS_ID;
-import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.ACCESS_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.ENDPOINT;
-import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.PROJECT;
-import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.RETRY_TIMES;
-import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.TIMEOUT;
-import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.TOPIC;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
@@ -39,16 +33,19 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.datahub.exception.DataHubConnectorException;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 
+import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.ACCESS_ID;
+import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.ACCESS_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.ENDPOINT;
+import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.PROJECT;
+import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.RETRY_TIMES;
+import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.TOPIC;
 
-/**
- * DataHub sink class
- */
+/** DataHub sink class */
 @AutoService(SeaTunnelSink.class)
 public class DataHubSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
@@ -62,11 +59,19 @@ public class DataHubSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig,
-            ENDPOINT.key(), ACCESS_ID.key(), ACCESS_KEY.key(), PROJECT.key(), TOPIC.key());
+        CheckResult result =
+                CheckConfigUtil.checkAllExists(
+                        pluginConfig,
+                        ENDPOINT.key(),
+                        ACCESS_ID.key(),
+                        ACCESS_KEY.key(),
+                        PROJECT.key(),
+                        TOPIC.key());
         if (!result.isSuccess()) {
-            throw new DataHubConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+            throw new DataHubConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SINK, result.getMsg()));
         }
         this.pluginConfig = pluginConfig;
@@ -84,13 +89,14 @@ public class DataHubSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(Context context) throws IOException {
-        return new DataHubWriter(seaTunnelRowType,
-            pluginConfig.getString(ENDPOINT.key()),
-            pluginConfig.getString(ACCESS_ID.key()),
-            pluginConfig.getString(ACCESS_KEY.key()),
-            pluginConfig.getString(PROJECT.key()),
-            pluginConfig.getString(TOPIC.key()),
-            pluginConfig.getInt(TIMEOUT.key()),
-            pluginConfig.getInt(RETRY_TIMES.key()));
+        return new DataHubWriter(
+                seaTunnelRowType,
+                pluginConfig.getString(ENDPOINT.key()),
+                pluginConfig.getString(ACCESS_ID.key()),
+                pluginConfig.getString(ACCESS_KEY.key()),
+                pluginConfig.getString(PROJECT.key()),
+                pluginConfig.getString(TOPIC.key()),
+                pluginConfig.getInt(TIMEOUT.key()),
+                pluginConfig.getInt(RETRY_TIMES.key()));
     }
 }

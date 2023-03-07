@@ -22,7 +22,7 @@ To use this connector you need put hadoop-aws-3.1.4.jar and aws-java-sdk-bundle-
 
 By default, we use 2PC commit to ensure `exactly-once`
 
-- [x] file format
+- [x] file format type
   - [x] text
   - [x] csv
   - [x] parquet
@@ -31,7 +31,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-| name                             | type    | required | default value                                         | remarks                                                                                                |
+|               name               |  type   | required |                     default value                     |                                                remarks                                                 |
 |----------------------------------|---------|----------|-------------------------------------------------------|--------------------------------------------------------------------------------------------------------|
 | path                             | string  | yes      | -                                                     |                                                                                                        |
 | bucket                           | string  | yes      | -                                                     |                                                                                                        |
@@ -42,7 +42,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | custom_filename                  | boolean | no       | false                                                 | Whether you need custom the filename                                                                   |
 | file_name_expression             | string  | no       | "${transactionId}"                                    | Only used when custom_filename is true                                                                 |
 | filename_time_format             | string  | no       | "yyyy.MM.dd"                                          | Only used when custom_filename is true                                                                 |
-| file_format                      | string  | no       | "csv"                                                 |                                                                                                        |
+| file_format_type                 | string  | no       | "csv"                                                 |                                                                                                        |
 | field_delimiter                  | string  | no       | '\001'                                                | Only used when file_format is text                                                                     |
 | row_delimiter                    | string  | no       | "\n"                                                  | Only used when file_format is text                                                                     |
 | have_partition                   | boolean | no       | false                                                 | Whether you need processing partitions.                                                                |
@@ -64,9 +64,11 @@ The target dir path is required.
 The bucket address of s3 file system, for example: `s3n://seatunnel-test`, if you use `s3a` protocol, this parameter should be `s3a://seatunnel-test`.
 
 ### fs.s3a.endpoint [string]
+
 fs s3a endpoint
 
 ### fs.s3a.aws.credentials.provider [string]
+
 The way to authenticate s3a. We only support `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` and `com.amazonaws.auth.InstanceProfileCredentialsProvider` now.
 
 More information about the credential provider you can see [Hadoop AWS Document](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html#Simple_name.2Fsecret_credentials_with_SimpleAWSCredentialsProvider.2A)
@@ -82,14 +84,16 @@ The access secret of s3 file system. If this parameter is not set, please confir
 ### hadoop_s3_properties [map]
 
 If you need to add a other option, you could add it here and refer to this [link](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)
+
 ```
-     hadoop_s3_properties {
-           "fs.s3a.buffer.dir" = "/data/st_test/s3a"
-           "fs.s3a.fast.upload.buffer" = "disk"
-        }
+hadoop_s3_properties {
+      "fs.s3a.buffer.dir" = "/data/st_test/s3a"
+      "fs.s3a.fast.upload.buffer" = "disk"
+   }
 ```
 
 ### custom_filename [boolean]
+
 Whether custom the filename
 
 ### file_name_expression [string]
@@ -107,8 +111,8 @@ Only used when `custom_filename` is `true`
 
 When the format in the `file_name_expression` parameter is `xxxx-${now}` , `filename_time_format` can specify the time format of the path, and the default value is `yyyy.MM.dd` . The commonly used time formats are listed as follows:
 
-| Symbol | Description        |
-| ------ | ------------------ |
+| Symbol |    Description     |
+|--------|--------------------|
 | y      | Year               |
 | M      | Month              |
 | d      | Day of month       |
@@ -116,7 +120,7 @@ When the format in the `file_name_expression` parameter is `xxxx-${now}` , `file
 | m      | Minute in hour     |
 | s      | Second in minute   |
 
-### file_format [string]
+### file_format_type [string]
 
 We supported as the following file types:
 
@@ -201,7 +205,7 @@ For text file format with `have_partition` and `custom_filename` and `sink_colum
     path="/seatunnel/text"
     fs.s3a.endpoint="s3.cn-north-1.amazonaws.com.cn"
     fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
-    file_format="text"
+    file_format_type = "text"
     field_delimiter = "\t"
     row_delimiter = "\n"
     have_partition = true
@@ -233,7 +237,7 @@ For parquet file format simple config with `org.apache.hadoop.fs.s3a.SimpleAWSCr
     fs.s3a.aws.credentials.provider="org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
     access_key = "xxxxxxxxxxxxxxxxx"
     secret_key = "xxxxxxxxxxxxxxxxx"
-    file_format="parquet"
+    file_format_type = "parquet"
     hadoop_s3_properties {
       "fs.s3a.buffer.dir" = "/data/st_test/s3a"
       "fs.s3a.fast.upload.buffer" = "disk"
@@ -254,7 +258,7 @@ For orc file format simple config with `org.apache.hadoop.fs.s3a.SimpleAWSCreden
     fs.s3a.aws.credentials.provider="org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
     access_key = "xxxxxxxxxxxxxxxxx"
     secret_key = "xxxxxxxxxxxxxxxxx"
-    file_format="orc"
+    file_format_type = "orc"
   }
 
 ```
@@ -266,6 +270,7 @@ For orc file format simple config with `org.apache.hadoop.fs.s3a.SimpleAWSCreden
 - Add S3File Sink Connector
 
 ### 2.3.0 2022-12-30
+
 - [BugFix] Fixed the following bugs that failed to write data to files ([3258](https://github.com/apache/incubator-seatunnel/pull/3258))
   - When field from upstream is null it will throw NullPointerException
   - Sink columns mapping failed
@@ -280,3 +285,4 @@ For orc file format simple config with `org.apache.hadoop.fs.s3a.SimpleAWSCreden
 ### Next version
 
 - ​	[Improve] Support file compress ([3899](https://github.com/apache/incubator-seatunnel/pull/3899))
+

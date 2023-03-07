@@ -23,8 +23,7 @@ import org.apache.flink.types.Row;
 /**
  * Wrapped {@link Row}.
  *
- * <p>Keep the original table name for the Dispatcher to distribute to the corresponding
- * data stream
+ * <p>Keep the original table name for the Dispatcher to distribute to the corresponding data stream
  */
 public class WrappedRow extends Tuple2<Row, String> {
     private static final long serialVersionUID = -8325988931728734377L;

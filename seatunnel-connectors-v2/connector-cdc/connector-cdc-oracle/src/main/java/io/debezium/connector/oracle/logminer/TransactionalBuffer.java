@@ -17,6 +17,11 @@
 
 package io.debezium.connector.oracle.logminer;
 
+import org.apache.kafka.connect.errors.DataException;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.debezium.DebeziumException;
 import io.debezium.annotation.NotThreadSafe;
 import io.debezium.connector.oracle.BlobChunkList;
@@ -33,9 +38,6 @@ import io.debezium.pipeline.source.spi.ChangeEventSource;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 import io.debezium.util.Clock;
-import org.apache.kafka.connect.errors.DataException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.sql.Timestamp;
 import java.time.Duration;
@@ -365,8 +367,7 @@ public final class TransactionalBuffer implements AutoCloseable {
         // commit a transaction(s) which were already committed.
         // Currently we cannot use ">=", because we may lose normal commit which may happen at the
         // same time. TODO use audit table to prevent duplications
-        if (offsetContext.getCommitScn() != null
-                        && offsetContext.getCommitScn().compareTo(scn) >= 0
+        if (offsetContext.getCommitScn() != null && offsetContext.getCommitScn().compareTo(scn) >= 0
                 || lastCommittedScn.compareTo(scn) > 0) {
             LOGGER.debug(
                     "Transaction {} already processed, ignored. Committed SCN in offset is {}, commit SCN of the transaction is {}, last committed SCN is {}",
@@ -574,7 +575,8 @@ public final class TransactionalBuffer implements AutoCloseable {
 
     private Scn calculateSmallestScn() {
         Scn scn =
-                transactions.isEmpty() ? null
+                transactions.isEmpty()
+                        ? null
                         : transactions.values().stream()
                                 .map(transaction -> transaction.firstScn)
                                 .min(Scn::compareTo)

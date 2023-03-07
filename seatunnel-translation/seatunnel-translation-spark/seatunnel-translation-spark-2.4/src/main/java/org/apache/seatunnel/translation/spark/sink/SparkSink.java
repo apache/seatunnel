@@ -37,21 +37,27 @@ import org.apache.spark.sql.types.StructType;
 import java.io.IOException;
 import java.util.Optional;
 
-public class SparkSink<StateT, CommitInfoT, AggregatedCommitInfoT> implements WriteSupport,
-    StreamWriteSupport, DataSourceV2 {
+public class SparkSink<StateT, CommitInfoT, AggregatedCommitInfoT>
+        implements WriteSupport, StreamWriteSupport, DataSourceV2 {
 
     private volatile SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
 
     private void init(DataSourceOptions options) {
         if (sink == null) {
-            this.sink = SerializationUtils.stringToObject(
-                    options.get(Constants.SINK).orElseThrow(() -> new IllegalArgumentException("can not find sink " +
-                            "class string in DataSourceOptions")));
+            this.sink =
+                    SerializationUtils.stringToObject(
+                            options.get(Constants.SINK)
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalArgumentException(
+                                                            "can not find sink "
+                                                                    + "class string in DataSourceOptions")));
         }
     }
 
     @Override
-    public StreamWriter createStreamWriter(String queryId, StructType schema, OutputMode mode, DataSourceOptions options) {
+    public StreamWriter createStreamWriter(
+            String queryId, StructType schema, OutputMode mode, DataSourceOptions options) {
         init(options);
 
         try {
@@ -62,7 +68,8 @@ public class SparkSink<StateT, CommitInfoT, AggregatedCommitInfoT> implements Wr
     }
 
     @Override
-    public Optional<DataSourceWriter> createWriter(String writeUUID, StructType schema, SaveMode mode, DataSourceOptions options) {
+    public Optional<DataSourceWriter> createWriter(
+            String writeUUID, StructType schema, SaveMode mode, DataSourceOptions options) {
         init(options);
 
         try {

@@ -17,18 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.util;
 
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ACCESS_ID;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ACCESS_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ENDPOINT;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.OVERWRITE;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PARTITION_SPEC;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PROJECT;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.TABLE_NAME;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.aliyun.odps.Odps;
 import com.aliyun.odps.PartitionSpec;
@@ -37,6 +29,14 @@ import com.aliyun.odps.account.Account;
 import com.aliyun.odps.account.AliyunAccount;
 import com.aliyun.odps.tunnel.TableTunnel;
 import lombok.extern.slf4j.Slf4j;
+
+import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ACCESS_ID;
+import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ACCESS_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ENDPOINT;
+import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.OVERWRITE;
+import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PARTITION_SPEC;
+import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PROJECT;
+import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.TABLE_NAME;
 
 @Slf4j
 public class MaxcomputeUtil {
@@ -53,7 +53,10 @@ public class MaxcomputeUtil {
     }
 
     public static Odps getOdps(Config pluginConfig) {
-        Account account = new AliyunAccount(pluginConfig.getString(ACCESS_ID.key()), pluginConfig.getString(ACCESS_KEY.key()));
+        Account account =
+                new AliyunAccount(
+                        pluginConfig.getString(ACCESS_ID.key()),
+                        pluginConfig.getString(ACCESS_KEY.key()));
         Odps odps = new Odps(account);
         odps.setEndpoint(pluginConfig.getString(ENDPOINT.key()));
         odps.setDefaultProject(pluginConfig.getString(PROJECT.key()));
@@ -65,10 +68,18 @@ public class MaxcomputeUtil {
         TableTunnel.DownloadSession session;
         try {
             if (pluginConfig.hasPath(PARTITION_SPEC.key())) {
-                PartitionSpec partitionSpec = new PartitionSpec(pluginConfig.getString(PARTITION_SPEC.key()));
-                session = tunnel.createDownloadSession(pluginConfig.getString(PROJECT.key()), pluginConfig.getString(TABLE_NAME.key()), partitionSpec);
+                PartitionSpec partitionSpec =
+                        new PartitionSpec(pluginConfig.getString(PARTITION_SPEC.key()));
+                session =
+                        tunnel.createDownloadSession(
+                                pluginConfig.getString(PROJECT.key()),
+                                pluginConfig.getString(TABLE_NAME.key()),
+                                partitionSpec);
             } else {
-                session = tunnel.createDownloadSession(pluginConfig.getString(PROJECT.key()), pluginConfig.getString(TABLE_NAME.key()));
+                session =
+                        tunnel.createDownloadSession(
+                                pluginConfig.getString(PROJECT.key()),
+                                pluginConfig.getString(TABLE_NAME.key()));
             }
         } catch (Exception e) {
             throw new MaxcomputeConnectorException(CommonErrorCode.READER_OPERATION_FAILED, e);
@@ -84,7 +95,8 @@ public class MaxcomputeUtil {
         try {
             Table table = MaxcomputeUtil.getTable(pluginConfig);
             if (pluginConfig.hasPath(PARTITION_SPEC.key())) {
-                PartitionSpec partitionSpec = new PartitionSpec(pluginConfig.getString(PARTITION_SPEC.key()));
+                PartitionSpec partitionSpec =
+                        new PartitionSpec(pluginConfig.getString(PARTITION_SPEC.key()));
                 if (overwrite) {
                     try {
                         table.deletePartition(partitionSpec, true);

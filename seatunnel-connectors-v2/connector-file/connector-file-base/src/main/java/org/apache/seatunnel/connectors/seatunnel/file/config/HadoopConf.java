@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.config;
 
-import lombok.Data;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+
+import lombok.Data;
 
 import java.io.Serializable;
 import java.util.HashMap;

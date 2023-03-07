@@ -33,7 +33,10 @@ public class ReadStrategyFactory {
             FileFormat fileFormat = FileFormat.valueOf(fileType.toUpperCase());
             return fileFormat.getReadStrategy();
         } catch (IllegalArgumentException e) {
-            String errorMsg = String.format("File source connector not support this file type [%s], please check your config", fileType);
+            String errorMsg =
+                    String.format(
+                            "File source connector not support this file type [%s], please check your config",
+                            fileType);
             throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, errorMsg);
         }
     }

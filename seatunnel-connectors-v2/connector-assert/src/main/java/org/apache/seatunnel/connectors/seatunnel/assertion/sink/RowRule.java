@@ -30,5 +30,4 @@ public class RowRule {
 
     @OptionMark(description = "The value related to rule type")
     private Double ruleValue;
-
 }

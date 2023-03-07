@@ -21,6 +21,8 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
 
+import java.util.List;
+
 /** Configurations for {@link IncrementalSource} of JDBC data source. */
 @SuppressWarnings("checkstyle:MagicNumber")
 public class JdbcSourceOptions extends SourceOptions {
@@ -50,17 +52,11 @@ public class JdbcSourceOptions extends SourceOptions {
                     .noDefaultValue()
                     .withDescription("Password to use when connecting to the database server.");
 
-    public static final Option<String> DATABASE_NAME =
-            Options.key("database-name")
-                    .stringType()
+    public static final Option<List<String>> DATABASE_NAMES =
+            Options.key("database-names")
+                    .listType()
                     .noDefaultValue()
                     .withDescription("Database name of the database to monitor.");
-
-    public static final Option<String> TABLE_NAME =
-            Options.key("table-name")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Table name of the database to monitor.");
 
     public static final Option<String> SERVER_TIME_ZONE =
             Options.key("server-time-zone")
@@ -102,24 +98,24 @@ public class JdbcSourceOptions extends SourceOptions {
                             "The max retry times that the connector should retry to build database server connection.");
 
     public static final Option<Double> CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND =
-        Options.key("chunk-key.even-distribution.factor.upper-bound")
-            .doubleType()
-            .defaultValue(1000.0d)
-            .withDescription(
-                "The upper bound of chunk key distribution factor. The distribution factor is used to determine whether the"
-                    + " table is evenly distribution or not."
-                    + " The table chunks would use evenly calculation optimization when the data distribution is even,"
-                    + " and the query for splitting would happen when it is uneven."
-                    + " The distribution factor could be calculated by (MAX(id) - MIN(id) + 1) / rowCount.");
+            Options.key("chunk-key.even-distribution.factor.upper-bound")
+                    .doubleType()
+                    .defaultValue(1000.0d)
+                    .withDescription(
+                            "The upper bound of chunk key distribution factor. The distribution factor is used to determine whether the"
+                                    + " table is evenly distribution or not."
+                                    + " The table chunks would use evenly calculation optimization when the data distribution is even,"
+                                    + " and the query for splitting would happen when it is uneven."
+                                    + " The distribution factor could be calculated by (MAX(id) - MIN(id) + 1) / rowCount.");
 
     public static final Option<Double> CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND =
-        Options.key("chunk-key.even-distribution.factor.lower-bound")
-            .doubleType()
-            .defaultValue(0.05d)
-            .withDescription(
-                "The lower bound of chunk key distribution factor. The distribution factor is used to determine whether the"
-                    + " table is evenly distribution or not."
-                    + " The table chunks would use evenly calculation optimization when the data distribution is even,"
-                    + " and the query for splitting would happen when it is uneven."
-                    + " The distribution factor could be calculated by (MAX(id) - MIN(id) + 1) / rowCount.");
+            Options.key("chunk-key.even-distribution.factor.lower-bound")
+                    .doubleType()
+                    .defaultValue(0.05d)
+                    .withDescription(
+                            "The lower bound of chunk key distribution factor. The distribution factor is used to determine whether the"
+                                    + " table is evenly distribution or not."
+                                    + " The table chunks would use evenly calculation optimization when the data distribution is even,"
+                                    + " and the query for splitting would happen when it is uneven."
+                                    + " The distribution factor could be calculated by (MAX(id) - MIN(id) + 1) / rowCount.");
 }

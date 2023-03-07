@@ -31,8 +31,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public interface PulsarDiscoverer extends Serializable {
-    Set<TopicPartition> getSubscribedTopicPartitions(
-        PulsarAdmin pulsarAdmin);
+    Set<TopicPartition> getSubscribedTopicPartitions(PulsarAdmin pulsarAdmin);
 
     static List<TopicPartition> toTopicPartitions(String topicName, int partitionSize) {
         if (partitionSize == PartitionedTopicMetadata.NON_PARTITIONED) {
@@ -40,9 +39,9 @@ public interface PulsarDiscoverer extends Serializable {
             return Collections.singletonList(new TopicPartition(topicName, -1));
         } else {
             return IntStream.range(0, partitionSize)
-                .boxed()
-                .map(partitionId -> new TopicPartition(topicName, partitionId))
-                .collect(Collectors.toList());
+                    .boxed()
+                    .map(partitionId -> new TopicPartition(topicName, partitionId))
+                    .collect(Collectors.toList());
         }
     }
 }

@@ -21,10 +21,11 @@ import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.internals.TransactionManager;
 import org.apache.kafka.common.errors.ProducerFencedException;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -32,9 +33,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.Optional;
 import java.util.Properties;
 
-/**
- * A {@link KafkaProducer} that allow resume transaction from transactionId
- */
+/** A {@link KafkaProducer} that allow resume transaction from transactionId */
 @Slf4j
 public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
 
@@ -74,7 +73,9 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
             Object transactionManager = getTransactionManager();
             synchronized (transactionManager) {
                 ReflectionUtils.setField(transactionManager, "transactionalId", transactionalId);
-                ReflectionUtils.setField(transactionManager, "currentState",
+                ReflectionUtils.setField(
+                        transactionManager,
+                        "currentState",
                         getTransactionManagerState("UNINITIALIZED"));
                 this.transactionalId = transactionalId;
             }
@@ -83,15 +84,16 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
 
     public short getEpoch() {
         Object transactionManager = getTransactionManager();
-        Optional<Object> producerIdAndEpoch = ReflectionUtils.getField(transactionManager,
-                PRODUCER_ID_AND_EPOCH_FIELD_NAME);
+        Optional<Object> producerIdAndEpoch =
+                ReflectionUtils.getField(transactionManager, PRODUCER_ID_AND_EPOCH_FIELD_NAME);
         return (short) ReflectionUtils.getField(producerIdAndEpoch.get(), "epoch").get();
     }
 
     public long getProducerId() {
         Object transactionManager = getTransactionManager();
-        Object producerIdAndEpoch = ReflectionUtils.getField(transactionManager,
-                PRODUCER_ID_AND_EPOCH_FIELD_NAME).get();
+        Object producerIdAndEpoch =
+                ReflectionUtils.getField(transactionManager, PRODUCER_ID_AND_EPOCH_FIELD_NAME)
+                        .get();
         return (long) ReflectionUtils.getField(producerIdAndEpoch, "producerId").get();
     }
 
@@ -106,14 +108,18 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
         Object transactionManager = getTransactionManager();
         synchronized (transactionManager) {
             Object topicPartitionBookkeeper =
-                    ReflectionUtils.getField(transactionManager, transactionManager.getClass(),
-                            "topicPartitionBookkeeper").get();
+                    ReflectionUtils.getField(
+                                    transactionManager,
+                                    transactionManager.getClass(),
+                                    "topicPartitionBookkeeper")
+                            .get();
 
             transitionTransactionManagerStateTo(transactionManager, "INITIALIZING");
             ReflectionUtils.invoke(topicPartitionBookkeeper, "reset");
 
             ReflectionUtils.setField(
-                    transactionManager, PRODUCER_ID_AND_EPOCH_FIELD_NAME,
+                    transactionManager,
+                    PRODUCER_ID_AND_EPOCH_FIELD_NAME,
                     createProducerIdAndEpoch(producerId, epoch));
 
             transitionTransactionManagerStateTo(transactionManager, "READY");
@@ -131,18 +137,24 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
             Constructor<?> constructor = clazz.getDeclaredConstructor(Long.TYPE, Short.TYPE);
             constructor.setAccessible(true);
             return constructor.newInstance(producerId, epoch);
-        } catch (InvocationTargetException | InstantiationException | IllegalAccessException |
-                 NoSuchFieldException | NoSuchMethodException e) {
-            throw new KafkaConnectorException(KafkaConnectorErrorCode.VERSION_INCOMPATIBLE,
-                    "Incompatible KafkaProducer version", e);
+        } catch (InvocationTargetException
+                | InstantiationException
+                | IllegalAccessException
+                | NoSuchFieldException
+                | NoSuchMethodException e) {
+            throw new KafkaConnectorException(
+                    KafkaConnectorErrorCode.VERSION_INCOMPATIBLE,
+                    "Incompatible KafkaProducer version",
+                    e);
         }
     }
 
     private Object getTransactionManager() {
-        Optional<Object> transactionManagerOptional = ReflectionUtils.getField(this, KafkaProducer.class,
-                "transactionManager");
+        Optional<Object> transactionManagerOptional =
+                ReflectionUtils.getField(this, KafkaProducer.class, "transactionManager");
         if (!transactionManagerOptional.isPresent()) {
-            throw new KafkaConnectorException(KafkaConnectorErrorCode.GET_TRANSACTIONMANAGER_FAILED,
+            throw new KafkaConnectorException(
+                    KafkaConnectorErrorCode.GET_TRANSACTIONMANAGER_FAILED,
                     "Can't get transactionManager in KafkaProducer");
         }
         return transactionManagerOptional.get();
@@ -150,7 +162,8 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
 
     private static void transitionTransactionManagerStateTo(
             Object transactionManager, String state) {
-        ReflectionUtils.invoke(transactionManager, "transitionTo", getTransactionManagerState(state));
+        ReflectionUtils.invoke(
+                transactionManager, "transitionTo", getTransactionManagerState(state));
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -159,9 +172,10 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
             Class<Enum> cl = (Class<Enum>) Class.forName(TRANSACTION_MANAGER_STATE_ENUM);
             return Enum.valueOf(cl, enumName);
         } catch (ClassNotFoundException e) {
-            throw new KafkaConnectorException(KafkaConnectorErrorCode.VERSION_INCOMPATIBLE,
-                    "Incompatible KafkaProducer version", e);
+            throw new KafkaConnectorException(
+                    KafkaConnectorErrorCode.VERSION_INCOMPATIBLE,
+                    "Incompatible KafkaProducer version",
+                    e);
         }
     }
-
 }

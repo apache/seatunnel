@@ -17,14 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.sink;
 
-import static org.apache.seatunnel.connectors.seatunnel.config.DingTalkConfig.SECRET;
-import static org.apache.seatunnel.connectors.seatunnel.config.DingTalkConfig.URL;
-
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 
 import com.google.auto.service.AutoService;
+
+import static org.apache.seatunnel.connectors.seatunnel.config.DingTalkConfig.SECRET;
+import static org.apache.seatunnel.connectors.seatunnel.config.DingTalkConfig.URL;
 
 @AutoService(Factory.class)
 public class DingTalkSinkFactory implements TableSinkFactory {

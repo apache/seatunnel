@@ -17,6 +17,8 @@
 
 package io.debezium.connector.dameng;
 
+import org.apache.kafka.common.config.ConfigDef;
+
 import io.debezium.config.CommonConnectorConfig;
 import io.debezium.config.ConfigDefinition;
 import io.debezium.config.Configuration;
@@ -32,78 +34,88 @@ import io.debezium.relational.TableId;
 import io.debezium.relational.Tables;
 import io.debezium.relational.history.HistoryRecordComparator;
 import io.debezium.util.Collect;
-import org.apache.kafka.common.config.ConfigDef;
 
 import java.util.Set;
 
 @SuppressWarnings("MagicNumber")
 public class DamengConnectorConfig extends HistorizedRelationalDatabaseConnectorConfig {
 
-    public static final Field SERVER_NAME = RelationalDatabaseConnectorConfig.SERVER_NAME
-        .withValidation(CommonConnectorConfig::validateServerNameIsDifferentFromHistoryTopicName);
+    public static final Field SERVER_NAME =
+            RelationalDatabaseConnectorConfig.SERVER_NAME.withValidation(
+                    CommonConnectorConfig::validateServerNameIsDifferentFromHistoryTopicName);
 
-    public static final Field PDB_NAME = Field.create(DATABASE_CONFIG_PREFIX + "pdb.name")
-        .withDisplayName("PDB name")
-        .withType(ConfigDef.Type.STRING)
-        .withWidth(ConfigDef.Width.MEDIUM)
-        .withImportance(ConfigDef.Importance.HIGH)
-        .withDescription("Name of the pluggable database when working with a multi-tenant set-up. "
-            + "The CDB name must be given via " + DATABASE_NAME.name() + " in this case.");
+    public static final Field PDB_NAME =
+            Field.create(DATABASE_CONFIG_PREFIX + "pdb.name")
+                    .withDisplayName("PDB name")
+                    .withType(ConfigDef.Type.STRING)
+                    .withWidth(ConfigDef.Width.MEDIUM)
+                    .withImportance(ConfigDef.Importance.HIGH)
+                    .withDescription(
+                            "Name of the pluggable database when working with a multi-tenant set-up. "
+                                    + "The CDB name must be given via "
+                                    + DATABASE_NAME.name()
+                                    + " in this case.");
 
-    public static final Field URL = Field.create(DATABASE_CONFIG_PREFIX + "url")
-        .withDisplayName("Complete JDBC URL")
-        .withType(ConfigDef.Type.STRING)
-        .withWidth(ConfigDef.Width.LONG)
-        .withImportance(ConfigDef.Importance.HIGH)
-        .withValidation(DamengConnectorConfig::requiredWhenNoHostname)
-        .withDescription("Complete JDBC URL as an alternative to specifying hostname, port and database provided "
-            + "as a way to support alternative connection scenarios.");
+    public static final Field URL =
+            Field.create(DATABASE_CONFIG_PREFIX + "url")
+                    .withDisplayName("Complete JDBC URL")
+                    .withType(ConfigDef.Type.STRING)
+                    .withWidth(ConfigDef.Width.LONG)
+                    .withImportance(ConfigDef.Importance.HIGH)
+                    .withValidation(DamengConnectorConfig::requiredWhenNoHostname)
+                    .withDescription(
+                            "Complete JDBC URL as an alternative to specifying hostname, port and database provided "
+                                    + "as a way to support alternative connection scenarios.");
 
-    public static final Field SNAPSHOT_MODE = Field.create("snapshot.mode")
-        .withDisplayName("Snapshot mode")
-        .withEnum(SnapshotMode.class, SnapshotMode.INITIAL)
-        .withWidth(ConfigDef.Width.SHORT)
-        .withImportance(ConfigDef.Importance.LOW)
-        .withDescription("The criteria for running a snapshot upon startup of the connector. "
-            + "Options include: "
-            + "'initial' (the default) to specify the connector should run a snapshot only when no offsets are available for the logical server name; "
-            + "'schema_only' to specify the connector should run a snapshot of the schema when no offsets are available for the logical server name. ");
+    public static final Field SNAPSHOT_MODE =
+            Field.create("snapshot.mode")
+                    .withDisplayName("Snapshot mode")
+                    .withEnum(SnapshotMode.class, SnapshotMode.INITIAL)
+                    .withWidth(ConfigDef.Width.SHORT)
+                    .withImportance(ConfigDef.Importance.LOW)
+                    .withDescription(
+                            "The criteria for running a snapshot upon startup of the connector. "
+                                    + "Options include: "
+                                    + "'initial' (the default) to specify the connector should run a snapshot only when no offsets are available for the logical server name; "
+                                    + "'schema_only' to specify the connector should run a snapshot of the schema when no offsets are available for the logical server name. ");
 
-    public static final Field SNAPSHOT_LOCKING_MODE = Field.create("snapshot.locking.mode")
-        .withDisplayName("Snapshot locking mode")
-        .withEnum(SnapshotLockingMode.class, SnapshotLockingMode.SHARED)
-        .withWidth(ConfigDef.Width.SHORT)
-        .withImportance(ConfigDef.Importance.LOW)
-        .withDescription("Controls how the connector holds locks on tables while performing the schema snapshot. The default is 'shared', "
-            + "which means the connector will hold a table lock that prevents exclusive table access for just the initial portion of the snapshot "
-            + "while the database schemas and other metadata are being read. The remaining work in a snapshot involves selecting all rows from "
-            + "each table, and this is done using a flashback query that requires no locks. However, in some cases it may be desirable to avoid "
-            + "locks entirely which can be done by specifying 'none'. This mode is only safe to use if no schema changes are happening while the "
-            + "snapshot is taken.");
+    public static final Field SNAPSHOT_LOCKING_MODE =
+            Field.create("snapshot.locking.mode")
+                    .withDisplayName("Snapshot locking mode")
+                    .withEnum(SnapshotLockingMode.class, SnapshotLockingMode.SHARED)
+                    .withWidth(ConfigDef.Width.SHORT)
+                    .withImportance(ConfigDef.Importance.LOW)
+                    .withDescription(
+                            "Controls how the connector holds locks on tables while performing the schema snapshot. The default is 'shared', "
+                                    + "which means the connector will hold a table lock that prevents exclusive table access for just the initial portion of the snapshot "
+                                    + "while the database schemas and other metadata are being read. The remaining work in a snapshot involves selecting all rows from "
+                                    + "each table, and this is done using a flashback query that requires no locks. However, in some cases it may be desirable to avoid "
+                                    + "locks entirely which can be done by specifying 'none'. This mode is only safe to use if no schema changes are happening while the "
+                                    + "snapshot is taken.");
 
-    public static final Field PORT = RelationalDatabaseConnectorConfig.PORT
-        .withDefault(5236);
+    public static final Field PORT = RelationalDatabaseConnectorConfig.PORT.withDefault(5236);
 
-    private static final ConfigDefinition CONFIG_DEFINITION = HistorizedRelationalDatabaseConnectorConfig.CONFIG_DEFINITION.edit()
-        .name("Dameng")
-        .excluding(
-            SCHEMA_INCLUDE_LIST,
-            SCHEMA_EXCLUDE_LIST,
-            RelationalDatabaseConnectorConfig.TABLE_IGNORE_BUILTIN,
-            SERVER_NAME)
-        .type(
-            HOSTNAME,
-            PORT,
-            USER,
-            PASSWORD,
-            SERVER_NAME,
-            DATABASE_NAME,
-            PDB_NAME,
-            SNAPSHOT_MODE,
-            URL)
-        .connector(
-            SNAPSHOT_LOCKING_MODE)
-        .create();
+    private static final ConfigDefinition CONFIG_DEFINITION =
+            HistorizedRelationalDatabaseConnectorConfig.CONFIG_DEFINITION
+                    .edit()
+                    .name("Dameng")
+                    .excluding(
+                            SCHEMA_INCLUDE_LIST,
+                            SCHEMA_EXCLUDE_LIST,
+                            RelationalDatabaseConnectorConfig.TABLE_IGNORE_BUILTIN,
+                            SERVER_NAME)
+                    .type(
+                            HOSTNAME,
+                            PORT,
+                            USER,
+                            PASSWORD,
+                            SERVER_NAME,
+                            DATABASE_NAME,
+                            PDB_NAME,
+                            SNAPSHOT_MODE,
+                            URL)
+                    .connector(SNAPSHOT_LOCKING_MODE)
+                    .create();
 
     public static Field.Set ALL_FIELDS = Field.setOf(CONFIG_DEFINITION.all());
     public static ConfigDef CONFIG_DEF = CONFIG_DEFINITION.configDef();
@@ -114,17 +126,21 @@ public class DamengConnectorConfig extends HistorizedRelationalDatabaseConnector
     private final boolean lobEnabled = false;
 
     public DamengConnectorConfig(Configuration config) {
-        super(DamengConnector.class,
-            config,
-            config.getString(SERVER_NAME),
-            new SystemTablesPredicate(),
-            x -> x.schema() + "." + x.table(),
-            true,
-            ColumnFilterMode.SCHEMA);
+        super(
+                DamengConnector.class,
+                config,
+                config.getString(SERVER_NAME),
+                new SystemTablesPredicate(),
+                x -> x.schema() + "." + x.table(),
+                true,
+                ColumnFilterMode.SCHEMA);
         this.databaseName = toUpperCase(config.getString(DATABASE_NAME));
         this.pdbName = toUpperCase(config.getString(PDB_NAME));
         this.snapshotMode = SnapshotMode.parse(config.getString(SNAPSHOT_MODE));
-        this.snapshotLockingMode = SnapshotLockingMode.parse(config.getString(SNAPSHOT_LOCKING_MODE), SNAPSHOT_LOCKING_MODE.defaultValueAsString());
+        this.snapshotLockingMode =
+                SnapshotLockingMode.parse(
+                        config.getString(SNAPSHOT_LOCKING_MODE),
+                        SNAPSHOT_LOCKING_MODE.defaultValueAsString());
     }
 
     @Override
@@ -133,7 +149,8 @@ public class DamengConnectorConfig extends HistorizedRelationalDatabaseConnector
             @Override
             protected boolean isPositionAtOrBefore(Document recorded, Document desired) {
                 return Scn.valueOf(recorded.getString(SourceInfo.SCN_KEY))
-                    .compareTo(Scn.valueOf(desired.getString(SourceInfo.SCN_KEY))) < 1;
+                                .compareTo(Scn.valueOf(desired.getString(SourceInfo.SCN_KEY)))
+                        < 1;
             }
         };
     }
@@ -149,7 +166,8 @@ public class DamengConnectorConfig extends HistorizedRelationalDatabaseConnector
     }
 
     @Override
-    protected SourceInfoStructMaker<? extends AbstractSourceInfo> getSourceInfoStructMaker(Version version) {
+    protected SourceInfoStructMaker<? extends AbstractSourceInfo> getSourceInfoStructMaker(
+            Version version) {
         return new DamengSourceInfoStructMaker(Module.name(), Module.version(), this);
     }
 
@@ -157,7 +175,8 @@ public class DamengConnectorConfig extends HistorizedRelationalDatabaseConnector
         return property == null ? null : property.toUpperCase();
     }
 
-    public static int requiredWhenNoHostname(Configuration config, Field field, Field.ValidationOutput problems) {
+    public static int requiredWhenNoHostname(
+            Configuration config, Field field, Field.ValidationOutput problems) {
         // Validates that the field is required but only when an URL field is not present
         if (config.getString(HOSTNAME) == null) {
             return Field.isRequired(config, field, problems);
@@ -166,7 +185,8 @@ public class DamengConnectorConfig extends HistorizedRelationalDatabaseConnector
     }
 
     private static class SystemTablesPredicate implements Tables.TableFilter {
-        private static final Set<String> BUILT_IN_SCHEMAS = Collect.unmodifiableSet("SYS", "SYSDBA", "CTISYS");
+        private static final Set<String> BUILT_IN_SCHEMAS =
+                Collect.unmodifiableSet("SYS", "SYSDBA", "CTISYS");
 
         @Override
         public boolean isIncluded(TableId t) {
@@ -176,14 +196,10 @@ public class DamengConnectorConfig extends HistorizedRelationalDatabaseConnector
 
     public enum SnapshotMode implements EnumeratedValue {
 
-        /**
-         * Perform a snapshot of data and schema upon initial startup of a connector.
-         */
+        /** Perform a snapshot of data and schema upon initial startup of a connector. */
         INITIAL("initial", true),
 
-        /**
-         * Perform a snapshot of the schema but no data upon initial startup of a connector.
-         */
+        /** Perform a snapshot of the schema but no data upon initial startup of a connector. */
         SCHEMA_ONLY("schema_only", false);
 
         private final String value;
@@ -237,8 +253,8 @@ public class DamengConnectorConfig extends HistorizedRelationalDatabaseConnector
         SHARED("shared"),
 
         /**
-         * This mode will avoid using ANY table locks during the snapshot process.
-         * This mode should be used carefully only when no schema changes are to occur.
+         * This mode will avoid using ANY table locks during the snapshot process. This mode should
+         * be used carefully only when no schema changes are to occur.
          */
         NONE("none");
 

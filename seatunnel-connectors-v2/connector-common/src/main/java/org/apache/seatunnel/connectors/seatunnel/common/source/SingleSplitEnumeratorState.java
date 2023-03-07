@@ -19,5 +19,4 @@ package org.apache.seatunnel.connectors.seatunnel.common.source;
 
 import java.io.Serializable;
 
-public class SingleSplitEnumeratorState implements Serializable {
-}
+public class SingleSplitEnumeratorState implements Serializable {}

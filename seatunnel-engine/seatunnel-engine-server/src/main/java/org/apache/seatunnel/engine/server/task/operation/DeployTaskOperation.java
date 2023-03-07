@@ -35,10 +35,10 @@ public class DeployTaskOperation extends Operation implements IdentifiedDataSeri
     private Data taskImmutableInformation;
     private SlotProfile slotProfile;
 
-    public DeployTaskOperation() {
-    }
+    public DeployTaskOperation() {}
 
-    public DeployTaskOperation(@NonNull SlotProfile slotProfile, @NonNull Data taskImmutableInformation) {
+    public DeployTaskOperation(
+            @NonNull SlotProfile slotProfile, @NonNull Data taskImmutableInformation) {
         this.taskImmutableInformation = taskImmutableInformation;
         this.slotProfile = slotProfile;
     }
@@ -46,8 +46,10 @@ public class DeployTaskOperation extends Operation implements IdentifiedDataSeri
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        server.getSlotService().getSlotContext(slotProfile)
-            .getTaskExecutionService().deployTask(taskImmutableInformation);
+        server.getSlotService()
+                .getSlotContext(slotProfile)
+                .getTaskExecutionService()
+                .deployTask(taskImmutableInformation);
     }
 
     @Override

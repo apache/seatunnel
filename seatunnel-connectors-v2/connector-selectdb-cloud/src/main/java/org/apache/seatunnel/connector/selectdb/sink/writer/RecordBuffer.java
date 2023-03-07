@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.connector.selectdb.sink.writer;
 
-import static org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorErrorCode.BUFFER_STOP_FAILED;
-import static com.google.common.base.Preconditions.checkState;
-
 import org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorException;
 
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +26,9 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
+
+import static com.google.common.base.Preconditions.checkState;
+import static org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorErrorCode.BUFFER_STOP_FAILED;
 
 @Slf4j
 public class RecordBuffer {
@@ -53,7 +53,10 @@ public class RecordBuffer {
     }
 
     public void startBufferData() {
-        log.info("start buffer data, read queue size {}, write queue size {}", readQueue.size(), writeQueue.size());
+        log.info(
+                "start buffer data, read queue size {}, write queue size {}",
+                readQueue.size(),
+                writeQueue.size());
         checkState(readQueue.size() == 0);
         checkState(writeQueue.size() == queueSize);
         for (ByteBuffer byteBuffer : writeQueue) {

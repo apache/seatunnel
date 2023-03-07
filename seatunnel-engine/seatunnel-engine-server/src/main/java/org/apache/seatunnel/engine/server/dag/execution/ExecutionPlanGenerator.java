@@ -17,13 +17,19 @@
 
 package org.apache.seatunnel.engine.server.dag.execution;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
+import org.apache.seatunnel.api.table.type.MultipleRowType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
-import org.apache.seatunnel.engine.core.dag.actions.PartitionTransformAction;
+import org.apache.seatunnel.engine.core.dag.actions.ShuffleAction;
+import org.apache.seatunnel.engine.core.dag.actions.ShuffleConfig;
+import org.apache.seatunnel.engine.core.dag.actions.ShuffleMultipleRowStrategy;
+import org.apache.seatunnel.engine.core.dag.actions.ShuffleStrategy;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.core.dag.actions.SinkConfig;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.actions.TransformAction;
 import org.apache.seatunnel.engine.core.dag.actions.TransformChainAction;
@@ -34,172 +40,97 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
+@Slf4j
 public class ExecutionPlanGenerator {
-    /**
-     * The action ID needs to be regenerated because of the source, sink, and chain.
-     */
+    private final LogicalDag logicalPlan;
+    private final JobImmutableInformation jobImmutableInformation;
+    private final CheckpointConfig checkpointConfig;
     private final IdGenerator idGenerator = new IdGenerator();
 
-    /**
-     * key: the id of the execution vertex.
-     * <br> value: the execution vertex.
-     */
-    private final Map<Long, ExecutionVertex> executionVertexMap = new HashMap<>();
-
-    /**
-     * key: the vertex id.
-     * <br> value: The input vertices of this vertex.
-     *
-     * <p>When chaining vertices, it need to query whether the vertex has multiple input vertices. </p>
-     */
-    private final Map<Long, List<LogicalVertex>> inputVerticesMap = new HashMap<>();
-
-    /**
-     * key: the vertex id.
-     * <br> value: The target vertices of this vertex.
-     *
-     * <p>When chaining vertices, it need to query whether the vertex has multiple target vertices. </p>
-     */
-    private final Map<Long, List<LogicalVertex>> targetVerticesMap = new HashMap<>();
-
-    /**
-     * key: logical vertex id.
-     * <br> value: execution vertex id.
-     *
-     * <p>The chaining will cause multiple {@link LogicalVertex} mapping to the same {@link ExecutionVertex}. </p>
-     */
-    private final Map<Long, Long> logicalToExecutionMap = new HashMap<>();
-
-    /**
-     * When chaining, the edge will be removed {@link #findChainedVertices} if it can be chained.
-     */
-    private final List<LogicalEdge> logicalEdges;
-
-    private final List<LogicalVertex> logicalVertices;
-
-    private final JobImmutableInformation jobImmutableInformation;
-
-    public ExecutionPlanGenerator(@NonNull LogicalDag logicalPlan,
-                                  @NonNull JobImmutableInformation jobImmutableInformation) {
-        checkArgument(logicalPlan.getEdges().size() > 0, "ExecutionPlan Builder must have LogicalPlan.");
-
-        this.logicalEdges = new ArrayList<>(logicalPlan.getEdges());
-        this.logicalVertices = new ArrayList<>(logicalPlan.getLogicalVertexMap().values());
+    public ExecutionPlanGenerator(
+            @NonNull LogicalDag logicalPlan,
+            @NonNull JobImmutableInformation jobImmutableInformation,
+            @NonNull CheckpointConfig checkpointConfig) {
+        checkArgument(
+                logicalPlan.getEdges().size() > 0, "ExecutionPlan Builder must have LogicalPlan.");
+        this.logicalPlan = logicalPlan;
         this.jobImmutableInformation = jobImmutableInformation;
+        this.checkpointConfig = checkpointConfig;
     }
 
     public ExecutionPlan generate() {
-        fillVerticesMap();
-        getSourceVertices().forEach(sourceVertex -> {
-            List<LogicalVertex> vertices = new ArrayList<>();
-            vertices.add(sourceVertex);
-            for (int index = 0; index < vertices.size(); index++) {
-                LogicalVertex vertex = vertices.get(index);
-                createExecutionVertex(vertex);
-                if (targetVerticesMap.containsKey(vertex.getVertexId())) {
-                    vertices.addAll(targetVerticesMap.get(vertex.getVertexId()));
-                }
-            }
-        });
-        List<ExecutionEdge> executionEdges = createExecutionEdges();
-        return new ExecutionPlan(new PipelineGenerator(executionVertexMap.values(), executionEdges)
-            .generatePipelines(), jobImmutableInformation);
-    }
+        log.debug("Generate execution plan using logical plan:");
 
-    public List<ExecutionEdge> createExecutionEdges() {
-        return logicalEdges.stream()
-            .map(logicalEdge -> new ExecutionEdge(
-                executionVertexMap.get(logicalToExecutionMap.get(logicalEdge.getInputVertexId())),
-                executionVertexMap.get(logicalToExecutionMap.get(logicalEdge.getTargetVertexId())))
-            ).collect(Collectors.toList());
-    }
+        Set<ExecutionEdge> executionEdges = generateExecutionEdges(logicalPlan.getEdges());
+        log.debug("Phase 1: generate execution edge list {}", executionEdges);
 
-    private void fillVerticesMap() {
-        logicalEdges.forEach(logicalEdge -> {
-            inputVerticesMap.computeIfAbsent(logicalEdge.getTargetVertexId(), id -> new ArrayList<>())
-                .add(logicalEdge.getInputVertex());
-            targetVerticesMap.computeIfAbsent(logicalEdge.getInputVertexId(), id -> new ArrayList<>())
-                .add(logicalEdge.getTargetVertex());
-        });
-    }
+        executionEdges = generateShuffleEdges(executionEdges);
+        log.debug("Phase 2: generate shuffle edge list {}", executionEdges);
 
-    private List<LogicalVertex> getSourceVertices() {
-        List<LogicalVertex> sourceVertices = new ArrayList<>();
-        for (LogicalVertex logicalVertex : logicalVertices) {
-            List<LogicalVertex> inputVertices = inputVerticesMap.get(logicalVertex.getVertexId());
-            if (inputVertices == null || inputVertices.size() == 0) {
-                sourceVertices.add(logicalVertex);
-            }
-        }
-        return sourceVertices;
-    }
+        executionEdges = generateTransformChainEdges(executionEdges);
+        log.debug("Phase 3: generate transform chain edge list {}", executionEdges);
 
-    private void createExecutionVertex(LogicalVertex logicalVertex) {
-        if (logicalToExecutionMap.containsKey(logicalVertex.getVertexId())) {
-            return;
-        }
-        final ArrayList<LogicalVertex> chainedVertices = new ArrayList<>();
-        findChainedVertices(logicalVertex, chainedVertices);
-        final long newId = idGenerator.getNextId();
-        Action newAction;
-        if (chainedVertices.size() < 1) {
-            newAction = recreateAction(logicalVertex.getAction(), newId, logicalVertex.getParallelism());
-        } else {
-            List<SeaTunnelTransform> transforms = new ArrayList<>(chainedVertices.size());
-            List<String> names = new ArrayList<>(chainedVertices.size());
-            Set<URL> jars = new HashSet<>();
-            chainedVertices.stream()
-                .peek(vertex -> logicalToExecutionMap.put(vertex.getVertexId(), newId))
-                .map(LogicalVertex::getAction)
-                .map(action -> (TransformAction) action)
-                .forEach(action -> {
-                    transforms.add(action.getTransform());
-                    jars.addAll(action.getJarUrls());
-                    names.add(action.getName());
-                });
-            newAction = new TransformChainAction(newId,
-                String.join("->", names),
-                jars,
-                transforms);
-            newAction.setParallelism(logicalVertex.getAction().getParallelism());
-        }
-        ExecutionVertex executionVertex = new ExecutionVertex(newId, newAction, logicalVertex.getParallelism());
-        executionVertexMap.put(newId, executionVertex);
-        logicalToExecutionMap.put(logicalVertex.getVertexId(), executionVertex.getVertexId());
+        List<Pipeline> pipelines = generatePipelines(executionEdges);
+        log.debug("Phase 4: generate pipeline list {}", pipelines);
+
+        ExecutionPlan executionPlan = new ExecutionPlan(pipelines, jobImmutableInformation);
+        log.debug("Phase 5: generate execution plan: {}", executionPlan);
+
+        return executionPlan;
     }
 
     public static Action recreateAction(Action action, Long id, int parallelism) {
         Action newAction;
-        if (action instanceof PartitionTransformAction) {
-            newAction = new PartitionTransformAction(id,
-                action.getName(),
-                ((PartitionTransformAction) action).getPartitionTransformation(),
-                action.getJarUrls());
+        if (action instanceof ShuffleAction) {
+            newAction =
+                    new ShuffleAction(id, action.getName(), ((ShuffleAction) action).getConfig());
         } else if (action instanceof SinkAction) {
-            newAction = new SinkAction<>(id,
-                action.getName(),
-                ((SinkAction<?, ?, ?, ?>) action).getSink(),
-                action.getJarUrls());
+            newAction =
+                    new SinkAction<>(
+                            id,
+                            action.getName(),
+                            new ArrayList<>(),
+                            ((SinkAction<?, ?, ?, ?>) action).getSink(),
+                            action.getJarUrls(),
+                            (SinkConfig) action.getConfig());
         } else if (action instanceof SourceAction) {
-            newAction = new SourceAction<>(id,
-                action.getName(),
-                ((SourceAction<?, ?, ?>) action).getSource(),
-                action.getJarUrls());
+            newAction =
+                    new SourceAction<>(
+                            id,
+                            action.getName(),
+                            ((SourceAction<?, ?, ?>) action).getSource(),
+                            action.getJarUrls());
+        } else if (action instanceof TransformAction) {
+            newAction =
+                    new TransformAction(
+                            id,
+                            action.getName(),
+                            ((TransformAction) action).getTransform(),
+                            action.getJarUrls());
         } else if (action instanceof TransformChainAction) {
-            newAction = new TransformChainAction(id,
-                action.getName(),
-                action.getJarUrls(),
-                ((TransformChainAction<?>) action).getTransforms());
+            newAction =
+                    new TransformChainAction(
+                            id,
+                            action.getName(),
+                            action.getJarUrls(),
+                            ((TransformChainAction<?>) action).getTransforms());
         } else {
             throw new UnknownActionException(action);
         }
@@ -207,16 +138,257 @@ public class ExecutionPlanGenerator {
         return newAction;
     }
 
-    private void findChainedVertices(LogicalVertex logicalVertex, List<LogicalVertex> chainedVertices) {
-        Action action = logicalVertex.getAction();
+    private Set<ExecutionEdge> generateExecutionEdges(Set<LogicalEdge> logicalEdges) {
+        Set<ExecutionEdge> executionEdges = new LinkedHashSet<>();
+
+        Map<Long, ExecutionVertex> logicalVertexIdToExecutionVertexMap = new HashMap();
+
+        List<LogicalEdge> sortedLogicalEdges = new ArrayList<>(logicalEdges);
+        Collections.sort(
+                sortedLogicalEdges, Comparator.comparingLong(LogicalEdge::getInputVertexId));
+        for (LogicalEdge logicalEdge : sortedLogicalEdges) {
+            LogicalVertex logicalInputVertex = logicalEdge.getInputVertex();
+            ExecutionVertex executionInputVertex =
+                    logicalVertexIdToExecutionVertexMap.computeIfAbsent(
+                            logicalInputVertex.getVertexId(),
+                            vertexId -> {
+                                long newId = idGenerator.getNextId();
+                                Action newLogicalInputAction =
+                                        recreateAction(
+                                                logicalInputVertex.getAction(),
+                                                newId,
+                                                logicalInputVertex.getParallelism());
+                                return new ExecutionVertex(
+                                        newId,
+                                        newLogicalInputAction,
+                                        logicalInputVertex.getParallelism());
+                            });
+
+            LogicalVertex logicalTargetVertex = logicalEdge.getTargetVertex();
+            ExecutionVertex executionTargetVertex =
+                    logicalVertexIdToExecutionVertexMap.computeIfAbsent(
+                            logicalTargetVertex.getVertexId(),
+                            vertexId -> {
+                                long newId = idGenerator.getNextId();
+                                Action newLogicalTargetAction =
+                                        recreateAction(
+                                                logicalTargetVertex.getAction(),
+                                                newId,
+                                                logicalTargetVertex.getParallelism());
+                                return new ExecutionVertex(
+                                        newId,
+                                        newLogicalTargetAction,
+                                        logicalTargetVertex.getParallelism());
+                            });
+
+            ExecutionEdge executionEdge =
+                    new ExecutionEdge(executionInputVertex, executionTargetVertex);
+            executionEdges.add(executionEdge);
+        }
+        return executionEdges;
+    }
+
+    @SuppressWarnings("MagicNumber")
+    private Set<ExecutionEdge> generateShuffleEdges(Set<ExecutionEdge> executionEdges) {
+        Map<Long, List<ExecutionVertex>> targetVerticesMap = new LinkedHashMap<>();
+        Set<ExecutionVertex> sourceExecutionVertices = new HashSet<>();
+        executionEdges.forEach(
+                edge -> {
+                    ExecutionVertex leftVertex = edge.getLeftVertex();
+                    ExecutionVertex rightVertex = edge.getRightVertex();
+                    if (leftVertex.getAction() instanceof SourceAction) {
+                        sourceExecutionVertices.add(leftVertex);
+                    }
+                    targetVerticesMap
+                            .computeIfAbsent(leftVertex.getVertexId(), id -> new ArrayList<>())
+                            .add(rightVertex);
+                });
+        if (sourceExecutionVertices.size() != 1) {
+            return executionEdges;
+        }
+        ExecutionVertex sourceExecutionVertex = sourceExecutionVertices.stream().findFirst().get();
+        SourceAction sourceAction = (SourceAction) sourceExecutionVertex.getAction();
+        SeaTunnelDataType sourceProducedType = sourceAction.getSource().getProducedType();
+        if (!SqlType.MULTIPLE_ROW.equals(sourceProducedType.getSqlType())) {
+            return executionEdges;
+        }
+
+        List<ExecutionVertex> sinkVertices =
+                targetVerticesMap.get(sourceExecutionVertex.getVertexId());
+        Optional<ExecutionVertex> hasOtherAction =
+                sinkVertices.stream()
+                        .filter(vertex -> !(vertex.getAction() instanceof SinkAction))
+                        .findFirst();
+        checkArgument(!hasOtherAction.isPresent());
+
+        Set<ExecutionEdge> newExecutionEdges = new LinkedHashSet<>();
+        ShuffleStrategy shuffleStrategy =
+                ShuffleMultipleRowStrategy.builder()
+                        .jobId(jobImmutableInformation.getJobId())
+                        .inputPartitions(sourceAction.getParallelism())
+                        .inputRowType(MultipleRowType.class.cast(sourceProducedType))
+                        .queueEmptyQueueTtl((int) (checkpointConfig.getCheckpointInterval() * 3))
+                        .build();
+        ShuffleConfig shuffleConfig =
+                ShuffleConfig.builder().shuffleStrategy(shuffleStrategy).build();
+
+        long shuffleVertexId = idGenerator.getNextId();
+        String shuffleActionName =
+                String.format(
+                        "Shuffle [%s -> table[0~%s]]",
+                        sourceAction.getName(),
+                        ((MultipleRowType) sourceProducedType).getTableIds().length - 1);
+        ShuffleAction shuffleAction =
+                new ShuffleAction(shuffleVertexId, shuffleActionName, shuffleConfig);
+        shuffleAction.setParallelism(sourceAction.getParallelism());
+        ExecutionVertex shuffleVertex =
+                new ExecutionVertex(shuffleVertexId, shuffleAction, shuffleAction.getParallelism());
+        ExecutionEdge sourceToShuffleEdge = new ExecutionEdge(sourceExecutionVertex, shuffleVertex);
+        newExecutionEdges.add(sourceToShuffleEdge);
+
+        for (ExecutionVertex sinkVertex : sinkVertices) {
+            sinkVertex.setParallelism(1);
+            sinkVertex.getAction().setParallelism(1);
+            ExecutionEdge shuffleToSinkEdge = new ExecutionEdge(shuffleVertex, sinkVertex);
+            newExecutionEdges.add(shuffleToSinkEdge);
+        }
+        return newExecutionEdges;
+    }
+
+    private Set<ExecutionEdge> generateTransformChainEdges(Set<ExecutionEdge> executionEdges) {
+        Map<Long, List<ExecutionVertex>> inputVerticesMap = new HashMap<>();
+        Map<Long, List<ExecutionVertex>> targetVerticesMap = new HashMap<>();
+        Set<ExecutionVertex> sourceExecutionVertices = new HashSet<>();
+        executionEdges.forEach(
+                edge -> {
+                    ExecutionVertex leftVertex = edge.getLeftVertex();
+                    ExecutionVertex rightVertex = edge.getRightVertex();
+                    if (leftVertex.getAction() instanceof SourceAction) {
+                        sourceExecutionVertices.add(leftVertex);
+                    }
+                    inputVerticesMap
+                            .computeIfAbsent(rightVertex.getVertexId(), id -> new ArrayList<>())
+                            .add(leftVertex);
+                    targetVerticesMap
+                            .computeIfAbsent(leftVertex.getVertexId(), id -> new ArrayList<>())
+                            .add(rightVertex);
+                });
+
+        Map<Long, ExecutionVertex> transformChainVertexMap = new HashMap<>();
+        Map<Long, Long> chainedTransformVerticesMapping = new HashMap<>();
+        for (ExecutionVertex sourceVertex : sourceExecutionVertices) {
+            List<ExecutionVertex> vertices = new ArrayList<>();
+            vertices.add(sourceVertex);
+            for (int index = 0; index < vertices.size(); index++) {
+                ExecutionVertex vertex = vertices.get(index);
+
+                fillChainedTransformExecutionVertex(
+                        vertex,
+                        chainedTransformVerticesMapping,
+                        transformChainVertexMap,
+                        executionEdges,
+                        Collections.unmodifiableMap(inputVerticesMap),
+                        Collections.unmodifiableMap(targetVerticesMap));
+
+                if (targetVerticesMap.containsKey(vertex.getVertexId())) {
+                    vertices.addAll(targetVerticesMap.get(vertex.getVertexId()));
+                }
+            }
+        }
+
+        Set<ExecutionEdge> transformChainEdges = new LinkedHashSet<>();
+        for (ExecutionEdge executionEdge : executionEdges) {
+            ExecutionVertex leftVertex = executionEdge.getLeftVertex();
+            ExecutionVertex rightVertex = executionEdge.getRightVertex();
+            boolean needRebuild = false;
+            if (chainedTransformVerticesMapping.containsKey(leftVertex.getVertexId())) {
+                needRebuild = true;
+                leftVertex =
+                        transformChainVertexMap.get(
+                                chainedTransformVerticesMapping.get(leftVertex.getVertexId()));
+            }
+            if (chainedTransformVerticesMapping.containsKey(rightVertex.getVertexId())) {
+                needRebuild = true;
+                rightVertex =
+                        transformChainVertexMap.get(
+                                chainedTransformVerticesMapping.get(rightVertex.getVertexId()));
+            }
+            if (needRebuild) {
+                executionEdge = new ExecutionEdge(leftVertex, rightVertex);
+            }
+            transformChainEdges.add(executionEdge);
+        }
+        return transformChainEdges;
+    }
+
+    private void fillChainedTransformExecutionVertex(
+            ExecutionVertex currentVertex,
+            Map<Long, Long> chainedTransformVerticesMapping,
+            Map<Long, ExecutionVertex> transformChainVertexMap,
+            Set<ExecutionEdge> executionEdges,
+            Map<Long, List<ExecutionVertex>> inputVerticesMap,
+            Map<Long, List<ExecutionVertex>> targetVerticesMap) {
+        if (chainedTransformVerticesMapping.containsKey(currentVertex.getVertexId())) {
+            return;
+        }
+
+        List<ExecutionVertex> transformChainedVertices = new ArrayList<>();
+        collectChainedVertices(
+                currentVertex,
+                transformChainedVertices,
+                executionEdges,
+                inputVerticesMap,
+                targetVerticesMap);
+        if (transformChainedVertices.size() > 0) {
+            long newVertexId = idGenerator.getNextId();
+            List<SeaTunnelTransform> transforms = new ArrayList<>(transformChainedVertices.size());
+            List<String> names = new ArrayList<>(transformChainedVertices.size());
+            Set<URL> jars = new HashSet<>();
+
+            transformChainedVertices.stream()
+                    .peek(
+                            vertex ->
+                                    chainedTransformVerticesMapping.put(
+                                            vertex.getVertexId(), newVertexId))
+                    .map(ExecutionVertex::getAction)
+                    .map(action -> (TransformAction) action)
+                    .forEach(
+                            action -> {
+                                transforms.add(action.getTransform());
+                                jars.addAll(action.getJarUrls());
+                                names.add(action.getName());
+                            });
+            TransformChainAction transformChainAction =
+                    new TransformChainAction(
+                            newVertexId, String.join("->", names), jars, transforms);
+            transformChainAction.setParallelism(currentVertex.getAction().getParallelism());
+
+            ExecutionVertex executionVertex =
+                    new ExecutionVertex(
+                            newVertexId, transformChainAction, currentVertex.getParallelism());
+            transformChainVertexMap.put(newVertexId, executionVertex);
+            chainedTransformVerticesMapping.put(
+                    currentVertex.getVertexId(), executionVertex.getVertexId());
+        }
+    }
+
+    private void collectChainedVertices(
+            ExecutionVertex currentVertex,
+            List<ExecutionVertex> chainedVertices,
+            Set<ExecutionEdge> executionEdges,
+            Map<Long, List<ExecutionVertex>> inputVerticesMap,
+            Map<Long, List<ExecutionVertex>> targetVerticesMap) {
+        Action action = currentVertex.getAction();
         // Currently only support Transform action chaining.
         if (action instanceof TransformAction) {
             if (chainedVertices.size() == 0) {
-                chainedVertices.add(logicalVertex);
-            } else if (inputVerticesMap.get(logicalVertex.getVertexId()).size() == 1) {
+                chainedVertices.add(currentVertex);
+            } else if (inputVerticesMap.get(currentVertex.getVertexId()).size() == 1) {
                 // It cannot be chained to any input vertex if it has multiple input vertices.
-                logicalEdges.remove(new LogicalEdge(chainedVertices.get(chainedVertices.size() - 1), logicalVertex));
-                chainedVertices.add(logicalVertex);
+                executionEdges.remove(
+                        new ExecutionEdge(
+                                chainedVertices.get(chainedVertices.size() - 1), currentVertex));
+                chainedVertices.add(currentVertex);
             } else {
                 return;
             }
@@ -225,8 +397,23 @@ public class ExecutionPlanGenerator {
         }
 
         // It cannot chain to any target vertex if it has multiple target vertices.
-        if (targetVerticesMap.get(logicalVertex.getVertexId()).size() == 1) {
-            findChainedVertices(targetVerticesMap.get(logicalVertex.getVertexId()).get(0), chainedVertices);
+        if (targetVerticesMap.get(currentVertex.getVertexId()).size() == 1) {
+            collectChainedVertices(
+                    targetVerticesMap.get(currentVertex.getVertexId()).get(0),
+                    chainedVertices,
+                    executionEdges,
+                    inputVerticesMap,
+                    targetVerticesMap);
         }
+    }
+
+    private List<Pipeline> generatePipelines(Set<ExecutionEdge> executionEdges) {
+        Set<ExecutionVertex> executionVertices = new LinkedHashSet<>();
+        for (ExecutionEdge edge : executionEdges) {
+            executionVertices.add(edge.getLeftVertex());
+            executionVertices.add(edge.getRightVertex());
+        }
+        return new PipelineGenerator(executionVertices, new ArrayList<>(executionEdges))
+                .generatePipelines();
     }
 }

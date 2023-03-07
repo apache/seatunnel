@@ -18,7 +18,7 @@
 seatunnel:
   engine:
     backup-count: 2
-    queue-type: disruptor
+    queue-type: blockingqueue
     print-execution-info-interval: 10
     slot-service:
       dynamic-slot: true
@@ -28,9 +28,7 @@ seatunnel:
       max-concurrent: 5
       tolerable-failure: 2
       storage:
-        type: hdfs
+        type: localfile
         max-retained: 3
         plugin-config:
-          namespace: /tmp/seatunnel/checkpoint_snapshot
-          storage-type: hdfs
-          fs.defaultFS: /tmp/ # Ensure that the directory has written permission
+          namespace: /tmp/seatunnel/checkpoint_snapshot/

@@ -35,8 +35,12 @@ abstract class AbstractSeaTunnelMessageTask<P, R> extends AbstractInvocationMess
     private final Function<ClientMessage, P> decoder;
     private final Function<R, ClientMessage> encoder;
 
-    protected AbstractSeaTunnelMessageTask(ClientMessage clientMessage, Node node, Connection connection,
-                                           Function<ClientMessage, P> decoder, Function<R, ClientMessage> encoder) {
+    protected AbstractSeaTunnelMessageTask(
+            ClientMessage clientMessage,
+            Node node,
+            Connection connection,
+            Function<ClientMessage, P> decoder,
+            Function<R, ClientMessage> encoder) {
         super(clientMessage, node, connection);
 
         this.decoder = decoder;
@@ -78,8 +82,9 @@ abstract class AbstractSeaTunnelMessageTask<P, R> extends AbstractInvocationMess
         if (masterAddress == null) {
             throw new RetryableHazelcastException("master not yet known");
         }
-        return nodeEngine.getOperationService().createInvocationBuilder(SeaTunnelServer.SERVICE_NAME,
-            operation, masterAddress);
+        return nodeEngine
+                .getOperationService()
+                .createInvocationBuilder(SeaTunnelServer.SERVICE_NAME, operation, masterAddress);
     }
 
     protected SeaTunnelServer getSeaTunnelService() {

@@ -28,20 +28,26 @@ import java.io.IOException;
 public class TestFilterRowKindIT extends TestSuiteBase {
 
     @TestTemplate
-    public void testFilterRowKindExcludeDelete(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/filter_row_kind_exclude_delete.conf");
+    public void testFilterRowKindExcludeDelete(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/filter_row_kind_exclude_delete.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     @TestTemplate
-    public void testFilterRowKindExcludeInsert(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/filter_row_kind_exclude_insert.conf");
+    public void testFilterRowKindExcludeInsert(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/filter_row_kind_exclude_insert.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     @TestTemplate
-    public void testFilterRowKindIncludeInsert(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/filter_row_kind_include_insert.conf");
+    public void testFilterRowKindIncludeInsert(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/filter_row_kind_include_insert.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

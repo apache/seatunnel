@@ -25,8 +25,9 @@ public class GitlabSourceConfig extends HttpConfig {
 
     public static final String PRIVATE_TOKEN = "PRIVATE-TOKEN";
 
-    public static final Option<String> ACCESS_TOKEN = Options.key("access_token")
-        .stringType()
-        .noDefaultValue()
-        .withDescription("Gitlab access_token");
+    public static final Option<String> ACCESS_TOKEN =
+            Options.key("access_token")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Gitlab access_token");
 }

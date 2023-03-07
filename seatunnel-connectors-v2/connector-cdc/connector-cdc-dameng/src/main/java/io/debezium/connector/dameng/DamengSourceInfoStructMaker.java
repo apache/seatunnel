@@ -17,26 +17,27 @@
 
 package io.debezium.connector.dameng;
 
-import io.debezium.config.CommonConnectorConfig;
-import io.debezium.connector.AbstractSourceInfoStructMaker;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
+
+import io.debezium.config.CommonConnectorConfig;
+import io.debezium.connector.AbstractSourceInfoStructMaker;
 
 public class DamengSourceInfoStructMaker extends AbstractSourceInfoStructMaker<SourceInfo> {
     private final Schema schema;
 
-    public DamengSourceInfoStructMaker(String connector,
-                                       String version,
-                                       CommonConnectorConfig connectorConfig) {
+    public DamengSourceInfoStructMaker(
+            String connector, String version, CommonConnectorConfig connectorConfig) {
         super(connector, version, connectorConfig);
-        schema = commonSchemaBuilder()
-            .name("io.debezium.connector.dameng.Source")
-            .field(SourceInfo.SCHEMA_NAME_KEY, Schema.STRING_SCHEMA)
-            .field(SourceInfo.TABLE_NAME_KEY, Schema.STRING_SCHEMA)
-            .field(SourceInfo.SCN_KEY, Schema.OPTIONAL_STRING_SCHEMA)
-            .field(SourceInfo.COMMIT_SCN_KEY, Schema.OPTIONAL_STRING_SCHEMA)
-            .field(SourceInfo.EVENT_SERIAL_NO_KEY, Schema.OPTIONAL_INT64_SCHEMA)
-            .build();
+        schema =
+                commonSchemaBuilder()
+                        .name("io.debezium.connector.dameng.Source")
+                        .field(SourceInfo.SCHEMA_NAME_KEY, Schema.STRING_SCHEMA)
+                        .field(SourceInfo.TABLE_NAME_KEY, Schema.STRING_SCHEMA)
+                        .field(SourceInfo.SCN_KEY, Schema.OPTIONAL_STRING_SCHEMA)
+                        .field(SourceInfo.COMMIT_SCN_KEY, Schema.OPTIONAL_STRING_SCHEMA)
+                        .field(SourceInfo.EVENT_SERIAL_NO_KEY, Schema.OPTIONAL_INT64_SCHEMA)
+                        .build();
     }
 
     @Override
@@ -47,10 +48,11 @@ public class DamengSourceInfoStructMaker extends AbstractSourceInfoStructMaker<S
     @Override
     public Struct struct(SourceInfo sourceInfo) {
         String lsn = sourceInfo.getScn() == null ? null : sourceInfo.getScn().toString();
-        Struct ret = super.commonStruct(sourceInfo)
-            .put(SourceInfo.SCHEMA_NAME_KEY, sourceInfo.tableSchema())
-            .put(SourceInfo.TABLE_NAME_KEY, sourceInfo.table())
-            .put(SourceInfo.SCN_KEY, lsn);
+        Struct ret =
+                super.commonStruct(sourceInfo)
+                        .put(SourceInfo.SCHEMA_NAME_KEY, sourceInfo.tableSchema())
+                        .put(SourceInfo.TABLE_NAME_KEY, sourceInfo.table())
+                        .put(SourceInfo.SCN_KEY, lsn);
 
         if (sourceInfo.getCommitScn() != null) {
             ret.put(SourceInfo.COMMIT_SCN_KEY, sourceInfo.getCommitScn().toString());

@@ -32,12 +32,12 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 public class SelectDBBaseSerializer {
-    @Builder.Default
-    private DateUtils.Formatter dateFormatter = DateUtils.Formatter.YYYY_MM_DD;
+    @Builder.Default private DateUtils.Formatter dateFormatter = DateUtils.Formatter.YYYY_MM_DD;
+
     @Builder.Default
     private DateTimeUtils.Formatter dateTimeFormatter = DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
-    @Builder.Default
-    private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
+
+    @Builder.Default private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
 
     protected String convert(SeaTunnelDataType dataType, Object val) {
         if (val == null) {
@@ -72,7 +72,8 @@ public class SelectDBBaseSerializer {
             case BYTES:
                 return new String((byte[]) val);
             default:
-                throw new SelectDBConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, dataType + " is not supported ");
+                throw new SelectDBConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE, dataType + " is not supported ");
         }
     }
 }

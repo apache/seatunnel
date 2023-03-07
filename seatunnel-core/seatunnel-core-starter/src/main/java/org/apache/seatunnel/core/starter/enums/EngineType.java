@@ -17,9 +17,7 @@
 
 package org.apache.seatunnel.core.starter.enums;
 
-/**
- * Engine type enum
- */
+/** Engine type enum */
 public enum EngineType {
     SPARK2("spark", "seatunnel-spark-2-starter.jar", "start-seatunnel-spark-2-connector-v2.sh"),
     SPARK3("spark", "seatunnel-spark-3-starter.jar", "start-seatunnel-spark-3-connector-v2.sh"),

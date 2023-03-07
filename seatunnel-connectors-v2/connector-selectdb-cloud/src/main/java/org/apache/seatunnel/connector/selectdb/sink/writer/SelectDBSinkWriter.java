@@ -17,12 +17,7 @@
 
 package org.apache.seatunnel.connector.selectdb.sink.writer;
 
-import static org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorErrorCode.WHILE_LOADING_FAILED;
-import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadConstants.FIELD_DELIMITER_KEY;
-import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadConstants.FORMAT_KEY;
-import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadConstants.LINE_DELIMITER_DEFAULT;
-import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadConstants.LINE_DELIMITER_KEY;
-import static com.google.common.base.Preconditions.checkState;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -35,8 +30,6 @@ import org.apache.seatunnel.connector.selectdb.serialize.SelectDBJsonSerializer;
 import org.apache.seatunnel.connector.selectdb.serialize.SelectDBSerializer;
 import org.apache.seatunnel.connector.selectdb.sink.committer.SelectDBCommitInfo;
 import org.apache.seatunnel.connector.selectdb.util.HttpUtil;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import lombok.extern.slf4j.Slf4j;
@@ -53,8 +46,16 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.google.common.base.Preconditions.checkState;
+import static org.apache.seatunnel.connector.selectdb.exception.SelectDBConnectorErrorCode.WHILE_LOADING_FAILED;
+import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadConstants.FIELD_DELIMITER_KEY;
+import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadConstants.FORMAT_KEY;
+import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadConstants.LINE_DELIMITER_DEFAULT;
+import static org.apache.seatunnel.connector.selectdb.sink.writer.LoadConstants.LINE_DELIMITER_KEY;
+
 @Slf4j
-public class SelectDBSinkWriter implements SinkWriter<SeaTunnelRow, SelectDBCommitInfo, SelectDBSinkState> {
+public class SelectDBSinkWriter
+        implements SinkWriter<SeaTunnelRow, SelectDBCommitInfo, SelectDBSinkState> {
     private final SelectDBConfig selectdbConfig;
     private final long lastCheckpointId;
     private volatile long currentCheckpointId;
@@ -76,10 +77,12 @@ public class SelectDBSinkWriter implements SinkWriter<SeaTunnelRow, SelectDBComm
 
     private static final long MAX_CACHE_SIZE = 1024 * 1024L;
     private static final int INITIAL_DELAY = 1000;
-    public SelectDBSinkWriter(SinkWriter.Context context,
-                              List<SelectDBSinkState> state,
-                              SeaTunnelRowType seaTunnelRowType,
-                              Config pluginConfig) {
+
+    public SelectDBSinkWriter(
+            SinkWriter.Context context,
+            List<SelectDBSinkState> state,
+            SeaTunnelRowType seaTunnelRowType,
+            Config pluginConfig) {
         this.selectdbConfig = SelectDBConfig.loadConfig(pluginConfig);
         this.lastCheckpointId = context.getIndexOfSubtask();
         log.info("restore checkpointId {}", lastCheckpointId);
@@ -87,9 +90,18 @@ public class SelectDBSinkWriter implements SinkWriter<SeaTunnelRow, SelectDBComm
         log.info("labelPrefix " + selectdbConfig.getLabelPrefix());
         this.selectdbSinkState = new SelectDBSinkState(selectdbConfig.getLabelPrefix());
         this.labelPrefix = selectdbConfig.getLabelPrefix() + "_" + context.getIndexOfSubtask();
-        this.lineDelimiter = selectdbConfig.getStreamLoadProps().getProperty(LINE_DELIMITER_KEY, LINE_DELIMITER_DEFAULT).getBytes();
+        this.lineDelimiter =
+                selectdbConfig
+                        .getStreamLoadProps()
+                        .getProperty(LINE_DELIMITER_KEY, LINE_DELIMITER_DEFAULT)
+                        .getBytes();
         this.labelGenerator = new LabelGenerator(labelPrefix, selectdbConfig.getEnable2PC());
-        this.scheduledExecutorService = new ScheduledThreadPoolExecutor(1, new ThreadFactoryBuilder().setNameFormat("file-load-check-" + context.getIndexOfSubtask()).build());
+        this.scheduledExecutorService =
+                new ScheduledThreadPoolExecutor(
+                        1,
+                        new ThreadFactoryBuilder()
+                                .setNameFormat("file-load-check-" + context.getIndexOfSubtask())
+                                .build());
         this.serializer = createSerializer(selectdbConfig, seaTunnelRowType);
         this.intervalTime = selectdbConfig.getCheckInterval();
         this.loading = false;
@@ -97,10 +109,12 @@ public class SelectDBSinkWriter implements SinkWriter<SeaTunnelRow, SelectDBComm
     }
 
     public void initializeLoad(List<SelectDBSinkState> state) throws IOException {
-        this.selectdbCopyInto = new SelectDBCopyInto(selectdbConfig,
-                labelGenerator, new HttpUtil().getHttpClient());
+        this.selectdbCopyInto =
+                new SelectDBCopyInto(
+                        selectdbConfig, labelGenerator, new HttpUtil().getHttpClient());
         currentCheckpointId = lastCheckpointId + 1;
-        scheduledExecutorService.scheduleWithFixedDelay(this::checkDone, INITIAL_DELAY, intervalTime, TimeUnit.MILLISECONDS);
+        scheduledExecutorService.scheduleWithFixedDelay(
+                this::checkDone, INITIAL_DELAY, intervalTime, TimeUnit.MILLISECONDS);
         serializer.open();
     }
 
@@ -109,7 +123,7 @@ public class SelectDBSinkWriter implements SinkWriter<SeaTunnelRow, SelectDBComm
         checkLoadException();
         byte[] serialize = serializer.serialize(element);
         if (Objects.isNull(serialize)) {
-            //schema change is null
+            // schema change is null
             return;
         }
         if (cacheSize > MAX_CACHE_SIZE) {
@@ -133,19 +147,23 @@ public class SelectDBSinkWriter implements SinkWriter<SeaTunnelRow, SelectDBComm
     public synchronized Optional<SelectDBCommitInfo> prepareCommit() throws IOException {
         checkState(selectdbCopyInto != null);
         if (!loading) {
-            //No data was written during the entire checkpoint period
+            // No data was written during the entire checkpoint period
             log.info("start load by checkpoint, cnt {} size {} ", cacheCnt, cacheSize);
             startLoad();
         }
         log.info("stop load by checkpoint");
         stopLoad();
-        CopySQLBuilder copySQLBuilder = new CopySQLBuilder(selectdbConfig, selectdbCopyInto.getFileList());
+        CopySQLBuilder copySQLBuilder =
+                new CopySQLBuilder(selectdbConfig, selectdbCopyInto.getFileList());
         String copySql = copySQLBuilder.buildCopySQL();
-        return Optional.of(new SelectDBCommitInfo(selectdbCopyInto.getHostPort(), selectdbConfig.getClusterName(), copySql));
+        return Optional.of(
+                new SelectDBCommitInfo(
+                        selectdbCopyInto.getHostPort(), selectdbConfig.getClusterName(), copySql));
     }
 
     @Override
-    public synchronized List<SelectDBSinkState> snapshotState(long checkpointId) throws IOException {
+    public synchronized List<SelectDBSinkState> snapshotState(long checkpointId)
+            throws IOException {
         checkState(selectdbCopyInto != null);
         this.currentCheckpointId = checkpointId + 1;
 
@@ -156,16 +174,16 @@ public class SelectDBSinkWriter implements SinkWriter<SeaTunnelRow, SelectDBComm
     }
 
     @Override
-    public void abortPrepare() {
-
-    }
+    public void abortPrepare() {}
 
     private synchronized void startLoad() throws IOException {
-        //If not started writing, make a streaming request
-        this.selectdbCopyInto.startLoad(labelGenerator.generateLabel(currentCheckpointId, fileNum.getAndIncrement()));
+        // If not started writing, make a streaming request
+        this.selectdbCopyInto.startLoad(
+                labelGenerator.generateLabel(currentCheckpointId, fileNum.getAndIncrement()));
         if (!cache.isEmpty()) {
-            //add line delimiter
-            ByteBuffer buf = ByteBuffer.allocate(cacheSize + (cache.size() - 1) * lineDelimiter.length);
+            // add line delimiter
+            ByteBuffer buf =
+                    ByteBuffer.allocate(cacheSize + (cache.size() - 1) * lineDelimiter.length);
             for (int i = 0; i < cache.size(); i++) {
                 if (i > 0) {
                     buf.put(lineDelimiter);
@@ -221,13 +239,19 @@ public class SelectDBSinkWriter implements SinkWriter<SeaTunnelRow, SelectDBComm
         serializer.close();
     }
 
-    public static SelectDBSerializer createSerializer(SelectDBConfig selectdbConfig, SeaTunnelRowType seaTunnelRowType) {
+    public static SelectDBSerializer createSerializer(
+            SelectDBConfig selectdbConfig, SeaTunnelRowType seaTunnelRowType) {
         if (LoadConstants.CSV.equals(selectdbConfig.getStreamLoadProps().getProperty(FORMAT_KEY))) {
-            return new SelectDBCsvSerializer(selectdbConfig.getStreamLoadProps().getProperty(FIELD_DELIMITER_KEY), seaTunnelRowType);
+            return new SelectDBCsvSerializer(
+                    selectdbConfig.getStreamLoadProps().getProperty(FIELD_DELIMITER_KEY),
+                    seaTunnelRowType);
         }
-        if (LoadConstants.JSON.equals(selectdbConfig.getStreamLoadProps().getProperty(FORMAT_KEY))) {
+        if (LoadConstants.JSON.equals(
+                selectdbConfig.getStreamLoadProps().getProperty(FORMAT_KEY))) {
             return new SelectDBJsonSerializer(seaTunnelRowType);
         }
-        throw new SelectDBConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, "Failed to create row serializer, unsupported `format` from copy into load properties.");
+        throw new SelectDBConnectorException(
+                CommonErrorCode.ILLEGAL_ARGUMENT,
+                "Failed to create row serializer, unsupported `format` from copy into load properties.");
     }
 }

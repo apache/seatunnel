@@ -24,9 +24,7 @@ public class InstantConverterUtils {
     private static final long MICRO_OF_SECOND = 1000_000;
     private static final int MICRO_OF_NANOS = 1000;
 
-    /**
-     * @see Instant#toEpochMilli()
-     */
+    /** @see Instant#toEpochMilli() */
     public static Long toEpochMicro(Instant instant) {
         long seconds = instant.getEpochSecond();
         int nanos = instant.getNano();
@@ -40,9 +38,7 @@ public class InstantConverterUtils {
         }
     }
 
-    /**
-     * @see Instant#ofEpochMilli(long)
-     */
+    /** @see Instant#ofEpochMilli(long) */
     public static Instant ofEpochMicro(long epochMicro) {
         long secs = Math.floorDiv(epochMicro, MICRO_OF_SECOND);
         int mos = (int) Math.floorMod(epochMicro, MICRO_OF_SECOND);

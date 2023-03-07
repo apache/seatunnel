@@ -27,56 +27,52 @@ public abstract class Neo4jCommonConfig {
     public static final Long DEFAULT_MAX_CONNECTION_TIMEOUT = 30L;
 
     public static final Option<String> KEY_NEO4J_URI =
-        Options.key("uri")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("The URI of the Neo4j database");
+            Options.key("uri")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The URI of the Neo4j database");
 
     public static final Option<String> KEY_USERNAME =
-        Options.key("username")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("username of the Neo4j");
+            Options.key("username")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("username of the Neo4j");
 
     public static final Option<String> KEY_PASSWORD =
-        Options.key("password")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("password of the Neo4j");
+            Options.key("password")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("password of the Neo4j");
 
     public static final Option<String> KEY_BEARER_TOKEN =
-        Options.key("bearer_token")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("base64 encoded bearer token of the Neo4j. for Auth.");
+            Options.key("bearer_token")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("base64 encoded bearer token of the Neo4j. for Auth.");
 
     public static final Option<String> KEY_KERBEROS_TICKET =
-        Options.key("kerberos_ticket")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("base64 encoded kerberos ticket of the Neo4j. for Auth.");
+            Options.key("kerberos_ticket")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("base64 encoded kerberos ticket of the Neo4j. for Auth.");
 
     public static final Option<String> KEY_DATABASE =
-        Options.key("database")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("database name.");
+            Options.key("database").stringType().noDefaultValue().withDescription("database name.");
 
     public static final Option<String> KEY_QUERY =
-        Options.key("query")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("Query statement.");
+            Options.key("query").stringType().noDefaultValue().withDescription("Query statement.");
 
     public static final Option<Long> KEY_MAX_TRANSACTION_RETRY_TIME =
-        Options.key("max_transaction_retry_time")
-            .longType()
-            .defaultValue(DEFAULT_MAX_TRANSACTION_RETRY_TIME)
-            .withDescription("maximum transaction retry time(seconds). transaction fail if exceeded.");
+            Options.key("max_transaction_retry_time")
+                    .longType()
+                    .defaultValue(DEFAULT_MAX_TRANSACTION_RETRY_TIME)
+                    .withDescription(
+                            "maximum transaction retry time(seconds). transaction fail if exceeded.");
 
     public static final Option<Long> KEY_MAX_CONNECTION_TIMEOUT =
-        Options.key("max_connection_timeout")
-            .longType()
-            .defaultValue(DEFAULT_MAX_CONNECTION_TIMEOUT)
-            .withDescription("The maximum amount of time to wait for a TCP connection to be established (seconds).");
+            Options.key("max_connection_timeout")
+                    .longType()
+                    .defaultValue(DEFAULT_MAX_CONNECTION_TIMEOUT)
+                    .withDescription(
+                            "The maximum amount of time to wait for a TCP connection to be established (seconds).");
 }

@@ -21,12 +21,9 @@ import lombok.Getter;
 
 public class SQLReader {
     private final String data;
-    @Getter
-    private int length;
-    @Getter
-    private int position;
-    @Getter
-    private char current;
+    @Getter private int length;
+    @Getter private int position;
+    @Getter private char current;
 
     public SQLReader(String data) {
         this.data = data;
@@ -89,7 +86,7 @@ public class SQLReader {
     public boolean equalsIgnoreCaseAndMove(String str) {
         int endPosition = this.position + str.length();
         if (endPosition < this.length
-            && str.equalsIgnoreCase(this.data.substring(this.position, endPosition))) {
+                && str.equalsIgnoreCase(this.data.substring(this.position, endPosition))) {
             this.moveTo(endPosition);
             return true;
         } else {
@@ -100,7 +97,7 @@ public class SQLReader {
     public boolean equalsAndMove(String str) {
         int endPosition = this.position + str.length();
         if (endPosition < this.length
-            && str.equals(this.data.substring(this.position, endPosition))) {
+                && str.equals(this.data.substring(this.position, endPosition))) {
             this.moveTo(endPosition);
             return true;
         } else {

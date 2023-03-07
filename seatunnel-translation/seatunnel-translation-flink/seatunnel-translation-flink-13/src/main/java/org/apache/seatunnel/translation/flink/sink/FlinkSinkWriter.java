@@ -33,45 +33,57 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * The sink writer implementation of {@link SinkWriter},
- * which is created by {@link Sink#createWriter}
+ * The sink writer implementation of {@link SinkWriter}, which is created by {@link
+ * Sink#createWriter}
+ *
  * @param <InputT> The generic type of input data
  * @param <CommT> The generic type of commit message
  * @param <WriterStateT> The generic type of writer state
  */
-public class FlinkSinkWriter<InputT, CommT, WriterStateT> implements SinkWriter<InputT, CommitWrapper<CommT>, FlinkWriterState<WriterStateT>> {
+public class FlinkSinkWriter<InputT, CommT, WriterStateT>
+        implements SinkWriter<InputT, CommitWrapper<CommT>, FlinkWriterState<WriterStateT>> {
 
-    private final org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT> sinkWriter;
+    private final org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT>
+            sinkWriter;
     private final FlinkRowConverter rowSerialization;
     private long checkpointId;
 
-    FlinkSinkWriter(org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT> sinkWriter,
-                    long checkpointId,
-                    SeaTunnelDataType<?> dataType) {
+    FlinkSinkWriter(
+            org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT> sinkWriter,
+            long checkpointId,
+            SeaTunnelDataType<?> dataType) {
         this.sinkWriter = sinkWriter;
         this.checkpointId = checkpointId;
         this.rowSerialization = new FlinkRowConverter(dataType);
     }
 
     @Override
-    public void write(InputT element, org.apache.flink.api.connector.sink.SinkWriter.Context context) throws IOException {
+    public void write(
+            InputT element, org.apache.flink.api.connector.sink.SinkWriter.Context context)
+            throws IOException {
         if (element instanceof Row) {
             sinkWriter.write(rowSerialization.reconvert((Row) element));
         } else {
-            throw new InvalidClassException("only support Flink Row at now, the element Class is " + element.getClass());
+            throw new InvalidClassException(
+                    "only support Flink Row at now, the element Class is " + element.getClass());
         }
     }
 
     @Override
     public List<CommitWrapper<CommT>> prepareCommit(boolean flush) throws IOException {
         Optional<CommT> commTOptional = sinkWriter.prepareCommit();
-        return commTOptional.map(CommitWrapper::new).map(Collections::singletonList).orElse(Collections.emptyList());
+        return commTOptional
+                .map(CommitWrapper::new)
+                .map(Collections::singletonList)
+                .orElse(Collections.emptyList());
     }
 
     @Override
     public List<FlinkWriterState<WriterStateT>> snapshotState() throws IOException {
-        List<FlinkWriterState<WriterStateT>> states = sinkWriter.snapshotState(this.checkpointId)
-                .stream().map(state -> new FlinkWriterState<>(this.checkpointId, state)).collect(Collectors.toList());
+        List<FlinkWriterState<WriterStateT>> states =
+                sinkWriter.snapshotState(this.checkpointId).stream()
+                        .map(state -> new FlinkWriterState<>(this.checkpointId, state))
+                        .collect(Collectors.toList());
         this.checkpointId++;
         return states;
     }

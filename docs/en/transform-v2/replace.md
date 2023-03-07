@@ -8,13 +8,13 @@ Examines string value in a given field and replaces substring of the string valu
 
 ## Options
 
-| name           | type   | required | default value |
-| -------------- | ------ | -------- |---------------|
-| replace_field  | string | yes      |               |
-| pattern        | string | yes      | -             |
-| replacement    | string | yes      | -             |
-| is_regex       | boolean| no       | false         |
-| replace_first  | boolean| no       | false         |
+|     name      |  type   | required | default value |
+|---------------|---------|----------|---------------|
+| replace_field | string  | yes      |               |
+| pattern       | string  | yes      | -             |
+| replacement   | string  | yes      | -             |
+| is_regex      | boolean | no       | false         |
+| replace_first | boolean | no       | false         |
 
 ### replace_field [string]
 
@@ -44,7 +44,7 @@ Transform plugin common parameters, please refer to [Transform Plugin](common-op
 
 The data read from source is a table like this:
 
-| name     | age | card |
+|   name   | age | card |
 |----------|-----|------|
 | Joy Ding | 20  | 123  |
 | May Ding | 20  | 123  |
@@ -66,10 +66,9 @@ transform {
 }
 ```
 
-Then the data in result table `fake1` will update to 
+Then the data in result table `fake1` will update to
 
-
-| name     | age | card |
+|   name   | age | card |
 |----------|-----|------|
 | Joy_Ding | 20  | 123  |
 | May_Ding | 20  | 123  |
@@ -119,3 +118,4 @@ sink {
 ### new version
 
 - Add Replace Transform Connector
+

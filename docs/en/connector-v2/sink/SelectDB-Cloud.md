@@ -3,8 +3,10 @@
 > SelectDB Cloud sink connector
 
 ## Description
+
 Used to send data to SelectDB Cloud. Both support streaming and batch mode.
 The internal implementation of SelectDB Cloud sink connector upload after batch caching and commit the CopyInto sql to load data into the table.
+
 ## Key features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
@@ -13,7 +15,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-| name                | type   | required | default value   |
+|        name         |  type  | required |  default value  |
 |---------------------|--------|----------|-----------------|
 | load-url            | string | yes      | -               |
 | jdbc-url            | string | yes      | -               |
@@ -55,16 +57,16 @@ The name of `SelectDB Cloud` table, the format is `database.table`
 
 Write property configuration
 CSV Write：
-    selectdb.config {
-        file.type='csv'
-        file.column_separator=','
-        file.line_delimiter='\n'
-    }
+selectdb.config {
+file.type='csv'
+file.column_separator=','
+file.line_delimiter='\n'
+}
 JSON Write:
-    selectdb.config {
-        file.type="json"
-        file.strip_outer_array="false"
-    }
+selectdb.config {
+file.type="json"
+file.strip_outer_array="false"
+}
 
 ### sink.buffer-size [string]
 
@@ -128,4 +130,4 @@ sink {
 ### next version
 
 - [Feature] Support SelectDB Cloud Sink Connector [3958](https://github.com/apache/incubator-seatunnel/pull/3958)
-  
+

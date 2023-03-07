@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.onesignal.source;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -32,15 +34,15 @@ import org.apache.seatunnel.connectors.seatunnel.onesignal.source.config.OneSign
 import org.apache.seatunnel.connectors.seatunnel.onesignal.source.config.OneSignalSourceParameter;
 import org.apache.seatunnel.connectors.seatunnel.onesignal.source.config.exception.OneSignalConnectorException;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @AutoService(SeaTunnelSource.class)
 public class OneSignalSource extends HttpSource {
-    private final OneSignalSourceParameter oneSignalSourceParameter = new OneSignalSourceParameter();
+    private final OneSignalSourceParameter oneSignalSourceParameter =
+            new OneSignalSourceParameter();
+
     @Override
     public String getPluginName() {
         return "OneSignal";
@@ -48,18 +50,30 @@ public class OneSignalSource extends HttpSource {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, OneSignalSourceConfig.URL.key(), OneSignalSourceConfig.PASSWORD.key());
+        CheckResult result =
+                CheckConfigUtil.checkAllExists(
+                        pluginConfig,
+                        OneSignalSourceConfig.URL.key(),
+                        OneSignalSourceConfig.PASSWORD.key());
         if (!result.isSuccess()) {
-            throw new OneSignalConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                String.format("PluginName: %s, PluginType: %s, Message: %s",
-                    getPluginName(), PluginType.SOURCE, result.getMsg()));
+            throw new OneSignalConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         oneSignalSourceParameter.buildWithConfig(pluginConfig);
         buildSchemaWithConfig(pluginConfig);
     }
 
     @Override
-    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new HttpSourceReader(this.oneSignalSourceParameter, readerContext, this.deserializationSchema, jsonField, contentField);
+    public AbstractSingleSplitReader<SeaTunnelRow> createReader(
+            SingleSplitReaderContext readerContext) throws Exception {
+        return new HttpSourceReader(
+                this.oneSignalSourceParameter,
+                readerContext,
+                this.deserializationSchema,
+                jsonField,
+                contentField);
     }
 }

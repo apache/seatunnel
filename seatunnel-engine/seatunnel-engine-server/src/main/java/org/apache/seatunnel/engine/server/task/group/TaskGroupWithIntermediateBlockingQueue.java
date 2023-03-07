@@ -32,9 +32,10 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class TaskGroupWithIntermediateBlockingQueue extends AbstractTaskGroupWithIntermediateQueue {
 
-    public static final int QUEUE_SIZE = 100000;
+    public static final int QUEUE_SIZE = 2048;
 
-    public TaskGroupWithIntermediateBlockingQueue(TaskGroupLocation taskGroupLocation, String taskGroupName, Collection<Task> tasks) {
+    public TaskGroupWithIntermediateBlockingQueue(
+            TaskGroupLocation taskGroupLocation, String taskGroupName, Collection<Task> tasks) {
         super(taskGroupLocation, taskGroupName, tasks);
     }
 
@@ -43,8 +44,10 @@ public class TaskGroupWithIntermediateBlockingQueue extends AbstractTaskGroupWit
     @Override
     public void init() {
         blockingQueueCache = new ConcurrentHashMap<>();
-        getTasks().stream().filter(SeaTunnelTask.class::isInstance)
-            .map(s -> (SeaTunnelTask) s).forEach(s -> s.setTaskGroup(this));
+        getTasks().stream()
+                .filter(SeaTunnelTask.class::isInstance)
+                .map(s -> (SeaTunnelTask) s)
+                .forEach(s -> s.setTaskGroup(this));
     }
 
     @Override
@@ -52,5 +55,4 @@ public class TaskGroupWithIntermediateBlockingQueue extends AbstractTaskGroupWit
         blockingQueueCache.computeIfAbsent(id, i -> new ArrayBlockingQueue<>(QUEUE_SIZE));
         return new IntermediateBlockingQueue(blockingQueueCache.get(id));
     }
-
 }

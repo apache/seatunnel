@@ -51,8 +51,8 @@ public class Pipeline {
     }
 
     public Map<Long, Integer> getActions() {
-        return vertexes.values()
-            .stream().map(ExecutionVertex::getAction)
-            .collect(Collectors.toMap(Action::getId, Action::getParallelism));
+        return vertexes.values().stream()
+                .map(ExecutionVertex::getAction)
+                .collect(Collectors.toMap(Action::getId, Action::getParallelism));
     }
 }

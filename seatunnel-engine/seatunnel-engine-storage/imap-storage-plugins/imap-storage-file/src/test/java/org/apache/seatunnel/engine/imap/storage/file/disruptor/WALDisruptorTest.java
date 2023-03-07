@@ -20,9 +20,6 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.disruptor;
 
-import static org.junit.jupiter.api.condition.OS.LINUX;
-import static org.junit.jupiter.api.condition.OS.MAC;
-
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.future.RequestFuture;
 import org.apache.seatunnel.engine.imap.storage.file.future.RequestFutureCache;
@@ -31,12 +28,16 @@ import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 
 import java.io.IOException;
+
+import static org.junit.jupiter.api.condition.OS.LINUX;
+import static org.junit.jupiter.api.condition.OS.MAC;
 
 @EnabledOnOs({LINUX, MAC})
 public class WALDisruptorTest {
@@ -61,20 +62,20 @@ public class WALDisruptorTest {
         DISRUPTOR = new WALDisruptor(FS, FILEPATH, new ProtoStuffSerializer());
         IMapFileData data;
         for (int i = 0; i < 100; i++) {
-            data = IMapFileData.builder()
-                .deleted(false)
-                .key(("key" + i).getBytes())
-                .keyClassName(String.class.getName())
-                .value(("value" + i).getBytes())
-                .valueClassName(String.class.getName())
-                .timestamp(System.nanoTime())
-                .build();
+            data =
+                    IMapFileData.builder()
+                            .deleted(false)
+                            .key(("key" + i).getBytes())
+                            .keyClassName(String.class.getName())
+                            .value(("value" + i).getBytes())
+                            .valueClassName(String.class.getName())
+                            .timestamp(System.nanoTime())
+                            .build();
             long requestId = RequestFutureCache.getRequestId();
             RequestFutureCache.put(requestId, new RequestFuture());
             DISRUPTOR.tryAppendPublish(data, requestId);
         }
         DISRUPTOR.close();
-
     }
 
     @AfterAll

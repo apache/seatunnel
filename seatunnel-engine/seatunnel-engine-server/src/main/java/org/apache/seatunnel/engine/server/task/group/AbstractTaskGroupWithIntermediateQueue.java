@@ -25,10 +25,10 @@ import org.apache.seatunnel.engine.server.task.group.queue.AbstractIntermediateQ
 import java.util.Collection;
 
 public abstract class AbstractTaskGroupWithIntermediateQueue extends TaskGroupDefaultImpl {
-    public AbstractTaskGroupWithIntermediateQueue(TaskGroupLocation taskGroupLocation, String taskGroupName, Collection<Task> tasks) {
+    public AbstractTaskGroupWithIntermediateQueue(
+            TaskGroupLocation taskGroupLocation, String taskGroupName, Collection<Task> tasks) {
         super(taskGroupLocation, taskGroupName, tasks);
     }
 
     public abstract AbstractIntermediateQueue<?> getQueueCache(long id);
-
 }

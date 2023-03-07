@@ -44,7 +44,8 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
     private final SeaTunnelRowType seaTunnelRowType;
     private final TablestoreOptions tablestoreOptions;
 
-    public DefaultSeaTunnelRowSerializer(SeaTunnelRowType seaTunnelRowType, TablestoreOptions tablestoreOptions) {
+    public DefaultSeaTunnelRowSerializer(
+            SeaTunnelRowType seaTunnelRowType, TablestoreOptions tablestoreOptions) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.tablestoreOptions = tablestoreOptions;
     }
@@ -53,20 +54,34 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
     public RowPutChange serialize(SeaTunnelRow seaTunnelRow) {
 
         PrimaryKeyBuilder primaryKeyBuilder = PrimaryKeyBuilder.createPrimaryKeyBuilder();
-        List<Column> columns = new ArrayList<>(seaTunnelRow.getFields().length - tablestoreOptions.getPrimaryKeys().size());
-        Arrays.stream(seaTunnelRowType.getFieldNames()).forEach(fieldName -> {
-            Object field = seaTunnelRow.getField(seaTunnelRowType.indexOf(fieldName));
-            int index = seaTunnelRowType.indexOf(fieldName);
-            if (tablestoreOptions.getPrimaryKeys().contains(fieldName)) {
-                primaryKeyBuilder.addPrimaryKeyColumn(
-                    this.convertPrimaryKeyColumn(fieldName, field,
-                        this.convertPrimaryKeyType(seaTunnelRowType.getFieldType(index))));
-            } else {
-                columns.add(this.convertColumn(fieldName, field,
-                    this.convertColumnType(seaTunnelRowType.getFieldType(index))));
-            }
-        });
-        RowPutChange rowPutChange = new RowPutChange(tablestoreOptions.getTable(), primaryKeyBuilder.build());
+        List<Column> columns =
+                new ArrayList<>(
+                        seaTunnelRow.getFields().length
+                                - tablestoreOptions.getPrimaryKeys().size());
+        Arrays.stream(seaTunnelRowType.getFieldNames())
+                .forEach(
+                        fieldName -> {
+                            Object field =
+                                    seaTunnelRow.getField(seaTunnelRowType.indexOf(fieldName));
+                            int index = seaTunnelRowType.indexOf(fieldName);
+                            if (tablestoreOptions.getPrimaryKeys().contains(fieldName)) {
+                                primaryKeyBuilder.addPrimaryKeyColumn(
+                                        this.convertPrimaryKeyColumn(
+                                                fieldName,
+                                                field,
+                                                this.convertPrimaryKeyType(
+                                                        seaTunnelRowType.getFieldType(index))));
+                            } else {
+                                columns.add(
+                                        this.convertColumn(
+                                                fieldName,
+                                                field,
+                                                this.convertColumnType(
+                                                        seaTunnelRowType.getFieldType(index))));
+                            }
+                        });
+        RowPutChange rowPutChange =
+                new RowPutChange(tablestoreOptions.getTable(), primaryKeyBuilder.build());
         rowPutChange.setCondition(new Condition(RowExistenceExpectation.IGNORE));
         columns.forEach(rowPutChange::addColumn);
 
@@ -94,7 +109,8 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             case BYTES:
                 return ColumnType.BINARY;
             default:
-                throw new TablestoreConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                throw new TablestoreConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
                         "Unsupported columnType: " + seaTunnelDataType);
         }
     }
@@ -118,7 +134,8 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             case BYTES:
                 return PrimaryKeyType.BINARY;
             default:
-                throw new TablestoreConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                throw new TablestoreConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
                         "Unsupported primaryKeyType: " + seaTunnelDataType);
         }
     }
@@ -139,26 +156,29 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             case BINARY:
                 return new Column(columnName, ColumnValue.fromBinary((byte[]) value));
             default:
-                throw new TablestoreConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                throw new TablestoreConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
                         "Unsupported columnType: " + columnType);
         }
     }
 
-    private PrimaryKeyColumn convertPrimaryKeyColumn(String columnName, Object value, PrimaryKeyType primaryKeyType) {
+    private PrimaryKeyColumn convertPrimaryKeyColumn(
+            String columnName, Object value, PrimaryKeyType primaryKeyType) {
         if (value == null) {
             return null;
         }
         switch (primaryKeyType) {
             case STRING:
-                return new PrimaryKeyColumn(columnName, PrimaryKeyValue.fromString(String.valueOf(value)));
+                return new PrimaryKeyColumn(
+                        columnName, PrimaryKeyValue.fromString(String.valueOf(value)));
             case INTEGER:
                 return new PrimaryKeyColumn(columnName, PrimaryKeyValue.fromLong((long) value));
             case BINARY:
                 return new PrimaryKeyColumn(columnName, PrimaryKeyValue.fromBinary((byte[]) value));
             default:
-                throw new TablestoreConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                throw new TablestoreConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
                         "Unsupported primaryKeyType: " + primaryKeyType);
         }
     }
-
 }

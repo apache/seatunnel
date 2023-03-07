@@ -23,9 +23,10 @@ import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import java.io.File;
 
 /**
- * This class is the base class of FlinkEnvironment test for new seatunnel connector API.
- * The before method will create a Flink cluster, and after method will close the Flink cluster.
- * You can use {@link FlinkContainer#executeSeaTunnelFlinkJob} to submit a seatunnel config and run a seatunnel job.
+ * This class is the base class of FlinkEnvironment test for new seatunnel connector API. The before
+ * method will create a Flink cluster, and after method will close the Flink cluster. You can use
+ * {@link FlinkContainer#executeSeaTunnelFlinkJob} to submit a seatunnel config and run a seatunnel
+ * job.
  */
 public abstract class FlinkContainer extends AbstractFlinkContainer {
 

@@ -30,5 +30,4 @@ public class SourceConstants {
     public static final String SQL_ALIGN = "align by";
 
     public static final String DEFAULT_PARTITIONS = "0";
-
 }

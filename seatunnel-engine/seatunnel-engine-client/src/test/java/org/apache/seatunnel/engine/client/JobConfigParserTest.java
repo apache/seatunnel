@@ -26,6 +26,7 @@ import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.parse.JobConfigParser;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -42,7 +43,8 @@ public class JobConfigParserTest {
         String filePath = TestUtils.getResource("/batch_fakesource_to_file.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setJobContext(new JobContext());
-        JobConfigParser jobConfigParser = new JobConfigParser(filePath, new IdGenerator(), jobConfig);
+        JobConfigParser jobConfigParser =
+                new JobConfigParser(filePath, new IdGenerator(), jobConfig);
         ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse();
         List<Action> actions = parse.getLeft();
         Assertions.assertEquals(1, actions.size());
@@ -61,7 +63,8 @@ public class JobConfigParserTest {
         String filePath = TestUtils.getResource("/batch_fakesource_to_file_complex.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setJobContext(new JobContext());
-        JobConfigParser jobConfigParser = new JobConfigParser(filePath, new IdGenerator(), jobConfig);
+        JobConfigParser jobConfigParser =
+                new JobConfigParser(filePath, new IdGenerator(), jobConfig);
         ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse();
         List<Action> actions = parse.getLeft();
         Assertions.assertEquals(1, actions.size());

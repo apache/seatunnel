@@ -25,21 +25,15 @@ public class ActionState implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    /**
-     * The id of the action.
-     */
+    /** The id of the action. */
     private final String actionId;
 
-    /**
-     * The handles to states created by the parallel actions: action index -> action state.
-     */
+    /** The handles to states created by the parallel actions: action index -> action state. */
     private final List<ActionSubtaskState> subtaskStates;
 
     private ActionSubtaskState coordinatorState;
 
-    /**
-     * The parallelism of the action when it was checkpointed.
-     */
+    /** The parallelism of the action when it was checkpointed. */
     private final int parallelism;
 
     public ActionState(String actionId, int parallelism) {

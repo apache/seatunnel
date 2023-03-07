@@ -27,15 +27,17 @@ import java.io.Serializable;
 import java.net.URL;
 import java.util.Set;
 
-public class SourceAction<T, SplitT extends SourceSplit, StateT extends Serializable> extends AbstractAction {
+public class SourceAction<T, SplitT extends SourceSplit, StateT extends Serializable>
+        extends AbstractAction {
 
     private static final long serialVersionUID = -4104531889750766731L;
     private final SeaTunnelSource<T, SplitT, StateT> source;
 
-    public SourceAction(long id,
-                        @NonNull String name,
-                        @NonNull SeaTunnelSource<T, SplitT, StateT> source,
-                        @NonNull Set<URL> jarUrls) {
+    public SourceAction(
+            long id,
+            @NonNull String name,
+            @NonNull SeaTunnelSource<T, SplitT, StateT> source,
+            @NonNull Set<URL> jarUrls) {
         super(id, name, Lists.newArrayList(), jarUrls);
         this.source = source;
     }

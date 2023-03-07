@@ -31,7 +31,8 @@ import java.util.Locale;
 
 public class SapHanaTypeMapper implements JdbcDialectTypeMapper {
 
-    // refer to https://help.sap.com/docs/SAP_BUSINESSOBJECTS_BUSINESS_INTELLIGENCE_PLATFORM/aa4cb9ab429349e49678e146f05d7341/ec3313286fdb101497906a7cb0e91070.html?locale=zh-CN
+    // refer to
+    // https://help.sap.com/docs/SAP_BUSINESSOBJECTS_BUSINESS_INTELLIGENCE_PLATFORM/aa4cb9ab429349e49678e146f05d7341/ec3313286fdb101497906a7cb0e91070.html?locale=zh-CN
     private static final String SAP_HANA_BLOB = "blob";
     private static final String SAP_HANA_VARBINARY = "varbinary";
     private static final String SAP_HANA_DATE = "date";
@@ -57,7 +58,8 @@ public class SapHanaTypeMapper implements JdbcDialectTypeMapper {
     private static final String SAP_HANA_BINARY = "binary";
 
     @Override
-    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException {
+    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
+            throws SQLException {
         String typeName = metadata.getColumnTypeName(colIndex).toLowerCase(Locale.ROOT);
 
         int precision = metadata.getPrecision(colIndex);
@@ -102,9 +104,9 @@ public class SapHanaTypeMapper implements JdbcDialectTypeMapper {
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
                 throw new UnsupportedOperationException(
-                    String.format(
-                        "Doesn't support SapHana type '%s' on column '%s'  yet.",
-                        typeName, jdbcColumnName));
+                        String.format(
+                                "Doesn't support SapHana type '%s' on column '%s'  yet.",
+                                typeName, jdbcColumnName));
         }
     }
 }

@@ -25,9 +25,10 @@ import org.apache.flink.core.io.SimpleVersionedSerializer;
 import java.io.IOException;
 
 /**
- * The serializer wrapper of aggregate commit message serializer,
- * which is created by {@link Sink#getGlobalCommittableSerializer()},
- * used to unify the different implementations of {@link Serializer}
+ * The serializer wrapper of aggregate commit message serializer, which is created by {@link
+ * Sink#getGlobalCommittableSerializer()}, used to unify the different implementations of {@link
+ * Serializer}
+ *
  * @param <T> The generic type of aggregate commit message
  */
 public class FlinkSimpleVersionedSerializer<T> implements SimpleVersionedSerializer<T> {

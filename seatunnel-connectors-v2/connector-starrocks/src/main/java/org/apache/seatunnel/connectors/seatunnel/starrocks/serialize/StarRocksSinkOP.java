@@ -20,10 +20,12 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.serialize;
 import org.apache.seatunnel.api.table.type.RowKind;
 
 /**
- * Reference https://github.com/StarRocks/starrocks/blob/main/docs/loading/Load_to_Primary_Key_tables.md#upsert-and-delete
+ * Reference
+ * https://github.com/StarRocks/starrocks/blob/main/docs/loading/Load_to_Primary_Key_tables.md#upsert-and-delete
  */
 public enum StarRocksSinkOP {
-    UPSERT, DELETE;
+    UPSERT,
+    DELETE;
 
     public static final String COLUMN_KEY = "__op";
 

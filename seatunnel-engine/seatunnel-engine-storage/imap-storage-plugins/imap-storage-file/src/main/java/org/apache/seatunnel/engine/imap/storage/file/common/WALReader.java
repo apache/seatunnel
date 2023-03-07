@@ -20,8 +20,6 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.common;
 
-import static org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils.WAL_DATA_METADATA_LENGTH;
-
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
@@ -42,6 +40,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import static org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils.WAL_DATA_METADATA_LENGTH;
 
 public class WALReader {
     private static final int DEFAULT_QUERY_LIST_SIZE = 1024;
@@ -90,7 +90,8 @@ public class WALReader {
         return result;
     }
 
-    public Map<Object, Object> loadAllData(Path parentPath, Set<Object> searchKeys) throws IOException {
+    public Map<Object, Object> loadAllData(Path parentPath, Set<Object> searchKeys)
+            throws IOException {
         List<IMapFileData> allData = readAllData(parentPath);
         if (CollectionUtils.isEmpty(allData)) {
             return new HashMap<>();
@@ -149,7 +150,8 @@ public class WALReader {
     private List<String> getFileNames(Path parentPath) {
         try {
 
-            RemoteIterator<LocatedFileStatus> fileStatusRemoteIterator = fs.listFiles(parentPath, true);
+            RemoteIterator<LocatedFileStatus> fileStatusRemoteIterator =
+                    fs.listFiles(parentPath, true);
             List<String> fileNames = new ArrayList<>();
             while (fileStatusRemoteIterator.hasNext()) {
                 LocatedFileStatus fileStatus = fileStatusRemoteIterator.next();
@@ -169,14 +171,15 @@ public class WALReader {
             try {
                 return serializer.deserialize(data, clazz);
             } catch (IOException e) {
-                //log.error("deserialize data error, data is {}, className is {}", data, className, e);
-                throw new IMapStorageException(e, "deserialize data error: data is s%, className is s%", data, className);
+                // log.error("deserialize data error, data is {}, className is {}", data, className,
+                // e);
+                throw new IMapStorageException(
+                        e, "deserialize data error: data is s%, className is s%", data, className);
             }
         } catch (ClassNotFoundException e) {
             //  log.error("deserialize data error, class name is {}", className, e);
-            throw new IMapStorageException(e, "deserialize data error, class name is {}", className);
+            throw new IMapStorageException(
+                    e, "deserialize data error, class name is {}", className);
         }
     }
 }
-
-

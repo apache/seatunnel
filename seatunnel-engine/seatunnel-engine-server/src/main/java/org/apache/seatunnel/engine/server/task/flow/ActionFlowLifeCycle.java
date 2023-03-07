@@ -27,7 +27,8 @@ public abstract class ActionFlowLifeCycle extends AbstractFlowLifeCycle implemen
 
     protected Action action;
 
-    public ActionFlowLifeCycle(Action action, SeaTunnelTask runningTask, CompletableFuture<Void> completableFuture) {
+    public ActionFlowLifeCycle(
+            Action action, SeaTunnelTask runningTask, CompletableFuture<Void> completableFuture) {
         super(runningTask, completableFuture);
         this.action = action;
     }

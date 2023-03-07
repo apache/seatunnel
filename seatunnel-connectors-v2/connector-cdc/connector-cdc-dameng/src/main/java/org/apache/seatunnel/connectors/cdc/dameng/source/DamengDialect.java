@@ -65,8 +65,10 @@ public class DamengDialect implements JdbcDataSourceDialect {
 
     @Override
     public DamengConnection openJdbcConnection(JdbcSourceConfig sourceConfig) {
-        DamengConnection connection = new DamengConnection(sourceConfig.getDbzConfiguration(),
-            new JdbcConnectionFactory(sourceConfig, getPooledDataSourceFactory()));
+        DamengConnection connection =
+                new DamengConnection(
+                        sourceConfig.getDbzConfiguration(),
+                        new JdbcConnectionFactory(sourceConfig, getPooledDataSourceFactory()));
         try {
             return connection.connect();
         } catch (Exception e) {
@@ -79,7 +81,8 @@ public class DamengDialect implements JdbcDataSourceDialect {
         try (DamengConnection jdbcConnection = openJdbcConnection(sourceConfig)) {
             return jdbcConnection.isCaseSensitive();
         } catch (SQLException e) {
-            throw new SeaTunnelException("Error reading Dameng system config: " + e.getMessage(), e);
+            throw new SeaTunnelException(
+                    "Error reading Dameng system config: " + e.getMessage(), e);
         }
     }
 
@@ -116,8 +119,8 @@ public class DamengDialect implements JdbcDataSourceDialect {
     }
 
     @Override
-    public JdbcSourceFetchTaskContext createFetchTaskContext(SourceSplitBase sourceSplitBase,
-                                                             JdbcSourceConfig taskSourceConfig) {
+    public JdbcSourceFetchTaskContext createFetchTaskContext(
+            SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig) {
         Configuration jdbcConfig = taskSourceConfig.getDbzConnectorConfig().getJdbcConfig();
         DamengConnection jdbcConnection = new DamengConnection(jdbcConfig);
         List<TableChanges.TableChange> tableChangeList = new ArrayList<>();
@@ -132,8 +135,8 @@ public class DamengDialect implements JdbcDataSourceDialect {
             }
         }
 
-        return new DamengSourceFetchTaskContext(taskSourceConfig,
-            this, jdbcConnection, tableChangeList);
+        return new DamengSourceFetchTaskContext(
+                taskSourceConfig, this, jdbcConnection, tableChangeList);
     }
 
     @Override

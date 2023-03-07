@@ -18,6 +18,7 @@
 seatunnel:
   engine:
     backup-count: 1
+    queue-type: blockingqueue
     print-execution-info-interval: 60
     print-job-metrics-info-interval: 60
     slot-service:
@@ -32,5 +33,5 @@ seatunnel:
         max-retained: 3
         plugin-config:
           namespace: /tmp/seatunnel/checkpoint_snapshot
-          storage-type: hdfs
+          storage.type: hdfs
           fs.defaultFS: /tmp/ # Ensure that the directory has written permission

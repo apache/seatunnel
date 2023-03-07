@@ -37,7 +37,8 @@ public class ConfigKeyName {
     public static final String FAIL_ON_CHECKPOINTING_ERRORS = "execution.checkpoint.fail-on-error";
     public static final String RESTART_STRATEGY = "execution.restart.strategy";
     public static final String RESTART_ATTEMPTS = "execution.restart.attempts";
-    public static final String RESTART_DELAY_BETWEEN_ATTEMPTS = "execution.restart.delayBetweenAttempts";
+    public static final String RESTART_DELAY_BETWEEN_ATTEMPTS =
+            "execution.restart.delayBetweenAttempts";
     public static final String RESTART_FAILURE_INTERVAL = "execution.restart.failureInterval";
     public static final String RESTART_FAILURE_RATE = "execution.restart.failureRate";
     public static final String RESTART_DELAY_INTERVAL = "execution.restart.delayInterval";

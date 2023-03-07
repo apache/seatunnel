@@ -55,14 +55,15 @@ public class ParallelMicroBatchPartitionReader extends ParallelBatchPartitionRea
     protected ScheduledThreadPoolExecutor executor;
     protected FileSystem fileSystem;
 
-    public ParallelMicroBatchPartitionReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source,
-                                             Integer parallelism,
-                                             Integer subtaskId,
-                                             Integer checkpointId,
-                                             Integer checkpointInterval,
-                                             String checkpointPath,
-                                             String hdfsRoot,
-                                             String hdfsUser) {
+    public ParallelMicroBatchPartitionReader(
+            SeaTunnelSource<SeaTunnelRow, ?, ?> source,
+            Integer parallelism,
+            Integer subtaskId,
+            Integer checkpointId,
+            Integer checkpointInterval,
+            String checkpointPath,
+            String hdfsRoot,
+            String hdfsUser) {
         super(source, parallelism, subtaskId);
         this.checkpointId = checkpointId;
         this.checkpointInterval = checkpointInterval;
@@ -73,10 +74,7 @@ public class ParallelMicroBatchPartitionReader extends ParallelBatchPartitionRea
 
     @Override
     protected BaseSourceFunction<SeaTunnelRow> createInternalSource() {
-        return new InternalParallelSource<>(source,
-            restoredState,
-            parallelism,
-            subtaskId);
+        return new InternalParallelSource<>(source, restoredState, parallelism, subtaskId);
     }
 
     @Override
@@ -91,7 +89,8 @@ public class ParallelMicroBatchPartitionReader extends ParallelBatchPartitionRea
         prepareCheckpoint();
     }
 
-    protected FileSystem getFileSystem() throws URISyntaxException, IOException, InterruptedException {
+    protected FileSystem getFileSystem()
+            throws URISyntaxException, IOException, InterruptedException {
         Configuration configuration = new Configuration();
         configuration.set("fs.defaultFS", hdfsRoot);
         if (StringUtils.isNotBlank(hdfsUser)) {
@@ -112,7 +111,9 @@ public class ParallelMicroBatchPartitionReader extends ParallelBatchPartitionRea
     }
 
     public void prepareCheckpoint() {
-        executor = ThreadPoolExecutorFactory.createScheduledThreadPoolExecutor(1, String.format("parallel-reader-checkpoint-executor-%s", subtaskId));
+        executor =
+                ThreadPoolExecutorFactory.createScheduledThreadPoolExecutor(
+                        1, String.format("parallel-reader-checkpoint-executor-%s", subtaskId));
         executor.schedule(this::virtualCheckpoint, checkpointInterval, TimeUnit.MILLISECONDS);
     }
 
@@ -153,7 +154,7 @@ public class ParallelMicroBatchPartitionReader extends ParallelBatchPartitionRea
             return null;
         }
         try (FSDataInputStream inputStream = fileSystem.open(hdfsPath);
-             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+                ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             int i = 0;
             final int defaultLen = 1024;
             byte[] buffer = new byte[defaultLen];
@@ -182,7 +183,12 @@ public class ParallelMicroBatchPartitionReader extends ParallelBatchPartitionRea
     }
 
     private Path getCheckpointPathWithId(int checkpointId) {
-        return new Path(this.checkpointPath + File.separator + this.subtaskId + File.separator + checkpointId);
+        return new Path(
+                this.checkpointPath
+                        + File.separator
+                        + this.subtaskId
+                        + File.separator
+                        + checkpointId);
     }
 
     @Override

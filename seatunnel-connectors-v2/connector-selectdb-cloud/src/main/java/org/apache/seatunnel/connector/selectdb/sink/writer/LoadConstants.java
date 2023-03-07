@@ -17,9 +17,7 @@
 
 package org.apache.seatunnel.connector.selectdb.sink.writer;
 
-/**
- * Constants for load.
- */
+/** Constants for load. */
 public class LoadConstants {
     public static final String COLUMNS_KEY = "columns";
     public static final String FIELD_DELIMITER_KEY = "file.column_separator";
@@ -31,5 +29,4 @@ public class LoadConstants {
     public static final String CSV = "csv";
     public static final String NULL_VALUE = "\\N";
     public static final String DORIS_DELETE_SIGN = "__DORIS_DELETE_SIGN__";
-
 }

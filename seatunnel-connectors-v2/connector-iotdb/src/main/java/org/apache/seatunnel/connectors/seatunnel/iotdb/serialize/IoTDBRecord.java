@@ -17,10 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdb.serialize;
 
+import org.apache.iotdb.tsfile.file.metadata.enums.TSDataType;
+
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.ToString;
-import org.apache.iotdb.tsfile.file.metadata.enums.TSDataType;
 
 import java.util.List;
 

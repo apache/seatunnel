@@ -23,9 +23,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class EnvOptionRuleTest {
-    /**
-     * Method: getEnvOptionRules()
-     */
+    /** Method: getEnvOptionRules() */
     @Test
     public void testGetEnvOptionRules() throws Exception {
         OptionRule envOptionRules = EnvOptionRule.getEnvOptionRules();

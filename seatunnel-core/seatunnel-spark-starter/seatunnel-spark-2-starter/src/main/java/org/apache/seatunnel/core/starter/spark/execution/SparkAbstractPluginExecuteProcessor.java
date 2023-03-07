@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.core.starter.spark.execution;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.core.starter.execution.PluginExecuteProcessor;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
@@ -28,8 +28,8 @@ import org.apache.spark.sql.Row;
 import java.util.List;
 import java.util.Optional;
 
-public abstract class SparkAbstractPluginExecuteProcessor<T> implements
-        PluginExecuteProcessor<Dataset<Row>, SparkRuntimeEnvironment> {
+public abstract class SparkAbstractPluginExecuteProcessor<T>
+        implements PluginExecuteProcessor<Dataset<Row>, SparkRuntimeEnvironment> {
     protected SparkRuntimeEnvironment sparkRuntimeEnvironment;
     protected final List<? extends Config> pluginConfigs;
     protected final JobContext jobContext;
@@ -39,9 +39,10 @@ public abstract class SparkAbstractPluginExecuteProcessor<T> implements
     protected static final String RESULT_TABLE_NAME = "result_table_name";
     protected static final String SOURCE_TABLE_NAME = "source_table_name";
 
-    protected SparkAbstractPluginExecuteProcessor(SparkRuntimeEnvironment sparkRuntimeEnvironment,
-                                                  JobContext jobContext,
-                                                  List<? extends Config> pluginConfigs) {
+    protected SparkAbstractPluginExecuteProcessor(
+            SparkRuntimeEnvironment sparkRuntimeEnvironment,
+            JobContext jobContext,
+            List<? extends Config> pluginConfigs) {
         this.sparkRuntimeEnvironment = sparkRuntimeEnvironment;
         this.jobContext = jobContext;
         this.pluginConfigs = pluginConfigs;
@@ -62,8 +63,8 @@ public abstract class SparkAbstractPluginExecuteProcessor<T> implements
         }
     }
 
-    protected Optional<Dataset<Row>> fromSourceTable(Config pluginConfig,
-                                                     SparkRuntimeEnvironment sparkRuntimeEnvironment) {
+    protected Optional<Dataset<Row>> fromSourceTable(
+            Config pluginConfig, SparkRuntimeEnvironment sparkRuntimeEnvironment) {
         if (!pluginConfig.hasPath(SOURCE_TABLE_NAME)) {
             return Optional.empty();
         }

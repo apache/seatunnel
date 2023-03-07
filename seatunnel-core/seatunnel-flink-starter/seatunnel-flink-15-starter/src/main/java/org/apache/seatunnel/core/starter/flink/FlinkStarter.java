@@ -27,9 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * The SeaTunnel flink starter, used to generate the final flink job execute command.
- */
+/** The SeaTunnel flink starter, used to generate the final flink job execute command. */
 public class FlinkStarter implements Starter {
     private static final String APP_NAME = SeaTunnelFlink.class.getName();
     public static final String APP_JAR_NAME = EngineType.FLINK15.getStarterJarName();
@@ -38,7 +36,8 @@ public class FlinkStarter implements Starter {
     private final String appJar;
 
     FlinkStarter(String[] args) {
-        this.flinkCommandArgs = CommandLineUtils.parse(args, new FlinkCommandArgs(), SHELL_NAME, true);
+        this.flinkCommandArgs =
+                CommandLineUtils.parse(args, new FlinkCommandArgs(), SHELL_NAME, true);
         // set the deployment mode, used to get the job jar path.
         Common.setDeployMode(flinkCommandArgs.getDeployMode());
         Common.setStarter(true);

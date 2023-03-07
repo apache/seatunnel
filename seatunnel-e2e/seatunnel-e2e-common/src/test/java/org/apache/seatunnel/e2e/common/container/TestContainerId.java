@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.e2e.common.container;
 
-import static org.apache.seatunnel.e2e.common.container.EngineType.FLINK;
-import static org.apache.seatunnel.e2e.common.container.EngineType.SPARK;
-
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+
+import static org.apache.seatunnel.e2e.common.container.EngineType.FLINK;
+import static org.apache.seatunnel.e2e.common.container.EngineType.SPARK;
 
 @AllArgsConstructor
 @Getter

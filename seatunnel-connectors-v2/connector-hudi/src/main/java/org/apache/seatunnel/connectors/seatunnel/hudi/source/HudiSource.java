@@ -17,12 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.CONF_FILES;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.KERBEROS_PRINCIPAL;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.KERBEROS_PRINCIPAL_FILE;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.TABLE_PATH;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.TABLE_TYPE;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.USE_KERBEROS;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Boundedness;
@@ -40,14 +35,21 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiUtil;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.CONF_FILES;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.KERBEROS_PRINCIPAL;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.KERBEROS_PRINCIPAL_FILE;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.TABLE_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.TABLE_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.USE_KERBEROS;
+
 @AutoService(SeaTunnelSource.class)
-public class HudiSource implements SeaTunnelSource<SeaTunnelRow, HudiSourceSplit, HudiSourceState>, SupportParallelism {
+public class HudiSource
+        implements SeaTunnelSource<SeaTunnelRow, HudiSourceSplit, HudiSourceState>,
+                SupportParallelism {
 
     private SeaTunnelRowType typeInfo;
 
@@ -66,21 +68,26 @@ public class HudiSource implements SeaTunnelSource<SeaTunnelRow, HudiSourceSplit
 
     @Override
     public void prepare(Config pluginConfig) {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, TABLE_PATH.key(), CONF_FILES.key());
+        CheckResult result =
+                CheckConfigUtil.checkAllExists(pluginConfig, TABLE_PATH.key(), CONF_FILES.key());
         if (!result.isSuccess()) {
-            throw new HudiConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                String.format("PluginName: %s, PluginType: %s, Message: %s",
-                    getPluginName(), PluginType.SOURCE, result.getMsg())
-            );
+            throw new HudiConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         // default hudi table type is cow
         // TODO: support hudi mor table
         // TODO: support Incremental Query and Read Optimized Query
         if (!"cow".equalsIgnoreCase(pluginConfig.getString(TABLE_TYPE.key()))) {
-            throw new HudiConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                String.format("PluginName: %s, PluginType: %s, Message: %s",
-                    getPluginName(), PluginType.SOURCE, "Do not support hudi mor table yet!")
-            );
+            throw new HudiConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(),
+                            PluginType.SOURCE,
+                            "Do not support hudi mor table yet!"));
         }
         try {
             this.confFiles = pluginConfig.getString(CONF_FILES.key());
@@ -88,28 +95,38 @@ public class HudiSource implements SeaTunnelSource<SeaTunnelRow, HudiSourceSplit
             if (CheckConfigUtil.isValidParam(pluginConfig, USE_KERBEROS.key())) {
                 this.useKerberos = pluginConfig.getBoolean(USE_KERBEROS.key());
                 if (this.useKerberos) {
-                    CheckResult kerberosCheckResult = CheckConfigUtil.checkAllExists(pluginConfig, KERBEROS_PRINCIPAL.key(), KERBEROS_PRINCIPAL_FILE.key());
+                    CheckResult kerberosCheckResult =
+                            CheckConfigUtil.checkAllExists(
+                                    pluginConfig,
+                                    KERBEROS_PRINCIPAL.key(),
+                                    KERBEROS_PRINCIPAL_FILE.key());
                     if (!kerberosCheckResult.isSuccess()) {
-                        throw new HudiConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                            String.format("PluginName: %s, PluginType: %s, Message: %s",
-                                getPluginName(), PluginType.SOURCE, result.getMsg())
-                        );
+                        throw new HudiConnectorException(
+                                SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                                String.format(
+                                        "PluginName: %s, PluginType: %s, Message: %s",
+                                        getPluginName(), PluginType.SOURCE, result.getMsg()));
                     }
-                    HudiUtil.initKerberosAuthentication(HudiUtil.getConfiguration(this.confFiles), pluginConfig.getString(KERBEROS_PRINCIPAL.key()), pluginConfig.getString(KERBEROS_PRINCIPAL_FILE.key()));
+                    HudiUtil.initKerberosAuthentication(
+                            HudiUtil.getConfiguration(this.confFiles),
+                            pluginConfig.getString(KERBEROS_PRINCIPAL.key()),
+                            pluginConfig.getString(KERBEROS_PRINCIPAL_FILE.key()));
                 }
             }
             this.filePath = HudiUtil.getParquetFileByPath(this.confFiles, tablePath);
             if (this.filePath == null) {
-                throw new HudiConnectorException(CommonErrorCode.FILE_OPERATION_FAILED,
-                    String.format("%s has no parquet file, please check!", tablePath));
+                throw new HudiConnectorException(
+                        CommonErrorCode.FILE_OPERATION_FAILED,
+                        String.format("%s has no parquet file, please check!", tablePath));
             }
             // should read from config or read from hudi metadata( wait catalog done)
             this.typeInfo = HudiUtil.getSeaTunnelRowTypeInfo(this.confFiles, this.filePath);
         } catch (HudiConnectorException | IOException e) {
-            throw new HudiConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                String.format("PluginName: %s, PluginType: %s, Message: %s",
-                    getPluginName(), PluginType.SOURCE, result.getMsg())
-            );
+            throw new HudiConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
     }
 
@@ -119,7 +136,8 @@ public class HudiSource implements SeaTunnelSource<SeaTunnelRow, HudiSourceSplit
     }
 
     @Override
-    public SourceReader<SeaTunnelRow, HudiSourceSplit> createReader(SourceReader.Context readerContext) throws Exception {
+    public SourceReader<SeaTunnelRow, HudiSourceSplit> createReader(
+            SourceReader.Context readerContext) throws Exception {
         return new HudiSourceReader(this.confFiles, readerContext, typeInfo);
     }
 
@@ -132,13 +150,17 @@ public class HudiSource implements SeaTunnelSource<SeaTunnelRow, HudiSourceSplit
     }
 
     @Override
-    public SourceSplitEnumerator<HudiSourceSplit, HudiSourceState> createEnumerator(SourceSplitEnumerator.Context<HudiSourceSplit> enumeratorContext) throws Exception {
+    public SourceSplitEnumerator<HudiSourceSplit, HudiSourceState> createEnumerator(
+            SourceSplitEnumerator.Context<HudiSourceSplit> enumeratorContext) throws Exception {
         return new HudiSourceSplitEnumerator(enumeratorContext, tablePath, this.confFiles);
     }
 
     @Override
-    public SourceSplitEnumerator<HudiSourceSplit, HudiSourceState> restoreEnumerator(SourceSplitEnumerator.Context<HudiSourceSplit> enumeratorContext, HudiSourceState checkpointState) throws Exception {
-        return new HudiSourceSplitEnumerator(enumeratorContext, tablePath, this.confFiles, checkpointState);
+    public SourceSplitEnumerator<HudiSourceSplit, HudiSourceState> restoreEnumerator(
+            SourceSplitEnumerator.Context<HudiSourceSplit> enumeratorContext,
+            HudiSourceState checkpointState)
+            throws Exception {
+        return new HudiSourceSplitEnumerator(
+                enumeratorContext, tablePath, this.confFiles, checkpointState);
     }
-
 }

@@ -17,13 +17,13 @@
 
 package org.apache.seatunnel.connectors.cdc.dameng.config;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.EmbeddedDatabaseHistory;
 
 import java.util.Properties;
 import java.util.UUID;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class DamengSourceConfigFactory extends JdbcSourceConfigFactory {
     private static final String DRIVER_CLASS_NAME = "dm.jdbc.driver.DmDriver";
@@ -44,7 +44,7 @@ public class DamengSourceConfigFactory extends JdbcSourceConfigFactory {
         props.setProperty("database.history.skip.unparseable.ddl", String.valueOf(true));
         props.setProperty("database.history.refer.ddl", String.valueOf(true));
 
-        //TODO Not yet supported
+        // TODO Not yet supported
         props.setProperty("include.schema.changes", String.valueOf(false));
 
         if (databaseList != null) {
@@ -62,23 +62,24 @@ public class DamengSourceConfigFactory extends JdbcSourceConfigFactory {
         }
 
         return new DamengSourceConfig(
-            startupConfig,
-            stopConfig,
-            databaseList,
-            tableList,
-            splitSize,
-            distributionFactorUpper,
-            distributionFactorLower,
-            props,
-            DRIVER_CLASS_NAME,
-            hostname,
-            port,
-            username,
-            password,
-            fetchSize,
-            serverTimeZone,
-            connectTimeoutMillis,
-            connectMaxRetries,
-            connectionPoolSize);
+                startupConfig,
+                stopConfig,
+                databaseList,
+                tableList,
+                splitSize,
+                distributionFactorUpper,
+                distributionFactorLower,
+                props,
+                DRIVER_CLASS_NAME,
+                hostname,
+                port,
+                username,
+                password,
+                originUrl,
+                fetchSize,
+                serverTimeZone,
+                connectTimeoutMillis,
+                connectMaxRetries,
+                connectionPoolSize);
     }
 }

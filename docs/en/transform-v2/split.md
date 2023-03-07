@@ -8,11 +8,11 @@ Split a field to more than one field.
 
 ## Options
 
-| name           | type   | required | default value |
-|----------------|--------| -------- |---------------|
-| separator      | string | yes      |               |
-| split_field    | string | yes      |               |
-| output_fields  | array  | yes      |               |
+|     name      |  type  | required | default value |
+|---------------|--------|----------|---------------|
+| separator     | string | yes      |               |
+| split_field   | string | yes      |               |
+| output_fields | array  | yes      |               |
 
 ### separator [string]
 
@@ -34,7 +34,7 @@ Transform plugin common parameters, please refer to [Transform Plugin](common-op
 
 The data read from source is a table like this:
 
-| name     | age | card |
+|   name   | age | card |
 |----------|-----|------|
 | Joy Ding | 20  | 123  |
 | May Ding | 20  | 123  |
@@ -57,16 +57,16 @@ transform {
 
 Then the data in result table `fake1` will like this
 
-| name     | age | card | first_name | last_name |
+|   name   | age | card | first_name | last_name |
 |----------|-----|------|------------|-----------|
-| Joy Ding | 20  | 123  | Joy        |  Ding     |
-| May Ding | 20  | 123  | May        |  Ding     |
-| Kin Dom  | 20  | 123  | Kin        |  Dom      |
-| Joy Dom  | 20  | 123  | Joy        |  Dom      |
-
+| Joy Ding | 20  | 123  | Joy        | Ding      |
+| May Ding | 20  | 123  | May        | Ding      |
+| Kin Dom  | 20  | 123  | Kin        | Dom       |
+| Joy Dom  | 20  | 123  | Joy        | Dom       |
 
 ## Changelog
 
 ### new version
 
 - Add Split Transform Connector
+

@@ -36,11 +36,13 @@ public class CoordinatedBatchPartitionReader extends ParallelBatchPartitionReade
 
     protected final Map<Integer, InternalRowCollector> collectorMap;
 
-    public CoordinatedBatchPartitionReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer subtaskId) {
+    public CoordinatedBatchPartitionReader(
+            SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer subtaskId) {
         super(source, parallelism, subtaskId);
         this.collectorMap = new HashMap<>(parallelism);
         for (int i = 0; i < parallelism; i++) {
-            collectorMap.put(i, new InternalRowCollector(handover, new Object(), source.getProducedType()));
+            collectorMap.put(
+                    i, new InternalRowCollector(handover, new Object(), source.getProducedType()));
         }
     }
 
@@ -51,36 +53,44 @@ public class CoordinatedBatchPartitionReader extends ParallelBatchPartitionReade
 
     @Override
     protected BaseSourceFunction<SeaTunnelRow> createInternalSource() {
-        return new InternalCoordinatedSource<>(source,
-            null,
-            parallelism);
+        return new InternalCoordinatedSource<>(source, null, parallelism);
     }
 
-    public class InternalCoordinatedSource<SplitT extends SourceSplit, StateT extends Serializable> extends CoordinatedSource<SeaTunnelRow, SplitT, StateT> {
+    public class InternalCoordinatedSource<SplitT extends SourceSplit, StateT extends Serializable>
+            extends CoordinatedSource<SeaTunnelRow, SplitT, StateT> {
 
-        public InternalCoordinatedSource(SeaTunnelSource<SeaTunnelRow, SplitT, StateT> source, Map<Integer, List<byte[]>> restoredState, int parallelism) {
+        public InternalCoordinatedSource(
+                SeaTunnelSource<SeaTunnelRow, SplitT, StateT> source,
+                Map<Integer, List<byte[]>> restoredState,
+                int parallelism) {
             super(source, restoredState, parallelism);
         }
 
         @Override
         public void run(Collector<SeaTunnelRow> collector) throws Exception {
-            readerMap.entrySet().parallelStream().forEach(entry -> {
-                final AtomicBoolean flag = readerRunningMap.get(entry.getKey());
-                final SourceReader<SeaTunnelRow, SplitT> reader = entry.getValue();
-                final Collector<SeaTunnelRow> rowCollector = collectorMap.get(entry.getKey());
-                executorService.execute(() -> {
-                    while (flag.get()) {
-                        try {
-                            reader.pollNext(rowCollector);
-                            Thread.sleep(SLEEP_TIME_INTERVAL);
-                        } catch (Exception e) {
-                            this.running = false;
-                            flag.set(false);
-                            throw new RuntimeException(e);
-                        }
-                    }
-                });
-            });
+            readerMap
+                    .entrySet()
+                    .parallelStream()
+                    .forEach(
+                            entry -> {
+                                final AtomicBoolean flag = readerRunningMap.get(entry.getKey());
+                                final SourceReader<SeaTunnelRow, SplitT> reader = entry.getValue();
+                                final Collector<SeaTunnelRow> rowCollector =
+                                        collectorMap.get(entry.getKey());
+                                executorService.execute(
+                                        () -> {
+                                            while (flag.get()) {
+                                                try {
+                                                    reader.pollNext(rowCollector);
+                                                    Thread.sleep(SLEEP_TIME_INTERVAL);
+                                                } catch (Exception e) {
+                                                    this.running = false;
+                                                    flag.set(false);
+                                                    throw new RuntimeException(e);
+                                                }
+                                            }
+                                        });
+                            });
             splitEnumerator.run();
             while (this.running) {
                 Thread.sleep(SLEEP_TIME_INTERVAL);

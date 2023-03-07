@@ -29,13 +29,9 @@ import java.io.IOException;
 
 public abstract class AbstractIntermediateQueue<T> {
 
-    @Getter
-    @Setter
-    private SeaTunnelTask runningTask;
+    @Getter @Setter private SeaTunnelTask runningTask;
 
-    @Getter
-    @Setter
-    private IntermediateQueueFlowLifeCycle<?> intermediateQueueFlowLifeCycle;
+    @Getter @Setter private IntermediateQueueFlowLifeCycle<?> intermediateQueueFlowLifeCycle;
 
     private final T queue;
 
@@ -52,5 +48,4 @@ public abstract class AbstractIntermediateQueue<T> {
     public abstract void collect(Collector<Record<?>> collector) throws Exception;
 
     public abstract void close() throws IOException;
-
 }

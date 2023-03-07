@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.core.starter.spark;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
+
 import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
@@ -30,10 +34,6 @@ import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -57,34 +57,22 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-/**
- * A Starter to generate spark-submit command for SeaTunnel job on spark.
- */
+/** A Starter to generate spark-submit command for SeaTunnel job on spark. */
 public class SparkStarter implements Starter {
 
-    /**
-     * original commandline args
-     */
+    /** original commandline args */
     protected String[] args;
 
-    /**
-     * args parsed from {@link #args}
-     */
+    /** args parsed from {@link #args} */
     protected SparkCommandArgs commandArgs;
 
-    /**
-     * jars to include on the spark driver and executor classpaths
-     */
+    /** jars to include on the spark driver and executor classpaths */
     protected List<Path> jars = new ArrayList<>();
 
-    /**
-     * files to be placed in the working directory of each spark executor
-     */
+    /** files to be placed in the working directory of each spark executor */
     protected List<Path> files = new ArrayList<>();
 
-    /**
-     * spark configuration properties
-     */
+    /** spark configuration properties */
     protected Map<String, String> sparkConf;
 
     private SparkStarter(String[] args, SparkCommandArgs commandArgs) {
@@ -100,13 +88,16 @@ public class SparkStarter implements Starter {
     }
 
     /**
-     * method to get SparkStarter instance, will return
-     * {@link ClusterModeSparkStarter} or
-     * {@link ClientModeSparkStarter} depending on deploy mode.
+     * method to get SparkStarter instance, will return {@link ClusterModeSparkStarter} or {@link
+     * ClientModeSparkStarter} depending on deploy mode.
      */
     static SparkStarter getInstance(String[] args) {
-        SparkCommandArgs commandArgs = CommandLineUtils.parse(args, new SparkCommandArgs(),
-                EngineType.SPARK3.getStarterShellName(), true);
+        SparkCommandArgs commandArgs =
+                CommandLineUtils.parse(
+                        args,
+                        new SparkCommandArgs(),
+                        EngineType.SPARK3.getStarterShellName(),
+                        true);
         DeployMode deployMode = commandArgs.getDeployMode();
         switch (deployMode) {
             case CLUSTER:
@@ -126,30 +117,33 @@ public class SparkStarter implements Starter {
         this.jars.addAll(Common.getPluginsJarDependencies());
         this.jars.addAll(Common.getLibJars());
         this.jars.addAll(getConnectorJarDependencies());
-        this.jars.addAll(new ArrayList<>(Common.getThirdPartyJars(sparkConf.getOrDefault(EnvCommonOptions.JARS.key(), ""))));
-        // TODO: override job name in command args, because in spark cluster deploy mode command-line arguments are read first
-        // if user has not specified job with command line, the job name config in file will not work
+        this.jars.addAll(
+                new ArrayList<>(
+                        Common.getThirdPartyJars(
+                                sparkConf.getOrDefault(EnvCommonOptions.JARS.key(), ""))));
+        // TODO: override job name in command args, because in spark cluster deploy mode
+        // command-line arguments are read first
+        // if user has not specified job with command line, the job name config in file will not
+        // work
         return buildFinal();
     }
 
-    /**
-     * parse spark configurations from SeaTunnel config file
-     */
+    /** parse spark configurations from SeaTunnel config file */
     private void setSparkConf() throws FileNotFoundException {
-        commandArgs.getVariables()
-            .stream()
-            .filter(Objects::nonNull)
-            .map(variable -> variable.split("=", 2))
-            .filter(pair -> pair.length == 2)
-            .forEach(pair -> System.setProperty(pair[0], pair[1]));
+        commandArgs.getVariables().stream()
+                .filter(Objects::nonNull)
+                .map(variable -> variable.split("=", 2))
+                .filter(pair -> pair.length == 2)
+                .forEach(pair -> System.setProperty(pair[0], pair[1]));
         this.sparkConf = getSparkConf(commandArgs.getConfigFile());
         String driverJavaOpts = this.sparkConf.getOrDefault("spark.driver.extraJavaOptions", "");
-        String executorJavaOpts = this.sparkConf.getOrDefault("spark.executor.extraJavaOptions", "");
+        String executorJavaOpts =
+                this.sparkConf.getOrDefault("spark.executor.extraJavaOptions", "");
         if (!commandArgs.getVariables().isEmpty()) {
-            String properties = commandArgs.getVariables()
-                .stream()
-                .map(v -> "-D" + v)
-                .collect(Collectors.joining(" "));
+            String properties =
+                    commandArgs.getVariables().stream()
+                            .map(v -> "-D" + v)
+                            .collect(Collectors.joining(" "));
             driverJavaOpts += " " + properties;
             executorJavaOpts += " " + properties;
             this.sparkConf.put("spark.driver.extraJavaOptions", driverJavaOpts.trim());
@@ -157,27 +151,26 @@ public class SparkStarter implements Starter {
         }
     }
 
-    /**
-     * Get spark configurations from SeaTunnel job config file.
-     */
+    /** Get spark configurations from SeaTunnel job config file. */
     static Map<String, String> getSparkConf(String configFile) throws FileNotFoundException {
         File file = new File(configFile);
         if (!file.exists()) {
             throw new FileNotFoundException("config file '" + file + "' does not exists!");
         }
-        Config appConfig = ConfigFactory.parseFile(file)
-            .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-            .resolveWith(ConfigFactory.systemProperties(), ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        Config appConfig =
+                ConfigFactory.parseFile(file)
+                        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
+                        .resolveWith(
+                                ConfigFactory.systemProperties(),
+                                ConfigResolveOptions.defaults().setAllowUnresolved(true));
 
-        return appConfig.getConfig("env")
-            .entrySet()
-            .stream()
-            .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().unwrapped().toString()));
+        return appConfig.getConfig("env").entrySet().stream()
+                .collect(
+                        Collectors.toMap(
+                                Map.Entry::getKey, e -> e.getValue().unwrapped().toString()));
     }
 
-    /**
-     * return connector's jars, which located in 'connectors/spark/*'.
-     */
+    /** return connector's jars, which located in 'connectors/spark/*'. */
     private List<Path> getConnectorJarDependencies() {
         Path pluginRootDir = Common.connectorJarDir("seatunnel");
         if (!Files.exists(pluginRootDir) || !Files.isDirectory(pluginRootDir)) {
@@ -185,16 +178,22 @@ public class SparkStarter implements Starter {
         }
         Config config = ConfigBuilder.of(commandArgs.getConfigFile());
         Set<URL> pluginJars = new HashSet<>();
-        SeaTunnelSourcePluginDiscovery seaTunnelSourcePluginDiscovery = new SeaTunnelSourcePluginDiscovery();
-        SeaTunnelSinkPluginDiscovery seaTunnelSinkPluginDiscovery = new SeaTunnelSinkPluginDiscovery();
-        pluginJars.addAll(seaTunnelSourcePluginDiscovery.getPluginJarPaths(getPluginIdentifiers(config, PluginType.SOURCE)));
-        pluginJars.addAll(seaTunnelSinkPluginDiscovery.getPluginJarPaths(getPluginIdentifiers(config, PluginType.SINK)));
-        return pluginJars.stream().map(url -> new File(url.getPath()).toPath()).collect(Collectors.toList());
+        SeaTunnelSourcePluginDiscovery seaTunnelSourcePluginDiscovery =
+                new SeaTunnelSourcePluginDiscovery();
+        SeaTunnelSinkPluginDiscovery seaTunnelSinkPluginDiscovery =
+                new SeaTunnelSinkPluginDiscovery();
+        pluginJars.addAll(
+                seaTunnelSourcePluginDiscovery.getPluginJarPaths(
+                        getPluginIdentifiers(config, PluginType.SOURCE)));
+        pluginJars.addAll(
+                seaTunnelSinkPluginDiscovery.getPluginJarPaths(
+                        getPluginIdentifiers(config, PluginType.SINK)));
+        return pluginJars.stream()
+                .map(url -> new File(url.getPath()).toPath())
+                .collect(Collectors.toList());
     }
 
-    /**
-     * build final spark-submit commands
-     */
+    /** build final spark-submit commands */
     protected List<String> buildFinal() {
         List<String> commands = new ArrayList<>();
         commands.add("${SPARK_HOME}/bin/spark-submit");
@@ -216,43 +215,31 @@ public class SparkStarter implements Starter {
         return commands;
     }
 
-    /**
-     * append option to StringBuilder
-     */
+    /** append option to StringBuilder */
     protected void appendOption(List<String> commands, String option, String value) {
         commands.add(option);
         commands.add("\"" + value.replace("\"", "\\\"") + "\"");
     }
 
-    /**
-     * append jars option to StringBuilder
-     */
+    /** append jars option to StringBuilder */
     protected void appendJars(List<String> commands, List<Path> paths) {
         appendPaths(commands, "--jars", paths);
     }
 
-    /**
-     * append files option to StringBuilder
-     */
+    /** append files option to StringBuilder */
     protected void appendFiles(List<String> commands, List<Path> paths) {
         appendPaths(commands, "--files", paths);
     }
 
-    /**
-     * append comma-split paths option to StringBuilder
-     */
+    /** append comma-split paths option to StringBuilder */
     protected void appendPaths(List<String> commands, String option, List<Path> paths) {
         if (!paths.isEmpty()) {
-            String values = paths.stream()
-                .map(Path::toString)
-                .collect(Collectors.joining(","));
+            String values = paths.stream().map(Path::toString).collect(Collectors.joining(","));
             appendOption(commands, option, values);
         }
     }
 
-    /**
-     * append spark configurations to StringBuilder
-     */
+    /** append spark configurations to StringBuilder */
     protected void appendSparkConf(List<String> commands, Map<String, String> sparkConf) {
         for (Map.Entry<String, String> entry : sparkConf.entrySet()) {
             String key = entry.getKey();
@@ -261,58 +248,56 @@ public class SparkStarter implements Starter {
         }
     }
 
-    /**
-     * append appJar to StringBuilder
-     */
+    /** append appJar to StringBuilder */
     protected void appendAppJar(List<String> commands) {
-        commands.add(Common.appStarterDir().resolve(EngineType.SPARK3.getStarterJarName()).toString());
+        commands.add(
+                Common.appStarterDir().resolve(EngineType.SPARK3.getStarterJarName()).toString());
     }
 
     @SuppressWarnings("checkstyle:Indentation")
     private List<PluginIdentifier> getPluginIdentifiers(Config config, PluginType... pluginTypes) {
-        return Arrays.stream(pluginTypes).flatMap((Function<PluginType, Stream<PluginIdentifier>>) pluginType -> {
-            List<? extends Config> configList = config.getConfigList(pluginType.getType());
-            return configList.stream()
-                .map(pluginConfig -> PluginIdentifier.of("seatunnel", pluginType.getType(),
-                    pluginConfig.getString("plugin_name")));
-        }).collect(Collectors.toList());
+        return Arrays.stream(pluginTypes)
+                .flatMap(
+                        (Function<PluginType, Stream<PluginIdentifier>>)
+                                pluginType -> {
+                                    List<? extends Config> configList =
+                                            config.getConfigList(pluginType.getType());
+                                    return configList.stream()
+                                            .map(
+                                                    pluginConfig ->
+                                                            PluginIdentifier.of(
+                                                                    "seatunnel",
+                                                                    pluginType.getType(),
+                                                                    pluginConfig.getString(
+                                                                            "plugin_name")));
+                                })
+                .collect(Collectors.toList());
     }
 
-    /**
-     * a Starter for building spark-submit commands with client mode options
-     */
+    /** a Starter for building spark-submit commands with client mode options */
     private static class ClientModeSparkStarter extends SparkStarter {
 
-        /**
-         * client mode specified spark options
-         */
+        /** client mode specified spark options */
         private enum ClientModeSparkConfigs {
 
-            /**
-             * Memory for driver in client mode
-             */
+            /** Memory for driver in client mode */
             DriverMemory("--driver-memory", "spark.driver.memory"),
 
-            /**
-             * Extra Java options to pass to the driver in client mode
-             */
+            /** Extra Java options to pass to the driver in client mode */
             DriverJavaOptions("--driver-java-options", "spark.driver.extraJavaOptions"),
 
-            /**
-             * Extra library path entries to pass to the driver in client mode
-             */
+            /** Extra library path entries to pass to the driver in client mode */
             DriverLibraryPath(" --driver-library-path", "spark.driver.extraLibraryPath"),
 
-            /**
-             * Extra class path entries to pass to the driver in client mode
-             */
+            /** Extra class path entries to pass to the driver in client mode */
             DriverClassPath("--driver-class-path", "spark.driver.extraClassPath");
 
             private final String optionName;
 
             private final String propertyName;
 
-            private static final Map<String, ClientModeSparkConfigs> PROPERTY_NAME_MAP = new HashMap<>();
+            private static final Map<String, ClientModeSparkConfigs> PROPERTY_NAME_MAP =
+                    new HashMap<>();
 
             static {
                 for (ClientModeSparkConfigs config : values()) {
@@ -349,9 +334,7 @@ public class SparkStarter implements Starter {
         }
     }
 
-    /**
-     * a Starter for building spark-submit commands with cluster mode options
-     */
+    /** a Starter for building spark-submit commands with cluster mode options */
     private static class ClusterModeSparkStarter extends SparkStarter {
 
         private ClusterModeSparkStarter(String[] args, SparkCommandArgs commandArgs) {

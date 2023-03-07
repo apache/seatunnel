@@ -35,19 +35,26 @@ public class Shard implements Serializable {
     // cache the hash code
     private int hashCode = -1;
 
-    public Shard(int shardNum,
-                 int shardWeight,
-                 int replicaNum,
-                 String hostname,
-                 String hostAddress,
-                 int port,
-                 String database,
-                 String username,
-                 String password) {
+    public Shard(
+            int shardNum,
+            int shardWeight,
+            int replicaNum,
+            String hostname,
+            String hostAddress,
+            int port,
+            String database,
+            String username,
+            String password) {
         this.shardNum = shardNum;
         this.replicaNum = replicaNum;
-        this.node = ClickHouseNode.builder().host(hostname).port(ClickHouseProtocol.HTTP,
-            port).database(database).weight(shardWeight).credentials(ClickHouseCredentials.fromUserAndPassword(username, password)).build();
+        this.node =
+                ClickHouseNode.builder()
+                        .host(hostname)
+                        .port(ClickHouseProtocol.HTTP, port)
+                        .database(database)
+                        .weight(shardWeight)
+                        .credentials(ClickHouseCredentials.fromUserAndPassword(username, password))
+                        .build();
     }
 
     public Shard(int shardNum, int replicaNum, ClickHouseNode node) {
@@ -69,8 +76,12 @@ public class Shard implements Serializable {
     }
 
     public String getJdbcUrl() {
-        return "jdbc:clickhouse://" + node.getAddress().getHostName()
-                + ":" + node.getAddress().getPort() + "/" + node.getDatabase().get();
+        return "jdbc:clickhouse://"
+                + node.getAddress().getHostName()
+                + ":"
+                + node.getAddress().getPort()
+                + "/"
+                + node.getDatabase().get();
     }
 
     @Override

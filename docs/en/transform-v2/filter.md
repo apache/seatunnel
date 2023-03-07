@@ -8,9 +8,9 @@ Filter the field.
 
 ## Options
 
-| name         | type  | required | default value |
-|--------------|-------| -------- |---------------|
-| fields       | array | yes      |               |
+|  name  | type  | required | default value |
+|--------|-------|----------|---------------|
+| fields | array | yes      |               |
 
 ### fields [array]
 
@@ -24,7 +24,7 @@ Transform plugin common parameters, please refer to [Transform Plugin](common-op
 
 The data read from source is a table like this:
 
-| name     | age | card |
+|   name   | age | card |
 |----------|-----|------|
 | Joy Ding | 20  | 123  |
 | May Ding | 20  | 123  |
@@ -45,16 +45,16 @@ transform {
 
 Then the data in result table `fake1` will like this
 
-| name     | card |
+|   name   | card |
 |----------|------|
 | Joy Ding | 123  |
 | May Ding | 123  |
 | Kin Dom  | 123  |
 | Joy Dom  | 123  |
 
-
 ## Changelog
 
 ### new version
 
 - Add Filter Transform Connector
+

@@ -25,12 +25,13 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorException;
 
-import lombok.AllArgsConstructor;
-import lombok.NonNull;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
+
+import lombok.AllArgsConstructor;
+import lombok.NonNull;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
@@ -46,10 +47,8 @@ import java.util.Map;
 @AllArgsConstructor
 public class DefaultDeserializer implements Deserializer {
 
-    @NonNull
-    private final SeaTunnelRowType seaTunnelRowType;
-    @NonNull
-    private final Schema icebergSchema;
+    @NonNull private final SeaTunnelRowType seaTunnelRowType;
+    @NonNull private final Schema icebergSchema;
 
     @Override
     public SeaTunnelRow deserialize(@NonNull Record record) {
@@ -60,14 +59,16 @@ public class DefaultDeserializer implements Deserializer {
             Types.NestedField icebergField = icebergSchema.findField(seaTunnelFieldName);
             Object icebergValue = record.getField(seaTunnelFieldName);
 
-            seaTunnelRow.setField(i, convert(icebergField.type(), icebergValue, seaTunnelFieldType));
+            seaTunnelRow.setField(
+                    i, convert(icebergField.type(), icebergValue, seaTunnelFieldType));
         }
         return seaTunnelRow;
     }
 
-    private Object convert(@NonNull Type icebergType,
-                           Object icebergValue,
-                           @NonNull SeaTunnelDataType<?> seaTunnelType) {
+    private Object convert(
+            @NonNull Type icebergType,
+            Object icebergValue,
+            @NonNull SeaTunnelDataType<?> seaTunnelType) {
         if (icebergValue == null) {
             return null;
         }
@@ -107,9 +108,11 @@ public class DefaultDeserializer implements Deserializer {
                 SeaTunnelRow seatunnelRow = new SeaTunnelRow(seaTunnelRowType.getTotalFields());
                 for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
                     String seatunnelFieldName = seaTunnelRowType.getFieldName(i);
-                    Object seatunnelFieldValue = convert(icebergStructType.fieldType(seatunnelFieldName),
-                        icebergStruct.getField(seatunnelFieldName),
-                        seaTunnelRowType.getFieldType(i));
+                    Object seatunnelFieldValue =
+                            convert(
+                                    icebergStructType.fieldType(seatunnelFieldName),
+                                    icebergStruct.getField(seatunnelFieldName),
+                                    seaTunnelRowType.getFieldType(i));
                     seatunnelRow.setField(i, seatunnelFieldValue);
                 }
                 return seatunnelRow;
@@ -119,8 +122,11 @@ public class DefaultDeserializer implements Deserializer {
                 List seatunnelList = new ArrayList(icebergList.size());
                 ArrayType seatunnelListType = (ArrayType) seaTunnelType;
                 for (int i = 0; i < icebergList.size(); i++) {
-                    seatunnelList.add(convert(icebergListType.elementType(),
-                        icebergList.get(i), seatunnelListType.getElementType()));
+                    seatunnelList.add(
+                            convert(
+                                    icebergListType.elementType(),
+                                    icebergList.get(i),
+                                    seatunnelListType.getElementType()));
                 }
                 return seatunnelList.toArray();
             case MAP:
@@ -130,14 +136,20 @@ public class DefaultDeserializer implements Deserializer {
                 MapType seatunnelMapType = (MapType) seaTunnelType;
                 for (Map.Entry entry : icebergMap.entrySet()) {
                     seatunnelMap.put(
-                        convert(icebergMapType.keyType(), entry.getKey(), seatunnelMapType.getKeyType()),
-                        convert(icebergMapType.valueType(), entry.getValue(), seatunnelMapType.getValueType()));
+                            convert(
+                                    icebergMapType.keyType(),
+                                    entry.getKey(),
+                                    seatunnelMapType.getKeyType()),
+                            convert(
+                                    icebergMapType.valueType(),
+                                    entry.getValue(),
+                                    seatunnelMapType.getValueType()));
                 }
                 return seatunnelMap;
             default:
                 throw new IcebergConnectorException(
-                    CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                    String.format("Unsupported iceberg type: %s", icebergType));
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        String.format("Unsupported iceberg type: %s", icebergType));
         }
     }
 }

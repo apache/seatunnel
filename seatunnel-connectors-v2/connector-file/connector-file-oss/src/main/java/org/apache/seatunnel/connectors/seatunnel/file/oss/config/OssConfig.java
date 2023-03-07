@@ -22,20 +22,18 @@ import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 
 public class OssConfig extends BaseSourceConfig {
-    public static final Option<String> ACCESS_KEY = Options.key("access_key")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("OSS bucket access key");
-    public static final Option<String> ACCESS_SECRET = Options.key("access_secret")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("OSS bucket access secret");
-    public static final Option<String> ENDPOINT = Options.key("endpoint")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("OSS endpoint");
-    public static final Option<String> BUCKET = Options.key("bucket")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("OSS bucket");
+    public static final Option<String> ACCESS_KEY =
+            Options.key("access_key")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("OSS bucket access key");
+    public static final Option<String> ACCESS_SECRET =
+            Options.key("access_secret")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("OSS bucket access secret");
+    public static final Option<String> ENDPOINT =
+            Options.key("endpoint").stringType().noDefaultValue().withDescription("OSS endpoint");
+    public static final Option<String> BUCKET =
+            Options.key("bucket").stringType().noDefaultValue().withDescription("OSS bucket");
 }

@@ -33,6 +33,11 @@ public class SlackSinkFactory implements TableSinkFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(SlackConfig.WEBHOOKS_URL, SlackConfig.OAUTH_TOKEN, SlackConfig.SLACK_CHANNEL).build();
+        return OptionRule.builder()
+                .required(
+                        SlackConfig.WEBHOOKS_URL,
+                        SlackConfig.OAUTH_TOKEN,
+                        SlackConfig.SLACK_CHANNEL)
+                .build();
     }
 }

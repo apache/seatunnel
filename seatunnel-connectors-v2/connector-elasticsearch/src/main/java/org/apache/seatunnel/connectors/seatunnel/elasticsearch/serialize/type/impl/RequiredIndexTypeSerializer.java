@@ -21,9 +21,7 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.type.In
 
 import java.util.Map;
 
-/**
- * generate an index type for elasticsearch version:2.*,5.*,6.*
- */
+/** generate an index type for elasticsearch version:2.*,5.*,6.* */
 public class RequiredIndexTypeSerializer implements IndexTypeSerializer {
 
     private final String type;

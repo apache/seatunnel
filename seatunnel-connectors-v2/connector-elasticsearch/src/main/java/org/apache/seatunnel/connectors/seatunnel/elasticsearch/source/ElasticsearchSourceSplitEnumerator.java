@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.source;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
@@ -24,8 +26,6 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConf
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.IndexDocsCount;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.SourceIndexInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -41,7 +41,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class ElasticsearchSourceSplitEnumerator implements SourceSplitEnumerator<ElasticsearchSourceSplit, ElasticsearchSourceState> {
+public class ElasticsearchSourceSplitEnumerator
+        implements SourceSplitEnumerator<ElasticsearchSourceSplit, ElasticsearchSourceState> {
 
     private SourceSplitEnumerator.Context<ElasticsearchSourceSplit> context;
 
@@ -57,11 +58,18 @@ public class ElasticsearchSourceSplitEnumerator implements SourceSplitEnumerator
 
     private volatile boolean shouldEnumerate;
 
-    public ElasticsearchSourceSplitEnumerator(SourceSplitEnumerator.Context<ElasticsearchSourceSplit> context, Config pluginConfig, List<String> source) {
+    public ElasticsearchSourceSplitEnumerator(
+            SourceSplitEnumerator.Context<ElasticsearchSourceSplit> context,
+            Config pluginConfig,
+            List<String> source) {
         this(context, null, pluginConfig, source);
     }
 
-    public ElasticsearchSourceSplitEnumerator(SourceSplitEnumerator.Context<ElasticsearchSourceSplit> context, ElasticsearchSourceState sourceState, Config pluginConfig, List<String> source) {
+    public ElasticsearchSourceSplitEnumerator(
+            SourceSplitEnumerator.Context<ElasticsearchSourceSplit> context,
+            ElasticsearchSourceState sourceState,
+            Config pluginConfig,
+            List<String> source) {
         this.context = context;
         this.pluginConfig = pluginConfig;
         this.pendingSplit = new HashMap<>();
@@ -92,8 +100,8 @@ public class ElasticsearchSourceSplitEnumerator implements SourceSplitEnumerator
             assignSplit(readers);
         }
 
-        log.debug("No more splits to assign." +
-            " Sending NoMoreSplitsEvent to reader {}.", readers);
+        log.debug(
+                "No more splits to assign." + " Sending NoMoreSplitsEvent to reader {}.", readers);
         readers.forEach(context::signalNoMoreSplits);
     }
 
@@ -102,8 +110,7 @@ public class ElasticsearchSourceSplitEnumerator implements SourceSplitEnumerator
         for (ElasticsearchSourceSplit split : splits) {
             int ownerReader = getSplitOwner(split.splitId(), readerCount);
             log.info("Assigning {} to {} reader.", split, ownerReader);
-            pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>())
-                .add(split);
+            pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(split);
         }
     }
 
@@ -117,13 +124,15 @@ public class ElasticsearchSourceSplitEnumerator implements SourceSplitEnumerator
         for (int reader : readers) {
             List<ElasticsearchSourceSplit> assignmentForReader = pendingSplit.remove(reader);
             if (assignmentForReader != null && !assignmentForReader.isEmpty()) {
-                log.info("Assign splits {} to reader {}",
-                    assignmentForReader, reader);
+                log.info("Assign splits {} to reader {}", assignmentForReader, reader);
                 try {
                     context.assignSplit(reader, assignmentForReader);
                 } catch (Exception e) {
-                    log.error("Failed to assign splits {} to reader {}",
-                        assignmentForReader, reader, e);
+                    log.error(
+                            "Failed to assign splits {} to reader {}",
+                            assignmentForReader,
+                            reader,
+                            e);
                     pendingSplit.put(reader, assignmentForReader);
                 }
             }
@@ -141,11 +150,19 @@ public class ElasticsearchSourceSplitEnumerator implements SourceSplitEnumerator
             scrollSize = pluginConfig.getInt(SourceConfig.SCROLL_SIZE.key());
         }
 
-        List<IndexDocsCount> indexDocsCounts = esRestClient.getIndexDocsCount(pluginConfig.getString(SourceConfig.INDEX.key()));
-        indexDocsCounts = indexDocsCounts.stream().filter(x -> x.getDocsCount() != null && x.getDocsCount() > 0)
-            .sorted(Comparator.comparingLong(IndexDocsCount::getDocsCount)).collect(Collectors.toList());
+        List<IndexDocsCount> indexDocsCounts =
+                esRestClient.getIndexDocsCount(pluginConfig.getString(SourceConfig.INDEX.key()));
+        indexDocsCounts =
+                indexDocsCounts.stream()
+                        .filter(x -> x.getDocsCount() != null && x.getDocsCount() > 0)
+                        .sorted(Comparator.comparingLong(IndexDocsCount::getDocsCount))
+                        .collect(Collectors.toList());
         for (IndexDocsCount indexDocsCount : indexDocsCounts) {
-            splits.add(new ElasticsearchSourceSplit(String.valueOf(indexDocsCount.getIndex().hashCode()), new SourceIndexInfo(indexDocsCount.getIndex(), source, scrollTime, scrollSize)));
+            splits.add(
+                    new ElasticsearchSourceSplit(
+                            String.valueOf(indexDocsCount.getIndex().hashCode()),
+                            new SourceIndexInfo(
+                                    indexDocsCount.getIndex(), source, scrollTime, scrollSize)));
         }
         return splits;
     }
@@ -170,13 +187,14 @@ public class ElasticsearchSourceSplitEnumerator implements SourceSplitEnumerator
 
     @Override
     public void handleSplitRequest(int subtaskId) {
-        throw new ElasticsearchConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION, "Unsupported handleSplitRequest: " + subtaskId);
+        throw new ElasticsearchConnectorException(
+                CommonErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported handleSplitRequest: " + subtaskId);
     }
 
     @Override
     public void registerReader(int subtaskId) {
-        log.debug("Register reader {} to IoTDBSourceSplitEnumerator.",
-            subtaskId);
+        log.debug("Register reader {} to IoTDBSourceSplitEnumerator.", subtaskId);
         if (!pendingSplit.isEmpty()) {
             assignSplit(Collections.singletonList(subtaskId));
         }
@@ -190,7 +208,5 @@ public class ElasticsearchSourceSplitEnumerator implements SourceSplitEnumerator
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {
-
-    }
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
 }

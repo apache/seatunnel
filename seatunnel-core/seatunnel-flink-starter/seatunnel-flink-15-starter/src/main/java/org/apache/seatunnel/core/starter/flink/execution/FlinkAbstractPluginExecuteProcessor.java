@@ -17,12 +17,12 @@
 
 package org.apache.seatunnel.core.starter.flink.execution;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.core.starter.execution.PluginExecuteProcessor;
 import org.apache.seatunnel.core.starter.flink.utils.TableUtil;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.Table;
@@ -35,31 +35,33 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 
-public abstract class FlinkAbstractPluginExecuteProcessor<T> implements
-        PluginExecuteProcessor<DataStream<Row>, FlinkRuntimeEnvironment> {
+public abstract class FlinkAbstractPluginExecuteProcessor<T>
+        implements PluginExecuteProcessor<DataStream<Row>, FlinkRuntimeEnvironment> {
     protected static final String ENGINE_TYPE = "seatunnel";
     protected static final String PLUGIN_NAME = "plugin_name";
     protected static final String SOURCE_TABLE_NAME = "source_table_name";
 
-    protected static final BiConsumer<ClassLoader, URL> ADD_URL_TO_CLASSLOADER = (classLoader, url) -> {
-        if (classLoader.getClass().getName().endsWith("SafetyNetWrapperClassLoader")) {
-            URLClassLoader c = (URLClassLoader) ReflectionUtils.getField(classLoader, "inner").get();
-            ReflectionUtils.invoke(c, "addURL", url);
-        } else if (classLoader instanceof URLClassLoader) {
-            ReflectionUtils.invoke(classLoader, "addURL", url);
-        } else {
-            throw new RuntimeException("Unsupported classloader: " + classLoader.getClass().getName());
-        }
-    };
+    protected static final BiConsumer<ClassLoader, URL> ADD_URL_TO_CLASSLOADER =
+            (classLoader, url) -> {
+                if (classLoader.getClass().getName().endsWith("SafetyNetWrapperClassLoader")) {
+                    URLClassLoader c =
+                            (URLClassLoader) ReflectionUtils.getField(classLoader, "inner").get();
+                    ReflectionUtils.invoke(c, "addURL", url);
+                } else if (classLoader instanceof URLClassLoader) {
+                    ReflectionUtils.invoke(classLoader, "addURL", url);
+                } else {
+                    throw new RuntimeException(
+                            "Unsupported classloader: " + classLoader.getClass().getName());
+                }
+            };
 
     protected FlinkRuntimeEnvironment flinkRuntimeEnvironment;
     protected final List<? extends Config> pluginConfigs;
     protected JobContext jobContext;
     protected final List<T> plugins;
 
-    protected FlinkAbstractPluginExecuteProcessor(List<URL> jarPaths,
-                                                  List<? extends Config> pluginConfigs,
-                                                  JobContext jobContext) {
+    protected FlinkAbstractPluginExecuteProcessor(
+            List<URL> jarPaths, List<? extends Config> pluginConfigs, JobContext jobContext) {
         this.pluginConfigs = pluginConfigs;
         this.jobContext = jobContext;
         this.plugins = initializePlugins(jarPaths, pluginConfigs);
@@ -72,7 +74,8 @@ public abstract class FlinkAbstractPluginExecuteProcessor<T> implements
 
     protected Optional<DataStream<Row>> fromSourceTable(Config pluginConfig) {
         if (pluginConfig.hasPath(SOURCE_TABLE_NAME)) {
-            StreamTableEnvironment tableEnvironment = flinkRuntimeEnvironment.getStreamTableEnvironment();
+            StreamTableEnvironment tableEnvironment =
+                    flinkRuntimeEnvironment.getStreamTableEnvironment();
             Table table = tableEnvironment.from(pluginConfig.getString(SOURCE_TABLE_NAME));
             return Optional.ofNullable(TableUtil.tableToDataStream(tableEnvironment, table, true));
         }
@@ -83,5 +86,6 @@ public abstract class FlinkAbstractPluginExecuteProcessor<T> implements
         flinkRuntimeEnvironment.registerResultTable(pluginConfig, dataStream);
     }
 
-    protected abstract List<T> initializePlugins(List<URL> jarPaths, List<? extends Config> pluginConfigs);
+    protected abstract List<T> initializePlugins(
+            List<URL> jarPaths, List<? extends Config> pluginConfigs);
 }

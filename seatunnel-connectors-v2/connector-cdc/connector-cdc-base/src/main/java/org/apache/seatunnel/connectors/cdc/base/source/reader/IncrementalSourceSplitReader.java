@@ -51,7 +51,7 @@ public class IncrementalSourceSplitReader<C extends SourceConfig>
     private final C sourceConfig;
 
     public IncrementalSourceSplitReader(
-        int subtaskId, DataSourceDialect<C> dataSourceDialect, C sourceConfig) {
+            int subtaskId, DataSourceDialect<C> dataSourceDialect, C sourceConfig) {
         this.subtaskId = subtaskId;
         this.splits = new ArrayDeque<>();
         this.dataSourceDialect = dataSourceDialect;
@@ -70,7 +70,8 @@ public class IncrementalSourceSplitReader<C extends SourceConfig>
             log.warn("fetch data failed.", e);
             throw new IOException(e);
         }
-        return dataIt == null ? finishedSnapshotSplit()
+        return dataIt == null
+                ? finishedSnapshotSplit()
                 : ChangeEventRecords.forRecords(currentSplitId, dataIt);
     }
 
@@ -125,7 +126,8 @@ public class IncrementalSourceSplitReader<C extends SourceConfig>
             } else {
                 // point from snapshot split to incremental split
                 if (currentFetcher != null) {
-                    log.info("It's turn to read incremental split, close current snapshot fetcher.");
+                    log.info(
+                            "It's turn to read incremental split, close current snapshot fetcher.");
                     currentFetcher.close();
                 }
                 final FetchTask.Context taskContext =

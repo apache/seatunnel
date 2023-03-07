@@ -21,7 +21,6 @@ import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
-import lombok.extern.slf4j.Slf4j;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -32,6 +31,8 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
 import java.sql.Driver;
@@ -60,18 +61,21 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
     @BeforeAll
     @Override
     public void startUp() throws Exception {
-        this.container = new ClickHouseContainer(CLICKHOUSE_DOCKER_IMAGE)
-            .withNetwork(NETWORK)
-            .withNetworkAliases(HOST)
-            .withExposedPorts(8123)
-            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(CLICKHOUSE_DOCKER_IMAGE)));
+        this.container =
+                new ClickHouseContainer(CLICKHOUSE_DOCKER_IMAGE)
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(HOST)
+                        .withExposedPorts(8123)
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(
+                                        DockerLoggerFactory.getLogger(CLICKHOUSE_DOCKER_IMAGE)));
         Startables.deepStart(Stream.of(this.container)).join();
         log.info("Clickhouse container started");
         Awaitility.given()
-            .ignoreExceptions()
-            .await()
-            .atMost(360L, TimeUnit.SECONDS)
-            .untilAsserted(this::initConnection);
+                .ignoreExceptions()
+                .await()
+                .atMost(360L, TimeUnit.SECONDS)
+                .untilAsserted(this::initConnection);
     }
 
     @AfterAll
@@ -89,7 +93,8 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
     public void testClickhouseMergeTreeTable(TestContainer container) throws Exception {
         initializeClickhouseMergeTreeTable();
 
-        Container.ExecResult execResult = container.executeJob("/clickhouse_sink_cdc_changelog_case1.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/clickhouse_sink_cdc_changelog_case1.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
         checkSinkTableRows();
@@ -97,14 +102,15 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
     }
 
     @TestTemplate
-    public void testClickhouseMergeTreeTableWithEnableDelete(TestContainer container) throws Exception {
+    public void testClickhouseMergeTreeTableWithEnableDelete(TestContainer container)
+            throws Exception {
         initializeClickhouseMergeTreeTable();
 
-        Container.ExecResult execResult = container.executeJob("/clickhouse_sink_cdc_changelog_case2.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/clickhouse_sink_cdc_changelog_case2.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
-        Awaitility
-                .given()
+        Awaitility.given()
                 .ignoreExceptions()
                 .await()
                 .atLeast(100L, TimeUnit.MILLISECONDS)
@@ -117,7 +123,8 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
     public void testClickhouseReplacingMergeTreeTable(TestContainer container) throws Exception {
         initializeClickhouseReplacingMergeTreeTable();
 
-        Container.ExecResult execResult = container.executeJob("/clickhouse_sink_cdc_changelog_case1.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/clickhouse_sink_cdc_changelog_case1.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
         checkSinkTableRows();
@@ -125,10 +132,12 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
     }
 
     @TestTemplate
-    public void testClickhouseReplacingMergeTreeTableWithEnableDelete(TestContainer container) throws Exception {
+    public void testClickhouseReplacingMergeTreeTableWithEnableDelete(TestContainer container)
+            throws Exception {
         initializeClickhouseReplacingMergeTreeTable();
 
-        Container.ExecResult execResult = container.executeJob("/clickhouse_sink_cdc_changelog_case2.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/clickhouse_sink_cdc_changelog_case2.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
         checkSinkTableRows();
@@ -139,17 +148,22 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
         final Properties info = new Properties();
         info.put("user", this.container.getUsername());
         info.put("password", this.container.getPassword());
-        this.connection = ((Driver) Class.forName(DRIVER_CLASS).newInstance()).connect(this.container.getJdbcUrl(), info);
+        this.connection =
+                ((Driver) Class.forName(DRIVER_CLASS).newInstance())
+                        .connect(this.container.getJdbcUrl(), info);
     }
 
     private void initializeClickhouseMergeTreeTable() {
         try {
             Statement statement = this.connection.createStatement();
-            String sql = String.format("create table if not exists %s.%s(\n" +
-                "    `pk_id`         Int64,\n" +
-                "    `name`          String,\n" +
-                "    `score`         Int32\n" +
-                ")engine=MergeTree ORDER BY(pk_id) PRIMARY KEY(pk_id)", DATABASE, SINK_TABLE);
+            String sql =
+                    String.format(
+                            "create table if not exists %s.%s(\n"
+                                    + "    `pk_id`         Int64,\n"
+                                    + "    `name`          String,\n"
+                                    + "    `score`         Int32\n"
+                                    + ")engine=MergeTree ORDER BY(pk_id) PRIMARY KEY(pk_id)",
+                            DATABASE, SINK_TABLE);
             statement.execute(sql);
         } catch (SQLException e) {
             throw new RuntimeException("Initializing Clickhouse table failed!", e);
@@ -159,11 +173,14 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
     private void initializeClickhouseReplacingMergeTreeTable() {
         try {
             Statement statement = this.connection.createStatement();
-            String sql = String.format("create table if not exists %s.%s(\n" +
-                "    `pk_id`         Int64,\n" +
-                "    `name`          String,\n" +
-                "    `score`         Int32\n" +
-                ")engine=ReplacingMergeTree ORDER BY(pk_id) PRIMARY KEY(pk_id)", DATABASE, SINK_TABLE);
+            String sql =
+                    String.format(
+                            "create table if not exists %s.%s(\n"
+                                    + "    `pk_id`         Int64,\n"
+                                    + "    `name`          String,\n"
+                                    + "    `score`         Int32\n"
+                                    + ")engine=ReplacingMergeTree ORDER BY(pk_id) PRIMARY KEY(pk_id)",
+                            DATABASE, SINK_TABLE);
             statement.execute(sql);
         } catch (SQLException e) {
             throw new RuntimeException("Initializing Clickhouse table failed!", e);
@@ -173,28 +190,34 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
     private void checkSinkTableRows() throws SQLException {
         Set<List<Object>> actual = new HashSet<>();
         try (Statement statement = connection.createStatement()) {
-            ResultSet resultSet = statement.executeQuery(String.format("select * from %s.%s", DATABASE, SINK_TABLE));
+            ResultSet resultSet =
+                    statement.executeQuery(
+                            String.format("select * from %s.%s", DATABASE, SINK_TABLE));
             while (resultSet.next()) {
-                List<Object> row = Arrays.asList(
-                    resultSet.getLong("pk_id"),
-                    resultSet.getString("name"),
-                    resultSet.getInt("score"));
+                List<Object> row =
+                        Arrays.asList(
+                                resultSet.getLong("pk_id"),
+                                resultSet.getString("name"),
+                                resultSet.getInt("score"));
                 actual.add(row);
             }
         }
-        Set<List<Object>> expected = Stream.<List<Object>>of(
-                Arrays.asList(1L, "A_1", 100),
-                Arrays.asList(3L, "C", 100))
-            .collect(Collectors.toSet());
+        Set<List<Object>> expected =
+                Stream.<List<Object>>of(Arrays.asList(1L, "A_1", 100), Arrays.asList(3L, "C", 100))
+                        .collect(Collectors.toSet());
         if (!Arrays.equals(actual.toArray(), expected.toArray())) {
-            throw new IllegalStateException(String.format("Actual results %s not equal expected results %s",
-                    Arrays.toString(actual.toArray()), Arrays.toString(expected.toArray())));
+            throw new IllegalStateException(
+                    String.format(
+                            "Actual results %s not equal expected results %s",
+                            Arrays.toString(actual.toArray()),
+                            Arrays.toString(expected.toArray())));
         }
     }
 
     private void dropSinkTable() {
         try (Statement statement = connection.createStatement()) {
-            statement.execute(String.format("drop table if exists %s.%s sync", DATABASE, SINK_TABLE));
+            statement.execute(
+                    String.format("drop table if exists %s.%s sync", DATABASE, SINK_TABLE));
         } catch (SQLException e) {
             throw new RuntimeException("Test clickhouse server image error", e);
         }

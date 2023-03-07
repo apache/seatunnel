@@ -19,7 +19,7 @@ support version >= 2.x and < 8.x.
 
 ## Options
 
-| name                    | type    | required | default value | 
+|          name           |  type   | required | default value |
 |-------------------------|---------|----------|---------------|
 | hosts                   | array   | yes      | -             |
 | username                | string  | no       | -             |
@@ -37,32 +37,38 @@ support version >= 2.x and < 8.x.
 | tls_truststore_password | string  | no       | -             |
 | common-options          |         | no       | -             |
 
-
-
 ### hosts [array]
+
 Elasticsearch cluster http address, the format is `host:port`, allowing multiple hosts to be specified. Such as `["host1:9200", "host2:9200"]`.
 
 ### username [string]
+
 x-pack username.
 
 ### password [string]
+
 x-pack password.
 
 ### index [string]
+
 Elasticsearch index name, support * fuzzy matching.
 
 ### source [array]
+
 The fields of index.
 You can get the document id by specifying the field `_id`.If sink _id to other index,you need specify an alias for _id due to the Elasticsearch limit.
 If you don't config source, you must config `schema`.
 
 ### scroll_time [String]
+
 Amount of time Elasticsearch will keep the search context alive for scroll requests.
 
 ### scroll_size [int]
+
 Maximum number of hits to be returned with each Elasticsearch scroll request.
 
 ### schema
+
 The structure of the data, including field names and field types.
 If you don't config schema, you must config `source`.
 
@@ -105,6 +111,7 @@ Elasticsearch {
     source = ["_id","name","age"]
 }
 ```
+
 complex
 
 ```hocon
@@ -181,3 +188,4 @@ source {
 
 - Add Elasticsearch Source Connector
 - [Feature] Support https protocol & compatible with opensearch ([3997](https://github.com/apache/incubator-seatunnel/pull/3997))
+

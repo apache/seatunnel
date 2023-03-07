@@ -28,6 +28,7 @@ import org.apache.seatunnel.common.utils.ReflectionUtils;
 
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.RandomUtils;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,8 +52,15 @@ public class ConsoleSinkWriterIT {
     }
 
     private Object fieldToStringTest(SeaTunnelDataType<?> dataType, Object value) {
-        Optional<Method> fieldToString = ReflectionUtils.getDeclaredMethod(ConsoleSinkWriter.class, "fieldToString", SeaTunnelDataType.class, Object.class);
-        Method method = fieldToString.orElseThrow(() -> new RuntimeException("method fieldToString not found"));
+        Optional<Method> fieldToString =
+                ReflectionUtils.getDeclaredMethod(
+                        ConsoleSinkWriter.class,
+                        "fieldToString",
+                        SeaTunnelDataType.class,
+                        Object.class);
+        Method method =
+                fieldToString.orElseThrow(
+                        () -> new RuntimeException("method fieldToString not found"));
         try {
             return method.invoke(consoleSinkWriter, dataType, value);
         } catch (IllegalAccessException | InvocationTargetException e) {
@@ -62,50 +70,64 @@ public class ConsoleSinkWriterIT {
 
     @Test
     void arrayIntTest() {
-        Assertions.assertDoesNotThrow(() -> {
-            Integer[] integerArr = {1};
-            Object integerArrString = fieldToStringTest(ArrayType.INT_ARRAY_TYPE, integerArr);
-            Assertions.assertEquals(integerArrString, "[1]");
-            int[] intArr = {1, 2};
-            Object intArrString = fieldToStringTest(ArrayType.INT_ARRAY_TYPE, intArr);
-            Assertions.assertEquals(intArrString, "[1, 2]");
-        });
+        Assertions.assertDoesNotThrow(
+                () -> {
+                    Integer[] integerArr = {1};
+                    Object integerArrString =
+                            fieldToStringTest(ArrayType.INT_ARRAY_TYPE, integerArr);
+                    Assertions.assertEquals(integerArrString, "[1]");
+                    int[] intArr = {1, 2};
+                    Object intArrString = fieldToStringTest(ArrayType.INT_ARRAY_TYPE, intArr);
+                    Assertions.assertEquals(intArrString, "[1, 2]");
+                });
     }
 
     @Test
     void stringTest() {
-        Assertions.assertDoesNotThrow(() -> {
-            String str = RandomStringUtils.randomAlphanumeric(10);
-            Object obj = fieldToStringTest(BasicType.STRING_TYPE, str);
-            Assertions.assertTrue(obj instanceof String);
-            Assertions.assertEquals(10, ((String) obj).length());
-        });
+        Assertions.assertDoesNotThrow(
+                () -> {
+                    String str = RandomStringUtils.randomAlphanumeric(10);
+                    Object obj = fieldToStringTest(BasicType.STRING_TYPE, str);
+                    Assertions.assertTrue(obj instanceof String);
+                    Assertions.assertEquals(10, ((String) obj).length());
+                });
     }
 
     @Test
     void hashMapTest() {
-        Assertions.assertDoesNotThrow(() -> {
-            HashMap<Object, Object> map = new HashMap<>();
-            map.put("key", "value");
-            MapType<String, String> mapType = new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE);
-            Object mapString = fieldToStringTest(mapType, map);
-            Assertions.assertNotNull(mapString);
-            Assertions.assertEquals("{\"key\":\"value\"}", mapString);
-        });
+        Assertions.assertDoesNotThrow(
+                () -> {
+                    HashMap<Object, Object> map = new HashMap<>();
+                    map.put("key", "value");
+                    MapType<String, String> mapType =
+                            new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE);
+                    Object mapString = fieldToStringTest(mapType, map);
+                    Assertions.assertNotNull(mapString);
+                    Assertions.assertEquals("{\"key\":\"value\"}", mapString);
+                });
     }
 
     @Test
     void rowTypeTest() {
-        Assertions.assertDoesNotThrow(() -> {
-            String[] fieldNames = {"c_byte", "c_array", "bytes"};
-            SeaTunnelDataType<?>[] fieldTypes = {BasicType.BYTE_TYPE, ArrayType.BYTE_ARRAY_TYPE, PrimitiveByteArrayType.INSTANCE};
-            SeaTunnelRowType seaTunnelRowType = new SeaTunnelRowType(fieldNames, fieldTypes);
-            byte[] bytes = RandomUtils.nextBytes(10);
-            Object[] rowData = {(byte) 1, bytes, bytes};
-            SeaTunnelRow seaTunnelRow = new SeaTunnelRow(rowData);
-            Object rowString = fieldToStringTest(seaTunnelRowType, seaTunnelRow);
-            Assertions.assertNotNull(rowString);
-            Assertions.assertEquals(String.format("[1, %s, %s]", Arrays.toString(bytes), Arrays.toString(bytes)), rowString.toString());
-        });
+        Assertions.assertDoesNotThrow(
+                () -> {
+                    String[] fieldNames = {"c_byte", "c_array", "bytes"};
+                    SeaTunnelDataType<?>[] fieldTypes = {
+                        BasicType.BYTE_TYPE,
+                        ArrayType.BYTE_ARRAY_TYPE,
+                        PrimitiveByteArrayType.INSTANCE
+                    };
+                    SeaTunnelRowType seaTunnelRowType =
+                            new SeaTunnelRowType(fieldNames, fieldTypes);
+                    byte[] bytes = RandomUtils.nextBytes(10);
+                    Object[] rowData = {(byte) 1, bytes, bytes};
+                    SeaTunnelRow seaTunnelRow = new SeaTunnelRow(rowData);
+                    Object rowString = fieldToStringTest(seaTunnelRowType, seaTunnelRow);
+                    Assertions.assertNotNull(rowString);
+                    Assertions.assertEquals(
+                            String.format(
+                                    "[1, %s, %s]", Arrays.toString(bytes), Arrays.toString(bytes)),
+                            rowString.toString());
+                });
     }
 }

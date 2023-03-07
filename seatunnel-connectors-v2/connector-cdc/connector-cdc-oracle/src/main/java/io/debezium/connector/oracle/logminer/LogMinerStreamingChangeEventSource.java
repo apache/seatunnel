@@ -17,19 +17,8 @@
 
 package io.debezium.connector.oracle.logminer;
 
-import static io.debezium.connector.oracle.logminer.LogMinerHelper.buildDataDictionary;
-import static io.debezium.connector.oracle.logminer.LogMinerHelper.checkSupplementalLogging;
-import static io.debezium.connector.oracle.logminer.LogMinerHelper.endMining;
-import static io.debezium.connector.oracle.logminer.LogMinerHelper.getCurrentRedoLogFiles;
-import static io.debezium.connector.oracle.logminer.LogMinerHelper.getEndScn;
-import static io.debezium.connector.oracle.logminer.LogMinerHelper.getFirstOnlineLogScn;
-import static io.debezium.connector.oracle.logminer.LogMinerHelper.getLastScnToAbandon;
-import static io.debezium.connector.oracle.logminer.LogMinerHelper.getSystime;
-import static io.debezium.connector.oracle.logminer.LogMinerHelper.instantiateFlushConnections;
-import static io.debezium.connector.oracle.logminer.LogMinerHelper.logError;
-import static io.debezium.connector.oracle.logminer.LogMinerHelper.setLogFilesForMining;
-import static io.debezium.connector.oracle.logminer.LogMinerHelper.setNlsSessionParameters;
-import static io.debezium.connector.oracle.logminer.LogMinerHelper.startLogMining;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.debezium.DebeziumException;
 import io.debezium.config.Configuration;
@@ -48,8 +37,6 @@ import io.debezium.relational.TableId;
 import io.debezium.util.Clock;
 import io.debezium.util.Metronome;
 import io.debezium.util.Stopwatch;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.math.BigInteger;
 import java.sql.PreparedStatement;
@@ -65,6 +52,20 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import static io.debezium.connector.oracle.logminer.LogMinerHelper.buildDataDictionary;
+import static io.debezium.connector.oracle.logminer.LogMinerHelper.checkSupplementalLogging;
+import static io.debezium.connector.oracle.logminer.LogMinerHelper.endMining;
+import static io.debezium.connector.oracle.logminer.LogMinerHelper.getCurrentRedoLogFiles;
+import static io.debezium.connector.oracle.logminer.LogMinerHelper.getEndScn;
+import static io.debezium.connector.oracle.logminer.LogMinerHelper.getFirstOnlineLogScn;
+import static io.debezium.connector.oracle.logminer.LogMinerHelper.getLastScnToAbandon;
+import static io.debezium.connector.oracle.logminer.LogMinerHelper.getSystime;
+import static io.debezium.connector.oracle.logminer.LogMinerHelper.instantiateFlushConnections;
+import static io.debezium.connector.oracle.logminer.LogMinerHelper.logError;
+import static io.debezium.connector.oracle.logminer.LogMinerHelper.setLogFilesForMining;
+import static io.debezium.connector.oracle.logminer.LogMinerHelper.setNlsSessionParameters;
+import static io.debezium.connector.oracle.logminer.LogMinerHelper.startLogMining;
 
 /**
  * A {@link StreamingChangeEventSource} based on Oracle's LogMiner utility. The event handler loop
@@ -134,7 +135,8 @@ public class LogMinerStreamingChangeEventSource
      * @param context change event source context
      */
     @Override
-    public void execute(ChangeEventSource.ChangeEventSourceContext context, OracleOffsetContext offsetContext) {
+    public void execute(
+            ChangeEventSource.ChangeEventSourceContext context, OracleOffsetContext offsetContext) {
         try (TransactionalBuffer transactionalBuffer =
                 new TransactionalBuffer(
                         connectorConfig, schema, clock, errorHandler, streamingMetrics)) {
@@ -146,7 +148,8 @@ public class LogMinerStreamingChangeEventSource
                                         getFirstOnlineLogScn(
                                                 jdbcConnection,
                                                 archiveLogRetention,
-                                                archiveDestinationName)) < 0) {
+                                                archiveDestinationName))
+                                < 0) {
                     throw new DebeziumException(
                             "Online REDO LOG files or archive log files do not contain the offset scn "
                                     + startScn

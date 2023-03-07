@@ -24,17 +24,31 @@ import java.util.List;
 
 public class SourceConfig {
 
-    public static final Option<String> INDEX = Options.key("index").stringType().noDefaultValue()
-        .withDescription("Elasticsearch index name, support * fuzzy matching");
+    public static final Option<String> INDEX =
+            Options.key("index")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Elasticsearch index name, support * fuzzy matching");
 
-    public static final Option<List<String>> SOURCE = Options.key("source").listType().noDefaultValue()
-        .withDescription("The fields of index. You can get the document id by specifying the field _id.If sink _id to other index,you need specify an alias for _id due to the Elasticsearch limit");
+    public static final Option<List<String>> SOURCE =
+            Options.key("source")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The fields of index. You can get the document id by specifying the field _id.If sink _id to other index,you need specify an alias for _id due to the Elasticsearch limit");
 
-    public static final Option<String> SCROLL_TIME = Options.key("scroll_time").stringType().defaultValue("1m")
-        .withDescription("Amount of time Elasticsearch will keep the search context alive for scroll requests");
+    public static final Option<String> SCROLL_TIME =
+            Options.key("scroll_time")
+                    .stringType()
+                    .defaultValue("1m")
+                    .withDescription(
+                            "Amount of time Elasticsearch will keep the search context alive for scroll requests");
 
     @SuppressWarnings("checkstyle:MagicNumber")
-    public static final Option<Integer> SCROLL_SIZE = Options.key("scroll_size").intType().defaultValue(100)
-        .withDescription("Maximum number of hits to be returned with each Elasticsearch scroll request");
-
+    public static final Option<Integer> SCROLL_SIZE =
+            Options.key("scroll_size")
+                    .intType()
+                    .defaultValue(100)
+                    .withDescription(
+                            "Maximum number of hits to be returned with each Elasticsearch scroll request");
 }

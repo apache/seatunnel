@@ -20,8 +20,6 @@
 
 package org.apache.seatunnel.engine.checkpoint.storage.hdfs.common;
 
-import static org.apache.hadoop.fs.FileSystem.FS_DEFAULT_NAME_KEY;
-
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 
 import org.apache.commons.lang3.StringUtils;
@@ -31,27 +29,29 @@ import org.apache.hadoop.security.UserGroupInformation;
 import java.io.IOException;
 import java.util.Map;
 
+import static org.apache.hadoop.fs.FileSystem.FS_DEFAULT_NAME_KEY;
+
 public class HdfsConfiguration extends AbstractConfiguration {
 
-    /**
-     * hdfs uri is required
-     */
+    /** hdfs uri is required */
     private static final String HDFS_DEF_FS_NAME = "fs.defaultFS";
-    /**
-     * hdfs kerberos principal( is optional)
-     */
+    /** hdfs kerberos principal( is optional) */
     private static final String KERBEROS_PRINCIPAL = "kerberosPrincipal";
+
     private static final String KERBEROS_KEYTAB_FILE_PATH = "kerberosKeytabFilePath";
-    private static final String HADOOP_SECURITY_AUTHENTICATION_KEY = "hadoop.security.authentication";
+    private static final String HADOOP_SECURITY_AUTHENTICATION_KEY =
+            "hadoop.security.authentication";
 
     private static final String KERBEROS_KEY = "kerberos";
 
-    /***********  Hdfs constants  **************/
+    /** ********* Hdfs constants ************* */
     private static final String HDFS_IMPL = "org.apache.hadoop.hdfs.DistributedFileSystem";
+
     private static final String HDFS_IMPL_KEY = "fs.hdfs.impl";
 
     @Override
-    public Configuration buildConfiguration(Map<String, String> config) throws CheckpointStorageException {
+    public Configuration buildConfiguration(Map<String, String> config)
+            throws CheckpointStorageException {
         checkConfiguration(config, HDFS_DEF_FS_NAME);
         Configuration hadoopConf = new Configuration();
         if (config.containsKey(HDFS_DEF_FS_NAME)) {
@@ -59,33 +59,41 @@ public class HdfsConfiguration extends AbstractConfiguration {
         }
         hadoopConf.set(HDFS_IMPL_KEY, HDFS_IMPL);
         hadoopConf.set(FS_DEFAULT_NAME_KEY, config.get(FS_DEFAULT_NAME_KEY));
-        if (config.containsKey(KERBEROS_PRINCIPAL) && config.containsKey(KERBEROS_KEYTAB_FILE_PATH)) {
+        if (config.containsKey(KERBEROS_PRINCIPAL)
+                && config.containsKey(KERBEROS_KEYTAB_FILE_PATH)) {
             String kerberosPrincipal = config.get(KERBEROS_PRINCIPAL);
             String kerberosKeytabFilePath = config.get(KERBEROS_KEYTAB_FILE_PATH);
-            if (StringUtils.isNotBlank(kerberosPrincipal) && StringUtils.isNotBlank(kerberosKeytabFilePath)) {
+            if (StringUtils.isNotBlank(kerberosPrincipal)
+                    && StringUtils.isNotBlank(kerberosKeytabFilePath)) {
                 hadoopConf.set(HADOOP_SECURITY_AUTHENTICATION_KEY, KERBEROS_KEY);
                 authenticateKerberos(kerberosPrincipal, kerberosKeytabFilePath, hadoopConf);
             }
         }
-        //todo support other hdfs optional config keys
+        // todo support other hdfs optional config keys
         return hadoopConf;
     }
 
     /**
      * Authenticate kerberos
      *
-     * @param kerberosPrincipal      kerberos principal
+     * @param kerberosPrincipal kerberos principal
      * @param kerberosKeytabFilePath kerberos keytab file path
-     * @param hdfsConf               hdfs configuration
+     * @param hdfsConf hdfs configuration
      * @throws CheckpointStorageException authentication exception
      */
-    private void authenticateKerberos(String kerberosPrincipal, String kerberosKeytabFilePath, Configuration hdfsConf) throws CheckpointStorageException {
+    private void authenticateKerberos(
+            String kerberosPrincipal, String kerberosKeytabFilePath, Configuration hdfsConf)
+            throws CheckpointStorageException {
         UserGroupInformation.setConfiguration(hdfsConf);
         try {
             UserGroupInformation.loginUserFromKeytab(kerberosPrincipal, kerberosKeytabFilePath);
         } catch (IOException e) {
-            throw new CheckpointStorageException("Failed to login user from keytab : " + kerberosKeytabFilePath + " and kerberos principal : " + kerberosPrincipal, e);
+            throw new CheckpointStorageException(
+                    "Failed to login user from keytab : "
+                            + kerberosKeytabFilePath
+                            + " and kerberos principal : "
+                            + kerberosPrincipal,
+                    e);
         }
     }
-
 }

@@ -28,10 +28,10 @@ import java.util.Arrays;
 
 public final class TableUtil {
 
-    private TableUtil() {
-    }
+    private TableUtil() {}
 
-    public static DataStream<Row> tableToDataStream(StreamTableEnvironment tableEnvironment, Table table, boolean isAppend) {
+    public static DataStream<Row> tableToDataStream(
+            StreamTableEnvironment tableEnvironment, Table table, boolean isAppend) {
 
         TypeInformation<Row> typeInfo = table.getSchema().toRowType();
         if (isAppend) {

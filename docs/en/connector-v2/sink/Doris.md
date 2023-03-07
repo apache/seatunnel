@@ -3,29 +3,31 @@
 > Doris sink connector
 
 ## Description
+
 Used to send data to Doris. Both support streaming and batch mode.
 The internal implementation of Doris sink connector is cached and imported by stream load in batches.
+
 ## Key features
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 
 ## Options
 
-| name                        | type                         | required | default value   |
-|-----------------------------|------------------------------|----------|-----------------|
-| node_urls                   | list                         | yes      | -               |
-| username                    | string                       | yes      | -               |
-| password                    | string                       | yes      | -               |
-| database                    | string                       | yes      | -               |
-| table                       | string                       | yes      | -               |
-| labelPrefix                 | string                       | no       | -               |
-| batch_max_rows              | long                         | no       | 1024            |
-| batch_max_bytes             | int                          | no       | 5 * 1024 * 1024 |
-| batch_interval_ms           | int                          | no       | 1000            |
-| max_retries                 | int                          | no       | 1               |
-| retry_backoff_multiplier_ms | int                          | no       | -               |
-| max_retry_backoff_ms        | int                          | no       | -               |
-| doris.config                | map                          | no       | -               |
+|            name             |  type  | required |  default value  |
+|-----------------------------|--------|----------|-----------------|
+| node_urls                   | list   | yes      | -               |
+| username                    | string | yes      | -               |
+| password                    | string | yes      | -               |
+| database                    | string | yes      | -               |
+| table                       | string | yes      | -               |
+| labelPrefix                 | string | no       | -               |
+| batch_max_rows              | long   | no       | 1024            |
+| batch_max_bytes             | int    | no       | 5 * 1024 * 1024 |
+| batch_interval_ms           | int    | no       | 1000            |
+| max_retries                 | int    | no       | 1               |
+| retry_backoff_multiplier_ms | int    | no       | -               |
+| max_retry_backoff_ms        | int    | no       | -               |
+| doris.config                | map    | no       | -               |
 
 ### node_urls [list]
 
@@ -131,7 +133,10 @@ sink {
 ## Changelog
 
 ### 2.3.0-beta 2022-10-20
+
 - Add Doris Sink Connector
 
 ### Next version
+
 - [Improve] Change Doris Config Prefix [3856](https://github.com/apache/incubator-seatunnel/pull/3856)
+

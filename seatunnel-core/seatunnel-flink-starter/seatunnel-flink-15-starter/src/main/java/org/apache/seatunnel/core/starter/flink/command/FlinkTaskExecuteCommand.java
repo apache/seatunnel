@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.core.starter.flink.command;
 
-import static org.apache.seatunnel.core.starter.utils.FileUtils.checkConfigExist;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigUtil;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.core.starter.command.Command;
@@ -27,13 +29,11 @@ import org.apache.seatunnel.core.starter.flink.execution.FlinkExecution;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.core.starter.utils.FileUtils;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigUtil;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
-
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
+
+import static org.apache.seatunnel.core.starter.utils.FileUtils.checkConfigExist;
 
 @Slf4j
 public class FlinkTaskExecuteCommand implements Command<FlinkCommandArgs> {
@@ -51,8 +51,10 @@ public class FlinkTaskExecuteCommand implements Command<FlinkCommandArgs> {
         Config config = ConfigBuilder.of(configFile);
         // if user specified job name using command line arguments, override config option
         if (!flinkCommandArgs.getJobName().equals(Constants.LOGO)) {
-            config = config.withValue(ConfigUtil.joinPath("env", "job.name"),
-                    ConfigValueFactory.fromAnyRef(flinkCommandArgs.getJobName()));
+            config =
+                    config.withValue(
+                            ConfigUtil.joinPath("env", "job.name"),
+                            ConfigValueFactory.fromAnyRef(flinkCommandArgs.getJobName()));
         }
         FlinkExecution seaTunnelTaskExecution = new FlinkExecution(config);
         try {
@@ -61,5 +63,4 @@ public class FlinkTaskExecuteCommand implements Command<FlinkCommandArgs> {
             throw new CommandExecuteException("Flink job executed failed", e);
         }
     }
-
 }

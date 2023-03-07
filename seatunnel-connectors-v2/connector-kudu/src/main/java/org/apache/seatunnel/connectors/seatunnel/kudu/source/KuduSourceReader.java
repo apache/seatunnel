@@ -23,11 +23,12 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduInputFormat;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.client.KuduScanner;
 import org.apache.kudu.client.RowResult;
 import org.apache.kudu.client.RowResultIterator;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
 import java.util.Deque;
@@ -72,7 +73,9 @@ public class KuduSourceReader implements SourceReader<SeaTunnelRow, KuduSourceSp
             RowResultIterator rowResults = kuduScanner.nextRows();
             while (rowResults.hasNext()) {
                 RowResult rowResult = rowResults.next();
-                SeaTunnelRow seaTunnelRow = KuduInputFormat.getSeaTunnelRowData(rowResult, kuduInputFormat.getSeaTunnelRowType(columnSchemaList));
+                SeaTunnelRow seaTunnelRow =
+                        KuduInputFormat.getSeaTunnelRowData(
+                                rowResult, kuduInputFormat.getSeaTunnelRowType(columnSchemaList));
                 output.collect(seaTunnelRow);
             }
         }
@@ -81,7 +84,6 @@ public class KuduSourceReader implements SourceReader<SeaTunnelRow, KuduSourceSp
             log.info("Closed the bounded fake source");
             context.signalNoMoreElement();
         }
-
     }
 
     @Override
@@ -100,7 +102,5 @@ public class KuduSourceReader implements SourceReader<SeaTunnelRow, KuduSourceSp
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) {
-
-    }
+    public void notifyCheckpointComplete(long checkpointId) {}
 }
