@@ -119,7 +119,7 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
         }
 
         ObjectMapper mapper = new ObjectMapper();
-        if (response.getEntity() != null) {
+        if (response != null && response.getEntity() != null) {
             String loadResult = EntityUtils.toString(response.getEntity());
             Map<String, String> res =
                     mapper.readValue(loadResult, new TypeReference<HashMap<String, String>>() {});

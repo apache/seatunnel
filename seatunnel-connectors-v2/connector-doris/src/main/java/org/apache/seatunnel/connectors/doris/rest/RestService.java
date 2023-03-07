@@ -77,6 +77,7 @@ public class RestService implements Serializable {
     @Deprecated private static final String BACKENDS = "/rest/v1/system?path=//backends";
     private static final String BACKENDS_V2 = "/api/backends?is_alive=true";
     private static final String FE_LOGIN = "/rest/v1/login";
+    private static final String BASE_URL = "http://%s%s";
 
     private static String send(DorisConfig dorisConfig, HttpRequestBase request, Logger logger)
             throws DorisConnectorException {
@@ -216,14 +217,19 @@ public class RestService implements Serializable {
             throw new IOException("Failed to get response from Doris");
         }
         StringBuilder result = new StringBuilder();
-        BufferedReader in =
-                new BufferedReader(
-                        new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8));
-        String line;
-        while ((line = in.readLine()) != null) {
-            result.append(line);
-        }
-        if (in != null) {
+        BufferedReader in = null;
+        try {
+            in =
+                    new BufferedReader(
+                            new InputStreamReader(
+                                    connection.getInputStream(), StandardCharsets.UTF_8));
+            String line;
+            while ((line = in.readLine()) != null) {
+                result.append(line);
+            }
+        } catch (IOException e) {
+            throw new IOException(e);
+        } finally {
             in.close();
         }
         return result.toString();
@@ -313,7 +319,7 @@ public class RestService implements Serializable {
             throws DorisConnectorException, IOException {
         String feNodes = dorisConfig.getFrontends();
         String feNode = randomEndpoint(feNodes, logger);
-        String beUrl = "http://" + feNode + BACKENDS;
+        String beUrl = String.format(BASE_URL, feNode, BACKENDS);
         HttpGet httpGet = new HttpGet(beUrl);
         String response = send(dorisConfig, httpGet, logger);
         logger.info("Backend Info:{}", response);
