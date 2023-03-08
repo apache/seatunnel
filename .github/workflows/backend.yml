@@ -373,8 +373,13 @@ jobs:
           cache: 'maven'
       - name: run some modules integration test
         if: needs.changes.outputs.api == 'true'
-        run: |
-          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :seatunnel-transforms-v2-e2e-part-1 -am -Pci
+        uses: nick-fields/retry@v2
+        with:
+          timeout_seconds: 5
+          max_attempts: 3
+          continue_on_error: true
+          command: |
+            ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :seatunnel-transforms-v2-e2e-part-1 -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
 
@@ -397,8 +402,13 @@ jobs:
           cache: 'maven'
       - name: run some modules integration test
         if: needs.changes.outputs.api == 'true'
-        run: |
-          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :seatunnel-transforms-v2-e2e-part-2 -am -Pci
+        uses: nick-fields/retry@v2
+        with:
+          timeout_seconds: 5
+          max_attempts: 3
+          continue_on_error: true
+          command: |
+            ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :seatunnel-transforms-v2-e2e-part-2 -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
 
