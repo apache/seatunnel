@@ -320,7 +320,6 @@ public class JdbcDorisIT extends TestSuiteBase implements TestResource {
     }
 
     private void batchInsertData() {
-        List<SeaTunnelRow> rows = TEST_DATASET;
         try {
             jdbcConnection.setAutoCommit(false);
             try (PreparedStatement preparedStatement =
