@@ -18,53 +18,31 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>org.apache.seatunnel</groupId>
-        <artifactId>seatunnel</artifactId>
+        <artifactId>connector-jdbc-e2e</artifactId>
         <version>${revision}</version>
     </parent>
 
-    <artifactId>seatunnel-e2e</artifactId>
-    <packaging>pom</packaging>
-    <name>SeaTunnel : E2E :</name>
+    <artifactId>connector-jdbc-e2e-common</artifactId>
+    <name>SeaTunnel : E2E : Connector V2 : Jdbc : Common</name>
 
-    <modules>
-        <module>seatunnel-e2e-common</module>
-        <module>seatunnel-connector-v2-e2e</module>
-        <module>seatunnel-engine-e2e</module>
-        <module>seatunnel-transforms-v2-e2e</module>
-    </modules>
-
-    <properties>
-        <junit4.version>4.13.2</junit4.version>
-        <maven-jar-plugin.version>2.4</maven-jar-plugin.version>
-    </properties>
-    <dependencies>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers</artifactId>
-        </dependency>
-        <!-- Testcontainers 1.x is tightly coupled with the JUnit 4.x rule API-->
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>${junit4.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.awaitility</groupId>
-            <artifactId>awaitility</artifactId>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
     <build>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>${maven-jar-plugin.version}</version>
                 <configuration>
-                    <skip>${e2e.dependency.skip}</skip>
-                    <appendOutput>true</appendOutput>
+                    <skip>false</skip>
                 </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
+
 </project>
