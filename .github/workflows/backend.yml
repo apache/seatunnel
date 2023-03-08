@@ -362,7 +362,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 30
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK ${{ matrix.java }}
@@ -375,7 +375,7 @@ jobs:
         if: needs.changes.outputs.api == 'true'
         uses: nick-fields/retry@v2
         with:
-          timeout_seconds: 5
+          timeout_minutes: 30
           max_attempts: 3
           continue_on_error: true
           command: |
@@ -391,7 +391,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 30
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK ${{ matrix.java }}
@@ -404,7 +404,7 @@ jobs:
         if: needs.changes.outputs.api == 'true'
         uses: nick-fields/retry@v2
         with:
-          timeout_seconds: 5
+          timeout_minutes: 30
           max_attempts: 3
           continue_on_error: true
           command: |
