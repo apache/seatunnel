@@ -325,9 +325,9 @@ public class JdbcDorisIT extends TestSuiteBase implements TestResource {
             jdbcConnection.setAutoCommit(false);
             try (PreparedStatement preparedStatement =
                     jdbcConnection.prepareStatement(INIT_DATA_SQL)) {
-                for (int i = 0; i < rows.size(); i++) {
-                    for (int index = 0; index < rows.get(i).getFields().length; index++) {
-                        preparedStatement.setObject(index + 1, rows.get(i).getFields()[index]);
+                for (SeaTunnelRow row : TEST_DATASET) {
+                    for (int index = 0; index < row.getFields().length; index++) {
+                        preparedStatement.setObject(index + 1, row.getFields()[index]);
                     }
                     preparedStatement.addBatch();
                 }
