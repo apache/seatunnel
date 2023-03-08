@@ -139,21 +139,6 @@ public class PhysicalPlan {
         future.thenAcceptAsync(
                 pipelineState -> {
                     try {
-                        // Notify checkpoint manager when the pipeline end, Whether the pipeline
-                        // will be restarted or not
-                        LOGGER.info(
-                                String.format(
-                                        "received pipeline %s callback, state %s",
-                                        subPlan.getPipelineFullName(),
-                                        pipelineState.getPipelineStatus()));
-                        if (jobMaster.getCheckpointManager() != null) {
-                            jobMaster
-                                    .getCheckpointManager()
-                                    .listenPipelineRetry(
-                                            subPlan.getPipelineLocation().getPipelineId(),
-                                            pipelineState.getPipelineStatus())
-                                    .join();
-                        }
                         if (PipelineStatus.CANCELED.equals(pipelineState.getPipelineStatus())) {
                             if (subPlan.canRestorePipeline()) {
                                 subPlan.restorePipeline();

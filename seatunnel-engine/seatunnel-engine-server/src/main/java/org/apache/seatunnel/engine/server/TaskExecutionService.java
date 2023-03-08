@@ -158,17 +158,16 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     public TaskGroupContext getExecutionContext(TaskGroupLocation taskGroupLocation) {
-        TaskGroupContext taskGroupContext = null;
-        if (executionContexts.get(taskGroupLocation) == null) {
+        TaskGroupContext taskGroupContext = executionContexts.get(taskGroupLocation);
+
+        if (taskGroupContext == null) {
             taskGroupContext = finishedExecutionContexts.get(taskGroupLocation);
         }
-
-        taskGroupContext = executionContexts.get(taskGroupLocation);
         if (taskGroupContext == null) {
             throw new TaskGroupContextNotFoundException(
                     String.format("task group %s not found.", taskGroupLocation));
         }
-        return executionContexts.get(taskGroupLocation);
+        return taskGroupContext;
     }
 
     private void submitThreadShareTask(
@@ -408,8 +407,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             MetricDescriptor copy1 =
                     descriptor.copy().withTag(MetricTags.SERVICE, this.getClass().getSimpleName());
             Map<TaskGroupLocation, TaskGroupContext> contextMap = new HashMap<>();
-            contextMap.putAll(executionContexts);
             contextMap.putAll(finishedExecutionContexts);
+            contextMap.putAll(executionContexts);
             contextMap.forEach(
                     (taskGroupLocation, taskGroupContext) -> {
                         MetricDescriptor copy2 =
@@ -447,8 +446,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
     private synchronized void updateMetricsContextInImap() {
         Map<TaskGroupLocation, TaskGroupContext> contextMap = new HashMap<>();
-        contextMap.putAll(executionContexts);
         contextMap.putAll(finishedExecutionContexts);
+        contextMap.putAll(executionContexts);
         try {
             IMap<TaskLocation, SeaTunnelMetricsContext> map =
                     nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);

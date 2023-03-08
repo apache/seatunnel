@@ -13,6 +13,8 @@ problems encountered by users.
 | API-04 | Database not existed               | When users encounter this error code, it is usually because the database that you want to access is not existed, please double check the database exists                                       |
 | API-05 | Table not existed                  | When users encounter this error code, it is usually because the table that you want to access is not existed, please double check the table exists                                             |
 | API-06 | Factory initialize failed          | When users encounter this error code, it is usually because there is a problem with the jar package dependency, please check whether your local SeaTunnel installation package is complete     |
+| API-07 | Database already existed           | When users encounter this error code, it means that the database you want to create has already existed, please delete database and try again                                                  |
+| API-08 | Table already existed              | When users encounter this error code, it means that the table you want to create has already existed, please delete table and try again                                                        |
 
 ## SeaTunnel Common Error Codes
 
@@ -159,9 +161,11 @@ problems encountered by users.
 
 ## Doris Connector Error Codes
 
-|   code   |           description            |                                                               solution                                                               |
-|----------|----------------------------------|--------------------------------------------------------------------------------------------------------------------------------------|
-| Doris-01 | Writing records to Doris failed. | When users encounter this error code, it means that writing records to Doris failed, please check data from files whether is correct |
+|   code   |     description     |                                                             solution                                                              |
+|----------|---------------------|-----------------------------------------------------------------------------------------------------------------------------------|
+| Doris-01 | stream load error.  | When users encounter this error code, it means that stream load to Doris failed, please check data from files whether is correct. |
+| Doris-02 | commit error.       | When users encounter this error code, it means that commit to Doris failed, please check network.                                 |
+| Doris-03 | rest service error. | When users encounter this error code, it means that rest service failed, please check network and config.                         |
 
 ## SelectDB Cloud Connector Error Codes
 
@@ -241,4 +245,10 @@ problems encountered by users.
 |   code   |    description    |                                                                              solution                                                                               |
 |----------|-------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | EMAIL-01 | Send email failed | When users encounter this error code, it means that send email to target server failed, please adjust the network environment according to the abnormal information |
+
+## S3Redshift Connector Error Codes
+
+|     code      |        description        |                                                                                                   solution                                                                                                   |
+|---------------|---------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| S3RedShift-01 | Aggregate committer error | S3Redshift Sink Connector will write data to s3 and then move file to the target s3 path. And then use `Copy` action copy the data to Redshift. Please check the error log and find out the specific reason. |
 

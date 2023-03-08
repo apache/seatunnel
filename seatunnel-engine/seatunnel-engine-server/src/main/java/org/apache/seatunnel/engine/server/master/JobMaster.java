@@ -319,13 +319,13 @@ public class JobMaster {
         }
     }
 
-    public void handleCheckpointError(long pipelineId, Throwable e) {
+    public void handleCheckpointError(long pipelineId) {
         this.physicalPlan
                 .getPipelineList()
                 .forEach(
                         pipeline -> {
                             if (pipeline.getPipelineLocation().getPipelineId() == pipelineId) {
-                                pipeline.handleCheckpointError(e);
+                                pipeline.handleCheckpointError();
                             }
                         });
     }
@@ -596,7 +596,7 @@ public class JobMaster {
     /** Execute savePoint, which will cause the job to end. */
     public CompletableFuture<Void> savePoint() {
         PassiveCompletableFuture<CompletedCheckpoint>[] passiveCompletableFutures =
-                checkpointManager.triggerSavepoints();
+                checkpointManager.triggerSavePoints();
         return CompletableFuture.allOf(passiveCompletableFutures);
     }
 

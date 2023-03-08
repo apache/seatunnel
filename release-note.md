@@ -11,6 +11,7 @@
 ### Transformer
 - [Spark] Support transform-v2 for spark (#3409)
 - [ALL]Add FieldMapper Transform #3781
+- [ALL]Add SQL Transform #4148 
 ### Connectors
 - [Elasticsearch] Support https protocol & compatible with opensearch
 - [Hbase] Add hbase sink connector #4049
@@ -43,6 +44,7 @@
 - [File] Support column projection #4105
 - [Github] Add github source connector #4155
 - [Jdbc] Add database field to sink config #4199
+- [Doris] Refactor some Doris Sink code as well as support 2pc and cdc #4235
 ### Zeta Engine
 - [Chore] Remove unnecessary dependencies #3795
 - [Core] Improve job restart of all node down #3784
@@ -57,6 +59,8 @@
 - [ClickHouse] Fix clickhouse write cdc changelog update event #3951
 - [ClickHouse] Fix connector source snapshot state NPE #4027
 - [Kudu] Fix connector source snapshot state NPE #4027
+- [Maxcompute] Fix some data type parse fail #3894
+- [Doris] Fix content-length header already present #4277
 
 ### Zeta Engine
 - [Checkpoint] Fix Checkpoint Continue Trigger After Job CANCELED #3808
