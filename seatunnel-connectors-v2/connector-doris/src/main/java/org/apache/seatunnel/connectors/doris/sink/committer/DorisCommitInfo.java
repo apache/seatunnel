@@ -15,30 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.doris.exception;
+package org.apache.seatunnel.connectors.doris.sink.committer;
 
-import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
-public enum DorisConnectorErrorCode implements SeaTunnelErrorCode {
-    STREAM_LOAD_FAILED("Doris-01", "stream load error"),
-    COMMIT_FAILED("Doris-02", "commit error"),
-    REST_SERVICE_FAILED("Doris-03", "rest service error");
+import java.io.Serializable;
 
-    private final String code;
-    private final String description;
+@Setter
+@Getter
+@ToString
+@EqualsAndHashCode
+public class DorisCommitInfo implements Serializable {
+    private final String hostPort;
+    private final String db;
+    private final long txbID;
 
-    DorisConnectorErrorCode(String code, String description) {
-        this.code = code;
-        this.description = description;
-    }
-
-    @Override
-    public String getCode() {
-        return code;
-    }
-
-    @Override
-    public String getDescription() {
-        return description;
+    public DorisCommitInfo(String hostPort, String db, long txbID) {
+        this.hostPort = hostPort;
+        this.db = db;
+        this.txbID = txbID;
     }
 }

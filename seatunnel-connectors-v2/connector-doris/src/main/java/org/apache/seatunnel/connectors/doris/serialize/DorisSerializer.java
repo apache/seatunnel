@@ -15,30 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.doris.exception;
+package org.apache.seatunnel.connectors.doris.serialize;
 
-import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
-public enum DorisConnectorErrorCode implements SeaTunnelErrorCode {
-    STREAM_LOAD_FAILED("Doris-01", "stream load error"),
-    COMMIT_FAILED("Doris-02", "commit error"),
-    REST_SERVICE_FAILED("Doris-03", "rest service error");
+import java.io.IOException;
+import java.io.Serializable;
 
-    private final String code;
-    private final String description;
+public interface DorisSerializer extends Serializable {
 
-    DorisConnectorErrorCode(String code, String description) {
-        this.code = code;
-        this.description = description;
-    }
+    void open() throws IOException;
 
-    @Override
-    public String getCode() {
-        return code;
-    }
+    byte[] serialize(SeaTunnelRow seaTunnelRow) throws IOException;
 
-    @Override
-    public String getDescription() {
-        return description;
-    }
+    void close() throws IOException;
 }

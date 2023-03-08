@@ -15,30 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.doris.exception;
+package org.apache.seatunnel.connectors.doris.sink;
 
-import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
-
-public enum DorisConnectorErrorCode implements SeaTunnelErrorCode {
-    STREAM_LOAD_FAILED("Doris-01", "stream load error"),
-    COMMIT_FAILED("Doris-02", "commit error"),
-    REST_SERVICE_FAILED("Doris-03", "rest service error");
-
-    private final String code;
-    private final String description;
-
-    DorisConnectorErrorCode(String code, String description) {
-        this.code = code;
-        this.description = description;
-    }
-
-    @Override
-    public String getCode() {
-        return code;
-    }
-
-    @Override
-    public String getDescription() {
-        return description;
-    }
+/** enum of LoadStatus. */
+public class LoadStatus {
+    public static final String SUCCESS = "Success";
+    public static final String PUBLISH_TIMEOUT = "Publish Timeout";
+    public static final String LABEL_ALREADY_EXIST = "Label Already Exists";
+    public static final String FAIL = "Fail";
 }

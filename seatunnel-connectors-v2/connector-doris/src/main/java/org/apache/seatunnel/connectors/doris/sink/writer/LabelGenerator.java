@@ -15,30 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.doris.exception;
+package org.apache.seatunnel.connectors.doris.sink.writer;
 
-import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+/** Generator label for stream load. */
+public class LabelGenerator {
+    private String labelPrefix;
+    private boolean enable2PC;
 
-public enum DorisConnectorErrorCode implements SeaTunnelErrorCode {
-    STREAM_LOAD_FAILED("Doris-01", "stream load error"),
-    COMMIT_FAILED("Doris-02", "commit error"),
-    REST_SERVICE_FAILED("Doris-03", "rest service error");
-
-    private final String code;
-    private final String description;
-
-    DorisConnectorErrorCode(String code, String description) {
-        this.code = code;
-        this.description = description;
+    public LabelGenerator(String labelPrefix, boolean enable2PC) {
+        this.labelPrefix = labelPrefix;
+        this.enable2PC = enable2PC;
     }
 
-    @Override
-    public String getCode() {
-        return code;
-    }
-
-    @Override
-    public String getDescription() {
-        return description;
+    public String generateLabel(long chkId) {
+        return enable2PC
+                ? labelPrefix + "_" + chkId
+                : labelPrefix + "_" + System.currentTimeMillis();
     }
 }

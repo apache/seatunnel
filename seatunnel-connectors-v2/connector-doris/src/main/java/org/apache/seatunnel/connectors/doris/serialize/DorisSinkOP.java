@@ -15,30 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.doris.exception;
+package org.apache.seatunnel.connectors.doris.serialize;
 
-import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+import org.apache.seatunnel.api.table.type.RowKind;
 
-public enum DorisConnectorErrorCode implements SeaTunnelErrorCode {
-    STREAM_LOAD_FAILED("Doris-01", "stream load error"),
-    COMMIT_FAILED("Doris-02", "commit error"),
-    REST_SERVICE_FAILED("Doris-03", "rest service error");
-
-    private final String code;
-    private final String description;
-
-    DorisConnectorErrorCode(String code, String description) {
-        this.code = code;
-        this.description = description;
-    }
-
-    @Override
-    public String getCode() {
-        return code;
-    }
-
-    @Override
-    public String getDescription() {
-        return description;
+public class DorisSinkOP {
+    public static String parseDeleteSign(RowKind rowKind) {
+        if (RowKind.INSERT.equals(rowKind) || RowKind.UPDATE_AFTER.equals(rowKind)) {
+            return "0";
+        } else if (RowKind.DELETE.equals(rowKind) || RowKind.UPDATE_BEFORE.equals(rowKind)) {
+            return "1";
+        } else {
+            throw new IllegalArgumentException("Unrecognized row kind:" + rowKind.toString());
+        }
     }
 }

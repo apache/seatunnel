@@ -15,17 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.doris.client;
+package org.apache.seatunnel.connectors.doris.sink.writer;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
-import java.util.List;
+@Setter
+@Getter
+@ToString
+@EqualsAndHashCode
+public class DorisSinkState {
+    private final String labelPrefix;
+    private final long checkpointId;
 
-@AllArgsConstructor
-@Data
-public class DorisFlushTuple {
-    private String label;
-    private Long bytes;
-    private List<byte[]> rows;
+    public DorisSinkState(String labelPrefix, long checkpointId) {
+        this.labelPrefix = labelPrefix;
+        this.checkpointId = checkpointId;
+    }
 }

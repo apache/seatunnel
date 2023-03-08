@@ -15,30 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.doris.exception;
+package org.apache.seatunnel.connectors.doris.rest.models;
 
-import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
-public enum DorisConnectorErrorCode implements SeaTunnelErrorCode {
-    STREAM_LOAD_FAILED("Doris-01", "stream load error"),
-    COMMIT_FAILED("Doris-02", "commit error"),
-    REST_SERVICE_FAILED("Doris-03", "rest service error");
+@Getter
+@Setter
+@ToString
+@Deprecated
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class BackendRow {
 
-    private final String code;
-    private final String description;
+    @JsonProperty(value = "HttpPort")
+    private String httpPort;
 
-    DorisConnectorErrorCode(String code, String description) {
-        this.code = code;
-        this.description = description;
-    }
+    @JsonProperty(value = "IP")
+    private String ip;
 
-    @Override
-    public String getCode() {
-        return code;
-    }
-
-    @Override
-    public String getDescription() {
-        return description;
-    }
+    @JsonProperty(value = "Alive")
+    private Boolean alive;
 }

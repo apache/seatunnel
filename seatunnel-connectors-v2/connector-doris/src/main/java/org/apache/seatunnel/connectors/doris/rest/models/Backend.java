@@ -15,30 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.doris.exception;
+package org.apache.seatunnel.connectors.doris.rest.models;
 
-import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-public enum DorisConnectorErrorCode implements SeaTunnelErrorCode {
-    STREAM_LOAD_FAILED("Doris-01", "stream load error"),
-    COMMIT_FAILED("Doris-02", "commit error"),
-    REST_SERVICE_FAILED("Doris-03", "rest service error");
+import java.util.List;
 
-    private final String code;
-    private final String description;
+/** Be response model */
+@Deprecated
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class Backend {
 
-    DorisConnectorErrorCode(String code, String description) {
-        this.code = code;
-        this.description = description;
+    @JsonProperty(value = "rows")
+    private List<BackendRow> rows;
+
+    public List<BackendRow> getRows() {
+        return rows;
     }
 
-    @Override
-    public String getCode() {
-        return code;
-    }
-
-    @Override
-    public String getDescription() {
-        return description;
+    public void setRows(List<BackendRow> rows) {
+        this.rows = rows;
     }
 }
