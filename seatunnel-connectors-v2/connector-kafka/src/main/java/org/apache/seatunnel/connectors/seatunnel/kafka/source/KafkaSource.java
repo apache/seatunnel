@@ -60,7 +60,6 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.BOOT
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CANAL_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.COMMIT_ON_CHECKPOINT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CONSUMER_GROUP;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FORMAT;
@@ -227,7 +226,7 @@ public class KafkaSource
             Config schema = config.getConfig(SCHEMA.key());
             // todo: use KafkaDataTypeConvertor here?
             typeInfo = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
-            String format = DEFAULT_FORMAT;
+            String format = FORMAT.defaultValue();
             if (config.hasPath(FORMAT.key())) {
                 format = config.getString(FORMAT.key());
             }
@@ -236,7 +235,7 @@ public class KafkaSource
                     deserializationSchema = new JsonDeserializationSchema(false, false, typeInfo);
                     break;
                 case TEXT_FORMAT:
-                    String delimiter = DEFAULT_FIELD_DELIMITER;
+                    String delimiter = FIELD_DELIMITER.defaultValue();
                     if (config.hasPath(FIELD_DELIMITER.key())) {
                         delimiter = config.getString(FIELD_DELIMITER.key());
                     }

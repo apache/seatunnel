@@ -46,8 +46,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.ASSIGN_PARTITIONS;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FIELD_DELIMITER;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG;
@@ -172,11 +170,11 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
     private SeaTunnelRowSerializer<byte[], byte[]> getSerializer(
             Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
-        String format = DEFAULT_FORMAT;
+        String format = FORMAT.defaultValue();
         if (pluginConfig.hasPath(FORMAT.key())) {
             format = pluginConfig.getString(FORMAT.key());
         }
-        String delimiter = DEFAULT_FIELD_DELIMITER;
+        String delimiter = FIELD_DELIMITER.defaultValue();
         if (pluginConfig.hasPath(FIELD_DELIMITER.key())) {
             delimiter = pluginConfig.getString(FIELD_DELIMITER.key());
         }

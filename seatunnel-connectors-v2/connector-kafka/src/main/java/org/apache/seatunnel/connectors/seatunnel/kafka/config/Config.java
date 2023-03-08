@@ -101,7 +101,7 @@ public class Config {
     public static final Option<String> FORMAT =
             Options.key("format")
                     .stringType()
-                    .noDefaultValue()
+                    .defaultValue(DEFAULT_FORMAT)
                     .withDescription(
                             "Data format. The default format is json. Optional text format. The default field separator is \", \". "
                                     + "If you customize the delimiter, add the \"field_delimiter\" option.");
@@ -109,7 +109,7 @@ public class Config {
     public static final Option<String> FIELD_DELIMITER =
             Options.key("field_delimiter")
                     .stringType()
-                    .noDefaultValue()
+                    .defaultValue(DEFAULT_FIELD_DELIMITER)
                     .withDescription("Customize the field delimiter for data format.");
 
     public static final Option<Integer> PARTITION =
