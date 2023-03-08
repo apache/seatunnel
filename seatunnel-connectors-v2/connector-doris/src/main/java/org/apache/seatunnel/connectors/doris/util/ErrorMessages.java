@@ -15,30 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.doris.exception;
+package org.apache.seatunnel.connectors.doris.util;
 
-import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
-
-public enum DorisConnectorErrorCode implements SeaTunnelErrorCode {
-    STREAM_LOAD_FAILED("Doris-01", "stream load error"),
-    COMMIT_FAILED("Doris-02", "commit error"),
-    REST_SERVICE_FAILED("Doris-03", "rest service error");
-
-    private final String code;
-    private final String description;
-
-    DorisConnectorErrorCode(String code, String description) {
-        this.code = code;
-        this.description = description;
-    }
-
-    @Override
-    public String getCode() {
-        return code;
-    }
-
-    @Override
-    public String getDescription() {
-        return description;
-    }
+public abstract class ErrorMessages {
+    public static final String PARSE_NUMBER_FAILED_MESSAGE =
+            "Parse '{}' to number failed. Original string is '{}'.";
+    public static final String PARSE_BOOL_FAILED_MESSAGE =
+            "Parse '{}' to boolean failed. Original string is '{}'.";
+    public static final String CONNECT_FAILED_MESSAGE = "Connect to doris {} failed.";
+    public static final String ILLEGAL_ARGUMENT_MESSAGE =
+            "argument '{}' is illegal, value is '{}'.";
+    public static final String SHOULD_NOT_HAPPEN_MESSAGE = "Should not come here.";
+    public static final String DORIS_INTERNAL_FAIL_MESSAGE =
+            "Doris server '{}' internal failed, status is '{}', error message is '{}'";
 }

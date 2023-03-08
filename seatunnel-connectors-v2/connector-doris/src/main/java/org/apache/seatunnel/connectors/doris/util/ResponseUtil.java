@@ -15,16 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.doris;
+package org.apache.seatunnel.connectors.doris.util;
 
-import org.apache.seatunnel.connectors.doris.sink.DorisSinkFactory;
+import java.util.regex.Pattern;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+/** util for handle response. */
+public class ResponseUtil {
+    public static final Pattern LABEL_EXIST_PATTERN =
+            Pattern.compile(
+                    "errCode = 2, detailMessage = Label \\[(.*)\\] "
+                            + "has already been used, relate to txn \\[(\\d+)\\]");
+    public static final Pattern COMMITTED_PATTERN =
+            Pattern.compile(
+                    "errCode = 2, detailMessage = transaction \\[(\\d+)\\] "
+                            + "is already \\b(COMMITTED|committed|VISIBLE|visible)\\b, not pre-committed.");
 
-public class DorisFactoryTest {
-    @Test
-    void optionRule() {
-        Assertions.assertNotNull((new DorisSinkFactory()).optionRule());
+    public static boolean isCommitted(String msg) {
+        return COMMITTED_PATTERN.matcher(msg).matches();
     }
 }
