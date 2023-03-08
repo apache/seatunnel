@@ -28,26 +28,16 @@ import java.io.IOException;
 public class TestFilterRowKindIT extends TestSuiteBase {
 
     @TestTemplate
-    public void testFilterRowKindExcludeDelete(TestContainer container)
+    public void testFilterRowKind(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult =
+        Container.ExecResult execResult1 =
                 container.executeJob("/filter_row_kind_exclude_delete.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-    }
-
-    @TestTemplate
-    public void testFilterRowKindExcludeInsert(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult execResult =
+        Assertions.assertEquals(0, execResult1.getExitCode());
+        Container.ExecResult execResult2 =
                 container.executeJob("/filter_row_kind_exclude_insert.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-    }
-
-    @TestTemplate
-    public void testFilterRowKindIncludeInsert(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult execResult =
+        Assertions.assertEquals(0, execResult2.getExitCode());
+        Container.ExecResult execResult3 =
                 container.executeJob("/filter_row_kind_include_insert.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult3.getExitCode());
     }
 }
