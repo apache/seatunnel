@@ -15,24 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.checkpoint;
+package org.apache.seatunnel.connectors.seatunnel.redshift.exception;
 
-public enum CheckpointCloseReason {
-    PIPELINE_END("Pipeline turn to end state."),
-    CHECKPOINT_EXPIRED("Checkpoint expired before completing."),
-    CHECKPOINT_COORDINATOR_COMPLETED("CheckpointCoordinator completed."),
-    CHECKPOINT_COORDINATOR_SHUTDOWN("CheckpointCoordinator shutdown."),
-    CHECKPOINT_COORDINATOR_RESET("CheckpointCoordinator reset."),
-    CHECKPOINT_INSIDE_ERROR("CheckpointCoordinator inside have error."),
-    AGGREGATE_COMMIT_ERROR("Aggregate commit error.");
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
-    private final String message;
+public enum S3RedshiftConnectorErrorCode implements SeaTunnelErrorCode {
+    AGGREGATE_COMMIT_ERROR("S3RedShift-01", "Aggregate committer error");
 
-    CheckpointCloseReason(String message) {
-        this.message = message;
+    private final String code;
+
+    private final String description;
+
+    S3RedshiftConnectorErrorCode(String code, String description) {
+        this.code = code;
+        this.description = description;
     }
 
-    public String message() {
-        return message;
+    @Override
+    public String getCode() {
+        return this.code;
+    }
+
+    @Override
+    public String getDescription() {
+        return this.description;
     }
 }
