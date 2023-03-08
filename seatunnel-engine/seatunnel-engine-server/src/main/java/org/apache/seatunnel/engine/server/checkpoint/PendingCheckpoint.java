@@ -172,4 +172,13 @@ public class PendingCheckpoint implements Checkpoint {
             completableFuture.completeExceptionally(failureCause);
         }
     }
+
+    public String getInfo() {
+        return String.format(
+                "%s/%s/%s, %s",
+                this.getJobId(),
+                this.getPipelineId(),
+                this.getCheckpointId(),
+                this.getCheckpointType());
+    }
 }
