@@ -124,5 +124,12 @@ sink {
 
 ### Next version
 
+- [Improve] Change Doris Config Prefix [3856](https://github.com/apache/incubator-seatunnel/pull/3856)
+
 - [Improve] Refactor some Doris Sink code as well as support 2pc and cdc [4235](https://github.com/apache/incubator-seatunnel/pull/4235)
 
+:::tip
+
+PR 4235 is an incompatible modification to PR 3856. Please refer to PR 4235 to use the new Doris connector
+
+:::

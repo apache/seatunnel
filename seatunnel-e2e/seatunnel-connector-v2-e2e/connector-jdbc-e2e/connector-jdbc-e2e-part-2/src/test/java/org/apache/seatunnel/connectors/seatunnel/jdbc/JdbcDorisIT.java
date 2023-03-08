@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.connector.doris;
+package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
@@ -66,7 +66,7 @@ import static org.awaitility.Awaitility.given;
 
 @Slf4j
 @Disabled
-public class DorisIT extends TestSuiteBase implements TestResource {
+public class JdbcDorisIT extends TestSuiteBase implements TestResource {
     private static final String DOCKER_IMAGE = "zykkk/doris:1.2.2.1-avx2-x86_84";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final String HOST = "doris_e2e";
@@ -184,7 +184,7 @@ public class DorisIT extends TestSuiteBase implements TestResource {
     public void startUp() throws Exception {
         dorisServer =
                 new GenericContainer<>(DOCKER_IMAGE)
-                        .withNetwork(NETWORK)
+                        .withNetwork(TestSuiteBase.NETWORK)
                         .withNetworkAliases(HOST)
                         .withPrivilegedMode(true)
                         .withLogConsumer(
@@ -209,8 +209,8 @@ public class DorisIT extends TestSuiteBase implements TestResource {
             SeaTunnelRow row =
                     new SeaTunnelRow(
                             new Object[] {
-                                Long.valueOf(i),
-                                Long.valueOf(1123456),
+                                (long) i,
+                                1123456L,
                                 Short.parseShort("1"),
                                 Byte.parseByte("1"),
                                 Boolean.FALSE,
@@ -252,7 +252,7 @@ public class DorisIT extends TestSuiteBase implements TestResource {
             String sinkSql = String.format("select * from %s.%s order by 1", DATABASE, SINK_TABLE);
             List<String> columnList =
                     Arrays.stream(COLUMN_STRING.split(","))
-                            .map(x -> x.trim())
+                            .map(String::trim)
                             .collect(Collectors.toList());
             Statement sourceStatement = jdbcConnection.createStatement();
             Statement sinkStatement = jdbcConnection.createStatement();
@@ -292,7 +292,8 @@ public class DorisIT extends TestSuiteBase implements TestResource {
             throws SQLException, ClassNotFoundException, MalformedURLException,
                     InstantiationException, IllegalAccessException {
         URLClassLoader urlClassLoader =
-                new URLClassLoader(new URL[] {new URL(DRIVER_JAR)}, DorisIT.class.getClassLoader());
+                new URLClassLoader(
+                        new URL[] {new URL(DRIVER_JAR)}, JdbcDorisIT.class.getClassLoader());
         Thread.currentThread().setContextClassLoader(urlClassLoader);
         Driver driver = (Driver) urlClassLoader.loadClass(DRIVER_CLASS).newInstance();
         Properties props = new Properties();

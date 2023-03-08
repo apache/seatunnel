@@ -152,7 +152,8 @@ public class DorisCDCSinkIT extends TestSuiteBase implements TestResource {
             throws SQLException, ClassNotFoundException, InstantiationException,
                     IllegalAccessException, MalformedURLException {
         URLClassLoader urlClassLoader =
-                new URLClassLoader(new URL[] {new URL(DRIVER_JAR)}, DorisIT.class.getClassLoader());
+                new URLClassLoader(
+                        new URL[] {new URL(DRIVER_JAR)}, DorisCDCSinkIT.class.getClassLoader());
         Thread.currentThread().setContextClassLoader(urlClassLoader);
         Driver driver = (Driver) urlClassLoader.loadClass(DRIVER_CLASS).newInstance();
         Properties props = new Properties();
