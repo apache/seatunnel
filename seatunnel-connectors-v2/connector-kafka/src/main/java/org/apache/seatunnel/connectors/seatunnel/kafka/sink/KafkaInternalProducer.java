@@ -125,7 +125,7 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
             transitionTransactionManagerStateTo(transactionManager, "READY");
 
             transitionTransactionManagerStateTo(transactionManager, "IN_TRANSACTION");
-            ReflectionUtils.setField(transactionManager, "transactionStarted", true);
+            ReflectionUtils.setField(transactionManager, "transactionStarted", false);
         }
     }
 
