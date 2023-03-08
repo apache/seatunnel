@@ -34,6 +34,7 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
@@ -83,22 +84,28 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             clientConfig.setClusterName(clusterName);
             engineClient = new SeaTunnelClient(clientConfig);
             if (clientCommandArgs.isListJob()) {
-                String jobStatus = engineClient.listJobStatus();
+                String jobStatus = engineClient.getJobClient().listJobStatus(true);
                 System.out.println(jobStatus);
             } else if (null != clientCommandArgs.getJobId()) {
                 String jobState =
-                        engineClient.getJobDetailStatus(
-                                Long.parseLong(clientCommandArgs.getJobId()));
+                        engineClient
+                                .getJobClient()
+                                .getJobDetailStatus(Long.parseLong(clientCommandArgs.getJobId()));
                 System.out.println(jobState);
             } else if (null != clientCommandArgs.getCancelJobId()) {
-                engineClient.cancelJob(Long.parseLong(clientCommandArgs.getCancelJobId()));
+                engineClient
+                        .getJobClient()
+                        .cancelJob(Long.parseLong(clientCommandArgs.getCancelJobId()));
             } else if (null != clientCommandArgs.getMetricsJobId()) {
                 String jobMetrics =
-                        engineClient.getJobMetrics(
-                                Long.parseLong(clientCommandArgs.getMetricsJobId()));
+                        engineClient
+                                .getJobClient()
+                                .getJobMetrics(Long.parseLong(clientCommandArgs.getMetricsJobId()));
                 System.out.println(jobMetrics);
             } else if (null != clientCommandArgs.getSavePointJobId()) {
-                engineClient.savePointJob(Long.parseLong(clientCommandArgs.getSavePointJobId()));
+                engineClient
+                        .getJobClient()
+                        .savePointJob(Long.parseLong(clientCommandArgs.getSavePointJobId()));
             } else {
                 Path configFile = FileUtils.getConfigPath(clientCommandArgs);
                 checkConfigExist(configFile);
@@ -141,7 +148,12 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 // get job id
                 long jobId = clientJobProxy.getJobId();
                 JobMetricsRunner jobMetricsRunner = new JobMetricsRunner(engineClient, jobId);
-                executorService = Executors.newSingleThreadScheduledExecutor();
+                executorService =
+                        Executors.newSingleThreadScheduledExecutor(
+                                new ThreadFactoryBuilder()
+                                        .setNameFormat("job-metrics-runner-%d")
+                                        .setDaemon(true)
+                                        .build());
                 executorService.scheduleAtFixedRate(
                         jobMetricsRunner,
                         0,
@@ -185,12 +197,15 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
     private void closeClient() {
         if (engineClient != null) {
             engineClient.close();
+            log.info("Closed SeaTunnel client......");
         }
         if (instance != null) {
             instance.shutdown();
+            log.info("Closed HazelcastInstance ......");
         }
         if (executorService != null) {
             executorService.shutdownNow();
+            log.info("Closed metrics executor service ......");
         }
     }
 

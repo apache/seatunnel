@@ -75,7 +75,7 @@ public class TableDiscoveryUtils {
                                     capturedTableIds.add(tableId);
                                     LOG.info("\t including '{}' for further processing", tableId);
                                 } else {
-                                    LOG.info("\t '{}' is filtered out of capturing", tableId);
+                                    LOG.debug("\t '{}' is filtered out of capturing", tableId);
                                 }
                             }
                         });

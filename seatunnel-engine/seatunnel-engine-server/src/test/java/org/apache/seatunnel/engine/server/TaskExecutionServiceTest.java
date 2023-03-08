@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.engine.server.execution.BlockTask;
 import org.apache.seatunnel.engine.server.execution.ExceptionTestTask;
 import org.apache.seatunnel.engine.server.execution.FixedCallTestTimeTask;
 import org.apache.seatunnel.engine.server.execution.StopTimeTestTask;
@@ -86,6 +87,32 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         taskExecutionService.cancelTaskGroup(ts.getTaskGroupLocation());
 
         await().atMost(sleepTime + 10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> assertEquals(CANCELED, completableFuture.get().getExecutionState()));
+    }
+
+    @Test
+    @Disabled(
+            "As we have more and more test cases the test the load of the test container will up, the test case may failed")
+    public void testCancelBlockTask() throws InterruptedException {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+
+        BlockTask testTask1 = new BlockTask();
+        BlockTask testTask2 = new BlockTask();
+
+        TaskGroupDefaultImpl ts =
+                new TaskGroupDefaultImpl(
+                        new TaskGroupLocation(jobId, pipeLineId, FLAKE_ID_GENERATOR.newId()),
+                        "ts",
+                        Lists.newArrayList(testTask1, testTask2));
+        CompletableFuture<TaskExecutionState> completableFuture =
+                taskExecutionService.deployLocalTask(ts, new CompletableFuture<>());
+
+        Thread.sleep(5000);
+
+        taskExecutionService.cancelTaskGroup(ts.getTaskGroupLocation());
+
+        await().atMost(10, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> assertEquals(CANCELED, completableFuture.get().getExecutionState()));
     }

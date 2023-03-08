@@ -21,6 +21,7 @@ import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
+import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 
 import lombok.Data;
 
@@ -40,6 +41,9 @@ public class EngineConfig {
 
     private int jobMetricsBackupInterval =
             ServerConfigOptions.JOB_METRICS_BACKUP_INTERVAL.defaultValue();
+
+    private ThreadShareMode taskExecutionThreadShareMode =
+            ServerConfigOptions.TASK_EXECUTION_THREAD_SHARE_MODE.defaultValue();
 
     private SlotServiceConfig slotServiceConfig = ServerConfigOptions.SLOT_SERVICE.defaultValue();
 
@@ -73,8 +77,14 @@ public class EngineConfig {
         this.jobMetricsBackupInterval = jobMetricsBackupInterval;
     }
 
-    public void setQueueType(QueueType queueType) {
+    public void setTaskExecutionThreadShareMode(ThreadShareMode taskExecutionThreadShareMode) {
+        checkNotNull(queueType);
+        this.taskExecutionThreadShareMode = taskExecutionThreadShareMode;
+    }
+
+    public EngineConfig setQueueType(QueueType queueType) {
         checkNotNull(queueType);
         this.queueType = queueType;
+        return this;
     }
 }

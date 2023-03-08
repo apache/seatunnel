@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
-import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ReleaseSlotOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ResetResourceOperation;
@@ -30,25 +29,25 @@ import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 import com.hazelcast.cluster.Address;
 import com.hazelcast.cluster.Member;
 import com.hazelcast.internal.services.MembershipServiceEvent;
-import com.hazelcast.logging.ILogger;
-import com.hazelcast.logging.Logger;
 import com.hazelcast.spi.impl.InternalCompletableFuture;
 import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
+@Slf4j
 public abstract class AbstractResourceManager implements ResourceManager {
 
     private static final long DEFAULT_WORKER_CHECK_INTERVAL = 500;
-    private static final ILogger LOGGER = Logger.getLogger(AbstractResourceManager.class);
 
     protected final ConcurrentMap<Address, WorkerProfile> registerWorker;
 
@@ -59,42 +58,36 @@ public abstract class AbstractResourceManager implements ResourceManager {
     private volatile boolean isRunning = true;
 
     public AbstractResourceManager(NodeEngine nodeEngine) {
-        this.registerWorker =
-                nodeEngine
-                        .getHazelcastInstance()
-                        .getMap(Constant.IMAP_RESOURCE_MANAGER_REGISTER_WORKER);
+        this.registerWorker = new ConcurrentHashMap<>();
         this.nodeEngine = nodeEngine;
     }
 
     @Override
     public void init() {
-        checkRegisterWorkerStillAlive();
+        log.info("Init ResourceManager");
+        initWorker();
     }
 
-    private void checkRegisterWorkerStillAlive() {
-        if (!registerWorker.isEmpty()) {
-            List<Address> aliveWorker =
-                    nodeEngine.getClusterService().getMembers().stream()
-                            .map(Member::getAddress)
-                            .collect(Collectors.toList());
-            List<Address> dead =
-                    registerWorker.keySet().stream()
-                            .filter(r -> !aliveWorker.contains(r))
-                            .collect(Collectors.toList());
-            dead.forEach(registerWorker::remove);
-            List<InternalCompletableFuture<Void>> futures =
-                    aliveWorker.stream()
-                            .map(
-                                    worker ->
-                                            sendToMember(new SyncWorkerProfileOperation(), worker)
-                                                    .thenAccept(
-                                                            p -> {
-                                                                registerWorker.put(
-                                                                        worker, (WorkerProfile) p);
-                                                            }))
-                            .collect(Collectors.toList());
-            futures.forEach(InternalCompletableFuture::join);
-        }
+    private void initWorker() {
+        log.info("initWorker... ");
+        List<Address> aliveWorker =
+                nodeEngine.getClusterService().getMembers().stream()
+                        .map(Member::getAddress)
+                        .collect(Collectors.toList());
+        log.info("initWorker live nodes: " + aliveWorker);
+        List<InternalCompletableFuture<Void>> futures =
+                aliveWorker.stream()
+                        .map(
+                                worker ->
+                                        sendToMember(new SyncWorkerProfileOperation(), worker)
+                                                .thenAccept(
+                                                        p -> {
+                                                            registerWorker.put(
+                                                                    worker, (WorkerProfile) p);
+                                                        }))
+                        .collect(Collectors.toList());
+        futures.forEach(InternalCompletableFuture::join);
+        log.info("registerWorker: " + registerWorker);
     }
 
     @Override
@@ -118,7 +111,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
             // Local mode, should wait worker(master node) register.
             try {
                 while (registerWorker.isEmpty() && isRunning) {
-                    LOGGER.info("waiting current worker register to resource manager...");
+                    log.info("waiting current worker register to resource manager...");
                     Thread.sleep(DEFAULT_WORKER_CHECK_INTERVAL);
                 }
             } catch (InterruptedException e) {
@@ -129,7 +122,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     @Override
     public void memberRemoved(MembershipServiceEvent event) {
-        LOGGER.severe(
+        log.warn(
                 "Node heartbeat timeout, disconnected for resource manager. "
                         + "Node Address: "
                         + event.getMember().getAddress());
@@ -200,7 +193,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
         if (registerWorker.containsKey(profile.getWorker())) {
             active =
                     Arrays.stream(registerWorker.get(profile.getWorker()).getAssignedSlots())
-                            .allMatch(
+                            .anyMatch(
                                     s ->
                                             s.getSlotID() == profile.getSlotID()
                                                     && s.getSequence()
@@ -208,9 +201,9 @@ public abstract class AbstractResourceManager implements ResourceManager {
         }
 
         if (!active) {
-            LOGGER.info("received slot active check failed, profile: " + profile);
+            log.info("received slot active check failed, profile: " + profile);
         } else {
-            LOGGER.fine("received slot active check success, profile: " + profile);
+            log.info("received slot active check success, profile: " + profile);
         }
         return active;
     }
@@ -218,10 +211,10 @@ public abstract class AbstractResourceManager implements ResourceManager {
     @Override
     public void heartbeat(WorkerProfile workerProfile) {
         if (!registerWorker.containsKey(workerProfile.getAddress())) {
-            LOGGER.info("received new worker register: " + workerProfile.getAddress());
+            log.debug("received new worker register: " + workerProfile.getAddress());
             sendToMember(new ResetResourceOperation(), workerProfile.getAddress()).join();
         } else {
-            LOGGER.fine("received worker heartbeat from: " + workerProfile.getAddress());
+            log.debug("received worker heartbeat from: " + workerProfile.getAddress());
         }
         registerWorker.put(workerProfile.getAddress(), workerProfile);
     }

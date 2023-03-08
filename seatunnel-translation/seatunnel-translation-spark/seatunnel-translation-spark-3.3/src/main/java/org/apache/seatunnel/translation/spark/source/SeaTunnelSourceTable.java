@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.translation.spark.source;
 
+import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Constants;
@@ -37,8 +38,6 @@ import com.google.common.collect.Sets;
 
 import java.util.Map;
 import java.util.Set;
-
-import static org.apache.seatunnel.api.source.SourceCommonOptions.PARALLELISM;
 
 /** The basic unit of SeaTunnel DataSource generated, supporting read and write */
 public class SeaTunnelSourceTable implements Table, SupportsRead {
@@ -65,7 +64,8 @@ public class SeaTunnelSourceTable implements Table, SupportsRead {
      */
     @Override
     public ScanBuilder newScanBuilder(CaseInsensitiveStringMap caseInsensitiveStringMap) {
-        int parallelism = Integer.parseInt(properties.getOrDefault(PARALLELISM.key(), "1"));
+        int parallelism =
+                Integer.parseInt(properties.getOrDefault(CommonOptions.PARALLELISM.key(), "1"));
         return new SeaTunnelScanBuilder(source, parallelism, caseInsensitiveStringMap);
     }
 

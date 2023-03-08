@@ -19,9 +19,9 @@ package org.apache.seatunnel.core.starter.flink.execution;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.source.SourceCommonOptions;
 import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.core.starter.enums.PluginType;
@@ -79,8 +79,8 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
                             internalSource.getBoundedness()
                                     == org.apache.seatunnel.api.source.Boundedness.BOUNDED);
             Config pluginConfig = pluginConfigs.get(i);
-            if (pluginConfig.hasPath(SourceCommonOptions.PARALLELISM.key())) {
-                int parallelism = pluginConfig.getInt(SourceCommonOptions.PARALLELISM.key());
+            if (pluginConfig.hasPath(CommonOptions.PARALLELISM.key())) {
+                int parallelism = pluginConfig.getInt(CommonOptions.PARALLELISM.key());
                 sourceStream.setParallelism(parallelism);
             }
             registerResultTable(pluginConfig, sourceStream);
