@@ -304,11 +304,6 @@ jobs:
           ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl ${{needs.changes.outputs.ut-modules}} -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
-      - name: Retry on failure or timeout
-        uses: docker://docker.pkg.github.com/actions/retry@main
-        with:
-          retries: 3
-          delay: 5s
 
   updated-modules-integration-test:
     needs: [ changes, sanity-check ]
@@ -357,11 +352,6 @@ jobs:
           ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-seatunnel-e2e-base -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
-      - name: Retry on failure or timeout
-        uses: docker://docker.pkg.github.com/actions/retry@main
-        with:
-          retries: 3
-          delay: 5s
 
   transform-v2-it-part-1:
     needs: [ changes, sanity-check ]
@@ -386,11 +376,6 @@ jobs:
           ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :seatunnel-transforms-v2-e2e-part-1 -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
-      - name: Retry on failure or timeout
-        uses: docker://docker.pkg.github.com/actions/retry@main
-        with:
-          retries: 3
-          delay: 5s
 
   transform-v2-it-part-2:
     needs: [ changes, sanity-check ]
@@ -415,11 +400,6 @@ jobs:
           ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :seatunnel-transforms-v2-e2e-part-2 -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
-      - name: Retry on failure or timeout
-        uses: docker://docker.pkg.github.com/actions/retry@main
-        with:
-          retries: 3
-          delay: 5s
 
   all-connectors-it-1:
     needs: [ changes, sanity-check ]
