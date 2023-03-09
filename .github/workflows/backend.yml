@@ -269,7 +269,7 @@ jobs:
       - name: Install
         uses: nick-fields/retry@v2
         with:
-          timeout_minutes: 12
+          timeout_minutes: 40
           max_attempts: 3
           retry_on: error
           command: |
@@ -298,7 +298,7 @@ jobs:
         if: needs.changes.outputs.api == 'true'
         uses: nick-fields/retry@v2
         with:
-          timeout_minutes: 12
+          timeout_minutes: 36
           max_attempts: 3
           retry_on: error
           command: |
@@ -358,7 +358,7 @@ jobs:
         if: needs.changes.outputs.api == 'true'
         uses: nick-fields/retry@v2
         with:
-          timeout_minutes: 15
+          timeout_minutes: 45
           max_attempts: 3
           retry_on: error
           command: |
