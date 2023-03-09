@@ -138,4 +138,4 @@ sink {
 ### next version
 
 - [Feature] Support SelectDB Cloud Sink Connector [3958](https://github.com/apache/incubator-seatunnel/pull/3958)
-
+- [Improve] Refactor some SelectDB Cloud Sink code as well as support copy into batch and async flush and cdc [4312](https://github.com/apache/incubator-seatunnel/pull/4312)

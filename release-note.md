@@ -45,6 +45,7 @@
 - [Github] Add github source connector #4155
 - [Jdbc] Add database field to sink config #4199
 - [Doris] Refactor some Doris Sink code as well as support 2pc and cdc #4235
+- [SelectDB Cloud] Refactor some SelectDB Cloud Sink code as well as support copy into batch and async flush and cdc #4312
 ### Zeta Engine
 - [Chore] Remove unnecessary dependencies #3795
 - [Core] Improve job restart of all node down #3784
