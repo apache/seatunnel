@@ -80,7 +80,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         String uri = httpGetCommand.getURI();
         if (uri.startsWith("/hazelcast/rest/maps/running-jobs")) {
             handleRunningJobsInfo(httpGetCommand);
-        } else if (uri.startsWith("/hazelcast/rest/maps/getSystemMonitoringInformation")) {
+        } else if (uri.startsWith("/hazelcast/rest/maps/system-monitoring-information")) {
             getSystemMonitoringInformation(httpGetCommand);
         } else {
             original.handle(httpGetCommand);
