@@ -40,6 +40,7 @@
 - [API]Add parallelism and column projection interface #3829
 - [API]Add get source method to all source connector #3846
 - [Hive] Support read user-defined partitions #3842
+- [SelectDB Cloud] Support SelectDB Cloud Sink Connector #3958
 - [Hive] Support read text table & Column projection #4105
 - [File] Support column projection #4105
 - [Github] Add github source connector #4155
