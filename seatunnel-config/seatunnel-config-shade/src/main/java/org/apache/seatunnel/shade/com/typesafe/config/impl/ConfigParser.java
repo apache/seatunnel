@@ -23,11 +23,18 @@ import java.util.ListIterator;
 import java.util.Map;
 
 final class ConfigParser {
-    static AbstractConfigValue parse(ConfigNodeRoot document,
-                                     ConfigOrigin origin, ConfigParseOptions options,
-                                     ConfigIncludeContext includeContext) {
-        ParseContext context = new ParseContext(options.getSyntax(), origin, document,
-            SimpleIncluder.makeFull(options.getIncluder()), includeContext);
+    static AbstractConfigValue parse(
+            ConfigNodeRoot document,
+            ConfigOrigin origin,
+            ConfigParseOptions options,
+            ConfigIncludeContext includeContext) {
+        ParseContext context =
+                new ParseContext(
+                        options.getSyntax(),
+                        origin,
+                        document,
+                        SimpleIncluder.makeFull(options.getIncluder()),
+                        includeContext);
         return context.parse();
     }
 
@@ -45,8 +52,12 @@ final class ConfigParser {
         // problem we should be able to get rid of this variable.
         int arrayCount;
 
-        ParseContext(ConfigSyntax flavor, ConfigOrigin origin, ConfigNodeRoot document,
-                     FullIncluder includer, ConfigIncludeContext includeContext) {
+        ParseContext(
+                ConfigSyntax flavor,
+                ConfigOrigin origin,
+                ConfigNodeRoot document,
+                FullIncluder includer,
+                ConfigIncludeContext includeContext) {
             lineNumber = 1;
             this.document = document;
             this.flavor = flavor;
@@ -94,7 +105,8 @@ final class ConfigParser {
         private Path fullCurrentPath() {
             // pathStack has top of stack at front
             if (pathStack.isEmpty()) {
-                throw new ConfigException.BugOrBroken("Bug in parser; tried to get current path when at root");
+                throw new ConfigException.BugOrBroken(
+                        "Bug in parser; tried to get current path when at root");
             } else {
                 return new Path(pathStack.descendingIterator());
             }
@@ -111,10 +123,11 @@ final class ConfigParser {
 
                 Path path = pathStack.peekFirst();
 
-                if (path != null && !ConfigSyntax.JSON.equals(flavor)
-                    && ("source".equals(path.first())
-                    || "transform".equals(path.first())
-                    || "sink".equals(path.first()))) {
+                if (path != null
+                        && !ConfigSyntax.JSON.equals(flavor)
+                        && ("source".equals(path.first())
+                                || "transform".equals(path.first())
+                                || "sink".equals(path.first()))) {
                     v = parseObjectForSeatunnel((ConfigNodeObject) n);
                 } else {
                     v = parseObject((ConfigNodeObject) n);
@@ -134,14 +147,15 @@ final class ConfigParser {
             }
 
             if (arrayCount != startingArrayCount) {
-                throw new ConfigException.BugOrBroken("Bug in config parser: unbalanced array count");
+                throw new ConfigException.BugOrBroken(
+                        "Bug in config parser: unbalanced array count");
             }
 
             return v;
         }
 
-        private static AbstractConfigObject createValueUnderPath(Path path,
-                                                                 AbstractConfigValue value) {
+        private static AbstractConfigObject createValueUnderPath(
+                Path path, AbstractConfigValue value) {
             // for path foo.bar, we are creating
             // { "foo" : { "bar" : value } }
             List<String> keys = new ArrayList<>();
@@ -164,8 +178,10 @@ final class ConfigParser {
             // "foo.bar" not also to "foo"
             ListIterator<String> i = keys.listIterator(keys.size());
             String deepest = i.previous();
-            AbstractConfigObject o = new SimpleConfigObject(value.origin().withComments(null),
-                Collections.singletonMap(deepest, value));
+            AbstractConfigObject o =
+                    new SimpleConfigObject(
+                            value.origin().withComments(null),
+                            Collections.singletonMap(deepest, value));
             while (i.hasPrevious()) {
                 Map<String, AbstractConfigValue> m = Collections.singletonMap(i.previous(), o);
                 o = new SimpleConfigObject(value.origin().withComments(null), m);
@@ -176,7 +192,9 @@ final class ConfigParser {
 
         private void parseInclude(Map<String, AbstractConfigValue> values, ConfigNodeInclude n) {
             boolean isRequired = n.isRequired();
-            ConfigIncludeContext cic = includeContext.setParseOptions(includeContext.parseOptions().setAllowMissing(!isRequired));
+            ConfigIncludeContext cic =
+                    includeContext.setParseOptions(
+                            includeContext.parseOptions().setAllowMissing(!isRequired));
 
             AbstractConfigObject obj;
             switch (n.kind()) {
@@ -191,8 +209,7 @@ final class ConfigParser {
                     break;
 
                 case FILE:
-                    obj = (AbstractConfigObject) includer.includeFile(cic,
-                        new File(n.name()));
+                    obj = (AbstractConfigObject) includer.includeFile(cic, new File(n.name()));
                     break;
 
                 case CLASSPATH:
@@ -200,8 +217,7 @@ final class ConfigParser {
                     break;
 
                 case HEURISTIC:
-                    obj = (AbstractConfigObject) includer
-                        .include(cic, n.name());
+                    obj = (AbstractConfigObject) includer.include(cic, n.name());
                     break;
 
                 default:
@@ -212,9 +228,10 @@ final class ConfigParser {
             // exception is better than producing an incorrect result.
             // See https://github.com/lightbend/config/issues/160
             if (arrayCount > 0 && obj.resolveStatus() != ResolveStatus.RESOLVED) {
-                throw parseError("Due to current limitations of the config parser, when an include statement is nested inside a list value, "
-                    + "${} substitutions inside the included file cannot be resolved correctly. Either move the include outside of the list value or "
-                    + "remove the ${} statements from the included file.");
+                throw parseError(
+                        "Due to current limitations of the config parser, when an include statement is nested inside a list value, "
+                                + "${} substitutions inside the included file cannot be resolved correctly. Either move the include outside of the list value or "
+                                + "remove the ${} statements from the included file.");
             }
 
             if (!pathStack.isEmpty()) {
@@ -247,7 +264,8 @@ final class ConfigParser {
                 if (node instanceof ConfigNodeComment) {
                     lastWasNewline = false;
                     comments.add(((ConfigNodeComment) node).commentText());
-                } else if (node instanceof ConfigNodeSingleToken && Tokens.isNewline(((ConfigNodeSingleToken) node).token())) {
+                } else if (node instanceof ConfigNodeSingleToken
+                        && Tokens.isNewline(((ConfigNodeSingleToken) node).token())) {
                     lineNumber++;
                     if (lastWasNewline) {
                         // Drop all comments if there was a blank line and start a new comment block
@@ -270,9 +288,10 @@ final class ConfigParser {
                         // result. See
                         // https://github.com/lightbend/config/issues/160
                         if (arrayCount > 0) {
-                            throw parseError("Due to current limitations of the config parser, += does not work nested inside a list. "
-                                + "+= expands to a ${} substitution and the path in ${} cannot currently refer to list elements. "
-                                + "You might be able to move the += outside of the list and then refer to it from inside the list with ${}.");
+                            throw parseError(
+                                    "Due to current limitations of the config parser, += does not work nested inside a list. "
+                                            + "+= expands to a ${} substitution and the path in ${} cannot currently refer to list elements. "
+                                            + "You might be able to move the += outside of the list and then refer to it from inside the list with ${}.");
                         }
 
                         // because we will put it in an array after the fact so
@@ -293,10 +312,14 @@ final class ConfigParser {
                         arrayCount -= 1;
 
                         List<AbstractConfigValue> concat = new ArrayList<>(2);
-                        AbstractConfigValue previousRef = new ConfigReference(newValue.origin(),
-                            new SubstitutionExpression(fullCurrentPath(), true /* optional */));
-                        AbstractConfigValue list = new SimpleConfigList(newValue.origin(),
-                            Collections.singletonList(newValue));
+                        AbstractConfigValue previousRef =
+                                new ConfigReference(
+                                        newValue.origin(),
+                                        new SubstitutionExpression(
+                                                fullCurrentPath(), true /* optional */));
+                        AbstractConfigValue list =
+                                new SimpleConfigList(
+                                        newValue.origin(), Collections.singletonList(newValue));
                         concat.add(previousRef);
                         concat.add(list);
                         newValue = ConfigConcatenation.concatenate(concat);
@@ -308,12 +331,17 @@ final class ConfigParser {
                         while (i < nodes.size()) {
                             if (nodes.get(i) instanceof ConfigNodeComment) {
                                 ConfigNodeComment comment = (ConfigNodeComment) nodes.get(i);
-                                newValue = newValue.withOrigin(newValue.origin().appendComments(
-                                    Collections.singletonList(comment.commentText())));
+                                newValue =
+                                        newValue.withOrigin(
+                                                newValue.origin()
+                                                        .appendComments(
+                                                                Collections.singletonList(
+                                                                        comment.commentText())));
                                 break;
                             } else if (nodes.get(i) instanceof ConfigNodeSingleToken) {
                                 ConfigNodeSingleToken curr = (ConfigNodeSingleToken) nodes.get(i);
-                                if (curr.token() == Tokens.COMMA || Tokens.isIgnoredWhitespace(curr.token())) {
+                                if (curr.token() == Tokens.COMMA
+                                        || Tokens.isIgnoredWhitespace(curr.token())) {
                                     // keep searching, as there could still be a comment
                                 } else {
                                     i--;
@@ -342,11 +370,10 @@ final class ConfigParser {
                     } else {
                         if (flavor == ConfigSyntax.JSON) {
                             throw new ConfigException.BugOrBroken(
-                                "somehow got multi-element path in JSON mode");
+                                    "somehow got multi-element path in JSON mode");
                         }
 
-                        AbstractConfigObject obj = createValueUnderPath(
-                            remaining, newValue);
+                        AbstractConfigObject obj = createValueUnderPath(remaining, newValue);
 
                         Map<String, String> m = Collections.singletonMap("plugin_name", key);
                         obj = obj.withFallback(ConfigValueFactory.fromMap(m));
@@ -372,7 +399,8 @@ final class ConfigParser {
                 if (node instanceof ConfigNodeComment) {
                     lastWasNewline = false;
                     comments.add(((ConfigNodeComment) node).commentText());
-                } else if (node instanceof ConfigNodeSingleToken && Tokens.isNewline(((ConfigNodeSingleToken) node).token())) {
+                } else if (node instanceof ConfigNodeSingleToken
+                        && Tokens.isNewline(((ConfigNodeSingleToken) node).token())) {
                     lineNumber++;
                     if (lastWasNewline) {
                         // Drop all comments if there was a blank line and start a new comment block
@@ -395,9 +423,10 @@ final class ConfigParser {
                         // result. See
                         // https://github.com/lightbend/config/issues/160
                         if (arrayCount > 0) {
-                            throw parseError("Due to current limitations of the config parser, += does not work nested inside a list. "
-                                + "+= expands to a ${} substitution and the path in ${} cannot currently refer to list elements. "
-                                + "You might be able to move the += outside of the list and then refer to it from inside the list with ${}.");
+                            throw parseError(
+                                    "Due to current limitations of the config parser, += does not work nested inside a list. "
+                                            + "+= expands to a ${} substitution and the path in ${} cannot currently refer to list elements. "
+                                            + "You might be able to move the += outside of the list and then refer to it from inside the list with ${}.");
                         }
 
                         // because we will put it in an array after the fact so
@@ -418,10 +447,14 @@ final class ConfigParser {
                         arrayCount -= 1;
 
                         List<AbstractConfigValue> concat = new ArrayList<>(2);
-                        AbstractConfigValue previousRef = new ConfigReference(newValue.origin(),
-                            new SubstitutionExpression(fullCurrentPath(), true /* optional */));
-                        AbstractConfigValue list = new SimpleConfigList(newValue.origin(),
-                            Collections.singletonList(newValue));
+                        AbstractConfigValue previousRef =
+                                new ConfigReference(
+                                        newValue.origin(),
+                                        new SubstitutionExpression(
+                                                fullCurrentPath(), true /* optional */));
+                        AbstractConfigValue list =
+                                new SimpleConfigList(
+                                        newValue.origin(), Collections.singletonList(newValue));
                         concat.add(previousRef);
                         concat.add(list);
                         newValue = ConfigConcatenation.concatenate(concat);
@@ -433,12 +466,17 @@ final class ConfigParser {
                         while (i < nodes.size()) {
                             if (nodes.get(i) instanceof ConfigNodeComment) {
                                 ConfigNodeComment comment = (ConfigNodeComment) nodes.get(i);
-                                newValue = newValue.withOrigin(newValue.origin().appendComments(
-                                    Collections.singletonList(comment.commentText())));
+                                newValue =
+                                        newValue.withOrigin(
+                                                newValue.origin()
+                                                        .appendComments(
+                                                                Collections.singletonList(
+                                                                        comment.commentText())));
                                 break;
                             } else if (nodes.get(i) instanceof ConfigNodeSingleToken) {
                                 ConfigNodeSingleToken curr = (ConfigNodeSingleToken) nodes.get(i);
-                                if (curr.token() == Tokens.COMMA || Tokens.isIgnoredWhitespace(curr.token())) {
+                                if (curr.token() == Tokens.COMMA
+                                        || Tokens.isIgnoredWhitespace(curr.token())) {
                                     // keep searching, as there could still be a comment
                                 } else {
                                     i--;
@@ -466,10 +504,11 @@ final class ConfigParser {
                             // could become an object).
 
                             if (flavor == ConfigSyntax.JSON) {
-                                throw parseError("JSON does not allow duplicate fields: '"
-                                    + key
-                                    + "' was already seen at "
-                                    + existing.origin().description());
+                                throw parseError(
+                                        "JSON does not allow duplicate fields: '"
+                                                + key
+                                                + "' was already seen at "
+                                                + existing.origin().description());
                             } else {
                                 newValue = newValue.withFallback(existing);
                             }
@@ -478,11 +517,10 @@ final class ConfigParser {
                     } else {
                         if (flavor == ConfigSyntax.JSON) {
                             throw new ConfigException.BugOrBroken(
-                                "somehow got multi-element path in JSON mode");
+                                    "somehow got multi-element path in JSON mode");
                         }
 
-                        AbstractConfigObject obj = createValueUnderPath(
-                            remaining, newValue);
+                        AbstractConfigObject obj = createValueUnderPath(remaining, newValue);
                         AbstractConfigValue existing = values.get(key);
                         if (existing != null) {
                             obj = obj.withFallback(existing);
@@ -510,12 +548,14 @@ final class ConfigParser {
                 if (node instanceof ConfigNodeComment) {
                     comments.add(((ConfigNodeComment) node).commentText());
                     lastWasNewLine = false;
-                } else if (node instanceof ConfigNodeSingleToken && Tokens.isNewline(((ConfigNodeSingleToken) node).token())) {
+                } else if (node instanceof ConfigNodeSingleToken
+                        && Tokens.isNewline(((ConfigNodeSingleToken) node).token())) {
                     lineNumber++;
                     if (lastWasNewLine && v == null) {
                         comments.clear();
                     } else if (v != null) {
-                        values.add(v.withOrigin(v.origin().appendComments(new ArrayList<>(comments))));
+                        values.add(
+                                v.withOrigin(v.origin().appendComments(new ArrayList<>(comments))));
                         comments.clear();
                         v = null;
                     }
@@ -523,7 +563,8 @@ final class ConfigParser {
                 } else if (node instanceof AbstractConfigNodeValue) {
                     lastWasNewLine = false;
                     if (v != null) {
-                        values.add(v.withOrigin(v.origin().appendComments(new ArrayList<>(comments))));
+                        values.add(
+                                v.withOrigin(v.origin().appendComments(new ArrayList<>(comments))));
                         comments.clear();
                     }
                     v = parseValue((AbstractConfigNodeValue) node, comments);
@@ -552,7 +593,10 @@ final class ConfigParser {
                         if (lastWasNewLine && result == null) {
                             comments.clear();
                         } else if (result != null) {
-                            result = result.withOrigin(result.origin().appendComments(new ArrayList<>(comments)));
+                            result =
+                                    result.withOrigin(
+                                            result.origin()
+                                                    .appendComments(new ArrayList<>(comments)));
                             comments.clear();
                             break;
                         }
