@@ -15,23 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.config.utils;
+package org.apache.seatunnel.api.configuration;
 
-import java.io.File;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.file.Paths;
+/**
+ * The interface that provides the ability to encrypt and decrypt {@link
+ * org.apache.seatunnel.shade.com.typesafe.config.Config}
+ */
+public interface ConfigShade {
 
-public final class FileUtils {
+    /**
+     * The unique identifier of the current interface, used it to select the correct {@link
+     * ConfigShade}
+     */
+    String getIdentifier();
 
-    private FileUtils() {}
+    /**
+     * Encrypt the content
+     *
+     * @param content The content to encrypt
+     */
+    String encrypt(String content);
 
-    // get file from classpath, resources folder
-    public static File getFileFromResources(String fileName) throws URISyntaxException {
-        URL resource = FileUtils.class.getResource(fileName);
-        if (resource == null) {
-            throw new IllegalArgumentException("file is not found!");
-        }
-        return Paths.get(resource.toURI()).toFile();
+    /**
+     * Decrypt the content
+     *
+     * @param content The content to decrypt
+     */
+    String decrypt(String content);
+
+    /** To expand the options that user want to encrypt */
+    default String[] sensitiveOptions() {
+        return new String[0];
     }
 }
