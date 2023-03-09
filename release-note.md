@@ -44,6 +44,7 @@
 - [File] Support column projection #4105
 - [Github] Add github source connector #4155
 - [Jdbc] Add database field to sink config #4199
+- [Doris] Refactor some Doris Sink code as well as support 2pc and cdc #4235
 ### Zeta Engine
 - [Chore] Remove unnecessary dependencies #3795
 - [Core] Improve job restart of all node down #3784
