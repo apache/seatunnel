@@ -37,7 +37,7 @@ public interface JdbcOptions {
                     .withDescription("connection check time second");
 
     Option<Integer> MAX_RETRIES =
-            Options.key("max_retries").intType().defaultValue(0).withDescription("max_retired");
+            Options.key("max_retries").intType().defaultValue(3).withDescription("max_retired");
 
     Option<String> USER = Options.key("user").stringType().noDefaultValue().withDescription("user");
 
