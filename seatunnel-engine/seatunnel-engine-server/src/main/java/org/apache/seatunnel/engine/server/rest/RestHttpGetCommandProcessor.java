@@ -28,7 +28,12 @@ import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpGetCommandProcessor;
+import org.apache.seatunnel.engine.server.operation.GetClusterHealthMetricsOperation;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
+import com.hazelcast.cluster.Address;
+import com.hazelcast.cluster.Cluster;
+import com.hazelcast.cluster.Member;
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;
 import com.hazelcast.internal.ascii.rest.HttpGetCommand;
@@ -37,11 +42,15 @@ import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.internal.json.JsonValue;
 import com.hazelcast.internal.util.JsonUtil;
 import com.hazelcast.map.IMap;
+import com.hazelcast.spi.impl.NodeEngine;
 
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
 
 public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCommand> {
 
@@ -50,6 +59,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     private static final String SOURCE_RECEIVED_COUNT = "SourceReceivedCount";
 
     private static final String SINK_WRITE_COUNT = "SinkWriteCount";
+
+    private NodeEngine nodeEngine;
 
     public RestHttpGetCommandProcessor(TextCommandService textCommandService) {
         this(textCommandService, new Log4j2HttpGetCommandProcessor(textCommandService));
@@ -69,6 +80,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         String uri = httpGetCommand.getURI();
         if (uri.startsWith("/hazelcast/rest/maps/running-jobs")) {
             handleRunningJobsInfo(httpGetCommand);
+        } else if (uri.startsWith("/hazelcast/rest/maps/getSystemMonitoringInformation")) {
+            getSystemMonitoringInformation(httpGetCommand);
         } else {
             original.handle(httpGetCommand);
         }
@@ -79,6 +92,43 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     @Override
     public void handleRejection(HttpGetCommand httpGetCommand) {
         handle(httpGetCommand);
+    }
+
+    private void getSystemMonitoringInformation(HttpGetCommand command) {
+        Cluster cluster = textCommandService.getNode().hazelcastInstance.getCluster();
+        nodeEngine = textCommandService.getNode().hazelcastInstance.node.nodeEngine;
+
+        Set<Member> members = cluster.getMembers();
+        JsonArray jsonValues =
+                members.stream()
+                        .map(
+                                member -> {
+                                    Address address = member.getAddress();
+                                    String input = null;
+                                    try {
+                                        input =
+                                                (String)
+                                                        NodeEngineUtil.sendOperationToMemberNode(
+                                                                        nodeEngine,
+                                                                        new GetClusterHealthMetricsOperation(),
+                                                                        address)
+                                                                .get();
+                                    } catch (InterruptedException | ExecutionException e) {
+                                        logger.severe("get system monitoring information fail", e);
+                                    }
+                                    assert input != null;
+                                    String[] parts = input.split(", ");
+                                    JsonObject jobInfo = new JsonObject();
+                                    Arrays.stream(parts)
+                                            .forEach(
+                                                    part -> {
+                                                        String[] keyValue = part.split("=");
+                                                        jobInfo.add(keyValue[0], keyValue[1]);
+                                                    });
+                                    return jobInfo;
+                                })
+                        .collect(JsonArray::new, JsonArray::add, JsonArray::add);
+        this.prepareResponse(command, jsonValues);
     }
 
     private void handleRunningJobsInfo(HttpGetCommand command) {
