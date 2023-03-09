@@ -24,8 +24,7 @@ import java.nio.file.Paths;
 
 public final class FileUtils {
 
-    private FileUtils() {
-    }
+    private FileUtils() {}
 
     // get file from classpath, resources folder
     public static File getFileFromResources(String fileName) throws URISyntaxException {
@@ -35,5 +34,4 @@ public final class FileUtils {
         }
         return Paths.get(resource.toURI()).toFile();
     }
-
 }

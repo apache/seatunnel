@@ -23,6 +23,8 @@ public final class Constants {
 
     public static final String LOGO = "SeaTunnel";
 
+    public static final String ENV = "env";
+
     public static final String SOURCE = "source";
 
     public static final String TRANSFORM = "transform";
