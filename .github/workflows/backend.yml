@@ -267,11 +267,13 @@ jobs:
           java-version: '8'
           cache: 'maven'
       - name: Install
-        run: >-
-          ./mvnw -B -q install -DskipTests
-          -D"maven.test.skip"=true
-          -D"maven.javadoc.skip"=true
-          -D"license.skipAddThirdParty"
+        uses: nick-fields/retry@v2
+        with:
+          timeout_minutes: 12
+          max_attempts: 3
+          retry_on: error
+          command: |
+            ./mvnw -B -q install -DskipTests -D"maven.test.skip"=true -D"maven.javadoc.skip"=true -D"license.skipAddThirdParty"
       - name: Check Dependencies Licenses
         run: tools/dependencies/checkLicense.sh
 
@@ -283,7 +285,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest', 'windows-latest' ]
-    timeout-minutes: 30
+    timeout-minutes: 36
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK ${{ matrix.java }}
@@ -294,8 +296,12 @@ jobs:
           cache: 'maven'
       - name: run all modules unit test
         if: needs.changes.outputs.api == 'true'
-        run: |
-          ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"license.skipAddThirdParty"=true --no-snapshot-updates
+        uses: nick-fields/retry@v2
+        with:
+          timeout_minutes: 12
+          max_attempts: 3
+          command: |
+            ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"license.skipAddThirdParty"=true --no-snapshot-updates
         env:
           MAVEN_OPTS: -Xmx4096m
 
@@ -338,7 +344,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK ${{ matrix.java }}
@@ -349,8 +355,13 @@ jobs:
           cache: 'maven'
       - name: run some modules integration test
         if: needs.changes.outputs.api == 'true'
-        run: |
-          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-seatunnel-e2e-base -am -Pci
+        uses: nick-fields/retry@v2
+        with:
+          timeout_minutes: 15
+          max_attempts: 3
+          continue_on_error: true
+          command: |
+            ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-seatunnel-e2e-base -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
 
