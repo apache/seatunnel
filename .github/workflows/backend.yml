@@ -300,6 +300,7 @@ jobs:
         with:
           timeout_minutes: 12
           max_attempts: 3
+          retry_on: error
           command: |
             ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"license.skipAddThirdParty"=true --no-snapshot-updates
         env:
@@ -359,7 +360,7 @@ jobs:
         with:
           timeout_minutes: 15
           max_attempts: 3
-          continue_on_error: true
+          retry_on: error
           command: |
             ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-seatunnel-e2e-base -am -Pci
         env:
@@ -388,7 +389,6 @@ jobs:
         with:
           timeout_minutes: 30
           max_attempts: 3
-          continue_on_error: true
           command: |
             ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :seatunnel-transforms-v2-e2e-part-1 -am -Pci
         env:
@@ -417,7 +417,6 @@ jobs:
         with:
           timeout_minutes: 30
           max_attempts: 3
-          continue_on_error: true
           command: |
             ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :seatunnel-transforms-v2-e2e-part-2 -am -Pci
         env:
