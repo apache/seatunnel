@@ -45,6 +45,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOBS_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOB_URL;
 
 public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCommand> {
 
@@ -71,9 +73,9 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     public void handle(HttpGetCommand httpGetCommand) {
         String uri = httpGetCommand.getURI();
         try {
-            if (uri.startsWith("/hazelcast/rest/maps/running-jobs")) {
+            if (uri.startsWith(RUNNING_JOBS_URL)) {
                 handleRunningJobsInfo(httpGetCommand);
-            } else if (uri.startsWith("/hazelcast/rest/maps/running-job")) {
+            } else if (uri.startsWith(RUNNING_JOB_URL)) {
                 handleJobInfoById(httpGetCommand, uri);
             } else {
                 original.handle(httpGetCommand);
