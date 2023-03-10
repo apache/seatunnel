@@ -25,7 +25,8 @@ public class LemlistConnectorException extends SeaTunnelRuntimeException {
         super(seaTunnelErrorCode, errorMessage);
     }
 
-    public LemlistConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+    public LemlistConnectorException(
+            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
         super(seaTunnelErrorCode, errorMessage, cause);
     }
 

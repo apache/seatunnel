@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.common.config;
 
+import org.apache.seatunnel.engine.common.Constant;
+
 import com.hazelcast.config.Config;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
@@ -38,15 +40,28 @@ public class SeaTunnelConfig {
     private Config hazelcastConfig;
 
     public SeaTunnelConfig() {
+        hazelcastConfig = new Config();
+        hazelcastConfig
+                .getNetworkConfig()
+                .getJoin()
+                .getMulticastConfig()
+                .setMulticastPort(Constant.DEFAULT_SEATUNNEL_MULTICAST_PORT);
+        hazelcastConfig.setClusterName(Constant.DEFAULT_SEATUNNEL_CLUSTER_NAME);
+        hazelcastConfig
+                .getHotRestartPersistenceConfig()
+                .setBaseDir(new File(seatunnelHome(), "recovery").getAbsoluteFile());
     }
 
     /**
-     * Returns the absolute path for `seatunnel.home` based from the system property
-     * {@link SeaTunnelProperties#SEATUNNEL_HOME}
+     * Returns the absolute path for `seatunnel.home` based from the system property {@link
+     * SeaTunnelProperties#SEATUNNEL_HOME}
      */
     private static String seatunnelHome() {
-        return new File(System.getProperty(SeaTunnelProperties.SEATUNNEL_HOME.getName(),
-            SeaTunnelProperties.SEATUNNEL_HOME.getDefaultValue())).getAbsolutePath();
+        return new File(
+                        System.getProperty(
+                                SeaTunnelProperties.SEATUNNEL_HOME.getName(),
+                                SeaTunnelProperties.SEATUNNEL_HOME.getDefaultValue()))
+                .getAbsolutePath();
     }
 
     public Config getHazelcastConfig() {

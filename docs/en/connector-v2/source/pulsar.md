@@ -11,13 +11,13 @@ Source connector for Apache Pulsar.
 - [x] [batch](../../concept/connector-v2-features.md)
 - [x] [stream](../../concept/connector-v2-features.md)
 - [x] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [schema projection](../../concept/connector-v2-features.md)
+- [ ] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
 ## Options
 
-| name                     | type    | required | default value |
+|           name           |  type   | required | default value |
 |--------------------------|---------|----------|---------------|
 | topic                    | String  | No       | -             |
 | topic-pattern            | String  | No       | -             |
@@ -130,7 +130,7 @@ Stop from the specified epoch timestamp (in milliseconds).
 
 the schema fields of upstream data.
 
-### common options 
+### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
@@ -151,4 +151,6 @@ source {
 ## Changelog
 
 ### 2.3.0-beta 2022-10-20
+
 - Add Pulsar Source Connector
+

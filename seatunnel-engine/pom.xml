@@ -13,23 +13,17 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
     <parent>
-        <artifactId>seatunnel</artifactId>
         <groupId>org.apache.seatunnel</groupId>
+        <artifactId>seatunnel</artifactId>
         <version>${revision}</version>
     </parent>
-    <modelVersion>4.0.0</modelVersion>
-    <packaging>pom</packaging>
     <artifactId>seatunnel-engine</artifactId>
-
-    <properties>
-        <!--  SeaTunnel Engine use     -->
-        <hazelcast.version>5.1</hazelcast.version>
-        <disruptor.version>3.4.4</disruptor.version>
-    </properties>
+    <packaging>pom</packaging>
+    <name>SeaTunnel : Engine :</name>
 
     <modules>
         <module>seatunnel-engine-client</module>
@@ -37,7 +31,14 @@
         <module>seatunnel-engine-server</module>
         <module>seatunnel-engine-core</module>
         <module>seatunnel-engine-storage</module>
+        <module>seatunnel-engine-serializer</module>
     </modules>
+
+    <properties>
+        <!--  SeaTunnel Engine use     -->
+        <hazelcast.version>5.1</hazelcast.version>
+        <disruptor.version>3.4.4</disruptor.version>
+    </properties>
 
     <dependencyManagement>
         <dependencies>
@@ -57,9 +58,9 @@
             <dependency>
                 <groupId>com.hazelcast</groupId>
                 <artifactId>hazelcast</artifactId>
-                <scope>test</scope>
                 <version>${hazelcast.version}</version>
                 <classifier>tests</classifier>
+                <scope>test</scope>
             </dependency>
             <!-- SeaTunnel engine use end -->
         </dependencies>

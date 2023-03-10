@@ -28,12 +28,14 @@ import org.apache.seatunnel.engine.server.task.record.Barrier;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 @Slf4j
-public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>> {
+public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
+        implements OneInputFlowLifeCycle<Record<?>> {
 
     private final TransformChainAction<T> action;
 
@@ -41,14 +43,31 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle implements On
 
     private final Collector<Record<?>> collector;
 
-    public TransformFlowLifeCycle(TransformChainAction<T> action,
-                                  SeaTunnelTask runningTask,
-                                  Collector<Record<?>> collector,
-                                  CompletableFuture<Void> completableFuture) {
+    public TransformFlowLifeCycle(
+            TransformChainAction<T> action,
+            SeaTunnelTask runningTask,
+            Collector<Record<?>> collector,
+            CompletableFuture<Void> completableFuture) {
         super(action, runningTask, completableFuture);
         this.action = action;
         this.transform = action.getTransforms();
         this.collector = collector;
+    }
+
+    @Override
+    public void open() throws Exception {
+        super.open();
+        for (SeaTunnelTransform<T> t : transform) {
+            try {
+                t.open();
+            } catch (Exception e) {
+                log.error(
+                        "Open transform: {} failed, cause: {}",
+                        t.getPluginName(),
+                        e.getMessage(),
+                        e);
+            }
+        }
     }
 
     @Override
@@ -90,5 +109,21 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle implements On
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
         // nothing
+    }
+
+    @Override
+    public void close() throws IOException {
+        for (SeaTunnelTransform<T> t : transform) {
+            try {
+                t.close();
+            } catch (Exception e) {
+                log.error(
+                        "Close transform: {} failed, cause: {}",
+                        t.getPluginName(),
+                        e.getMessage(),
+                        e);
+            }
+        }
+        super.close();
     }
 }

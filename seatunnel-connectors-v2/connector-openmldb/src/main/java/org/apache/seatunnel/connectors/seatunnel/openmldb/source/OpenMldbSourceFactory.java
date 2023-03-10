@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.openmldb.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.openmldb.config.OpenMldbConfig;
@@ -34,15 +35,26 @@ public class OpenMldbSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-            .required(OpenMldbConfig.CLUSTER_MODE)
-            .required(OpenMldbConfig.SQL)
-            .required(OpenMldbConfig.DATABASE)
-            .optional(OpenMldbConfig.SESSION_TIMEOUT)
-            .optional(OpenMldbConfig.REQUEST_TIMEOUT)
-            .conditional(OpenMldbConfig.CLUSTER_MODE, false,
-                OpenMldbConfig.HOST, OpenMldbConfig.PORT)
-            .conditional(OpenMldbConfig.CLUSTER_MODE, true,
-                OpenMldbConfig.ZK_HOST, OpenMldbConfig.ZK_PATH)
-            .build();
+                .required(OpenMldbConfig.CLUSTER_MODE)
+                .required(OpenMldbConfig.SQL)
+                .required(OpenMldbConfig.DATABASE)
+                .optional(OpenMldbConfig.SESSION_TIMEOUT)
+                .optional(OpenMldbConfig.REQUEST_TIMEOUT)
+                .conditional(
+                        OpenMldbConfig.CLUSTER_MODE,
+                        false,
+                        OpenMldbConfig.HOST,
+                        OpenMldbConfig.PORT)
+                .conditional(
+                        OpenMldbConfig.CLUSTER_MODE,
+                        true,
+                        OpenMldbConfig.ZK_HOST,
+                        OpenMldbConfig.ZK_PATH)
+                .build();
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return OpenMldbSource.class;
     }
 }

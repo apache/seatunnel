@@ -59,7 +59,7 @@ The default engine use by SeaTunnel is [SeaTunnel Engine](seatunnel-engine/READM
 
 - Sink Connectors supported [check out](https://seatunnel.apache.org/docs/category/sink-v2)
 
-- Transform supported [check out](https://seatunnel.apache.org/docs/transform/common-options/)
+- Transform supported [check out](docs/en/transform-v2)
 
 ### Here's a list of our connectors with their health status.[connector status](docs/en/Connector-v2-release-state.md)
 

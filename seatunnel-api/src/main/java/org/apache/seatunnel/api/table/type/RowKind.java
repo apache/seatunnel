@@ -111,7 +111,7 @@ public enum RowKind {
                 return DELETE;
             default:
                 throw new UnsupportedOperationException(
-                    "Unsupported byte value '" + value + "' for row kind.");
+                        "Unsupported byte value '" + value + "' for row kind.");
         }
     }
 }

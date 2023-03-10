@@ -23,10 +23,12 @@ import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import com.google.auto.service.AutoService;
 import lombok.NoArgsConstructor;
 
+import java.io.File;
+
 /**
- * This class is the base class of FlinkEnvironment test for new seatunnel connector API.
- * The before method will create a Flink cluster, and after method will close the Flink cluster.
- * You can use {@link Flink13Container#executeJob} to submit a seatunnel config and run a seatunnel job.
+ * This class is the base class of FlinkEnvironment test for new seatunnel connector API. The before
+ * method will create a Flink cluster, and after method will close the Flink cluster. You can use
+ * {@link Flink13Container#executeJob} to submit a seatunnel config and run a seatunnel job.
  */
 @NoArgsConstructor
 @AutoService(TestContainer.class)
@@ -44,12 +46,12 @@ public class Flink13Container extends AbstractTestFlinkContainer {
 
     @Override
     protected String getStartModuleName() {
-        return "seatunnel-flink-starter";
+        return "seatunnel-flink-starter" + File.separator + "seatunnel-flink-13-starter";
     }
 
     @Override
     protected String getStartShellName() {
-        return "start-seatunnel-flink-connector-v2.sh";
+        return "start-seatunnel-flink-13-connector-v2.sh";
     }
 
     @Override

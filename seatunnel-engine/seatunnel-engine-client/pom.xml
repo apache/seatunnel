@@ -13,17 +13,17 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
     <parent>
-        <artifactId>seatunnel-engine</artifactId>
         <groupId>org.apache.seatunnel</groupId>
+        <artifactId>seatunnel-engine</artifactId>
         <version>${revision}</version>
     </parent>
-    <modelVersion>4.0.0</modelVersion>
 
     <artifactId>seatunnel-engine-client</artifactId>
+    <name>SeaTunnel : Engine : Client</name>
 
     <dependencies>
         <dependency>
@@ -79,17 +79,18 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-shaded-hadoop-2</artifactId>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+            <version>${project.version}</version>
+            <classifier>optional</classifier>
             <scope>test</scope>
         </dependency>
-
 
         <dependency>
             <groupId>com.hazelcast</groupId>
             <artifactId>hazelcast</artifactId>
-            <scope>test</scope>
             <classifier>tests</classifier>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.awaitility</groupId>

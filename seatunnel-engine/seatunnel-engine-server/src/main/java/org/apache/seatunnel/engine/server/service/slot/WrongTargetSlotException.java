@@ -19,8 +19,7 @@ package org.apache.seatunnel.engine.server.service.slot;
 
 public class WrongTargetSlotException extends RuntimeException {
 
-    public WrongTargetSlotException() {
-    }
+    public WrongTargetSlotException() {}
 
     public WrongTargetSlotException(String message) {
         super(message);

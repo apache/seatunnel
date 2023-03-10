@@ -1,12 +1,16 @@
 ---
+
 sidebar_position: 2
----
+-------------------
 
 # Intro to config file
 
 In SeaTunnel, the most important thing is the Config file, through which users can customize their own data
 synchronization requirements to maximize the potential of SeaTunnel. So next, I will introduce you how to
 configure the Config file.
+
+The main format of the Config file is `hocon`, for more details of this format type you can refer to [HOCON-GUIDE](https://github.com/lightbend/config/blob/main/HOCON.md),
+BTW, we also support the `json` format, but you should know that the name of the config file should end with `.json`
 
 ## Example
 
@@ -18,21 +22,32 @@ config directory.
 
 The Config file will be similar to the one below.
 
+### hocon
+
 ```hocon
 env {
-  execution.parallelism = 1
+  job.mode = "BATCH"
 }
 
 source {
   FakeSource {
     result_table_name = "fake"
-    field_name = "name,age"
+    row.num = 100
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
+        card = "int"
+      }
+    }
   }
 }
 
 transform {
-  sql {
-    sql = "select name,age from fake"
+  Filter {
+    source_table_name = "fake"
+    result_table_name = "fake1"
+    fields = [name, card]
   }
 }
 
@@ -41,11 +56,58 @@ sink {
     host = "clickhouse:8123"
     database = "default"
     table = "seatunnel_console"
-    fields = ["name"]
+    fields = ["name", "card"]
     username = "default"
     password = ""
+    source_table_name = "fake1"
   }
 }
+```
+
+### json
+
+```json
+
+{
+  "env": {
+    "job.mode": "batch"
+  },
+  "source": [
+    {
+      "plugin_name": "FakeSource",
+      "result_table_name": "fake",
+      "row.num": 100,
+      "schema": {
+        "fields": {
+          "name": "string",
+          "age": "int",
+          "card": "int"
+        }
+      }
+    }
+  ],
+  "transform": [
+    {
+      "plugin_name": "Filter",
+      "source_table_name": "fake",
+      "result_table_name": "fake1",
+      "fields": ["name", "card"]
+    }
+  ],
+  "sink": [
+    {
+      "plugin_name": "Clickhouse",
+      "host": "clickhouse:8123",
+      "database": "default",
+      "table": "seatunnel_console",
+      "fields": ["name", "card"],
+      "username": "default",
+      "password": "",
+      "source_table_name": "fake1"
+    }
+  ]
+}
+
 ```
 
 As you can see, the Config file contains several sections: env, source, transform, sink. Different modules
@@ -74,13 +136,39 @@ course, this uses the word 'may', which means that we can also directly treat th
 directly from source to sink. Like below.
 
 ```hocon
-transform {
-  // no thing on here
+env {
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    result_table_name = "fake"
+    row.num = 100
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
+        card = "int"
+      }
+    }
+  }
+}
+
+sink {
+  Clickhouse {
+    host = "clickhouse:8123"
+    database = "default"
+    table = "seatunnel_console"
+    fields = ["name", "age", "card"]
+    username = "default"
+    password = ""
+    source_table_name = "fake1"
+  }
 }
 ```
 
 Like source, transform has specific parameters that belong to each module. The supported source at now check.
-The supported transform at now check [Transform of SeaTunnel](../transform)
+The supported transform at now check [Transform V2 of SeaTunnel](../transform-v2)
 
 ### sink
 

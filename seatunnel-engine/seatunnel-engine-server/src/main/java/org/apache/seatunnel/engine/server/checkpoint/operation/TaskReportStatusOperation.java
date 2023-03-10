@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.engine.server.checkpoint.operation;
 
+import org.apache.seatunnel.common.utils.RetryUtils;
+import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.CheckpointDataSerializerHook;
@@ -63,10 +66,21 @@ public class TaskReportStatusOperation extends Operation implements IdentifiedDa
     }
 
     @Override
-    public void run() {
-        ((SeaTunnelServer) getService())
-            .getCoordinatorService().getJobMaster(location.getJobId())
-            .getCheckpointManager()
-            .reportedTask(this);
+    public void run() throws Exception {
+        CoordinatorService coordinatorService =
+                ((SeaTunnelServer) getService()).getCoordinatorService();
+        RetryUtils.retryWithException(
+                () -> {
+                    coordinatorService
+                            .getJobMaster(location.getJobId())
+                            .getCheckpointManager()
+                            .reportedTask(this);
+                    return null;
+                },
+                new RetryUtils.RetryMaterial(
+                        Constant.OPERATION_RETRY_TIME,
+                        true,
+                        e -> true,
+                        Constant.OPERATION_RETRY_SLEEP));
     }
 }

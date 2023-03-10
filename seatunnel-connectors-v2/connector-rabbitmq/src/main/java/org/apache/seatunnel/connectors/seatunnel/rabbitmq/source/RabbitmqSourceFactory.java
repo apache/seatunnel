@@ -17,7 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema.SCHEMA;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+
+import com.google.auto.service.AutoService;
+
+import static org.apache.seatunnel.api.table.catalog.CatalogTableUtil.SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.AUTOMATIC_RECOVERY_ENABLED;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.CONNECTION_TIMEOUT;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.DELIVERY_TIMEOUT;
@@ -37,12 +44,6 @@ import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.Rabbitmq
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.USERNAME;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.VIRTUAL_HOST;
 
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-
-import com.google.auto.service.AutoService;
-
 @AutoService(Factory.class)
 public class RabbitmqSourceFactory implements TableSourceFactory {
     @Override
@@ -53,28 +54,26 @@ public class RabbitmqSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-            .required(
-                HOST,
-                PORT,
-                VIRTUAL_HOST,
-                QUEUE_NAME,
-                SCHEMA
-            )
-            .bundled(USERNAME, PASSWORD)
-            .optional(
-                URL,
-                ROUTING_KEY,
-                EXCHANGE,
-                NETWORK_RECOVERY_INTERVAL,
-                TOPOLOGY_RECOVERY_ENABLED,
-                AUTOMATIC_RECOVERY_ENABLED,
-                CONNECTION_TIMEOUT,
-                REQUESTED_CHANNEL_MAX,
-                REQUESTED_FRAME_MAX,
-                REQUESTED_HEARTBEAT,
-                PREFETCH_COUNT,
-                DELIVERY_TIMEOUT
-            )
-            .build();
+                .required(HOST, PORT, VIRTUAL_HOST, QUEUE_NAME, SCHEMA)
+                .bundled(USERNAME, PASSWORD)
+                .optional(
+                        URL,
+                        ROUTING_KEY,
+                        EXCHANGE,
+                        NETWORK_RECOVERY_INTERVAL,
+                        TOPOLOGY_RECOVERY_ENABLED,
+                        AUTOMATIC_RECOVERY_ENABLED,
+                        CONNECTION_TIMEOUT,
+                        REQUESTED_CHANNEL_MAX,
+                        REQUESTED_FRAME_MAX,
+                        REQUESTED_HEARTBEAT,
+                        PREFETCH_COUNT,
+                        DELIVERY_TIMEOUT)
+                .build();
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return RabbitmqSource.class;
     }
 }

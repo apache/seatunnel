@@ -9,7 +9,6 @@ Write data to Greenplum using [Jdbc connector](Jdbc.md).
 ## Key features
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [schema projection](../../concept/connector-v2-features.md)
 
 :::tip
 
@@ -40,3 +39,4 @@ Sink plugin common parameters, please refer to [Sink Common Options](common-opti
 ### 2.2.0-beta 2022-09-26
 
 - Add Greenplum Sink Connector
+

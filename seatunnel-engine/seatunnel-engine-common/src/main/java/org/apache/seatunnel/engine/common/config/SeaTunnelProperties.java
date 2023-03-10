@@ -19,13 +19,10 @@ package org.apache.seatunnel.engine.common.config;
 
 import com.hazelcast.spi.properties.HazelcastProperty;
 
-/**
- * Defines the names and default values for internal Hazelcast SeaTunnel properties.
- */
+/** Defines the names and default values for internal Hazelcast SeaTunnel properties. */
 public final class SeaTunnelProperties {
-    public static final HazelcastProperty SEATUNNEL_HOME = new HazelcastProperty("seatunnel.home", "");
+    public static final HazelcastProperty SEATUNNEL_HOME =
+            new HazelcastProperty("seatunnel.home", "");
 
-    private SeaTunnelProperties() {
-    }
+    private SeaTunnelProperties() {}
 }
-

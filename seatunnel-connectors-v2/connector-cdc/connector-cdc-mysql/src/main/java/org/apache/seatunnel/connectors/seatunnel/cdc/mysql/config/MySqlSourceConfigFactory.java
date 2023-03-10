@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.EmbeddedDatabaseHistory;
 
@@ -27,6 +25,8 @@ import io.debezium.connector.mysql.MySqlConnectorConfig;
 
 import java.util.Properties;
 import java.util.UUID;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /** A factory to initialize {@link MySqlSourceConfig}. */
 public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
@@ -71,12 +71,12 @@ public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
         props.setProperty("database.history.skip.unparseable.ddl", String.valueOf(true));
         props.setProperty("database.history.refer.ddl", String.valueOf(true));
 
-        props.setProperty("connect.timeout.ms", String.valueOf(connectTimeout.toMillis()));
+        props.setProperty("connect.timeout.ms", String.valueOf(connectTimeoutMillis));
         // the underlying debezium reader should always capture the schema changes and forward them.
         // Note: the includeSchemaChanges parameter is used to control emitting the schema record,
         // only DataStream API program need to emit the schema record, the Table API need not
 
-        //TODO Not yet supported
+        // TODO Not yet supported
         props.setProperty("include.schema.changes", String.valueOf(false));
         // disable the offset flush totally
         props.setProperty("offset.flush.interval.ms", String.valueOf(Long.MAX_VALUE));
@@ -123,9 +123,10 @@ public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
                 port,
                 username,
                 password,
+                originUrl,
                 fetchSize,
                 serverTimeZone,
-                connectTimeout,
+                connectTimeoutMillis,
                 connectMaxRetries,
                 connectionPoolSize);
     }

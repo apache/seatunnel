@@ -34,10 +34,6 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.DefaultConsumer;
-import com.rabbitmq.client.Delivery;
-import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -47,8 +43,14 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.shaded.org.apache.commons.lang3.tuple.Pair;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
+
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.DefaultConsumer;
+import com.rabbitmq.client.Delivery;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -64,8 +66,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import scala.Tuple2;
-
 @Slf4j
 public class RabbitmqIT extends TestSuiteBase implements TestResource {
     private static final String IMAGE = "rabbitmq:3-management";
@@ -76,8 +76,10 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
     private static final String USERNAME = "guest";
     private static final String PASSWORD = "guest";
 
-    private static final Tuple2<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET = generateTestDataSet();
-    private static final JsonSerializationSchema JSON_SERIALIZATION_SCHEMA = new JsonSerializationSchema(TEST_DATASET._1());
+    private static final Pair<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET =
+            generateTestDataSet();
+    private static final JsonSerializationSchema JSON_SERIALIZATION_SCHEMA =
+            new JsonSerializationSchema(TEST_DATASET.getKey());
 
     private GenericContainer<?> rabbitmqContainer;
     Connection connection;
@@ -86,87 +88,92 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
     @BeforeAll
     @Override
     public void startUp() throws Exception {
-        this.rabbitmqContainer = new GenericContainer<>(DockerImageName.parse(IMAGE))
-                .withNetwork(NETWORK)
-                .withNetworkAliases(HOST)
-                .withExposedPorts(PORT, 15672)
-                .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
-                .waitingFor(new HostPortWaitStrategy()
-                        .withStartupTimeout(Duration.ofMinutes(2)));
+        this.rabbitmqContainer =
+                new GenericContainer<>(DockerImageName.parse(IMAGE))
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(HOST)
+                        .withExposedPorts(PORT, 15672)
+                        .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
+                        .waitingFor(
+                                new HostPortWaitStrategy()
+                                        .withStartupTimeout(Duration.ofMinutes(2)));
         Startables.deepStart(Stream.of(rabbitmqContainer)).join();
         log.info("rabbitmq container started");
         this.initRabbitMQ();
     }
 
     private void initSourceData() throws IOException, InterruptedException {
-        List<SeaTunnelRow> rows = TEST_DATASET._2();
+        List<SeaTunnelRow> rows = TEST_DATASET.getValue();
         for (int i = 0; i < rows.size(); i++) {
-            rabbitmqClient.write(new String(JSON_SERIALIZATION_SCHEMA.serialize(rows.get(1))).getBytes(StandardCharsets.UTF_8));
+            rabbitmqClient.write(
+                    new String(JSON_SERIALIZATION_SCHEMA.serialize(rows.get(1)))
+                            .getBytes(StandardCharsets.UTF_8));
         }
     }
 
-    private static Tuple2<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
+    private static Pair<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
 
-        SeaTunnelRowType rowType = new SeaTunnelRowType(
-                new String[]{
-                    "id",
-                    "c_map",
-                    "c_array",
-                    "c_string",
-                    "c_boolean",
-                    "c_tinyint",
-                    "c_smallint",
-                    "c_int",
-                    "c_bigint",
-                    "c_float",
-                    "c_double",
-                    "c_decimal",
-                    "c_bytes",
-                    "c_date",
-                    "c_timestamp"
-                },
-                new SeaTunnelDataType[]{
-                    BasicType.LONG_TYPE,
-                    new MapType(BasicType.STRING_TYPE, BasicType.SHORT_TYPE),
-                    ArrayType.BYTE_ARRAY_TYPE,
-                    BasicType.STRING_TYPE,
-                    BasicType.BOOLEAN_TYPE,
-                    BasicType.BYTE_TYPE,
-                    BasicType.SHORT_TYPE,
-                    BasicType.INT_TYPE,
-                    BasicType.LONG_TYPE,
-                    BasicType.FLOAT_TYPE,
-                    BasicType.DOUBLE_TYPE,
-                    new DecimalType(2, 1),
-                    PrimitiveByteArrayType.INSTANCE,
-                    LocalTimeType.LOCAL_DATE_TYPE,
-                    LocalTimeType.LOCAL_DATE_TIME_TYPE
-                }
-        );
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {
+                            "id",
+                            "c_map",
+                            "c_array",
+                            "c_string",
+                            "c_boolean",
+                            "c_tinyint",
+                            "c_smallint",
+                            "c_int",
+                            "c_bigint",
+                            "c_float",
+                            "c_double",
+                            "c_decimal",
+                            "c_bytes",
+                            "c_date",
+                            "c_timestamp"
+                        },
+                        new SeaTunnelDataType[] {
+                            BasicType.LONG_TYPE,
+                            new MapType(BasicType.STRING_TYPE, BasicType.SHORT_TYPE),
+                            ArrayType.BYTE_ARRAY_TYPE,
+                            BasicType.STRING_TYPE,
+                            BasicType.BOOLEAN_TYPE,
+                            BasicType.BYTE_TYPE,
+                            BasicType.SHORT_TYPE,
+                            BasicType.INT_TYPE,
+                            BasicType.LONG_TYPE,
+                            BasicType.FLOAT_TYPE,
+                            BasicType.DOUBLE_TYPE,
+                            new DecimalType(2, 1),
+                            PrimitiveByteArrayType.INSTANCE,
+                            LocalTimeType.LOCAL_DATE_TYPE,
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE
+                        });
 
         List<SeaTunnelRow> rows = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
-            SeaTunnelRow row = new SeaTunnelRow(
-                 new Object[]{
-                     Long.valueOf(1),
-                     Collections.singletonMap("key", Short.parseShort("1")),
-                     new Byte[]{Byte.parseByte("1")},
-                     "string",
-                     Boolean.FALSE,
-                     Byte.parseByte("1"),
-                     Short.parseShort("1"),
-                     Integer.parseInt("1"),
-                     Long.parseLong("1"),
-                     Float.parseFloat("1.1"),
-                     Double.parseDouble("1.1"),
-                     BigDecimal.valueOf(11, 1),
-                     "test".getBytes(),
-                     LocalDate.now(),
-                     LocalDateTime.now()
-                 });
+            SeaTunnelRow row =
+                    new SeaTunnelRow(
+                            new Object[] {
+                                Long.valueOf(1),
+                                Collections.singletonMap("key", Short.parseShort("1")),
+                                new Byte[] {Byte.parseByte("1")},
+                                "string",
+                                Boolean.FALSE,
+                                Byte.parseByte("1"),
+                                Short.parseShort("1"),
+                                Integer.parseInt("1"),
+                                Long.parseLong("1"),
+                                Float.parseFloat("1.1"),
+                                Double.parseDouble("1.1"),
+                                BigDecimal.valueOf(11, 1),
+                                "test".getBytes(),
+                                LocalDate.now(),
+                                LocalDateTime.now()
+                            });
             rows.add(row);
         }
-        return Tuple2.apply(rowType, rows);
+        return Pair.of(rowType, rows);
     }
 
     private void initRabbitMQ() {
@@ -211,21 +218,21 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testRabbitMQ(TestContainer container) throws Exception {
-        //send data to source queue before executeJob start in every testContainer
+        // send data to source queue before executeJob start in every testContainer
         initSourceData();
 
-        //init consumer client before executeJob start in every testContainer
-        RabbitmqClient sinkRabbitmqClient =  initSinkRabbitMQ();
+        // init consumer client before executeJob start in every testContainer
+        RabbitmqClient sinkRabbitmqClient = initSinkRabbitMQ();
 
         Set<String> resultSet = new HashSet<>();
-        Handover  handover = new Handover<>();
+        Handover handover = new Handover<>();
         DefaultConsumer consumer = sinkRabbitmqClient.getQueueingConsumer(handover);
         sinkRabbitmqClient.getChannel().basicConsume(SINK_QUEUE_NAME, true, consumer);
         // assert execute Job code
         Container.ExecResult execResult = container.executeJob("/rabbitmq-to-rabbitmq.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        //consume data when every  testContainer finished
-        //try to poll five times
+        // consume data when every  testContainer finished
+        // try to poll five times
         for (int i = 0; i < 5; i++) {
             Optional<Delivery> deliveryOptional = handover.pollNext();
             if (deliveryOptional.isPresent()) {
@@ -236,8 +243,15 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
         }
         // close to prevent rabbitmq client consumer in the next TestContainer to consume
         sinkRabbitmqClient.close();
-        //assert source and sink data
+        // assert source and sink data
         Assertions.assertTrue(resultSet.size() > 0);
-        Assertions.assertTrue(resultSet.stream().findAny().get().equals(new String(JSON_SERIALIZATION_SCHEMA.serialize(TEST_DATASET._2().get(1)))));
+        Assertions.assertTrue(
+                resultSet.stream()
+                        .findAny()
+                        .get()
+                        .equals(
+                                new String(
+                                        JSON_SERIALIZATION_SCHEMA.serialize(
+                                                TEST_DATASET.getValue().get(1)))));
     }
 }

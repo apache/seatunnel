@@ -17,13 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.config;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.commons.lang3.StringUtils;
 
 import lombok.Data;
-import org.apache.commons.lang3.StringUtils;
 import redis.clients.jedis.ConnectionPoolConfig;
 import redis.clients.jedis.HostAndPort;
 import redis.clients.jedis.Jedis;
@@ -62,15 +63,17 @@ public class RedisParameters implements Serializable {
         }
         // set mode
         if (config.hasPath(RedisConfig.MODE.key())) {
-            this.mode = RedisConfig.RedisMode
-                    .valueOf(config.getString(RedisConfig.MODE.key()).toUpperCase());
+            this.mode =
+                    RedisConfig.RedisMode.valueOf(
+                            config.getString(RedisConfig.MODE.key()).toUpperCase());
         } else {
             this.mode = RedisConfig.MODE.defaultValue();
         }
         // set hash key mode
         if (config.hasPath(RedisConfig.HASH_KEY_PARSE_MODE.key())) {
-            this.hashKeyParseMode = RedisConfig.HashKeyParseMode
-                    .valueOf(config.getString(RedisConfig.HASH_KEY_PARSE_MODE.key()).toUpperCase());
+            this.hashKeyParseMode =
+                    RedisConfig.HashKeyParseMode.valueOf(
+                            config.getString(RedisConfig.HASH_KEY_PARSE_MODE.key()).toUpperCase());
         } else {
             this.hashKeyParseMode = RedisConfig.HASH_KEY_PARSE_MODE.defaultValue();
         }
@@ -91,8 +94,10 @@ public class RedisParameters implements Serializable {
             String dataType = config.getString(RedisConfig.DATA_TYPE.key());
             this.redisDataType = RedisDataType.valueOf(dataType.toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new RedisConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                    "Redis source connector only support these data types [key, hash, list, set, zset]", e);
+            throw new RedisConnectorException(
+                    CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                    "Redis source connector only support these data types [key, hash, list, set, zset]",
+                    e);
         }
     }
 
@@ -115,28 +120,35 @@ public class RedisParameters implements Serializable {
                     for (String redisNode : redisNodes) {
                         String[] splits = redisNode.split(":");
                         if (splits.length != 2) {
-                            throw new RedisConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
-                                    "Invalid redis node information," +
-                                    "redis node information must like as the following: [host:port]");
+                            throw new RedisConnectorException(
+                                    CommonErrorCode.ILLEGAL_ARGUMENT,
+                                    "Invalid redis node information,"
+                                            + "redis node information must like as the following: [host:port]");
                         }
-                        HostAndPort hostAndPort = new HostAndPort(splits[0], Integer.parseInt(splits[1]));
+                        HostAndPort hostAndPort =
+                                new HostAndPort(splits[0], Integer.parseInt(splits[1]));
                         nodes.add(hostAndPort);
                     }
                 }
                 ConnectionPoolConfig connectionPoolConfig = new ConnectionPoolConfig();
                 JedisCluster jedisCluster;
                 if (StringUtils.isNotBlank(auth)) {
-                    jedisCluster = new JedisCluster(nodes, JedisCluster.DEFAULT_TIMEOUT,
-                            JedisCluster.DEFAULT_TIMEOUT, JedisCluster.DEFAULT_MAX_ATTEMPTS,
-                            auth, connectionPoolConfig);
+                    jedisCluster =
+                            new JedisCluster(
+                                    nodes,
+                                    JedisCluster.DEFAULT_TIMEOUT,
+                                    JedisCluster.DEFAULT_TIMEOUT,
+                                    JedisCluster.DEFAULT_MAX_ATTEMPTS,
+                                    auth,
+                                    connectionPoolConfig);
                 } else {
                     jedisCluster = new JedisCluster(nodes);
                 }
                 return new JedisWrapper(jedisCluster);
             default:
                 // do nothing
-                throw new RedisConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
-                        "Not support this redis mode");
+                throw new RedisConnectorException(
+                        CommonErrorCode.UNSUPPORTED_OPERATION, "Not support this redis mode");
         }
     }
 }

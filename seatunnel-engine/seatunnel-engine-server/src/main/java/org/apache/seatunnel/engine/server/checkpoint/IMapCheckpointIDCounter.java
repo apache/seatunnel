@@ -27,22 +27,28 @@ import com.hazelcast.map.IMap;
 
 import java.util.concurrent.CompletableFuture;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public class IMapCheckpointIDCounter implements CheckpointIDCounter {
     private final Integer pipelineId;
     private final IMap<Integer, Long> checkpointIdMap;
 
-    public IMapCheckpointIDCounter(Integer pipelineId,
-                                   IMap<Integer, Long> checkpointIdMap) {
+    public IMapCheckpointIDCounter(Integer pipelineId, IMap<Integer, Long> checkpointIdMap) {
         this.pipelineId = pipelineId;
         this.checkpointIdMap = checkpointIdMap;
     }
 
     @Override
     public void start() throws Exception {
-        RetryUtils.retryWithException(() -> {
-            return checkpointIdMap.putIfAbsent(pipelineId, INITIAL_CHECKPOINT_ID);
-        }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-            exception -> exception instanceof HazelcastInstanceNotActiveException, Constant.OPERATION_RETRY_SLEEP));
+        RetryUtils.retryWithException(
+                () -> {
+                    return checkpointIdMap.putIfAbsent(pipelineId, INITIAL_CHECKPOINT_ID);
+                },
+                new RetryUtils.RetryMaterial(
+                        Constant.OPERATION_RETRY_TIME,
+                        true,
+                        exception -> exception instanceof HazelcastInstanceNotActiveException,
+                        Constant.OPERATION_RETRY_SLEEP));
     }
 
     @Override
@@ -55,9 +61,9 @@ public class IMapCheckpointIDCounter implements CheckpointIDCounter {
 
     @Override
     public long getAndIncrement() throws Exception {
-        Long currentId = checkpointIdMap.get(pipelineId);
-        checkpointIdMap.put(pipelineId, currentId + 1);
-        return currentId;
+        Long nextId = checkpointIdMap.compute(pipelineId, (k, v) -> v == null ? null : v + 1);
+        checkNotNull(nextId);
+        return nextId - 1;
     }
 
     @Override

@@ -43,21 +43,32 @@ public class HttpParameter implements Serializable {
         this.setUrl(pluginConfig.getString(HttpConfig.URL.key()));
         // set method
         if (pluginConfig.hasPath(HttpConfig.METHOD.key())) {
-            HttpRequestMethod httpRequestMethod = HttpRequestMethod.valueOf(pluginConfig.getString(HttpConfig.METHOD.key()).toUpperCase());
+            HttpRequestMethod httpRequestMethod =
+                    HttpRequestMethod.valueOf(
+                            pluginConfig.getString(HttpConfig.METHOD.key()).toUpperCase());
             this.setMethod(httpRequestMethod);
         } else {
             this.setMethod(HttpConfig.METHOD.defaultValue());
         }
         // set headers
         if (pluginConfig.hasPath(HttpConfig.HEADERS.key())) {
-            this.setHeaders(pluginConfig.getConfig(HttpConfig.HEADERS.key()).entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> String.valueOf(entry.getValue().unwrapped()), (v1, v2) -> v2)));
+            this.setHeaders(
+                    pluginConfig.getConfig(HttpConfig.HEADERS.key()).entrySet().stream()
+                            .collect(
+                                    Collectors.toMap(
+                                            Map.Entry::getKey,
+                                            entry -> String.valueOf(entry.getValue().unwrapped()),
+                                            (v1, v2) -> v2)));
         }
         // set params
         if (pluginConfig.hasPath(HttpConfig.PARAMS.key())) {
-            this.setParams(pluginConfig.getConfig(HttpConfig.PARAMS.key())
-                    .entrySet()
-                    .stream()
-                    .collect(Collectors.toMap(Map.Entry::getKey, entry -> String.valueOf(entry.getValue().unwrapped()), (v1, v2) -> v2)));
+            this.setParams(
+                    pluginConfig.getConfig(HttpConfig.PARAMS.key()).entrySet().stream()
+                            .collect(
+                                    Collectors.toMap(
+                                            Map.Entry::getKey,
+                                            entry -> String.valueOf(entry.getValue().unwrapped()),
+                                            (v1, v2) -> v2)));
         }
         // set body
         if (pluginConfig.hasPath(HttpConfig.BODY.key())) {
@@ -73,10 +84,12 @@ public class HttpParameter implements Serializable {
         if (pluginConfig.hasPath(HttpConfig.RETRY.key())) {
             this.setRetry(pluginConfig.getInt(HttpConfig.RETRY.key()));
             if (pluginConfig.hasPath(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS.key())) {
-                this.setRetryBackoffMultiplierMillis(pluginConfig.getInt(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS.key()));
+                this.setRetryBackoffMultiplierMillis(
+                        pluginConfig.getInt(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS.key()));
             }
             if (pluginConfig.hasPath(HttpConfig.RETRY_BACKOFF_MAX_MS.key())) {
-                this.setRetryBackoffMaxMillis(pluginConfig.getInt(HttpConfig.RETRY_BACKOFF_MAX_MS.key()));
+                this.setRetryBackoffMaxMillis(
+                        pluginConfig.getInt(HttpConfig.RETRY_BACKOFF_MAX_MS.key()));
             }
         }
     }

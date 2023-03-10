@@ -20,14 +20,15 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbParameters;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.data.DefaultSerializer;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.data.Serializer;
+
+import org.bson.Document;
 
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
-import org.bson.Document;
 
 import java.io.IOException;
 
@@ -47,9 +48,8 @@ public class MongodbSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private final boolean useSimpleTextSchema;
 
-    public MongodbSinkWriter(SeaTunnelRowType rowType,
-                             boolean useSimpleTextSchema,
-                             MongodbParameters params) {
+    public MongodbSinkWriter(
+            SeaTunnelRowType rowType, boolean useSimpleTextSchema, MongodbConfig params) {
         this.rowType = rowType;
         this.database = params.getDatabase();
         this.collection = params.getCollection();

@@ -17,12 +17,11 @@
 
 package org.apache.seatunnel.common.constants;
 
-/**
- * The type of SeaTunnel plugin.
- */
+/** The type of SeaTunnel plugin. */
 public enum PluginType {
-
-    SOURCE("source"), TRANSFORM("transform"), SINK("sink");
+    SOURCE("source"),
+    TRANSFORM("transform"),
+    SINK("sink");
 
     private final String type;
 

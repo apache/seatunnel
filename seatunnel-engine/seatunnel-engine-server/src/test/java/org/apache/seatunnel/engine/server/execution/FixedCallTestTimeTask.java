@@ -29,15 +29,15 @@ public class FixedCallTestTimeTask implements Task {
     CopyOnWriteArrayList<Long> lagList;
     AtomicBoolean stop;
 
-    public FixedCallTestTimeTask(long callTime, String name, AtomicBoolean stop, CopyOnWriteArrayList<Long> lagList) {
+    public FixedCallTestTimeTask(
+            long callTime, String name, AtomicBoolean stop, CopyOnWriteArrayList<Long> lagList) {
         this.callTime = callTime;
         this.name = name;
         this.stop = stop;
         this.lagList = lagList;
     }
 
-    @NonNull
-    @Override
+    @NonNull @Override
     public ProgressState call() {
         if (currentTime != 0) {
             lagList.add(System.currentTimeMillis() - currentTime);
@@ -55,8 +55,7 @@ public class FixedCallTestTimeTask implements Task {
         return ProgressState.MADE_PROGRESS;
     }
 
-    @NonNull
-    @Override
+    @NonNull @Override
     public Long getTaskID() {
         return (long) this.hashCode();
     }

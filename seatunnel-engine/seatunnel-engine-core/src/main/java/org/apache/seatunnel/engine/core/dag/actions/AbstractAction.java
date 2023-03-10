@@ -34,21 +34,34 @@ public abstract class AbstractAction implements Action {
 
     private final Set<URL> jarUrls;
 
-    protected AbstractAction(long id, @NonNull String name, @NonNull List<Action> upstreams, @NonNull Set<URL> jarUrls) {
+    private final Config config;
+
+    protected AbstractAction(long id, @NonNull String name, @NonNull Set<URL> jarUrls) {
+        this(id, name, new ArrayList<>(), jarUrls);
+    }
+
+    protected AbstractAction(
+            long id,
+            @NonNull String name,
+            @NonNull List<Action> upstreams,
+            @NonNull Set<URL> jarUrls) {
+        this(id, name, upstreams, jarUrls, null);
+    }
+
+    protected AbstractAction(
+            long id,
+            @NonNull String name,
+            @NonNull List<Action> upstreams,
+            @NonNull Set<URL> jarUrls,
+            Config config) {
         this.id = id;
         this.name = name;
         this.upstreams = upstreams;
         this.jarUrls = jarUrls;
+        this.config = config;
     }
 
-    protected AbstractAction(long id, @NonNull String name, @NonNull Set<URL> jarUrls) {
-        this.id = id;
-        this.name = name;
-        this.jarUrls = jarUrls;
-    }
-
-    @NonNull
-    @Override
+    @NonNull @Override
     public String getName() {
         return name;
     }
@@ -58,8 +71,7 @@ public abstract class AbstractAction implements Action {
         this.name = name;
     }
 
-    @NonNull
-    @Override
+    @NonNull @Override
     public List<Action> getUpstream() {
         return upstreams;
     }
@@ -87,5 +99,10 @@ public abstract class AbstractAction implements Action {
     @Override
     public Set<URL> getJarUrls() {
         return jarUrls;
+    }
+
+    @Override
+    public Config getConfig() {
+        return config;
     }
 }

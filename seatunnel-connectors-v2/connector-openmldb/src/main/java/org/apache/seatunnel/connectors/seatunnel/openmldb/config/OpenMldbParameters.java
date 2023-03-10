@@ -62,11 +62,13 @@ public class OpenMldbParameters implements Serializable {
         }
         // set session timeout
         if (pluginConfig.hasPath(OpenMldbConfig.SESSION_TIMEOUT.key())) {
-            openMldbParameters.sessionTimeout = pluginConfig.getInt(OpenMldbConfig.SESSION_TIMEOUT.key());
+            openMldbParameters.sessionTimeout =
+                    pluginConfig.getInt(OpenMldbConfig.SESSION_TIMEOUT.key());
         }
         // set request timeout
         if (pluginConfig.hasPath(OpenMldbConfig.REQUEST_TIMEOUT.key())) {
-            openMldbParameters.requestTimeout = pluginConfig.getInt(OpenMldbConfig.REQUEST_TIMEOUT.key());
+            openMldbParameters.requestTimeout =
+                    pluginConfig.getInt(OpenMldbConfig.REQUEST_TIMEOUT.key());
         }
         return openMldbParameters;
     }

@@ -11,17 +11,18 @@ Read data from MongoDB.
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [schema projection](../../concept/connector-v2-features.md)
+- [x] [column projection](../../concept/connector-v2-features.md)
 - [ ] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
 ## Options
 
-| name           | type   | required | default value |
+|      name      |  type  | required | default value |
 |----------------|--------|----------|---------------|
 | uri            | string | yes      | -             |
 | database       | string | yes      | -             |
 | collection     | string | yes      | -             |
+| matchQuery     | string | no       | -             |
 | schema         | object | yes      | -             |
 | common-options | config | no       | -             |
 
@@ -37,11 +38,15 @@ MongoDB database
 
 MongoDB collection
 
+### matchQuery [string]
+
+MatchQuery is a JSON string that specifies the selection criteria using query operators for the documents to be returned from the collection.
+
 ### schema [object]
 
 #### fields [Config]
 
-Because `MongoDB` does not have the concept of `schema`, when engine reads `MongoDB` , it will sample `MongoDB` data and infer the `schema` . In fact, this process will be slow and may be inaccurate. This parameter can be manually specified. Avoid these problems. 
+Because `MongoDB` does not have the concept of `schema`, when engine reads `MongoDB` , it will sample `MongoDB` data and infer the `schema` . In fact, this process will be slow and may be inaccurate. This parameter can be manually specified. Avoid these problems.
 
 such as:
 
@@ -55,7 +60,7 @@ schema {
 }
 ```
 
-### common options 
+### common options
 
 Source Plugin common parameters, refer to [Source Plugin](common-options.md) for details
 
@@ -66,6 +71,7 @@ mongodb {
     uri = "mongodb://username:password@127.0.0.1:27017/mypost?retryWrites=true&writeConcern=majority"
     database = "mydatabase"
     collection = "mycollection"
+    matchQuery = "{"id":3}"
     schema {
       fields {
         id = int
@@ -86,3 +92,4 @@ mongodb {
 ### Next Version
 
 - common-options is not a required option
+

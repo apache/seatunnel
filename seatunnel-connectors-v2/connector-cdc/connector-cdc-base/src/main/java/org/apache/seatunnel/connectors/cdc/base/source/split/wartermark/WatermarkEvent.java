@@ -19,11 +19,12 @@ package org.apache.seatunnel.connectors.cdc.base.source.split.wartermark;
 
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 
-import io.debezium.util.SchemaNameAdjuster;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
+
+import io.debezium.util.SchemaNameAdjuster;
 
 import java.util.Map;
 import java.util.Optional;

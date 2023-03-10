@@ -17,11 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.sink;
 
-import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.ACCESS_KEY_ID;
-import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.REGION;
-import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.SECRET_ACCESS_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.TABLE;
-import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.URL;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
@@ -38,11 +34,15 @@ import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.exception.Amazon
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import com.google.auto.service.AutoService;
 
 import java.io.IOException;
+
+import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.ACCESS_KEY_ID;
+import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.REGION;
+import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.SECRET_ACCESS_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.URL;
 
 @AutoService(SeaTunnelSink.class)
 public class AmazonDynamoDBSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
@@ -58,10 +58,19 @@ public class AmazonDynamoDBSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, URL.key(), TABLE.key(), REGION.key(), ACCESS_KEY_ID.key(), SECRET_ACCESS_KEY.key());
+        CheckResult result =
+                CheckConfigUtil.checkAllExists(
+                        pluginConfig,
+                        URL.key(),
+                        TABLE.key(),
+                        REGION.key(),
+                        ACCESS_KEY_ID.key(),
+                        SECRET_ACCESS_KEY.key());
         if (!result.isSuccess()) {
-            throw new AmazonDynamoDBConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+            throw new AmazonDynamoDBConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SINK, result.getMsg()));
         }
         amazondynamodbSourceOptions = new AmazonDynamoDBSourceOptions(pluginConfig);
@@ -78,7 +87,8 @@ public class AmazonDynamoDBSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) throws IOException {
+    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
+            throws IOException {
         return new AmazonDynamoDBWriter(amazondynamodbSourceOptions, rowType);
     }
 }

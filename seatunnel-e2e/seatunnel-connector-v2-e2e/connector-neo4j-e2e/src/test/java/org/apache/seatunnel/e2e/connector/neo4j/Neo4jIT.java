@@ -17,17 +17,10 @@
 
 package org.apache.seatunnel.e2e.connector.neo4j;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.neo4j.driver.Values.parameters;
-
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
-import com.google.common.collect.Lists;
-import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -48,6 +41,9 @@ import org.testcontainers.shaded.org.awaitility.Awaitility;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.google.common.collect.Lists;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.net.URI;
 import java.time.LocalDate;
@@ -55,6 +51,11 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.neo4j.driver.Values.parameters;
 
 @Slf4j
 public class Neo4jIT extends TestSuiteBase implements TestResource {
@@ -75,26 +76,35 @@ public class Neo4jIT extends TestSuiteBase implements TestResource {
     @Override
     public void startUp() throws Exception {
         DockerImageName imageName = DockerImageName.parse(CONTAINER_IMAGE);
-        container = new GenericContainer<>(imageName)
-            .withNetwork(NETWORK)
-            .withNetworkAliases(CONTAINER_HOST)
-            .withExposedPorts(HTTP_PORT, BOLT_PORT)
-            .withEnv("NEO4J_AUTH", CONTAINER_NEO4J_USERNAME + "/" + CONTAINER_NEO4J_PASSWORD)
-            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(CONTAINER_IMAGE)));
+        container =
+                new GenericContainer<>(imageName)
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(CONTAINER_HOST)
+                        .withExposedPorts(HTTP_PORT, BOLT_PORT)
+                        .withEnv(
+                                "NEO4J_AUTH",
+                                CONTAINER_NEO4J_USERNAME + "/" + CONTAINER_NEO4J_PASSWORD)
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(
+                                        DockerLoggerFactory.getLogger(CONTAINER_IMAGE)));
         container.setPortBindings(
-            Lists.newArrayList(String.format("%s:%s", HTTP_PORT, HTTP_PORT),
-                String.format("%s:%s", BOLT_PORT, BOLT_PORT)));
+                Lists.newArrayList(
+                        String.format("%s:%s", HTTP_PORT, HTTP_PORT),
+                        String.format("%s:%s", BOLT_PORT, BOLT_PORT)));
         Startables.deepStart(Stream.of(container)).join();
         log.info("container started");
-        Awaitility.given().ignoreExceptions()
-            .await()
-            .atMost(30, TimeUnit.SECONDS)
-            .untilAsserted(this::initConnection);
+        Awaitility.given()
+                .ignoreExceptions()
+                .await()
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(this::initConnection);
     }
 
     private void initConnection() {
         neo4jDriver =
-            GraphDatabase.driver(CONTAINER_URI, AuthTokens.basic(CONTAINER_NEO4J_USERNAME, CONTAINER_NEO4J_PASSWORD));
+                GraphDatabase.driver(
+                        CONTAINER_URI,
+                        AuthTokens.basic(CONTAINER_NEO4J_USERNAME, CONTAINER_NEO4J_PASSWORD));
         neo4jSession = neo4jDriver.session(SessionConfig.forDatabase("neo4j"));
     }
 
@@ -113,11 +123,10 @@ public class Neo4jIT extends TestSuiteBase implements TestResource {
 
         // given
         neo4jSession.run(
-            "CREATE (t:Test {string:'foo', boolean:true, long:2147483648, double:1.7976931348623157E308, " +
-                "byteArray:$byteArray, date:date('2022-10-07'), localTime:localtime('20:04:00'), localDateTime:localdatetime('2022-10-07T20:04:00'), " +
-                "list:[0, 1], int:2147483647, float:$float})",
-            parameters("byteArray", new byte[]{(byte) 1}, "float", Float.MAX_VALUE)
-        );
+                "CREATE (t:Test {string:'foo', boolean:true, long:2147483648, double:1.7976931348623157E308, "
+                        + "byteArray:$byteArray, date:date('2022-10-07'), localTime:localtime('20:04:00'), localDateTime:localdatetime('2022-10-07T20:04:00'), "
+                        + "list:[0, 1], int:2147483647, float:$float})",
+                parameters("byteArray", new byte[] {(byte) 1}, "float", Float.MAX_VALUE));
         // when
         Container.ExecResult execResult = container.executeJob("/neo4j/neo4j_to_neo4j.conf");
         // then
@@ -130,9 +139,11 @@ public class Neo4jIT extends TestSuiteBase implements TestResource {
         assertTrue(tt.get("boolean").asBoolean());
         assertEquals(2147483648L, tt.get("long").asLong());
         assertEquals(Double.MAX_VALUE, tt.get("double").asDouble());
-        assertArrayEquals(new byte[]{(byte) 1}, tt.get("byteArray").asByteArray());
+        assertArrayEquals(new byte[] {(byte) 1}, tt.get("byteArray").asByteArray());
         assertEquals(LocalDate.parse("2022-10-07"), tt.get("date").asLocalDate());
-        assertEquals(LocalDateTime.parse("2022-10-07T20:04:00"), tt.get("localDateTime").asLocalDateTime());
+        assertEquals(
+                LocalDateTime.parse("2022-10-07T20:04:00"),
+                tt.get("localDateTime").asLocalDateTime());
         final ArrayList<Integer> expectedList = new ArrayList<>();
         expectedList.add(0);
         expectedList.add(1);

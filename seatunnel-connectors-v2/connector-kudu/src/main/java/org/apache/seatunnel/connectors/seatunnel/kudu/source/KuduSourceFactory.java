@@ -17,15 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig.COLUMNS_LIST;
-import static org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig.KUDU_MASTER;
-import static org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig.TABLE_NAME;
-
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
 import com.google.auto.service.AutoService;
+
+import static org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig.COLUMNS_LIST;
+import static org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig.KUDU_MASTER;
+import static org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig.TABLE_NAME;
 
 @AutoService(Factory.class)
 public class KuduSourceFactory implements TableSourceFactory {
@@ -38,5 +39,10 @@ public class KuduSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder().required(KUDU_MASTER, TABLE_NAME, COLUMNS_LIST).build();
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return KuduSource.class;
     }
 }

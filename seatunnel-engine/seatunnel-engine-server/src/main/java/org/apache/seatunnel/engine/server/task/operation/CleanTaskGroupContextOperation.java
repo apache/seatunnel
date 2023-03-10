@@ -28,12 +28,12 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
 
-public class CleanTaskGroupContextOperation extends Operation implements IdentifiedDataSerializable {
+public class CleanTaskGroupContextOperation extends Operation
+        implements IdentifiedDataSerializable {
 
     private TaskGroupLocation taskGroupLocation;
 
-    public CleanTaskGroupContextOperation() {
-    }
+    public CleanTaskGroupContextOperation() {}
 
     public CleanTaskGroupContextOperation(TaskGroupLocation taskGroupLocation) {
         this.taskGroupLocation = taskGroupLocation;
@@ -42,10 +42,9 @@ public class CleanTaskGroupContextOperation extends Operation implements Identif
     @Override
     public void run() {
 
-        //remove TaskGroupContext for TaskExecutionService
+        // remove TaskGroupContext for TaskExecutionService
         SeaTunnelServer service = getService();
         service.getTaskExecutionService().notifyCleanTaskGroupContext(taskGroupLocation);
-
     }
 
     @Override

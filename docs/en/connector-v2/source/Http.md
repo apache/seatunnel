@@ -11,14 +11,14 @@ Used to read data from Http.
 - [x] [batch](../../concept/connector-v2-features.md)
 - [x] [stream](../../concept/connector-v2-features.md)
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [schema projection](../../concept/connector-v2-features.md)
+- [ ] [column projection](../../concept/connector-v2-features.md)
 - [ ] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
 ## Options
 
-| name                        | type   | required | default value |
-| --------------------------- | ------ | -------- | ------------- |
+|            name             |  type  | required | default value |
+|-----------------------------|--------|----------|---------------|
 | url                         | String | Yes      | -             |
 | schema                      | Config | No       | -             |
 | schema.fields               | Config | No       | -             |
@@ -103,7 +103,7 @@ schema {
 
 connector will generate data as the following:
 
-| code | data        | success |
+| code |    data     | success |
 |------|-------------|---------|
 | 200  | get success | true    |
 
@@ -121,9 +121,9 @@ upstream data is the following:
 
 connector will generate data as the following:
 
-| content |
-|---------|
-| {"code":  200, "data":  "get success", "success":  true}        |
+|                         content                          |
+|----------------------------------------------------------|
+| {"code":  200, "data":  "get success", "success":  true} |
 
 ### schema [Config]
 
@@ -162,6 +162,7 @@ If your return data looks something like this.
   "expensive": 10
 }
 ```
+
 You can configure `content_field = "$.store.book.*"` and the result returned looks like this:
 
 ```json
@@ -180,6 +181,7 @@ You can configure `content_field = "$.store.book.*"` and the result returned loo
   }
 ]
 ```
+
 Then you can get the desired result with a simpler schema,like
 
 ```hocon
@@ -211,7 +213,7 @@ This parameter helps you configure the schema,so this parameter must be used wit
 If your data looks something like this:
 
 ```json
-{
+{ 
   "store": {
     "book": [
       {
@@ -296,3 +298,4 @@ Http {
 ### new version
 
 - [Feature][Connector-V2][HTTP] Use json-path parsing ([3510](https://github.com/apache/incubator-seatunnel/pull/3510))
+

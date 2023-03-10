@@ -23,9 +23,10 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan.
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan.IcebergScanSplitPlanner;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFileScanTaskSplit;
 
+import org.apache.iceberg.Table;
+
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.iceberg.Table;
 
 import java.util.Collections;
 import java.util.List;
@@ -38,12 +39,15 @@ public class IcebergStreamSplitEnumerator extends AbstractSplitEnumerator {
     private final IcebergScanContext icebergScanContext;
     private final AtomicReference<IcebergEnumeratorPosition> enumeratorPosition;
 
-    public IcebergStreamSplitEnumerator(@NonNull SourceSplitEnumerator.Context<IcebergFileScanTaskSplit> context,
-                                        @NonNull IcebergScanContext icebergScanContext,
-                                        @NonNull SourceConfig sourceConfig,
-                                        IcebergSplitEnumeratorState restoreState) {
-        super(context, sourceConfig, restoreState != null ?
-            restoreState.getPendingSplits() : Collections.emptyMap());
+    public IcebergStreamSplitEnumerator(
+            @NonNull SourceSplitEnumerator.Context<IcebergFileScanTaskSplit> context,
+            @NonNull IcebergScanContext icebergScanContext,
+            @NonNull SourceConfig sourceConfig,
+            IcebergSplitEnumeratorState restoreState) {
+        super(
+                context,
+                sourceConfig,
+                restoreState != null ? restoreState.getPendingSplits() : Collections.emptyMap());
         this.icebergScanContext = icebergScanContext;
         this.enumeratorPosition = new AtomicReference<>();
         if (restoreState != null) {
@@ -59,8 +63,7 @@ public class IcebergStreamSplitEnumerator extends AbstractSplitEnumerator {
     @Override
     public void handleSplitRequest(int subtaskId) {
         synchronized (this) {
-            if (pendingSplits.isEmpty() ||
-                pendingSplits.get(subtaskId) == null) {
+            if (pendingSplits.isEmpty() || pendingSplits.get(subtaskId) == null) {
                 refreshPendingSplits();
             }
             assignPendingSplits(Collections.singleton(subtaskId));
@@ -69,12 +72,16 @@ public class IcebergStreamSplitEnumerator extends AbstractSplitEnumerator {
 
     @Override
     protected List<IcebergFileScanTaskSplit> loadNewSplits(Table table) {
-        IcebergEnumerationResult result = IcebergScanSplitPlanner.planStreamSplits(
-            table, icebergScanContext, enumeratorPosition.get());
+        IcebergEnumerationResult result =
+                IcebergScanSplitPlanner.planStreamSplits(
+                        table, icebergScanContext, enumeratorPosition.get());
         if (!Objects.equals(result.getFromPosition(), enumeratorPosition.get())) {
-            log.info("Skip {} loaded splits because the scan starting position doesn't match " +
-                    "the current enumerator position: enumerator position = {}, scan starting position = {}",
-                result.getSplits().size(), enumeratorPosition.get(), result.getFromPosition());
+            log.info(
+                    "Skip {} loaded splits because the scan starting position doesn't match "
+                            + "the current enumerator position: enumerator position = {}, scan starting position = {}",
+                    result.getSplits().size(),
+                    enumeratorPosition.get(),
+                    result.getFromPosition());
             return Collections.emptyList();
         } else {
             enumeratorPosition.set(result.getToPosition());

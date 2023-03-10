@@ -33,9 +33,7 @@ public class LastCheckpointNotifyOperation extends Operation implements Identifi
     private long jobId;
     private TaskLocation taskLocation;
 
-    public LastCheckpointNotifyOperation() {
-
-    }
+    public LastCheckpointNotifyOperation() {}
 
     public LastCheckpointNotifyOperation(long jobId, TaskLocation taskLocation) {
         this.jobId = jobId;
@@ -45,7 +43,10 @@ public class LastCheckpointNotifyOperation extends Operation implements Identifi
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        server.getCoordinatorService().getJobMaster(jobId).getCheckpointManager().readyToClose(taskLocation);
+        server.getCoordinatorService()
+                .getJobMaster(jobId)
+                .getCheckpointManager()
+                .readyToClose(taskLocation);
     }
 
     @Override

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.task.operation;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 
@@ -28,13 +29,13 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
 
-public class CheckTaskGroupIsExecutingOperation extends Operation implements IdentifiedDataSerializable {
+public class CheckTaskGroupIsExecutingOperation extends Operation
+        implements IdentifiedDataSerializable {
 
     private TaskGroupLocation taskGroupLocation;
     private Boolean response;
 
-    public CheckTaskGroupIsExecutingOperation() {
-    }
+    public CheckTaskGroupIsExecutingOperation() {}
 
     public CheckTaskGroupIsExecutingOperation(TaskGroupLocation taskGroupLocation) {
         this.taskGroupLocation = taskGroupLocation;
@@ -43,7 +44,12 @@ public class CheckTaskGroupIsExecutingOperation extends Operation implements Ide
     @Override
     public void run() {
         SeaTunnelServer server = getService();
-        response = server.getTaskExecutionService().getExecutionContext(taskGroupLocation) != null;
+        try {
+            response =
+                    server.getTaskExecutionService().getExecutionContext(taskGroupLocation) != null;
+        } catch (TaskGroupContextNotFoundException e) {
+            response = false;
+        }
     }
 
     @Override

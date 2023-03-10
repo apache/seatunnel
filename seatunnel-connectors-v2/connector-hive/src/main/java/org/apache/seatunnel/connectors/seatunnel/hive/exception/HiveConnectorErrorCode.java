@@ -22,7 +22,8 @@ import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 public enum HiveConnectorErrorCode implements SeaTunnelErrorCode {
     GET_HDFS_NAMENODE_HOST_FAILED("HIVE-01", "Get name node host from table location failed"),
     INITIALIZE_HIVE_METASTORE_CLIENT_FAILED("HIVE-02", "Initialize hive metastore client failed"),
-    GET_HIVE_TABLE_INFORMATION_FAILED("HIVE-03", "Get hive table information from hive metastore service failed");
+    GET_HIVE_TABLE_INFORMATION_FAILED(
+            "HIVE-03", "Get hive table information from hive metastore service failed");
 
     private final String code;
     private final String description;

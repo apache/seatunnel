@@ -31,10 +31,9 @@ public final class ChangeEventRecords implements RecordsWithSplitIds<SourceRecor
     private Iterator<SourceRecords> recordsForCurrentSplit;
     private final Iterator<SourceRecords> recordsForSplit;
     private final Set<String> finishedSnapshotSplits;
+
     public ChangeEventRecords(
-        String splitId,
-        Iterator recordsForSplit,
-        Set<String> finishedSnapshotSplits) {
+            String splitId, Iterator recordsForSplit, Set<String> finishedSnapshotSplits) {
         this.splitId = splitId;
         this.recordsForSplit = recordsForSplit;
         this.finishedSnapshotSplits = finishedSnapshotSplits;
@@ -71,7 +70,7 @@ public final class ChangeEventRecords implements RecordsWithSplitIds<SourceRecor
     }
 
     public static ChangeEventRecords forRecords(
-        final String splitId, final Iterator<SourceRecords> recordsForSplit) {
+            final String splitId, final Iterator<SourceRecords> recordsForSplit) {
         return new ChangeEventRecords(splitId, recordsForSplit, Collections.emptySet());
     }
 

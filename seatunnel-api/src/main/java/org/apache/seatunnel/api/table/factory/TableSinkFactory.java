@@ -20,11 +20,12 @@ package org.apache.seatunnel.api.table.factory;
 import org.apache.seatunnel.api.table.connector.TableSink;
 
 /**
- * This is an SPI interface, used to create {@link TableSink}. Each plugin need to have it own implementation.
+ * This is an SPI interface, used to create {@link TableSink}. Each plugin need to have it own
+ * implementation.
  *
- * @param <IN>                    row type
- * @param <StateT>                state type
- * @param <CommitInfoT>           commit info type
+ * @param <IN> row type
+ * @param <StateT> state type
+ * @param <CommitInfoT> commit info type
  * @param <AggregatedCommitInfoT> aggregated commit info type
  */
 public interface TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends Factory {
@@ -35,7 +36,8 @@ public interface TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT
      * @param context TableFactoryContext
      * @return
      */
-    default TableSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> createSink(TableFactoryContext context) {
+    default TableSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> createSink(
+            TableFactoryContext context) {
         throw new UnsupportedOperationException("unsupported now");
     }
 }

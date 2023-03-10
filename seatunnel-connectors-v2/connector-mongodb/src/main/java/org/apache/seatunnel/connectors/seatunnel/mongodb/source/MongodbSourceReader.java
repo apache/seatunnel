@@ -19,32 +19,37 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.source;
 
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbParameters;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.data.DefaultDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.data.Deserializer;
+
+import org.bson.BsonDocument;
+import org.bson.Document;
+import org.bson.conversions.Bson;
 
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.model.Projections;
 import lombok.extern.slf4j.Slf4j;
-import org.bson.Document;
-import org.bson.conversions.Bson;
 
 import java.io.IOException;
+import java.util.Optional;
 
 @Slf4j
-public class MongodbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
+public class MongodbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
+        implements SupportColumnProjection {
 
     private final SingleSplitReaderContext context;
 
     private MongoClient client;
 
-    private final MongodbParameters params;
+    private final MongodbConfig params;
 
     private final Deserializer deserializer;
 
@@ -52,10 +57,11 @@ public class MongodbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
 
     private final boolean useSimpleTextSchema;
 
-    MongodbSourceReader(SingleSplitReaderContext context,
-                        MongodbParameters params,
-                        SeaTunnelRowType rowType,
-                        boolean useSimpleTextSchema) {
+    MongodbSourceReader(
+            SingleSplitReaderContext context,
+            MongodbConfig params,
+            SeaTunnelRowType rowType,
+            boolean useSimpleTextSchema) {
         this.context = context;
         this.params = params;
         this.useSimpleTextSchema = useSimpleTextSchema;
@@ -64,9 +70,9 @@ public class MongodbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
             this.projectionFields = null;
         } else {
             this.deserializer = new DefaultDeserializer(rowType);
-            this.projectionFields = Projections.fields(
-                Projections.include(rowType.getFieldNames()),
-                Projections.excludeId());
+            this.projectionFields =
+                    Projections.fields(
+                            Projections.include(rowType.getFieldNames()), Projections.excludeId());
         }
     }
 
@@ -84,15 +90,19 @@ public class MongodbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        try (MongoCursor<Document> mongoCursor = client.getDatabase(params.getDatabase())
-            .getCollection(params.getCollection())
-            .find()
-            .projection(projectionFields)
-            .iterator()) {
+        try (MongoCursor<Document> mongoCursor =
+                client.getDatabase(params.getDatabase())
+                        .getCollection(params.getCollection())
+                        .find(
+                                Optional.ofNullable(params.getMatchQuery()).isPresent()
+                                        ? BsonDocument.parse(params.getMatchQuery())
+                                        : new BsonDocument())
+                        .projection(projectionFields)
+                        .iterator()) {
             while (mongoCursor.hasNext()) {
                 Document document = mongoCursor.next();
                 if (useSimpleTextSchema) {
-                    output.collect(new SeaTunnelRow(new Object[]{document.toJson()}));
+                    output.collect(new SeaTunnelRow(new Object[] {document.toJson()}));
                 } else {
                     output.collect(deserializer.deserialize(document));
                 }
@@ -105,5 +115,4 @@ public class MongodbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
             }
         }
     }
-
 }

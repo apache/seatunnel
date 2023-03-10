@@ -17,11 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink;
 
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+
+import com.google.auto.service.AutoService;
+
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.BULK_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.CLICKHOUSE_PREFIX;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.CLICKHOUSE_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.PRIMARY_KEY;
@@ -30,12 +35,6 @@ import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Clickh
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.SUPPORT_UPSERT;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.TABLE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.USERNAME;
-
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSinkFactory;
-
-import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
 public class ClickhouseSinkFactory implements TableSinkFactory {
@@ -47,16 +46,16 @@ public class ClickhouseSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-            .required(HOST, DATABASE, TABLE)
-            .optional(CLICKHOUSE_PREFIX,
-                BULK_SIZE,
-                SPLIT_MODE,
-                FIELDS,
-                SHARDING_KEY,
-                PRIMARY_KEY,
-                SUPPORT_UPSERT,
-                ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE)
-            .bundled(USERNAME, PASSWORD)
-            .build();
+                .required(HOST, DATABASE, TABLE)
+                .optional(
+                        CLICKHOUSE_CONFIG,
+                        BULK_SIZE,
+                        SPLIT_MODE,
+                        SHARDING_KEY,
+                        PRIMARY_KEY,
+                        SUPPORT_UPSERT,
+                        ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE)
+                .bundled(USERNAME, PASSWORD)
+                .build();
     }
 }

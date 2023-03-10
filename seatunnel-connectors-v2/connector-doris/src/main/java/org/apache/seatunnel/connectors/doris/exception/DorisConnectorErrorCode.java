@@ -20,7 +20,9 @@ package org.apache.seatunnel.connectors.doris.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum DorisConnectorErrorCode implements SeaTunnelErrorCode {
-    WRITE_RECORDS_FAILED("DORIS-01", "Writing records to Doris failed.");
+    STREAM_LOAD_FAILED("Doris-01", "stream load error"),
+    COMMIT_FAILED("Doris-02", "commit error"),
+    REST_SERVICE_FAILED("Doris-03", "rest service error");
 
     private final String code;
     private final String description;
@@ -39,5 +41,4 @@ public enum DorisConnectorErrorCode implements SeaTunnelErrorCode {
     public String getDescription() {
         return description;
     }
-
 }

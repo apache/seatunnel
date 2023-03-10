@@ -17,16 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.client;
 
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.CLOSE_CONNECTION_FAILED;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.CREATE_RABBITMQ_CLIENT_FAILED;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.INIT_SSL_CONTEXT_FAILED;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.PARSE_URI_FAILED;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.SEND_MESSAGE_FAILED;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.SETUP_SSL_FACTORY_FAILED;
-
 import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
+
+import org.apache.commons.lang3.StringUtils;
 
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
@@ -35,13 +30,19 @@ import com.rabbitmq.client.DefaultConsumer;
 import com.rabbitmq.client.Delivery;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.TimeoutException;
+
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.CLOSE_CONNECTION_FAILED;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.CREATE_RABBITMQ_CLIENT_FAILED;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.INIT_SSL_CONTEXT_FAILED;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.PARSE_URI_FAILED;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.SEND_MESSAGE_FAILED;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.SETUP_SSL_FACTORY_FAILED;
 
 @Slf4j
 @AllArgsConstructor
@@ -57,15 +58,19 @@ public class RabbitmqClient {
             this.connectionFactory = getConnectionFactory();
             this.connection = connectionFactory.newConnection();
             this.channel = connection.createChannel();
-            //set channel prefetch count
+            // set channel prefetch count
             if (config.getPrefetchCount() != null) {
                 channel.basicQos(config.getPrefetchCount(), true);
             }
             setupQueue();
         } catch (Exception e) {
-            throw new RabbitmqConnectorException(CREATE_RABBITMQ_CLIENT_FAILED, String.format("Error while create RMQ client with %s at %s", config.getQueueName(), config.getHost()), e);
+            throw new RabbitmqConnectorException(
+                    CREATE_RABBITMQ_CLIENT_FAILED,
+                    String.format(
+                            "Error while create RMQ client with %s at %s",
+                            config.getQueueName(), config.getHost()),
+                    e);
         }
-
     }
 
     public Channel getChannel() {
@@ -128,20 +133,24 @@ public class RabbitmqClient {
             if (StringUtils.isEmpty(config.getRoutingKey())) {
                 channel.basicPublish("", config.getQueueName(), null, msg);
             } else {
-                //not support set returnListener
+                // not support set returnListener
                 channel.basicPublish(
-                        config.getExchange(),
-                        config.getRoutingKey(),
-                        false,
-                        false,
-                        null,
-                        msg);
+                        config.getExchange(), config.getRoutingKey(), false, false, null, msg);
             }
         } catch (IOException e) {
             if (config.isLogFailuresOnly()) {
-                log.error("Cannot send RMQ message {} at {}", config.getQueueName(), config.getHost(), e);
+                log.error(
+                        "Cannot send RMQ message {} at {}",
+                        config.getQueueName(),
+                        config.getHost(),
+                        e);
             } else {
-                throw new RabbitmqConnectorException(SEND_MESSAGE_FAILED, String.format("Cannot send RMQ message %s at %s", config.getQueueName(), config.getHost()), e);
+                throw new RabbitmqConnectorException(
+                        SEND_MESSAGE_FAILED,
+                        String.format(
+                                "Cannot send RMQ message %s at %s",
+                                config.getQueueName(), config.getHost()),
+                        e);
             }
         }
     }
@@ -169,7 +178,12 @@ public class RabbitmqClient {
             t = e;
         }
         if (t != null) {
-            throw new RabbitmqConnectorException(CLOSE_CONNECTION_FAILED, String.format("Error while closing RMQ connection with  %s at %s", config.getQueueName(), config.getHost()), t);
+            throw new RabbitmqConnectorException(
+                    CLOSE_CONNECTION_FAILED,
+                    String.format(
+                            "Error while closing RMQ connection with  %s at %s",
+                            config.getQueueName(), config.getHost()),
+                    t);
         }
     }
 
@@ -182,5 +196,4 @@ public class RabbitmqClient {
     private void declareQueueDefaults(Channel channel, String queueName) throws IOException {
         channel.queueDeclare(queueName, true, false, false, null);
     }
-
 }

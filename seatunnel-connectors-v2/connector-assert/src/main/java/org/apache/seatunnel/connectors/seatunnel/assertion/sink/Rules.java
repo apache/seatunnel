@@ -31,5 +31,4 @@ public class Rules {
 
     @OptionMark(description = "field rules for field validation")
     private List<FieldRule> fieldRules;
-
 }

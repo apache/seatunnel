@@ -17,29 +17,21 @@
 
 package org.apache.seatunnel.api.configuration;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 
 import java.util.Objects;
 
 public class Option<T> {
-    /**
-     * The current key for that config option.
-     */
+    /** The current key for that config option. */
     private final String key;
 
-    /**
-     * Type of the value that this Option describes.
-     */
+    /** Type of the value that this Option describes. */
     private final TypeReference<T> typeReference;
 
-    /**
-     * The default value for this option.
-     */
+    /** The default value for this option. */
     private final T defaultValue;
 
-    /**
-     * The description for this option.
-     */
+    /** The description for this option. */
     String description = "";
 
     public Option(String key, TypeReference<T> typeReference, T defaultValue) {
@@ -78,7 +70,8 @@ public class Option<T> {
             return false;
         }
         Option<?> that = (Option<?>) obj;
-        return Objects.equals(this.key, that.key) && Objects.equals(this.defaultValue, that.defaultValue);
+        return Objects.equals(this.key, that.key)
+                && Objects.equals(this.defaultValue, that.defaultValue);
     }
 
     @Override

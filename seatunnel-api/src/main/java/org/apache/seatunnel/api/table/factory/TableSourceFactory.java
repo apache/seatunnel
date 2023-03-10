@@ -17,13 +17,15 @@
 
 package org.apache.seatunnel.api.table.factory;
 
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.connector.TableSource;
 
 import java.io.Serializable;
 
 /**
- * This is an SPI interface, used to create {@link TableSource}. Each plugin need to have it own implementation.
+ * This is an SPI interface, used to create {@link TableSource}. Each plugin need to have it own
+ * implementation.
  */
 public interface TableSourceFactory extends Factory {
 
@@ -32,8 +34,14 @@ public interface TableSourceFactory extends Factory {
      *
      * @param context TableFactoryContext
      */
-    default <T, SplitT extends SourceSplit, StateT extends Serializable> TableSource<T, SplitT, StateT> createSource(
-        TableFactoryContext context) {
+    default <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableFactoryContext context) {
         throw new UnsupportedOperationException("unsupported now");
     }
+
+    /**
+     * TODO: Implement SupportParallelism in the TableSourceFactory instead of the SeaTunnelSource,
+     * Then deprecated the method
+     */
+    Class<? extends SeaTunnelSource> getSourceClass();
 }

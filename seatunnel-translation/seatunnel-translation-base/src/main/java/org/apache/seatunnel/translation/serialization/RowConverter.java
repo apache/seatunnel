@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +34,7 @@ import java.util.Map;
  *
  * @param <T> engine row
  */
-public abstract class RowConverter<T> {
+public abstract class RowConverter<T> implements Serializable {
     protected final SeaTunnelDataType<?> dataType;
 
     public RowConverter(SeaTunnelDataType<?> dataType) {
@@ -42,7 +43,10 @@ public abstract class RowConverter<T> {
 
     public void validate(SeaTunnelRow seaTunnelRow) throws IOException {
         if (!(dataType instanceof SeaTunnelRowType)) {
-            throw new UnsupportedOperationException(String.format("The data type don't support validation: %s. ", dataType.getClass().getSimpleName()));
+            throw new UnsupportedOperationException(
+                    String.format(
+                            "The data type don't support validation: %s. ",
+                            dataType.getClass().getSimpleName()));
         }
         SeaTunnelDataType<?>[] fieldTypes = ((SeaTunnelRowType) dataType).getFieldTypes();
         List<String> errors = new ArrayList<>();
@@ -52,8 +56,12 @@ public abstract class RowConverter<T> {
             field = seaTunnelRow.getField(i);
             fieldType = fieldTypes[i];
             if (!validate(field, fieldType)) {
-                errors.add(String.format("The SQL type '%s' don't support '%s', the class of the expected data type is '%s'.",
-                    fieldType.getSqlType(), field.getClass(), fieldType.getTypeClass()));
+                errors.add(
+                        String.format(
+                                "The SQL type '%s' don't support '%s', the class of the expected data type is '%s'.",
+                                fieldType.getSqlType(),
+                                field.getClass(),
+                                fieldType.getTypeClass()));
             }
         }
         if (errors.size() > 0) {
@@ -93,7 +101,7 @@ public abstract class RowConverter<T> {
                 } else {
                     Map.Entry<?, ?> entry = mapField.entrySet().stream().findFirst().get();
                     return validate(entry.getKey(), mapType.getKeyType())
-                        && validate(entry.getValue(), mapType.getValueType());
+                            && validate(entry.getValue(), mapType.getValueType());
                 }
             case ROW:
                 if (!(field instanceof SeaTunnelRow)) {

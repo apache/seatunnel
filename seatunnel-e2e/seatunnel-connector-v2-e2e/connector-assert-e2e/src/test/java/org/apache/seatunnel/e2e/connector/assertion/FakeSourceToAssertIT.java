@@ -29,8 +29,10 @@ import java.io.IOException;
 public class FakeSourceToAssertIT extends TestSuiteBase {
 
     @TestTemplate
-    public void testFakeSourceToAssertSink(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/assertion/fakesource_to_assert.conf");
+    public void testFakeSourceToAssertSink(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/assertion/fakesource_to_assert.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

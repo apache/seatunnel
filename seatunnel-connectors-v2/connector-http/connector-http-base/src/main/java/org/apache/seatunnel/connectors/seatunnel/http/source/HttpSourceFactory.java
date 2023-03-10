@@ -18,9 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.http.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
 
@@ -49,10 +50,16 @@ public class HttpSourceFactory implements TableSourceFactory {
                 .optional(HttpConfig.JSON_FIELD)
                 .optional(HttpConfig.CONTENT_FIELD)
                 .conditional(HttpConfig.METHOD, HttpRequestMethod.POST, HttpConfig.BODY)
-                .conditional(HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, SeaTunnelSchema.SCHEMA)
+                .conditional(
+                        HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, CatalogTableUtil.SCHEMA)
                 .optional(HttpConfig.POLL_INTERVAL_MILLS)
                 .optional(HttpConfig.RETRY)
                 .optional(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS)
                 .optional(HttpConfig.RETRY_BACKOFF_MAX_MS);
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return HttpSource.class;
     }
 }

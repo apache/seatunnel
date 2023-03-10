@@ -20,7 +20,8 @@ package org.apache.seatunnel.engine.server.task.flow;
 import org.apache.seatunnel.api.transform.Collector;
 
 /**
- * A processing component that sends a piece of data from within the engine to other components at a time
+ * A processing component that sends a piece of data from within the engine to other components at a
+ * time
  *
  * @see OneInputFlowLifeCycle
  * @see SourceFlowLifeCycle
@@ -28,5 +29,4 @@ import org.apache.seatunnel.api.transform.Collector;
 public interface OneOutputFlowLifeCycle<T> extends FlowLifeCycle {
 
     void collect(Collector<T> collector) throws Exception;
-
 }

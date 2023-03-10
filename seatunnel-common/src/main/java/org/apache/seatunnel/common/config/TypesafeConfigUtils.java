@@ -23,22 +23,24 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
 import lombok.NonNull;
 
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 public final class TypesafeConfigUtils {
 
-    private TypesafeConfigUtils() {
-    }
+    private TypesafeConfigUtils() {}
 
     /**
      * Extract sub config with fixed prefix
      *
-     * @param source     config source
-     * @param prefix     config prefix
+     * @param source config source
+     * @param prefix config prefix
      * @param keepPrefix true if keep prefix
+     * @deprecated use org.apache.seatunnel.api.configuration.Option interface instead
      */
+    @Deprecated
     public static Config extractSubConfig(Config source, String prefix, boolean keepPrefix) {
 
         // use LinkedHashMap to keep insertion order
@@ -84,37 +86,42 @@ public final class TypesafeConfigUtils {
         return hasConfig;
     }
 
-    public static Config extractSubConfigThrowable(Config source, String prefix, boolean keepPrefix) {
-
-        Config config = extractSubConfig(source, prefix, keepPrefix);
-
-        if (config.isEmpty()) {
-            throw new ConfigRuntimeException("config is empty");
-        }
-
-        return config;
-    }
-
     @SuppressWarnings("unchecked")
-    public static <T> T getConfig(final Config config, final String configKey, @NonNull final T defaultValue) {
+    public static <T> T getConfig(
+            final Config config, final String configKey, @NonNull final T defaultValue) {
         if (defaultValue.getClass().equals(Long.class)) {
-            return config.hasPath(configKey) ? (T) Long.valueOf(config.getString(configKey)) : defaultValue;
+            return config.hasPath(configKey)
+                    ? (T) Long.valueOf(config.getString(configKey))
+                    : defaultValue;
         }
         if (defaultValue.getClass().equals(Integer.class)) {
-            return config.hasPath(configKey) ? (T) Integer.valueOf(config.getString(configKey)) : defaultValue;
+            return config.hasPath(configKey)
+                    ? (T) Integer.valueOf(config.getString(configKey))
+                    : defaultValue;
         }
         if (defaultValue.getClass().equals(String.class)) {
             return config.hasPath(configKey) ? (T) config.getString(configKey) : defaultValue;
         }
         if (defaultValue.getClass().equals(Boolean.class)) {
-            return config.hasPath(configKey) ? (T) Boolean.valueOf(config.getString(configKey)) : defaultValue;
+            return config.hasPath(configKey)
+                    ? (T) Boolean.valueOf(config.getString(configKey))
+                    : defaultValue;
         }
         throw new RuntimeException("Unsupported config type, configKey: " + configKey);
     }
 
-    public static List<? extends Config> getConfigList(Config config,
-                                                       String configKey,
-                                                       @NonNull List<? extends Config> defaultValue) {
+    public static List<? extends Config> getConfigList(
+            Config config, String configKey, @NonNull List<? extends Config> defaultValue) {
         return config.hasPath(configKey) ? config.getConfigList(configKey) : defaultValue;
+    }
+
+    public static Map<String, String> configToMap(Config config) {
+        Map<String, String> configMap = new HashMap<>();
+        config.entrySet()
+                .forEach(
+                        entry -> {
+                            configMap.put(entry.getKey(), entry.getValue().unwrapped().toString());
+                        });
+        return configMap;
     }
 }

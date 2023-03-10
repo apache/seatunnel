@@ -11,21 +11,21 @@ Read data from Apache Cassandra.
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [schema projection](../../concept/connector-v2-features.md)
+- [x] [column projection](../../concept/connector-v2-features.md)
 - [ ] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
 ## Options
 
-| name                    | type   | required | default value |
-|-------------------------|--------|----------|---------------|
-| host                    | String | Yes      | -             |
-| keyspace                | String | Yes      | -             |
-| cql                     | String | Yes      | -             |
-| username                | String | No       | -             |
-| password                | String | No       | -             |
-| datacenter              | String | No       | datacenter1   |
-| consistency_level       | String | No       | LOCAL_ONE     |
+|       name        |  type  | required | default value |
+|-------------------|--------|----------|---------------|
+| host              | String | Yes      | -             |
+| keyspace          | String | Yes      | -             |
+| cql               | String | Yes      | -             |
+| username          | String | No       | -             |
+| password          | String | No       | -             |
+| datacenter        | String | No       | datacenter1   |
+| consistency_level | String | No       | LOCAL_ONE     |
 
 ### host [string]
 
@@ -77,6 +77,4 @@ source {
 ### next version
 
 - Add Cassandra Source Connector
-
-
 

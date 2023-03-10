@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.source;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -28,8 +30,6 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.source.
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.source.ElasticsearchRecord;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.source.SeaTunnelRowDeserializer;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -40,7 +40,8 @@ import java.util.List;
 import java.util.Map;
 
 @Slf4j
-public class ElasticsearchSourceReader implements SourceReader<SeaTunnelRow, ElasticsearchSourceSplit> {
+public class ElasticsearchSourceReader
+        implements SourceReader<SeaTunnelRow, ElasticsearchSourceSplit> {
 
     SourceReader.Context context;
 
@@ -55,7 +56,8 @@ public class ElasticsearchSourceReader implements SourceReader<SeaTunnelRow, Ela
 
     private final long pollNextWaitTime = 1000L;
 
-    public ElasticsearchSourceReader(SourceReader.Context context, Config pluginConfig, SeaTunnelRowType rowTypeInfo) {
+    public ElasticsearchSourceReader(
+            SourceReader.Context context, Config pluginConfig, SeaTunnelRowType rowTypeInfo) {
         this.context = context;
         this.pluginConfig = pluginConfig;
         this.deserializer = new DefaultSeaTunnelRowDeserializer(rowTypeInfo);
@@ -75,12 +77,19 @@ public class ElasticsearchSourceReader implements SourceReader<SeaTunnelRow, Ela
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         synchronized (output.getCheckpointLock()) {
             ElasticsearchSourceSplit split = splits.poll();
-            if (split != null){
+            if (split != null) {
                 SourceIndexInfo sourceIndexInfo = split.getSourceIndexInfo();
-                ScrollResult scrollResult = esRestClient.searchByScroll(sourceIndexInfo.getIndex(), sourceIndexInfo.getSource(), sourceIndexInfo.getScrollTime(), sourceIndexInfo.getScrollSize());
+                ScrollResult scrollResult =
+                        esRestClient.searchByScroll(
+                                sourceIndexInfo.getIndex(),
+                                sourceIndexInfo.getSource(),
+                                sourceIndexInfo.getScrollTime(),
+                                sourceIndexInfo.getScrollSize());
                 outputFromScrollResult(scrollResult, sourceIndexInfo.getSource(), output);
                 while (scrollResult.getDocs() != null && scrollResult.getDocs().size() > 0) {
-                    scrollResult = esRestClient.searchWithScrollId(scrollResult.getScrollId(), sourceIndexInfo.getScrollTime());
+                    scrollResult =
+                            esRestClient.searchWithScrollId(
+                                    scrollResult.getScrollId(), sourceIndexInfo.getScrollTime());
                     outputFromScrollResult(scrollResult, sourceIndexInfo.getSource(), output);
                 }
             } else if (noMoreSplit) {
@@ -93,9 +102,11 @@ public class ElasticsearchSourceReader implements SourceReader<SeaTunnelRow, Ela
         }
     }
 
-    private void outputFromScrollResult(ScrollResult scrollResult, List<String> source, Collector<SeaTunnelRow> output) {
+    private void outputFromScrollResult(
+            ScrollResult scrollResult, List<String> source, Collector<SeaTunnelRow> output) {
         for (Map<String, Object> doc : scrollResult.getDocs()) {
-            SeaTunnelRow seaTunnelRow = deserializer.deserialize(new ElasticsearchRecord(doc, source));
+            SeaTunnelRow seaTunnelRow =
+                    deserializer.deserialize(new ElasticsearchRecord(doc, source));
             output.collect(seaTunnelRow);
         }
     }
@@ -116,7 +127,5 @@ public class ElasticsearchSourceReader implements SourceReader<SeaTunnelRow, Ela
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {
-
-    }
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
 }

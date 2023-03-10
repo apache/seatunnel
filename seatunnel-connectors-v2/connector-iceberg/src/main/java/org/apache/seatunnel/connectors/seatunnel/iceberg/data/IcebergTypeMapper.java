@@ -25,10 +25,13 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorException;
 
-import lombok.NonNull;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
+
+import lombok.NonNull;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -68,8 +71,9 @@ public class IcebergTypeMapper {
             case MAP:
                 return mappingMapType((Types.MapType) icebergType);
             default:
-                throw new UnsupportedOperationException(
-                    "Unsupported iceberg data type: " + icebergType.typeId());
+                throw new IcebergConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "Unsupported iceberg data type: " + icebergType.typeId());
         }
     }
 
@@ -81,8 +85,8 @@ public class IcebergTypeMapper {
             fieldNames.add(field.name());
             fieldTypes.add(mapping(field.type()));
         }
-        return new SeaTunnelRowType(fieldNames.toArray(new String[0]),
-            fieldTypes.toArray(new SeaTunnelDataType[0]));
+        return new SeaTunnelRowType(
+                fieldNames.toArray(new String[0]), fieldTypes.toArray(new SeaTunnelDataType[0]));
     }
 
     private static ArrayType mappingListType(Types.ListType listType) {
@@ -100,8 +104,10 @@ public class IcebergTypeMapper {
             case STRING:
                 return ArrayType.STRING_ARRAY_TYPE;
             default:
-                throw new UnsupportedOperationException(
-                    "Unsupported iceberg list element type: " + listType.elementType().typeId());
+                throw new IcebergConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "Unsupported iceberg list element type: "
+                                + listType.elementType().typeId());
         }
     }
 

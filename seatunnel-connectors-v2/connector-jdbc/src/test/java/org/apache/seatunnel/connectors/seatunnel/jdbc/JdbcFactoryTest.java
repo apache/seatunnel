@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceFactory;
 
@@ -27,7 +29,11 @@ class JdbcFactoryTest {
 
     @Test
     void optionRule() {
-        Assertions.assertNotNull((new JdbcSourceFactory()).optionRule());
+        JdbcSourceFactory jdbcSourceFactory = new JdbcSourceFactory();
+        Assertions.assertNotNull(jdbcSourceFactory.optionRule());
         Assertions.assertNotNull((new JdbcSinkFactory()).optionRule());
+
+        Class<? extends SeaTunnelSource> sourceClass = jdbcSourceFactory.getSourceClass();
+        Assertions.assertTrue(SupportParallelism.class.isAssignableFrom(sourceClass));
     }
 }

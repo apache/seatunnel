@@ -17,14 +17,18 @@
 
 package org.apache.seatunnel.api.configuration.util;
 
-import static org.apache.seatunnel.api.configuration.util.OptionUtil.getOptionKeys;
-
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.SingleChoiceOption;
+
+import org.apache.commons.collections4.CollectionUtils;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+
+import static org.apache.seatunnel.api.configuration.util.OptionUtil.getOptionKeys;
 
 public class ConfigValidator {
     private final ReadonlyConfig config;
@@ -41,6 +45,44 @@ public class ConfigValidator {
         List<RequiredOption> requiredOptions = rule.getRequiredOptions();
         for (RequiredOption requiredOption : requiredOptions) {
             validate(requiredOption);
+            requiredOption
+                    .getOptions()
+                    .forEach(
+                            option -> {
+                                if (SingleChoiceOption.class.isAssignableFrom(option.getClass())) {
+                                    validateSingleChoice(option);
+                                }
+                            });
+        }
+
+        for (Option option : rule.getOptionalOptions()) {
+            if (SingleChoiceOption.class.isAssignableFrom(option.getClass())) {
+                validateSingleChoice(option);
+            }
+        }
+    }
+
+    void validateSingleChoice(Option option) {
+        SingleChoiceOption singleChoiceOption = (SingleChoiceOption) option;
+        List optionValues = singleChoiceOption.getOptionValues();
+        if (CollectionUtils.isEmpty(optionValues)) {
+            throw new OptionValidationException(
+                    "These options(%s) are SingleChoiceOption, the optionValues must not be null.",
+                    getOptionKeys(Arrays.asList(singleChoiceOption)));
+        }
+
+        Object o = singleChoiceOption.defaultValue();
+        if (o != null && !optionValues.contains(o)) {
+            throw new OptionValidationException(
+                    "These options(%s) are SingleChoiceOption, the defaultValue(%s) must be one of the optionValues.",
+                    getOptionKeys(Arrays.asList(singleChoiceOption)), o);
+        }
+
+        Object value = config.get(option);
+        if (value != null && !optionValues.contains(value)) {
+            throw new OptionValidationException(
+                    "These options(%s) are SingleChoiceOption, the value(%s) must be one of the optionValues.",
+                    getOptionKeys(Arrays.asList(singleChoiceOption)), value);
         }
     }
 
@@ -61,7 +103,10 @@ public class ConfigValidator {
             validate((RequiredOption.ConditionalRequiredOptions) requiredOption);
             return;
         }
-        throw new UnsupportedOperationException(String.format("This type option(%s) of validation is not supported", requiredOption.getClass()));
+        throw new UnsupportedOperationException(
+                String.format(
+                        "This type option(%s) of validation is not supported",
+                        requiredOption.getClass()));
     }
 
     private List<Option<?>> getAbsentOptions(List<Option<?>> requiredOption) {
@@ -79,7 +124,9 @@ public class ConfigValidator {
         if (absentOptions.size() == 0) {
             return;
         }
-        throw new OptionValidationException("There are unconfigured options, the options(%s) are required.", getOptionKeys(absentOptions));
+        throw new OptionValidationException(
+                "There are unconfigured options, the options(%s) are required.",
+                getOptionKeys(absentOptions));
     }
 
     boolean hasOption(Option<?> option) {
@@ -103,8 +150,9 @@ public class ConfigValidator {
         if (absent.size() == bundledOptions.size()) {
             return false;
         }
-        throw new OptionValidationException("These options(%s) are bundled, must be present or absent together. The options present are: %s. The options absent are %s.",
-            getOptionKeys(bundledOptions), getOptionKeys(present), getOptionKeys(absent));
+        throw new OptionValidationException(
+                "These options(%s) are bundled, must be present or absent together. The options present are: %s. The options absent are %s.",
+                getOptionKeys(bundledOptions), getOptionKeys(present), getOptionKeys(absent));
     }
 
     void validate(RequiredOption.ExclusiveRequiredOptions exclusiveRequiredOptions) {
@@ -120,12 +168,14 @@ public class ConfigValidator {
             return;
         }
         if (count == 0) {
-            throw new OptionValidationException("There are unconfigured options, these options(%s) are mutually exclusive, allowing only one set(\"[] for a set\") of options to be configured.",
-                getOptionKeys(exclusiveRequiredOptions.getExclusiveOptions()));
+            throw new OptionValidationException(
+                    "There are unconfigured options, these options(%s) are mutually exclusive, allowing only one set(\"[] for a set\") of options to be configured.",
+                    getOptionKeys(exclusiveRequiredOptions.getExclusiveOptions()));
         }
         if (count > 1) {
-            throw new OptionValidationException("These options(%s) are mutually exclusive, allowing only one set(\"[] for a set\") of options to be configured.",
-                getOptionKeys(presentOptions));
+            throw new OptionValidationException(
+                    "These options(%s) are mutually exclusive, allowing only one set(\"[] for a set\") of options to be configured.",
+                    getOptionKeys(presentOptions));
         }
     }
 
@@ -135,12 +185,14 @@ public class ConfigValidator {
         if (!match) {
             return;
         }
-        List<Option<?>> absentOptions = getAbsentOptions(conditionalRequiredOptions.getRequiredOption());
+        List<Option<?>> absentOptions =
+                getAbsentOptions(conditionalRequiredOptions.getRequiredOption());
         if (absentOptions.size() == 0) {
             return;
         }
-        throw new OptionValidationException("There are unconfigured options, the options(%s) are required because [%s] is true.",
-            getOptionKeys(absentOptions), expression.toString());
+        throw new OptionValidationException(
+                "There are unconfigured options, the options(%s) are required because [%s] is true.",
+                getOptionKeys(absentOptions), expression.toString());
     }
 
     private boolean validate(Expression expression) {

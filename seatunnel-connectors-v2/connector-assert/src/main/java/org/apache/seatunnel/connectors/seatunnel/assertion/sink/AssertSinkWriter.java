@@ -37,7 +37,10 @@ public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private static final AssertExecutor ASSERT_EXECUTOR = new AssertExecutor();
     private static final LongAccumulator LONG_ACCUMULATOR = new LongAccumulator(Long::sum, 0);
 
-    public AssertSinkWriter(SeaTunnelRowType seaTunnelRowType, List<AssertFieldRule> assertFieldRules, List<AssertFieldRule.AssertRule> assertRowRules) {
+    public AssertSinkWriter(
+            SeaTunnelRowType seaTunnelRowType,
+            List<AssertFieldRule> assertFieldRules,
+            List<AssertFieldRule.AssertRule> assertRowRules) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.assertFieldRules = assertFieldRules;
         this.assertRowRules = assertRowRules;
@@ -49,31 +52,43 @@ public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         LONG_ACCUMULATOR.accumulate(1);
         if (Objects.nonNull(assertFieldRules)) {
             ASSERT_EXECUTOR
-                .fail(element, seaTunnelRowType, assertFieldRules)
-                .ifPresent(failRule -> {
-                    throw new AssertConnectorException(AssertConnectorErrorCode.RULE_VALIDATION_FAILED,
-                            "row :" + element + " fail rule: " + failRule);
-                });
+                    .fail(element, seaTunnelRowType, assertFieldRules)
+                    .ifPresent(
+                            failRule -> {
+                                throw new AssertConnectorException(
+                                        AssertConnectorErrorCode.RULE_VALIDATION_FAILED,
+                                        "row :" + element + " fail rule: " + failRule);
+                            });
         }
     }
 
     @Override
     public void close() {
         if (Objects.nonNull(assertRowRules)) {
-            assertRowRules.stream().filter(assertRule -> {
-                switch (assertRule.getRuleType()) {
-                    case MAX_ROW:
-                        return !(LONG_ACCUMULATOR.longValue() <= assertRule.getRuleValue());
-                    case MIN_ROW:
-                        return !(LONG_ACCUMULATOR.longValue() >= assertRule.getRuleValue());
-                    default:
-                        return false;
-                }
-            }).findFirst().ifPresent(failRule -> {
-                throw new AssertConnectorException(AssertConnectorErrorCode.RULE_VALIDATION_FAILED,
-                        "row num :" + LONG_ACCUMULATOR.longValue() + " fail rule: " + failRule);
-            });
+            assertRowRules.stream()
+                    .filter(
+                            assertRule -> {
+                                switch (assertRule.getRuleType()) {
+                                    case MAX_ROW:
+                                        return !(LONG_ACCUMULATOR.longValue()
+                                                <= assertRule.getRuleValue());
+                                    case MIN_ROW:
+                                        return !(LONG_ACCUMULATOR.longValue()
+                                                >= assertRule.getRuleValue());
+                                    default:
+                                        return false;
+                                }
+                            })
+                    .findFirst()
+                    .ifPresent(
+                            failRule -> {
+                                throw new AssertConnectorException(
+                                        AssertConnectorErrorCode.RULE_VALIDATION_FAILED,
+                                        "row num :"
+                                                + LONG_ACCUMULATOR.longValue()
+                                                + " fail rule: "
+                                                + failRule);
+                            });
         }
     }
-
 }

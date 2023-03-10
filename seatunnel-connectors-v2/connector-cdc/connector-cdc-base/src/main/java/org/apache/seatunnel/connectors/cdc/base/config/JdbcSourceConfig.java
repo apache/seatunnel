@@ -21,7 +21,6 @@ import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
 
 import io.debezium.relational.RelationalDatabaseConnectorConfig;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.Properties;
 
@@ -35,11 +34,12 @@ public abstract class JdbcSourceConfig extends BaseSourceConfig {
     protected final int port;
     protected final String username;
     protected final String password;
+    protected final String originUrl;
     protected final List<String> databaseList;
     protected final List<String> tableList;
     protected final int fetchSize;
     protected final String serverTimeZone;
-    protected final Duration connectTimeout;
+    protected final long connectTimeoutMillis;
     protected final int connectMaxRetries;
     protected final int connectionPoolSize;
 
@@ -57,9 +57,10 @@ public abstract class JdbcSourceConfig extends BaseSourceConfig {
             int port,
             String username,
             String password,
+            String originUrl,
             int fetchSize,
             String serverTimeZone,
-            Duration connectTimeout,
+            long connectTimeoutMillis,
             int connectMaxRetries,
             int connectionPoolSize) {
         super(
@@ -74,11 +75,12 @@ public abstract class JdbcSourceConfig extends BaseSourceConfig {
         this.port = port;
         this.username = username;
         this.password = password;
+        this.originUrl = originUrl;
         this.databaseList = databaseList;
         this.tableList = tableList;
         this.fetchSize = fetchSize;
         this.serverTimeZone = serverTimeZone;
-        this.connectTimeout = connectTimeout;
+        this.connectTimeoutMillis = connectTimeoutMillis;
         this.connectMaxRetries = connectMaxRetries;
         this.connectionPoolSize = connectionPoolSize;
     }
@@ -101,6 +103,10 @@ public abstract class JdbcSourceConfig extends BaseSourceConfig {
         return username;
     }
 
+    public String getOriginUrl() {
+        return originUrl;
+    }
+
     public String getPassword() {
         return password;
     }
@@ -121,8 +127,8 @@ public abstract class JdbcSourceConfig extends BaseSourceConfig {
         return serverTimeZone;
     }
 
-    public Duration getConnectTimeout() {
-        return connectTimeout;
+    public long getConnectTimeoutMillis() {
+        return connectTimeoutMillis;
     }
 
     public int getConnectMaxRetries() {

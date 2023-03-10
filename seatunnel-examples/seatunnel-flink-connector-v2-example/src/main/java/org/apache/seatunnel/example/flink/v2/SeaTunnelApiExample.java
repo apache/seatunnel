@@ -17,11 +17,9 @@
 
 package org.apache.seatunnel.example.flink.v2;
 
-import org.apache.seatunnel.core.starter.Seatunnel;
-import org.apache.seatunnel.core.starter.command.Command;
+import org.apache.seatunnel.core.starter.SeaTunnel;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
-import org.apache.seatunnel.core.starter.flink.command.FlinkCommandBuilder;
 
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
@@ -30,19 +28,19 @@ import java.nio.file.Paths;
 
 public class SeaTunnelApiExample {
 
-    public static void main(String[] args) throws FileNotFoundException, URISyntaxException, CommandException {
-        String configurePath = args.length > 0 ?  args[0] : "/examples/fake_to_console.conf";
+    public static void main(String[] args)
+            throws FileNotFoundException, URISyntaxException, CommandException {
+        String configurePath = args.length > 0 ? args[0] : "/examples/fake_to_console.conf";
         String configFile = getTestConfigFile(configurePath);
         FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
         flinkCommandArgs.setConfigFile(configFile);
         flinkCommandArgs.setCheckConfig(false);
         flinkCommandArgs.setVariables(null);
-        Command<FlinkCommandArgs> flinkCommand =
-            new FlinkCommandBuilder().buildCommand(flinkCommandArgs);
-        Seatunnel.run(flinkCommand);
+        SeaTunnel.run(flinkCommandArgs.buildCommand());
     }
 
-    public static String getTestConfigFile(String configFile) throws FileNotFoundException, URISyntaxException {
+    public static String getTestConfigFile(String configFile)
+            throws FileNotFoundException, URISyntaxException {
         URL resource = SeaTunnelApiExample.class.getResource(configFile);
         if (resource == null) {
             throw new FileNotFoundException("Can't find config file: " + configFile);

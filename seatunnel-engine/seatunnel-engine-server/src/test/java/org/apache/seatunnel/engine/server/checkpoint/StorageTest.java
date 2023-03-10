@@ -18,10 +18,11 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
-import org.apache.seatunnel.engine.checkpoint.storage.common.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
+import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 
 import org.apache.commons.io.FileUtils;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -40,21 +41,26 @@ public class StorageTest {
         taskStatisticsMap.put(1L, new TaskStatistics(1L, 32));
         Map<Long, ActionState> actionStateMap = new HashMap<>();
         actionStateMap.put(2L, new ActionState("test", 13));
-        CompletedCheckpoint completedCheckpoint = new CompletedCheckpoint(1, 2, 4324,
-            Instant.now().toEpochMilli(),
-            CheckpointType.COMPLETED_POINT_TYPE,
-            Instant.now().toEpochMilli(),
-            actionStateMap,
-            taskStatisticsMap);
+        CompletedCheckpoint completedCheckpoint =
+                new CompletedCheckpoint(
+                        1,
+                        2,
+                        4324,
+                        Instant.now().toEpochMilli(),
+                        CheckpointType.COMPLETED_POINT_TYPE,
+                        Instant.now().toEpochMilli(),
+                        actionStateMap,
+                        taskStatisticsMap);
 
         ProtoStuffSerializer protoStuffSerializer = new ProtoStuffSerializer();
         byte[] data = protoStuffSerializer.serialize(completedCheckpoint);
-        PipelineState pipelineState = PipelineState.builder()
-            .checkpointId(1)
-            .jobId(String.valueOf(1))
-            .pipelineId(1)
-            .states(data)
-            .build();
+        PipelineState pipelineState =
+                PipelineState.builder()
+                        .checkpointId(1)
+                        .jobId(String.valueOf(1))
+                        .pipelineId(1)
+                        .states(data)
+                        .build();
 
         byte[] pipeData = protoStuffSerializer.serialize(pipelineState);
 
@@ -66,8 +72,9 @@ public class StorageTest {
 
         PipelineState state = protoStuffSerializer.deserialize(fileData, PipelineState.class);
 
-        CompletedCheckpoint checkpoint = new ProtoStuffSerializer().deserialize(state.getStates(), CompletedCheckpoint.class);
+        CompletedCheckpoint checkpoint =
+                new ProtoStuffSerializer()
+                        .deserialize(state.getStates(), CompletedCheckpoint.class);
         Assertions.assertNotNull(checkpoint);
     }
-
 }

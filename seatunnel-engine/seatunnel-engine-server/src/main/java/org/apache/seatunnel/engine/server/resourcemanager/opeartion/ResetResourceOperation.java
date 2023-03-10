@@ -24,8 +24,7 @@ import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
 public class ResetResourceOperation extends Operation implements IdentifiedDataSerializable {
-    public ResetResourceOperation() {
-    }
+    public ResetResourceOperation() {}
 
     @Override
     public void run() throws Exception {

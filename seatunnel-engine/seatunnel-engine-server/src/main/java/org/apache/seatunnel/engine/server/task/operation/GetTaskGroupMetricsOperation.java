@@ -37,8 +37,7 @@ public class GetTaskGroupMetricsOperation extends Operation implements Identifie
     private TaskGroupLocation taskGroupLocation;
     private RawJobMetrics response;
 
-    public GetTaskGroupMetricsOperation() {
-    }
+    public GetTaskGroupMetricsOperation() {}
 
     public GetTaskGroupMetricsOperation(TaskGroupLocation taskGroupLocation) {
         this.taskGroupLocation = taskGroupLocation;
@@ -53,12 +52,17 @@ public class GetTaskGroupMetricsOperation extends Operation implements Identifie
         NodeEngineImpl nodeEngine = (NodeEngineImpl) getNodeEngine();
         Address masterAddress = getNodeEngine().getMasterAddress();
         if (!callerAddress.equals(masterAddress)) {
-            throw new IllegalStateException("Caller " + callerAddress + " cannot get taskGroupLocation metrics"
-                    + taskGroupLocation.toString() + " because it is not master. Master is: " + masterAddress);
+            throw new IllegalStateException(
+                    "Caller "
+                            + callerAddress
+                            + " cannot get taskGroupLocation metrics"
+                            + taskGroupLocation.toString()
+                            + " because it is not master. Master is: "
+                            + masterAddress);
         }
 
-        JobMetricsCollector
-            metricsRenderer = new JobMetricsCollector(taskGroupLocation, nodeEngine.getLocalMember(), logger);
+        JobMetricsCollector metricsRenderer =
+                new JobMetricsCollector(taskGroupLocation, nodeEngine.getLocalMember(), logger);
         nodeEngine.getMetricsRegistry().collect(metricsRenderer);
         response = metricsRenderer.getMetrics();
     }

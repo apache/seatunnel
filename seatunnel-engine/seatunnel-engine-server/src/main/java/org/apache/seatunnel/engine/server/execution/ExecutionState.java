@@ -25,15 +25,15 @@ import java.io.Serializable;
  * the state {@code CREATED} and switch states according to this diagram:
  *
  * <pre>{@code
- *  INITIALIZING -> CREATED  -> SCHEDULED -> DEPLOYING  -> RUNNING -> FINISHED
- *                    |            |          |              |
- *                    |            |    +-----+--------------+
- *                    |            V    V
- *                    |         CANCELLING -----+----> CANCELED
- *                    |                         |
- *                    +-------------------------+
+ * INITIALIZING -> CREATED  -> SCHEDULED -> DEPLOYING  -> RUNNING -> FINISHED
+ *                   |            |          |              |
+ *                   |            |    +-----+--------------+
+ *                   |            V    V
+ *                   |         CANCELLING -----+----> CANCELED
+ *                   |                         |
+ *                   +-------------------------+
  *
- *                                         ... -> FAILED
+ *                                        ... -> FAILED
  *
  * }</pre>
  *

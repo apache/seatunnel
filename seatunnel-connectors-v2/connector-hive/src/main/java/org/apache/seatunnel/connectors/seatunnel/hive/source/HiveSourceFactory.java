@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.hive.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
@@ -37,5 +38,10 @@ public class HiveSourceFactory implements TableSourceFactory {
                 .required(HiveConfig.TABLE_NAME)
                 .required(HiveConfig.METASTORE_URI)
                 .build();
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return HiveSource.class;
     }
 }

@@ -28,19 +28,21 @@ import java.util.Set;
 public class TransformAction extends AbstractAction {
     private final SeaTunnelTransform<?> transform;
 
-    public TransformAction(long id,
-                           @NonNull String name,
-                           @NonNull List<Action> upstreams,
-                           @NonNull SeaTunnelTransform<?> transform,
-                           @NonNull Set<URL> jarUrls) {
+    public TransformAction(
+            long id,
+            @NonNull String name,
+            @NonNull List<Action> upstreams,
+            @NonNull SeaTunnelTransform<?> transform,
+            @NonNull Set<URL> jarUrls) {
         super(id, name, upstreams, jarUrls);
         this.transform = transform;
     }
 
-    public TransformAction(long id,
-                           @NonNull String name,
-                           @NonNull SeaTunnelTransform<?> transform,
-                           @NonNull Set<URL> jarUrls) {
+    public TransformAction(
+            long id,
+            @NonNull String name,
+            @NonNull SeaTunnelTransform<?> transform,
+            @NonNull Set<URL> jarUrls) {
         super(id, name, jarUrls);
         this.transform = transform;
     }

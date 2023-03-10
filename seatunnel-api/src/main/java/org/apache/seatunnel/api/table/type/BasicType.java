@@ -22,22 +22,25 @@ import java.util.Objects;
 public class BasicType<T> implements SeaTunnelDataType<T> {
     private static final long serialVersionUID = 2L;
 
-    public static final BasicType<String> STRING_TYPE = new BasicType<>(String.class, SqlType.STRING);
-    public static final BasicType<Boolean> BOOLEAN_TYPE = new BasicType<>(Boolean.class, SqlType.BOOLEAN);
+    public static final BasicType<String> STRING_TYPE =
+            new BasicType<>(String.class, SqlType.STRING);
+    public static final BasicType<Boolean> BOOLEAN_TYPE =
+            new BasicType<>(Boolean.class, SqlType.BOOLEAN);
     public static final BasicType<Byte> BYTE_TYPE = new BasicType<>(Byte.class, SqlType.TINYINT);
-    public static final BasicType<Short> SHORT_TYPE = new BasicType<>(Short.class, SqlType.SMALLINT);
+    public static final BasicType<Short> SHORT_TYPE =
+            new BasicType<>(Short.class, SqlType.SMALLINT);
     public static final BasicType<Integer> INT_TYPE = new BasicType<>(Integer.class, SqlType.INT);
     public static final BasicType<Long> LONG_TYPE = new BasicType<>(Long.class, SqlType.BIGINT);
     public static final BasicType<Float> FLOAT_TYPE = new BasicType<>(Float.class, SqlType.FLOAT);
-    public static final BasicType<Double> DOUBLE_TYPE = new BasicType<>(Double.class, SqlType.DOUBLE);
+    public static final BasicType<Double> DOUBLE_TYPE =
+            new BasicType<>(Double.class, SqlType.DOUBLE);
     public static final BasicType<Void> VOID_TYPE = new BasicType<>(Void.class, SqlType.NULL);
 
     // --------------------------------------------------------------------------------------------
 
-    /**
-     * The physical type class.
-     */
+    /** The physical type class. */
     private final Class<T> typeClass;
+
     private final SqlType sqlType;
 
     protected BasicType(Class<T> typeClass, SqlType sqlType) {

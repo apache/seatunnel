@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.reader;
 
-import static com.google.common.base.Preconditions.checkState;
-
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
@@ -46,6 +44,8 @@ import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Preconditions.checkState;
+
 /**
  * The multi-parallel source reader for table snapshot phase from {@link SnapshotSplit} and then
  * single-parallel source reader for table stream phase from {@link IncrementalSplit}.
@@ -53,7 +53,7 @@ import java.util.function.Supplier;
 @Slf4j
 public class IncrementalSourceReader<T, C extends SourceConfig>
         extends SingleThreadMultiplexSourceReaderBase<
-    SourceRecords, T, SourceSplitBase, SourceSplitStateBase> {
+                SourceRecords, T, SourceSplitBase, SourceSplitStateBase> {
 
     private final Map<String, SnapshotSplit> finishedUnackedSplits;
 
@@ -65,18 +65,18 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
     private final C sourceConfig;
 
     public IncrementalSourceReader(
-        BlockingQueue<RecordsWithSplitIds<SourceRecords>> elementsQueue,
-        Supplier<IncrementalSourceSplitReader<C>> splitReaderSupplier,
-        RecordEmitter<SourceRecords, T, SourceSplitStateBase> recordEmitter,
-        SourceReaderOptions options,
-        SourceReader.Context context,
-        C sourceConfig) {
+            BlockingQueue<RecordsWithSplitIds<SourceRecords>> elementsQueue,
+            Supplier<IncrementalSourceSplitReader<C>> splitReaderSupplier,
+            RecordEmitter<SourceRecords, T, SourceSplitStateBase> recordEmitter,
+            SourceReaderOptions options,
+            SourceReader.Context context,
+            C sourceConfig) {
         super(
-            elementsQueue,
-            new SingleThreadFetcherManager<>(elementsQueue, splitReaderSupplier::get),
-            recordEmitter,
-            options,
-            context);
+                elementsQueue,
+                new SingleThreadFetcherManager<>(elementsQueue, splitReaderSupplier::get),
+                recordEmitter,
+                options,
+                context);
         this.sourceConfig = sourceConfig;
         this.finishedUnackedSplits = new HashMap<>();
         this.uncompletedIncrementalSplits = new HashMap<>();
@@ -95,9 +95,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {
-
-    }
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
 
     @Override
     public void addSplits(List<SourceSplitBase> splits) {
@@ -128,10 +126,10 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
         for (SourceSplitStateBase splitState : finishedSplitIds.values()) {
             SourceSplitBase sourceSplit = splitState.toSourceSplit();
             checkState(
-                sourceSplit.isSnapshotSplit(),
-                String.format(
-                    "Only snapshot split could finish, but the actual split is incremental split %s",
-                    sourceSplit));
+                    sourceSplit.isSnapshotSplit(),
+                    String.format(
+                            "Only snapshot split could finish, but the actual split is incremental split %s",
+                            sourceSplit));
             finishedUnackedSplits.put(sourceSplit.splitId(), sourceSplit.asSnapshotSplit());
         }
         reportFinishedSnapshotSplitsIfNeed();
@@ -143,17 +141,19 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
             List<SnapshotSplitWatermark> completedSnapshotSplitWatermarks = new ArrayList<>();
 
             for (SnapshotSplit split : finishedUnackedSplits.values()) {
-                completedSnapshotSplitWatermarks.add(new SnapshotSplitWatermark(split.splitId(), split.getHighWatermark()));
+                completedSnapshotSplitWatermarks.add(
+                        new SnapshotSplitWatermark(split.splitId(), split.getHighWatermark()));
             }
-            CompletedSnapshotSplitsReportEvent reportEvent = new CompletedSnapshotSplitsReportEvent();
+            CompletedSnapshotSplitsReportEvent reportEvent =
+                    new CompletedSnapshotSplitsReportEvent();
             reportEvent.setCompletedSnapshotSplitWatermarks(completedSnapshotSplitWatermarks);
             context.sendSourceEventToEnumerator(reportEvent);
-            //TODO need enumerator return ack
+            // TODO need enumerator return ack
             finishedUnackedSplits.clear();
             log.debug(
-                "The subtask {} reports offsets of finished snapshot splits {}.",
-                subtaskId,
-                completedSnapshotSplitWatermarks);
+                    "The subtask {} reports offsets of finished snapshot splits {}.",
+                    subtaskId,
+                    completedSnapshotSplitWatermarks);
         }
     }
 

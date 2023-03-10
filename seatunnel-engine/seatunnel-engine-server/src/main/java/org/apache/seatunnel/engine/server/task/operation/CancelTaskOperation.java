@@ -29,15 +29,15 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 import java.io.IOException;
 
 /**
- * This operation is only to notice the {@link org.apache.seatunnel.engine.server.TaskExecutionService} to cancel the
- * task. After the final task is cancelled, the {@link org.apache.seatunnel.engine.server.TaskExecutionService} will
- * notified JobMaster
+ * This operation is only to notice the {@link
+ * org.apache.seatunnel.engine.server.TaskExecutionService} to cancel the task. After the final task
+ * is cancelled, the {@link org.apache.seatunnel.engine.server.TaskExecutionService} will notified
+ * JobMaster
  */
 public class CancelTaskOperation extends Operation implements IdentifiedDataSerializable {
     private TaskGroupLocation taskGroupLocation;
 
-    public CancelTaskOperation() {
-    }
+    public CancelTaskOperation() {}
 
     public CancelTaskOperation(TaskGroupLocation taskGroupLocation) {
         this.taskGroupLocation = taskGroupLocation;

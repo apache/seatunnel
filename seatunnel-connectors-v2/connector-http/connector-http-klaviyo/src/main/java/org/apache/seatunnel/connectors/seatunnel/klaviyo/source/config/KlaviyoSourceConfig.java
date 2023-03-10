@@ -27,12 +27,14 @@ public class KlaviyoSourceConfig extends HttpConfig {
     public static final String ACCEPT = "Accept";
     public static final String APPLICATION_JSON = "application/json";
 
-    public static final Option<String> PRIVATE_KEY = Options.key("private_key")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("Klaviyo login private key");
-    public static final Option<String> REVISION = Options.key("revision")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("API endpoint revision (format: YYYY-MM-DD)");
+    public static final Option<String> PRIVATE_KEY =
+            Options.key("private_key")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Klaviyo login private key");
+    public static final Option<String> REVISION =
+            Options.key("revision")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("API endpoint revision (format: YYYY-MM-DD)");
 }

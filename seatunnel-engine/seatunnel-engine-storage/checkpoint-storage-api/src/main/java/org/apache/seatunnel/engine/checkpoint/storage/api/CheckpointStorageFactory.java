@@ -20,26 +20,28 @@
 
 package org.apache.seatunnel.engine.checkpoint.storage.api;
 
-import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 
 import java.util.Map;
 
-/**
- * All checkpoint storage plugins need to implement it
- */
-public interface CheckpointStorageFactory extends Factory {
+/** All checkpoint storage plugins need to implement it */
+public interface CheckpointStorageFactory {
+
+    /**
+     * Returns a unique identifier among same factory interfaces.
+     *
+     * <p>For consistency, an identifier should be declared as one lower case word (e.g. {@code
+     * kafka}). If multiple factories exist for different versions, a version should be appended
+     * using "-" (e.g. {@code elasticsearch-7}).
+     */
+    String factoryIdentifier();
 
     /**
      * create storage plugin instance
      *
-     * @param configuration storage system config params
-     *                      key: storage system config key
-     *                      value: storage system config value
-     *                      e.g.
-     *                      key: "FS_DEFAULT_NAME_KEY"
-     *                      value: "fs.defaultFS"
-     *                      return storage plugin instance
+     * @param configuration storage system config params key: storage system config key value:
+     *     storage system config value e.g. key: "FS_DEFAULT_NAME_KEY" value: "fs.defaultFS" return
+     *     storage plugin instance
      */
     CheckpointStorage create(Map<String, String> configuration) throws CheckpointStorageException;
 }

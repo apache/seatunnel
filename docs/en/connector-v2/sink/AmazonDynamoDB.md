@@ -1,4 +1,3 @@
-
 # AmazonDynamoDB
 
 > Amazon DynamoDB sink connector
@@ -10,11 +9,10 @@ Write data to Amazon DynamoDB
 ## Key features
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [schema projection](../../concept/connector-v2-features.md)
 
 ## Options
 
-| name              | type   | required | default value |
+|       name        |  type  | required | default value |
 |-------------------|--------|----------|---------------|
 | url               | string | yes      | -             |
 | region            | string | yes      | -             |

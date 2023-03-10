@@ -45,40 +45,44 @@ final class PathParser {
         }
     }
 
-    protected static Path parsePathExpression(Iterator<Token> expression,
-                                              ConfigOrigin origin) {
+    protected static Path parsePathExpression(Iterator<Token> expression, ConfigOrigin origin) {
         return parsePathExpression(expression, origin, null, null, ConfigSyntax.CONF);
     }
 
-    protected static Path parsePathExpression(Iterator<Token> expression,
-                                              ConfigOrigin origin, String originalText) {
+    protected static Path parsePathExpression(
+            Iterator<Token> expression, ConfigOrigin origin, String originalText) {
         return parsePathExpression(expression, origin, originalText, null, ConfigSyntax.CONF);
     }
 
-    protected static ConfigNodePath parsePathNodeExpression(Iterator<Token> expression,
-                                                            ConfigOrigin origin) {
+    protected static ConfigNodePath parsePathNodeExpression(
+            Iterator<Token> expression, ConfigOrigin origin) {
         return parsePathNodeExpression(expression, origin, null, ConfigSyntax.CONF);
     }
 
-    protected static ConfigNodePath parsePathNodeExpression(Iterator<Token> expression,
-                                                            ConfigOrigin origin, String originalText, ConfigSyntax flavor) {
+    protected static ConfigNodePath parsePathNodeExpression(
+            Iterator<Token> expression,
+            ConfigOrigin origin,
+            String originalText,
+            ConfigSyntax flavor) {
         ArrayList<Token> pathTokens = new ArrayList<>();
         Path path = parsePathExpression(expression, origin, originalText, pathTokens, flavor);
         return new ConfigNodePath(path, pathTokens);
     }
 
     // originalText may be null if not available
-    protected static Path parsePathExpression(Iterator<Token> expression,
-                                              ConfigOrigin origin, String originalText,
-                                              ArrayList<Token> pathTokens,
-                                              ConfigSyntax flavor) {
+    protected static Path parsePathExpression(
+            Iterator<Token> expression,
+            ConfigOrigin origin,
+            String originalText,
+            ArrayList<Token> pathTokens,
+            ConfigSyntax flavor) {
         // each builder in "buf" is an element in the path.
         List<Element> buf = new ArrayList<>();
         buf.add(new Element("", false));
 
         if (!expression.hasNext()) {
-            throw new ConfigException.BadPath(origin, originalText,
-                "Expecting a field name or path here, but got nothing");
+            throw new ConfigException.BadPath(
+                    origin, originalText, "Expecting a field name or path here, but got nothing");
         }
 
         while (expression.hasNext()) {
@@ -119,7 +123,8 @@ final class PathParser {
                     // implementation detail.
                     AbstractConfigValue v = Tokens.getValue(t);
 
-                    // We need to split the tokens on a . so that we can get sub-paths but still preserve
+                    // We need to split the tokens on a . so that we can get sub-paths but still
+                    // preserve
                     // the original path text when doing an insertion
                     if (pathTokens != null) {
                         pathTokens.remove(pathTokens.size() - 1);
@@ -127,7 +132,8 @@ final class PathParser {
                     }
                     text = v.transformToString();
                 } else if (Tokens.isUnquotedText(t)) {
-                    // We need to split the tokens on a . so that we can get sub-paths but still preserve
+                    // We need to split the tokens on a . so that we can get sub-paths but still
+                    // preserve
                     // the original path text when doing an insertion on ConfigNodeObjects
                     if (pathTokens != null) {
                         pathTokens.remove(pathTokens.size() - 1);
@@ -136,11 +142,11 @@ final class PathParser {
                     text = Tokens.getUnquotedText(t);
                 } else {
                     throw new ConfigException.BadPath(
-                        origin,
-                        originalText,
-                        "Token not allowed in path expression: "
-                            + t
-                            + " (you can double-quote this token if you really want it here)");
+                            origin,
+                            originalText,
+                            "Token not allowed in path expression: "
+                                    + t
+                                    + " (you can double-quote this token if you really want it here)");
                 }
 
                 addPathText(buf, false, text);
@@ -151,9 +157,9 @@ final class PathParser {
         for (Element e : buf) {
             if (e.sb.length() == 0 && !e.canBeEmpty) {
                 throw new ConfigException.BadPath(
-                    origin,
-                    originalText,
-                    "path has a leading, trailing, or two adjacent period '.' (use quoted \"\" empty string if you want an empty element)");
+                        origin,
+                        originalText,
+                        "path has a leading, trailing, or two adjacent period '.' (use quoted \"\" empty string if you want an empty element)");
             } else {
                 pb.appendKey(e.sb.toString());
             }
@@ -176,18 +182,20 @@ final class PathParser {
             } else {
                 splitTokens.add(Tokens.newString(t.origin(), s, "\"" + s + "\""));
             }
-            splitTokens.add(Tokens.newUnquotedText(t.origin(), ConfigParseOptions.PATH_TOKEN_SEPARATOR));
+            splitTokens.add(
+                    Tokens.newUnquotedText(t.origin(), ConfigParseOptions.PATH_TOKEN_SEPARATOR));
         }
 
-        if (!tokenText.startsWith(ConfigParseOptions.PATH_TOKEN_SEPARATOR, tokenText.length() - ConfigParseOptions.PATH_TOKEN_SEPARATOR.length())) {
+        if (!tokenText.startsWith(
+                ConfigParseOptions.PATH_TOKEN_SEPARATOR,
+                tokenText.length() - ConfigParseOptions.PATH_TOKEN_SEPARATOR.length())) {
             splitTokens.remove(splitTokens.size() - 1);
         }
 
         return splitTokens;
     }
 
-    private static void addPathText(List<Element> buf, boolean wasQuoted,
-                                    String newText) {
+    private static void addPathText(List<Element> buf, boolean wasQuoted, String newText) {
 
         int i = wasQuoted ? -1 : newText.indexOf(ConfigParseOptions.PATH_TOKEN_SEPARATOR);
         Element current = buf.get(buf.size() - 1);
@@ -205,7 +213,10 @@ final class PathParser {
             // then start a new element
             buf.add(new Element("", false));
             // recurse to consume remainder of newText
-            addPathText(buf, false, newText.substring(i + ConfigParseOptions.PATH_TOKEN_SEPARATOR.length()));
+            addPathText(
+                    buf,
+                    false,
+                    newText.substring(i + ConfigParseOptions.PATH_TOKEN_SEPARATOR.length()));
         }
     }
 
@@ -262,7 +273,12 @@ final class PathParser {
             Path withOneMoreElement = new Path(s.substring(0, end), tail);
             return withOneMoreElement;
         } else {
-            Path withOneMoreElement = new Path(s.substring(splitAt + ConfigParseOptions.PATH_TOKEN_SEPARATOR.length(), end), tail);
+            Path withOneMoreElement =
+                    new Path(
+                            s.substring(
+                                    splitAt + ConfigParseOptions.PATH_TOKEN_SEPARATOR.length(),
+                                    end),
+                            tail);
             return fastPathBuild(withOneMoreElement, s, splitAt);
         }
     }

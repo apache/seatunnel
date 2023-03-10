@@ -23,12 +23,9 @@ import com.hazelcast.client.config.ClientConfig;
 
 public class SeaTunnelClientConfig extends ClientConfig {
 
-    /**
-     * Creates a new config instance with default group name for SeaTunnel Engine
-     */
+    /** Creates a new config instance with default group name for SeaTunnel Engine */
     public SeaTunnelClientConfig() {
         super();
         setClusterName(Constant.DEFAULT_SEATUNNEL_CLUSTER_NAME);
     }
 }
-

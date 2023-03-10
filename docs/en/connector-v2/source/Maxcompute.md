@@ -10,22 +10,22 @@ Used to read data from Maxcompute.
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [schema projection](../../concept/connector-v2-features.md)
+- [ ] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
 ## Options
 
-| name            | type   | required  | default value |
-|-----------------|--------|-----------|---------------|
-| accessId        | string | yes       | -             |
-| accesskey       | string | yes       | -             |
-| endpoint        | string | yes       | -             |
-| project         | string | yes       | -             |
-| table_name      | string | yes       | -             |
-| partition_spec  | string | no        | -             |
-| split_row       | int    | no        | 10000         |
-| common-options  | string | no        |               |
+|      name      |  type  | required | default value |
+|----------------|--------|----------|---------------|
+| accessId       | string | yes      | -             |
+| accesskey      | string | yes      | -             |
+| endpoint       | string | yes      | -             |
+| project        | string | yes      | -             |
+| table_name     | string | yes      | -             |
+| partition_spec | string | no       | -             |
+| split_row      | int    | no       | 10000         |
+| common-options | string | no       |               |
 
 ### accessId [string]
 
@@ -55,7 +55,7 @@ Used to read data from Maxcompute.
 
 `split_row` Number of rows per split, default: 10000.
 
-### common options 
+### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
@@ -80,3 +80,4 @@ source {
 ### next version
 
 - [Feature] Add Maxcompute Source Connector([3640](https://github.com/apache/incubator-seatunnel/pull/3640))
+

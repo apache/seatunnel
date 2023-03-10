@@ -25,5 +25,4 @@ public class SqliteJdbcRowConverter extends AbstractJdbcRowConverter {
     public String converterName() {
         return "Sqlite";
     }
-
 }

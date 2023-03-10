@@ -20,28 +20,22 @@ package org.apache.seatunnel.api.table.catalog.exception;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-/**
- * A catalog-related, runtime exception.
- */
+/** A catalog-related, runtime exception. */
 public class CatalogException extends SeaTunnelRuntimeException {
 
-    /**
-     * @param message the detail message.
-     */
+    /** @param message the detail message. */
     public CatalogException(String message) {
         super(SeaTunnelAPIErrorCode.CATALOG_INITIALIZE_FAILED, message);
     }
 
-    /**
-     * @param cause the cause.
-     */
+    /** @param cause the cause. */
     public CatalogException(Throwable cause) {
         super(SeaTunnelAPIErrorCode.CATALOG_INITIALIZE_FAILED, cause);
     }
 
     /**
      * @param message the detail message.
-     * @param cause   the cause.
+     * @param cause the cause.
      */
     public CatalogException(String message, Throwable cause) {
         super(SeaTunnelAPIErrorCode.CATALOG_INITIALIZE_FAILED, message, cause);

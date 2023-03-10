@@ -9,12 +9,11 @@ A sink plugin which use send message to DataHub
 ## Key features
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [schema projection](../../concept/connector-v2-features.md)
 
 ## Options
 
-| name       | type   | required | default value |
-|--------------- |--------|----------|---------------|
+|      name      |  type  | required | default value |
+|----------------|--------|----------|---------------|
 | endpoint       | string | yes      | -             |
 | accessId       | string | yes      | -             |
 | accessKey      | string | yes      | -             |
@@ -77,3 +76,4 @@ sink {
 ### 2.2.0-beta 2022-09-26
 
 - Add DataHub Sink Connector
+

@@ -26,16 +26,19 @@ import org.apache.seatunnel.connectors.seatunnel.mongodb.exception.MongodbConnec
 
 public class DataTypeValidator {
 
-    public static void validateDataType(SeaTunnelDataType dataType) throws IllegalArgumentException {
+    public static void validateDataType(SeaTunnelDataType dataType)
+            throws IllegalArgumentException {
         switch (dataType.getSqlType()) {
             case TIME:
-                throw new MongodbConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                    "Unsupported data type: " + dataType);
+                throw new MongodbConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "Unsupported data type: " + dataType);
             case MAP:
                 MapType mapType = (MapType) dataType;
                 if (!SqlType.STRING.equals(mapType.getKeyType().getSqlType())) {
-                    throw new MongodbConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        "Unsupported map key type: " + mapType.getKeyType());
+                    throw new MongodbConnectorException(
+                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            "Unsupported map key type: " + mapType.getKeyType());
                 }
                 break;
             case ROW:

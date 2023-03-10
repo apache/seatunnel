@@ -218,6 +218,7 @@ seatunnel-connectors-v2/connector-iceberg/src/main/java/org/apache/seatunnel/con
 seatunnel-connectors-v2/connector-cdc/connector-base/src/main/java/org/apache/seatunnel/connectors/cdc/base from https://github.com/ververica/flink-cdc-connectors
 seatunnel-connectors-v2/connector-cdc/connector-cdc-mysql/src/main/java/org/apache/seatunnel/connectors/seatunnel/cdc/mysql from https://github.com/ververica/flink-cdc-connectors
 seatunnel-connectors-v2/connector-cdc/connector-base/src/main/java/org/apache/seatunnel/connectors/cdc/debezium from https://github.com/ververica/flink-cdc-connectors
+seatunnel-connectors-v2/connector-cdc/connector-cdc-sqlserver/src/main/java/io/debezium/connector/sqlserver/SqlServerStreamingChangeEventSource.java   from https://github.com/debezium/debezium
 generate_client_protocol.sh                                                                                                                 from https://github.com/hazelcast/hazelcast
 seatunnel-engine/seatunnel-engine-common/src/main/java/org/apache/seatunnel/engine/common/utils/ExceptionUtil.java                          from https://github.com/hazelcast/hazelcast
 seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/protocol/task/AbstractSeaTunnelMessageTask.java   from https://github.com/hazelcast/hazelcast
@@ -235,3 +236,7 @@ seatunnel-engine/seatunnel-engine-core/src/main/java/org/apache/seatunnel/engine
 seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/checkpoint/StandaloneCheckpointIDCounter.java     from https://github.com/apache/flink
 seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/metrics                                           from https://github.com/hazelcast/hazelcast
 seatunnel-api/src/main/java/org/apache/seatunnel/api/common/metrics                                                                         from https://github.com/hazelcast/hazelcast
+seatunnel-transforms-v2/src/main/java/org/apache/seatunnel/transform/sqlengine/zeta/ZetaSQLEngine.java                                from https://github.com/JSQLParser/JSqlParser
+seatunnel-transforms-v2/src/main/java/org/apache/seatunnel/transform/sqlengine/zeta/ZetaSQLType.java                                        from https://github.com/JSQLParser/JSqlParser
+seatunnel-transforms-v2/src/main/java/org/apache/seatunnel/transform/sqlengine/zeta/ZetaSQLFilter.java                                      from https://github.com/JSQLParser/JSqlParser
+seatunnel-transforms-v2/src/main/java/org/apache/seatunnel/transform/sqlengine/zeta/ZetaSQLFunction.java                                    from https://github.com/JSQLParser/JSqlParser

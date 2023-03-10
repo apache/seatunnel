@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.translation.source;
 
+import org.apache.seatunnel.api.common.metrics.AbstractMetricsContext;
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -25,16 +27,16 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
-public class ParallelEnumeratorContext<SplitT extends SourceSplit> implements SourceSplitEnumerator.Context<SplitT> {
+public class ParallelEnumeratorContext<SplitT extends SourceSplit>
+        implements SourceSplitEnumerator.Context<SplitT> {
 
     protected final ParallelSource<?, SplitT, ?> parallelSource;
     protected final Integer parallelism;
     protected final Integer subtaskId;
     protected volatile boolean running = false;
 
-    public ParallelEnumeratorContext(ParallelSource<?, SplitT, ?> parallelSource,
-                                     int parallelism,
-                                     int subtaskId) {
+    public ParallelEnumeratorContext(
+            ParallelSource<?, SplitT, ?> parallelSource, int parallelism, int subtaskId) {
         this.parallelSource = parallelSource;
         this.parallelism = parallelism;
         this.subtaskId = subtaskId;
@@ -70,8 +72,15 @@ public class ParallelEnumeratorContext<SplitT extends SourceSplit> implements So
 
     @Override
     public void sendEventToSourceReader(int subtaskId, SourceEvent event) {
-        // TODO: exception
-        throw new RuntimeException("");
+        throw new UnsupportedOperationException(
+                "Flink ParallelSource don't support sending SourceEvent. "
+                        + "Please implement the `SupportCoordinate` marker interface on the SeaTunnel source.");
     }
 
+    @Override
+    public MetricsContext getMetricsContext() {
+        // TODO Waiting for Flink and Spark to implement MetricsContext
+        // https://github.com/apache/incubator-seatunnel/issues/3431
+        return new AbstractMetricsContext() {};
+    }
 }

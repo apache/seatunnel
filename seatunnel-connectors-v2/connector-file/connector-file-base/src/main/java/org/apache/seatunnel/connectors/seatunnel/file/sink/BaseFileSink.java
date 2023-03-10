@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
@@ -37,13 +39,13 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategyFactory;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
-public abstract class BaseFileSink implements SeaTunnelSink<SeaTunnelRow, FileSinkState, FileCommitInfo, FileAggregatedCommitInfo> {
+public abstract class BaseFileSink
+        implements SeaTunnelSink<
+                SeaTunnelRow, FileSinkState, FileCommitInfo, FileAggregatedCommitInfo> {
     protected SeaTunnelRowType seaTunnelRowType;
     protected Config pluginConfig;
     protected HadoopConf hadoopConf;
@@ -63,7 +65,8 @@ public abstract class BaseFileSink implements SeaTunnelSink<SeaTunnelRow, FileSi
     public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.fileSinkConfig = new FileSinkConfig(pluginConfig, seaTunnelRowType);
-        this.writeStrategy = WriteStrategyFactory.of(fileSinkConfig.getFileFormat(), fileSinkConfig);
+        this.writeStrategy =
+                WriteStrategyFactory.of(fileSinkConfig.getFileFormat(), fileSinkConfig);
         this.fileSystemUtils = new FileSystemUtils(hadoopConf);
         this.writeStrategy.setSeaTunnelRowTypeInfo(seaTunnelRowType);
         this.writeStrategy.setFileSystemUtils(fileSystemUtils);
@@ -75,17 +78,20 @@ public abstract class BaseFileSink implements SeaTunnelSink<SeaTunnelRow, FileSi
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> restoreWriter(SinkWriter.Context context, List<FileSinkState> states) throws IOException {
+    public SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> restoreWriter(
+            SinkWriter.Context context, List<FileSinkState> states) throws IOException {
         return new BaseFileSinkWriter(writeStrategy, hadoopConf, context, jobId, states);
     }
 
     @Override
-    public Optional<SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo>> createAggregatedCommitter() throws IOException {
+    public Optional<SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo>>
+            createAggregatedCommitter() throws IOException {
         return Optional.of(new FileSinkAggregatedCommitter(fileSystemUtils));
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> createWriter(SinkWriter.Context context) throws IOException {
+    public SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> createWriter(
+            SinkWriter.Context context) throws IOException {
         return new BaseFileSinkWriter(writeStrategy, hadoopConf, context, jobId);
     }
 
@@ -108,7 +114,8 @@ public abstract class BaseFileSink implements SeaTunnelSink<SeaTunnelRow, FileSi
      * Use the pluginConfig to do some initialize operation.
      *
      * @param pluginConfig plugin config.
-     * @throws PrepareFailException if plugin prepare failed, the {@link PrepareFailException} will throw.
+     * @throws PrepareFailException if plugin prepare failed, the {@link PrepareFailException} will
+     *     throw.
      */
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {

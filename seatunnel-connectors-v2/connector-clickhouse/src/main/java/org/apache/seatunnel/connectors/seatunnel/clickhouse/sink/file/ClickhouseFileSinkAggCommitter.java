@@ -35,60 +35,97 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class ClickhouseFileSinkAggCommitter implements SinkAggregatedCommitter<CKFileCommitInfo, CKFileAggCommitInfo> {
+public class ClickhouseFileSinkAggCommitter
+        implements SinkAggregatedCommitter<CKFileCommitInfo, CKFileAggCommitInfo> {
 
-    private final ClickhouseProxy proxy;
+    private transient ClickhouseProxy proxy;
     private final ClickhouseTable clickhouseTable;
 
+    private final FileReaderOption fileReaderOption;
+
     public ClickhouseFileSinkAggCommitter(FileReaderOption readerOption) {
+        fileReaderOption = readerOption;
         proxy = new ClickhouseProxy(readerOption.getShardMetadata().getDefaultShard().getNode());
-        clickhouseTable = proxy.getClickhouseTable(readerOption.getShardMetadata().getDatabase(),
-            readerOption.getShardMetadata().getTable());
+        clickhouseTable =
+                proxy.getClickhouseTable(
+                        readerOption.getShardMetadata().getDatabase(),
+                        readerOption.getShardMetadata().getTable());
     }
 
     @Override
-    public List<CKFileAggCommitInfo> commit(List<CKFileAggCommitInfo> aggregatedCommitInfo) throws IOException {
-        aggregatedCommitInfo.forEach(commitInfo -> commitInfo.getDetachedFiles().forEach((shard, files) -> {
-            try {
-                this.attachFileToClickhouse(shard, files);
-            } catch (ClickHouseException e) {
-                throw new SeaTunnelException("failed commit file to clickhouse", e);
-            }
-        }));
+    public List<CKFileAggCommitInfo> commit(List<CKFileAggCommitInfo> aggregatedCommitInfo)
+            throws IOException {
+        aggregatedCommitInfo.forEach(
+                commitInfo ->
+                        commitInfo
+                                .getDetachedFiles()
+                                .forEach(
+                                        (shard, files) -> {
+                                            try {
+                                                this.attachFileToClickhouse(shard, files);
+                                            } catch (ClickHouseException e) {
+                                                throw new SeaTunnelException(
+                                                        "failed commit file to clickhouse", e);
+                                            }
+                                        }));
         return new ArrayList<>();
     }
 
     @Override
     public CKFileAggCommitInfo combine(List<CKFileCommitInfo> commitInfos) {
         Map<Shard, List<String>> files = new HashMap<>();
-        commitInfos.forEach(infos -> infos.getDetachedFiles().forEach((shard, file) -> {
-            if (files.containsKey(shard)) {
-                files.get(shard).addAll(file);
-            } else {
-                files.put(shard, file);
-            }
-        }));
+        commitInfos.forEach(
+                infos ->
+                        infos.getDetachedFiles()
+                                .forEach(
+                                        (shard, file) -> {
+                                            if (files.containsKey(shard)) {
+                                                files.get(shard).addAll(file);
+                                            } else {
+                                                files.put(shard, file);
+                                            }
+                                        }));
         return new CKFileAggCommitInfo(files);
     }
 
     @Override
-    public void abort(List<CKFileAggCommitInfo> aggregatedCommitInfo) throws Exception {
+    public void abort(List<CKFileAggCommitInfo> aggregatedCommitInfo) throws Exception {}
 
+    private ClickhouseProxy getProxy() {
+        if (proxy != null) {
+            return proxy;
+        }
+        synchronized (this) {
+            if (proxy != null) {
+                return proxy;
+            }
+            proxy =
+                    new ClickhouseProxy(
+                            fileReaderOption.getShardMetadata().getDefaultShard().getNode());
+            return proxy;
+        }
     }
 
     @Override
     public void close() throws IOException {
-        proxy.close();
-    }
-
-    private void attachFileToClickhouse(Shard shard, List<String> clickhouseLocalFiles) throws ClickHouseException {
-        ClickHouseRequest<?> request = proxy.getClickhouseConnection(shard);
-        for (String clickhouseLocalFile : clickhouseLocalFiles) {
-            ClickHouseResponse response = request.query(String.format("ALTER TABLE %s ATTACH PART '%s'",
-                clickhouseTable.getLocalTableName(),
-                clickhouseLocalFile.substring(clickhouseLocalFile.lastIndexOf("/") + 1))).executeAndWait();
-            response.close();
+        if (proxy != null) {
+            proxy.close();
         }
     }
 
+    private void attachFileToClickhouse(Shard shard, List<String> clickhouseLocalFiles)
+            throws ClickHouseException {
+        ClickHouseRequest<?> request = getProxy().getClickhouseConnection(shard);
+        for (String clickhouseLocalFile : clickhouseLocalFiles) {
+            ClickHouseResponse response =
+                    request.query(
+                                    String.format(
+                                            "ALTER TABLE %s ATTACH PART '%s'",
+                                            clickhouseTable.getLocalTableName(),
+                                            clickhouseLocalFile.substring(
+                                                    clickhouseLocalFile.lastIndexOf("/") + 1)))
+                            .executeAndWait();
+            response.close();
+        }
+    }
 }

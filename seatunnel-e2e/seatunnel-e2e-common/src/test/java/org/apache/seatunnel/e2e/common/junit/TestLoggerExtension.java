@@ -27,38 +27,39 @@ import org.slf4j.LoggerFactory;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
-/**
- * A JUnit-5-style test logger.
- */
+/** A JUnit-5-style test logger. */
 public class TestLoggerExtension implements TestWatcher, BeforeEachCallback {
     private static final Logger LOG = LoggerFactory.getLogger(TestLoggerExtension.class);
 
     @Override
     public void beforeEach(ExtensionContext context) {
-        LOG.info("\n================================================================================"
-                + "\nTest {}.{} is running."
-                + "\n--------------------------------------------------------------------------------",
-            context.getRequiredTestClass().getCanonicalName(),
-            context.getRequiredTestMethod().getName());
+        LOG.info(
+                "\n================================================================================"
+                        + "\nTest {}.{} is running."
+                        + "\n--------------------------------------------------------------------------------",
+                context.getRequiredTestClass().getCanonicalName(),
+                context.getRequiredTestMethod().getName());
     }
 
     @Override
     public void testSuccessful(ExtensionContext context) {
-        LOG.info("\n--------------------------------------------------------------------------------"
-                + "\nTest {}.{} successfully run."
-                + "\n================================================================================",
-            context.getRequiredTestClass().getCanonicalName(),
-            context.getRequiredTestMethod().getName());
+        LOG.info(
+                "\n--------------------------------------------------------------------------------"
+                        + "\nTest {}.{} successfully run."
+                        + "\n================================================================================",
+                context.getRequiredTestClass().getCanonicalName(),
+                context.getRequiredTestMethod().getName());
     }
 
     @Override
     public void testFailed(ExtensionContext context, Throwable cause) {
-        LOG.error("\n--------------------------------------------------------------------------------"
-                + "\nTest {}.{} failed with:\n{}"
-                + "\n================================================================================",
-            context.getRequiredTestClass().getCanonicalName(),
-            context.getRequiredTestMethod().getName(),
-            exceptionToString(cause));
+        LOG.error(
+                "\n--------------------------------------------------------------------------------"
+                        + "\nTest {}.{} failed with:\n{}"
+                        + "\n================================================================================",
+                context.getRequiredTestClass().getCanonicalName(),
+                context.getRequiredTestMethod().getName(),
+                exceptionToString(cause));
     }
 
     private static String exceptionToString(Throwable t) {

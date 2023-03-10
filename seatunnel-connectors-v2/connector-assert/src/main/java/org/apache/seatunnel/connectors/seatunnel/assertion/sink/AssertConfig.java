@@ -26,6 +26,8 @@ public class AssertConfig {
 
     public static final String RULE_VALUE = "rule_value";
 
+    public static final String EQUALS_TO = "equals_to";
+
     public static final String ROW_RULES = "row_rules";
 
     public static final String FIELD_NAME = "field_name";
@@ -36,8 +38,10 @@ public class AssertConfig {
 
     public static final String FIELD_RULES = "field_rules";
 
-    public static final Option<Rules> RULES = Options.key("rules").objectType(Rules.class)
-        .noDefaultValue().withDescription("Rule definition of user's available data. Each rule represents one field validation or row num validation.");
-
-
+    public static final Option<Rules> RULES =
+            Options.key("rules")
+                    .objectType(Rules.class)
+                    .noDefaultValue()
+                    .withDescription(
+                            "Rule definition of user's available data. Each rule represents one field validation or row num validation.");
 }

@@ -18,9 +18,12 @@
 package org.apache.seatunnel.connectors.seatunnel.file.local.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.local.source.config.LocalSourceConfig;
 
@@ -39,13 +42,24 @@ public class LocalFileSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(LocalSourceConfig.FILE_PATH)
-                .required(LocalSourceConfig.FILE_TYPE)
-                .optional(LocalSourceConfig.DELIMITER)
-                .optional(LocalSourceConfig.PARSE_PARTITION_FROM_PATH)
-                .optional(LocalSourceConfig.DATE_FORMAT)
-                .optional(LocalSourceConfig.DATETIME_FORMAT)
-                .optional(LocalSourceConfig.TIME_FORMAT)
-                .conditional(LocalSourceConfig.FILE_TYPE, Arrays.asList("text", "json"), SeaTunnelSchema.SCHEMA)
+                .required(BaseSourceConfig.FILE_FORMAT_TYPE)
+                .conditional(
+                        BaseSourceConfig.FILE_FORMAT_TYPE,
+                        FileFormat.TEXT,
+                        BaseSourceConfig.DELIMITER)
+                .conditional(
+                        BaseSourceConfig.FILE_FORMAT_TYPE,
+                        Arrays.asList(FileFormat.TEXT, FileFormat.JSON),
+                        CatalogTableUtil.SCHEMA)
+                .optional(BaseSourceConfig.PARSE_PARTITION_FROM_PATH)
+                .optional(BaseSourceConfig.DATE_FORMAT)
+                .optional(BaseSourceConfig.DATETIME_FORMAT)
+                .optional(BaseSourceConfig.TIME_FORMAT)
                 .build();
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return LocalFileSource.class;
     }
 }

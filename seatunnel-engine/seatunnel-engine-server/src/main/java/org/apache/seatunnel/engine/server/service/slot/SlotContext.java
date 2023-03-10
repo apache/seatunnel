@@ -35,5 +35,4 @@ public class SlotContext {
     public TaskExecutionService getTaskExecutionService() {
         return taskExecutionService;
     }
-
 }

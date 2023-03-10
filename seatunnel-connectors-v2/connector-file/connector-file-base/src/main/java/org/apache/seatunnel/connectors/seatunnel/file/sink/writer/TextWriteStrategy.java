@@ -28,10 +28,13 @@ import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorExc
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
-import lombok.NonNull;
 import org.apache.hadoop.fs.FSDataOutputStream;
 
+import io.airlift.compress.lzo.LzopCodec;
+import lombok.NonNull;
+
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -45,27 +48,29 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
     private final TimeUtils.Formatter timeFormat;
     private SerializationSchema serializationSchema;
 
-    public TextWriteStrategy(FileSinkConfig textFileSinkConfig) {
-        super(textFileSinkConfig);
+    public TextWriteStrategy(FileSinkConfig fileSinkConfig) {
+        super(fileSinkConfig);
         this.beingWrittenOutputStream = new HashMap<>();
         this.isFirstWrite = new HashMap<>();
-        this.fieldDelimiter = textFileSinkConfig.getFieldDelimiter();
-        this.rowDelimiter = textFileSinkConfig.getRowDelimiter();
-        this.dateFormat = textFileSinkConfig.getDateFormat();
-        this.dateTimeFormat = textFileSinkConfig.getDatetimeFormat();
-        this.timeFormat = textFileSinkConfig.getTimeFormat();
+        this.fieldDelimiter = fileSinkConfig.getFieldDelimiter();
+        this.rowDelimiter = fileSinkConfig.getRowDelimiter();
+        this.dateFormat = fileSinkConfig.getDateFormat();
+        this.dateTimeFormat = fileSinkConfig.getDatetimeFormat();
+        this.timeFormat = fileSinkConfig.getTimeFormat();
     }
 
     @Override
     public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         super.setSeaTunnelRowTypeInfo(seaTunnelRowType);
-        this.serializationSchema = TextSerializationSchema.builder()
-                .seaTunnelRowType(seaTunnelRowType)
-                .delimiter(fieldDelimiter)
-                .dateFormatter(dateFormat)
-                .dateTimeFormatter(dateTimeFormat)
-                .timeFormatter(timeFormat)
-                .build();
+        this.serializationSchema =
+                TextSerializationSchema.builder()
+                        .seaTunnelRowType(
+                                buildSchemaWithRowType(seaTunnelRowType, sinkColumnsIndexInRow))
+                        .delimiter(fieldDelimiter)
+                        .dateFormatter(dateFormat)
+                        .dateTimeFormatter(dateTimeFormat)
+                        .timeFormatter(timeFormat)
+                        .build();
     }
 
     @Override
@@ -79,30 +84,40 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
             } else {
                 fsDataOutputStream.write(rowDelimiter.getBytes());
             }
-            fsDataOutputStream.write(serializationSchema.serialize(seaTunnelRow));
+            fsDataOutputStream.write(
+                    serializationSchema.serialize(
+                            seaTunnelRow.copy(
+                                    sinkColumnsIndexInRow.stream()
+                                            .mapToInt(Integer::intValue)
+                                            .toArray())));
         } catch (IOException e) {
-            throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED,
-                    String.format("Write data to file [%s] failed", filePath), e);
+            throw new FileConnectorException(
+                    CommonErrorCode.FILE_OPERATION_FAILED,
+                    String.format("Write data to file [%s] failed", filePath),
+                    e);
         }
     }
 
     @Override
     public void finishAndCloseFile() {
-        beingWrittenOutputStream.forEach((key, value) -> {
-            try {
-                value.flush();
-            } catch (IOException e) {
-                throw new FileConnectorException(CommonErrorCode.FLUSH_DATA_FAILED,
-                        String.format("Flush data to this file [%s] failed", key), e);
-            } finally {
-                try {
-                    value.close();
-                } catch (IOException e) {
-                    log.error("error when close output stream {}", key);
-                }
-            }
-            needMoveFiles.put(key, getTargetLocation(key));
-        });
+        beingWrittenOutputStream.forEach(
+                (key, value) -> {
+                    try {
+                        value.flush();
+                    } catch (IOException e) {
+                        throw new FileConnectorException(
+                                CommonErrorCode.FLUSH_DATA_FAILED,
+                                String.format("Flush data to this file [%s] failed", key),
+                                e);
+                    } finally {
+                        try {
+                            value.close();
+                        } catch (IOException e) {
+                            log.error("error when close output stream {}", key, e);
+                        }
+                    }
+                    needMoveFiles.put(key, getTargetLocation(key));
+                });
         beingWrittenOutputStream.clear();
         isFirstWrite.clear();
     }
@@ -111,13 +126,30 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
         FSDataOutputStream fsDataOutputStream = beingWrittenOutputStream.get(filePath);
         if (fsDataOutputStream == null) {
             try {
-                fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
+                switch (compressFormat) {
+                    case LZO:
+                        LzopCodec lzo = new LzopCodec();
+                        OutputStream out =
+                                lzo.createOutputStream(fileSystemUtils.getOutputStream(filePath));
+                        fsDataOutputStream = new FSDataOutputStream(out, null);
+                        break;
+                    case NONE:
+                        fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
+                        break;
+                    default:
+                        log.warn(
+                                "Text file does not support this compress type: {}",
+                                compressFormat.getCompressCodec());
+                        fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
+                        break;
+                }
                 beingWrittenOutputStream.put(filePath, fsDataOutputStream);
                 isFirstWrite.put(filePath, true);
             } catch (IOException e) {
-                log.error("can not get output file stream");
-                throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED,
-                        String.format("Open file output stream [%s] failed", filePath), e);
+                throw new FileConnectorException(
+                        CommonErrorCode.FILE_OPERATION_FAILED,
+                        String.format("Open file output stream [%s] failed", filePath),
+                        e);
             }
         }
         return fsDataOutputStream;

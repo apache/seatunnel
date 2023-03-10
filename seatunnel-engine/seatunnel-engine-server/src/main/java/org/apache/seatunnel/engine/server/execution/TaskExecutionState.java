@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
+
 import java.io.Serializable;
 
 public class TaskExecutionState implements Serializable {
@@ -25,20 +27,23 @@ public class TaskExecutionState implements Serializable {
 
     private final ExecutionState executionState;
 
-    private Throwable throwable;
+    private final String throwableMsg;
 
-    public TaskExecutionState(TaskGroupLocation taskGroupLocation, ExecutionState executionState, Throwable throwable) {
+    public TaskExecutionState(
+            TaskGroupLocation taskGroupLocation,
+            ExecutionState executionState,
+            Throwable throwable) {
         this.taskGroupLocation = taskGroupLocation;
         this.executionState = executionState;
-        this.throwable = throwable;
+        this.throwableMsg = throwable == null ? "" : ExceptionUtils.getMessage(throwable);
     }
 
     public ExecutionState getExecutionState() {
         return executionState;
     }
 
-    public Throwable getThrowable() {
-        return throwable;
+    public String getThrowableMsg() {
+        return throwableMsg;
     }
 
     public TaskGroupLocation getTaskGroupLocation() {

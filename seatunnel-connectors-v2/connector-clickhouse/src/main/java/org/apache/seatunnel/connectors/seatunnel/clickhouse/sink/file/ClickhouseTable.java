@@ -19,10 +19,16 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
 
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.DistributedEngine;
 
+import lombok.Getter;
+import lombok.Setter;
+
+import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
-public class ClickhouseTable {
+@Getter
+@Setter
+public class ClickhouseTable implements Serializable {
 
     private String database;
     private String tableName;
@@ -30,17 +36,20 @@ public class ClickhouseTable {
     private String engineFull;
     private String createTableDDL;
     private List<String> dataPaths;
+    private String sortingKey;
     private final DistributedEngine distributedEngine;
     private Map<String, String> tableSchema;
 
-    public ClickhouseTable(String database,
-                           String tableName,
-                           DistributedEngine distributedEngine,
-                           String engine,
-                           String createTableDDL,
-                           String engineFull,
-                           List<String> dataPaths,
-                           Map<String, String> tableSchema) {
+    public ClickhouseTable(
+            String database,
+            String tableName,
+            DistributedEngine distributedEngine,
+            String engine,
+            String createTableDDL,
+            String engineFull,
+            List<String> dataPaths,
+            String sortingKey,
+            Map<String, String> tableSchema) {
         this.database = database;
         this.tableName = tableName;
         this.distributedEngine = distributedEngine;
@@ -48,62 +57,7 @@ public class ClickhouseTable {
         this.engineFull = engineFull;
         this.createTableDDL = createTableDDL;
         this.dataPaths = dataPaths;
-        this.tableSchema = tableSchema;
-    }
-
-    public String getTableName() {
-        return tableName;
-    }
-
-    public void setTableName(String tableName) {
-        this.tableName = tableName;
-    }
-
-    public String getDatabase() {
-        return database;
-    }
-
-    public void setDatabase(String database) {
-        this.database = database;
-    }
-
-    public String getEngine() {
-        return engine;
-    }
-
-    public void setEngine(String engine) {
-        this.engine = engine;
-    }
-
-    public String getEngineFull() {
-        return engineFull;
-    }
-
-    public void setEngineFull(String engineFull) {
-        this.engineFull = engineFull;
-    }
-
-    public String getCreateTableDDL() {
-        return createTableDDL;
-    }
-
-    public void setCreateTableDDL(String createTableDDL) {
-        this.createTableDDL = createTableDDL;
-    }
-
-    public List<String> getDataPaths() {
-        return dataPaths;
-    }
-
-    public void setDataPaths(List<String> dataPaths) {
-        this.dataPaths = dataPaths;
-    }
-
-    public Map<String, String> getTableSchema() {
-        return tableSchema;
-    }
-
-    public void setTableSchema(Map<String, String> tableSchema) {
+        this.sortingKey = sortingKey;
         this.tableSchema = tableSchema;
     }
 

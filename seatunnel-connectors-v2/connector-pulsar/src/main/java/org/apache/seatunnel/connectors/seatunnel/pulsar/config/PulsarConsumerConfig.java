@@ -44,8 +44,7 @@ public class PulsarConsumerConfig implements Serializable {
     public static final class Builder {
         private String subscriptionName;
 
-        private Builder() {
-        }
+        private Builder() {}
 
         public Builder subscriptionName(String subscriptionName) {
             this.subscriptionName = subscriptionName;
@@ -53,7 +52,9 @@ public class PulsarConsumerConfig implements Serializable {
         }
 
         public PulsarConsumerConfig build() {
-            Preconditions.checkArgument(StringUtils.isNotBlank(subscriptionName), "Pulsar subscription name is required.");
+            Preconditions.checkArgument(
+                    StringUtils.isNotBlank(subscriptionName),
+                    "Pulsar subscription name is required.");
             return new PulsarConsumerConfig(subscriptionName);
         }
     }

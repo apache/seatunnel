@@ -22,9 +22,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
+import org.apache.commons.lang3.tuple.Pair;
+
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
-import org.apache.commons.lang3.tuple.Pair;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -34,17 +35,15 @@ import java.util.Set;
 import java.util.function.Function;
 
 @RequiredArgsConstructor
-public class BufferReducedBatchStatementExecutor implements JdbcBatchStatementExecutor<SeaTunnelRow> {
-    @NonNull
-    private final JdbcBatchStatementExecutor<SeaTunnelRow> upsertExecutor;
-    @NonNull
-    private final JdbcBatchStatementExecutor<SeaTunnelRow> deleteExecutor;
-    @NonNull
-    private final Function<SeaTunnelRow, SeaTunnelRow> keyExtractor;
-    @NonNull
-    private final Function<SeaTunnelRow, SeaTunnelRow> valueTransform;
-    @NonNull
-    private final LinkedHashMap<SeaTunnelRow, Pair<Boolean, SeaTunnelRow>> buffer = new LinkedHashMap<>();
+public class BufferReducedBatchStatementExecutor
+        implements JdbcBatchStatementExecutor<SeaTunnelRow> {
+    @NonNull private final JdbcBatchStatementExecutor<SeaTunnelRow> upsertExecutor;
+    @NonNull private final JdbcBatchStatementExecutor<SeaTunnelRow> deleteExecutor;
+    @NonNull private final Function<SeaTunnelRow, SeaTunnelRow> keyExtractor;
+    @NonNull private final Function<SeaTunnelRow, SeaTunnelRow> valueTransform;
+
+    @NonNull private final LinkedHashMap<SeaTunnelRow, Pair<Boolean, SeaTunnelRow>> buffer =
+            new LinkedHashMap<>();
 
     @Override
     public void prepareStatements(Connection connection) throws SQLException {
@@ -113,7 +112,8 @@ public class BufferReducedBatchStatementExecutor implements JdbcBatchStatementEx
             case UPDATE_BEFORE:
                 return false;
             default:
-                throw new JdbcConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION, "Unsupported rowKind: " + rowKind);
+                throw new JdbcConnectorException(
+                        CommonErrorCode.UNSUPPORTED_OPERATION, "Unsupported rowKind: " + rowKind);
         }
     }
 }

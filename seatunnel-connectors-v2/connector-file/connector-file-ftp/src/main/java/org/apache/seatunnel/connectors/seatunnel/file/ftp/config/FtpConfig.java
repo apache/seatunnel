@@ -22,20 +22,18 @@ import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 
 public class FtpConfig extends BaseSourceConfig {
-    public static final Option<String> FTP_PASSWORD = Options.key("password")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("FTP server password");
-    public static final Option<String> FTP_USERNAME = Options.key("user")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("FTP server username");
-    public static final Option<String> FTP_HOST = Options.key("host")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("FTP server host");
-    public static final Option<Integer> FTP_PORT = Options.key("port")
-            .intType()
-            .noDefaultValue()
-            .withDescription("FTP server port");
+    public static final Option<String> FTP_PASSWORD =
+            Options.key("password")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("FTP server password");
+    public static final Option<String> FTP_USERNAME =
+            Options.key("user")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("FTP server username");
+    public static final Option<String> FTP_HOST =
+            Options.key("host").stringType().noDefaultValue().withDescription("FTP server host");
+    public static final Option<Integer> FTP_PORT =
+            Options.key("port").intType().noDefaultValue().withDescription("FTP server port");
 }

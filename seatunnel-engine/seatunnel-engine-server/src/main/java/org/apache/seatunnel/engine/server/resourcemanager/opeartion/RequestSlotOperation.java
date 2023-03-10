@@ -35,8 +35,7 @@ public class RequestSlotOperation extends Operation implements IdentifiedDataSer
     private long jobID;
     private SlotAndWorkerProfile result;
 
-    public RequestSlotOperation() {
-    }
+    public RequestSlotOperation() {}
 
     public RequestSlotOperation(long jobID, ResourceProfile resourceProfile) {
         this.resourceProfile = resourceProfile;

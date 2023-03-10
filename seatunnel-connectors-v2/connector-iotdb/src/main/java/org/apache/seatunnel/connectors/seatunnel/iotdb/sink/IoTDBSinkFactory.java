@@ -17,6 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdb.sink;
 
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+
+import com.google.auto.service.AutoService;
+
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.CommonConfig.NODE_URLS;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.CommonConfig.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.CommonConfig.USERNAME;
@@ -35,14 +41,8 @@ import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.STORAGE_GROUP;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.ZONE_ID;
 
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSinkFactory;
-
-import com.google.auto.service.AutoService;
-
 @AutoService(Factory.class)
-public class IoTDBSinkFactory implements TableSinkFactory{
+public class IoTDBSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
         return "IoTDB";
@@ -52,9 +52,20 @@ public class IoTDBSinkFactory implements TableSinkFactory{
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(NODE_URLS, USERNAME, PASSWORD, KEY_DEVICE)
-                .optional(KEY_TIMESTAMP, KEY_MEASUREMENT_FIELDS, STORAGE_GROUP, BATCH_SIZE, BATCH_INTERVAL_MS,
-                        MAX_RETRIES, RETRY_BACKOFF_MULTIPLIER_MS, MAX_RETRY_BACKOFF_MS, DEFAULT_THRIFT_BUFFER_SIZE,
-                        MAX_THRIFT_FRAME_SIZE, ZONE_ID, ENABLE_RPC_COMPRESSION, CONNECTION_TIMEOUT_IN_MS)
+                .optional(
+                        KEY_TIMESTAMP,
+                        KEY_MEASUREMENT_FIELDS,
+                        STORAGE_GROUP,
+                        BATCH_SIZE,
+                        BATCH_INTERVAL_MS,
+                        MAX_RETRIES,
+                        RETRY_BACKOFF_MULTIPLIER_MS,
+                        MAX_RETRY_BACKOFF_MS,
+                        DEFAULT_THRIFT_BUFFER_SIZE,
+                        MAX_THRIFT_FRAME_SIZE,
+                        ZONE_ID,
+                        ENABLE_RPC_COMPRESSION,
+                        CONNECTION_TIMEOUT_IN_MS)
                 .build();
     }
 }

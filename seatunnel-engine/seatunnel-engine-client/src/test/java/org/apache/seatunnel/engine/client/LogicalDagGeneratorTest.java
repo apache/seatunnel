@@ -27,10 +27,12 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDagGenerator;
 import org.apache.seatunnel.engine.core.parse.JobConfigParser;
 
-import com.hazelcast.internal.json.JsonObject;
 import org.apache.commons.lang3.tuple.ImmutablePair;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import com.hazelcast.internal.json.JsonObject;
 
 import java.net.URL;
 import java.util.List;
@@ -47,14 +49,14 @@ public class LogicalDagGeneratorTest {
 
         IdGenerator idGenerator = new IdGenerator();
         ImmutablePair<List<Action>, Set<URL>> immutablePair =
-            new JobConfigParser(filePath, idGenerator, jobConfig).parse();
+                new JobConfigParser(filePath, idGenerator, jobConfig).parse();
 
         LogicalDagGenerator logicalDagGenerator =
-            new LogicalDagGenerator(immutablePair.getLeft(), jobConfig, idGenerator);
+                new LogicalDagGenerator(immutablePair.getLeft(), jobConfig, idGenerator);
         LogicalDag logicalDag = logicalDagGenerator.generate();
         JsonObject logicalDagJson = logicalDag.getLogicalDagAsJson();
         String result =
-            "{\"vertices\":[{\"id\":1,\"name\":\"LocalFile(id=1)\",\"parallelism\":6},{\"id\":2,\"name\":\"FakeSource(id=2)\",\"parallelism\":3},{\"id\":3,\"name\":\"FakeSource(id=3)\",\"parallelism\":3}],\"edges\":[{\"inputVertex\":\"FakeSource\",\"targetVertex\":\"LocalFile\"},{\"inputVertex\":\"FakeSource\",\"targetVertex\":\"LocalFile\"}]}";
+                "{\"vertices\":[{\"id\":1,\"name\":\"LocalFile(id=1)\",\"parallelism\":6},{\"id\":2,\"name\":\"FakeSource(id=2)\",\"parallelism\":3},{\"id\":3,\"name\":\"FakeSource(id=3)\",\"parallelism\":3}],\"edges\":[{\"inputVertex\":\"FakeSource\",\"targetVertex\":\"LocalFile\"},{\"inputVertex\":\"FakeSource\",\"targetVertex\":\"LocalFile\"}]}";
         Assertions.assertEquals(result, logicalDagJson.toString());
     }
 }

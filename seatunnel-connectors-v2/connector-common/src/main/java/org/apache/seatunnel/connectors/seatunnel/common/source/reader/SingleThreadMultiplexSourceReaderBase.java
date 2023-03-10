@@ -29,46 +29,49 @@ import java.util.function.Supplier;
 /**
  * A base for {@link SourceReader}s that read splits with one thread using one {@link SplitReader}.
  *
- * @param <E> The type of the records (the raw type that typically contains checkpointing information).
- *
+ * @param <E> The type of the records (the raw type that typically contains checkpointing
+ *     information).
  * @param <T> The final type of the records emitted by the source.
- *
  * @param <SplitT>
- *
  * @param <SplitStateT>
- *
  */
-public abstract class SingleThreadMultiplexSourceReaderBase<E, T, SplitT extends SourceSplit, SplitStateT>
-    extends SourceReaderBase<E, T, SplitT, SplitStateT> {
+public abstract class SingleThreadMultiplexSourceReaderBase<
+                E, T, SplitT extends SourceSplit, SplitStateT>
+        extends SourceReaderBase<E, T, SplitT, SplitStateT> {
 
-    public SingleThreadMultiplexSourceReaderBase(Supplier<SplitReader<E, SplitT>> splitReaderSupplier,
-                                                 RecordEmitter<E, T, SplitStateT> recordEmitter,
-                                                 SourceReaderOptions options,
-                                                 SourceReader.Context context) {
-        this(new ArrayBlockingQueue<>(options.getElementQueueCapacity()),
-            splitReaderSupplier,
-            recordEmitter,
-            options,
-            context);
+    public SingleThreadMultiplexSourceReaderBase(
+            Supplier<SplitReader<E, SplitT>> splitReaderSupplier,
+            RecordEmitter<E, T, SplitStateT> recordEmitter,
+            SourceReaderOptions options,
+            SourceReader.Context context) {
+        this(
+                new ArrayBlockingQueue<>(options.getElementQueueCapacity()),
+                splitReaderSupplier,
+                recordEmitter,
+                options,
+                context);
     }
 
-    public SingleThreadMultiplexSourceReaderBase(BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
-                                                 Supplier<SplitReader<E, SplitT>> splitReaderSupplier,
-                                                 RecordEmitter<E, T, SplitStateT> recordEmitter,
-                                                 SourceReaderOptions options,
-                                                 SourceReader.Context context) {
-        super(elementsQueue,
-            new SingleThreadFetcherManager<>(elementsQueue, splitReaderSupplier),
-            recordEmitter,
-            options,
-            context);
+    public SingleThreadMultiplexSourceReaderBase(
+            BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
+            Supplier<SplitReader<E, SplitT>> splitReaderSupplier,
+            RecordEmitter<E, T, SplitStateT> recordEmitter,
+            SourceReaderOptions options,
+            SourceReader.Context context) {
+        super(
+                elementsQueue,
+                new SingleThreadFetcherManager<>(elementsQueue, splitReaderSupplier),
+                recordEmitter,
+                options,
+                context);
     }
 
-    public SingleThreadMultiplexSourceReaderBase(BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
-                                                 SingleThreadFetcherManager<E, SplitT> splitFetcherManager,
-                                                 RecordEmitter<E, T, SplitStateT> recordEmitter,
-                                                 SourceReaderOptions options,
-                                                 SourceReader.Context context) {
+    public SingleThreadMultiplexSourceReaderBase(
+            BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
+            SingleThreadFetcherManager<E, SplitT> splitFetcherManager,
+            RecordEmitter<E, T, SplitStateT> recordEmitter,
+            SourceReaderOptions options,
+            SourceReader.Context context) {
         super(elementsQueue, splitFetcherManager, recordEmitter, options, context);
     }
 }
