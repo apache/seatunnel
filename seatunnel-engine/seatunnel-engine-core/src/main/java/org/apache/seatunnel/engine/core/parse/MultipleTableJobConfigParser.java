@@ -133,8 +133,10 @@ public class MultipleTableJobConfigParser {
             tableWithActionMap.put(tuple2._1(), tuple2._2());
         }
         List<Action> sinkActions = new ArrayList<>();
-        for (Config sinkConfig : sinkConfigs) {
-            sinkActions.addAll(parserSink(sinkConfig, classLoader, tableWithActionMap));
+        for (int configIndex = 0; configIndex < sinkConfigs.size(); configIndex++) {
+            Config sinkConfig = sinkConfigs.get(configIndex);
+            sinkActions.addAll(
+                    parserSink(configIndex, sinkConfig, classLoader, tableWithActionMap));
         }
         Set<URL> factoryUrls = getUsedFactoryUrls(sinkActions);
         factoryUrls.addAll(commonPluginJars);
@@ -212,11 +214,14 @@ public class MultipleTableJobConfigParser {
 
         List<Tuple2<CatalogTable, Action>> actions = new ArrayList<>();
         int parallelism = getParallelism(readonlyConfig);
-        for (Tuple2<SeaTunnelSource<Object, SourceSplit, Serializable>, List<CatalogTable>> tuple2 :
-                sources) {
+        for (int configIndex = 0; configIndex < sources.size(); configIndex++) {
+            Tuple2<SeaTunnelSource<Object, SourceSplit, Serializable>, List<CatalogTable>> tuple2 =
+                    sources.get(configIndex);
             long id = idGenerator.getNextId();
+            String actionName =
+                    JobConfigParser.createSourceActionName(configIndex, factoryId, tableId);
             SourceAction<Object, SourceSplit, Serializable> action =
-                    new SourceAction<>(id, factoryId, tuple2._1(), factoryUrls);
+                    new SourceAction<>(id, actionName, tuple2._1(), factoryUrls);
             action.setParallelism(parallelism);
             for (CatalogTable catalogTable : tuple2._2()) {
                 actions.add(new Tuple2<>(catalogTable, action));
@@ -248,6 +253,7 @@ public class MultipleTableJobConfigParser {
     }
 
     public List<SinkAction<?, ?, ?, ?>> parserSink(
+            int configIndex,
             Config sinkConfig,
             ClassLoader classLoader,
             Map<String, List<Tuple2<CatalogTable, Action>>> tableWithActionMap) {
@@ -290,15 +296,23 @@ public class MultipleTableJobConfigParser {
             SeaTunnelSink<?, ?, ?, ?> sink =
                     FactoryUtil.createAndPrepareSink(
                             catalogTable, readonlyConfig, classLoader, factoryId);
+            SinkConfig actionConfig =
+                    new SinkConfig(catalogTable.getTableId().toTablePath().toString());
             long id = idGenerator.getNextId();
+            String actionName =
+                    JobConfigParser.createSinkActionName(
+                            configIndex,
+                            factoryId,
+                            String.format(
+                                    "%s(%s)", leftTableId, actionConfig.getMultipleRowTableId()));
             SinkAction<?, ?, ?, ?> sinkAction =
                     new SinkAction<>(
                             id,
-                            factoryId,
+                            actionName,
                             Collections.singletonList(leftAction),
                             sink,
                             factoryUrls,
-                            new SinkConfig(catalogTable.getTableId().toTablePath().toString()));
+                            actionConfig);
             handleSaveMode(sink);
             sinkAction.setParallelism(leftAction.getParallelism());
             sinkActions.add(sinkAction);
