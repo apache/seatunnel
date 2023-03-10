@@ -90,7 +90,9 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
             }
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
-            clientConfig.setClusterName(clusterName);
+            if (StringUtils.isNotEmpty(clusterName)) {
+                clientConfig.setClusterName(clusterName);
+            }
             engineClient = new SeaTunnelClient(clientConfig);
             if (clientCommandArgs.isListJob()) {
                 String jobStatus = engineClient.getJobClient().listJobStatus(true);
