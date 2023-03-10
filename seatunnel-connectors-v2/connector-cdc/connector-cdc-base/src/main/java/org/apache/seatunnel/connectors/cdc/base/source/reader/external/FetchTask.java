@@ -41,6 +41,9 @@ public interface FetchTask<Split> {
     /** Returns current task is running or not. */
     boolean isRunning();
 
+    /** Close this task */
+    void shutdown();
+
     /** Returns the split that the task used. */
     Split getSplit();
 
