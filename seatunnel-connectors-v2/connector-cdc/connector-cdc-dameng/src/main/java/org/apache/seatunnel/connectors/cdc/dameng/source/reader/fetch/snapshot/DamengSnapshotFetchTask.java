@@ -96,6 +96,11 @@ public class DamengSnapshotFetchTask implements FetchTask<SourceSplitBase> {
     }
 
     @Override
+    public void shutdown() {
+        taskRunning = false;
+    }
+
+    @Override
     public SnapshotSplit getSplit() {
         return split;
     }

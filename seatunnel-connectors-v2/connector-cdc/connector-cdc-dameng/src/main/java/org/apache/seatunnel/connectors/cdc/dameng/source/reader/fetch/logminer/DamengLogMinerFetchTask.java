@@ -61,6 +61,11 @@ public class DamengLogMinerFetchTask implements FetchTask<SourceSplitBase> {
     }
 
     @Override
+    public void shutdown() {
+        taskRunning = false;
+    }
+
+    @Override
     public IncrementalSplit getSplit() {
         return incrementalSplit;
     }

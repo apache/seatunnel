@@ -96,6 +96,11 @@ public class OracleScanFetchTask implements FetchTask<SourceSplitBase> {
     }
 
     @Override
+    public void shutdown() {
+        taskRunning = false;
+    }
+
+    @Override
     public void execute(FetchTask.Context context) throws Exception {
         OracleSourceFetchTaskContext sourceFetchContext = (OracleSourceFetchTaskContext) context;
         taskRunning = true;
