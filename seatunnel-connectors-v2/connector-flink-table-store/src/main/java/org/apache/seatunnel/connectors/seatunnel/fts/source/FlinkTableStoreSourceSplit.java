@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.flink.table.store.table.source.Split;
 
 public class FlinkTableStoreSourceSplit implements SourceSplit {
+    private static final long serialVersionUID = 1L;
 
     private final Split split;
 
@@ -31,6 +32,10 @@ public class FlinkTableStoreSourceSplit implements SourceSplit {
 
     @Override
     public String splitId() {
-        return String.valueOf(split);
+        return split.toString();
+    }
+
+    public Split getSplit() {
+        return split;
     }
 }

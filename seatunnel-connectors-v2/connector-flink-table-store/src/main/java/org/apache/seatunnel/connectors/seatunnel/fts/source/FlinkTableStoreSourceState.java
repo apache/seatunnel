@@ -18,5 +18,19 @@
 package org.apache.seatunnel.connectors.seatunnel.fts.source;
 
 import java.io.Serializable;
+import java.util.Set;
 
-public class FlinkTableStoreSourceState implements Serializable {}
+public class FlinkTableStoreSourceState implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    private final Set<FlinkTableStoreSourceSplit> assignedSplits;
+
+    public FlinkTableStoreSourceState(Set<FlinkTableStoreSourceSplit> assignedSplits) {
+        this.assignedSplits = assignedSplits;
+    }
+
+    public Set<FlinkTableStoreSourceSplit> getAssignedSplits() {
+        return assignedSplits;
+    }
+}
