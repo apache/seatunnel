@@ -27,6 +27,7 @@ import org.apache.seatunnel.core.starter.utils.FileUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
+import org.apache.seatunnel.engine.client.job.JobMetricsRunner;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -34,12 +35,13 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 
+import org.apache.commons.lang3.StringUtils;
+
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 
 import java.nio.file.Path;
 import java.time.Duration;
@@ -77,8 +79,11 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         try {
             String clusterName = clientCommandArgs.getClusterName();
             if (clientCommandArgs.getMasterType().equals(MasterType.LOCAL)) {
-                clusterName = creatRandomClusterName(StringUtils.isNotEmpty(clusterName) ?
-                    clusterName : Constant.DEFAULT_SEATUNNEL_CLUSTER_NAME);
+                clusterName =
+                        creatRandomClusterName(
+                                StringUtils.isNotEmpty(clusterName)
+                                        ? clusterName
+                                        : Constant.DEFAULT_SEATUNNEL_CLUSTER_NAME);
                 instance = createServerInLocal(clusterName);
             }
             if (StringUtils.isNotEmpty(clusterName)) {
