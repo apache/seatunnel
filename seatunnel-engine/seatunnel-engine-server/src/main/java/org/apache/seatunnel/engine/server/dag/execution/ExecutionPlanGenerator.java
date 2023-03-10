@@ -45,7 +45,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -145,7 +144,16 @@ public class ExecutionPlanGenerator {
 
         List<LogicalEdge> sortedLogicalEdges = new ArrayList<>(logicalEdges);
         Collections.sort(
-                sortedLogicalEdges, Comparator.comparingLong(LogicalEdge::getInputVertexId));
+                sortedLogicalEdges,
+                (o1, o2) -> {
+                    if (o1.getInputVertexId() != o2.getInputVertexId()) {
+                        return o1.getInputVertexId() > o2.getInputVertexId() ? 1 : -1;
+                    }
+                    if (o1.getTargetVertexId() != o2.getTargetVertexId()) {
+                        return o1.getTargetVertexId() > o2.getTargetVertexId() ? 1 : -1;
+                    }
+                    return 0;
+                });
         for (LogicalEdge logicalEdge : sortedLogicalEdges) {
             LogicalVertex logicalInputVertex = logicalEdge.getInputVertex();
             ExecutionVertex executionInputVertex =
@@ -233,11 +241,7 @@ public class ExecutionPlanGenerator {
                 ShuffleConfig.builder().shuffleStrategy(shuffleStrategy).build();
 
         long shuffleVertexId = idGenerator.getNextId();
-        String shuffleActionName =
-                String.format(
-                        "Shuffle [%s -> table[0~%s]]",
-                        sourceAction.getName(),
-                        ((MultipleRowType) sourceProducedType).getTableIds().length - 1);
+        String shuffleActionName = String.format("Shuffle [%s]", sourceAction.getName());
         ShuffleAction shuffleAction =
                 new ShuffleAction(shuffleVertexId, shuffleActionName, shuffleConfig);
         shuffleAction.setParallelism(sourceAction.getParallelism());
@@ -358,9 +362,11 @@ public class ExecutionPlanGenerator {
                                 jars.addAll(action.getJarUrls());
                                 names.add(action.getName());
                             });
+            String transformChainActionName =
+                    String.format("TransformChain[%s]", String.join("->", names));
             TransformChainAction transformChainAction =
                     new TransformChainAction(
-                            newVertexId, String.join("->", names), jars, transforms);
+                            newVertexId, transformChainActionName, jars, transforms);
             transformChainAction.setParallelism(currentVertex.getAction().getParallelism());
 
             ExecutionVertex executionVertex =
@@ -413,7 +419,24 @@ public class ExecutionPlanGenerator {
             executionVertices.add(edge.getLeftVertex());
             executionVertices.add(edge.getRightVertex());
         }
-        return new PipelineGenerator(executionVertices, new ArrayList<>(executionEdges))
-                .generatePipelines();
+        PipelineGenerator pipelineGenerator =
+                new PipelineGenerator(executionVertices, new ArrayList<>(executionEdges));
+        List<Pipeline> pipelines = pipelineGenerator.generatePipelines();
+
+        long actionCount = 0;
+        Set<String> actionNames = new HashSet<>();
+        for (Pipeline pipeline : pipelines) {
+            Integer pipelineId = pipeline.getId();
+            for (ExecutionVertex vertex : pipeline.getVertexes().values()) {
+                Action action = vertex.getAction();
+                String actionName = String.format("pipeline-%s [%s]", pipelineId, action.getName());
+                action.setName(actionName);
+                actionNames.add(actionName);
+                actionCount++;
+            }
+        }
+        checkArgument(actionNames.size() == actionCount, "Action name is duplicated");
+
+        return pipelines;
     }
 }

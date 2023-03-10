@@ -17,15 +17,25 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
-import lombok.Data;
+import org.apache.seatunnel.engine.core.dag.actions.Action;
+
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 
 import java.io.Serializable;
-import java.util.List;
 
-@Data
-public class ActionSubtaskState implements Serializable {
-    private static final long serialVersionUID = 1L;
-    private final ActionStateKey stateKey;
-    private final int index;
-    private final List<byte[]> state;
+@ToString
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
+@EqualsAndHashCode
+public class ActionStateKey implements Serializable {
+    private String name;
+
+    public static ActionStateKey of(Action action) {
+        return new ActionStateKey("ActionStateKey - " + action.getName());
+    }
 }
