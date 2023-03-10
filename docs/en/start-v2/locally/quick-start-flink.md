@@ -72,24 +72,24 @@ is a sign that the command ran successfully or not.
 The SeaTunnel console will prints some logs as below:
 
 ```shell
-fields : name, age
-types : STRING, INT
-row=1 : elWaB, 1984352560
-row=2 : uAtnp, 762961563
-row=3 : TQEIB, 2042675010
-row=4 : DcFjo, 593971283
-row=5 : SenEb, 2099913608
-row=6 : DHjkg, 1928005856
-row=7 : eScCM, 526029657
-row=8 : sgOeE, 600878991
-row=9 : gwdvw, 1951126920
-row=10 : nSiKE, 488708928
-row=11 : xubpl, 1420202810
-row=12 : rHZqb, 331185742
-row=13 : rciGD, 1112878259
-row=14 : qLhdI, 1457046294
-row=15 : ZTkRx, 1240668386
-row=16 : SGZCr, 94186144
+fields : name,   age
+types  : STRING, INT
+row= 1 : elWaB,  1984352560
+row= 2 : uAtnp,  762961563
+row= 3 : TQEIB,  2042675010
+row= 4 : DcFjo,  593971283
+row= 5 : SenEb,  2099913608
+row= 6 : DHjkg,  1928005856
+row= 7 : eScCM,  526029657
+row= 8 : sgOeE,  600878991
+row= 9 : gwdvw,  1951126920
+row=10 : nSiKE,  488708928
+row=11 : xubpl,  1420202810
+row=12 : rHZqb,  331185742
+row=13 : rciGD,  1112878259
+row=14 : qLhdI,  1457046294
+row=15 : ZTkRx,  1240668386
+row=16 : SGZCr,  94186144
 ```
 
 ## What's More
