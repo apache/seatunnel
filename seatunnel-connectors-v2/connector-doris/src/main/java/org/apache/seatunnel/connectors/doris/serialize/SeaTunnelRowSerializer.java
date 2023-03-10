@@ -77,8 +77,7 @@ public class SeaTunnelRowSerializer extends SeaTunnelRowConverter implements Dor
             rowMap.put(seaTunnelRowType.getFieldName(i), value);
         }
         if (enableDelete) {
-            rowMap.put(
-                    LoadConstants.DORIS_DELETE_SIGN, DorisSinkOP.parseDeleteSign(row.getRowKind()));
+            rowMap.put(LoadConstants.DORIS_DELETE_SIGN, parseDeleteSign(row.getRowKind()));
         }
         return objectMapper.writeValueAsString(rowMap);
     }
