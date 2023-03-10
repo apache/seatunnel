@@ -42,10 +42,12 @@ import org.apache.seatunnel.connectors.cdc.base.source.enumerator.SplitAssigner;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.HybridPendingSplitsState;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.IncrementalPhaseState;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.PendingSplitsState;
+import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.SnapshotPhaseState;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.IncrementalSourceReader;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.IncrementalSourceRecordEmitter;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.IncrementalSourceSplitReader;
+import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.cdc.base.source.split.state.SourceSplitStateBase;
@@ -54,15 +56,21 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordEmit
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordsWithSplitIds;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SourceReaderOptions;
 
+import com.google.common.collect.Sets;
 import io.debezium.relational.TableId;
 import lombok.NoArgsConstructor;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @NoArgsConstructor
 public abstract class IncrementalSource<T, C extends SourceConfig>
@@ -218,16 +226,20 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
             PendingSplitsState checkpointState)
             throws Exception {
         C sourceConfig = configFactory.create(0);
-        final List<TableId> remainingTables =
-                dataSourceDialect.discoverDataCollections(sourceConfig);
-        SplitAssigner.Context<C> assignerContext =
-                new SplitAssigner.Context<>(
-                        sourceConfig,
-                        new HashSet<>(remainingTables),
-                        new HashMap<>(),
-                        new HashMap<>());
+        Set<TableId> capturedTables =
+                new HashSet<>(dataSourceDialect.discoverDataCollections(sourceConfig));
+
         final SplitAssigner splitAssigner;
         if (checkpointState instanceof HybridPendingSplitsState) {
+            checkpointState = restore(capturedTables, (HybridPendingSplitsState) checkpointState);
+            SnapshotPhaseState checkpointSnapshotState =
+                    ((HybridPendingSplitsState) checkpointState).getSnapshotPhaseState();
+            SplitAssigner.Context<C> assignerContext =
+                    new SplitAssigner.Context<>(
+                            sourceConfig,
+                            capturedTables,
+                            checkpointSnapshotState.getAssignedSplits(),
+                            checkpointSnapshotState.getSplitCompletedOffsets());
             splitAssigner =
                     new HybridSplitAssigner<>(
                             assignerContext,
@@ -237,6 +249,9 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                             dataSourceDialect,
                             offsetFactory);
         } else if (checkpointState instanceof IncrementalPhaseState) {
+            SplitAssigner.Context<C> assignerContext =
+                    new SplitAssigner.Context<>(
+                            sourceConfig, capturedTables, new HashMap<>(), new HashMap<>());
             splitAssigner =
                     new IncrementalSplitAssigner<>(
                             assignerContext, incrementalParallelism, offsetFactory);
@@ -245,5 +260,44 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                     "Unsupported restored PendingSplitsState: " + checkpointState);
         }
         return new IncrementalSourceEnumerator(enumeratorContext, splitAssigner);
+    }
+
+    private HybridPendingSplitsState restore(
+            Set<TableId> capturedTables, HybridPendingSplitsState checkpointState) {
+        SnapshotPhaseState checkpointSnapshotState = checkpointState.getSnapshotPhaseState();
+        Set<TableId> checkpointCapturedTables =
+                Stream.concat(
+                                checkpointSnapshotState.getAlreadyProcessedTables().stream(),
+                                checkpointSnapshotState.getRemainingTables().stream())
+                        .collect(Collectors.toSet());
+        Set<TableId> newTables = Sets.difference(capturedTables, checkpointCapturedTables);
+        Set<TableId> deletedTables = Sets.difference(checkpointCapturedTables, capturedTables);
+
+        checkpointSnapshotState.getRemainingTables().addAll(newTables);
+        checkpointSnapshotState.getRemainingTables().removeAll(deletedTables);
+        checkpointSnapshotState.getAlreadyProcessedTables().removeAll(deletedTables);
+        Set<String> deletedSplitIds = new HashSet<>();
+        Iterator<SnapshotSplit> splitIterator =
+                checkpointSnapshotState.getRemainingSplits().iterator();
+        while (splitIterator.hasNext()) {
+            SnapshotSplit split = splitIterator.next();
+            if (deletedTables.contains(split.getTableId())) {
+                splitIterator.remove();
+                deletedSplitIds.add(split.splitId());
+            }
+        }
+        for (Map.Entry<String, SnapshotSplit> entry :
+                checkpointSnapshotState.getAssignedSplits().entrySet()) {
+            SnapshotSplit split = entry.getValue();
+            if (deletedTables.contains(split.getTableId())) {
+                deletedSplitIds.add(entry.getKey());
+            }
+        }
+        deletedSplitIds.forEach(
+                splitId -> {
+                    checkpointSnapshotState.getAssignedSplits().remove(splitId);
+                    checkpointSnapshotState.getSplitCompletedOffsets().remove(splitId);
+                });
+        return checkpointState;
     }
 }

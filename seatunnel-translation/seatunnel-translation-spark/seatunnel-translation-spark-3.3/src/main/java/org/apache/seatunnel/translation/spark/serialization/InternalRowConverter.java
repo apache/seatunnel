@@ -41,11 +41,15 @@ import org.apache.spark.sql.catalyst.expressions.SpecificInternalRow;
 import org.apache.spark.sql.catalyst.util.ArrayBasedMapData;
 import org.apache.spark.sql.catalyst.util.ArrayData;
 import org.apache.spark.sql.catalyst.util.MapData;
+import org.apache.spark.sql.types.DataType;
+import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.Decimal;
+import org.apache.spark.sql.types.StructType;
 import org.apache.spark.unsafe.types.UTF8String;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -190,12 +194,18 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             case ROW:
                 return reconvert((InternalRow) field, (SeaTunnelRowType) dataType);
             case DATE:
+                if (field instanceof Date) {
+                    return ((Date) field).toLocalDate();
+                }
                 return LocalDate.ofEpochDay((int) field);
             case TIME:
                 // TODO: Support TIME Type
                 throw new RuntimeException(
                         "SeaTunnel not support time type, it will be supported in the future.");
             case TIMESTAMP:
+                if (field instanceof Timestamp) {
+                    return ((Timestamp) field).toLocalDateTime();
+                }
                 return Timestamp.from(InstantConverterUtils.ofEpochMicro((long) field))
                         .toLocalDateTime();
             case MAP:
@@ -233,5 +243,24 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             newArray[i] = reconvert(values[i], arrayType.getElementType());
         }
         return newArray;
+    }
+
+    public Object[] convertDateTime(InternalRow internalRow, StructType structType) {
+        Object[] fields =
+                Arrays.stream(((SpecificInternalRow) internalRow).values())
+                        .map(MutableValue::boxed)
+                        .toArray();
+        int len = structType.fields().length;
+        for (int i = 0; i < len; i++) {
+            DataType dataType = structType.fields()[i].dataType();
+            Object field = fields[i];
+            if (dataType == DataTypes.TimestampType && field instanceof Long) {
+                fields[i] = Timestamp.from(InstantConverterUtils.ofEpochMicro((long) field));
+            }
+            if (dataType == DataTypes.DateType && field instanceof Integer) {
+                fields[i] = Date.valueOf(LocalDate.ofEpochDay((int) field));
+            }
+        }
+        return fields;
     }
 }
