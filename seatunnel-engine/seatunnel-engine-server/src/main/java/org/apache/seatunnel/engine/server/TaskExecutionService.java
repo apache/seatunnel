@@ -762,13 +762,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 cancellationFutures.remove(taskGroupLocation);
                 if (ex == null) {
                     future.complete(
-                            new TaskExecutionState(
-                                    taskGroupLocation, ExecutionState.FINISHED, null));
+                            new TaskExecutionState(taskGroupLocation, ExecutionState.FINISHED));
                     return;
                 } else if (isCancel.get()) {
                     future.complete(
-                            new TaskExecutionState(
-                                    taskGroupLocation, ExecutionState.CANCELED, null));
+                            new TaskExecutionState(taskGroupLocation, ExecutionState.CANCELED));
                     return;
                 } else {
                     future.complete(

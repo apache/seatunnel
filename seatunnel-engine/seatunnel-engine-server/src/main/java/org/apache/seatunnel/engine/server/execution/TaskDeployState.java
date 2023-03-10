@@ -17,18 +17,22 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
+
 import lombok.Data;
 
+import java.io.Serializable;
+
 @Data
-public class TaskDeployState {
+public class TaskDeployState implements Serializable {
     private final boolean success;
-    private final Throwable throwableMsg;
+    private final String throwableMsg;
 
     public static TaskDeployState success() {
         return new TaskDeployState(true, null);
     }
 
     public static TaskDeployState failed(Throwable e) {
-        return new TaskDeployState(false, e);
+        return new TaskDeployState(false, ExceptionUtils.getMessage(e));
     }
 }

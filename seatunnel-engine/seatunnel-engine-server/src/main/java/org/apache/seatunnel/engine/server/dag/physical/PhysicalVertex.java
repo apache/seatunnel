@@ -184,15 +184,14 @@ public class PhysicalVertex {
             if (!checkTaskGroupIsExecuting(taskGroupLocation)) {
                 updateTaskState(ExecutionState.RUNNING, ExecutionState.FAILED);
                 this.taskFuture.complete(
-                        new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED, null));
+                        new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED));
             }
         }
         // If the task state is CANCELING we need call noticeTaskExecutionServiceCancel().
         else if (ExecutionState.CANCELING.equals(executionState)) {
             noticeTaskExecutionServiceCancel();
         } else if (executionState.isEndState()) {
-            this.taskFuture.complete(
-                    new TaskExecutionState(taskGroupLocation, executionState, null));
+            this.taskFuture.complete(new TaskExecutionState(taskGroupLocation, executionState));
         }
         return new PassiveCompletableFuture<>(this.taskFuture);
     }
@@ -408,7 +407,7 @@ public class PhysicalVertex {
                 || updateTaskState(ExecutionState.SCHEDULED, ExecutionState.CANCELED)
                 || updateTaskState(ExecutionState.DEPLOYING, ExecutionState.CANCELED)) {
             taskFuture.complete(
-                    new TaskExecutionState(this.taskGroupLocation, ExecutionState.CANCELED, null));
+                    new TaskExecutionState(this.taskGroupLocation, ExecutionState.CANCELED));
         } else if (updateTaskState(ExecutionState.RUNNING, ExecutionState.CANCELING)) {
             noticeTaskExecutionServiceCancel();
         }
@@ -421,7 +420,7 @@ public class PhysicalVertex {
         if (!checkTaskGroupIsExecuting(taskGroupLocation)) {
             updateTaskState(ExecutionState.CANCELING, ExecutionState.CANCELED);
             taskFuture.complete(
-                    new TaskExecutionState(this.taskGroupLocation, ExecutionState.CANCELED, null));
+                    new TaskExecutionState(this.taskGroupLocation, ExecutionState.CANCELED));
             return;
         }
         int i = 0;
