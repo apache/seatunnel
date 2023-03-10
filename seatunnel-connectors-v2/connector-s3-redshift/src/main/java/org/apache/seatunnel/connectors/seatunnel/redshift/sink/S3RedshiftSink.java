@@ -53,6 +53,7 @@ public class S3RedshiftSink extends BaseHdfsFileSink {
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
                         S3Config.S3_BUCKET.key(),
+                        S3Config.S3A_AWS_CREDENTIALS_PROVIDER.key(),
                         S3RedshiftConfig.JDBC_URL.key(),
                         S3RedshiftConfig.JDBC_USER.key(),
                         S3RedshiftConfig.JDBC_PASSWORD.key(),
