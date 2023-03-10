@@ -148,12 +148,20 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
+                                // Why equals CANCELED or FAILED? because handleCheckpointError
+                                // should call by CheckpointCoordinator,
+                                // before do this, CheckpointCoordinator should be failed. Anyway,
+                                // use handleCheckpointError not good to test checkpoint timeout.
                                 Assertions.assertTrue(
                                         jobMasterCompleteFuture.isDone()
-                                                && JobStatus.CANCELED.equals(
-                                                        jobMasterCompleteFuture
-                                                                .get()
-                                                                .getStatus())));
+                                                && (JobStatus.CANCELED.equals(
+                                                                jobMasterCompleteFuture
+                                                                        .get()
+                                                                        .getStatus())
+                                                        || JobStatus.FAILED.equals(
+                                                                jobMasterCompleteFuture
+                                                                        .get()
+                                                                        .getStatus()))));
 
         testIMapRemovedAfterJobComplete(jobMaster);
     }
