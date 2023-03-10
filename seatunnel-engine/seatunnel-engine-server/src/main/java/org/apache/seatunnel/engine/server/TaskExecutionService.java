@@ -277,8 +277,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
     @Deprecated
     public PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
-            @NonNull TaskGroup taskGroup,
-            @NonNull CompletableFuture<TaskExecutionState> resultFuture) {
+            @NonNull TaskGroup taskGroup) {
         return deployLocalTask(taskGroup, Thread.currentThread().getContextClassLoader());
     }
 
