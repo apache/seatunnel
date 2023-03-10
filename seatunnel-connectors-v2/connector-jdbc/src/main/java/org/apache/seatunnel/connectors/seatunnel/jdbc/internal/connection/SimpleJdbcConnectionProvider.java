@@ -136,14 +136,14 @@ public class SimpleJdbcConnectionProvider implements JdbcConnectionProvider, Ser
 
     @Override
     public void closeConnection() {
-        if (connection != null) {
-            try {
+        try {
+            if (isConnectionValid()) {
                 connection.close();
-            } catch (SQLException e) {
-                LOG.warn("JDBC connection close failed.", e);
-            } finally {
-                connection = null;
             }
+        } catch (SQLException e) {
+            LOG.warn("JDBC connection close failed.", e);
+        } finally {
+            connection = null;
         }
     }
 
