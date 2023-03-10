@@ -55,6 +55,7 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.BATCH_INTERVAL_MS;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.BULK_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.CLICKHOUSE_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.DATABASE;
@@ -100,6 +101,7 @@ public class ClickhouseSink
         Map<String, Object> defaultConfig =
                 ImmutableMap.<String, Object>builder()
                         .put(BULK_SIZE.key(), BULK_SIZE.defaultValue())
+                        .put(BATCH_INTERVAL_MS.key(), BATCH_INTERVAL_MS.defaultValue())
                         .put(SPLIT_MODE.key(), SPLIT_MODE.defaultValue())
                         .build();
 
@@ -213,6 +215,7 @@ public class ClickhouseSink
                         .tableEngine(table.getEngine())
                         .tableSchema(tableSchema)
                         .bulkSize(config.getInt(BULK_SIZE.key()))
+                        .batchIntervalMs(config.getInt(BATCH_INTERVAL_MS.key()))
                         .primaryKeys(primaryKeys)
                         .supportUpsert(supportUpsert)
                         .allowExperimentalLightweightDelete(allowExperimentalLightweightDelete)

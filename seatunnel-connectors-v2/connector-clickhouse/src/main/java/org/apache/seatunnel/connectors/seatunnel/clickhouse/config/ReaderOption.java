@@ -40,5 +40,8 @@ public class ReaderOption implements Serializable {
     private Map<String, String> tableSchema;
     @Setter private SeaTunnelRowType seaTunnelRowType;
     private Properties properties;
+    // Data write batch size
     private int bulkSize;
+    // Data write interval
+    private int batchIntervalMs;
 }

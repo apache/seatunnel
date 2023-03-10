@@ -43,6 +43,11 @@ import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -54,6 +59,13 @@ public class ClickhouseSinkWriter
     private final ShardRouter shardRouter;
     private final transient ClickhouseProxy proxy;
     private final Map<Shard, ClickhouseBatchStatement> statementMap;
+    private transient ScheduledExecutorService scheduler;
+    private transient ScheduledFuture<?> scheduledFuture;
+    private transient JdbcBatchStatementExecutor clickHouseStatement;
+    private transient ClickhouseBatchStatement statement;
+    private transient IntHolder sizeHolder;
+    // Whether pre-initialization is required
+    private transient boolean isOpen;
 
     ClickhouseSinkWriter(ReaderOption option, Context context) {
         this.option = option;
@@ -75,16 +87,17 @@ public class ClickhouseSinkWriter
                             .indexOf(this.option.getShardMetadata().getShardKey());
             shardKey = element.getField(i);
         }
-        ClickhouseBatchStatement statement = statementMap.get(shardRouter.getShard(shardKey));
-        JdbcBatchStatementExecutor clickHouseStatement = statement.getJdbcBatchStatementExecutor();
-        IntHolder sizeHolder = statement.getIntHolder();
+        this.statement = statementMap.get(shardRouter.getShard(shardKey));
+        this.clickHouseStatement = statement.getJdbcBatchStatementExecutor();
+        this.sizeHolder = statement.getIntHolder();
         // add into batch
-        addIntoBatch(element, clickHouseStatement);
-        sizeHolder.setValue(sizeHolder.getValue() + 1);
+        addIntoBatch(element, this.clickHouseStatement);
+        this.sizeHolder.setValue(this.sizeHolder.getValue() + 1);
+        tryOpen();
         // flush batch
-        if (sizeHolder.getValue() >= option.getBulkSize()) {
-            flush(clickHouseStatement);
-            sizeHolder.setValue(0);
+        if (this.sizeHolder.getValue() >= option.getBulkSize()) {
+            flush(this.clickHouseStatement);
+            log.info("Batch write completion row :" + this.sizeHolder.getValue());
         }
     }
 
@@ -107,7 +120,6 @@ public class ClickhouseSinkWriter
                 IntHolder intHolder = batchStatement.getIntHolder();
                 if (intHolder.getValue() > 0) {
                     flush(needClosedStatement);
-                    intHolder.setValue(0);
                 }
             } catch (SQLException e) {
                 throw new ClickhouseConnectorException(
@@ -116,6 +128,52 @@ public class ClickhouseSinkWriter
                         e);
             }
         }
+        if (this.scheduler != null) {
+            this.scheduler.shutdown();
+        }
+        if (this.clickHouseStatement != null) {
+            try {
+                this.clickHouseStatement.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void tryOpen() {
+        if (!isOpen) {
+            isOpen = true;
+            open();
+        }
+    }
+
+    public void open() {
+        this.scheduler =
+                Executors.newScheduledThreadPool(
+                        1,
+                        runnable -> {
+                            AtomicInteger cnt = new AtomicInteger(0);
+                            Thread thread = new Thread(runnable);
+                            thread.setDaemon(true);
+                            thread.setName(
+                                    "sink-clickhouse-interval" + "-" + cnt.incrementAndGet());
+                            return thread;
+                        });
+        this.scheduledFuture =
+                this.scheduler.scheduleWithFixedDelay(
+                        () -> {
+                            synchronized (ClickhouseSinkWriter.this) {
+                                if (this.sizeHolder.getValue() > 0) {
+                                    flush(this.clickHouseStatement);
+                                    log.info(
+                                            "Write complete rows at batch intervals :"
+                                                    + this.sizeHolder.getValue());
+                                }
+                            }
+                        },
+                        option.getBatchIntervalMs(),
+                        option.getBatchIntervalMs(),
+                        TimeUnit.MILLISECONDS);
     }
 
     private void addIntoBatch(SeaTunnelRow row, JdbcBatchStatementExecutor clickHouseStatement) {
@@ -129,7 +187,10 @@ public class ClickhouseSinkWriter
 
     private void flush(JdbcBatchStatementExecutor clickHouseStatement) {
         try {
-            clickHouseStatement.executeBatch();
+            if (this.sizeHolder.getValue() > 0 && clickHouseStatement != null) {
+                clickHouseStatement.executeBatch();
+                this.sizeHolder.setValue(0);
+            }
         } catch (Exception e) {
             throw new ClickhouseConnectorException(
                     CommonErrorCode.FLUSH_DATA_FAILED,

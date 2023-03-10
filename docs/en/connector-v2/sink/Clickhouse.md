@@ -31,6 +31,7 @@ Write data to Clickhouse can also be done using JDBC
 | password                              | string  | yes      | -             |
 | clickhouse.config                     | map     | no       |               |
 | bulk_size                             | string  | no       | 20000         |
+| batch_interval_ms                     | string  | no       | 5000          |
 | split_mode                            | string  | no       | false         |
 | sharding_key                          | string  | no       | -             |
 | primary_key                           | string  | no       | -             |
@@ -65,6 +66,10 @@ In addition to the above mandatory parameters that must be specified by `clickho
 ### bulk_size [number]
 
 The number of rows written through [Clickhouse-jdbc](https://github.com/ClickHouse/clickhouse-jdbc) each time, the `default is 20000` .
+
+### batch_interval_ms [string]
+
+Write flush the interval milliSecond `default is 5000` .
 
 ### split_mode [boolean]
 

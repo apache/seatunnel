@@ -34,6 +34,13 @@ public class ClickhouseConfig {
                     .defaultValue(20000)
                     .withDescription("Bulk size of clickhouse jdbc");
 
+    /** Data flush interval of clickhouse jdbc */
+    public static final Option<Integer> BATCH_INTERVAL_MS =
+            Options.key("batch_interval_ms")
+                    .intType()
+                    .defaultValue(5000)
+                    .withDescription("batch interval milliSecond");
+
     public static final Option<String> SQL =
             Options.key("sql")
                     .stringType()
