@@ -17,13 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse;
 
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.api.table.type.*;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -39,16 +38,31 @@ import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
 import org.testcontainers.shaded.org.apache.commons.lang3.tuple.Pair;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.sql.Array;
+import java.sql.Connection;
 import java.sql.Date;
-import java.sql.*;
+import java.sql.Driver;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
+import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
