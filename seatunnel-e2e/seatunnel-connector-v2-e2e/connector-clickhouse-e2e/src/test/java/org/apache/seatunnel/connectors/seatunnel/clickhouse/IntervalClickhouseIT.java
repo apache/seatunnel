@@ -93,7 +93,7 @@ public class IntervalClickhouseIT extends TestSuiteBase implements TestResource 
     private Connection connection;
 
     @TestTemplate
-    public void testClickhouse(TestContainer container) throws Exception {
+    public void testIntervalClickhouse(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob(CLICKHOUSE_JOB_CONFIG);
         Assertions.assertEquals(0, execResult.getExitCode());
         assertHasData(SINK_TABLE);
