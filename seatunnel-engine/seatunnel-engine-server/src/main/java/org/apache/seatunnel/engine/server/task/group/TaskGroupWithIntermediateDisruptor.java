@@ -25,8 +25,8 @@ import org.apache.seatunnel.engine.server.task.group.queue.IntermediateDisruptor
 import org.apache.seatunnel.engine.server.task.group.queue.disruptor.RecordEvent;
 import org.apache.seatunnel.engine.server.task.group.queue.disruptor.RecordEventFactory;
 
+import com.lmax.disruptor.BlockingWaitStrategy;
 import com.lmax.disruptor.EventFactory;
-import com.lmax.disruptor.YieldingWaitStrategy;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
 import com.lmax.disruptor.util.DaemonThreadFactory;
@@ -64,7 +64,7 @@ public class TaskGroupWithIntermediateDisruptor extends AbstractTaskGroupWithInt
                         RING_BUFFER_SIZE,
                         DaemonThreadFactory.INSTANCE,
                         ProducerType.SINGLE,
-                        new YieldingWaitStrategy());
+                        new BlockingWaitStrategy());
 
         this.disruptor.putIfAbsent(id, disruptor);
         return new IntermediateDisruptor(this.disruptor.get(id));
