@@ -125,7 +125,7 @@ public class TransformExecuteProcessor
         Iterator<Row> rowIterator = stream.toLocalIterator();
         while (rowIterator.hasNext()) {
             Row row = rowIterator.next();
-            seaTunnelRow = new SeaTunnelRow(((GenericRowWithSchema)row).values());
+            seaTunnelRow = new SeaTunnelRow(((GenericRowWithSchema) row).values());
             seaTunnelRow = (SeaTunnelRow) transform.map(seaTunnelRow);
             if (seaTunnelRow == null) {
                 continue;
