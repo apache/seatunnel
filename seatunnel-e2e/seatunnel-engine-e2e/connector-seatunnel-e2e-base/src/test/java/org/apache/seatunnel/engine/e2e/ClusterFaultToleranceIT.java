@@ -728,8 +728,8 @@ public class ClusterFaultToleranceIT {
         String testClusterName =
                 "ClusterFaultToleranceIT_testStreamJobRestoreInAllNodeDown_"
                         + System.currentTimeMillis();
-        int testRowNumber = 1000;
-        int testParallelism = 6;
+        int testRowNumber = 6000;
+        int testParallelism = 1;
         HazelcastInstanceImpl node1 = null;
         HazelcastInstanceImpl node2 = null;
         SeaTunnelClient engineClient = null;
