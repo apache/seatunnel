@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
+import org.apache.seatunnel.translation.spark.serialization.DataFrameRowConverter;
 import org.apache.seatunnel.translation.spark.serialization.InternalRowConverter;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
@@ -119,27 +120,22 @@ public class TransformExecuteProcessor
     private Dataset<Row> sparkTransform(SeaTunnelTransform transform, Dataset<Row> stream)
             throws IOException {
         SeaTunnelDataType<?> seaTunnelDataType = TypeConverterUtils.convert(stream.schema());
+        DataFrameRowConverter dataFrameRowConverter = new DataFrameRowConverter(seaTunnelDataType);
         transform.setTypeInfo(seaTunnelDataType);
         StructType structType =
                 (StructType) TypeConverterUtils.convert(transform.getProducedType());
         SeaTunnelRow seaTunnelRow;
         List<Row> outputRows = new ArrayList<>();
         Iterator<Row> rowIterator = stream.toLocalIterator();
-        InternalRowConverter inputRowConverter = new InternalRowConverter(seaTunnelDataType);
-        InternalRowConverter outputRowConverter =
-                new InternalRowConverter(transform.getProducedType());
         while (rowIterator.hasNext()) {
             Row row = rowIterator.next();
-            seaTunnelRow = inputRowConverter.reconvert(InternalRow.apply(row.toSeq()));
+            seaTunnelRow = dataFrameRowConverter.reconvert((GenericRowWithSchema) row);
             seaTunnelRow = (SeaTunnelRow) transform.map(seaTunnelRow);
             if (seaTunnelRow == null) {
                 continue;
             }
-            InternalRow internalRow = outputRowConverter.convert(seaTunnelRow);
-
-            Object[] fields = outputRowConverter.convertDateTime(internalRow, structType);
-
-            outputRows.add(new GenericRowWithSchema(fields, structType));
+            GenericRowWithSchema fields = dataFrameRowConverter.convert(seaTunnelRow);
+            outputRows.add(fields);
         }
         return sparkRuntimeEnvironment.getSparkSession().createDataFrame(outputRows, structType);
     }
