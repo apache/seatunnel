@@ -238,6 +238,8 @@ hazelcast-client:
 Can be started by a daemon with `-d`.
 
 ```shell
+mkdir -p $SEATUNNEL_HOME/logs
+touch $SEATUNNEL_HOME/logs/seatunnel-server.out
 ./bin/seatunnel-cluster.sh -d
 ```
 
