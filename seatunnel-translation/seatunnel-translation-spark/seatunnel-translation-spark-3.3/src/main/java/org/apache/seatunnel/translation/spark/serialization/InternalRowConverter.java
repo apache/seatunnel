@@ -245,22 +245,4 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         return newArray;
     }
 
-    public Object[] convertDateTime(InternalRow internalRow, StructType structType) {
-        Object[] fields =
-                Arrays.stream(((SpecificInternalRow) internalRow).values())
-                        .map(MutableValue::boxed)
-                        .toArray();
-        int len = structType.fields().length;
-        for (int i = 0; i < len; i++) {
-            DataType dataType = structType.fields()[i].dataType();
-            Object field = fields[i];
-            if (dataType == DataTypes.TimestampType && field instanceof Long) {
-                fields[i] = Timestamp.from(InstantConverterUtils.ofEpochMicro((long) field));
-            }
-            if (dataType == DataTypes.DateType && field instanceof Integer) {
-                fields[i] = Date.valueOf(LocalDate.ofEpochDay((int) field));
-            }
-        }
-        return fields;
-    }
 }
