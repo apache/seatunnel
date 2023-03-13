@@ -67,15 +67,15 @@ public class FlinkTableStoreSourceReader
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         synchronized (output.getCheckpointLock()) {
-            FlinkTableStoreSourceSplit split = sourceSplits.poll();
+            final FlinkTableStoreSourceSplit split = sourceSplits.poll();
             if (Objects.nonNull(split)) {
                 // read logic
-                try (RecordReader<RowData> reader =
+                try (final RecordReader<RowData> reader =
                         table.newRead().createReader(split.getSplit())) {
-                    RecordReaderIterator<RowData> rowIterator = new RecordReaderIterator<>(reader);
+                    final RecordReaderIterator<RowData> rowIterator = new RecordReaderIterator<>(reader);
                     while (rowIterator.hasNext()) {
-                        RowData row = rowIterator.next();
-                        SeaTunnelRow seaTunnelRow = RowConverter.convert(row, seaTunnelRowType);
+                        final RowData row = rowIterator.next();
+                        final SeaTunnelRow seaTunnelRow = RowConverter.convert(row, seaTunnelRowType);
                         output.collect(seaTunnelRow);
                     }
                 }

@@ -122,7 +122,7 @@ public class FlinkTableStoreSourceSplitEnumerator
             // if parallelism > 1, according to hashCode of split's id to determine whether to
             // allocate the current task
             for (FlinkTableStoreSourceSplit fileSourceSplit : pendingSplit) {
-                int splitOwner =
+                final int splitOwner =
                         getSplitOwner(fileSourceSplit.splitId(), context.currentParallelism());
                 if (splitOwner == taskId) {
                     currentTaskSplits.add(fileSourceSplit);
@@ -146,9 +146,9 @@ public class FlinkTableStoreSourceSplitEnumerator
 
     /** Get all splits of table */
     private Set<FlinkTableStoreSourceSplit> getTableSplits() {
-        Set<FlinkTableStoreSourceSplit> tableSplits = new HashSet<>();
+        final Set<FlinkTableStoreSourceSplit> tableSplits = new HashSet<>();
         // TODO Support columns projection
-        List<Split> splits = table.newScan().plan().splits();
+        final List<Split> splits = table.newScan().plan().splits();
         splits.forEach(split -> tableSplits.add(new FlinkTableStoreSourceSplit(split)));
         return tableSplits;
     }
