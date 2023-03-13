@@ -168,7 +168,7 @@ Simple
 
 ```
 jdbc {
-    url = "jdbc:mysql://localhost/test"
+    url = "jdbc:mysql://localhost:3306/test"
     driver = "com.mysql.cj.jdbc.Driver"
     user = "root"
     password = "123456"
@@ -182,7 +182,7 @@ Exactly-once
 ```
 jdbc {
 
-    url = "jdbc:mysql://localhost/test"
+    url = "jdbc:mysql://localhost:3306/test"
     driver = "com.mysql.cj.jdbc.Driver"
 
     max_retries = 0
@@ -201,7 +201,7 @@ CDC(Change data capture) event
 ```
 sink {
     jdbc {
-        url = "jdbc:mysql://localhost/test"
+        url = "jdbc:mysql://localhost:3306/test"
         driver = "com.mysql.cj.jdbc.Driver"
         user = "root"
         password = "123456"
