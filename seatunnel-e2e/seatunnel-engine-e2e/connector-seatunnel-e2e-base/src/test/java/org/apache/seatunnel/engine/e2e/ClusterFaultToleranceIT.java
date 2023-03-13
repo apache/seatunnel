@@ -728,8 +728,8 @@ public class ClusterFaultToleranceIT {
         String testClusterName =
                 "ClusterFaultToleranceIT_testStreamJobRestoreInAllNodeDown_"
                         + System.currentTimeMillis();
-        int testRowNumber = 6000;
-        int testParallelism = 1;
+        int testRowNumber = 1000;
+        int testParallelism = 6;
         HazelcastInstanceImpl node1 = null;
         HazelcastInstanceImpl node2 = null;
         SeaTunnelClient engineClient = null;
@@ -887,11 +887,15 @@ public class ClusterFaultToleranceIT {
             Awaitility.await()
                     .atMost(600000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
-                            () ->
-                                    Assertions.assertTrue(
-                                            waitForJobCompleteFuture.isDone()
-                                                    && JobStatus.CANCELED.equals(
-                                                            waitForJobCompleteFuture.get())));
+                            () -> {
+                                log.info(
+                                        FileUtils.getFileLineNumberFromDir(testResources.getLeft())
+                                                + "");
+                                Assertions.assertTrue(
+                                        waitForJobCompleteFuture.isDone()
+                                                && JobStatus.CANCELED.equals(
+                                                        waitForJobCompleteFuture.get()));
+                            });
             // prove that the task was restarted
             Long fileLineNumberFromDir =
                     FileUtils.getFileLineNumberFromDir(testResources.getLeft());
