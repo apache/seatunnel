@@ -34,7 +34,6 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.rea
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.TableDiscoveryUtils;
 
-import io.debezium.connector.sqlserver.SqlServerConnection;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.TableChanges;
@@ -104,13 +103,8 @@ public class SqlServerDialect implements JdbcDataSourceDialect {
     @Override
     public SqlServerSourceFetchTaskContext createFetchTaskContext(
             SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig) {
-        final SqlServerConnection jdbcConnection =
-                createSqlServerConnection(taskSourceConfig.getDbzConfiguration());
-        final SqlServerConnection metaDataConnection =
-                createSqlServerConnection(taskSourceConfig.getDbzConfiguration());
 
-        return new SqlServerSourceFetchTaskContext(
-                taskSourceConfig, this, jdbcConnection, metaDataConnection);
+        return new SqlServerSourceFetchTaskContext(taskSourceConfig, this);
     }
 
     @Override

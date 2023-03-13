@@ -121,6 +121,9 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
     @Override
     public void close() {
         try {
+            if (taskContext != null) {
+                taskContext.close();
+            }
             if (streamFetchTask != null) {
                 streamFetchTask.shutdown();
             }
