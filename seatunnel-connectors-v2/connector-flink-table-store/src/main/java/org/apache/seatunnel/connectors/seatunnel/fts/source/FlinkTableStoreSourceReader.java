@@ -72,10 +72,12 @@ public class FlinkTableStoreSourceReader
                 // read logic
                 try (final RecordReader<RowData> reader =
                         table.newRead().createReader(split.getSplit())) {
-                    final RecordReaderIterator<RowData> rowIterator = new RecordReaderIterator<>(reader);
+                    final RecordReaderIterator<RowData> rowIterator =
+                            new RecordReaderIterator<>(reader);
                     while (rowIterator.hasNext()) {
                         final RowData row = rowIterator.next();
-                        final SeaTunnelRow seaTunnelRow = RowConverter.convert(row, seaTunnelRowType);
+                        final SeaTunnelRow seaTunnelRow =
+                                RowConverter.convert(row, seaTunnelRowType);
                         output.collect(seaTunnelRow);
                     }
                 }
