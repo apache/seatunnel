@@ -99,9 +99,7 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
             JdbcSourceConfig sourceConfig, JdbcDataSourceDialect dataSourceDialect) {
         super(sourceConfig, dataSourceDialect);
         this.connection = createMySqlConnection(sourceConfig.getDbzConfiguration());
-        ;
         this.binaryLogClient = createBinaryClient(sourceConfig.getDbzConfiguration());
-        ;
         this.metadataProvider = new MySqlEventMetadataProvider();
     }
 

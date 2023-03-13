@@ -93,9 +93,7 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
         super(sourceConfig, dataSourceDialect);
 
         this.dataConnection = createSqlServerConnection(sourceConfig.getDbzConfiguration());
-        ;
         this.metadataConnection = createSqlServerConnection(sourceConfig.getDbzConfiguration());
-        ;
         this.metadataProvider = new SqlServerEventMetadataProvider();
     }
 
