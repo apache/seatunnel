@@ -359,7 +359,7 @@ jobs:
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 2 1`
-          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
+          [ ! -z $sub_modules ] && ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx2048m
 
