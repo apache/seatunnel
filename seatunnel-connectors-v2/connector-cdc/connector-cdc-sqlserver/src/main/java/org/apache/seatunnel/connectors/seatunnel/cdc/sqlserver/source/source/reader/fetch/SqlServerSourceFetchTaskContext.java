@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.reader.fetch;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
@@ -58,13 +59,18 @@ import io.debezium.relational.history.TableChanges;
 import io.debezium.schema.DataCollectionId;
 import io.debezium.schema.TopicSelector;
 import io.debezium.util.Collect;
+import lombok.extern.slf4j.Slf4j;
 
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerConnectionUtils.createSqlServerConnection;
+
 /** The context for fetch task that fetching data of snapshot split from MySQL data source. */
+@Slf4j
 public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
 
     private final SqlServerConnection dataConnection;
@@ -83,13 +89,13 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
     private SnapshotChangeEventSourceMetrics snapshotChangeEventSourceMetrics;
 
     public SqlServerSourceFetchTaskContext(
-            JdbcSourceConfig sourceConfig,
-            JdbcDataSourceDialect dataSourceDialect,
-            SqlServerConnection dataConnection,
-            SqlServerConnection metadataConnection) {
+            JdbcSourceConfig sourceConfig, JdbcDataSourceDialect dataSourceDialect) {
         super(sourceConfig, dataSourceDialect);
-        this.dataConnection = dataConnection;
-        this.metadataConnection = metadataConnection;
+
+        this.dataConnection = createSqlServerConnection(sourceConfig.getDbzConfiguration());
+        ;
+        this.metadataConnection = createSqlServerConnection(sourceConfig.getDbzConfiguration());
+        ;
         this.metadataProvider = new SqlServerEventMetadataProvider();
     }
 
@@ -156,6 +162,16 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
                         taskContext, queue, metadataProvider);
 
         this.errorHandler = new SqlServerErrorHandler(connectorConfig.getLogicalName(), queue);
+    }
+
+    @Override
+    public void close() {
+        try {
+            this.dataConnection.close();
+            this.metadataConnection.close();
+        } catch (SQLException e) {
+            log.warn("Failed to close connection, {}", ExceptionUtils.getMessage(e));
+        }
     }
 
     @Override

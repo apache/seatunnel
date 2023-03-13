@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.cdc.dameng.source.reader.fetch;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
@@ -51,9 +52,12 @@ import io.debezium.relational.Tables;
 import io.debezium.relational.history.TableChanges;
 import io.debezium.schema.TopicSelector;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
+import java.sql.SQLException;
 import java.util.Collection;
 
+@Slf4j
 public class DamengSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     @Getter private final DamengConnection connection;
     private final Collection<TableChanges.TableChange> engineHistory;
@@ -70,10 +74,10 @@ public class DamengSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     public DamengSourceFetchTaskContext(
             JdbcSourceConfig sourceConfig,
             JdbcDataSourceDialect dataSourceDialect,
-            DamengConnection connection,
             Collection<TableChanges.TableChange> engineHistory) {
         super(sourceConfig, dataSourceDialect);
-        this.connection = connection;
+        this.connection =
+                new DamengConnection(sourceConfig.getDbzConnectorConfig().getJdbcConfig());
         this.engineHistory = engineHistory;
         this.metadataProvider = new DamengEventMetadataProvider();
     }
@@ -137,6 +141,15 @@ public class DamengSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                         taskContext, queue, metadataProvider);
 
         this.errorHandler = new DamengErrorHandler(connectorConfig.getLogicalName(), queue);
+    }
+
+    @Override
+    public void close() {
+        try {
+            this.connection.close();
+        } catch (SQLException e) {
+            log.warn("Failed to close connection, {}", ExceptionUtils.getMessage(e));
+        }
     }
 
     @Override

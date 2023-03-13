@@ -66,5 +66,7 @@ public interface FetchTask<Split> {
         void rewriteOutputBuffer(Map<Struct, SourceRecord> outputBuffer, SourceRecord changeRecord);
 
         List<SourceRecord> formatMessageTimestamp(Collection<SourceRecord> snapshotRecords);
+
+        void close();
     }
 }
