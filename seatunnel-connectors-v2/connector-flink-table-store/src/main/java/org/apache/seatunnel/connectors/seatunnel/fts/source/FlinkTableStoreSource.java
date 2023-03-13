@@ -95,7 +95,7 @@ public class FlinkTableStoreSource
     @Override
     public SourceReader<SeaTunnelRow, FlinkTableStoreSourceSplit> createReader(
             SourceReader.Context readerContext) throws Exception {
-        return new FlinkTableStoreSourceReader(readerContext, table);
+        return new FlinkTableStoreSourceReader(readerContext, table, seaTunnelRowType);
     }
 
     @Override

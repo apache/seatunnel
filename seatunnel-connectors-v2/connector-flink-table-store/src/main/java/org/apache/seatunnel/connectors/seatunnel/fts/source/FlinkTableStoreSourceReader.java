@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.fts.source;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.fts.utils.RowConverter;
 
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.store.file.utils.RecordReader;
@@ -42,18 +44,25 @@ public class FlinkTableStoreSourceReader
     private final Deque<FlinkTableStoreSourceSplit> sourceSplits = new ConcurrentLinkedDeque<>();
     private final SourceReader.Context context;
     private final Table table;
+    private final SeaTunnelRowType seaTunnelRowType;
     private volatile boolean noMoreSplit;
 
-    public FlinkTableStoreSourceReader(Context context, Table table) {
+    public FlinkTableStoreSourceReader(
+            Context context, Table table, SeaTunnelRowType seaTunnelRowType) {
         this.context = context;
         this.table = table;
+        this.seaTunnelRowType = seaTunnelRowType;
     }
 
     @Override
-    public void open() throws Exception {}
+    public void open() throws Exception {
+        // do nothing
+    }
 
     @Override
-    public void close() throws IOException {}
+    public void close() throws IOException {
+        // do nothing
+    }
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
@@ -66,6 +75,8 @@ public class FlinkTableStoreSourceReader
                     RecordReaderIterator<RowData> rowIterator = new RecordReaderIterator<>(reader);
                     while (rowIterator.hasNext()) {
                         RowData row = rowIterator.next();
+                        SeaTunnelRow seaTunnelRow = RowConverter.convert(row, seaTunnelRowType);
+                        output.collect(seaTunnelRow);
                     }
                 }
             } else if (noMoreSplit && sourceSplits.isEmpty()) {
@@ -73,6 +84,7 @@ public class FlinkTableStoreSourceReader
                 log.info("Closed the bounded flink table store source");
                 context.signalNoMoreElement();
             } else {
+                log.warn("Waiting for flink table source split, sleeping 1s");
                 Thread.sleep(1000L);
             }
         }

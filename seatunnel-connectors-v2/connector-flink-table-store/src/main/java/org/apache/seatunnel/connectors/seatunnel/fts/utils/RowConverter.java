@@ -17,7 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.fts.utils;
 
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -30,11 +33,72 @@ import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.TimestampData;
 
 import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.Map;
 
 /** The converter for converting {@link RowData} and {@link SeaTunnelRow} */
 public class RowConverter {
 
     private RowConverter() {}
+
+    public static Object convert(ArrayData array, SeaTunnelDataType<?> dataType) {
+        BasicType<?> elementType = ((ArrayType<?, ?>) dataType).getElementType();
+        switch (elementType.getSqlType()) {
+            case STRING:
+                String[] strings = new String[array.size()];
+                for (int j = 0; j < strings.length; j++) {
+                    strings[j] = array.getString(j).toString();
+                }
+                return strings;
+            case BOOLEAN:
+                Boolean[] booleans = new Boolean[array.size()];
+                for (int j = 0; j < booleans.length; j++) {
+                    booleans[j] = array.getBoolean(j);
+                }
+                return booleans;
+            case TINYINT:
+                Byte[] bytes = new Byte[array.size()];
+                for (int j = 0; j < bytes.length; j++) {
+                    bytes[j] = array.getByte(j);
+                }
+                return bytes;
+            case SMALLINT:
+                Short[] shorts = new Short[array.size()];
+                for (int j = 0; j < shorts.length; j++) {
+                    shorts[j] = array.getShort(j);
+                }
+                return shorts;
+            case INT:
+                Integer[] integers = new Integer[array.size()];
+                for (int j = 0; j < integers.length; j++) {
+                    integers[j] = array.getInt(j);
+                }
+                return integers;
+            case BIGINT:
+                Long[] longs = new Long[array.size()];
+                for (int j = 0; j < longs.length; j++) {
+                    longs[j] = array.getLong(j);
+                }
+                return longs;
+            case FLOAT:
+                Float[] floats = new Float[array.size()];
+                for (int j = 0; j < floats.length; j++) {
+                    floats[j] = array.getFloat(j);
+                }
+                return floats;
+            case DOUBLE:
+                Double[] doubles = new Double[array.size()];
+                for (int j = 0; j < doubles.length; j++) {
+                    doubles[j] = array.getDouble(j);
+                }
+                return doubles;
+            default:
+                String errorMsg =
+                        String.format("Array type not support this genericType [%s]", elementType);
+                throw new FlinkTableStoreConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
+        }
+    }
 
     public static SeaTunnelRow convert(RowData rowData, SeaTunnelRowType seaTunnelRowType) {
         Object[] objects = new Object[seaTunnelRowType.getTotalFields()];
@@ -88,79 +152,27 @@ public class RowConverter {
                 case ARRAY:
                     SeaTunnelDataType<?> arrayType = seaTunnelRowType.getFieldType(i);
                     ArrayData array = rowData.getArray(i);
-                    switch (arrayType.getSqlType()) {
-                        case STRING:
-                            String[] strings = new String[array.size()];
-                            for (int j = 0; j < strings.length; j++) {
-                                strings[j] = array.getString(j).toString();
-                            }
-                            objects[i] = strings;
-                            break;
-                        case BOOLEAN:
-                            Boolean[] booleans = new Boolean[array.size()];
-                            for (int j = 0; j < booleans.length; j++) {
-                                booleans[j] = array.getBoolean(j);
-                            }
-                            objects[i] = booleans;
-                            break;
-                        case TINYINT:
-                            Byte[] bytes = new Byte[array.size()];
-                            for (int j = 0; j < bytes.length; j++) {
-                                bytes[j] = array.getByte(j);
-                            }
-                            objects[i] = bytes;
-                            break;
-                        case SMALLINT:
-                            Short[] shorts = new Short[array.size()];
-                            for (int j = 0; j < shorts.length; j++) {
-                                shorts[j] = array.getShort(j);
-                            }
-                            objects[i] = shorts;
-                            break;
-                        case INT:
-                            Integer[] integers = new Integer[array.size()];
-                            for (int j = 0; j < integers.length; j++) {
-                                integers[j] = array.getInt(j);
-                            }
-                            objects[i] = integers;
-                            break;
-                        case BIGINT:
-                            Long[] longs = new Long[array.size()];
-                            for (int j = 0; j < longs.length; j++) {
-                                longs[j] = array.getLong(j);
-                            }
-                            objects[i] = longs;
-                            break;
-                        case FLOAT:
-                            Float[] floats = new Float[array.size()];
-                            for (int j = 0; j < floats.length; j++) {
-                                floats[j] = array.getFloat(j);
-                            }
-                            objects[i] = floats;
-                            break;
-                        case DOUBLE:
-                            Double[] doubles = new Double[array.size()];
-                            for (int j = 0; j < doubles.length; j++) {
-                                doubles[j] = array.getDouble(j);
-                            }
-                            objects[i] = doubles;
-                            break;
-                        default:
-                            String errorMsg =
-                                    String.format(
-                                            "Array type not support this genericType [%s]",
-                                            arrayType);
-                            throw new FlinkTableStoreConnectorException(
-                                    CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
-                    }
+                    objects[i] = convert(array, arrayType);
                     break;
                 case MAP:
                     SeaTunnelDataType<?> mapType = seaTunnelRowType.getFieldType(i);
                     MapData map = rowData.getMap(i);
+                    ArrayData keyArray = map.keyArray();
+                    ArrayData valueArray = map.valueArray();
+                    SeaTunnelDataType<?> keyType = ((MapType<?, ?>) mapType).getKeyType();
+                    SeaTunnelDataType<?> valueType = ((MapType<?, ?>) mapType).getValueType();
+                    Object[] key = (Object[]) convert(keyArray, keyType);
+                    Object[] value = (Object[]) convert(valueArray, valueType);
+                    Map<Object, Object> mapData = new HashMap<>();
+                    for (int j = 0; j < key.length; j++) {
+                        mapData.put(key[j], value[j]);
+                    }
+                    objects[i] = mapData;
                     break;
                 case ROW:
                     SeaTunnelDataType<?> rowType = seaTunnelRowType.getFieldType(i);
                     RowData row = rowData.getRow(i, ((SeaTunnelRowType) rowType).getTotalFields());
+                    objects[i] = convert(row, (SeaTunnelRowType) rowType);
                     break;
                 default:
                     throw new FlinkTableStoreConnectorException(
