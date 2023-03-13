@@ -65,7 +65,7 @@ public class RowTypeConverter {
     }
 
     private static class FlinkToSeaTunnelTypeVisitor
-            extends LogicalTypeDefaultVisitor<SeaTunnelDataType<?>> {
+            extends LogicalTypeDefaultVisitor<SeaTunnelDataType> {
 
         private static final FlinkToSeaTunnelTypeVisitor INSTANCE =
                 new FlinkToSeaTunnelTypeVisitor();
