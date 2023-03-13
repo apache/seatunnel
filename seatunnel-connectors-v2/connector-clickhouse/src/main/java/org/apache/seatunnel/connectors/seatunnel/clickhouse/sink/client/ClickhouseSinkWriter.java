@@ -153,6 +153,11 @@ public class ClickhouseSinkWriter
                     CommonErrorCode.WRITER_OPERATION_FAILED,
                     "bulk_size : It must be an integer greater than 0");
         }
+        log.info(
+                "Batch configuration takes effect bulk_size : "
+                        + option.getBulkSize()
+                        + " batch_interval_ms : "
+                        + option.getBatchIntervalMs());
         this.scheduler =
                 Executors.newScheduledThreadPool(
                         1,
