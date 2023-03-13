@@ -219,7 +219,7 @@ It is recommended to put it in the same directory as the implementation class of
     exist one by one in the Config, and use it directly That's it.
     You can refer to existing implementations, such as `org.apache.seatunnel.connectors.seatunnel.elasticsearch.source.ElasticsearchSourceFactory`.
     There is support for configuring Schema for many Sources, so a common Option is used.
-    If you need a schema, you can refer to `org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema.SCHEMA`.
+    If you need a schema, you can refer to `org.apache.seatunnel.api.table.catalog.CatalogTableUtil.SCHEMA`.
 
 Don't forget to add `@AutoService(Factory.class)` to the class. This Factory is the parent class of TableSourceFactory and TableSinkFactory.
 

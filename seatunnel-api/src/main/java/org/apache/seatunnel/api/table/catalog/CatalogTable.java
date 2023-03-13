@@ -79,4 +79,21 @@ public final class CatalogTable implements Serializable {
     public String getComment() {
         return comment;
     }
+
+    @Override
+    public String toString() {
+        return "CatalogTable{"
+                + "tableId="
+                + tableId
+                + ", tableSchema="
+                + tableSchema
+                + ", options="
+                + options
+                + ", partitionKeys="
+                + partitionKeys
+                + ", comment='"
+                + comment
+                + '\''
+                + '}';
+    }
 }

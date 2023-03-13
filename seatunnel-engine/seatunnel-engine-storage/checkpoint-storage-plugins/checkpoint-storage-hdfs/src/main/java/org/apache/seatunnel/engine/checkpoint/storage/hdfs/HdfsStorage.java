@@ -33,9 +33,11 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IOUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -135,8 +137,8 @@ public class HdfsStorage extends AbstractCheckpointStorage {
         String path = getStorageParentDirectory() + jobId;
         List<String> fileNames = getFileNames(path);
         if (fileNames.isEmpty()) {
-            throw new CheckpointStorageException(
-                    "No checkpoint found for job, job id is: " + jobId);
+            log.info("No checkpoint found for this job, the job id is: " + jobId);
+            return new ArrayList<>();
         }
         List<PipelineState> states = new ArrayList<>();
         fileNames.forEach(
@@ -159,8 +161,8 @@ public class HdfsStorage extends AbstractCheckpointStorage {
         String path = getStorageParentDirectory() + jobId;
         List<String> fileNames = getFileNames(path);
         if (fileNames.isEmpty()) {
-            throw new CheckpointStorageException(
-                    "No checkpoint found for job, job id is: " + jobId);
+            log.info("No checkpoint found for this  job, the job id is: " + jobId);
+            return new ArrayList<>();
         }
         Set<String> latestPipelineNames = getLatestPipelineNames(fileNames);
         List<PipelineState> latestPipelineStates = new ArrayList<>();
@@ -174,7 +176,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                 });
 
         if (latestPipelineStates.isEmpty()) {
-            throw new CheckpointStorageException("No checkpoint found for job, job id:{} " + jobId);
+            log.info("No checkpoint found for this job,  the job id:{} " + jobId);
         }
         return latestPipelineStates;
     }
@@ -185,18 +187,19 @@ public class HdfsStorage extends AbstractCheckpointStorage {
         String path = getStorageParentDirectory() + jobId;
         List<String> fileNames = getFileNames(path);
         if (fileNames.isEmpty()) {
-            throw new CheckpointStorageException(
-                    "No checkpoint found for job, job id is: " + jobId);
+            log.info("No checkpoint found for job, job id is: " + jobId);
+            return null;
         }
 
         String latestFileName =
                 getLatestCheckpointFileNameByJobIdAndPipelineId(fileNames, pipelineId);
         if (latestFileName == null) {
-            throw new CheckpointStorageException(
-                    "No checkpoint found for job, job id is: "
+            log.info(
+                    "No checkpoint found for this job, the job id is: "
                             + jobId
                             + ", pipeline id is: "
                             + pipelineId);
+            return null;
         }
         return readPipelineState(latestFileName, jobId);
     }
@@ -207,8 +210,8 @@ public class HdfsStorage extends AbstractCheckpointStorage {
         String path = getStorageParentDirectory() + jobId;
         List<String> fileNames = getFileNames(path);
         if (fileNames.isEmpty()) {
-            throw new CheckpointStorageException(
-                    "No checkpoint found for job, job id is: " + jobId);
+            log.info("No checkpoint found for this job, the job id is: " + jobId);
+            return new ArrayList<>();
         }
 
         List<PipelineState> pipelineStates = new ArrayList<>();
@@ -242,8 +245,8 @@ public class HdfsStorage extends AbstractCheckpointStorage {
         String path = getStorageParentDirectory() + jobId;
         List<String> fileNames = getFileNames(path);
         if (fileNames.isEmpty()) {
-            throw new CheckpointStorageException(
-                    "No checkpoint found for job, job id is: " + jobId);
+            log.info("No checkpoint found for this job,  the job id is: " + jobId);
+            return null;
         }
         for (String fileName : fileNames) {
             if (pipelineId.equals(getPipelineIdByFileName(fileName))
@@ -267,7 +270,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
     }
 
     @Override
-    public void deleteCheckpoint(String jobId, String pipelineId, String checkpointId)
+    public synchronized void deleteCheckpoint(String jobId, String pipelineId, String checkpointId)
             throws CheckpointStorageException {
         String path = getStorageParentDirectory() + jobId;
         List<String> fileNames = getFileNames(path);
@@ -293,11 +296,40 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                 });
     }
 
+    @Override
+    public void deleteCheckpoint(String jobId, String pipelineId, List<String> checkpointIdList)
+            throws CheckpointStorageException {
+        String path = getStorageParentDirectory() + jobId;
+        List<String> fileNames = getFileNames(path);
+        if (fileNames.isEmpty()) {
+            throw new CheckpointStorageException(
+                    "No checkpoint found for job, job id is: " + jobId);
+        }
+        fileNames.forEach(
+                fileName -> {
+                    String checkpointIdByFileName = getCheckpointIdByFileName(fileName);
+                    if (pipelineId.equals(getPipelineIdByFileName(fileName))
+                            && checkpointIdList.contains(checkpointIdByFileName)) {
+                        try {
+                            fs.delete(new Path(fileName), false);
+                        } catch (Exception e) {
+                            log.error(
+                                    "Failed to delete checkpoint {} for job {}, pipeline {}",
+                                    checkpointIdByFileName,
+                                    jobId,
+                                    pipelineId,
+                                    e);
+                        }
+                    }
+                });
+    }
+
     private List<String> getFileNames(String path) throws CheckpointStorageException {
         try {
             Path parentPath = new Path(path);
             if (!fs.exists(parentPath)) {
-                throw new CheckpointStorageException("Path " + path + " is not a directory");
+                log.info("Path " + path + " is not a directory");
+                return new ArrayList<>();
             }
             FileStatus[] fileStatus =
                     fs.listStatus(parentPath, path1 -> path1.getName().endsWith(FILE_FORMAT));
@@ -321,10 +353,11 @@ public class HdfsStorage extends AbstractCheckpointStorage {
             throws CheckpointStorageException {
         fileName =
                 getStorageParentDirectory() + jobId + DEFAULT_CHECKPOINT_FILE_PATH_SPLIT + fileName;
-        try (FSDataInputStream in = fs.open(new Path(fileName))) {
-            byte[] datas = new byte[in.available()];
-            in.read(datas);
-            return deserializeCheckPointData(datas);
+        try (FSDataInputStream in = fs.open(new Path(fileName));
+                ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
+            IOUtils.copyBytes(in, stream, 1024);
+            byte[] bytes = stream.toByteArray();
+            return deserializeCheckPointData(bytes);
         } catch (IOException e) {
             throw new CheckpointStorageException(
                     String.format(

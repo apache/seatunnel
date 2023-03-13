@@ -30,6 +30,9 @@ public interface SeaTunnelTransform<T>
                 SeaTunnelPluginLifeCycle,
                 SeaTunnelJobAware {
 
+    /** call it when Transformer initialed */
+    default void open() {}
+
     /**
      * Set the data type info of input data.
      *
@@ -51,4 +54,7 @@ public interface SeaTunnelTransform<T>
      * @return transformed data.
      */
     T map(T row);
+
+    /** call it when Transformer completed */
+    default void close() {}
 }

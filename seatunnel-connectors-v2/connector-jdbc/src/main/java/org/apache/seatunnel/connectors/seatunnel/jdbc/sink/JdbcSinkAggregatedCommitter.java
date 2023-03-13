@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.GroupXaOperationResult;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaFacade;
@@ -38,13 +38,13 @@ public class JdbcSinkAggregatedCommitter
 
     private final XaFacade xaFacade;
     private final XaGroupOps xaGroupOps;
-    private final JdbcSinkOptions jdbcSinkOptions;
+    private final JdbcSinkConfig jdbcSinkConfig;
 
-    public JdbcSinkAggregatedCommitter(JdbcSinkOptions jdbcSinkOptions) {
+    public JdbcSinkAggregatedCommitter(JdbcSinkConfig jdbcSinkConfig) {
         this.xaFacade =
-                XaFacade.fromJdbcConnectionOptions(jdbcSinkOptions.getJdbcConnectionOptions());
+                XaFacade.fromJdbcConnectionOptions(jdbcSinkConfig.getJdbcConnectionConfig());
         this.xaGroupOps = new XaGroupOpsImpl(xaFacade);
-        this.jdbcSinkOptions = jdbcSinkOptions;
+        this.jdbcSinkConfig = jdbcSinkConfig;
     }
 
     private void tryOpen() throws IOException {
@@ -71,8 +71,8 @@ public class JdbcSinkAggregatedCommitter
                                     xaGroupOps.commit(
                                             new ArrayList<>(aggregatedCommitInfo.getXidInfoList()),
                                             false,
-                                            jdbcSinkOptions
-                                                    .getJdbcConnectionOptions()
+                                            jdbcSinkConfig
+                                                    .getJdbcConnectionConfig()
                                                     .getMaxCommitAttempts());
                             return new JdbcAggregatedCommitInfo(result.getForRetry());
                         })

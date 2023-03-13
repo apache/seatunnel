@@ -21,10 +21,10 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 
 import org.junit.jupiter.api.Assertions;
@@ -48,11 +48,10 @@ public class FakeDataGeneratorTest {
     public void testComplexSchemaParse(String conf)
             throws FileNotFoundException, URISyntaxException {
         Config testConfig = getTestConfigFile(conf);
-        SeaTunnelSchema seaTunnelSchema =
-                SeaTunnelSchema.buildWithConfig(testConfig.getConfig(SeaTunnelSchema.SCHEMA.key()));
-        SeaTunnelRowType seaTunnelRowType = seaTunnelSchema.getSeaTunnelRowType();
+        SeaTunnelRowType seaTunnelRowType =
+                CatalogTableUtil.buildWithConfig(testConfig).getSeaTunnelRowType();
         FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
-        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(seaTunnelSchema, fakeConfig);
+        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(seaTunnelRowType, fakeConfig);
         List<SeaTunnelRow> seaTunnelRows = new ArrayList<>();
         fakeDataGenerator.collectFakedRows(
                 fakeConfig.getRowNum(),
@@ -111,10 +110,10 @@ public class FakeDataGeneratorTest {
                 Arrays.asList(row1, row2, row3, row1UpdateBefore, row1UpdateAfter, row2Delete);
 
         Config testConfig = getTestConfigFile(conf);
-        SeaTunnelSchema seaTunnelSchema =
-                SeaTunnelSchema.buildWithConfig(testConfig.getConfig(SeaTunnelSchema.SCHEMA.key()));
+        SeaTunnelRowType seaTunnelRowType =
+                CatalogTableUtil.buildWithConfig(testConfig).getSeaTunnelRowType();
         FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
-        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(seaTunnelSchema, fakeConfig);
+        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(seaTunnelRowType, fakeConfig);
         List<SeaTunnelRow> seaTunnelRows = new ArrayList<>();
         fakeDataGenerator.collectFakedRows(
                 fakeConfig.getRowNum(),

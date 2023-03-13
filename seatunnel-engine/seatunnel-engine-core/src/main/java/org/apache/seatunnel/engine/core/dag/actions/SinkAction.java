@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import lombok.NonNull;
 
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -32,23 +33,37 @@ public class SinkAction<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends 
     public SinkAction(
             long id,
             @NonNull String name,
-            @NonNull List<Action> upstreams,
             @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
             @NonNull Set<URL> jarUrls) {
-        super(id, name, upstreams, jarUrls);
-        this.sink = sink;
+        this(id, name, new ArrayList<>(), sink, jarUrls);
     }
 
     public SinkAction(
             long id,
             @NonNull String name,
+            @NonNull List<Action> upstreams,
             @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
             @NonNull Set<URL> jarUrls) {
-        super(id, name, jarUrls);
+        this(id, name, upstreams, sink, jarUrls, null);
+    }
+
+    public SinkAction(
+            long id,
+            @NonNull String name,
+            @NonNull List<Action> upstreams,
+            @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
+            @NonNull Set<URL> jarUrls,
+            SinkConfig config) {
+        super(id, name, upstreams, jarUrls, config);
         this.sink = sink;
     }
 
     public SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> getSink() {
         return sink;
+    }
+
+    @Override
+    public SinkConfig getConfig() {
+        return (SinkConfig) super.getConfig();
     }
 }

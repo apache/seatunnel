@@ -21,12 +21,12 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
@@ -45,7 +45,7 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
                         HdfsSourceConfig.FILE_PATH.key(),
-                        HdfsSourceConfig.FILE_TYPE.key(),
+                        HdfsSourceConfig.FILE_FORMAT_TYPE.key(),
                         HdfsSourceConfig.DEFAULT_FS.key());
         if (!result.isSuccess()) {
             throw new FileConnectorException(
@@ -55,7 +55,8 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         readStrategy =
-                ReadStrategyFactory.of(pluginConfig.getString(HdfsSourceConfig.FILE_TYPE.key()));
+                ReadStrategyFactory.of(
+                        pluginConfig.getString(HdfsSourceConfig.FILE_FORMAT_TYPE.key()));
         readStrategy.setPluginConfig(pluginConfig);
         String path = pluginConfig.getString(HdfsSourceConfig.FILE_PATH.key());
         hadoopConf = new HadoopConf(pluginConfig.getString(HdfsSourceConfig.DEFAULT_FS.key()));
@@ -87,16 +88,17 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
         // support user-defined schema
         FileFormat fileFormat =
                 FileFormat.valueOf(
-                        pluginConfig.getString(HdfsSourceConfig.FILE_TYPE.key()).toUpperCase());
+                        pluginConfig
+                                .getString(HdfsSourceConfig.FILE_FORMAT_TYPE.key())
+                                .toUpperCase());
         // only json text csv type support user-defined schema now
-        if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA.key())) {
+        if (pluginConfig.hasPath(CatalogTableUtil.SCHEMA.key())) {
             switch (fileFormat) {
                 case CSV:
                 case TEXT:
                 case JSON:
-                    Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
                     SeaTunnelRowType userDefinedSchema =
-                            SeaTunnelSchema.buildWithConfig(schemaConfig).getSeaTunnelRowType();
+                            CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
                     readStrategy.setSeaTunnelRowTypeInfo(userDefinedSchema);
                     rowType = readStrategy.getActualSeaTunnelRowTypeInfo();
                     break;

@@ -19,7 +19,7 @@ package org.apache.seatunnel.engine.server.dag.execution;
 
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
-import org.apache.seatunnel.engine.core.dag.actions.PartitionTransformAction;
+import org.apache.seatunnel.engine.core.dag.actions.ShuffleAction;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -136,10 +136,7 @@ public class PipelineGenerator {
     /** If this execution vertex have partition transform, can't be spilt */
     private boolean checkCanSplit(List<ExecutionEdge> edges) {
         return edges.stream()
-                        .noneMatch(
-                                e ->
-                                        e.getRightVertex().getAction()
-                                                instanceof PartitionTransformAction)
+                        .noneMatch(e -> e.getRightVertex().getAction() instanceof ShuffleAction)
                 && edges.stream()
                         .anyMatch(e -> inputVerticesMap.get(e.getRightVertexId()).size() > 1);
     }
@@ -189,7 +186,7 @@ public class PipelineGenerator {
         return new ExecutionVertex(
                 id,
                 ExecutionPlanGenerator.recreateAction(action, id, parallelism),
-                action instanceof PartitionTransformAction ? vertex.getParallelism() : parallelism);
+                action instanceof ShuffleAction ? vertex.getParallelism() : parallelism);
     }
 
     private void fillVerticesMap(List<ExecutionEdge> edges) {

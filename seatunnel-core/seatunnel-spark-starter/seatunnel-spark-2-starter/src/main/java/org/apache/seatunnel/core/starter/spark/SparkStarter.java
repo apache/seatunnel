@@ -209,6 +209,12 @@ public class SparkStarter implements Starter {
         appendOption(commands, "--master", this.commandArgs.getMaster());
         appendOption(commands, "--deploy-mode", this.commandArgs.getDeployMode().getDeployMode());
         appendOption(commands, "--name", this.commandArgs.getJobName());
+        if (commandArgs.isEncrypt()) {
+            commands.add("--encrypt");
+        }
+        if (commandArgs.isDecrypt()) {
+            commands.add("--decrypt");
+        }
         if (this.commandArgs.isCheckConfig()) {
             commands.add("--check");
         }

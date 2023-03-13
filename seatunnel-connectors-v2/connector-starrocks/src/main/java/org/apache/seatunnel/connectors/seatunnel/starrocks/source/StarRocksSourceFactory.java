@@ -25,7 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SourceConfig;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema.SCHEMA;
+import static org.apache.seatunnel.api.table.catalog.CatalogTableUtil.SCHEMA;
 
 @AutoService(Factory.class)
 public class StarRocksSourceFactory implements TableSourceFactory {
