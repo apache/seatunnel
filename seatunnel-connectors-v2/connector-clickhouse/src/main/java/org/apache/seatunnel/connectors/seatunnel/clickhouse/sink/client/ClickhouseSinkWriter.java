@@ -148,6 +148,16 @@ public class ClickhouseSinkWriter
     }
 
     public void open() {
+        if (option.getBatchIntervalMs() < 0) {
+            throw new ClickhouseConnectorException(
+                    CommonErrorCode.WRITER_OPERATION_FAILED,
+                    "batch_interval_ms : must be milliseconds greater than zero");
+        }
+        if (option.getBulkSize() < 0) {
+            throw new ClickhouseConnectorException(
+                    CommonErrorCode.WRITER_OPERATION_FAILED,
+                    "bulk_size : It must be an integer greater than 0");
+        }
         this.scheduler =
                 Executors.newScheduledThreadPool(
                         1,
