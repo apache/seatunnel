@@ -19,8 +19,10 @@ package org.apache.seatunnel.engine.server.task.group.queue;
 
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.flow.IntermediateQueueFlowLifeCycle;
+import org.apache.seatunnel.engine.server.task.record.Barrier;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -48,4 +50,19 @@ public abstract class AbstractIntermediateQueue<T> {
     public abstract void collect(Collector<Record<?>> collector) throws Exception;
 
     public abstract void close() throws IOException;
+
+    protected boolean handleBarrier(Record<?> record) {
+        if (record.getData() instanceof Barrier) {
+            CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
+            getRunningTask().ack(barrier);
+            if (barrier.prepareClose()) {
+                getIntermediateQueueFlowLifeCycle().setPrepareClose(true);
+            }
+        } else {
+            if (getIntermediateQueueFlowLifeCycle().getPrepareClose()) {
+                return false;
+            }
+        }
+        return true;
+    }
 }

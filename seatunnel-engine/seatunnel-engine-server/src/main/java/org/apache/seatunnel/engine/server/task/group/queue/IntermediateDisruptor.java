@@ -21,12 +21,13 @@ import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.engine.server.task.group.queue.disruptor.RecordEvent;
 import org.apache.seatunnel.engine.server.task.group.queue.disruptor.RecordEventHandler;
-import org.apache.seatunnel.engine.server.task.group.queue.disruptor.RecordEventProducer;
 
 import com.lmax.disruptor.dsl.Disruptor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 
+@Slf4j
 public class IntermediateDisruptor extends AbstractIntermediateQueue<Disruptor<RecordEvent>> {
 
     public IntermediateDisruptor(Disruptor<RecordEvent> queue) {
@@ -37,11 +38,15 @@ public class IntermediateDisruptor extends AbstractIntermediateQueue<Disruptor<R
 
     @Override
     public void received(Record<?> record) {
-        getIntermediateQueue().getRingBuffer();
-        RecordEventProducer.onData(
-                record,
-                getIntermediateQueue().getRingBuffer(),
-                getIntermediateQueueFlowLifeCycle());
+
+        getIntermediateQueue()
+                .publishEvent(
+                        (recordEvent, l) -> {
+                            log.info("sequence is {}", l);
+                            if (handleBarrier(record)) {
+                                recordEvent.setRecord(record);
+                            }
+                        });
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
