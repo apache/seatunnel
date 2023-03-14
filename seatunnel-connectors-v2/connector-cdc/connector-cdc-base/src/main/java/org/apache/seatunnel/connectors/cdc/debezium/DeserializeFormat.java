@@ -15,19 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kafka.serialize;
+package org.apache.seatunnel.connectors.cdc.debezium;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.format.compatible.debezium.json.CompatibleDebeziumJsonDeserializationSchema;
 
-import org.apache.kafka.clients.producer.ProducerRecord;
+public enum DeserializeFormat {
+    DEFAULT("default"),
+    COMPATIBLE_DEBEZIUM_JSON(CompatibleDebeziumJsonDeserializationSchema.IDENTIFIER);
 
-public interface SeaTunnelRowSerializer<K, V> {
+    private String name;
 
-    /**
-     * Serialize the {@link SeaTunnelRow} to a Kafka {@link ProducerRecord}.
-     *
-     * @param row seatunnel row
-     * @return kafka record.
-     */
-    ProducerRecord<K, V> serializeRow(SeaTunnelRow row);
+    DeserializeFormat(String name) {
+        this.name = name;
+    }
 }
