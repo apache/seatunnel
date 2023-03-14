@@ -25,6 +25,7 @@ import org.apache.flink.table.store.file.operation.Lock;
 import org.apache.flink.table.store.table.SupportsWrite;
 import org.apache.flink.table.store.table.Table;
 import org.apache.flink.table.store.table.sink.FileCommittable;
+import org.apache.flink.table.store.table.sink.SerializableCommittable;
 import org.apache.flink.table.store.table.sink.TableCommit;
 
 import lombok.extern.slf4j.Slf4j;

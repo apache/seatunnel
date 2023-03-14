@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.fts.sink.commit;
 
+import org.apache.flink.table.store.table.sink.SerializableCommittable;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
