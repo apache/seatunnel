@@ -24,11 +24,12 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.function.ConsumerWithException;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
-import org.apache.seatunnel.engine.core.dag.actions.PartitionTransformAction;
+import org.apache.seatunnel.engine.core.dag.actions.ShuffleAction;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.actions.TransformChainAction;
 import org.apache.seatunnel.engine.core.dag.actions.UnknownActionException;
+import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
@@ -46,8 +47,8 @@ import org.apache.seatunnel.engine.server.task.flow.ActionFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.FlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.IntermediateQueueFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
-import org.apache.seatunnel.engine.server.task.flow.PartitionTransformSinkFlowLifeCycle;
-import org.apache.seatunnel.engine.server.task.flow.PartitionTransformSourceFlowLifeCycle;
+import org.apache.seatunnel.engine.server.task.flow.ShuffleSinkFlowLifeCycle;
+import org.apache.seatunnel.engine.server.task.flow.ShuffleSourceFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.SinkFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.TransformFlowLifeCycle;
@@ -55,12 +56,11 @@ import org.apache.seatunnel.engine.server.task.group.AbstractTaskGroupWithInterm
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.internal.metrics.MetricDescriptor;
 import com.hazelcast.internal.metrics.MetricsCollectionContext;
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.net.URL;
@@ -85,8 +85,8 @@ import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTask
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.STARTING;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.WAITING_RESTORE;
 
+@Slf4j
 public abstract class SeaTunnelTask extends AbstractTask {
-    private static final Logger LOG = LoggerFactory.getLogger(SeaTunnelTask.class);
     private static final long serialVersionUID = 2604309561613784425L;
 
     protected volatile SeaTunnelTaskState currState;
@@ -230,13 +230,27 @@ public abstract class SeaTunnelTask extends AbstractTask {
                                 this,
                                 new SeaTunnelTransformCollector(flowLifeCycles),
                                 completableFuture);
-            } else if (f.getAction() instanceof PartitionTransformAction) {
-                // TODO use index and taskID to create ringbuffer list
+            } else if (f.getAction() instanceof ShuffleAction) {
+                ShuffleAction shuffleAction = (ShuffleAction) f.getAction();
+                HazelcastInstance hazelcastInstance = getExecutionContext().getInstance();
                 if (flow.getNext().isEmpty()) {
-                    lifeCycle = new PartitionTransformSinkFlowLifeCycle(this, completableFuture);
+                    lifeCycle =
+                            new ShuffleSinkFlowLifeCycle(
+                                    this,
+                                    indexID,
+                                    shuffleAction,
+                                    hazelcastInstance,
+                                    completableFuture);
                 } else {
-                    lifeCycle = new PartitionTransformSourceFlowLifeCycle(this, completableFuture);
+                    lifeCycle =
+                            new ShuffleSourceFlowLifeCycle(
+                                    this,
+                                    indexID,
+                                    shuffleAction,
+                                    hazelcastInstance,
+                                    completableFuture);
                 }
+                outputs = flowLifeCycles;
             } else {
                 throw new UnknownActionException(f.getAction());
             }
@@ -270,8 +284,8 @@ public abstract class SeaTunnelTask extends AbstractTask {
         return getFlowInfo((action, set) -> set.addAll(action.getJarUrls()));
     }
 
-    public Set<Long> getActionIds() {
-        return getFlowInfo((action, set) -> set.add(action.getId()));
+    public Set<ActionStateKey> getActionStateKeys() {
+        return getFlowInfo((action, set) -> set.add(ActionStateKey.of(action)));
     }
 
     private <T> Set<T> getFlowInfo(BiConsumer<Action, Set<T>> function) {
@@ -295,10 +309,20 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     @Override
     public void close() throws IOException {
-        allCycles.parallelStream().forEach(cycle -> sneaky(cycle::close));
+        allCycles
+                .parallelStream()
+                .forEach(
+                        flowLifeCycle -> {
+                            try {
+                                flowLifeCycle.close();
+                            } catch (IOException e) {
+                                log.error("Close FlowLifeCycle error.", e);
+                            }
+                        });
     }
 
     public void ack(Barrier barrier) {
+        log.debug("seatunnel task ack barrier[{}]", this.taskLocation);
         Integer ackSize =
                 cycleAcks.compute(barrier.getId(), (id, count) -> count == null ? 1 : ++count);
         if (ackSize == allCycles.size()) {
@@ -317,10 +341,10 @@ public abstract class SeaTunnelTask extends AbstractTask {
         }
     }
 
-    public void addState(Barrier barrier, long actionId, List<byte[]> state) {
+    public void addState(Barrier barrier, ActionStateKey stateKey, List<byte[]> state) {
         List<ActionSubtaskState> states =
                 checkpointStates.computeIfAbsent(barrier.getId(), id -> new ArrayList<>());
-        states.add(new ActionSubtaskState(actionId, indexID, state));
+        states.add(new ActionSubtaskState(stateKey, indexID, state));
     }
 
     @Override
@@ -344,11 +368,12 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
-        Map<Long, List<ActionSubtaskState>> stateMap =
+        log.debug("restoreState for SeaTunnelTask[{}]", actionStateList);
+        Map<ActionStateKey, List<ActionSubtaskState>> stateMap =
                 actionStateList.stream()
                         .collect(
                                 Collectors.groupingBy(
-                                        ActionSubtaskState::getActionId, Collectors.toList()));
+                                        ActionSubtaskState::getStateKey, Collectors.toList()));
         allCycles.stream()
                 .filter(cycle -> cycle instanceof ActionFlowLifeCycle)
                 .map(cycle -> (ActionFlowLifeCycle) cycle)
@@ -357,13 +382,14 @@ public abstract class SeaTunnelTask extends AbstractTask {
                             try {
                                 actionFlowLifeCycle.restoreState(
                                         stateMap.getOrDefault(
-                                                actionFlowLifeCycle.getAction().getId(),
+                                                ActionStateKey.of(actionFlowLifeCycle.getAction()),
                                                 Collections.emptyList()));
                             } catch (Exception e) {
                                 sneakyThrow(e);
                             }
                         });
         restoreComplete.complete(null);
+        log.debug("restoreState for SeaTunnelTask finished, actionStateList: {}", actionStateList);
     }
 
     @Override

@@ -25,13 +25,13 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
@@ -67,7 +67,7 @@ public class StarRocksSource
                         PASSWORD.key());
 
         CheckResult schemaCheckResult =
-                CheckConfigUtil.checkAllExists(pluginConfig, SeaTunnelSchema.SCHEMA.key());
+                CheckConfigUtil.checkAllExists(pluginConfig, CatalogTableUtil.SCHEMA.key());
         CheckResult mergedConfigCheck =
                 CheckConfigUtil.mergeCheckResults(checkResult, schemaCheckResult);
         if (!mergedConfigCheck.isSuccess()) {
@@ -78,8 +78,8 @@ public class StarRocksSource
                             getPluginName(), PluginType.SOURCE, mergedConfigCheck.getMsg()));
         }
 
-        Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
-        this.typeInfo = SeaTunnelSchema.buildWithConfig(schemaConfig).getSeaTunnelRowType();
+        Config schemaConfig = pluginConfig.getConfig(CatalogTableUtil.SCHEMA.key());
+        this.typeInfo = CatalogTableUtil.buildWithConfig(schemaConfig).getSeaTunnelRowType();
         this.sourceConfig = SourceConfig.loadConfig(pluginConfig);
     }
 

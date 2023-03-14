@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.engine.core.dag.actions.TransformChainAction;
+import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
@@ -28,6 +29,7 @@ import org.apache.seatunnel.engine.server.task.record.Barrier;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -54,6 +56,22 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
     }
 
     @Override
+    public void open() throws Exception {
+        super.open();
+        for (SeaTunnelTransform<T> t : transform) {
+            try {
+                t.open();
+            } catch (Exception e) {
+                log.error(
+                        "Open transform: {} failed, cause: {}",
+                        t.getPluginName(),
+                        e.getMessage(),
+                        e);
+            }
+        }
+    }
+
+    @Override
     public void received(Record<?> record) {
         if (record.getData() instanceof Barrier) {
             CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
@@ -61,7 +79,7 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
                 prepareClose = true;
             }
             if (barrier.snapshot()) {
-                runningTask.addState(barrier, action.getId(), Collections.emptyList());
+                runningTask.addState(barrier, ActionStateKey.of(action), Collections.emptyList());
             }
             // ack after #addState
             runningTask.ack(barrier);
@@ -92,5 +110,21 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
         // nothing
+    }
+
+    @Override
+    public void close() throws IOException {
+        for (SeaTunnelTransform<T> t : transform) {
+            try {
+                t.close();
+            } catch (Exception e) {
+                log.error(
+                        "Close transform: {} failed, cause: {}",
+                        t.getPluginName(),
+                        e.getMessage(),
+                        e);
+            }
+        }
+        super.close();
     }
 }

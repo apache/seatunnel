@@ -18,8 +18,9 @@
 package org.apache.seatunnel.engine.server.task.operation.source;
 
 import org.apache.seatunnel.common.utils.RetryUtils;
-import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
@@ -37,9 +38,6 @@ import java.io.IOException;
  * org.apache.seatunnel.api.source.SourceSplitEnumerator}
  */
 public class SourceRegisterOperation extends Operation implements IdentifiedDataSerializable {
-    private static final int RETRY_TIME = 20;
-
-    private static final int RETRY_TIME_OUT = 2000;
 
     private TaskLocation readerTaskID;
     private TaskLocation enumeratorTaskID;
@@ -63,13 +61,13 @@ public class SourceRegisterOperation extends Operation implements IdentifiedData
                     return null;
                 },
                 new RetryUtils.RetryMaterial(
-                        RETRY_TIME,
+                        Constant.OPERATION_RETRY_TIME,
                         true,
                         exception ->
-                                exception instanceof SeaTunnelException
+                                exception instanceof TaskGroupContextNotFoundException
                                         && !server.taskIsEnded(
                                                 enumeratorTaskID.getTaskGroupLocation()),
-                        RETRY_TIME_OUT));
+                        Constant.OPERATION_RETRY_SLEEP));
     }
 
     @Override
