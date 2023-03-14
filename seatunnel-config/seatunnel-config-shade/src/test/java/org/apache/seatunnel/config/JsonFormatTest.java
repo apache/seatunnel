@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.config;
 
-import org.apache.seatunnel.config.utils.FileUtils;
-
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
+
+import org.apache.seatunnel.config.utils.FileUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -33,21 +33,21 @@ public class JsonFormatTest {
     @Test
     public void testJsonFormat() throws URISyntaxException {
 
-        Config json = ConfigFactory
-                .parseFile(FileUtils.getFileFromResources("/json/spark.batch.json"))
-                .resolveWith(ConfigFactory.systemProperties(),
-                        ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        Config json =
+                ConfigFactory.parseFile(FileUtils.getFileFromResources("/json/spark.batch.json"))
+                        .resolveWith(
+                                ConfigFactory.systemProperties(),
+                                ConfigResolveOptions.defaults().setAllowUnresolved(true));
 
-        Config config = ConfigFactory
-                .parseFile(FileUtils.getFileFromResources("/json/spark.batch.conf"))
-                .resolveWith(ConfigFactory.systemProperties(),
-                        ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        Config config =
+                ConfigFactory.parseFile(FileUtils.getFileFromResources("/json/spark.batch.conf"))
+                        .resolveWith(
+                                ConfigFactory.systemProperties(),
+                                ConfigResolveOptions.defaults().setAllowUnresolved(true));
 
         Assertions.assertEquals(config.atPath("transform"), json.atPath("transform"));
         Assertions.assertEquals(config.atPath("sink"), json.atPath("sink"));
         Assertions.assertEquals(config.atPath("source"), json.atPath("source"));
         Assertions.assertEquals(config.atPath("env"), json.atPath("env"));
-
     }
-
 }
