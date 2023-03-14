@@ -169,9 +169,9 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
             this.connection.close();
             this.binaryLogClient.disconnect();
         } catch (SQLException e) {
-            log.warn("Failed to close connection, {}", ExceptionUtils.getMessage(e));
+            log.warn("Failed to close connection", e);
         } catch (IOException e) {
-            log.warn("Failed to close binaryLogClient, {}", ExceptionUtils.getMessage(e));
+            log.warn("Failed to close binaryLogClient", e);
         }
     }
 

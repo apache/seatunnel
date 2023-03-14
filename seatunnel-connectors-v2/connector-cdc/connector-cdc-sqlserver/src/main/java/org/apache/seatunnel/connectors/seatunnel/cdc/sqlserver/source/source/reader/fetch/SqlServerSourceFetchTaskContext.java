@@ -168,7 +168,7 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
             this.dataConnection.close();
             this.metadataConnection.close();
         } catch (SQLException e) {
-            log.warn("Failed to close connection, {}", ExceptionUtils.getMessage(e));
+            log.warn("Failed to close connection", e);
         }
     }
 
