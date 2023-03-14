@@ -58,6 +58,22 @@ public class KafkaSink
     private Config pluginConfig;
     private SeaTunnelRowType seaTunnelRowType;
 
+    public KafkaSink() {}
+
+    public KafkaSink(Config pluginConfig, SeaTunnelRowType rowType) {
+        CheckResult result =
+                CheckConfigUtil.checkAllExists(pluginConfig, TOPIC.key(), BOOTSTRAP_SERVERS.key());
+        if (!result.isSuccess()) {
+            throw new KafkaConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SINK, result.getMsg()));
+        }
+        this.pluginConfig = pluginConfig;
+        this.seaTunnelRowType = rowType;
+    }
+
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result =
