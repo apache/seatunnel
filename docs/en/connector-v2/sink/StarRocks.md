@@ -93,7 +93,7 @@ Whether to enable upsert/delete, only supports PrimaryKey model.
 
 We use templates to automatically create starrocks tables,
 which will create corresponding table creation statements based on the type of upstream data and schema type,
-and the default template can be modified according to the situation
+and the default template can be modified according to the situation. Only work on multi-table mode at now.
 
 ```sql
 CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
