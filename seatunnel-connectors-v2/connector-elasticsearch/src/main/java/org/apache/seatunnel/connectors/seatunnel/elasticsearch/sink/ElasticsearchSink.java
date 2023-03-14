@@ -25,6 +25,8 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.ElasticsearchAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.ElasticsearchCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.ElasticsearchSinkState;
@@ -33,6 +35,7 @@ import com.google.auto.service.AutoService;
 
 import java.util.Collections;
 
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.BATCH_INTERVAL_MS;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.MAX_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.MAX_RETRY_COUNT;
 
@@ -51,6 +54,8 @@ public class ElasticsearchSink
 
     private int maxRetryCount = MAX_RETRY_COUNT.defaultValue();
 
+    private int batchIntervalMs = BATCH_INTERVAL_MS.defaultValue();
+
     @Override
     public String getPluginName() {
         return "Elasticsearch";
@@ -64,6 +69,16 @@ public class ElasticsearchSink
         }
         if (pluginConfig.hasPath(MAX_RETRY_COUNT.key())) {
             maxRetryCount = pluginConfig.getInt(MAX_RETRY_COUNT.key());
+        }
+        if (pluginConfig.hasPath(BATCH_INTERVAL_MS.key())) {
+            batchIntervalMs = pluginConfig.getInt(BATCH_INTERVAL_MS.key());
+        }
+        if (maxBatchSize < 0 || maxRetryCount < 0 || batchIntervalMs < 0) {
+            throw new ElasticsearchConnectorException(
+                    CommonErrorCode.ILLEGAL_ARGUMENT,
+                    "An invalid parameter should be a positive integer greater than zero "
+                            + "Check the following parameters "
+                            + "max_batch_size、batch_interval_ms、max_retry_count ");
         }
     }
 
@@ -86,6 +101,7 @@ public class ElasticsearchSink
                 pluginConfig,
                 maxBatchSize,
                 maxRetryCount,
+                batchIntervalMs,
                 Collections.emptyList());
     }
 }

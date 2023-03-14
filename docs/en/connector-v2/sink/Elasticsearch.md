@@ -30,6 +30,7 @@ Engine Supported
 | password                | string  | no       |               |
 | max_retry_count         | int     | no       | 3             |
 | max_batch_size          | int     | no       | 10            |
+| batch_interval_ms       | int     | no       | 1000          |
 | tls_verify_certificate  | boolean | no       | true          |
 | tls_verify_hostnames    | boolean | no       | true          |
 | tls_keystore_path       | string  | no       | -             |
@@ -74,6 +75,10 @@ one bulk request max try size
 ### max_batch_size [int]
 
 batch bulk doc max size
+
+### batch_interval_ms [int]
+
+batch interval milliSecond
 
 ### tls_verify_certificate [boolean]
 

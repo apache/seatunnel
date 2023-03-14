@@ -42,6 +42,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * ElasticsearchSinkWriter is a sink writer that will write {@link SeaTunnelRow} to Elasticsearch.
@@ -54,11 +59,19 @@ public class ElasticsearchSinkWriter
 
     private final int maxBatchSize;
 
+    private final int batchIntervalMs;
+
     private final SeaTunnelRowSerializer seaTunnelRowSerializer;
     private final List<String> requestEsList;
     private EsRestClient esRestClient;
     private RetryMaterial retryMaterial;
     private static final long DEFAULT_SLEEP_TIME_MS = 200L;
+
+    private transient ScheduledExecutorService scheduler;
+    private transient ScheduledFuture<?> scheduledFuture;
+    // Whether pre-initialization is required
+    private transient boolean isOpen;
+    private transient boolean isClose;
 
     public ElasticsearchSinkWriter(
             SinkWriter.Context context,
@@ -66,9 +79,11 @@ public class ElasticsearchSinkWriter
             Config pluginConfig,
             int maxBatchSize,
             int maxRetryCount,
+            int batchIntervalMs,
             List<ElasticsearchSinkState> elasticsearchStates) {
         this.context = context;
         this.maxBatchSize = maxBatchSize;
+        this.batchIntervalMs = batchIntervalMs;
 
         IndexInfo indexInfo = new IndexInfo(pluginConfig);
         esRestClient = EsRestClient.createInstance(pluginConfig);
@@ -89,9 +104,48 @@ public class ElasticsearchSinkWriter
 
         String indexRequestRow = seaTunnelRowSerializer.serializeRow(element);
         requestEsList.add(indexRequestRow);
+        // Initialize the interval flush
+        tryOpen();
         if (requestEsList.size() >= maxBatchSize) {
+            log.info("Batch write completion row :" + requestEsList.size());
             bulkEsWithRetry(this.esRestClient, this.requestEsList);
         }
+    }
+
+    private void tryOpen() {
+        if (!isOpen) {
+            isOpen = true;
+            open();
+        }
+    }
+
+    public void open() {
+        this.scheduler =
+                Executors.newScheduledThreadPool(
+                        1,
+                        runnable -> {
+                            AtomicInteger cnt = new AtomicInteger(0);
+                            Thread thread = new Thread(runnable);
+                            thread.setDaemon(true);
+                            thread.setName(
+                                    "sink-elasticsearch-interval" + "-" + cnt.incrementAndGet());
+                            return thread;
+                        });
+        this.scheduledFuture =
+                this.scheduler.scheduleWithFixedDelay(
+                        () -> {
+                            synchronized (ElasticsearchSinkWriter.this) {
+                                if (requestEsList.size() > 0 && !isClose) {
+                                    log.info(
+                                            "Write complete rows at batch intervals :"
+                                                    + requestEsList.size());
+                                    bulkEsWithRetry(this.esRestClient, this.requestEsList);
+                                }
+                            }
+                        },
+                        this.batchIntervalMs,
+                        this.batchIntervalMs,
+                        TimeUnit.MILLISECONDS);
     }
 
     @Override
@@ -133,6 +187,12 @@ public class ElasticsearchSinkWriter
     @Override
     public void close() throws IOException {
         bulkEsWithRetry(this.esRestClient, this.requestEsList);
-        esRestClient.close();
+        this.isClose = true;
+        if (esRestClient != null) {
+            esRestClient.close();
+        }
+        if (this.scheduler != null) {
+            this.scheduler.shutdown();
+        }
     }
 }

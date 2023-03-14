@@ -59,6 +59,13 @@ public class SinkConfig {
                     .withDescription("batch bulk doc max size");
 
     @SuppressWarnings("checkstyle:MagicNumber")
+    public static final Option<Integer> BATCH_INTERVAL_MS =
+            Options.key("batch_interval_ms")
+                    .intType()
+                    .defaultValue(1000)
+                    .withDescription("batch interval milliSecond");
+
+    @SuppressWarnings("checkstyle:MagicNumber")
     public static final Option<Integer> MAX_RETRY_COUNT =
             Options.key("max_retry_count")
                     .intType()
