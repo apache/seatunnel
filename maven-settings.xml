@@ -1,25 +1,125 @@
 <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 http://maven.apache.org/xsd/settings-1.0.0.xsd">
+    
+    <mirrors>
+        <mirror>
+            <id>mirror</id>
+            <mirrorOf>central,jcenter,!rdc-releases,!rdc-snapshots</mirrorOf>
+            <name>mirror</name>
+            <url>https://maven.aliyun.com/nexus/content/groups/public</url>
+        </mirror>
+    </mirrors>
+    <servers>
+        <server>
+            <id>rdc-releases</id>
+            <username>62e7c1a59bee35651e135791</username>
+            <password>-OpAwOT1z97d</password>
+        </server>
+        <server>
+            <id>rdc-snapshots</id>
+            <username>62e7c1a59bee35651e135791</username>
+            <password>-OpAwOT1z97d</password>
+        </server>
+    </servers>
     <profiles>
         <profile>
-            <id>github</id>
+            <id>rdc</id>
+            <properties>
+                <altReleaseDeploymentRepository>
+                    rdc-releases::default::https://packages.aliyun.com/maven/repository/2260522-release-IL3sfV/
+                </altReleaseDeploymentRepository>
+                <altSnapshotDeploymentRepository>
+                    rdc-snapshots::default::https://packages.aliyun.com/maven/repository/2260522-snapshot-CmO2uy/
+                </altSnapshotDeploymentRepository>
+            </properties>
             <repositories>
                 <repository>
-                    <id>github</id>
-                    <url>https://maven.pkg.github.com/whaleops/</url>
+                    <id>central</id>
+                    <url>https://maven.aliyun.com/nexus/content/groups/public</url>
+                    <releases>
+                        <enabled>true</enabled>
+                    </releases>
+                    <snapshots>
+                        <enabled>false</enabled>
+                    </snapshots>
+                </repository>
+                <repository>
+                    <id>snapshots</id>
+                    <url>https://maven.aliyun.com/nexus/content/groups/public</url>
+                    <releases>
+                        <enabled>false</enabled>
+                    </releases>
+                    <snapshots>
+                        <enabled>true</enabled>
+                    </snapshots>
+                </repository>
+                <repository>
+                    <id>rdc-releases</id>
+                    <url>https://packages.aliyun.com/maven/repository/2260522-release-IL3sfV/</url>
+                    <releases>
+                        <enabled>true</enabled>
+                    </releases>
+                    <snapshots>
+                        <enabled>false</enabled>
+                    </snapshots>
+                </repository>
+                <repository>
+                    <id>rdc-snapshots</id>
+                    <url>https://packages.aliyun.com/maven/repository/2260522-snapshot-CmO2uy/</url>
+                    <releases>
+                        <enabled>false</enabled>
+                    </releases>
                     <snapshots>
                         <enabled>true</enabled>
                     </snapshots>
                 </repository>
             </repositories>
+            <pluginRepositories>
+                <pluginRepository>
+                    <id>central</id>
+                    <url>https://maven.aliyun.com/nexus/content/groups/public</url>
+                    <releases>
+                        <enabled>true</enabled>
+                    </releases>
+                    <snapshots>
+                        <enabled>false</enabled>
+                    </snapshots>
+                </pluginRepository>
+                <pluginRepository>
+                    <id>snapshots</id>
+                    <url>https://maven.aliyun.com/nexus/content/groups/public</url>
+                    <releases>
+                        <enabled>false</enabled>
+                    </releases>
+                    <snapshots>
+                        <enabled>true</enabled>
+                    </snapshots>
+                </pluginRepository>
+                <pluginRepository>
+                    <id>rdc-releases</id>
+                    <url>https://packages.aliyun.com/maven/repository/2260522-release-IL3sfV/</url>
+                    <releases>
+                        <enabled>true</enabled>
+                    </releases>
+                    <snapshots>
+                        <enabled>false</enabled>
+                    </snapshots>
+                </pluginRepository>
+                <pluginRepository>
+                    <id>rdc-snapshots</id>
+                    <url>https://packages.aliyun.com/maven/repository/2260522-snapshot-CmO2uy/</url>
+                    <releases>
+                        <enabled>false</enabled>
+                    </releases>
+                    <snapshots>
+                        <enabled>true</enabled>
+                    </snapshots>
+                </pluginRepository>
+            </pluginRepositories>
         </profile>
     </profiles>
-    <servers>
-        <server>
-            <id>github</id>
-            <username>${env.GITHUB_USERNAME}</username>
-            <password>${env.GITHUB_TOKEN}</password>
-        </server>
-    </servers>
+    <activeProfiles>
+        <activeProfile>rdc</activeProfile>
+    </activeProfiles>
 </settings>
