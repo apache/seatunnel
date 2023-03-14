@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.cdc.dameng.source.reader.fetch;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
@@ -148,7 +147,7 @@ public class DamengSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         try {
             this.connection.close();
         } catch (SQLException e) {
-            log.warn("Failed to close connection, {}", ExceptionUtils.getMessage(e));
+            log.warn("Failed to close connection", e);
         }
     }
 
