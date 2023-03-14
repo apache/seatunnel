@@ -196,8 +196,8 @@ public class SubPlan {
                                         checkpointCoordinatorState
                                                 .getCheckpointCoordinatorStatus())) {
                                     pipelineStatus = PipelineStatus.FAILED;
-                                    errorByPhysicalVertex.set(
-                                            checkpointCoordinatorState.getThrowableMsg());
+                                    errorByPhysicalVertex.compareAndSet(
+                                            null, checkpointCoordinatorState.getThrowableMsg());
                                 }
                             } else {
                                 pipelineStatus = PipelineStatus.FINISHED;
@@ -211,14 +211,14 @@ public class SubPlan {
                                         checkpointCoordinatorState
                                                 .getCheckpointCoordinatorStatus())) {
                                     pipelineStatus = PipelineStatus.FAILED;
-                                    errorByPhysicalVertex.set(
-                                            checkpointCoordinatorState.getThrowableMsg());
+                                    errorByPhysicalVertex.compareAndSet(
+                                            null, checkpointCoordinatorState.getThrowableMsg());
                                 } else if (CheckpointCoordinatorStatus.CANCELED.equals(
                                         checkpointCoordinatorState
                                                 .getCheckpointCoordinatorStatus())) {
                                     pipelineStatus = PipelineStatus.CANCELED;
-                                    errorByPhysicalVertex.set(
-                                            checkpointCoordinatorState.getThrowableMsg());
+                                    errorByPhysicalVertex.compareAndSet(
+                                            null, checkpointCoordinatorState.getThrowableMsg());
                                 }
                             }
 
