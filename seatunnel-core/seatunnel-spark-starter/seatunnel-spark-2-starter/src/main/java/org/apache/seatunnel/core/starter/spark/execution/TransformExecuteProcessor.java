@@ -33,8 +33,6 @@ import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema;
-import org.apache.spark.sql.catalyst.expressions.MutableValue;
-import org.apache.spark.sql.catalyst.expressions.SpecificInternalRow;
 import org.apache.spark.sql.types.StructType;
 
 import com.google.common.collect.Lists;
@@ -43,7 +41,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -139,12 +136,10 @@ public class TransformExecuteProcessor
                 continue;
             }
             InternalRow internalRow = outputRowConverter.convert(seaTunnelRow);
-            outputRows.add(
-                    new GenericRowWithSchema(
-                            Arrays.stream(((SpecificInternalRow) internalRow).values())
-                                    .map(MutableValue::boxed)
-                                    .toArray(),
-                            structType));
+
+            Object[] fields = outputRowConverter.convertDateTime(internalRow, structType);
+
+            outputRows.add(new GenericRowWithSchema(fields, structType));
         }
         return sparkRuntimeEnvironment.getSparkSession().createDataFrame(outputRows, structType);
     }
