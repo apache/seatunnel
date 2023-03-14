@@ -223,7 +223,7 @@ For example, if you want to set the JDK version to JDK8, there are two cases:
   }
   ```
 - Yarn cluster does not deploy JDK8. At this time, when you start SeaTunnel attached with JDK8.For detailed operations, see the link below:
-  https://www.cnblogs.com/jasondan/p/spark-specific-jdk-version.html
+  [here](https://www.cnblogs.com/jasondan/p/spark-specific-jdk-version.html).
 
 ## What should I do if OOM always appears when running SeaTunnel in Spark local[*] mode?
 
@@ -336,7 +336,7 @@ spark-submit --verbose
 
 ## How to use SeaTunnel to synchronize data across HDFS clusters?
 
-Just configure hdfs-site.xml properly, refer to: https://www.cnblogs.com/suanec/p/7828139.html
+Just configure hdfs-site.xml properly, refer to: [here](https://www.cnblogs.com/suanec/p/7828139.html)
 
 ## I want to learn the source code of SeaTunnel, where should I start?
 
