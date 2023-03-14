@@ -24,10 +24,6 @@ on:
       - '**-release'
       - deploy/*
 
-env:
-  GITHUB_USERNAME: x-access-token
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
 jobs:
   deploy:
     name: Deploy maven packages to pkg.github
