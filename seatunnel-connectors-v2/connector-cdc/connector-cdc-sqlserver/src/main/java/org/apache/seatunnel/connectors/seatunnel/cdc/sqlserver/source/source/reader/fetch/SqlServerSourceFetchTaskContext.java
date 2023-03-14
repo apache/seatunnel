@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.reader.fetch;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
