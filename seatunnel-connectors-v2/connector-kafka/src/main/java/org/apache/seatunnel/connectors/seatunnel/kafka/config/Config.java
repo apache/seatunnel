@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.kafka.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.format.compatible.debezium.json.CompatibleDebeziumJsonSerializationSchema;
 
 import java.util.List;
 import java.util.Map;
@@ -34,6 +35,9 @@ public class Config {
     public static final String TEXT_FORMAT = "text";
 
     public static final String CANNAL_FORMAT = "canal-json";
+
+    public static final String COMPATIBLE_DEBEZIUM_JSON =
+            CompatibleDebeziumJsonSerializationSchema.IDENTIFIER;
 
     /** The default field delimiter is “,” */
     public static final String DEFAULT_FIELD_DELIMITER = ",";

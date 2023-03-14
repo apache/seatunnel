@@ -22,64 +22,187 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
+import org.apache.seatunnel.format.compatible.debezium.json.CompatibleDebeziumJsonSerializationSchema;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.apache.seatunnel.format.json.canal.CanalJsonSerializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.header.Header;
 
+import lombok.RequiredArgsConstructor;
+
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CANNAL_FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.COMPATIBLE_DEBEZIUM_JSON;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TEXT_FORMAT;
 
-public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<byte[], byte[]> {
-
-    private Integer partition;
-    private final SerializationSchema keySerialization;
-    private final SerializationSchema valueSerialization;
-
-    public DefaultSeaTunnelRowSerializer(
-            SeaTunnelRowType seaTunnelRowType, String format, String delimiter) {
-        this(element -> null, createSerializationSchema(seaTunnelRowType, format, delimiter));
-    }
-
-    public DefaultSeaTunnelRowSerializer(
-            Integer partition, SeaTunnelRowType seaTunnelRowType, String format, String delimiter) {
-        this(seaTunnelRowType, format, delimiter);
-        this.partition = partition;
-    }
-
-    public DefaultSeaTunnelRowSerializer(
-            List<String> keyFieldNames,
-            SeaTunnelRowType seaTunnelRowType,
-            String format,
-            String delimiter) {
-        this(
-                createKeySerializationSchema(keyFieldNames, seaTunnelRowType),
-                createSerializationSchema(seaTunnelRowType, format, delimiter));
-    }
-
-    public DefaultSeaTunnelRowSerializer(
-            SerializationSchema keySerialization, SerializationSchema valueSerialization) {
-        this.keySerialization = keySerialization;
-        this.valueSerialization = valueSerialization;
-    }
+@RequiredArgsConstructor
+public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
+    private final Function<SeaTunnelRow, String> topicExtractor;
+    private final Function<SeaTunnelRow, Integer> partitionExtractor;
+    private final Function<SeaTunnelRow, Long> timestampExtractor;
+    private final Function<SeaTunnelRow, byte[]> keyExtractor;
+    private final Function<SeaTunnelRow, byte[]> valueExtractor;
+    private final Function<SeaTunnelRow, Iterable<Header>> headersExtractor;
 
     @Override
-    public ProducerRecord<byte[], byte[]> serializeRow(String topic, SeaTunnelRow row) {
-        return new ProducerRecord<>(
-                topic,
-                partition,
-                keySerialization.serialize(row),
-                valueSerialization.serialize(row));
+    public ProducerRecord serializeRow(SeaTunnelRow row) {
+        return new ProducerRecord(
+                topicExtractor.apply(row),
+                partitionExtractor.apply(row),
+                timestampExtractor.apply(row),
+                keyExtractor.apply(row),
+                valueExtractor.apply(row),
+                headersExtractor.apply(row));
+    }
+
+    public static DefaultSeaTunnelRowSerializer create(
+            String topic, SeaTunnelRowType rowType, String format, String delimiter) {
+        return new DefaultSeaTunnelRowSerializer(
+                topicExtractor(topic, rowType),
+                partitionExtractor(null),
+                timestampExtractor(),
+                keyExtractor(null, rowType, format, delimiter),
+                valueExtractor(rowType, format, delimiter),
+                headersExtractor());
+    }
+
+    public static DefaultSeaTunnelRowSerializer create(
+            String topic,
+            Integer partition,
+            SeaTunnelRowType rowType,
+            String format,
+            String delimiter) {
+        return new DefaultSeaTunnelRowSerializer(
+                topicExtractor(topic, rowType),
+                partitionExtractor(partition),
+                timestampExtractor(),
+                keyExtractor(null, rowType, format, delimiter),
+                valueExtractor(rowType, format, delimiter),
+                headersExtractor());
+    }
+
+    public static DefaultSeaTunnelRowSerializer create(
+            String topic,
+            List<String> keyFields,
+            SeaTunnelRowType rowType,
+            String format,
+            String delimiter) {
+        return new DefaultSeaTunnelRowSerializer(
+                topicExtractor(topic, rowType),
+                partitionExtractor(null),
+                timestampExtractor(),
+                keyExtractor(keyFields, rowType, format, delimiter),
+                valueExtractor(rowType, format, delimiter),
+                headersExtractor());
+    }
+
+    private static Function<SeaTunnelRow, Integer> partitionExtractor(Integer partition) {
+        return row -> partition;
+    }
+
+    private static Function<SeaTunnelRow, Long> timestampExtractor() {
+        return row -> null;
+    }
+
+    private static Function<SeaTunnelRow, Iterable<Header>> headersExtractor() {
+        return row -> null;
+    }
+
+    private static Function<SeaTunnelRow, String> topicExtractor(
+            String topic, SeaTunnelRowType rowType) {
+        String regex = "\\$\\{(.*?)\\}";
+        Pattern pattern = Pattern.compile(regex, Pattern.DOTALL);
+        Matcher matcher = pattern.matcher(topic);
+        boolean isExtractTopic = matcher.find();
+        if (!isExtractTopic) {
+            return row -> topic;
+        }
+
+        String topicField = matcher.group(1);
+        List<String> fieldNames = Arrays.asList(rowType.getFieldNames());
+        if (!fieldNames.contains(topicField)) {
+            throw new KafkaConnectorException(
+                    CommonErrorCode.ILLEGAL_ARGUMENT,
+                    String.format("Field name { %s } is not found!", topic));
+        }
+        int topicFieldIndex = rowType.indexOf(topicField);
+        return row -> {
+            Object topicFieldValue = row.getField(topicFieldIndex);
+            if (topicFieldValue == null) {
+                throw new KafkaConnectorException(
+                        CommonErrorCode.ILLEGAL_ARGUMENT, "The column value is empty!");
+            }
+            return topicFieldValue.toString();
+        };
+    }
+
+    private static Function<SeaTunnelRow, byte[]> keyExtractor(
+            List<String> keyFields, SeaTunnelRowType rowType, String format, String delimiter) {
+        if (COMPATIBLE_DEBEZIUM_JSON.equals(format)) {
+            CompatibleDebeziumJsonSerializationSchema serializationSchema =
+                    new CompatibleDebeziumJsonSerializationSchema(rowType, true);
+            return row -> serializationSchema.serialize(row);
+        }
+
+        if (keyFields == null || keyFields.isEmpty()) {
+            return row -> null;
+        }
+
+        SeaTunnelRowType keyType = createKeyType(keyFields, rowType);
+        Function<SeaTunnelRow, SeaTunnelRow> keyRowExtractor =
+                createKeyRowExtractor(keyType, rowType);
+        SerializationSchema serializationSchema =
+                createSerializationSchema(keyType, format, delimiter, true);
+        return row -> serializationSchema.serialize(keyRowExtractor.apply(row));
+    }
+
+    private static Function<SeaTunnelRow, byte[]> valueExtractor(
+            SeaTunnelRowType rowType, String format, String delimiter) {
+        SerializationSchema serializationSchema =
+                createSerializationSchema(rowType, format, delimiter, false);
+        return row -> serializationSchema.serialize(row);
+    }
+
+    private static SeaTunnelRowType createKeyType(
+            List<String> keyFieldNames, SeaTunnelRowType rowType) {
+        int[] keyFieldIndexArr = new int[keyFieldNames.size()];
+        SeaTunnelDataType[] keyFieldDataTypeArr = new SeaTunnelDataType[keyFieldNames.size()];
+        for (int i = 0; i < keyFieldNames.size(); i++) {
+            String keyFieldName = keyFieldNames.get(i);
+            int rowFieldIndex = rowType.indexOf(keyFieldName);
+            keyFieldIndexArr[i] = rowFieldIndex;
+            keyFieldDataTypeArr[i] = rowType.getFieldType(rowFieldIndex);
+        }
+        return new SeaTunnelRowType(keyFieldNames.toArray(new String[0]), keyFieldDataTypeArr);
+    }
+
+    private static Function<SeaTunnelRow, SeaTunnelRow> createKeyRowExtractor(
+            SeaTunnelRowType keyType, SeaTunnelRowType rowType) {
+        int[] keyIndex = new int[keyType.getTotalFields()];
+        for (int i = 0; i < keyType.getTotalFields(); i++) {
+            keyIndex[i] = rowType.indexOf(keyType.getFieldName(i));
+        }
+        return row -> {
+            Object[] fields = new Object[keyType.getTotalFields()];
+            for (int i = 0; i < keyIndex.length; i++) {
+                fields[i] = row.getField(keyIndex[i]);
+            }
+            return new SeaTunnelRow(fields);
+        };
     }
 
     private static SerializationSchema createSerializationSchema(
-            SeaTunnelRowType rowType, String format, String delimiter) {
+            SeaTunnelRowType rowType, String format, String delimiter, boolean isKey) {
         switch (format) {
             case DEFAULT_FORMAT:
                 return new JsonSerializationSchema(rowType);
@@ -90,34 +213,11 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<byt
                         .build();
             case CANNAL_FORMAT:
                 return new CanalJsonSerializationSchema(rowType);
+            case COMPATIBLE_DEBEZIUM_JSON:
+                return new CompatibleDebeziumJsonSerializationSchema(rowType, isKey);
             default:
                 throw new SeaTunnelJsonFormatException(
                         CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + format);
         }
-    }
-
-    private static SerializationSchema createKeySerializationSchema(
-            List<String> keyFieldNames, SeaTunnelRowType seaTunnelRowType) {
-        int[] keyFieldIndexArr = new int[keyFieldNames.size()];
-        SeaTunnelDataType[] keyFieldDataTypeArr = new SeaTunnelDataType[keyFieldNames.size()];
-        for (int i = 0; i < keyFieldNames.size(); i++) {
-            String keyFieldName = keyFieldNames.get(i);
-            int rowFieldIndex = seaTunnelRowType.indexOf(keyFieldName);
-            keyFieldIndexArr[i] = rowFieldIndex;
-            keyFieldDataTypeArr[i] = seaTunnelRowType.getFieldType(rowFieldIndex);
-        }
-        SeaTunnelRowType keyType =
-                new SeaTunnelRowType(keyFieldNames.toArray(new String[0]), keyFieldDataTypeArr);
-        SerializationSchema keySerializationSchema = new JsonSerializationSchema(keyType);
-
-        Function<SeaTunnelRow, SeaTunnelRow> keyDataExtractor =
-                row -> {
-                    Object[] keyFields = new Object[keyFieldIndexArr.length];
-                    for (int i = 0; i < keyFieldIndexArr.length; i++) {
-                        keyFields[i] = row.getField(keyFieldIndexArr[i]);
-                    }
-                    return new SeaTunnelRow(keyFields);
-                };
-        return row -> keySerializationSchema.serialize(keyDataExtractor.apply(row));
     }
 }
