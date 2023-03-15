@@ -17,23 +17,69 @@
 
 package org.apache.seatunnel.engine.e2e;
 
-import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.engine.client.SeaTunnelClient;
+import org.apache.seatunnel.engine.client.job.ClientJobProxy;
+import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
+import org.apache.seatunnel.engine.common.config.ConfigProvider;
+import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.server.rest.RestConstant;
+
+import org.awaitility.Awaitility;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+
+import com.hazelcast.client.config.ClientConfig;
+import lombok.extern.slf4j.Slf4j;
+
+import java.util.concurrent.TimeUnit;
+
+import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.equalTo;
 
 @Slf4j
 public class RestApiIT {
 
-    @BeforeAll
-    public static void beforeClass() throws Exception {
-        SeaTunnelServerStarter.createHazelcastInstance(TestUtils.getClusterName("RestApiIT"));
+    private static final String HOST = "http://localhost:5801";
 
+    @BeforeAll
+    static void beforeClass() throws Exception {
+        String testClusterName = TestUtils.getClusterName("RestApiIT");
+        SeaTunnelServerStarter.createHazelcastInstance(testClusterName);
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("stream_fakesource_to_file.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("fake_to_file");
+
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(testClusterName);
+        SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
+        JobExecutionEnvironment jobExecutionEnv =
+                engineClient.createExecutionContext(filePath, jobConfig);
+
+        final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING, clientJobProxy.getJobStatus()));
     }
 
     @Test
-    public void testGetAllRunningJobsApi(){
-
-
+    public void testGetAllRunningJobsApi() {
+        given().get(RestConstant.RUNNING_JOB_URL)
+                .then()
+                .statusCode(200)
+                .body("jobName", equalTo(5));
+        given().get(RestConstant.RUNNING_JOB_URL)
+                .then()
+                .statusCode(200)
+                .body("jobStatus", equalTo("RUNNING"));
     }
 }
