@@ -129,8 +129,10 @@ public class ClusterFaultToleranceTwoPipelineIT {
                             () -> {
                                 Thread.sleep(2000);
                                 System.out.println(
-                                        FileUtils.getFileLineNumberFromDir(
-                                                testResources.getLeft()));
+                                        "\n================================="
+                                                + FileUtils.getFileLineNumberFromDir(
+                                                        testResources.getLeft())
+                                                + "=================================\n");
                                 Assertions.assertTrue(
                                         objectCompletableFuture.isDone()
                                                 && JobStatus.FINISHED.equals(
@@ -256,8 +258,10 @@ public class ClusterFaultToleranceTwoPipelineIT {
                             () -> {
                                 Thread.sleep(2000);
                                 System.out.println(
-                                        FileUtils.getFileLineNumberFromDir(
-                                                testResources.getLeft()));
+                                        "\n================================="
+                                                + FileUtils.getFileLineNumberFromDir(
+                                                        testResources.getLeft())
+                                                + "=================================\n");
                                 Assertions.assertTrue(
                                         JobStatus.RUNNING.equals(clientJobProxy.getJobStatus())
                                                 && testRowNumber * testParallelism * 2
@@ -354,8 +358,10 @@ public class ClusterFaultToleranceTwoPipelineIT {
                                 // Wait some tasks commit finished
                                 Thread.sleep(2000);
                                 System.out.println(
-                                        FileUtils.getFileLineNumberFromDir(
-                                                testResources.getLeft()));
+                                        "\n================================="
+                                                + FileUtils.getFileLineNumberFromDir(
+                                                        testResources.getLeft())
+                                                + "=================================\n");
                                 Assertions.assertTrue(
                                         JobStatus.RUNNING.equals(clientJobProxy.getJobStatus())
                                                 && FileUtils.getFileLineNumberFromDir(
@@ -372,9 +378,11 @@ public class ClusterFaultToleranceTwoPipelineIT {
                             () -> {
                                 // Wait some tasks commit finished
                                 Thread.sleep(2000);
-                                log.info(
-                                        FileUtils.getFileLineNumberFromDir(testResources.getLeft())
-                                                + "");
+                                System.out.println(
+                                        "\n================================="
+                                                + FileUtils.getFileLineNumberFromDir(
+                                                        testResources.getLeft())
+                                                + "=================================\n");
                                 Assertions.assertTrue(
                                         objectCompletableFuture.isDone()
                                                 && JobStatus.FINISHED.equals(
@@ -470,8 +478,10 @@ public class ClusterFaultToleranceTwoPipelineIT {
                                 // sink target dir
                                 Thread.sleep(2000);
                                 System.out.println(
-                                        FileUtils.getFileLineNumberFromDir(
-                                                testResources.getLeft()));
+                                        "\n================================="
+                                                + FileUtils.getFileLineNumberFromDir(
+                                                        testResources.getLeft())
+                                                + "=================================\n");
                                 Assertions.assertTrue(
                                         JobStatus.RUNNING.equals(clientJobProxy.getJobStatus())
                                                 && FileUtils.getFileLineNumberFromDir(
@@ -490,8 +500,10 @@ public class ClusterFaultToleranceTwoPipelineIT {
                                 // Wait job write all rows in file
                                 Thread.sleep(2000);
                                 System.out.println(
-                                        FileUtils.getFileLineNumberFromDir(
-                                                testResources.getLeft()));
+                                        "\n================================="
+                                                + FileUtils.getFileLineNumberFromDir(
+                                                        testResources.getLeft())
+                                                + "=================================\n");
                                 Assertions.assertTrue(
                                         JobStatus.RUNNING.equals(clientJobProxy.getJobStatus())
                                                 && testRowNumber * testParallelism * 2
@@ -591,8 +603,10 @@ public class ClusterFaultToleranceTwoPipelineIT {
                                 // Wait some tasks commit finished
                                 Thread.sleep(2000);
                                 System.out.println(
-                                        FileUtils.getFileLineNumberFromDir(
-                                                testResources.getLeft()));
+                                        "\n================================="
+                                                + FileUtils.getFileLineNumberFromDir(
+                                                        testResources.getLeft())
+                                                + "=================================\n");
                                 Assertions.assertTrue(
                                         JobStatus.RUNNING.equals(clientJobProxy.getJobStatus())
                                                 && FileUtils.getFileLineNumberFromDir(
@@ -609,9 +623,11 @@ public class ClusterFaultToleranceTwoPipelineIT {
                             () -> {
                                 // Wait some tasks commit finished
                                 Thread.sleep(2000);
-                                log.info(
-                                        FileUtils.getFileLineNumberFromDir(testResources.getLeft())
-                                                + "");
+                                System.out.println(
+                                        "\n================================="
+                                                + FileUtils.getFileLineNumberFromDir(
+                                                        testResources.getLeft())
+                                                + "=================================\n");
                                 Assertions.assertTrue(
                                         objectCompletableFuture.isDone()
                                                 && JobStatus.FINISHED.equals(
@@ -697,8 +713,10 @@ public class ClusterFaultToleranceTwoPipelineIT {
                                 // sink target dir
                                 Thread.sleep(2000);
                                 System.out.println(
-                                        FileUtils.getFileLineNumberFromDir(
-                                                testResources.getLeft()));
+                                        "\n================================="
+                                                + FileUtils.getFileLineNumberFromDir(
+                                                        testResources.getLeft())
+                                                + "=================================\n");
                                 Assertions.assertTrue(
                                         JobStatus.RUNNING.equals(clientJobProxy.getJobStatus())
                                                 && FileUtils.getFileLineNumberFromDir(
@@ -716,8 +734,10 @@ public class ClusterFaultToleranceTwoPipelineIT {
                                 // Wait job write all rows in file
                                 Thread.sleep(2000);
                                 System.out.println(
-                                        FileUtils.getFileLineNumberFromDir(
-                                                testResources.getLeft()));
+                                        "\n================================="
+                                                + FileUtils.getFileLineNumberFromDir(
+                                                        testResources.getLeft())
+                                                + "=================================\n");
                                 Assertions.assertTrue(
                                         JobStatus.RUNNING.equals(clientJobProxy.getJobStatus())
                                                 && testRowNumber * testParallelism * 2
