@@ -73,7 +73,7 @@ public class RestApiIT {
 
     @Test
     public void testGetAllRunningJobsApi() {
-        given().get(HOST+RestConstant.RUNNING_JOB_URL)
+        given().get(HOST + RestConstant.RUNNING_JOB_URL)
                 .then()
                 .statusCode(200)
                 .body("jobName", equalTo(5));
