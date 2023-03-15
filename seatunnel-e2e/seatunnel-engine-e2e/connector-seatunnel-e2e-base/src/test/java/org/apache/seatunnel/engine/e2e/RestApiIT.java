@@ -46,6 +46,8 @@ public class RestApiIT {
 
     private static final String HOST = "http://localhost:5801";
 
+    private static ClientJobProxy clientJobProxy;
+
     @BeforeAll
     static void beforeClass() throws Exception {
         String testClusterName = TestUtils.getClusterName("RestApiIT");
@@ -61,7 +63,7 @@ public class RestApiIT {
         JobExecutionEnvironment jobExecutionEnv =
                 engineClient.createExecutionContext(filePath, jobConfig);
 
-        final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+        clientJobProxy = jobExecutionEnv.execute();
 
         Awaitility.await()
                 .atMost(2, TimeUnit.MINUTES)
@@ -73,13 +75,10 @@ public class RestApiIT {
 
     @Test
     public void testGetAllRunningJobsApi() {
-        given().get(HOST + RestConstant.RUNNING_JOB_URL)
+        given().get(HOST + RestConstant.RUNNING_JOB_URL + "/" + clientJobProxy.getJobId())
                 .then()
                 .statusCode(200)
-                .body("jobName", equalTo(5));
-        given().get(RestConstant.RUNNING_JOB_URL)
-                .then()
-                .statusCode(200)
+                .body("jobName", equalTo("fake_to_file"))
                 .body("jobStatus", equalTo("RUNNING"));
     }
 }

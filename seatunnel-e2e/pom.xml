@@ -38,7 +38,7 @@
     <properties>
         <junit4.version>4.13.2</junit4.version>
         <maven-jar-plugin.version>2.4</maven-jar-plugin.version>
-        <rest-assured.version>5.3.0</rest-assured.version>
+        <rest-assured.version>4.3.1</rest-assured.version>
     </properties>
     <dependencies>
         <dependency>
