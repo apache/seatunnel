@@ -29,6 +29,11 @@
     <artifactId>connector-google-firestore</artifactId>
     <name>SeaTunnel : Connectors V2 : Google Firestore</name>
 
+    <properties>
+        <firestore.version>3.7.10</firestore.version>
+        <guava.version>31.1-android</guava.version>
+    </properties>
+
     <dependencies>
 
         <dependency>
@@ -39,12 +44,12 @@
         <dependency>
             <groupId>com.google.cloud</groupId>
             <artifactId>google-cloud-firestore</artifactId>
-            <version>3.7.10</version>
+            <version>${firestore.version}</version>
         </dependency>
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>31.1-android</version>
+            <version>${guava.version}</version>
         </dependency>
 
     </dependencies>

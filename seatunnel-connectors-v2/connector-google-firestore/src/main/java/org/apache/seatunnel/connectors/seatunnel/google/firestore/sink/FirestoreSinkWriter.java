@@ -21,6 +21,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.google.firestore.config.FirestoreParameters;
+import org.apache.seatunnel.connectors.seatunnel.google.firestore.exception.FirestoreConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.google.firestore.exception.FirestoreConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.google.firestore.serialize.DefaultSeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.google.firestore.serialize.SeaTunnelRowSerializer;
 
@@ -28,11 +30,13 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.firestore.CollectionReference;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.FirestoreOptions;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Base64;
 
+@Slf4j
 public class FirestoreSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private Firestore firestore;
@@ -72,7 +76,9 @@ public class FirestoreSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
             try {
                 firestore.close();
             } catch (Exception e) {
-                throw new RuntimeException(e);
+                log.error("Close Firestore client failed.", e);
+                throw new FirestoreConnectorException(
+                        FirestoreConnectorErrorCode.CLOSE_CLIENT_FAILED, e);
             }
         }
     }
