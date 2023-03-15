@@ -48,7 +48,7 @@ public class RecordEventHandler implements EventHandler<RecordEvent> {
     @Override
     public void onEvent(RecordEvent recordEvent, long sequence, boolean endOfBatch)
             throws Exception {
-        log.info("consumer sequence->{}",sequence);
+        log.info("consumer sequence->{}", sequence);
         handleRecord(recordEvent.getRecord(), collector);
     }
 

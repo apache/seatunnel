@@ -19,16 +19,21 @@ package org.apache.seatunnel.engine.server.task.group.queue;
 
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.server.task.group.queue.disruptor.RecordEvent;
 import org.apache.seatunnel.engine.server.task.group.queue.disruptor.RecordEventHandler;
 
+import com.lmax.disruptor.TimeoutException;
 import com.lmax.disruptor.dsl.Disruptor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class IntermediateDisruptor extends AbstractIntermediateQueue<Disruptor<RecordEvent>> {
+
+    private static final int DEFAULT_CLOSE_WAIT_TIME_SECONDS = 5;
 
     public IntermediateDisruptor(Disruptor<RecordEvent> queue) {
         super(queue);
@@ -40,9 +45,10 @@ public class IntermediateDisruptor extends AbstractIntermediateQueue<Disruptor<R
     public void received(Record<?> record) {
 
         getIntermediateQueue()
+                .getRingBuffer()
                 .publishEvent(
                         (recordEvent, l) -> {
-                            log.info("provider sequence->{}",l);
+                            log.info("provider sequence->{}", l);
                             if (handleBarrier(record)) {
                                 recordEvent.setRecord(record);
                             }
@@ -68,6 +74,11 @@ public class IntermediateDisruptor extends AbstractIntermediateQueue<Disruptor<R
 
     @Override
     public void close() throws IOException {
-        getIntermediateQueue().shutdown();
+        try {
+            getIntermediateQueue().shutdown(DEFAULT_CLOSE_WAIT_TIME_SECONDS, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            log.error("IntermediateDisruptor close timeout error", e);
+            throw new SeaTunnelEngineException("IntermediateDisruptor close timeout error", e);
+        }
     }
 }
