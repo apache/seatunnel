@@ -121,6 +121,7 @@ public class SourceOptions {
 
     public static OptionRule.Builder getBaseRule() {
         return OptionRule.builder()
+                .optional(FORMAT)
                 .optional(SNAPSHOT_SPLIT_SIZE, SNAPSHOT_FETCH_SIZE)
                 .optional(INCREMENTAL_PARALLELISM)
                 .optional(STARTUP_MODE, STOP_MODE)

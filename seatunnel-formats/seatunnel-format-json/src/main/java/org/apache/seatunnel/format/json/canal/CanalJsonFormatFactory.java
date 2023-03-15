@@ -36,7 +36,7 @@ import java.util.Map;
 public class CanalJsonFormatFactory
         implements DeserializationFormatFactory, SerializationFormatFactory {
 
-    public static final String IDENTIFIER = "canal-json";
+    public static final String IDENTIFIER = "canal_json";
 
     @Override
     public String factoryIdentifier() {
