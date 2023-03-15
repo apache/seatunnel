@@ -44,7 +44,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.BOOTSTRAP_SERVERS;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TOPIC;
 
 /**
  * Kafka Sink implementation by using SeaTunnel sink API. This class contains the method to create
@@ -61,8 +60,7 @@ public class KafkaSink
     public KafkaSink() {}
 
     public KafkaSink(Config pluginConfig, SeaTunnelRowType rowType) {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(pluginConfig, TOPIC.key(), BOOTSTRAP_SERVERS.key());
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, BOOTSTRAP_SERVERS.key());
         if (!result.isSuccess()) {
             throw new KafkaConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -76,8 +74,7 @@ public class KafkaSink
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(pluginConfig, TOPIC.key(), BOOTSTRAP_SERVERS.key());
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, BOOTSTRAP_SERVERS.key());
         if (!result.isSuccess()) {
             throw new KafkaConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
