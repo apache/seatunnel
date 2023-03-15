@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.cdc.dameng.source;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
@@ -122,21 +123,23 @@ public class DamengDialect implements JdbcDataSourceDialect {
     public JdbcSourceFetchTaskContext createFetchTaskContext(
             SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig) {
         Configuration jdbcConfig = taskSourceConfig.getDbzConnectorConfig().getJdbcConfig();
-        DamengConnection jdbcConnection = new DamengConnection(jdbcConfig);
         List<TableChanges.TableChange> tableChangeList = new ArrayList<>();
-        // TODO: support save table schema
-        if (sourceSplitBase instanceof SnapshotSplit) {
-            SnapshotSplit snapshotSplit = (SnapshotSplit) sourceSplitBase;
-            tableChangeList.add(queryTableSchema(jdbcConnection, snapshotSplit.getTableId()));
-        } else {
-            IncrementalSplit incrementalSplit = (IncrementalSplit) sourceSplitBase;
-            for (TableId tableId : incrementalSplit.getTableIds()) {
-                tableChangeList.add(queryTableSchema(jdbcConnection, tableId));
+        try (DamengConnection jdbcConnection = new DamengConnection(jdbcConfig)) {
+            // TODO: support save table schema
+            if (sourceSplitBase instanceof SnapshotSplit) {
+                SnapshotSplit snapshotSplit = (SnapshotSplit) sourceSplitBase;
+                tableChangeList.add(queryTableSchema(jdbcConnection, snapshotSplit.getTableId()));
+            } else {
+                IncrementalSplit incrementalSplit = (IncrementalSplit) sourceSplitBase;
+                for (TableId tableId : incrementalSplit.getTableIds()) {
+                    tableChangeList.add(queryTableSchema(jdbcConnection, tableId));
+                }
             }
+        } catch (SQLException e) {
+            throw new SeaTunnelException(ExceptionUtils.getMessage(e));
         }
 
-        return new DamengSourceFetchTaskContext(
-                taskSourceConfig, this, jdbcConnection, tableChangeList);
+        return new DamengSourceFetchTaskContext(taskSourceConfig, this, tableChangeList);
     }
 
     @Override

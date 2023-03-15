@@ -51,9 +51,12 @@ import io.debezium.relational.Tables;
 import io.debezium.relational.history.TableChanges;
 import io.debezium.schema.TopicSelector;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
+import java.sql.SQLException;
 import java.util.Collection;
 
+@Slf4j
 public class DamengSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     @Getter private final DamengConnection connection;
     private final Collection<TableChanges.TableChange> engineHistory;
@@ -70,10 +73,10 @@ public class DamengSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     public DamengSourceFetchTaskContext(
             JdbcSourceConfig sourceConfig,
             JdbcDataSourceDialect dataSourceDialect,
-            DamengConnection connection,
             Collection<TableChanges.TableChange> engineHistory) {
         super(sourceConfig, dataSourceDialect);
-        this.connection = connection;
+        this.connection =
+                new DamengConnection(sourceConfig.getDbzConnectorConfig().getJdbcConfig());
         this.engineHistory = engineHistory;
         this.metadataProvider = new DamengEventMetadataProvider();
     }
@@ -137,6 +140,15 @@ public class DamengSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                         taskContext, queue, metadataProvider);
 
         this.errorHandler = new DamengErrorHandler(connectorConfig.getLogicalName(), queue);
+    }
+
+    @Override
+    public void close() {
+        try {
+            this.connection.close();
+        } catch (SQLException e) {
+            log.warn("Failed to close connection", e);
+        }
     }
 
     @Override

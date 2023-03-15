@@ -192,13 +192,20 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
     @Override
     public void close() {
         try {
+            if (taskContext != null) {
+                taskContext.close();
+            }
+            if (snapshotSplitReadTask != null) {
+                snapshotSplitReadTask.shutdown();
+            }
             if (executorService != null) {
                 executorService.shutdown();
-                if (executorService.awaitTermination(
+                if (!executorService.awaitTermination(
                         READER_CLOSE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
                     log.warn(
-                            "Failed to close the scan fetcher in {} seconds.",
+                            "Failed to close the scan fetcher in {} seconds. will execute force close(ExecutorService.shutdownNow)",
                             READER_CLOSE_TIMEOUT_SECONDS);
+                    executorService.shutdownNow();
                 }
             }
         } catch (Exception e) {
