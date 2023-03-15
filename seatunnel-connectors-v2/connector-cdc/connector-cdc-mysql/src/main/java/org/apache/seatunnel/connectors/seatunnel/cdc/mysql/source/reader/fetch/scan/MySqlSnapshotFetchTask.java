@@ -156,6 +156,11 @@ public class MySqlSnapshotFetchTask implements FetchTask<SourceSplitBase> {
     }
 
     @Override
+    public void shutdown() {
+        taskRunning = false;
+    }
+
+    @Override
     public SourceSplitBase getSplit() {
         return split;
     }
