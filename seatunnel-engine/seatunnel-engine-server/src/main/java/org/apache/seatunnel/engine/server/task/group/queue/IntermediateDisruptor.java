@@ -42,7 +42,6 @@ public class IntermediateDisruptor extends AbstractIntermediateQueue<Disruptor<R
         getIntermediateQueue()
                 .publishEvent(
                         (recordEvent, l) -> {
-                            log.info("sequence is {}", l);
                             if (handleBarrier(record)) {
                                 recordEvent.setRecord(record);
                             }
