@@ -32,11 +32,15 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
+import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
 
 import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -50,6 +54,14 @@ public class MySqlIncrementalSourceFactory implements TableSourceFactory, Suppor
 
     @Override
     public OptionRule optionRule() {
+        SourceOptions.STARTUP_MODE
+                .getOptionValues()
+                .addAll(
+                        Arrays.asList(
+                                StartupMode.INITIAL, StartupMode.EARLIEST, StartupMode.LATEST));
+
+        SourceOptions.STOP_MODE.getOptionValues().addAll(Arrays.asList(StopMode.NEVER));
+
         return JdbcSourceOptions.getBaseRule()
                 .required(
                         JdbcSourceOptions.USERNAME,
@@ -63,6 +75,16 @@ public class MySqlIncrementalSourceFactory implements TableSourceFactory, Suppor
                         JdbcSourceOptions.CONNECT_TIMEOUT_MS,
                         JdbcSourceOptions.CONNECT_MAX_RETRIES,
                         JdbcSourceOptions.CONNECTION_POOL_SIZE)
+                .conditional(
+                        SourceOptions.STARTUP_MODE,
+                        StartupMode.SPECIFIC,
+                        SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE,
+                        SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)
+                .conditional(
+                        SourceOptions.STOP_MODE,
+                        StopMode.SPECIFIC,
+                        SourceOptions.STOP_SPECIFIC_OFFSET_FILE,
+                        SourceOptions.STOP_SPECIFIC_OFFSET_POS)
                 .build();
     }
 
