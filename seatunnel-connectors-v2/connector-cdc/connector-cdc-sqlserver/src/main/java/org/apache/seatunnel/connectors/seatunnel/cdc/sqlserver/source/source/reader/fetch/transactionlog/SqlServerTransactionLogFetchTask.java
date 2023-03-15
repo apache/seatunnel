@@ -79,6 +79,11 @@ public class SqlServerTransactionLogFetchTask implements FetchTask<SourceSplitBa
     }
 
     @Override
+    public void shutdown() {
+        taskRunning = false;
+    }
+
+    @Override
     public SourceSplitBase getSplit() {
         return split;
     }
