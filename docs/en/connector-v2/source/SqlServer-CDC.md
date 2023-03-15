@@ -20,12 +20,11 @@ describes how to setup the SqlServer CDC connector to run SQL queries against Sq
 
 |                      name                      |   type   | required | default value |
 |------------------------------------------------|----------|----------|---------------|
-| hostname                                       | String   | Yes      | -             |
-| port                                           | Integer  | No       | 3306          |
 | username                                       | String   | Yes      | -             |
 | password                                       | String   | Yes      | -             |
-| database-name                                  | String   | Yes      | -             |
-| table-name                                     | String   | Yes      | -             |
+| database-names                                 | List     | Yes      | -             |
+| table-names                                    | List     | Yes      | -             |
+| base-url                                       | String   | Yes      | -             |
 | startup.mode                                   | Enum     | No       | INITIAL       |
 | startup.timestamp                              | Long     | No       | -             |
 | startup.specific-offset.file                   | String   | No       | -             |
@@ -47,14 +46,6 @@ describes how to setup the SqlServer CDC connector to run SQL queries against Sq
 | format                                         | Enum     | No       | DEFAULT       |
 | common-options                                 |          | no       | -             |
 
-### hostname [String]
-
-IP address or hostname of the database server.
-
-### port [Integer]
-
-Integer port number of the database server.
-
 ### username [String]
 
 Name of the database to use when connecting to the database server.
@@ -63,13 +54,17 @@ Name of the database to use when connecting to the database server.
 
 Password to use when connecting to the database server.
 
-### database-name [String]
+### database-names [List]
 
 Database name of the database to monitor.
 
-### table-name [String]
+### table-names [List]
 
-Table name is a combination of schema name and table name (schemaName.tableName).
+Table name is a combination of schema name and table name (databaseName.schemaName.tableName).
+
+### base-url [String]
+
+URL has to be with database, like "jdbc:sqlserver://localhost:1433;databaseName=test".
 
 ### startup.mode [Enum]
 
@@ -178,12 +173,12 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 source {
   SqlServer-CDC {
     result_table_name = "customers"
-    hostname = "sqlserver-host"
-    port = "1433"
+    
     username = "sa"
     password = "Password!"
-    database-name = "column_type_test"
-    table-name = "dbo.full_types"
+    database-names = ["exampledb"]
+    table-names = ["exampledb.dbo.table_x"]
+    base-url="jdbc:sqlserver://localhost:1433;databaseName=exampledb"
   }
 }
 ```
@@ -194,4 +189,5 @@ source {
 
 - Add SqlServer CDC Source Connector
 - [Doc] Add SqlServer CDC Source Connector document ([3993](https://github.com/apache/incubator-seatunnel/pull/3993))
+- [Feature] Support multi-table read ([4377](https://github.com/apache/incubator-seatunnel/pull/4377))
 
