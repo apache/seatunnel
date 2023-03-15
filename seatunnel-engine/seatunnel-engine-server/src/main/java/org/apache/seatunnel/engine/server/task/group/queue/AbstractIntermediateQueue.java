@@ -59,9 +59,7 @@ public abstract class AbstractIntermediateQueue<T> {
                 getIntermediateQueueFlowLifeCycle().setPrepareClose(true);
             }
         } else {
-            if (getIntermediateQueueFlowLifeCycle().getPrepareClose()) {
-                return false;
-            }
+            return !getIntermediateQueueFlowLifeCycle().getPrepareClose();
         }
         return true;
     }

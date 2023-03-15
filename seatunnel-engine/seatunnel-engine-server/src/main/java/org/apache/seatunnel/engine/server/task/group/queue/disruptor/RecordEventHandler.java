@@ -25,7 +25,9 @@ import org.apache.seatunnel.engine.server.task.flow.IntermediateQueueFlowLifeCyc
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
 import com.lmax.disruptor.EventHandler;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class RecordEventHandler implements EventHandler<RecordEvent> {
 
     private final SeaTunnelTask runningTask;
@@ -46,6 +48,7 @@ public class RecordEventHandler implements EventHandler<RecordEvent> {
     @Override
     public void onEvent(RecordEvent recordEvent, long sequence, boolean endOfBatch)
             throws Exception {
+        log.info("consumer sequence->{}",sequence);
         handleRecord(recordEvent.getRecord(), collector);
     }
 
