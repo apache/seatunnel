@@ -69,8 +69,6 @@ public class ElasticsearchSinkWriter
 
     private transient ScheduledExecutorService scheduler;
     private transient ScheduledFuture<?> scheduledFuture;
-    // Whether pre-initialization is required
-    private transient boolean isOpen;
     private transient boolean isClose;
 
     public ElasticsearchSinkWriter(
@@ -94,6 +92,8 @@ public class ElasticsearchSinkWriter
         this.requestEsList = new ArrayList<>(maxBatchSize);
         this.retryMaterial =
                 new RetryMaterial(maxRetryCount, true, exception -> true, DEFAULT_SLEEP_TIME_MS);
+        // Initialize the interval flush
+        open();
     }
 
     @Override
@@ -104,18 +104,8 @@ public class ElasticsearchSinkWriter
 
         String indexRequestRow = seaTunnelRowSerializer.serializeRow(element);
         requestEsList.add(indexRequestRow);
-        // Initialize the interval flush
-        tryOpen();
         if (requestEsList.size() >= maxBatchSize) {
-            log.info("Batch write completion row :" + requestEsList.size());
             bulkEsWithRetry(this.esRestClient, this.requestEsList);
-        }
-    }
-
-    private void tryOpen() {
-        if (!isOpen) {
-            isOpen = true;
-            open();
         }
     }
 
@@ -136,9 +126,6 @@ public class ElasticsearchSinkWriter
                         () -> {
                             synchronized (ElasticsearchSinkWriter.this) {
                                 if (requestEsList.size() > 0 && !isClose) {
-                                    log.info(
-                                            "Write complete rows at batch intervals :"
-                                                    + requestEsList.size());
                                     bulkEsWithRetry(this.esRestClient, this.requestEsList);
                                 }
                             }
@@ -170,6 +157,9 @@ public class ElasticsearchSinkWriter
                                         ElasticsearchConnectorErrorCode.BULK_RESPONSE_ERROR,
                                         "bulk es error: " + bulkResponse.getResponse());
                             }
+                            log.info(
+                                    "bulk es successfully written to the rowNum: "
+                                            + requestEsList.size());
                             return bulkResponse;
                         }
                         return null;
