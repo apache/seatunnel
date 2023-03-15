@@ -31,6 +31,7 @@ import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskCallTimer;
+import org.apache.seatunnel.engine.server.execution.TaskDeployState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
@@ -137,14 +138,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 registry.newMetricDescriptor()
                         .withTag(MetricTags.SERVICE, this.getClass().getSimpleName());
         registry.registerStaticMetrics(descriptor, this);
-        scheduledExecutorService = Executors.newScheduledThreadPool(2);
+
+        scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
         scheduledExecutorService.scheduleAtFixedRate(
                 this::updateMetricsContextInImap,
-                0,
-                seaTunnelConfig.getEngineConfig().getJobMetricsBackupInterval(),
-                TimeUnit.SECONDS);
-        scheduledExecutorService.scheduleAtFixedRate(
-                this::printTaskExecutionRuntimeInfo,
                 0,
                 seaTunnelConfig.getEngineConfig().getJobMetricsBackupInterval(),
                 TimeUnit.SECONDS);
@@ -219,8 +216,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         uncheckRun(startedLatch::await);
     }
 
-    public PassiveCompletableFuture<TaskExecutionState> deployTask(
-            @NonNull Data taskImmutableInformation) {
+    public TaskDeployState deployTask(@NonNull Data taskImmutableInformation) {
         TaskGroupImmutableInformation taskImmutableInfo =
                 nodeEngine.getSerializationService().toObject(taskImmutableInformation);
         return deployTask(taskImmutableInfo);
@@ -232,13 +228,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         return executionContext.getTaskGroup().getTask(taskLocation.getTaskID());
     }
 
-    public PassiveCompletableFuture<TaskExecutionState> deployTask(
-            @NonNull TaskGroupImmutableInformation taskImmutableInfo) {
+    public TaskDeployState deployTask(@NonNull TaskGroupImmutableInformation taskImmutableInfo) {
         logger.info(
                 String.format(
                         "received deploying task executionId [%s]",
                         taskImmutableInfo.getExecutionId()));
-        CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
         TaskGroup taskGroup = null;
         try {
             Set<URL> jars = taskImmutableInfo.getJars();
@@ -266,7 +260,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                     "TaskGroupLocation: %s already exists",
                                     taskGroup.getTaskGroupLocation()));
                 }
-                return deployLocalTask(taskGroup, resultFuture, classLoader);
+                deployLocalTask(taskGroup, classLoader);
+                return TaskDeployState.success();
             }
         } catch (Throwable t) {
             logger.severe(
@@ -276,30 +271,20 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                     ? taskGroup.getTaskGroupLocation().toString()
                                     : "taskGroupLocation is null",
                             ExceptionUtils.getMessage(t)));
-            resultFuture.complete(
-                    new TaskExecutionState(
-                            taskGroup != null && taskGroup.getTaskGroupLocation() != null
-                                    ? taskGroup.getTaskGroupLocation()
-                                    : null,
-                            ExecutionState.FAILED,
-                            t));
+            return TaskDeployState.failed(t);
         }
-        return new PassiveCompletableFuture<>(resultFuture);
     }
 
     @Deprecated
     public PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
-            @NonNull TaskGroup taskGroup,
-            @NonNull CompletableFuture<TaskExecutionState> resultFuture) {
-        return deployLocalTask(
-                taskGroup, resultFuture, Thread.currentThread().getContextClassLoader());
+            @NonNull TaskGroup taskGroup) {
+        return deployLocalTask(taskGroup, Thread.currentThread().getContextClassLoader());
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
     public PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
-            @NonNull TaskGroup taskGroup,
-            @NonNull CompletableFuture<TaskExecutionState> resultFuture,
-            @NonNull ClassLoader classLoader) {
+            @NonNull TaskGroup taskGroup, @NonNull ClassLoader classLoader) {
+        CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
         try {
             taskGroup.init();
             Collection<Task> tasks = taskGroup.getTasks();
@@ -488,25 +473,28 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                     "The Imap acquisition failed due to the hazelcast node being offline or restarted, and will be retried next time",
                     e);
         }
+        this.printTaskExecutionRuntimeInfo();
     }
 
     public void printTaskExecutionRuntimeInfo() {
-        ThreadPoolExecutor threadPoolExecutor = (ThreadPoolExecutor) executorService;
-        int activeCount = threadPoolExecutor.getActiveCount();
-        int taskQueueSize = threadShareTaskQueue.size();
-        long completedTaskCount = threadPoolExecutor.getCompletedTaskCount();
-        long taskCount = threadPoolExecutor.getTaskCount();
-        logger.info(
-                StringFormatUtils.formatTable(
-                        "TaskExecutionServer Thread Pool Status",
-                        "activeCount",
-                        activeCount,
-                        "threadShareTaskQueueSize",
-                        taskQueueSize,
-                        "completedTaskCount",
-                        completedTaskCount,
-                        "taskCount",
-                        taskCount));
+        if (logger.isFineEnabled()) {
+            ThreadPoolExecutor threadPoolExecutor = (ThreadPoolExecutor) executorService;
+            int activeCount = threadPoolExecutor.getActiveCount();
+            int taskQueueSize = threadShareTaskQueue.size();
+            long completedTaskCount = threadPoolExecutor.getCompletedTaskCount();
+            long taskCount = threadPoolExecutor.getTaskCount();
+            logger.fine(
+                    StringFormatUtils.formatTable(
+                            "TaskExecutionServer Thread Pool Status",
+                            "activeCount",
+                            activeCount,
+                            "threadShareTaskQueueSize",
+                            taskQueueSize,
+                            "completedTaskCount",
+                            completedTaskCount,
+                            "taskCount",
+                            taskCount));
+        }
     }
 
     private final class BlockingWorker implements Runnable {
@@ -773,13 +761,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 cancellationFutures.remove(taskGroupLocation);
                 if (ex == null) {
                     future.complete(
-                            new TaskExecutionState(
-                                    taskGroupLocation, ExecutionState.FINISHED, null));
+                            new TaskExecutionState(taskGroupLocation, ExecutionState.FINISHED));
                     return;
                 } else if (isCancel.get()) {
                     future.complete(
-                            new TaskExecutionState(
-                                    taskGroupLocation, ExecutionState.CANCELED, null));
+                            new TaskExecutionState(taskGroupLocation, ExecutionState.CANCELED));
                     return;
                 } else {
                     future.complete(

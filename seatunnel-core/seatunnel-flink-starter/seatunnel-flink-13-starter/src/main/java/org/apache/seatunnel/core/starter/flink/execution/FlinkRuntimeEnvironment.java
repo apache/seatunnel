@@ -19,6 +19,7 @@ package org.apache.seatunnel.core.starter.flink.execution;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -235,9 +236,16 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
     }
 
     private void setCheckpoint() {
-        if (config.hasPath(ConfigKeyName.CHECKPOINT_INTERVAL)) {
+
+        long interval = 0;
+        if (config.hasPath(EnvCommonOptions.CHECKPOINT_INTERVAL.key())) {
+            interval = config.getLong(EnvCommonOptions.CHECKPOINT_INTERVAL.key());
+        } else if (config.hasPath(ConfigKeyName.CHECKPOINT_INTERVAL)) {
+            interval = config.getLong(ConfigKeyName.CHECKPOINT_INTERVAL);
+        }
+
+        if (interval > 0) {
             CheckpointConfig checkpointConfig = environment.getCheckpointConfig();
-            long interval = config.getLong(ConfigKeyName.CHECKPOINT_INTERVAL);
             environment.enableCheckpointing(interval);
 
             if (config.hasPath(ConfigKeyName.CHECKPOINT_MODE)) {
