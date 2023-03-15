@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunnelRowSerializer;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -82,7 +83,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
     private static final String KAFKA_HOST = "kafkaCluster";
 
-    private static final String DEFAULT_FORMAT = "json";
+    private static final MessageFormat DEFAULT_FORMAT = MessageFormat.JSON;
 
     private static final String DEFAULT_FIELD_DELIMITER = ",";
 
