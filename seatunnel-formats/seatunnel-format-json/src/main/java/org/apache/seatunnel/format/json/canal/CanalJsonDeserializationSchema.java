@@ -127,12 +127,12 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
         }
         JsonNode dataNode = jsonNode.get(FIELD_DATA);
         String type = jsonNode.get(FIELD_TYPE).asText();
-        // We'll skip the query event data
-        if (OP_QUERY.equals(type)) {
-            return;
-        }
         // When a null value is encountered, an exception needs to be thrown for easy sensing
         if (dataNode == null || dataNode.isNull()) {
+            // We'll skip the query or create event data
+            if (OP_QUERY.equals(type) || OP_CREATE.equals(type)) {
+                return;
+            }
             throw new SeaTunnelJsonFormatException(
                     CommonErrorCode.JSON_OPERATION_FAILED,
                     format("Null data value \"%s\" Cannot send downstream", new String(message)));
@@ -171,9 +171,6 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
                 row.setRowKind(RowKind.DELETE);
                 out.collect(row);
             }
-        } else if (OP_CREATE.equals(type)) {
-            // "data" field is null and "type" is "CREATE" which means
-            // this is a DDL change event, and we should skip it.
         } else {
             if (!ignoreParseErrors) {
                 throw new SeaTunnelJsonFormatException(
