@@ -37,7 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class TaskGroupWithIntermediateDisruptor extends AbstractTaskGroupWithIntermediateQueue {
 
-    public static final int RING_BUFFER_SIZE = 1024 * 1024;
+    public static final int RING_BUFFER_SIZE = 1024;
 
     public TaskGroupWithIntermediateDisruptor(
             TaskGroupLocation taskGroupLocation, String taskGroupName, Collection<Task> tasks) {
@@ -59,12 +59,15 @@ public class TaskGroupWithIntermediateDisruptor extends AbstractTaskGroupWithInt
     public AbstractIntermediateQueue<?> getQueueCache(long id) {
         EventFactory<RecordEvent> eventFactory = new RecordEventFactory();
 
-        this.disruptor.computeIfAbsent(id, i -> new Disruptor<>(
-                eventFactory,
-                RING_BUFFER_SIZE,
-                DaemonThreadFactory.INSTANCE,
-                ProducerType.SINGLE,
-                new YieldingWaitStrategy()));
+        this.disruptor.computeIfAbsent(
+                id,
+                i ->
+                        new Disruptor<>(
+                                eventFactory,
+                                RING_BUFFER_SIZE,
+                                DaemonThreadFactory.INSTANCE,
+                                ProducerType.SINGLE,
+                                new YieldingWaitStrategy()));
         return new IntermediateDisruptor(this.disruptor.get(id));
     }
 }
