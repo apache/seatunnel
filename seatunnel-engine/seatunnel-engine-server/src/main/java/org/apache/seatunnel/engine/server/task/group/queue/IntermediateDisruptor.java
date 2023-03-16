@@ -72,11 +72,6 @@ public class IntermediateDisruptor extends AbstractIntermediateQueue<Disruptor<R
 
     @Override
     public void close() throws IOException {
-        try {
-            getIntermediateQueue().shutdown(DEFAULT_CLOSE_WAIT_TIME_SECONDS, TimeUnit.SECONDS);
-        } catch (TimeoutException e) {
-            log.error("IntermediateDisruptor close timeout error", e);
-            throw new SeaTunnelEngineException("IntermediateDisruptor close timeout error", e);
-        }
+        getIntermediateQueue().shutdown();
     }
 }
