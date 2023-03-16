@@ -59,6 +59,8 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
 
     private static final String OP_CREATE = "CREATE";
 
+    private static final String OP_QUERY = "QUERY";
+
     private String database;
 
     private String table;
@@ -125,6 +127,10 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
         }
         JsonNode dataNode = jsonNode.get(FIELD_DATA);
         String type = jsonNode.get(FIELD_TYPE).asText();
+        // We'll skip the query event data
+        if (OP_QUERY.equals(type)) {
+            return;
+        }
         // When a null value is encountered, an exception needs to be thrown for easy sensing
         if (dataNode == null || dataNode.isNull()) {
             throw new SeaTunnelJsonFormatException(
