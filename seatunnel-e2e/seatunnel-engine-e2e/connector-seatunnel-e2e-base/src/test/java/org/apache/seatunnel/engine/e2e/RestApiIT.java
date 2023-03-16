@@ -96,4 +96,20 @@ public class RestApiIT {
                 .body("jobName", equalTo("fake_to_file"))
                 .body("jobStatus", equalTo("RUNNING"));
     }
+
+    @Test
+    public void testGetRunningJobs() {
+        given().get(
+                        HOST
+                                + hazelcastInstance
+                                        .getCluster()
+                                        .getLocalMember()
+                                        .getAddress()
+                                        .getPort()
+                                + RestConstant.RUNNING_JOBS_URL)
+                .then()
+                .statusCode(200)
+                .body("$.[0][\"jobName\"]", equalTo("fake_to_file"))
+                .body("$.[0][\"jobStatus\"]", equalTo("RUNNING"));
+    }
 }
