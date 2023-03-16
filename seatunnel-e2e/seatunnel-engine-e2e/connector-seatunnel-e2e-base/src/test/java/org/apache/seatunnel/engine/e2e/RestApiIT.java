@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
@@ -51,7 +52,10 @@ public class RestApiIT {
     @BeforeAll
     static void beforeClass() throws Exception {
         String testClusterName = TestUtils.getClusterName("RestApiIT");
-        SeaTunnelServerStarter.createHazelcastInstance(testClusterName);
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig.getHazelcastConfig().getNetworkConfig().setPortAutoIncrement(false);
+        seaTunnelConfig.getHazelcastConfig().setClusterName(testClusterName);
+        SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("stream_fakesource_to_file.conf");
         JobConfig jobConfig = new JobConfig();
