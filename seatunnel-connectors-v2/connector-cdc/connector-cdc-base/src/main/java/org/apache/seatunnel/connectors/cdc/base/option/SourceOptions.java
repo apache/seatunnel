@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.SingleChoiceOption;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 
 import java.util.ArrayList;
 import java.util.Map;
@@ -111,8 +112,16 @@ public class SourceOptions {
                     .withDescription(
                             "Decides if the table options contains Debezium client properties that start with prefix 'debezium'.");
 
+    public static final Option<DeserializeFormat> FORMAT =
+            Options.key("format")
+                    .enumType(DeserializeFormat.class)
+                    .defaultValue(DeserializeFormat.DEFAULT)
+                    .withDescription(
+                            "Data format. The default format is seatunnel row. Optional compatible with debezium-json format.");
+
     public static OptionRule.Builder getBaseRule() {
         return OptionRule.builder()
+                .optional(FORMAT)
                 .optional(SNAPSHOT_SPLIT_SIZE, SNAPSHOT_FETCH_SIZE)
                 .optional(INCREMENTAL_PARALLELISM)
                 .optional(STARTUP_MODE, STOP_MODE)

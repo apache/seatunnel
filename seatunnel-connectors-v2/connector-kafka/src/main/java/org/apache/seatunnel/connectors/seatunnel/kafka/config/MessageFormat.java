@@ -15,19 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kafka.serialize;
+package org.apache.seatunnel.connectors.seatunnel.kafka.config;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-
-import org.apache.kafka.clients.producer.ProducerRecord;
-
-public interface SeaTunnelRowSerializer<K, V> {
-
-    /**
-     * Serialize the {@link SeaTunnelRow} to a Kafka {@link ProducerRecord}.
-     *
-     * @param row seatunnel row
-     * @return kafka record.
-     */
-    ProducerRecord<K, V> serializeRow(SeaTunnelRow row);
+public enum MessageFormat {
+    JSON,
+    TEXT,
+    CANAL_JSON,
+    COMPATIBLE_DEBEZIUM_JSON
 }
