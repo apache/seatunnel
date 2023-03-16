@@ -14,6 +14,7 @@
 - [ALL]Add SQL Transform #4148 
 ### Connectors
 - [Elasticsearch] Support https protocol & compatible with opensearch
+- [Elasticsearch] Support DSL
 - [Hbase] Add hbase sink connector #4049
 - [Github] Add Github source connector #4155
 - [CDC] Support export debezium-json format to kafka #4339
