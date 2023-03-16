@@ -109,7 +109,7 @@ public class RestApiIT {
                                 + RestConstant.RUNNING_JOBS_URL)
                 .then()
                 .statusCode(200)
-                .body("$.[0][\"jobName\"]", equalTo("fake_to_file"))
-                .body("$.[0][\"jobStatus\"]", equalTo("RUNNING"));
+                .body("[0].jobName", equalTo("fake_to_file"))
+                .body("[0].jobStatus", equalTo("RUNNING"));
     }
 }
