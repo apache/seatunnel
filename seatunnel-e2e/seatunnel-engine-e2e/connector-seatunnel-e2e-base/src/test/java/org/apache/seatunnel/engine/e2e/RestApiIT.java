@@ -35,6 +35,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.TimeUnit;
@@ -45,17 +46,18 @@ import static org.hamcrest.Matchers.equalTo;
 @Slf4j
 public class RestApiIT {
 
-    private static final String HOST = "http://localhost:5801";
+    private static final String HOST = "http://localhost:";
 
     private static ClientJobProxy clientJobProxy;
+
+    private static HazelcastInstanceImpl hazelcastInstance;
 
     @BeforeAll
     static void beforeClass() throws Exception {
         String testClusterName = TestUtils.getClusterName("RestApiIT");
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
-        seaTunnelConfig.getHazelcastConfig().getNetworkConfig().setPortAutoIncrement(false);
         seaTunnelConfig.getHazelcastConfig().setClusterName(testClusterName);
-        SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+        hazelcastInstance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("stream_fakesource_to_file.conf");
         JobConfig jobConfig = new JobConfig();
@@ -79,7 +81,16 @@ public class RestApiIT {
 
     @Test
     public void testGetRunningJobById() {
-        given().get(HOST + RestConstant.RUNNING_JOB_URL + "/" + clientJobProxy.getJobId())
+        given().get(
+                        HOST
+                                + hazelcastInstance
+                                        .getCluster()
+                                        .getLocalMember()
+                                        .getAddress()
+                                        .getPort()
+                                + RestConstant.RUNNING_JOB_URL
+                                + "/"
+                                + clientJobProxy.getJobId())
                 .then()
                 .statusCode(200)
                 .body("jobName", equalTo("fake_to_file"))
