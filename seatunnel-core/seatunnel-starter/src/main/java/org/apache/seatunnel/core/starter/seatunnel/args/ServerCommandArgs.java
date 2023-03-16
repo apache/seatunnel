@@ -34,8 +34,8 @@ public class ServerCommandArgs extends CommandArgs {
     private String clusterName = "seatunnel_default_cluster";
 
     @Parameter(
-        names = {"-d", "--daemon"},
-        description = "The cluster running mode")
+            names = {"-d", "--daemon"},
+            description = "The cluster running mode")
     private boolean daemonMod = false;
 
     @Override
