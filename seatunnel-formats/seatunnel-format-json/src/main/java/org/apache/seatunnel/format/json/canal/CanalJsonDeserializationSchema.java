@@ -132,7 +132,7 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
         // When a null value is encountered, an exception needs to be thrown for easy sensing
         if (dataNode == null || dataNode.isNull()) {
             // We'll skip the query or create or alter event data
-            if (OP_QUERY.equals(type) || OP_CREATE.equals(type) || OP_ALTER.equals(type) ) {
+            if (OP_QUERY.equals(type) || OP_CREATE.equals(type) || OP_ALTER.equals(type)) {
                 return;
             }
             throw new SeaTunnelJsonFormatException(
