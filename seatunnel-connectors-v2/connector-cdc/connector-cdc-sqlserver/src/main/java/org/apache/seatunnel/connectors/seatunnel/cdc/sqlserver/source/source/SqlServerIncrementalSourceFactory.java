@@ -22,6 +22,11 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.CatalogOptions;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
+import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
+
+import java.util.Arrays;
 
 public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
 
@@ -32,6 +37,14 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
+        SourceOptions.STARTUP_MODE
+                .getOptionValues()
+                .addAll(
+                        Arrays.asList(
+                                StartupMode.INITIAL, StartupMode.EARLIEST, StartupMode.LATEST));
+
+        SourceOptions.STOP_MODE.getOptionValues().addAll(Arrays.asList(StopMode.NEVER));
+
         return JdbcSourceOptions.getBaseRule()
                 .required(
                         JdbcSourceOptions.HOSTNAME,
@@ -45,6 +58,14 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
                         JdbcSourceOptions.CONNECT_TIMEOUT_MS,
                         JdbcSourceOptions.CONNECT_MAX_RETRIES,
                         JdbcSourceOptions.CONNECTION_POOL_SIZE)
+                .conditional(
+                        SourceOptions.STARTUP_MODE,
+                        StartupMode.SPECIFIC,
+                        SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)
+                .conditional(
+                        SourceOptions.STOP_MODE,
+                        StopMode.SPECIFIC,
+                        SourceOptions.STOP_SPECIFIC_OFFSET_POS)
                 .build();
     }
 

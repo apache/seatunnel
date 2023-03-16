@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
@@ -113,23 +114,24 @@ public class OracleDialect implements JdbcDataSourceDialect {
     @Override
     public OracleSourceFetchTaskContext createFetchTaskContext(
             SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig) {
-        final OracleConnection jdbcConnection =
-                createOracleConnection(taskSourceConfig.getDbzConfiguration());
-
         List<TableChanges.TableChange> tableChangeList = new ArrayList<>();
-        // TODO: support save table schema
-        if (sourceSplitBase instanceof SnapshotSplit) {
-            SnapshotSplit snapshotSplit = (SnapshotSplit) sourceSplitBase;
-            tableChangeList.add(queryTableSchema(jdbcConnection, snapshotSplit.getTableId()));
-        } else {
-            IncrementalSplit incrementalSplit = (IncrementalSplit) sourceSplitBase;
-            for (TableId tableId : incrementalSplit.getTableIds()) {
-                tableChangeList.add(queryTableSchema(jdbcConnection, tableId));
+        try (OracleConnection jdbcConnection =
+                createOracleConnection(taskSourceConfig.getDbzConfiguration())) {
+            // TODO: support save table schema
+            if (sourceSplitBase instanceof SnapshotSplit) {
+                SnapshotSplit snapshotSplit = (SnapshotSplit) sourceSplitBase;
+                tableChangeList.add(queryTableSchema(jdbcConnection, snapshotSplit.getTableId()));
+            } else {
+                IncrementalSplit incrementalSplit = (IncrementalSplit) sourceSplitBase;
+                for (TableId tableId : incrementalSplit.getTableIds()) {
+                    tableChangeList.add(queryTableSchema(jdbcConnection, tableId));
+                }
             }
+        } catch (SQLException e) {
+            throw new SeaTunnelException(ExceptionUtils.getMessage(e));
         }
 
-        return new OracleSourceFetchTaskContext(
-                taskSourceConfig, this, jdbcConnection, tableChangeList);
+        return new OracleSourceFetchTaskContext(taskSourceConfig, this, tableChangeList);
     }
 
     @Override

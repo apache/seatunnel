@@ -339,6 +339,7 @@ public class MySqlUtils {
     private static PreparedStatement initStatement(JdbcConnection jdbc, String sql, int fetchSize)
             throws SQLException {
         final Connection connection = jdbc.connection();
+        // Add MySQL metadata locks to prevent modification of table structure.
         connection.setAutoCommit(false);
         final PreparedStatement statement =
                 connection.prepareStatement(

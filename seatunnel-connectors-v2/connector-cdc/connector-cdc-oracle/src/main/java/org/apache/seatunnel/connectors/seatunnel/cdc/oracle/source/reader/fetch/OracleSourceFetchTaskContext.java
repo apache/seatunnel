@@ -60,12 +60,17 @@ import io.debezium.relational.history.TableChanges;
 import io.debezium.schema.DataCollectionId;
 import io.debezium.schema.TopicSelector;
 import io.debezium.util.Collect;
+import lombok.extern.slf4j.Slf4j;
 
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.Map;
 
+import static org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleConnectionUtils.createOracleConnection;
+
 /** The context for fetch task that fetching data of snapshot split from Oracle data source. */
+@Slf4j
 public class OracleSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
 
     private static final Logger LOG = LoggerFactory.getLogger(OracleSourceFetchTaskContext.class);
@@ -88,10 +93,9 @@ public class OracleSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     public OracleSourceFetchTaskContext(
             JdbcSourceConfig sourceConfig,
             JdbcDataSourceDialect dataSourceDialect,
-            OracleConnection connection,
             Collection<TableChanges.TableChange> engineHistory) {
         super(sourceConfig, dataSourceDialect);
-        this.connection = connection;
+        this.connection = createOracleConnection(sourceConfig.getDbzConfiguration());
         this.metadataProvider = new OracleEventMetadataProvider();
         this.engineHistory = engineHistory;
     }
@@ -158,6 +162,15 @@ public class OracleSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                         changeEventSourceMetricsFactory.getStreamingMetrics(
                                 taskContext, queue, metadataProvider);
         this.errorHandler = new OracleErrorHandler(connectorConfig.getLogicalName(), queue);
+    }
+
+    @Override
+    public void close() {
+        try {
+            this.connection.close();
+        } catch (SQLException e) {
+            log.warn("Failed to close connection", e);
+        }
     }
 
     @Override

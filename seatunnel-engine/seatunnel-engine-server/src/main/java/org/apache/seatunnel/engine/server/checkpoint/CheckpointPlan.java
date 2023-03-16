@@ -48,24 +48,24 @@ public class CheckpointPlan {
 
     /**
      * All actions in this pipeline. <br>
-     * key: the action id; <br>
+     * key: the action state key; <br>
      * value: the parallelism of the action;
      */
-    private final Map<Long, Integer> pipelineActions;
+    private final Map<ActionStateKey, Integer> pipelineActions;
 
     /**
      * <br>
      * key: the subtask locations; <br>
-     * value: all actions in this subtask; f0: action id, f1: action index;
+     * value: all actions in this subtask; f0: action state key, f1: action index;
      */
-    private final Map<TaskLocation, Set<Tuple2<Long, Integer>>> subtaskActions;
+    private final Map<TaskLocation, Set<Tuple2<ActionStateKey, Integer>>> subtaskActions;
 
     public static final class Builder {
         private final Set<TaskLocation> pipelineSubtasks = new HashSet<>();
         private final Set<TaskLocation> startingSubtasks = new HashSet<>();
-        private final Map<Long, Integer> pipelineActions = new HashMap<>();
+        private final Map<ActionStateKey, Integer> pipelineActions = new HashMap<>();
 
-        private final Map<TaskLocation, Set<Tuple2<Long, Integer>>> subtaskActions =
+        private final Map<TaskLocation, Set<Tuple2<ActionStateKey, Integer>>> subtaskActions =
                 new HashMap<>();
 
         private Builder() {}
@@ -80,13 +80,13 @@ public class CheckpointPlan {
             return this;
         }
 
-        public Builder pipelineActions(Map<Long, Integer> pipelineActions) {
+        public Builder pipelineActions(Map<ActionStateKey, Integer> pipelineActions) {
             this.pipelineActions.putAll(pipelineActions);
             return this;
         }
 
         public Builder subtaskActions(
-                Map<TaskLocation, Set<Tuple2<Long, Integer>>> subtaskActions) {
+                Map<TaskLocation, Set<Tuple2<ActionStateKey, Integer>>> subtaskActions) {
             this.subtaskActions.putAll(subtaskActions);
             return this;
         }

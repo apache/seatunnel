@@ -29,6 +29,7 @@ import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.actions.TransformChainAction;
 import org.apache.seatunnel.engine.core.dag.actions.UnknownActionException;
+import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
@@ -283,8 +284,8 @@ public abstract class SeaTunnelTask extends AbstractTask {
         return getFlowInfo((action, set) -> set.addAll(action.getJarUrls()));
     }
 
-    public Set<Long> getActionIds() {
-        return getFlowInfo((action, set) -> set.add(action.getId()));
+    public Set<ActionStateKey> getActionStateKeys() {
+        return getFlowInfo((action, set) -> set.add(ActionStateKey.of(action)));
     }
 
     private <T> Set<T> getFlowInfo(BiConsumer<Action, Set<T>> function) {
@@ -340,10 +341,10 @@ public abstract class SeaTunnelTask extends AbstractTask {
         }
     }
 
-    public void addState(Barrier barrier, long actionId, List<byte[]> state) {
+    public void addState(Barrier barrier, ActionStateKey stateKey, List<byte[]> state) {
         List<ActionSubtaskState> states =
                 checkpointStates.computeIfAbsent(barrier.getId(), id -> new ArrayList<>());
-        states.add(new ActionSubtaskState(actionId, indexID, state));
+        states.add(new ActionSubtaskState(stateKey, indexID, state));
     }
 
     @Override
@@ -368,11 +369,11 @@ public abstract class SeaTunnelTask extends AbstractTask {
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
         log.debug("restoreState for SeaTunnelTask[{}]", actionStateList);
-        Map<Long, List<ActionSubtaskState>> stateMap =
+        Map<ActionStateKey, List<ActionSubtaskState>> stateMap =
                 actionStateList.stream()
                         .collect(
                                 Collectors.groupingBy(
-                                        ActionSubtaskState::getActionId, Collectors.toList()));
+                                        ActionSubtaskState::getStateKey, Collectors.toList()));
         allCycles.stream()
                 .filter(cycle -> cycle instanceof ActionFlowLifeCycle)
                 .map(cycle -> (ActionFlowLifeCycle) cycle)
@@ -381,7 +382,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
                             try {
                                 actionFlowLifeCycle.restoreState(
                                         stateMap.getOrDefault(
-                                                actionFlowLifeCycle.getAction().getId(),
+                                                ActionStateKey.of(actionFlowLifeCycle.getAction()),
                                                 Collections.emptyList()));
                             } catch (Exception e) {
                                 sneakyThrow(e);
