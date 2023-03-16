@@ -121,7 +121,7 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
 
     protected StartupConfig getStartupConfig(ReadonlyConfig config) {
         return new StartupConfig(
-                config.get((Option<StartupMode>) SourceOptions.STARTUP_MODE),
+                config.get(getStartupModeOption()),
                 config.get(SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE),
                 config.get(SourceOptions.STARTUP_SPECIFIC_OFFSET_POS),
                 config.get(SourceOptions.STARTUP_TIMESTAMP));
@@ -129,11 +129,15 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
 
     private StopConfig getStopConfig(ReadonlyConfig config) {
         return new StopConfig(
-                config.get((Option<StopMode>) SourceOptions.STOP_MODE),
+                config.get(getStopModeOption()),
                 config.get(SourceOptions.STOP_SPECIFIC_OFFSET_FILE),
                 config.get(SourceOptions.STOP_SPECIFIC_OFFSET_POS),
                 config.get(SourceOptions.STOP_TIMESTAMP));
     }
+
+    public abstract Option<StartupMode> getStartupModeOption();
+
+    public abstract Option<StopMode> getStopModeOption();
 
     public abstract SourceConfig.Factory<C> createSourceConfigFactory(ReadonlyConfig config);
 

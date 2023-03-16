@@ -40,7 +40,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions
 import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -54,14 +53,6 @@ public class MySqlIncrementalSourceFactory implements TableSourceFactory, Suppor
 
     @Override
     public OptionRule optionRule() {
-        SourceOptions.STARTUP_MODE
-                .getOptionValues()
-                .addAll(
-                        Arrays.asList(
-                                StartupMode.INITIAL, StartupMode.EARLIEST, StartupMode.LATEST));
-
-        SourceOptions.STOP_MODE.getOptionValues().addAll(Arrays.asList(StopMode.NEVER));
-
         return JdbcSourceOptions.getBaseRule()
                 .required(
                         JdbcSourceOptions.USERNAME,
@@ -75,16 +66,25 @@ public class MySqlIncrementalSourceFactory implements TableSourceFactory, Suppor
                         JdbcSourceOptions.CONNECT_TIMEOUT_MS,
                         JdbcSourceOptions.CONNECT_MAX_RETRIES,
                         JdbcSourceOptions.CONNECTION_POOL_SIZE)
+                .optional(CdcSourceOptions.STARTUP_MODE, CdcSourceOptions.STOP_MODE)
                 .conditional(
-                        SourceOptions.STARTUP_MODE,
+                        CdcSourceOptions.STARTUP_MODE,
                         StartupMode.SPECIFIC,
                         SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE,
                         SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)
                 .conditional(
-                        SourceOptions.STOP_MODE,
+                        CdcSourceOptions.STOP_MODE,
                         StopMode.SPECIFIC,
                         SourceOptions.STOP_SPECIFIC_OFFSET_FILE,
                         SourceOptions.STOP_SPECIFIC_OFFSET_POS)
+                .conditional(
+                        CdcSourceOptions.STARTUP_MODE,
+                        StartupMode.TIMESTAMP,
+                        SourceOptions.STARTUP_TIMESTAMP)
+                .conditional(
+                        CdcSourceOptions.STOP_MODE,
+                        StopMode.TIMESTAMP,
+                        SourceOptions.STOP_TIMESTAMP)
                 .build();
     }
 
