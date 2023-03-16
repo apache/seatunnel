@@ -25,7 +25,7 @@ import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 
 import java.util.Arrays;
 
-public class CdcSourceOptions {
+public class SourceOptions {
     public static final SingleChoiceOption<StartupMode> STARTUP_MODE =
             (SingleChoiceOption)
                     Options.key(SourceOptions.STARTUP_MODE_KEY)
