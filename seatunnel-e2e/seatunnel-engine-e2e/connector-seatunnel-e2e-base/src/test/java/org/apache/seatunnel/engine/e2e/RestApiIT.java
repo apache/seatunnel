@@ -78,7 +78,7 @@ public class RestApiIT {
     }
 
     @Test
-    public void testGetAllRunningJobsApi() {
+    public void testGetRunningJobById() {
         given().get(HOST + RestConstant.RUNNING_JOB_URL + "/" + clientJobProxy.getJobId())
                 .then()
                 .statusCode(200)
