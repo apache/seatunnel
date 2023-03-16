@@ -887,15 +887,11 @@ public class ClusterFaultToleranceIT {
             Awaitility.await()
                     .atMost(600000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
-                            () -> {
-                                log.info(
-                                        FileUtils.getFileLineNumberFromDir(testResources.getLeft())
-                                                + "");
-                                Assertions.assertTrue(
-                                        waitForJobCompleteFuture.isDone()
-                                                && JobStatus.CANCELED.equals(
-                                                        waitForJobCompleteFuture.get()));
-                            });
+                            () ->
+                                    Assertions.assertTrue(
+                                            waitForJobCompleteFuture.isDone()
+                                                    && JobStatus.CANCELED.equals(
+                                                            waitForJobCompleteFuture.get())));
             // prove that the task was restarted
             Long fileLineNumberFromDir =
                     FileUtils.getFileLineNumberFromDir(testResources.getLeft());
