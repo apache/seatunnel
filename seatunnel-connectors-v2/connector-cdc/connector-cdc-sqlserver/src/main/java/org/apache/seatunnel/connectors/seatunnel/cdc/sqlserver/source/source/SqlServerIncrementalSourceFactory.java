@@ -48,6 +48,7 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
                         JdbcSourceOptions.CONNECT_TIMEOUT_MS,
                         JdbcSourceOptions.CONNECT_MAX_RETRIES,
                         JdbcSourceOptions.CONNECTION_POOL_SIZE)
+                .optional(SqlServerSourceOptions.STARTUP_MODE, SqlServerSourceOptions.STOP_MODE)
                 .conditional(
                         SqlServerSourceOptions.STARTUP_MODE,
                         StartupMode.SPECIFIC,
