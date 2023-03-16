@@ -26,8 +26,6 @@ import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 
-import java.util.Arrays;
-
 public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
 
     @Override
@@ -37,14 +35,6 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        SourceOptions.STARTUP_MODE
-                .getOptionValues()
-                .addAll(
-                        Arrays.asList(
-                                StartupMode.INITIAL, StartupMode.EARLIEST, StartupMode.LATEST));
-
-        SourceOptions.STOP_MODE.getOptionValues().addAll(Arrays.asList(StopMode.NEVER));
-
         return JdbcSourceOptions.getBaseRule()
                 .required(
                         JdbcSourceOptions.HOSTNAME,
@@ -59,13 +49,21 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
                         JdbcSourceOptions.CONNECT_MAX_RETRIES,
                         JdbcSourceOptions.CONNECTION_POOL_SIZE)
                 .conditional(
-                        SourceOptions.STARTUP_MODE,
+                        SqlServerSourceOptions.STARTUP_MODE,
                         StartupMode.SPECIFIC,
                         SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)
                 .conditional(
-                        SourceOptions.STOP_MODE,
+                        SqlServerSourceOptions.STOP_MODE,
                         StopMode.SPECIFIC,
                         SourceOptions.STOP_SPECIFIC_OFFSET_POS)
+                .conditional(
+                        SqlServerSourceOptions.STARTUP_MODE,
+                        StartupMode.TIMESTAMP,
+                        SourceOptions.STARTUP_TIMESTAMP)
+                .conditional(
+                        SqlServerSourceOptions.STOP_MODE,
+                        StopMode.TIMESTAMP,
+                        SourceOptions.STOP_TIMESTAMP)
                 .build();
     }
 
