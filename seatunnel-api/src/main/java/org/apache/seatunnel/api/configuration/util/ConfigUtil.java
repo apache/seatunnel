@@ -24,12 +24,14 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.dataformat.javaprop.Java
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+import java.lang.reflect.ParameterizedType;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class ConfigUtil {
     private static final JavaPropsMapper PROPERTIES_MAPPER = new JavaPropsMapper();
@@ -129,12 +131,33 @@ public class ConfigUtil {
             // complex type && untreated type
             return JACKSON_MAPPER.readValue(convertToJsonString(rawValue), typeReference);
         } catch (JsonProcessingException e) {
+            if (typeReference.getType() instanceof ParameterizedType
+                    && List.class.equals(
+                            ((ParameterizedType) typeReference.getType()).getRawType())) {
+                try {
+                    return (T)
+                            convertToList(
+                                    rawValue,
+                                    (Class<T>)
+                                            ((ParameterizedType) typeReference.getType())
+                                                    .getActualTypeArguments()[0]);
+                } catch (Exception ignore) {
+                    // nothing
+                }
+            }
             throw new IllegalArgumentException(
                     String.format(
                             "Json parsing exception, value '%s', and expected type '%s'",
                             rawValue, typeReference.getType().getTypeName()),
                     e);
         }
+    }
+
+    static <T> List<T> convertToList(Object rawValue, Class<T> clazz) {
+        return Arrays.stream(rawValue.toString().split(","))
+                .map(String::trim)
+                .map(value -> convertValue(value, clazz))
+                .collect(Collectors.toList());
     }
 
     @SuppressWarnings("unchecked")
@@ -145,8 +168,74 @@ public class ConfigUtil {
             return (T) convertToEnum(rawValue, (Class<? extends Enum<?>>) clazz);
         } else if (String.class.equals(clazz)) {
             return (T) convertToJsonString(rawValue);
+        } else if (Integer.class.equals(clazz)) {
+            return (T) convertToInt(rawValue);
+        } else if (Long.class.equals(clazz)) {
+            return (T) convertToLong(rawValue);
+        } else if (Float.class.equals(clazz)) {
+            return (T) convertToFloat(rawValue);
+        } else if (Double.class.equals(clazz)) {
+            return (T) convertToDouble(rawValue);
         }
         throw new IllegalArgumentException("Unsupported type: " + clazz);
+    }
+
+    static Integer convertToInt(Object o) {
+        if (o.getClass() == Integer.class) {
+            return (Integer) o;
+        } else if (o.getClass() == Long.class) {
+            long value = (Long) o;
+            if (value <= Integer.MAX_VALUE && value >= Integer.MIN_VALUE) {
+                return (int) value;
+            } else {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Configuration value %s overflows/underflows the integer type.",
+                                value));
+            }
+        }
+
+        return Integer.parseInt(o.toString());
+    }
+
+    static Long convertToLong(Object o) {
+        if (o.getClass() == Long.class) {
+            return (Long) o;
+        } else if (o.getClass() == Integer.class) {
+            return ((Integer) o).longValue();
+        }
+
+        return Long.parseLong(o.toString());
+    }
+
+    static Float convertToFloat(Object o) {
+        if (o.getClass() == Float.class) {
+            return (Float) o;
+        } else if (o.getClass() == Double.class) {
+            double value = ((Double) o);
+            if (value == 0.0
+                    || (value >= Float.MIN_VALUE && value <= Float.MAX_VALUE)
+                    || (value >= -Float.MAX_VALUE && value <= -Float.MIN_VALUE)) {
+                return (float) value;
+            } else {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Configuration value %s overflows/underflows the float type.",
+                                value));
+            }
+        }
+
+        return Float.parseFloat(o.toString());
+    }
+
+    static Double convertToDouble(Object o) {
+        if (o.getClass() == Double.class) {
+            return (Double) o;
+        } else if (o.getClass() == Float.class) {
+            return ((Float) o).doubleValue();
+        }
+
+        return Double.parseDouble(o.toString());
     }
 
     static Boolean convertToBoolean(Object o) {
