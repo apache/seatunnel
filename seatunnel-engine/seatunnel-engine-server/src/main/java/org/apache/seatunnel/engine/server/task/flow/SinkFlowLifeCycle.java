@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
@@ -161,11 +162,12 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     }
                     List<StateT> states = writer.snapshotState(barrier.getId());
                     if (!writerStateSerializer.isPresent()) {
-                        runningTask.addState(barrier, sinkAction.getId(), Collections.emptyList());
+                        runningTask.addState(
+                                barrier, ActionStateKey.of(sinkAction), Collections.emptyList());
                     } else {
                         runningTask.addState(
                                 barrier,
-                                sinkAction.getId(),
+                                ActionStateKey.of(sinkAction),
                                 serializeStates(writerStateSerializer.get(), states));
                     }
                     if (containAggCommitter) {

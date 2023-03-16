@@ -32,13 +32,17 @@ final class ConfigNodePath extends AbstractConfigNode {
         int periodCount = 0;
         ArrayList<Token> tokensCopy = new ArrayList<>(tokens);
         for (int i = 0; i < tokensCopy.size(); i++) {
-            if (Tokens.isUnquotedText(tokensCopy.get(i)) &&
-                tokensCopy.get(i).tokenText().equals(ConfigParseOptions.PATH_TOKEN_SEPARATOR)) {
+            if (Tokens.isUnquotedText(tokensCopy.get(i))
+                    && tokensCopy
+                            .get(i)
+                            .tokenText()
+                            .equals(ConfigParseOptions.PATH_TOKEN_SEPARATOR)) {
                 periodCount++;
             }
 
             if (periodCount == toRemove) {
-                return new ConfigNodePath(path.subPath(toRemove), tokensCopy.subList(i + 1, tokensCopy.size()));
+                return new ConfigNodePath(
+                        path.subPath(toRemove), tokensCopy.subList(i + 1, tokensCopy.size()));
             }
         }
         throw new ConfigException.BugOrBroken("Tried to remove too many elements from a Path node");
@@ -47,8 +51,11 @@ final class ConfigNodePath extends AbstractConfigNode {
     protected ConfigNodePath first() {
         ArrayList<Token> tokensCopy = new ArrayList<>(tokens);
         for (int i = 0; i < tokensCopy.size(); i++) {
-            if (Tokens.isUnquotedText(tokensCopy.get(i)) &&
-                tokensCopy.get(i).tokenText().equals(ConfigParseOptions.PATH_TOKEN_SEPARATOR)) {
+            if (Tokens.isUnquotedText(tokensCopy.get(i))
+                    && tokensCopy
+                            .get(i)
+                            .tokenText()
+                            .equals(ConfigParseOptions.PATH_TOKEN_SEPARATOR)) {
                 return new ConfigNodePath(path.subPath(0, 1), tokensCopy.subList(0, i));
             }
         }

@@ -149,6 +149,10 @@ public class ElasticsearchSourceSplitEnumerator
         if (pluginConfig.hasPath(SourceConfig.SCROLL_SIZE.key())) {
             scrollSize = pluginConfig.getInt(SourceConfig.SCROLL_SIZE.key());
         }
+        Map query = SourceConfig.QUERY.defaultValue();
+        if (pluginConfig.hasPath(SourceConfig.QUERY.key())) {
+            query = (Map) pluginConfig.getAnyRef(SourceConfig.QUERY.key());
+        }
 
         List<IndexDocsCount> indexDocsCounts =
                 esRestClient.getIndexDocsCount(pluginConfig.getString(SourceConfig.INDEX.key()));
@@ -162,7 +166,11 @@ public class ElasticsearchSourceSplitEnumerator
                     new ElasticsearchSourceSplit(
                             String.valueOf(indexDocsCount.getIndex().hashCode()),
                             new SourceIndexInfo(
-                                    indexDocsCount.getIndex(), source, scrollTime, scrollSize)));
+                                    indexDocsCount.getIndex(),
+                                    source,
+                                    query,
+                                    scrollTime,
+                                    scrollSize)));
         }
         return splits;
     }

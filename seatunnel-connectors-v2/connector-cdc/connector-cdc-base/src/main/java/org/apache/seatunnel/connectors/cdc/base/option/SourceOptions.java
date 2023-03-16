@@ -19,8 +19,11 @@ package org.apache.seatunnel.connectors.cdc.base.option;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.SingleChoiceOption;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 
+import java.util.ArrayList;
 import java.util.Map;
 
 @SuppressWarnings("MagicNumber")
@@ -40,13 +43,23 @@ public class SourceOptions {
                     .withDescription(
                             "The maximum fetch size for per poll when read table snapshot.");
 
-    public static final Option<StartupMode> STARTUP_MODE =
-            Options.key("startup.mode")
-                    .enumType(StartupMode.class)
-                    .defaultValue(StartupMode.INITIAL)
-                    .withDescription(
-                            "Optional startup mode for CDC source, valid enumerations are "
-                                    + "\"initial\", \"earliest\", \"latest\", \"timestamp\"\n or \"specific\"");
+    public static final SingleChoiceOption<StartupMode> STARTUP_MODE =
+            (SingleChoiceOption)
+                    Options.key("startup.mode")
+                            .singleChoice(StartupMode.class, new ArrayList<>())
+                            .defaultValue(StartupMode.INITIAL)
+                            .withDescription(
+                                    "Optional startup mode for CDC source, valid enumerations are "
+                                            + "\"initial\", \"earliest\", \"latest\", \"timestamp\"\n or \"specific\"");
+
+    public static final SingleChoiceOption<StopMode> STOP_MODE =
+            (SingleChoiceOption)
+                    Options.key("stop.mode")
+                            .singleChoice(StopMode.class, new ArrayList<>())
+                            .defaultValue(StopMode.NEVER)
+                            .withDescription(
+                                    "Optional stop mode for CDC source, valid enumerations are "
+                                            + "\"never\", \"latest\", \"timestamp\"\n or \"specific\"");
 
     public static final Option<Long> STARTUP_TIMESTAMP =
             Options.key("startup.timestamp")
@@ -72,14 +85,6 @@ public class SourceOptions {
                     .intType()
                     .defaultValue(1)
                     .withDescription("The number of parallel readers in the incremental phase.");
-
-    public static final Option<StopMode> STOP_MODE =
-            Options.key("stop.mode")
-                    .enumType(StopMode.class)
-                    .defaultValue(StopMode.NEVER)
-                    .withDescription(
-                            "Optional stop mode for CDC source, valid enumerations are "
-                                    + "\"never\", \"latest\", \"timestamp\"\n or \"specific\"");
 
     public static final Option<Long> STOP_TIMESTAMP =
             Options.key("stop.timestamp")
@@ -107,23 +112,21 @@ public class SourceOptions {
                     .withDescription(
                             "Decides if the table options contains Debezium client properties that start with prefix 'debezium'.");
 
+    public static final Option<DeserializeFormat> FORMAT =
+            Options.key("format")
+                    .enumType(DeserializeFormat.class)
+                    .defaultValue(DeserializeFormat.DEFAULT)
+                    .withDescription(
+                            "Data format. The default format is seatunnel row. Optional compatible with debezium-json format.");
+
     public static OptionRule.Builder getBaseRule() {
         return OptionRule.builder()
+                .optional(FORMAT)
                 .optional(SNAPSHOT_SPLIT_SIZE, SNAPSHOT_FETCH_SIZE)
                 .optional(INCREMENTAL_PARALLELISM)
                 .optional(STARTUP_MODE, STOP_MODE)
                 .optional(DEBEZIUM_PROPERTIES)
                 .conditional(STARTUP_MODE, StartupMode.TIMESTAMP, STARTUP_TIMESTAMP)
-                .conditional(
-                        STARTUP_MODE,
-                        StartupMode.SPECIFIC,
-                        STARTUP_SPECIFIC_OFFSET_FILE,
-                        STARTUP_SPECIFIC_OFFSET_POS)
-                .conditional(STOP_MODE, StopMode.TIMESTAMP, STOP_TIMESTAMP)
-                .conditional(
-                        STOP_MODE,
-                        StopMode.SPECIFIC,
-                        STOP_SPECIFIC_OFFSET_FILE,
-                        STOP_SPECIFIC_OFFSET_POS);
+                .conditional(STOP_MODE, StopMode.TIMESTAMP, STOP_TIMESTAMP);
     }
 }

@@ -49,8 +49,15 @@ public class ServerConfigOptions {
     public static final Option<Integer> JOB_METRICS_BACKUP_INTERVAL =
             Options.key("job-metrics-backup-interval")
                     .intType()
-                    .defaultValue(3)
+                    .defaultValue(60)
                     .withDescription("The interval (in seconds) of job metrics backups");
+
+    public static final Option<ThreadShareMode> TASK_EXECUTION_THREAD_SHARE_MODE =
+            Options.key("task_execution_thread_share_mode")
+                    .type(new TypeReference<ThreadShareMode>() {})
+                    .defaultValue(ThreadShareMode.OFF)
+                    .withDescription(
+                            "The thread sharing mode of TaskExecutionServer, including ALL, OFF, PART. Default is OFF");
 
     public static final Option<Boolean> DYNAMIC_SLOT =
             Options.key("dynamic-slot")
@@ -99,7 +106,7 @@ public class ServerConfigOptions {
     public static final Option<Integer> CHECKPOINT_STORAGE_MAX_RETAINED =
             Options.key("max-retained")
                     .intType()
-                    .defaultValue(1)
+                    .defaultValue(20)
                     .withDescription("The maximum number of retained checkpoints.");
 
     public static final Option<QueueType> QUEUE_TYPE =

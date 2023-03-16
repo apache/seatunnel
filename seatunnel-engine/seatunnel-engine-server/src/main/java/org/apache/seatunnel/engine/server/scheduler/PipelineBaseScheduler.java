@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.scheduler;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.exception.JobException;
+import org.apache.seatunnel.engine.common.exception.SchedulerNotAllowException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
@@ -26,6 +27,7 @@ import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskDeployState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
@@ -88,7 +90,6 @@ public class PipelineBaseScheduler implements JobScheduler {
         try {
             if (!pipeline.updatePipelineState(PipelineStatus.CREATED, PipelineStatus.SCHEDULED)) {
                 handlePipelineStateTurnError(pipeline, PipelineStatus.SCHEDULED);
-                return null;
             }
 
             Map<TaskGroupLocation, SlotProfile> slotProfiles =
@@ -107,13 +108,23 @@ public class PipelineBaseScheduler implements JobScheduler {
                         deployPipeline(pipeline, slotProfiles);
                     },
                     jobMaster.getExecutorService());
+        } catch (SchedulerNotAllowException e) {
+            log.error(
+                    String.format(
+                            "scheduler %s stop. Because %s",
+                            pipeline.getPipelineFullName(), ExceptionUtils.getMessage(e)));
+            CompletableFuture<Void> reSchedulerFuture = new CompletableFuture<>();
+            reSchedulerFuture.complete(null);
+            return reSchedulerFuture;
         } catch (Exception e) {
             log.error(
                     String.format(
                             "scheduler %s error and cancel pipeline. The error is %s",
                             pipeline.getPipelineFullName(), ExceptionUtils.getMessage(e)));
             pipeline.cancelPipeline();
-            return null;
+            CompletableFuture<Void> reSchedulerFuture = new CompletableFuture<>();
+            reSchedulerFuture.complete(null);
+            return reSchedulerFuture;
         }
     }
 
@@ -160,7 +171,7 @@ public class PipelineBaseScheduler implements JobScheduler {
             if (slotProfileCompletableFuture != null) {
                 newProfile = slotProfileCompletableFuture.join();
             } else {
-                throw new SeaTunnelEngineException(
+                throw new SchedulerNotAllowException(
                         String.format(
                                 "The task [%s] state is [%s] and the resource can not be retrieved",
                                 task.getTaskFullName(), task.getExecutionState()));
@@ -237,8 +248,24 @@ public class PipelineBaseScheduler implements JobScheduler {
             // deploy is a time-consuming operation, so we do it async
             return CompletableFuture.runAsync(
                     () -> {
-                        task.deploy(slotProfile);
-                    });
+                        try {
+                            TaskDeployState state = task.deploy(slotProfile);
+                            if (!state.isSuccess()) {
+                                jobMaster.updateTaskExecutionState(
+                                        new TaskExecutionState(
+                                                task.getTaskGroupLocation(),
+                                                ExecutionState.FAILED,
+                                                state.getThrowableMsg()));
+                                throw new SeaTunnelEngineException(
+                                        String.format(
+                                                "deploy task %s failed, error msg: \n%s",
+                                                task.getTaskFullName(), state.getThrowableMsg()));
+                            }
+                        } catch (Exception e) {
+                            throw new SeaTunnelEngineException(e);
+                        }
+                    },
+                    jobMaster.getExecutorService());
         } else if (ExecutionState.CANCELING.equals(task.getExecutionState())
                 || ExecutionState.CANCELED.equals(task.getExecutionState())) {
             log.info(
@@ -329,11 +356,12 @@ public class PipelineBaseScheduler implements JobScheduler {
         if (PipelineStatus.CANCELING.equals(pipeline.getPipelineState())
                 || PipelineStatus.CANCELED.equals(pipeline.getPipelineState())) {
             // may be canceled
-            log.info(
-                    "{} turn to state {}, skip {} this pipeline.",
-                    pipeline.getPipelineFullName(),
-                    pipeline.getPipelineState(),
-                    targetState);
+            throw new SchedulerNotAllowException(
+                    String.format(
+                            "%s turn to state %s, skip %s this pipeline.",
+                            pipeline.getPipelineFullName(),
+                            pipeline.getPipelineState(),
+                            targetState));
         } else {
             throw new JobException(
                     String.format(
