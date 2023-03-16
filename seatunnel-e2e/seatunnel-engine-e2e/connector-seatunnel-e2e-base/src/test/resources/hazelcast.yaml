@@ -31,7 +31,8 @@ hazelcast:
         member-list:
           - localhost
     port:
-      port: 5801
+      auto-increment: true
+      port-count: 100
   properties:
     hazelcast.invocation.max.retry.count: 100
     hazelcast.invocation.retry.pause.millis: 1000

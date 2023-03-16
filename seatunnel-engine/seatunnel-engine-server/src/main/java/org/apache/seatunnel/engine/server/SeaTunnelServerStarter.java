@@ -33,6 +33,7 @@ public class SeaTunnelServerStarter {
 
     public static HazelcastInstanceImpl createHazelcastInstance(String clusterName) {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig.getHazelcastConfig().getNetworkConfig().setPortAutoIncrement(false);
         seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
         return createHazelcastInstance(seaTunnelConfig);
     }
