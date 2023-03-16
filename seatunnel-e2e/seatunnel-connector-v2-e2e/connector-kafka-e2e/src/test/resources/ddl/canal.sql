@@ -26,6 +26,7 @@ CREATE TABLE products (
   description VARCHAR(512),
   weight VARCHAR(512)
 );
+ALTER TABLE products AUTO_INCREMENT = 101;
 
 INSERT INTO products
 VALUES (default,"scooter","Small 2-wheel scooter","3.14"),

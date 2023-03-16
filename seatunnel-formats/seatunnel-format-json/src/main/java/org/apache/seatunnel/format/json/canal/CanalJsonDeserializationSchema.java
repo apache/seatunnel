@@ -61,6 +61,8 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
 
     private static final String OP_QUERY = "QUERY";
 
+    private static final String OP_ALTER = "ALTER";
+
     private String database;
 
     private String table;
@@ -130,7 +132,7 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
         // When a null value is encountered, an exception needs to be thrown for easy sensing
         if (dataNode == null || dataNode.isNull()) {
             // We'll skip the query or create event data
-            if (OP_QUERY.equals(type) || OP_CREATE.equals(type)) {
+            if (OP_QUERY.equals(type) || OP_CREATE.equals(type) || OP_ALTER.equals(type) ) {
                 return;
             }
             throw new SeaTunnelJsonFormatException(
