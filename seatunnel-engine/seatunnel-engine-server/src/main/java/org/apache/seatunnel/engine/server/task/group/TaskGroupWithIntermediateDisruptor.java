@@ -58,15 +58,13 @@ public class TaskGroupWithIntermediateDisruptor extends AbstractTaskGroupWithInt
     @Override
     public AbstractIntermediateQueue<?> getQueueCache(long id) {
         EventFactory<RecordEvent> eventFactory = new RecordEventFactory();
-        Disruptor<RecordEvent> disruptor =
-                new Disruptor<>(
-                        eventFactory,
-                        RING_BUFFER_SIZE,
-                        DaemonThreadFactory.INSTANCE,
-                        ProducerType.SINGLE,
-                        new YieldingWaitStrategy());
 
-        this.disruptor.putIfAbsent(id, disruptor);
+        this.disruptor.computeIfAbsent(id, i -> new Disruptor<>(
+                eventFactory,
+                RING_BUFFER_SIZE,
+                DaemonThreadFactory.INSTANCE,
+                ProducerType.SINGLE,
+                new YieldingWaitStrategy()));
         return new IntermediateDisruptor(this.disruptor.get(id));
     }
 }

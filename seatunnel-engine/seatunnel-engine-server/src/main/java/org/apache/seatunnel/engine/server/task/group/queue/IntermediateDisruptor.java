@@ -43,12 +43,10 @@ public class IntermediateDisruptor extends AbstractIntermediateQueue<Disruptor<R
 
     @Override
     public void received(Record<?> record) {
-
         getIntermediateQueue()
                 .getRingBuffer()
                 .publishEvent(
                         (recordEvent, l) -> {
-                            log.info("provider sequence->{}", l);
                             if (handleBarrier(record)) {
                                 recordEvent.setRecord(record);
                             }

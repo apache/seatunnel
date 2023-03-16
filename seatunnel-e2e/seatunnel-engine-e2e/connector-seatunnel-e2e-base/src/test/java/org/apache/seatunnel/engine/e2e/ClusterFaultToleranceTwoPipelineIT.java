@@ -590,9 +590,9 @@ public class ClusterFaultToleranceTwoPipelineIT {
                             () -> {
                                 // Wait some tasks commit finished
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.info(
                                         FileUtils.getFileLineNumberFromDir(
-                                                testResources.getLeft()));
+                                                testResources.getLeft())+"");
                                 Assertions.assertTrue(
                                         JobStatus.RUNNING.equals(clientJobProxy.getJobStatus())
                                                 && FileUtils.getFileLineNumberFromDir(
