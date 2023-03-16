@@ -33,6 +33,11 @@ public class ServerCommandArgs extends CommandArgs {
             description = "The name of cluster")
     private String clusterName = "seatunnel_default_cluster";
 
+    @Parameter(
+        names = {"-d", "--daemon"},
+        description = "The cluster running mode")
+    private boolean daemonMod = false;
+
     @Override
     public Command<?> buildCommand() {
         return new ServerExecuteCommand(this);

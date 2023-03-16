@@ -70,8 +70,10 @@ do
   if [[ "${i}" == *"JvmOption"* ]]; then
     JVM_OPTION="${i}"
     JAVA_OPTS="${JAVA_OPTS} ${JVM_OPTION#*=}"
-  elif [[ "${i}" == "-d" ]]; then
+  elif [[ "${i}" == "-d" || "${i}" == "--daemon" ]]; then
     DAEMON=true
+  elif [[ "${i}" == "-h" || "${i}" == "--help" ]]; then
+    HELP=true
   fi
 done
 
@@ -94,7 +96,7 @@ JVM_OPTIONS=`java -cp ${CLASS_PATH} org.apache.seatunnel.core.starter.seatunnel.
 JAVA_OPTS="${JAVA_OPTS} ${JVM_OPTIONS//\$\{loggc\}/${ST_TMPDIR}}"
 echo "JAVA_OPTS:" ${JAVA_OPTS}
 
-if [[ $DAEMON == true ]]; then
+if [[ $DAEMON == true && $HELP == false ]]; then
  touch $SEATUNNEL_HOME/logs/seatunnel-server.out
  java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args} > "$OUT" 200<&- 2>&1 < /dev/null &
  else
