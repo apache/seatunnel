@@ -22,15 +22,12 @@ on:
   push:
     branches:
       - '**-release'
-
-env:
-  GITHUB_USERNAME: x-access-token
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - deploy/*
 
 jobs:
   deploy:
     name: Deploy maven packages to pkg.github
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     permissions:
       packages: write
       contents: read
@@ -48,5 +45,4 @@ jobs:
         shell: bash
         run: |
           ./mvnw --batch-mode --settings maven-settings.xml clean deploy \
-                -DaltDeploymentRepository=github::default::https://maven.pkg.github.com/whaleops/SeaTunnel \
                 -Dmaven.test.skip -Dcheckstyle.skip -DretryFailedDeploymentCount=5
