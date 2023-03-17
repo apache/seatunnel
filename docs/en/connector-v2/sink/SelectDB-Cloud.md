@@ -22,7 +22,7 @@ Version Supported
 
 ## Options
 
-|       name        |  type  | required |     default value      |
+| name              |  type  | required | default value          |
 |-------------------|--------|----------|------------------------|
 | load-url          | string | yes      | -                      |
 | jdbc-url          | string | yes      | -                      |
