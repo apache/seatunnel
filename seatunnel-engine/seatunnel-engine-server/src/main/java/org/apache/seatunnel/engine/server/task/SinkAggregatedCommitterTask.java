@@ -20,13 +20,18 @@ package org.apache.seatunnel.engine.server.task;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointException;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
+
+import org.apache.commons.collections4.CollectionUtils;
 
 import com.hazelcast.cluster.Address;
 import lombok.NonNull;
@@ -217,7 +222,8 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
                                     this.taskLocation,
                                     (CheckpointBarrier) barrier,
                                     Collections.singletonList(
-                                            new ActionSubtaskState(sink.getId(), -1, states))));
+                                            new ActionSubtaskState(
+                                                    ActionStateKey.of(sink), -1, states))));
         }
     }
 
@@ -265,8 +271,12 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
                     aggregatedCommitInfo.addAll(value);
                     checkpointCommitInfoMap.remove(key);
                 });
-        aggregatedCommitter.commit(aggregatedCommitInfo);
+        List<AggregatedCommitInfoT> commit = aggregatedCommitter.commit(aggregatedCommitInfo);
         tryClose(checkpointId);
+        if (!CollectionUtils.isEmpty(commit)) {
+            log.error("aggregated committer error: {}", commit.size());
+            throw new CheckpointException(CheckpointCloseReason.AGGREGATE_COMMIT_ERROR);
+        }
     }
 
     @Override

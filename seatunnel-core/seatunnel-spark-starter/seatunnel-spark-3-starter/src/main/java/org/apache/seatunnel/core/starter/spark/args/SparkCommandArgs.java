@@ -21,6 +21,8 @@ import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
 import org.apache.seatunnel.core.starter.command.Command;
+import org.apache.seatunnel.core.starter.command.ConfDecryptCommand;
+import org.apache.seatunnel.core.starter.command.ConfEncryptCommand;
 import org.apache.seatunnel.core.starter.spark.command.SparkConfValidateCommand;
 import org.apache.seatunnel.core.starter.spark.command.SparkTaskExecuteCommand;
 
@@ -54,9 +56,14 @@ public class SparkCommandArgs extends AbstractCommandArgs {
         Common.setDeployMode(getDeployMode());
         if (checkConfig) {
             return new SparkConfValidateCommand(this);
-        } else {
-            return new SparkTaskExecuteCommand(this);
         }
+        if (encrypt) {
+            return new ConfEncryptCommand(this);
+        }
+        if (decrypt) {
+            return new ConfDecryptCommand(this);
+        }
+        return new SparkTaskExecuteCommand(this);
     }
 
     public static class SparkDeployModeConverter implements IStringConverter<DeployMode> {

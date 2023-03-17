@@ -36,7 +36,7 @@ import java.util.Optional;
 @Slf4j
 public class ConfigBuilder {
 
-    private static final ConfigRenderOptions CONFIG_RENDER_OPTIONS =
+    public static final ConfigRenderOptions CONFIG_RENDER_OPTIONS =
             ConfigRenderOptions.concise().setFormatted(true);
 
     private ConfigBuilder() {
@@ -44,11 +44,13 @@ public class ConfigBuilder {
     }
 
     private static Config ofInner(@NonNull Path filePath) {
-        return ConfigFactory.parseFile(filePath.toFile())
-                .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-                .resolveWith(
-                        ConfigFactory.systemProperties(),
-                        ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        Config config =
+                ConfigFactory.parseFile(filePath.toFile())
+                        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
+                        .resolveWith(
+                                ConfigFactory.systemProperties(),
+                                ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        return ConfigShadeUtils.decryptConfig(config);
     }
 
     public static Config of(@NonNull String filePath) {
@@ -68,10 +70,11 @@ public class ConfigBuilder {
     }
 
     public static Config of(@NonNull ConfigAdapter configAdapter, @NonNull Path filePath) {
-        log.info("With spi {}", configAdapter.getClass().getName());
+        log.info("With config adapter spi {}", configAdapter.getClass().getName());
         try {
             Map<String, Object> flattenedMap = configAdapter.loadConfig(filePath);
-            return ConfigFactory.parseMap(flattenedMap);
+            Config config = ConfigFactory.parseMap(flattenedMap);
+            return ConfigShadeUtils.decryptConfig(config);
         } catch (Exception warn) {
             log.warn(
                     "Loading config failed with spi {}, fallback to HOCON loader.",
