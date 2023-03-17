@@ -42,9 +42,7 @@ network:
 
 #### Parameters
 
-```json
-{}
-```
+-
 
 #### Responses
 
