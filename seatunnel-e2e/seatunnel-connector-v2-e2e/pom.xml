@@ -53,6 +53,7 @@
         <module>connector-mongodb-e2e</module>
         <module>connector-hbase-e2e</module>
         <module>connector-maxcompute-e2e</module>
+        <module>connector-pulsar-e2e</module>
     </modules>
 
     <dependencies>
