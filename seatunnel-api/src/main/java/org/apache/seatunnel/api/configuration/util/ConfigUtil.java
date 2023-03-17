@@ -24,6 +24,10 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.dataformat.javaprop.Java
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+import org.apache.seatunnel.api.configuration.Option;
+
+import lombok.extern.slf4j.Slf4j;
+
 import java.lang.reflect.ParameterizedType;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -33,6 +37,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class ConfigUtil {
     private static final JavaPropsMapper PROPERTIES_MAPPER = new JavaPropsMapper();
     private static final ObjectMapper JACKSON_MAPPER = new ObjectMapper();
@@ -113,7 +118,8 @@ public class ConfigUtil {
     }
 
     @SuppressWarnings("unchecked")
-    public static <T> T convertValue(Object rawValue, TypeReference<T> typeReference) {
+    public static <T> T convertValue(Object rawValue, Option<T> option) {
+        TypeReference<T> typeReference = option.typeReference();
         rawValue = flatteningMapWithObject(rawValue);
         if (typeReference.getType() instanceof Class) {
             // simple type
@@ -135,6 +141,10 @@ public class ConfigUtil {
                     && List.class.equals(
                             ((ParameterizedType) typeReference.getType()).getRawType())) {
                 try {
+                    log.warn(
+                            String.format(
+                                    "Option '%s' is a List, and it is recommended to configure it as [\"string1\",\"string2\"]; we will only use ',' to split the String into a list.",
+                                    option.key()));
                     return (T)
                             convertToList(
                                     rawValue,
