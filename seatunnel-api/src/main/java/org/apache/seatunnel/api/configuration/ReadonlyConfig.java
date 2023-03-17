@@ -105,7 +105,7 @@ public class ReadonlyConfig implements Serializable {
         if (value == null) {
             return Optional.empty();
         }
-        return Optional.of(convertValue(value, option.typeReference()));
+        return Optional.of(convertValue(value, option));
     }
 
     @Override
