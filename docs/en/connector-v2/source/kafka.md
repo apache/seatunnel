@@ -28,6 +28,7 @@ Source connector for Apache Kafka.
 | common-options                      | config  | no       | -                        |
 | schema                              |         | no       | -                        |
 | format                              | String  | no       | json                     |
+| format_error_handle_way             | no      | np       | fail                     |
 | field_delimiter                     | String  | no       | ,                        |
 | start_mode                          | String  | no       | group_offsets            |
 | start_mode.offsets                  |         | no       |                          |
@@ -74,6 +75,12 @@ The structure of the data, including field names and field types.
 
 Data format. The default format is json. Optional text format. The default field separator is ", ".
 If you customize the delimiter, add the "field_delimiter" option.
+
+## format_error_handle_way
+
+The processing method of data format error. The default value is fail, and the optional value is (fail, skip).
+When fail is selected, data format error will block and an exception will be thrown.
+When skip is selected, data format error will skip this line data.
 
 ## field_delimiter
 
