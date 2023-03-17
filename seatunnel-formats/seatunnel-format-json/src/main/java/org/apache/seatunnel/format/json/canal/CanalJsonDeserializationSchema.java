@@ -59,6 +59,10 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
 
     private static final String OP_CREATE = "CREATE";
 
+    private static final String OP_QUERY = "QUERY";
+
+    private static final String OP_ALTER = "ALTER";
+
     private String database;
 
     private String table;
@@ -109,24 +113,32 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
         return this.physicalRowType;
     }
 
+    @Override
     public void deserialize(byte[] message, Collector<SeaTunnelRow> out) {
         if (message == null) {
             return;
         }
         ObjectNode jsonNode = (ObjectNode) convertBytes(message);
         assert jsonNode != null;
-        if (database != null) {
-            if (!databasePattern.matcher(jsonNode.get(FIELD_DATABASE).asText()).matches()) {
-                return;
-            }
+        if (database != null
+                && !databasePattern.matcher(jsonNode.get(FIELD_DATABASE).asText()).matches()) {
+            return;
         }
-        if (table != null) {
-            if (!tablePattern.matcher(jsonNode.get(FIELD_TABLE).asText()).matches()) {
-                return;
-            }
+        if (table != null && !tablePattern.matcher(jsonNode.get(FIELD_TABLE).asText()).matches()) {
+            return;
         }
         JsonNode dataNode = jsonNode.get(FIELD_DATA);
         String type = jsonNode.get(FIELD_TYPE).asText();
+        // When a null value is encountered, an exception needs to be thrown for easy sensing
+        if (dataNode == null || dataNode.isNull()) {
+            // We'll skip the query or create or alter event data
+            if (OP_QUERY.equals(type) || OP_CREATE.equals(type) || OP_ALTER.equals(type)) {
+                return;
+            }
+            throw new SeaTunnelJsonFormatException(
+                    CommonErrorCode.JSON_OPERATION_FAILED,
+                    format("Null data value \"%s\" Cannot send downstream", new String(message)));
+        }
         if (OP_INSERT.equals(type)) {
             for (int i = 0; i < dataNode.size(); i++) {
                 SeaTunnelRow row = convertJsonNode(dataNode.get(i));
@@ -161,9 +173,6 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
                 row.setRowKind(RowKind.DELETE);
                 out.collect(row);
             }
-        } else if (OP_CREATE.equals(type)) {
-            // "data" field is null and "type" is "CREATE" which means
-            // this is a DDL change event, and we should skip it.
         } else {
             if (!ignoreParseErrors) {
                 throw new SeaTunnelJsonFormatException(
@@ -178,7 +187,7 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
     private JsonNode convertBytes(byte[] message) {
         try {
             return jsonDeserializer.deserializeToJsonNode(message);
-        } catch (Throwable t) {
+        } catch (Exception t) {
             if (ignoreParseErrors) {
                 return null;
             }
