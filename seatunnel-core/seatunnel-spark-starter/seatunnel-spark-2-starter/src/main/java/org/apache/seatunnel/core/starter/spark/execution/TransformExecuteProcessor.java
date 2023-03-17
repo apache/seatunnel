@@ -26,15 +26,11 @@ import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
-import org.apache.seatunnel.translation.spark.serialization.InternalRowConverter;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
-import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema;
-import org.apache.spark.sql.catalyst.expressions.MutableValue;
-import org.apache.spark.sql.catalyst.expressions.SpecificInternalRow;
 import org.apache.spark.sql.types.StructType;
 
 import com.google.common.collect.Lists;
@@ -43,7 +39,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -128,23 +123,14 @@ public class TransformExecuteProcessor
         SeaTunnelRow seaTunnelRow;
         List<Row> outputRows = new ArrayList<>();
         Iterator<Row> rowIterator = stream.toLocalIterator();
-        InternalRowConverter inputRowConverter = new InternalRowConverter(seaTunnelDataType);
-        InternalRowConverter outputRowConverter =
-                new InternalRowConverter(transform.getProducedType());
         while (rowIterator.hasNext()) {
             Row row = rowIterator.next();
-            seaTunnelRow = inputRowConverter.reconvert(InternalRow.apply(row.toSeq()));
+            seaTunnelRow = new SeaTunnelRow(((GenericRowWithSchema) row).values());
             seaTunnelRow = (SeaTunnelRow) transform.map(seaTunnelRow);
             if (seaTunnelRow == null) {
                 continue;
             }
-            InternalRow internalRow = outputRowConverter.convert(seaTunnelRow);
-            outputRows.add(
-                    new GenericRowWithSchema(
-                            Arrays.stream(((SpecificInternalRow) internalRow).values())
-                                    .map(MutableValue::boxed)
-                                    .toArray(),
-                            structType));
+            outputRows.add(new GenericRowWithSchema(seaTunnelRow.getFields(), structType));
         }
         return sparkRuntimeEnvironment.getSparkSession().createDataFrame(outputRows, structType);
     }

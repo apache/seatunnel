@@ -69,12 +69,12 @@ public class YamlSeaTunnelConfigParserTest {
                         .getStorage()
                         .getMaxRetainedCheckpoints());
         Assertions.assertEquals(
-                "secret-key",
+                "file:///",
                 config.getEngineConfig()
                         .getCheckpointConfig()
                         .getStorage()
                         .getStoragePluginConfig()
-                        .get("s3.secret-key"));
+                        .get("fs.defaultFS"));
     }
 
     @Test

@@ -25,12 +25,8 @@ import java.util.Map;
 
 public class Config {
 
-    /** The default data format is JSON */
-    public static final String DEFAULT_FORMAT = "json";
-
-    public static final String TEXT_FORMAT = "text";
-
-    public static final String CANNAL_FORMAT = "canal-json";
+    public static final String CONNECTOR_IDENTITY = "Kafka";
+    public static final String REPLICATION_FACTOR = "replication.factor";
 
     /** The default field delimiter is “,” */
     public static final String DEFAULT_FIELD_DELIMITER = ",";
@@ -68,7 +64,7 @@ public class Config {
     public static final Option<String> CONSUMER_GROUP =
             Options.key("consumer.group")
                     .stringType()
-                    .noDefaultValue()
+                    .defaultValue("SeaTunnel-Consumer-Group")
                     .withDescription(
                             "Kafka consumer group id, used to distinguish different consumer groups.");
 
@@ -95,10 +91,10 @@ public class Config {
                     .withDescription(
                             "The structure of the data, including field names and field types.");
 
-    public static final Option<String> FORMAT =
+    public static final Option<MessageFormat> FORMAT =
             Options.key("format")
-                    .stringType()
-                    .noDefaultValue()
+                    .enumType(MessageFormat.class)
+                    .defaultValue(MessageFormat.JSON)
                     .withDescription(
                             "Data format. The default format is json. Optional text format. The default field separator is \", \". "
                                     + "If you customize the delimiter, add the \"field_delimiter\" option.");

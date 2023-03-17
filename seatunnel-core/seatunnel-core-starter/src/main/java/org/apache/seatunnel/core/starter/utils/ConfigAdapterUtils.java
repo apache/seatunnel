@@ -39,13 +39,7 @@ public final class ConfigAdapterUtils {
     static {
         ServiceLoader<ConfigAdapter> serviceLoader = ServiceLoader.load(ConfigAdapter.class);
         Iterator<ConfigAdapter> it = serviceLoader.iterator();
-        if (it.hasNext()) {
-            try {
-                CONFIG_ADAPTERS.add(it.next());
-            } catch (Exception loadSpiErr) {
-                log.warn(loadSpiErr.getMessage());
-            }
-        }
+        it.forEachRemaining(CONFIG_ADAPTERS::add);
     }
 
     public static Optional<ConfigAdapter> selectAdapter(@NonNull String filePath) {

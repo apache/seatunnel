@@ -34,6 +34,7 @@ public class AssertFieldRule implements Serializable {
     public static class AssertRule implements Serializable {
         private AssertRuleType ruleType;
         private Double ruleValue;
+        private String equalTo;
     }
 
     /**

@@ -17,6 +17,15 @@
 
 package org.apache.seatunnel.engine.client;
 
+import org.apache.seatunnel.engine.client.util.ContentFormatUtil;
+import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.core.job.JobStatusData;
+
+import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
+import java.util.List;
+
 public class TestUtils {
     public static String getResource(String confFile) {
         return System.getProperty("user.dir") + "/src/test/resources/" + confFile;
@@ -24,5 +33,40 @@ public class TestUtils {
 
     public static String getClusterName(String testClassName) {
         return System.getProperty("user.name") + "_" + testClassName;
+    }
+
+    @Test
+    public void testContentFormatUtil() throws InterruptedException {
+        List<JobStatusData> statusDataList = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            statusDataList.add(
+                    new JobStatusData(
+                            4352352414135L + i,
+                            "Testfdsafew" + i,
+                            JobStatus.CANCELLING,
+                            System.currentTimeMillis(),
+                            System.currentTimeMillis()));
+            Thread.sleep(2L);
+        }
+        for (int i = 0; i < 5; i++) {
+            statusDataList.add(
+                    new JobStatusData(
+                            4352352414135L + i,
+                            "fdsafsddfasfsdafasdf" + i,
+                            JobStatus.RECONCILING,
+                            System.currentTimeMillis(),
+                            null));
+            Thread.sleep(2L);
+        }
+
+        statusDataList.sort(
+                (s1, s2) -> {
+                    if (s1.getSubmitTime() == s2.getSubmitTime()) {
+                        return 0;
+                    }
+                    return s1.getSubmitTime() > s2.getSubmitTime() ? -1 : 1;
+                });
+        String r = ContentFormatUtil.format(statusDataList);
+        System.out.println(r);
     }
 }

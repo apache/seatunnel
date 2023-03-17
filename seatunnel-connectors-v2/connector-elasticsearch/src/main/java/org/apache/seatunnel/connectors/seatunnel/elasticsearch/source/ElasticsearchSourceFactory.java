@@ -19,9 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 
 import com.google.auto.service.AutoService;
 
@@ -35,6 +35,7 @@ import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsC
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig.TLS_VERIFY_HOSTNAME;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig.USERNAME;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig.INDEX;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig.QUERY;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig.SCROLL_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig.SCROLL_TIME;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig.SOURCE;
@@ -55,13 +56,14 @@ public class ElasticsearchSourceFactory implements TableSourceFactory {
                         PASSWORD,
                         SCROLL_TIME,
                         SCROLL_SIZE,
+                        QUERY,
                         TLS_VERIFY_CERTIFICATE,
                         TLS_VERIFY_HOSTNAME,
                         TLS_KEY_STORE_PATH,
                         TLS_KEY_STORE_PASSWORD,
                         TLS_TRUST_STORE_PATH,
                         TLS_TRUST_STORE_PASSWORD)
-                .exclusive(SOURCE, SeaTunnelSchema.SCHEMA)
+                .exclusive(SOURCE, CatalogTableUtil.SCHEMA)
                 .build();
     }
 

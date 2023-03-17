@@ -72,8 +72,9 @@ public class ParallelEnumeratorContext<SplitT extends SourceSplit>
 
     @Override
     public void sendEventToSourceReader(int subtaskId, SourceEvent event) {
-        // TODO: exception
-        throw new RuntimeException("");
+        throw new UnsupportedOperationException(
+                "Flink ParallelSource don't support sending SourceEvent. "
+                        + "Please implement the `SupportCoordinate` marker interface on the SeaTunnel source.");
     }
 
     @Override

@@ -56,5 +56,17 @@ public abstract class AbstractCommandArgs extends CommandArgs {
             description = "SeaTunnel job name")
     protected String jobName = Constants.LOGO;
 
+    @Parameter(
+            names = {"--encrypt"},
+            description =
+                    "Encrypt config file, when both --decrypt and --encrypt are specified, only --encrypt will take effect")
+    protected boolean encrypt = false;
+
+    @Parameter(
+            names = {"--decrypt"},
+            description =
+                    "Decrypt config file, When both --decrypt and --encrypt are specified, only --encrypt will take effect")
+    protected boolean decrypt = false;
+
     public abstract DeployMode getDeployMode();
 }

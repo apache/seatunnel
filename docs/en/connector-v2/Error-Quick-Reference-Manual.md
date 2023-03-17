@@ -13,6 +13,8 @@ problems encountered by users.
 | API-04 | Database not existed               | When users encounter this error code, it is usually because the database that you want to access is not existed, please double check the database exists                                       |
 | API-05 | Table not existed                  | When users encounter this error code, it is usually because the table that you want to access is not existed, please double check the table exists                                             |
 | API-06 | Factory initialize failed          | When users encounter this error code, it is usually because there is a problem with the jar package dependency, please check whether your local SeaTunnel installation package is complete     |
+| API-07 | Database already existed           | When users encounter this error code, it means that the database you want to create has already existed, please delete database and try again                                                  |
+| API-08 | Table already existed              | When users encounter this error code, it means that the table you want to create has already existed, please delete table and try again                                                        |
 
 ## SeaTunnel Common Error Codes
 
@@ -155,25 +157,22 @@ problems encountered by users.
 | FILE-01 | File type is invalid        | When users encounter this error code, it means that the this file is not the format that user assigned, please check it                                          |
 | FILE-02 | Data deserialization failed | When users encounter this error code, it means that data from files not satisfied the schema that user assigned, please check data from files whether is correct |
 | FILE-03 | Get file list failed        | When users encounter this error code, it means that connector try to traverse the path and get file list failed, please check file system whether is work        |
+| FILE-04 | File list is empty          | When users encounter this error code, it means that the path user want to sync is empty, please check file path                                                  |
 
 ## Doris Connector Error Codes
 
-|   code   |           description            |                                                               solution                                                               |
-|----------|----------------------------------|--------------------------------------------------------------------------------------------------------------------------------------|
-| Doris-01 | Writing records to Doris failed. | When users encounter this error code, it means that writing records to Doris failed, please check data from files whether is correct |
+|   code   |     description     |                                                             solution                                                              |
+|----------|---------------------|-----------------------------------------------------------------------------------------------------------------------------------|
+| Doris-01 | stream load error.  | When users encounter this error code, it means that stream load to Doris failed, please check data from files whether is correct. |
+| Doris-02 | commit error.       | When users encounter this error code, it means that commit to Doris failed, please check network.                                 |
+| Doris-03 | rest service error. | When users encounter this error code, it means that rest service failed, please check network and config.                         |
 
 ## SelectDB Cloud Connector Error Codes
 
-|    code     |             description             |                                                               solution                                                                |
-|-------------|-------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------|
-| SelectDB-01 | upload file to stage failed         | When users encounter this error code, it means that upload file to SelectDB Cloud failed, please check the configuration and network. |
-| SelectDB-01 | commit copy into sql failed         | When users encounter this error code, it means that commit copy into sql to SelectDB Cloud failed, please check the configuration.    |
-| SelectDB-03 | Closing httpClient failed           | When users encounter this error code, it means that closing the http connection failed. please check the network.                     |
-| SelectDB-04 | Get the redirected s3 address filed | When users encounter this error code, it means that get the redirected s3 address failed, please check the network.                   |
-| SelectDB-05 | error while loading data            | When users encounter this error code, it means that the file write check failed. please check the configuration.                      |
-| SelectDB-07 | buffer stop failed                  | When users encounter this error code, it means that the buffer stop failed. Check the detailed exception information.                 |
-| SelectDB-08 | buffer read failed                  | When users encounter this error code, it means that the buffer read failed. Check the detailed exception information.                 |
-| SelectDB-09 | buffer write failed                 | When users encounter this error code, it means that the buffer write failed. Check the detailed exception information.                |
+|    code     |         description         |                                                                 solution                                                                  |
+|-------------|-----------------------------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| SelectDB-01 | stage load file error       | When users encounter this error code, it means that stage load file to SelectDB Cloud failed, please check the configuration and network. |
+| SelectDB-02 | commit copy into sql failed | When users encounter this error code, it means that commit copy into sql to SelectDB Cloud failed, please check the configuration.        |
 
 ## Clickhouse Connector Error Codes
 
@@ -207,6 +206,7 @@ problems encountered by users.
 | PULSAR-04 | Subscribe topic from pulsar failed               | When users encounter this error code, it means that Subscribe topic from pulsar failed, please check it               |
 | PULSAR-05 | Get last cursor of pulsar topic failed           | When users encounter this error code, it means that get last cursor of pulsar topic failed, please check it           |
 | PULSAR-06 | Get partition information of pulsar topic failed | When users encounter this error code, it means that Get partition information of pulsar topic failed, please check it |
+| PULSAR-07 | Pulsar consumer acknowledgeCumulative failed     | When users encounter this error code, it means that Pulsar consumer acknowledgeCumulative failed                      |
 
 ## StarRocks Connector Error Codes
 
@@ -214,6 +214,11 @@ problems encountered by users.
 |--------------|-------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
 | STARROCKS-01 | Flush batch data to sink connector failed | When users encounter this error code, it means that flush batch data to sink connector failed, please check it                           |
 | STARROCKS-02 | Writing records to StarRocks failed       | When users encounter this error code, it means that writing records to StarRocks failed, please check data from files whether is correct |
+| STARROCKS-03 | Close StarRocks BE reader failed.         | it means that StarRocks has some problems, please check it whether is work                                                               |
+| STARROCKS-04 | Create StarRocks BE reader failed.        | it means that StarRocks has some problems, please check it whether is work                                                               |
+| STARROCKS-05 | Scan data from StarRocks BE failed.       | When users encounter this error code, it means that scan data from StarRocks failed, please check it                                     |
+| STARROCKS-06 | Request query Plan failed.                | When users encounter this error code, it means that scan data from StarRocks failed, please check it                                     |
+| STARROCKS-07 | Read Arrow data failed.                   | When users encounter this error code, it means that that job has some problems, please check it whether is work well                     |
 
 ## DingTalk Connector Error Codes
 
@@ -234,4 +239,10 @@ problems encountered by users.
 |   code   |    description    |                                                                              solution                                                                               |
 |----------|-------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | EMAIL-01 | Send email failed | When users encounter this error code, it means that send email to target server failed, please adjust the network environment according to the abnormal information |
+
+## S3Redshift Connector Error Codes
+
+|     code      |        description        |                                                                                                   solution                                                                                                   |
+|---------------|---------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| S3RedShift-01 | Aggregate committer error | S3Redshift Sink Connector will write data to s3 and then move file to the target s3 path. And then use `Copy` action copy the data to Redshift. Please check the error log and find out the specific reason. |
 
