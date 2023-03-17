@@ -36,7 +36,7 @@ public class ServerCommandArgs extends CommandArgs {
     @Parameter(
             names = {"-d", "--daemon"},
             description = "The cluster daemon mode")
-    private boolean daemonMod = false;
+    private boolean daemonMode = false;
 
     @Override
     public Command<?> buildCommand() {
