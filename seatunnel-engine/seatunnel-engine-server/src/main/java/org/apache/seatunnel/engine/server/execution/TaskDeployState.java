@@ -15,27 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.common.utils;
+package org.apache.seatunnel.engine.server.execution;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 
-public class ExceptionUtils {
-    private ExceptionUtils() {}
+import lombok.Data;
 
-    public static String getMessage(Throwable e) {
-        if (e == null) {
-            return "";
-        }
-        try (StringWriter sw = new StringWriter();
-                PrintWriter pw = new PrintWriter(sw)) {
-            // Output the error stack information to the printWriter
-            e.printStackTrace(pw);
-            pw.flush();
-            sw.flush();
-            return sw.toString();
-        } catch (Exception e1) {
-            throw new RuntimeException("Failed to print exception logs", e1);
-        }
+import java.io.Serializable;
+
+@Data
+public class TaskDeployState implements Serializable {
+    private final boolean success;
+    private final String throwableMsg;
+
+    public static TaskDeployState success() {
+        return new TaskDeployState(true, null);
+    }
+
+    public static TaskDeployState failed(Throwable e) {
+        return new TaskDeployState(false, ExceptionUtils.getMessage(e));
     }
 }

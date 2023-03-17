@@ -19,12 +19,14 @@ package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSemantics;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.SeaTunnelRowSerializer;
@@ -44,7 +46,6 @@ import java.util.Random;
 
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.ASSIGN_PARTITIONS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FIELD_DELIMITER;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG;
@@ -164,28 +165,29 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
     private SeaTunnelRowSerializer<byte[], byte[]> getSerializer(
             Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
-        String format = DEFAULT_FORMAT;
-        if (pluginConfig.hasPath(FORMAT.key())) {
-            format = pluginConfig.getString(FORMAT.key());
-        }
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
+        MessageFormat messageFormat = readonlyConfig.get(FORMAT);
         String delimiter = DEFAULT_FIELD_DELIMITER;
         if (pluginConfig.hasPath(FIELD_DELIMITER.key())) {
             delimiter = pluginConfig.getString(FIELD_DELIMITER.key());
         }
-        String topic = pluginConfig.getString(TOPIC.key());
+        String topic = null;
+        if (pluginConfig.hasPath(TOPIC.key())) {
+            topic = pluginConfig.getString(TOPIC.key());
+        }
         if (pluginConfig.hasPath(PARTITION.key())) {
             return DefaultSeaTunnelRowSerializer.create(
                     topic,
                     pluginConfig.getInt(PARTITION.key()),
                     seaTunnelRowType,
-                    format,
+                    messageFormat,
                     delimiter);
         } else {
             return DefaultSeaTunnelRowSerializer.create(
                     topic,
                     getPartitionKeyFields(pluginConfig, seaTunnelRowType),
                     seaTunnelRowType,
-                    format,
+                    messageFormat,
                     delimiter);
         }
     }
