@@ -156,7 +156,8 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                                                             if (this.messageFormatErrorHandleWay
                                                                     == MessageFormatErrorHandleWay
                                                                             .SKIP) {
-                                                                log.warn("Deserialize message failed, skip this message, message: {}",
+                                                                log.warn(
+                                                                        "Deserialize message failed, skip this message, message: {}",
                                                                         record.value());
                                                                 continue;
                                                             }
