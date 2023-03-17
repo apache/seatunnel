@@ -111,7 +111,7 @@ public class CatalogTableUtil implements Serializable {
         // Get the list of specified tables
         List<String> tableNames = catalogConfig.get(CatalogOptions.TABLE_NAMES);
         List<CatalogTable> catalogTables = new ArrayList<>();
-        if (tableNames != null && tableNames.size() > 1) {
+        if (tableNames != null && tableNames.size() >= 1) {
             for (String tableName : tableNames) {
                 catalogTables.add(catalog.getTable(TablePath.of(tableName)));
             }

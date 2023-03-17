@@ -22,6 +22,9 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.CatalogOptions;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
+import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 
 public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
 
@@ -45,6 +48,23 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
                         JdbcSourceOptions.CONNECT_TIMEOUT_MS,
                         JdbcSourceOptions.CONNECT_MAX_RETRIES,
                         JdbcSourceOptions.CONNECTION_POOL_SIZE)
+                .optional(SqlServerSourceOptions.STARTUP_MODE, SqlServerSourceOptions.STOP_MODE)
+                .conditional(
+                        SqlServerSourceOptions.STARTUP_MODE,
+                        StartupMode.SPECIFIC,
+                        SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)
+                .conditional(
+                        SqlServerSourceOptions.STOP_MODE,
+                        StopMode.SPECIFIC,
+                        SourceOptions.STOP_SPECIFIC_OFFSET_POS)
+                .conditional(
+                        SqlServerSourceOptions.STARTUP_MODE,
+                        StartupMode.TIMESTAMP,
+                        SourceOptions.STARTUP_TIMESTAMP)
+                .conditional(
+                        SqlServerSourceOptions.STOP_MODE,
+                        StopMode.TIMESTAMP,
+                        SourceOptions.STOP_TIMESTAMP)
                 .build();
     }
 

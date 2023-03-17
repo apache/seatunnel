@@ -19,19 +19,20 @@ package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSemantics;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.SeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSinkState;
 
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
@@ -42,8 +43,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Random;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.ASSIGN_PARTITIONS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FIELD_DELIMITER;
@@ -60,9 +59,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     private final SinkWriter.Context context;
 
     private String transactionPrefix;
-    private String topic;
     private long lastCheckpointId = 0;
-    private boolean isExtractTopic;
     private SeaTunnelRowType seaTunnelRowType;
 
     private final KafkaProduceSender<byte[], byte[]> kafkaProducerSender;
@@ -77,9 +74,6 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
             List<KafkaSinkState> kafkaStates) {
         this.context = context;
         this.seaTunnelRowType = seaTunnelRowType;
-        Pair<Boolean, String> topicResult = isExtractTopic(pluginConfig.getString(TOPIC.key()));
-        this.isExtractTopic = topicResult.getKey();
-        this.topic = topicResult.getRight();
         if (pluginConfig.hasPath(ASSIGN_PARTITIONS.key())) {
             MessageContentPartitioner.setAssignPartitions(
                     pluginConfig.getStringList(ASSIGN_PARTITIONS.key()));
@@ -113,7 +107,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     @Override
     public void write(SeaTunnelRow element) {
         ProducerRecord<byte[], byte[]> producerRecord =
-                seaTunnelRowSerializer.serializeRow(extractTopic(element), element);
+                seaTunnelRowSerializer.serializeRow(element);
         kafkaProducerSender.send(producerRecord);
     }
 
@@ -170,22 +164,29 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
     private SeaTunnelRowSerializer<byte[], byte[]> getSerializer(
             Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
-        String format = FORMAT.defaultValue();
-        if (pluginConfig.hasPath(FORMAT.key())) {
-            format = pluginConfig.getString(FORMAT.key());
-        }
-        String delimiter = FIELD_DELIMITER.defaultValue();
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
+        MessageFormat messageFormat = readonlyConfig.get(FORMAT);
+        String delimiter = DEFAULT_FIELD_DELIMITER;
         if (pluginConfig.hasPath(FIELD_DELIMITER.key())) {
             delimiter = pluginConfig.getString(FIELD_DELIMITER.key());
         }
+        String topic = null;
+        if (pluginConfig.hasPath(TOPIC.key())) {
+            topic = pluginConfig.getString(TOPIC.key());
+        }
         if (pluginConfig.hasPath(PARTITION.key())) {
-            return new DefaultSeaTunnelRowSerializer(
-                    pluginConfig.getInt(PARTITION.key()), seaTunnelRowType, format, delimiter);
+            return DefaultSeaTunnelRowSerializer.create(
+                    topic,
+                    pluginConfig.getInt(PARTITION.key()),
+                    seaTunnelRowType,
+                    messageFormat,
+                    delimiter);
         } else {
-            return new DefaultSeaTunnelRowSerializer(
+            return DefaultSeaTunnelRowSerializer.create(
+                    topic,
                     getPartitionKeyFields(pluginConfig, seaTunnelRowType),
                     seaTunnelRowType,
-                    format,
+                    messageFormat,
                     delimiter);
         }
     }
@@ -226,34 +227,5 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
             return partitionKeyFields;
         }
         return Collections.emptyList();
-    }
-
-    private Pair<Boolean, String> isExtractTopic(String topicConfig) {
-        String regex = "\\$\\{(.*?)\\}";
-        Pattern pattern = Pattern.compile(regex, Pattern.DOTALL);
-        Matcher matcher = pattern.matcher(topicConfig);
-        if (matcher.find()) {
-            return Pair.of(true, matcher.group(1));
-        }
-        return Pair.of(false, topicConfig);
-    }
-
-    private String extractTopic(SeaTunnelRow row) {
-        if (!isExtractTopic) {
-            return topic;
-        }
-        List<String> fieldNames = Arrays.asList(seaTunnelRowType.getFieldNames());
-        if (!fieldNames.contains(topic)) {
-            throw new KafkaConnectorException(
-                    CommonErrorCode.ILLEGAL_ARGUMENT,
-                    String.format("Field name { %s } is not found!", topic));
-        }
-        int topicFieldIndex = seaTunnelRowType.indexOf(topic);
-        Object topicFieldValue = row.getField(topicFieldIndex);
-        if (topicFieldValue == null) {
-            throw new KafkaConnectorException(
-                    CommonErrorCode.ILLEGAL_ARGUMENT, "The column value is empty!");
-        }
-        return topicFieldValue.toString();
     }
 }

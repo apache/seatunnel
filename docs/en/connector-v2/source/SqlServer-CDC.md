@@ -44,6 +44,7 @@ describes how to setup the SqlServer CDC connector to run SQL queries against Sq
 | chunk-key.even-distribution.factor.upper-bound | Double   | No       | 1000          |
 | chunk-key.even-distribution.factor.lower-bound | Double   | No       | 0.05          |
 | debezium.*                                     | config   | No       | -             |
+| format                                         | Enum     | No       | DEFAULT       |
 | common-options                                 |          | no       | -             |
 
 ### hostname [String]
@@ -149,6 +150,10 @@ Pass-through Debezium's properties to Debezium Embedded Engine which is used to 
 
 See more about
 the [Debezium's SqlServer Connector properties](https://debezium.io/documentation/reference/1.6/connectors/sqlserver.html#sqlserver-connector-properties)
+
+### format [Enum]
+
+Optional output format for SqlServer CDC, valid enumerations are "DEFAULT"、"COMPATIBLE_DEBEZIUM_JSON".
 
 #### example
 

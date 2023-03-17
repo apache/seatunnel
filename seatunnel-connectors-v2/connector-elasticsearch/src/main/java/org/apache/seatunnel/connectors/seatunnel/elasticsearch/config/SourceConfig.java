@@ -20,7 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class SourceConfig {
 
@@ -51,4 +54,12 @@ public class SourceConfig {
                     .defaultValue(100)
                     .withDescription(
                             "Maximum number of hits to be returned with each Elasticsearch scroll request");
+
+    public static final Option<Map> QUERY =
+            Options.key("query")
+                    .objectType(Map.class)
+                    .defaultValue(
+                            Collections.singletonMap("match_all", new HashMap<String, String>()))
+                    .withDescription(
+                            "Elasticsearch query language. You can control the range of data read");
 }

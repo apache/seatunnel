@@ -20,6 +20,3 @@
 SPARK_HOME=${SPARK_HOME:-/opt/spark}
 # Home directory of flink distribution.
 FLINK_HOME=${FLINK_HOME:-/opt/flink}
-
-# Control whether to print the ascii logo
-export SEATUNNEL_PRINT_ASCII_LOGO=true

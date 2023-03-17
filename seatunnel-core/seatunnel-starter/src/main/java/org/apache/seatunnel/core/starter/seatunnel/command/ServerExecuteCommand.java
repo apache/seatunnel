@@ -23,6 +23,8 @@ import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 
+import org.apache.commons.lang3.StringUtils;
+
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 
 /** This command is used to execute the SeaTunnel engine job by SeaTunnel API. */
@@ -37,7 +39,9 @@ public class ServerExecuteCommand implements Command<ServerCommandArgs> {
     @Override
     public void execute() {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
-        seaTunnelConfig.getHazelcastConfig().setClusterName(serverCommandArgs.getClusterName());
+        if (StringUtils.isNotEmpty(serverCommandArgs.getClusterName())) {
+            seaTunnelConfig.getHazelcastConfig().setClusterName(serverCommandArgs.getClusterName());
+        }
         HazelcastInstanceFactory.newHazelcastInstance(
                 seaTunnelConfig.getHazelcastConfig(),
                 Thread.currentThread().getName(),

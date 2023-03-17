@@ -196,8 +196,8 @@ public class SubPlan {
                                         checkpointCoordinatorState
                                                 .getCheckpointCoordinatorStatus())) {
                                     pipelineStatus = PipelineStatus.FAILED;
-                                    errorByPhysicalVertex.set(
-                                            checkpointCoordinatorState.getThrowableMsg());
+                                    errorByPhysicalVertex.compareAndSet(
+                                            null, checkpointCoordinatorState.getThrowableMsg());
                                 }
                             } else {
                                 pipelineStatus = PipelineStatus.FINISHED;
@@ -211,14 +211,14 @@ public class SubPlan {
                                         checkpointCoordinatorState
                                                 .getCheckpointCoordinatorStatus())) {
                                     pipelineStatus = PipelineStatus.FAILED;
-                                    errorByPhysicalVertex.set(
-                                            checkpointCoordinatorState.getThrowableMsg());
+                                    errorByPhysicalVertex.compareAndSet(
+                                            null, checkpointCoordinatorState.getThrowableMsg());
                                 } else if (CheckpointCoordinatorStatus.CANCELED.equals(
                                         checkpointCoordinatorState
                                                 .getCheckpointCoordinatorStatus())) {
                                     pipelineStatus = PipelineStatus.CANCELED;
-                                    errorByPhysicalVertex.set(
-                                            checkpointCoordinatorState.getThrowableMsg());
+                                    errorByPhysicalVertex.compareAndSet(
+                                            null, checkpointCoordinatorState.getThrowableMsg());
                                 }
                             }
 
@@ -494,15 +494,12 @@ public class SubPlan {
                         coordinator.updateTaskExecutionState(
                                 new TaskExecutionState(
                                         coordinator.getTaskGroupLocation(),
-                                        ExecutionState.FINISHED,
-                                        null)));
+                                        ExecutionState.FINISHED)));
         physicalVertexList.forEach(
                 task ->
                         task.updateTaskExecutionState(
                                 new TaskExecutionState(
-                                        task.getTaskGroupLocation(),
-                                        ExecutionState.FINISHED,
-                                        null)));
+                                        task.getTaskGroupLocation(), ExecutionState.FINISHED)));
     }
 
     /** restore the pipeline state after new Master Node active */

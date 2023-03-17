@@ -24,6 +24,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -39,6 +40,7 @@ import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
@@ -57,10 +59,8 @@ import java.util.Map;
 import java.util.Properties;
 
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.BOOTSTRAP_SERVERS;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CANAL_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.COMMIT_ON_CHECKPOINT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CONSUMER_GROUP;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG;
@@ -70,7 +70,6 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.SCHE
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE_OFFSETS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE_TIMESTAMP;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TEXT_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TOPIC;
 
 @AutoService(SeaTunnelSource.class)
@@ -226,16 +225,13 @@ public class KafkaSource
             Config schema = config.getConfig(SCHEMA.key());
             // todo: use KafkaDataTypeConvertor here?
             typeInfo = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
-            String format = FORMAT.defaultValue();
-            if (config.hasPath(FORMAT.key())) {
-                format = config.getString(FORMAT.key());
-            }
+            MessageFormat format = ReadonlyConfig.fromConfig(config).get(FORMAT);
             switch (format) {
-                case DEFAULT_FORMAT:
+                case JSON:
                     deserializationSchema = new JsonDeserializationSchema(false, false, typeInfo);
                     break;
-                case TEXT_FORMAT:
-                    String delimiter = FIELD_DELIMITER.defaultValue();
+                case TEXT:
+                    String delimiter = DEFAULT_FIELD_DELIMITER;
                     if (config.hasPath(FIELD_DELIMITER.key())) {
                         delimiter = config.getString(FIELD_DELIMITER.key());
                     }
@@ -245,7 +241,7 @@ public class KafkaSource
                                     .delimiter(delimiter)
                                     .build();
                     break;
-                case CANAL_FORMAT:
+                case CANAL_JSON:
                     deserializationSchema =
                             CanalJsonDeserializationSchema.builder(typeInfo)
                                     .setIgnoreParseErrors(true)
