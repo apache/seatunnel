@@ -18,6 +18,7 @@
 package org.apache.seatunnel.translation.spark.source;
 
 import org.apache.seatunnel.api.common.CommonOptions;
+import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Constants;
@@ -74,7 +75,8 @@ public class SeaTunnelSourceSupport
         SeaTunnelSource<SeaTunnelRow, ?, ?> seaTunnelSource = getSeaTunnelSource(options);
         Integer parallelism = options.getInt(CommonOptions.PARALLELISM.key(), 1);
         Integer checkpointInterval =
-                options.getInt(Constants.CHECKPOINT_INTERVAL, CHECKPOINT_INTERVAL_DEFAULT);
+                options.getInt(
+                        EnvCommonOptions.CHECKPOINT_INTERVAL.key(), CHECKPOINT_INTERVAL_DEFAULT);
         String checkpointPath =
                 StringUtils.replacePattern(checkpointLocation, "sources/\\d+", "sources-state");
         Configuration configuration =

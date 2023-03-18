@@ -22,12 +22,14 @@ import lombok.Data;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Map;
 
 @Data
 @AllArgsConstructor
 public class SourceIndexInfo implements Serializable {
     private String index;
     private List<String> source;
+    private Map<String, Object> query;
     private String scrollTime;
     private int scrollSize;
 }

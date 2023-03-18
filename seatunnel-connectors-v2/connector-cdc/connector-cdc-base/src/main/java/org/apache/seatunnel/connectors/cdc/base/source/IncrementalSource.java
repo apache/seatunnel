@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -120,7 +121,7 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
 
     protected StartupConfig getStartupConfig(ReadonlyConfig config) {
         return new StartupConfig(
-                config.get(SourceOptions.STARTUP_MODE),
+                config.get(getStartupModeOption()),
                 config.get(SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE),
                 config.get(SourceOptions.STARTUP_SPECIFIC_OFFSET_POS),
                 config.get(SourceOptions.STARTUP_TIMESTAMP));
@@ -128,11 +129,15 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
 
     private StopConfig getStopConfig(ReadonlyConfig config) {
         return new StopConfig(
-                config.get(SourceOptions.STOP_MODE),
+                config.get(getStopModeOption()),
                 config.get(SourceOptions.STOP_SPECIFIC_OFFSET_FILE),
                 config.get(SourceOptions.STOP_SPECIFIC_OFFSET_POS),
                 config.get(SourceOptions.STOP_TIMESTAMP));
     }
+
+    public abstract Option<StartupMode> getStartupModeOption();
+
+    public abstract Option<StopMode> getStopModeOption();
 
     public abstract SourceConfig.Factory<C> createSourceConfigFactory(ReadonlyConfig config);
 
