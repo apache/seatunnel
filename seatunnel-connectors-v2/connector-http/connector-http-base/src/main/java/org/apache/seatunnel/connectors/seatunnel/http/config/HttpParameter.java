@@ -32,11 +32,13 @@ public class HttpParameter implements Serializable {
     protected HttpRequestMethod method;
     protected Map<String, String> headers;
     protected Map<String, String> params;
+    protected HttpPage httpPage;
     protected String body;
     protected int pollIntervalMillis;
     protected int retry;
     protected int retryBackoffMultiplierMillis = HttpConfig.DEFAULT_RETRY_BACKOFF_MULTIPLIER_MS;
     protected int retryBackoffMaxMillis = HttpConfig.DEFAULT_RETRY_BACKOFF_MAX_MS;
+    protected String pageReading;
 
     public void buildWithConfig(Config pluginConfig) {
         // set url
@@ -76,6 +78,22 @@ public class HttpParameter implements Serializable {
         }
         if (pluginConfig.hasPath(HttpConfig.POLL_INTERVAL_MILLS.key())) {
             this.setPollIntervalMillis(pluginConfig.getInt(HttpConfig.POLL_INTERVAL_MILLS.key()));
+        }
+
+        if (pluginConfig.hasPath(HttpConfig.PAGE.key())) {
+            String pageList =
+                    pluginConfig
+                            .getConfig(HttpConfig.PAGE.key())
+                            .root()
+                            .toConfig()
+                            .getString("pageList");
+            String pageField =
+                    pluginConfig
+                            .getConfig(HttpConfig.PAGE.key())
+                            .root()
+                            .toConfig()
+                            .getString("pageField");
+            this.setHttpPage(HttpPage.builder().pageField(pageField).pageList(pageList).build());
         }
         this.setRetryParameters(pluginConfig);
     }

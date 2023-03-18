@@ -110,13 +110,12 @@ public class HttpClientProvider implements AutoCloseable {
                 .build();
     }
 
-    public HttpResponse execute(
-            String url,
-            String method,
-            Map<String, String> headers,
-            Map<String, String> params,
-            String body)
-            throws Exception {
+    public HttpResponse execute(HttpParameter httpParameter) throws Exception {
+        String url = httpParameter.getUrl();
+        String method = httpParameter.getMethod().getMethod();
+        Map<String, String> headers = httpParameter.getHeaders();
+        Map<String, String> params = httpParameter.getParams();
+        String body = httpParameter.getBody();
         // convert method option to uppercase
         method = method.toUpperCase(Locale.ROOT);
         if (HttpPost.METHOD_NAME.equals(method)) {

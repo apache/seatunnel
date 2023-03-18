@@ -26,6 +26,8 @@ public class HttpConfig {
     public static final String BASIC = "Basic";
     public static final int DEFAULT_RETRY_BACKOFF_MULTIPLIER_MS = 100;
     public static final int DEFAULT_RETRY_BACKOFF_MAX_MS = 10000;
+    public static final int DEFAULT_PAGE_SIZE = 10;
+
     public static final Option<String> URL =
             Options.key("url").stringType().noDefaultValue().withDescription("Http request url");
     public static final Option<HttpRequestMethod> METHOD =
@@ -82,6 +84,13 @@ public class HttpConfig {
                     .noDefaultValue()
                     .withDescription(
                             "SeaTunnel content field.This parameter can get some json data, and there is no need to configure each field separately.");
+
+    public static final Option<HttpPage> PAGE =
+            Options.key("page")
+                    .objectType(HttpPage.class)
+                    .noDefaultValue()
+                    .withDescription(
+                            "SeaTunnel json field.When partial json data is required, this parameter can be configured to obtain data");
 
     public enum ResponseFormat {
         JSON("json");

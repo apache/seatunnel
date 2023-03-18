@@ -26,6 +26,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSpl
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpPage;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.connectors.seatunnel.http.config.JsonField;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorErrorCode;
@@ -88,13 +89,19 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         try {
-            HttpResponse response =
-                    httpClient.execute(
-                            this.httpParameter.getUrl(),
-                            this.httpParameter.getMethod().getMethod(),
-                            this.httpParameter.getHeaders(),
-                            this.httpParameter.getParams(),
-                            this.httpParameter.getBody());
+            HttpResponse response = null;
+            if (this.httpParameter.getHttpPage() != null) {
+                HttpPage httpPage = this.httpParameter.getHttpPage();
+                List<Integer> pageNumbers = getPageNumbers(httpPage.getPageList());
+                for (Integer pageNumber : pageNumbers) {
+                    this.httpParameter
+                            .getParams()
+                            .put(httpPage.getPageField(), pageNumber.toString());
+                    response = httpClient.execute(httpParameter);
+                }
+            } else {
+                response = httpClient.execute(httpParameter);
+            }
             if (HttpResponse.STATUS_OK == response.getCode()) {
                 String content = response.getContent();
                 if (!Strings.isNullOrEmpty(content)) {
@@ -209,5 +216,24 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                     JsonPath.compile(
                             jsonField.getFields().values().toArray(new String[] {})[index]);
         }
+    }
+
+    public static List<Integer> getPageNumbers(String pageNumbersString) {
+        List<Integer> pageNumbers = new ArrayList<>();
+        String[] ranges = pageNumbersString.split(",");
+        for (String range : ranges) {
+            String[] limits = range.split("-");
+            if (limits.length == 1) {
+                int pageNumber = Integer.parseInt(limits[0].trim());
+                pageNumbers.add(pageNumber);
+            } else if (limits.length == 2) {
+                int start = Integer.parseInt(limits[0].trim());
+                int end = Integer.parseInt(limits[1].trim());
+                for (int i = start; i <= end; i++) {
+                    pageNumbers.add(i);
+                }
+            }
+        }
+        return pageNumbers;
     }
 }
