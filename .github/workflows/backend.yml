@@ -29,8 +29,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  commit-message-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: 14
+
+      - name: Install dependencies
+        run: |
+          npm install -g commitlint@latest @commitlint/config-conventional@latest
+
+      - name: Initial config js
+        run: |
+          echo "module.exports = {extends: ['@commitlint/config-conventional']}" > commitlint.config.js
+
+      - name: Lint commit messages
+        run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }}
+
   license-header:
     if: github.repository == 'apache/incubator-seatunnel'
+    needs: [ commit-message-check ]
     name: License header
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -43,6 +68,7 @@ jobs:
 
   code-style:
     if: github.repository == 'apache/incubator-seatunnel'
+    needs: [ commit-message-check ]
     name: Code style
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -55,6 +81,7 @@ jobs:
 
   dead-link:
     if: github.repository == 'apache/incubator-seatunnel'
+    needs: [ commit-message-check ]
     name: Dead links
     runs-on: ubuntu-latest
     timeout-minutes: 30
