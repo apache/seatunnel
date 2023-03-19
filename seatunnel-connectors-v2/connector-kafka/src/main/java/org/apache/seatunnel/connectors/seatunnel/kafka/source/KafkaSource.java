@@ -85,7 +85,8 @@ public class KafkaSource
     private SeaTunnelRowType typeInfo;
     private JobContext jobContext;
     private long discoveryIntervalMillis = KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS.defaultValue();
-    private MessageFormatErrorHandleWay messageFormatErrorHandleWay = MessageFormatErrorHandleWay.FAIL;
+    private MessageFormatErrorHandleWay messageFormatErrorHandleWay =
+            MessageFormatErrorHandleWay.FAIL;
 
     @Override
     public Boundedness getBoundedness() {
@@ -198,13 +199,8 @@ public class KafkaSource
                     this.messageFormatErrorHandleWay = formatErrorWayOption;
                     break;
                 default:
-                    throw new PrepareFailException(
-                            getPluginName(),
-                            PluginType.SOURCE,
-                            "Unsupported message format error handle way: " + formatErrorWayOption);
+                    break;
             }
-        } else {
-            this.messageFormatErrorHandleWay = MessageFormatErrorHandleWay.FAIL;
         }
 
         setDeserialization(config);
