@@ -40,7 +40,7 @@ public interface DeserializationSchema<T> extends Serializable {
             if (deserialize != null) {
                 out.collect(deserialize);
             }
-        } catch (Exception e) {
+        } catch (IOException e) {
             throw new IOException(e);
         }
     }
