@@ -85,7 +85,7 @@ public class KafkaSource
     private SeaTunnelRowType typeInfo;
     private JobContext jobContext;
     private long discoveryIntervalMillis = KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS.defaultValue();
-    private MessageFormatErrorHandleWay messageFormatErrorHandleWay;
+    private MessageFormatErrorHandleWay messageFormatErrorHandleWay = MessageFormatErrorHandleWay.FAIL;
 
     @Override
     public Boundedness getBoundedness() {
