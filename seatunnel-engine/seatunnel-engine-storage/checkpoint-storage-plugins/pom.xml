@@ -23,7 +23,7 @@
     <parent>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel-engine-storage</artifactId>
-        <version>2.3.1</version>
+        <version>2.3.2-SNAPSHOT</version>
     </parent>
 
     <artifactId>checkpoint-storage-plugins</artifactId>
@@ -46,9 +46,4 @@
             <artifactId>auto-service</artifactId>
         </dependency>
     </dependencies>
-
-
-  <scm>
-    <tag>2.3.1</tag>
-  </scm>
 </project>

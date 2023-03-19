@@ -22,7 +22,7 @@
     <parent>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel-flink-starter</artifactId>
-        <version>2.3.1</version>
+        <version>2.3.2-SNAPSHOT</version>
     </parent>
 
     <artifactId>seatunnel-flink-15-starter</artifactId>
@@ -65,9 +65,4 @@
         </dependency>
 
     </dependencies>
-
-
-  <scm>
-    <tag>2.3.1</tag>
-  </scm>
 </project>

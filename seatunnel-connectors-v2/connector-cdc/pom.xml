@@ -22,7 +22,7 @@
     <parent>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel-connectors-v2</artifactId>
-        <version>2.3.1</version>
+        <version>2.3.2-SNAPSHOT</version>
     </parent>
     <artifactId>connector-cdc</artifactId>
     <packaging>pom</packaging>
@@ -37,8 +37,4 @@
     <properties>
         <debezium.version>1.6.4.Final</debezium.version>
     </properties>
-
-  <scm>
-    <tag>2.3.1</tag>
-  </scm>
 </project>
