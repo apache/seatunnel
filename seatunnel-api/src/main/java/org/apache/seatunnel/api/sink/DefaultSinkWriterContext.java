@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.api.sink;
 
-/**
- * The default {@link SinkWriter.Context} implement class.
- */
+import org.apache.seatunnel.api.common.metrics.AbstractMetricsContext;
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
+
+/** The default {@link SinkWriter.Context} implement class. */
 public class DefaultSinkWriterContext implements SinkWriter.Context {
     private final int subtask;
 
@@ -32,4 +33,10 @@ public class DefaultSinkWriterContext implements SinkWriter.Context {
         return subtask;
     }
 
+    @Override
+    public MetricsContext getMetricsContext() {
+        // TODO Waiting for Flink and Spark to implement MetricsContext
+        // https://github.com/apache/incubator-seatunnel/issues/3431
+        return new AbstractMetricsContext() {};
+    }
 }

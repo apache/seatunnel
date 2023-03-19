@@ -25,8 +25,7 @@ public final class RawJobMetrics implements Serializable {
     private long timestamp;
     private byte[] blob;
 
-    RawJobMetrics() {
-    }
+    RawJobMetrics() {}
 
     private RawJobMetrics(long timestamp, byte[] blob) {
         this.timestamp = timestamp;

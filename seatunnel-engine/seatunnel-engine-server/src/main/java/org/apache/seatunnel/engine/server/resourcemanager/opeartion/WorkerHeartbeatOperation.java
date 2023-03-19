@@ -32,8 +32,7 @@ public class WorkerHeartbeatOperation extends Operation implements IdentifiedDat
 
     private WorkerProfile workerProfile;
 
-    public WorkerHeartbeatOperation() {
-    }
+    public WorkerHeartbeatOperation() {}
 
     public WorkerHeartbeatOperation(WorkerProfile workerProfile) {
         this.workerProfile = workerProfile;

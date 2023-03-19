@@ -35,7 +35,7 @@ public class SqlServerConnectionUtils {
                         connectorConfig.getTemporalPrecisionMode(),
                         connectorConfig.binaryHandlingMode());
         return new SqlServerConnection(
-                dbzConfiguration,
+                connectorConfig.jdbcConfig(),
                 Clock.system(),
                 connectorConfig.getSourceTimestampMode(),
                 valueConverters,

@@ -34,6 +34,10 @@ import java.util.List;
 public class JobImmutableInformation implements IdentifiedDataSerializable {
     private long jobId;
 
+    private String jobName;
+
+    private boolean isStartWithSavePoint;
+
     private long createTime;
 
     private Data logicalDag;
@@ -42,23 +46,47 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
 
     private List<URL> pluginJarsUrls;
 
-    public JobImmutableInformation() {
-    }
+    public JobImmutableInformation() {}
 
-    public JobImmutableInformation(long jobId, @NonNull Data logicalDag, @NonNull JobConfig jobConfig, @NonNull List<URL> pluginJarsUrls) {
+    public JobImmutableInformation(
+            long jobId,
+            String jobName,
+            boolean isStartWithSavePoint,
+            @NonNull Data logicalDag,
+            @NonNull JobConfig jobConfig,
+            @NonNull List<URL> pluginJarsUrls) {
         this.createTime = System.currentTimeMillis();
         this.jobId = jobId;
+        this.jobName = jobName;
+        this.isStartWithSavePoint = isStartWithSavePoint;
         this.logicalDag = logicalDag;
         this.jobConfig = jobConfig;
         this.pluginJarsUrls = pluginJarsUrls;
+    }
+
+    public JobImmutableInformation(
+            long jobId,
+            String jobName,
+            @NonNull Data logicalDag,
+            @NonNull JobConfig jobConfig,
+            @NonNull List<URL> pluginJarsUrls) {
+        this(jobId, jobName, false, logicalDag, jobConfig, pluginJarsUrls);
     }
 
     public long getJobId() {
         return jobId;
     }
 
+    public boolean isStartWithSavePoint() {
+        return isStartWithSavePoint;
+    }
+
     public long getCreateTime() {
         return createTime;
+    }
+
+    public String getJobName() {
+        return jobName;
     }
 
     public Data getLogicalDag() {
@@ -86,16 +114,19 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
     @Override
     public void writeData(ObjectDataOutput out) throws IOException {
         out.writeLong(jobId);
+        out.writeString(jobName);
+        out.writeBoolean(isStartWithSavePoint);
         out.writeLong(createTime);
         IOUtil.writeData(out, logicalDag);
         out.writeObject(jobConfig);
         out.writeObject(pluginJarsUrls);
-
     }
 
     @Override
     public void readData(ObjectDataInput in) throws IOException {
         jobId = in.readLong();
+        jobName = in.readString();
+        isStartWithSavePoint = in.readBoolean();
         createTime = in.readLong();
         logicalDag = IOUtil.readData(in);
         jobConfig = in.readObject();

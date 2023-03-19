@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.translation.source;
 
+import org.apache.seatunnel.api.common.metrics.AbstractMetricsContext;
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -27,9 +29,10 @@ public class CoordinatedReaderContext implements SourceReader.Context {
     protected final Boundedness boundedness;
     protected final Integer subtaskId;
 
-    public CoordinatedReaderContext(CoordinatedSource<?, ?, ?> coordinatedSource,
-                                    Boundedness boundedness,
-                                    Integer subtaskId) {
+    public CoordinatedReaderContext(
+            CoordinatedSource<?, ?, ?> coordinatedSource,
+            Boundedness boundedness,
+            Integer subtaskId) {
         this.coordinatedSource = coordinatedSource;
         this.boundedness = boundedness;
         this.subtaskId = subtaskId;
@@ -58,5 +61,12 @@ public class CoordinatedReaderContext implements SourceReader.Context {
     @Override
     public void sendSourceEventToEnumerator(SourceEvent sourceEvent) {
         coordinatedSource.handleReaderEvent(subtaskId, sourceEvent);
+    }
+
+    @Override
+    public MetricsContext getMetricsContext() {
+        // TODO Waiting for Flink and Spark to implement MetricsContext
+        // https://github.com/apache/incubator-seatunnel/issues/3431
+        return new AbstractMetricsContext() {};
     }
 }

@@ -29,5 +29,4 @@ public class NodePassConfig {
 
     @OptionMark(description = "Clickhouse server linux password")
     private String password;
-
 }

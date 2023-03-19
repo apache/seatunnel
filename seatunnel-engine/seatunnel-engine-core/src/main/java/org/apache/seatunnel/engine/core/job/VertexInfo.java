@@ -35,5 +35,4 @@ public class VertexInfo implements Serializable {
     private PluginType type;
 
     private String connectorType;
-
 }

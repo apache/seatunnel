@@ -18,7 +18,8 @@
 
 package org.apache.seatunnel.format.json;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -26,30 +27,26 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.Getter;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class JsonSerializationSchema implements SerializationSchema {
 
-    /**
-     * RowType to generate the runtime converter.
-     */
+    /** RowType to generate the runtime converter. */
     private final SeaTunnelRowType rowType;
 
     /** Reusable object node. */
     private transient ObjectNode node;
 
     /** Object mapper that is used to create output JSON objects. */
-    @Getter
-    private final ObjectMapper mapper = new ObjectMapper();
+    @Getter private final ObjectMapper mapper = new ObjectMapper();
 
     private final RowToJsonConverters.RowToJsonConverter runtimeConverter;
 
     public JsonSerializationSchema(SeaTunnelRowType rowType) {
         this.rowType = rowType;
-        this.runtimeConverter = new RowToJsonConverters()
-                .createConverter(checkNotNull(rowType));
+        this.runtimeConverter = new RowToJsonConverters().createConverter(checkNotNull(rowType));
     }
 
     @Override
@@ -62,8 +59,10 @@ public class JsonSerializationSchema implements SerializationSchema {
             runtimeConverter.convert(mapper, node, row);
             return mapper.writeValueAsBytes(node);
         } catch (Throwable e) {
-            throw new SeaTunnelJsonFormatException(CommonErrorCode.JSON_OPERATION_FAILED,
-                    String.format("Failed to deserialize JSON '%s'.", row), e);
+            throw new SeaTunnelJsonFormatException(
+                    CommonErrorCode.JSON_OPERATION_FAILED,
+                    String.format("Failed to deserialize JSON '%s'.", row),
+                    e);
         }
     }
 }

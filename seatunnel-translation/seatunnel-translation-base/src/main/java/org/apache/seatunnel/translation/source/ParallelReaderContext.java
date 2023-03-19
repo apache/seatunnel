@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.translation.source;
 
+import org.apache.seatunnel.api.common.metrics.AbstractMetricsContext;
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -27,9 +29,8 @@ public class ParallelReaderContext implements SourceReader.Context {
     protected final Boundedness boundedness;
     protected final Integer subtaskId;
 
-    public ParallelReaderContext(ParallelSource<?, ?, ?> parallelSource,
-                                 Boundedness boundedness,
-                                 Integer subtaskId) {
+    public ParallelReaderContext(
+            ParallelSource<?, ?, ?> parallelSource, Boundedness boundedness, Integer subtaskId) {
         this.parallelSource = parallelSource;
         this.boundedness = boundedness;
         this.subtaskId = subtaskId;
@@ -57,7 +58,15 @@ public class ParallelReaderContext implements SourceReader.Context {
 
     @Override
     public void sendSourceEventToEnumerator(SourceEvent sourceEvent) {
-        // TODO: exception
-        throw new RuntimeException("");
+        throw new UnsupportedOperationException(
+                "Flink ParallelSource don't support sending SourceEvent. "
+                        + "Please implement the `SupportCoordinate` marker interface on the SeaTunnel source.");
+    }
+
+    @Override
+    public MetricsContext getMetricsContext() {
+        // TODO Waiting for Flink and Spark to implement MetricsContext
+        // https://github.com/apache/incubator-seatunnel/issues/3431
+        return new AbstractMetricsContext() {};
     }
 }

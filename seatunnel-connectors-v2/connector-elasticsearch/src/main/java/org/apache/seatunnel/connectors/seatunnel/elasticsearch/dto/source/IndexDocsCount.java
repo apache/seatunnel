@@ -20,9 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source;
 public class IndexDocsCount {
 
     private String index;
-    /**
-     * index docs count
-     */
+    /** index docs count */
     private Long docsCount;
 
     public String getIndex() {

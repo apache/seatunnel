@@ -18,18 +18,24 @@
   ~ under the License.
   ~
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
     <parent>
-        <artifactId>seatunnel-engine-storage</artifactId>
         <groupId>org.apache.seatunnel</groupId>
+        <artifactId>seatunnel-engine-storage</artifactId>
         <version>${revision}</version>
     </parent>
-    <modelVersion>4.0.0</modelVersion>
 
     <artifactId>checkpoint-storage-plugins</artifactId>
     <packaging>pom</packaging>
+    <name>SeaTunnel : Engine : Storage : Checkpoint Storage Plugins :</name>
+
+    <modules>
+        <module>checkpoint-storage-local-file</module>
+        <module>checkpoint-storage-hdfs</module>
+    </modules>
+
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
@@ -41,10 +47,5 @@
             <artifactId>auto-service</artifactId>
         </dependency>
     </dependencies>
-    
-    <modules>
-        <module>checkpoint-storage-local-file</module>
-        <module>checkpoint-storage-hdfs</module>
-    </modules>
 
 </project>

@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.tablestore;
 
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
@@ -45,20 +45,23 @@ public class TablestoreDialect implements JdbcDialect {
     }
 
     @Override
-    public Optional<String> getUpsertStatement(String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+    public Optional<String> getUpsertStatement(
+            String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
         return Optional.empty();
     }
 
     @Override
-    public PreparedStatement creatPreparedStatement(Connection connection, String queryTemplate, int fetchSize) throws SQLException {
+    public PreparedStatement creatPreparedStatement(
+            Connection connection, String queryTemplate, int fetchSize) throws SQLException {
         PreparedStatement statement = connection.prepareStatement(queryTemplate);
         statement.setFetchSize(fetchSize);
         return statement;
     }
 
     @Override
-    public ResultSetMetaData getResultSetMetaData(Connection conn, JdbcSourceOptions jdbcSourceOptions) throws SQLException {
-        PreparedStatement ps = conn.prepareStatement(jdbcSourceOptions.getQuery());
+    public ResultSetMetaData getResultSetMetaData(
+            Connection conn, JdbcSourceConfig jdbcSourceConfig) throws SQLException {
+        PreparedStatement ps = conn.prepareStatement(jdbcSourceConfig.getQuery());
         return ps.executeQuery().getMetaData();
     }
 }

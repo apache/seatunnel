@@ -43,7 +43,10 @@ public abstract class RowConverter<T> implements Serializable {
 
     public void validate(SeaTunnelRow seaTunnelRow) throws IOException {
         if (!(dataType instanceof SeaTunnelRowType)) {
-            throw new UnsupportedOperationException(String.format("The data type don't support validation: %s. ", dataType.getClass().getSimpleName()));
+            throw new UnsupportedOperationException(
+                    String.format(
+                            "The data type don't support validation: %s. ",
+                            dataType.getClass().getSimpleName()));
         }
         SeaTunnelDataType<?>[] fieldTypes = ((SeaTunnelRowType) dataType).getFieldTypes();
         List<String> errors = new ArrayList<>();
@@ -53,8 +56,12 @@ public abstract class RowConverter<T> implements Serializable {
             field = seaTunnelRow.getField(i);
             fieldType = fieldTypes[i];
             if (!validate(field, fieldType)) {
-                errors.add(String.format("The SQL type '%s' don't support '%s', the class of the expected data type is '%s'.",
-                    fieldType.getSqlType(), field.getClass(), fieldType.getTypeClass()));
+                errors.add(
+                        String.format(
+                                "The SQL type '%s' don't support '%s', the class of the expected data type is '%s'.",
+                                fieldType.getSqlType(),
+                                field.getClass(),
+                                fieldType.getTypeClass()));
             }
         }
         if (errors.size() > 0) {
@@ -94,7 +101,7 @@ public abstract class RowConverter<T> implements Serializable {
                 } else {
                     Map.Entry<?, ?> entry = mapField.entrySet().stream().findFirst().get();
                     return validate(entry.getKey(), mapType.getKeyType())
-                        && validate(entry.getValue(), mapType.getValueType());
+                            && validate(entry.getValue(), mapType.getValueType());
                 }
             case ROW:
                 if (!(field instanceof SeaTunnelRow)) {

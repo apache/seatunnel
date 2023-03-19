@@ -20,7 +20,7 @@ package org.apache.seatunnel.api.source;
 import java.io.Serializable;
 
 /**
- * A base class for the events passed between the {@link SourceReader} and {@link SourceSplitEnumerator}.
+ * A base class for the events passed between the {@link SourceReader} and {@link
+ * SourceSplitEnumerator}.
  */
-public interface SourceEvent extends Serializable {
-}
+public interface SourceEvent extends Serializable {}

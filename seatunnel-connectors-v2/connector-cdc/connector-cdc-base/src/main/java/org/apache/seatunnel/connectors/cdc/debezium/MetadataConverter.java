@@ -21,9 +21,7 @@ import org.apache.kafka.connect.source.SourceRecord;
 
 import java.io.Serializable;
 
-/**
- * {@link SourceRecord} metadata info converter.
- */
+/** {@link SourceRecord} metadata info converter. */
 @FunctionalInterface
 public interface MetadataConverter extends Serializable {
     Object read(SourceRecord record);

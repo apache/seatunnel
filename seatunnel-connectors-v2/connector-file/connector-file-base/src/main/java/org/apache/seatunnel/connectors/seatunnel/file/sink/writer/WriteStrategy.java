@@ -40,6 +40,7 @@ public interface WriteStrategy extends Transaction, Serializable {
 
     /**
      * use hadoop conf generate hadoop configuration
+     *
      * @param conf hadoop conf
      * @return Configuration
      */
@@ -47,6 +48,7 @@ public interface WriteStrategy extends Transaction, Serializable {
 
     /**
      * write seaTunnelRow to target datasource
+     *
      * @param seaTunnelRow seaTunnelRow
      * @throws FileConnectorException Exceptions
      */
@@ -54,12 +56,14 @@ public interface WriteStrategy extends Transaction, Serializable {
 
     /**
      * set seaTunnelRowTypeInfo in writer
+     *
      * @param seaTunnelRowType seaTunnelRowType
      */
     void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType);
 
     /**
      * use seaTunnelRow generate partition directory
+     *
      * @param seaTunnelRow seaTunnelRow
      * @return the map of partition directory
      */
@@ -67,36 +71,39 @@ public interface WriteStrategy extends Transaction, Serializable {
 
     /**
      * use transaction id generate file name
+     *
      * @param transactionId transaction id
      * @return file name
      */
     String generateFileName(String transactionId);
 
-    /**
-     * when a transaction is triggered, release resources
-     */
+    /** when a transaction is triggered, release resources */
     void finishAndCloseFile();
 
     /**
      * get current checkpoint id
+     *
      * @return checkpoint id
      */
     long getCheckpointId();
 
     /**
      * get sink configuration
+     *
      * @return sink configuration
      */
     FileSinkConfig getFileSinkConfig();
 
     /**
      * get file system utils
+     *
      * @return file system utils
      */
     FileSystemUtils getFileSystemUtils();
 
     /**
      * set file system utils
+     *
      * @param fileSystemUtils fileSystemUtils
      */
     void setFileSystemUtils(FileSystemUtils fileSystemUtils);

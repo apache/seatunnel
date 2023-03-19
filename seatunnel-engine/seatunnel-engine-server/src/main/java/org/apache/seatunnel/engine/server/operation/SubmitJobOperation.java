@@ -32,8 +32,7 @@ import java.io.IOException;
 public class SubmitJobOperation extends AbstractJobAsyncOperation {
     private Data jobImmutableInformation;
 
-    public SubmitJobOperation() {
-    }
+    public SubmitJobOperation() {}
 
     public SubmitJobOperation(long jobId, @NonNull Data jobImmutableInformation) {
         super(jobId);

@@ -30,8 +30,7 @@ public class ExceptionTestTask implements Task {
     List<Throwable> throwE;
 
     @SneakyThrows
-    @NonNull
-    @Override
+    @NonNull @Override
     public ProgressState call() {
         if (!throwE.isEmpty()) {
             throw throwE.get(0);
@@ -41,8 +40,7 @@ public class ExceptionTestTask implements Task {
         return ProgressState.MADE_PROGRESS;
     }
 
-    @NonNull
-    @Override
+    @NonNull @Override
     public Long getTaskID() {
         return (long) this.hashCode();
     }

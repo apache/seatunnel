@@ -54,7 +54,8 @@ public class OptionUtilTest {
         Assertions.assertEquals(Byte.class, options.get(7).typeReference().getType());
 
         Assertions.assertEquals(Character.class, options.get(8).typeReference().getType());
-        Assertions.assertEquals(TestOptionConfigEnum.class, options.get(9).typeReference().getType());
+        Assertions.assertEquals(
+                TestOptionConfigEnum.class, options.get(9).typeReference().getType());
         Assertions.assertEquals(TestOptionConfigEnum.KEY2, options.get(9).defaultValue());
 
         Assertions.assertEquals(TestOptionConfig.class, options.get(10).typeReference().getType());
@@ -62,7 +63,5 @@ public class OptionUtilTest {
         Assertions.assertEquals(List.class, options.get(11).typeReference().getType());
 
         Assertions.assertEquals(Map.class, options.get(12).typeReference().getType());
-
     }
-
 }

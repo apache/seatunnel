@@ -89,7 +89,8 @@ public class MySqlTypeMapper implements JdbcDialectTypeMapper {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
-    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException {
+    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
+            throws SQLException {
         String mysqlType = metadata.getColumnTypeName(colIndex).toUpperCase();
         String columnName = metadata.getColumnName(colIndex);
         int precision = metadata.getPrecision(colIndex);
@@ -140,10 +141,10 @@ public class MySqlTypeMapper implements JdbcDialectTypeMapper {
                 return BasicType.STRING_TYPE;
             case MYSQL_LONGTEXT:
                 LOG.warn(
-                    "Type '{}' has a maximum precision of 536870911 in MySQL. "
-                        + "Due to limitations in the seatunnel type system, "
-                        + "the precision will be set to 2147483647.",
-                    MYSQL_LONGTEXT);
+                        "Type '{}' has a maximum precision of 536870911 in MySQL. "
+                                + "Due to limitations in the seatunnel type system, "
+                                + "the precision will be set to 2147483647.",
+                        MYSQL_LONGTEXT);
                 return BasicType.STRING_TYPE;
             case MYSQL_DATE:
                 return LocalTimeType.LOCAL_DATE_TYPE;
@@ -161,15 +162,16 @@ public class MySqlTypeMapper implements JdbcDialectTypeMapper {
             case MYSQL_BINARY:
                 return PrimitiveByteArrayType.INSTANCE;
 
-            //Doesn't support yet
+                // Doesn't support yet
             case MYSQL_GEOMETRY:
             case MYSQL_UNKNOWN:
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
-                throw new JdbcConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
-                    String.format(
-                        "Doesn't support MySQL type '%s' on column '%s'  yet.",
-                        mysqlType, jdbcColumnName));
+                throw new JdbcConnectorException(
+                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        String.format(
+                                "Doesn't support MySQL type '%s' on column '%s'  yet.",
+                                mysqlType, jdbcColumnName));
         }
     }
 }

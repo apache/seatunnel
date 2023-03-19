@@ -19,12 +19,15 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.source.reader;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.data.Deserializer;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFileScanTaskSplit;
+
+import org.apache.iceberg.data.Record;
+import org.apache.iceberg.io.CloseableIterator;
 
 import lombok.AllArgsConstructor;
 import lombok.NonNull;
-import org.apache.iceberg.data.Record;
-import org.apache.iceberg.io.CloseableIterator;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -38,14 +41,16 @@ public class IcebergFileScanTaskSplitReader implements Closeable {
     public CloseableIterator<SeaTunnelRow> open(@NonNull IcebergFileScanTaskSplit split) {
         CloseableIterator<Record> iterator = icebergFileScanTaskReader.open(split.getTask());
 
-        OffsetSeekIterator<Record> seekIterator = new OffsetSeekIterator(iterator);
+        OffsetSeekIterator<Record> seekIterator = new OffsetSeekIterator<>(iterator);
         seekIterator.seek(split.getRecordOffset());
 
-        return CloseableIterator.transform(seekIterator, record -> {
-            SeaTunnelRow seaTunnelRow = deserializer.deserialize(record);
-            split.setRecordOffset(split.getRecordOffset() + 1);
-            return seaTunnelRow;
-        });
+        return CloseableIterator.transform(
+                seekIterator,
+                record -> {
+                    SeaTunnelRow seaTunnelRow = deserializer.deserialize(record);
+                    split.setRecordOffset(split.getRecordOffset() + 1);
+                    return seaTunnelRow;
+                });
     }
 
     @Override
@@ -62,8 +67,10 @@ public class IcebergFileScanTaskSplitReader implements Closeable {
                 if (hasNext()) {
                     next();
                 } else {
-                    throw new IllegalStateException(String.format(
-                        "Invalid starting record offset %d", startingRecordOffset));
+                    throw new IcebergConnectorException(
+                            IcebergConnectorErrorCode.INVALID_STARTING_RECORD_OFFSET,
+                            String.format(
+                                    "Invalid starting record offset %d", startingRecordOffset));
                 }
             }
         }

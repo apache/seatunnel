@@ -26,10 +26,8 @@ public enum KuduConnectorErrorCode implements SeaTunnelErrorCode {
     KUDU_UPSERT_FAILED("KUDU-04", "Upsert data to Kudu failed"),
     KUDU_INSERT_FAILED("KUDU-05", "Insert data to Kudu failed"),
     INIT_KUDU_CLIENT_FAILED("KUDU-06", "Initialize the Kudu client failed"),
-    GENERATE_KUDU_PARAMETERS_FAILED("KUDU-07", "Generate Kudu Parameters in the preparation phase failed")
-    ;
-
-
+    GENERATE_KUDU_PARAMETERS_FAILED(
+            "KUDU-07", "Generate Kudu Parameters in the preparation phase failed");
 
     private final String code;
 

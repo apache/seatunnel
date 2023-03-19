@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerConnectionUtils.createSqlServerConnection;
-
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
@@ -26,8 +24,6 @@ import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionPoolFactory;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkSplitter;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
-import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
-import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.config.SqlServerSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.config.SqlServerSourceConfigFactory;
@@ -38,17 +34,16 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.rea
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.TableDiscoveryUtils;
 
-import io.debezium.connector.sqlserver.SqlServerConnection;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.TableChanges;
 
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.List;
 
-/** The {@link JdbcDataSourceDialect} implementation for MySQL datasource. */
+import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerConnectionUtils.createSqlServerConnection;
 
+/** The {@link JdbcDataSourceDialect} implementation for MySQL datasource. */
 public class SqlServerDialect implements JdbcDataSourceDialect {
 
     private static final long serialVersionUID = 1L;
@@ -73,7 +68,7 @@ public class SqlServerDialect implements JdbcDataSourceDialect {
 
     @Override
     public JdbcConnection openJdbcConnection(JdbcSourceConfig sourceConfig) {
-        return createSqlServerConnection(sourceConfig.getDbzConnectorConfig().getJdbcConfig());
+        return createSqlServerConnection(sourceConfig.getDbzConfiguration());
     }
 
     @Override
@@ -107,26 +102,9 @@ public class SqlServerDialect implements JdbcDataSourceDialect {
 
     @Override
     public SqlServerSourceFetchTaskContext createFetchTaskContext(
-        SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig) {
-        final SqlServerConnection jdbcConnection =
-            createSqlServerConnection(taskSourceConfig.getDbzConnectorConfig().getJdbcConfig());
-        final SqlServerConnection metaDataConnection =
-            createSqlServerConnection(taskSourceConfig.getDbzConnectorConfig().getJdbcConfig());
+            SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig) {
 
-        List<TableChanges.TableChange> tableChangeList = new ArrayList<>();
-        // TODO: support save table schema
-        if (sourceSplitBase instanceof SnapshotSplit) {
-            SnapshotSplit snapshotSplit = (SnapshotSplit) sourceSplitBase;
-            tableChangeList.add(queryTableSchema(jdbcConnection, snapshotSplit.getTableId()));
-        } else {
-            IncrementalSplit incrementalSplit = (IncrementalSplit) sourceSplitBase;
-            for (TableId tableId : incrementalSplit.getTableIds()) {
-                tableChangeList.add(queryTableSchema(jdbcConnection, tableId));
-            }
-        }
-
-        return new SqlServerSourceFetchTaskContext(
-            taskSourceConfig, this, jdbcConnection, metaDataConnection, tableChangeList);
+        return new SqlServerSourceFetchTaskContext(taskSourceConfig, this);
     }
 
     @Override

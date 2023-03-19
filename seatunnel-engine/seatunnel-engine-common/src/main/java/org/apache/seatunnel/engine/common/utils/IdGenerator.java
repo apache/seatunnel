@@ -20,8 +20,8 @@ package org.apache.seatunnel.engine.common.utils;
 import java.io.Serializable;
 
 /**
- * It is used to generate the ID of each vertex in DAG. We just need to ensure that the id of all Vertices in a DAG are
- * unique.
+ * It is used to generate the ID of each vertex in DAG. We just need to ensure that the id of all
+ * Vertices in a DAG are unique.
  */
 public class IdGenerator implements Serializable {
 

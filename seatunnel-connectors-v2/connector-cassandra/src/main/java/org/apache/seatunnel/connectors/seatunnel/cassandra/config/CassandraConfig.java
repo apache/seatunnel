@@ -67,10 +67,8 @@ public class CassandraConfig implements Serializable {
     }
 
     public static CassandraConfig getCassandraConfig(Config config) {
-        CassandraConfig cassandraConfig = new CassandraConfig(
-            config.getString(HOST),
-            config.getString(KEYSPACE)
-        );
+        CassandraConfig cassandraConfig =
+                new CassandraConfig(config.getString(HOST), config.getString(KEYSPACE));
         if (config.hasPath(USERNAME)) {
             cassandraConfig.setUsername(config.getString(USERNAME));
         }
@@ -92,7 +90,8 @@ public class CassandraConfig implements Serializable {
             cassandraConfig.setFields(config.getStringList(FIELDS));
         }
         if (config.hasPath(CONSISTENCY_LEVEL)) {
-            cassandraConfig.setConsistencyLevel(DefaultConsistencyLevel.valueOf(config.getString(CONSISTENCY_LEVEL)));
+            cassandraConfig.setConsistencyLevel(
+                    DefaultConsistencyLevel.valueOf(config.getString(CONSISTENCY_LEVEL)));
         } else {
             cassandraConfig.setConsistencyLevel(DefaultConsistencyLevel.LOCAL_ONE);
         }

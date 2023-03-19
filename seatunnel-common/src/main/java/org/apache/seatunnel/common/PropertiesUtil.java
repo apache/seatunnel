@@ -27,24 +27,27 @@ import java.util.function.Function;
 
 public final class PropertiesUtil {
 
-    private PropertiesUtil() {
+    private PropertiesUtil() {}
+
+    public static void setProperties(
+            Config config, Properties properties, String prefix, boolean keepPrefix) {
+        config.entrySet()
+                .forEach(
+                        entry -> {
+                            String key = entry.getKey();
+                            Object value = entry.getValue().unwrapped();
+                            if (key.startsWith(prefix)) {
+                                if (keepPrefix) {
+                                    properties.put(key, value);
+                                } else {
+                                    properties.put(key.substring(prefix.length()), value);
+                                }
+                            }
+                        });
     }
 
-    public static void setProperties(Config config, Properties properties, String prefix, boolean keepPrefix) {
-        config.entrySet().forEach(entry -> {
-            String key = entry.getKey();
-            Object value = entry.getValue().unwrapped();
-            if (key.startsWith(prefix)) {
-                if (keepPrefix) {
-                    properties.put(key, value);
-                } else {
-                    properties.put(key.substring(prefix.length()), value);
-                }
-            }
-        });
-    }
-
-    public static <E extends Enum<E>> E getEnum(final Config conf, final String key, final Class<E> enumClass, final E defaultEnum) {
+    public static <E extends Enum<E>> E getEnum(
+            final Config conf, final String key, final Class<E> enumClass, final E defaultEnum) {
         if (!conf.hasPath(key)) {
             return defaultEnum;
         }
@@ -55,7 +58,12 @@ public final class PropertiesUtil {
         return Enum.valueOf(enumClass, value.toUpperCase());
     }
 
-    public static <T> void setOption(Config config, String optionName, T defaultValue, Function<String, T> getter, Consumer<T> setter) {
+    public static <T> void setOption(
+            Config config,
+            String optionName,
+            T defaultValue,
+            Function<String, T> getter,
+            Consumer<T> setter) {
         T value;
         if (config.hasPath(optionName)) {
             value = getter.apply(optionName);
@@ -67,7 +75,8 @@ public final class PropertiesUtil {
         }
     }
 
-    public static <T> void setOption(Config config, String optionName, Function<String, T> getter, Consumer<T> setter) {
+    public static <T> void setOption(
+            Config config, String optionName, Function<String, T> getter, Consumer<T> setter) {
         T value = null;
         if (config.hasPath(optionName)) {
             value = getter.apply(optionName);

@@ -18,30 +18,30 @@ Used to read data from Rabbitmq.
 :::tip
 The source must be non-parallel (parallelism set to 1) in order to achieve exactly-once. This limitation is mainly due to RabbitMQ’s approach to dispatching messages from a single queue to multiple consumers.
 
-##  Options
+## Options
 
-| name                        | type    | required | default value |
-|-----------------------------|---------|----------|---------------|
-| host                        | string  | yes      | -             |
-| port                        | int     | yes      | -             |
-| virtual_host                | string  | yes      | -             |
-| username                    | string  | yes      | -             |
-| password                    | string  | yes      | -             |
-| queue_name                  | string  | yes      | -             |
-| schema                      | config  | yes      | -             |
-| url                         | string  | no       | -             |
-| routing_key                 | string  | no       | -             |
-| exchange                    | string  | no       | -             |
-| network_recovery_interval   | int     | no       | -             |
-| topology_recovery_enabled   | boolean | no       | -             |
-| automatic_recovery_enabled  | boolean | no       | -             |
-| connection_timeout          | int     | no       | -             |
-| requested_channel_max       | int     | no       | -             |
-| requested_frame_max         | int     | no       | -             |
-| requested_heartbeat         | int     | no       | -             |
-| prefetch_count              | int     | no       | -             |
-| delivery_timeout            | long    | no       | -             |
-| common-options              |         | no       | -             |
+|            name            |  type   | required | default value |
+|----------------------------|---------|----------|---------------|
+| host                       | string  | yes      | -             |
+| port                       | int     | yes      | -             |
+| virtual_host               | string  | yes      | -             |
+| username                   | string  | yes      | -             |
+| password                   | string  | yes      | -             |
+| queue_name                 | string  | yes      | -             |
+| schema                     | config  | yes      | -             |
+| url                        | string  | no       | -             |
+| routing_key                | string  | no       | -             |
+| exchange                   | string  | no       | -             |
+| network_recovery_interval  | int     | no       | -             |
+| topology_recovery_enabled  | boolean | no       | -             |
+| automatic_recovery_enabled | boolean | no       | -             |
+| connection_timeout         | int     | no       | -             |
+| requested_channel_max      | int     | no       | -             |
+| requested_frame_max        | int     | no       | -             |
+| requested_heartbeat        | int     | no       | -             |
+| prefetch_count             | int     | no       | -             |
+| delivery_timeout           | long    | no       | -             |
+| common-options             |         | no       | -             |
 
 ### host [string]
 
@@ -156,3 +156,4 @@ source {
 ### next version
 
 - Add Rabbitmq source Connector
+

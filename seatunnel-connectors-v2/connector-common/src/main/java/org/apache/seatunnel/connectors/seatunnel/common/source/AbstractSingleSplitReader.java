@@ -38,7 +38,8 @@ public abstract class AbstractSingleSplitReader<T> implements SourceReader<T, Si
     @Override
     public final void addSplits(List<SingleSplit> splits) {
         if (splits.size() > 1) {
-            throw new UnsupportedOperationException("The single-split reader don't support reading multiple splits");
+            throw new UnsupportedOperationException(
+                    "The single-split reader don't support reading multiple splits");
         }
         byte[] restoredState = splits.get(0).getState();
         if (restoredState != null && restoredState.length > 0) {

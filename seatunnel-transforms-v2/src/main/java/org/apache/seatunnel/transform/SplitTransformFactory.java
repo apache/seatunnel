@@ -17,18 +17,18 @@
 
 package org.apache.seatunnel.transform;
 
-import static org.apache.seatunnel.transform.SplitTransform.KEY_OUTPUT_FIELDS;
-import static org.apache.seatunnel.transform.SplitTransform.KEY_SEPARATOR;
-import static org.apache.seatunnel.transform.SplitTransform.KEY_SPLIT_FIELD;
-
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 
 import com.google.auto.service.AutoService;
 
+import static org.apache.seatunnel.transform.SplitTransform.KEY_OUTPUT_FIELDS;
+import static org.apache.seatunnel.transform.SplitTransform.KEY_SEPARATOR;
+import static org.apache.seatunnel.transform.SplitTransform.KEY_SPLIT_FIELD;
+
 @AutoService(Factory.class)
-public class SplitTransformFactory implements TableTransformFactory{
+public class SplitTransformFactory implements TableTransformFactory {
     @Override
     public String factoryIdentifier() {
         return "Split";

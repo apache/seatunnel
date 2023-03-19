@@ -17,16 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.util;
 
-import static org.apache.commons.codec.binary.Base64.encodeBase64URLSafeString;
-
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 
+import static org.apache.commons.codec.binary.Base64.encodeBase64URLSafeString;
+
 public class AuthorizationUtil {
-    //Basic Auth
+    // Basic Auth
     public static String getTokenByBasicAuth(String username, String password) {
-        //get accessToken by base64 password
+        // get accessToken by base64 password
         String accountMessage = username + ":" + password;
-        String accessToken = HttpConfig.BASIC + " " + encodeBase64URLSafeString(accountMessage.getBytes());
+        String accessToken =
+                HttpConfig.BASIC + " " + encodeBase64URLSafeString(accountMessage.getBytes());
         return accessToken;
     }
 }

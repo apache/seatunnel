@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
@@ -33,11 +36,14 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalEdge;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
 import org.apache.seatunnel.engine.core.parse.JobConfigParser;
 
-import com.google.common.collect.Sets;
 import org.apache.commons.lang3.tuple.ImmutablePair;
+
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -51,16 +57,31 @@ public class TestUtils {
         IdGenerator idGenerator = new IdGenerator();
         FakeSource fakeSource = new FakeSource();
         fakeSource.setJobContext(jobContext);
+        Config fakeSourceConfig =
+                ConfigFactory.parseMap(
+                        Collections.singletonMap(
+                                "schema",
+                                Collections.singletonMap(
+                                        "fields", ImmutableMap.of("id", "int", "name", "string"))));
+        fakeSource.prepare(fakeSourceConfig);
 
-        Action fake = new SourceAction<>(idGenerator.getNextId(), "fake", fakeSource,
-            Sets.newHashSet(new URL("file:///fake.jar")));
+        Action fake =
+                new SourceAction<>(
+                        idGenerator.getNextId(),
+                        "fake",
+                        fakeSource,
+                        Sets.newHashSet(new URL("file:///fake.jar")));
         fake.setParallelism(3);
         LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, 3);
 
         ConsoleSink consoleSink = new ConsoleSink();
         consoleSink.setJobContext(jobContext);
-        Action console = new SinkAction<>(idGenerator.getNextId(), "console", consoleSink,
-            Sets.newHashSet(new URL("file:///console.jar")));
+        Action console =
+                new SinkAction<>(
+                        idGenerator.getNextId(),
+                        "console",
+                        consoleSink,
+                        Sets.newHashSet(new URL("file:///console.jar")));
         console.setParallelism(3);
         LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, 3);
 
@@ -77,7 +98,8 @@ public class TestUtils {
         return System.getProperty("user.name") + "_" + testClassName;
     }
 
-    public static LogicalDag createTestLogicalPlan(String jobConfigFile, String jobName, Long jobId) {
+    public static LogicalDag createTestLogicalPlan(
+            String jobConfigFile, String jobName, Long jobId) {
         Common.setDeployMode(DeployMode.CLIENT);
         JobContext jobContext = new JobContext(jobId);
         String filePath = TestUtils.getResource(jobConfigFile);
@@ -87,10 +109,10 @@ public class TestUtils {
 
         IdGenerator idGenerator = new IdGenerator();
         ImmutablePair<List<Action>, Set<URL>> immutablePair =
-            new JobConfigParser(filePath, idGenerator, jobConfig).parse();
+                new JobConfigParser(filePath, idGenerator, jobConfig).parse();
 
         LogicalDagGenerator logicalDagGenerator =
-            new LogicalDagGenerator(immutablePair.getLeft(), jobConfig, idGenerator);
+                new LogicalDagGenerator(immutablePair.getLeft(), jobConfig, idGenerator);
         return logicalDagGenerator.generate();
     }
 }

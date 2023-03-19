@@ -17,6 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.email.sink;
 
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+
+import com.google.auto.service.AutoService;
+
 import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig.EMAIL_AUTHORIZATION_CODE;
 import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig.EMAIL_FROM_ADDRESS;
 import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig.EMAIL_HOST;
@@ -25,12 +31,6 @@ import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig
 import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig.EMAIL_SMTP_AUTH;
 import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig.EMAIL_TO_ADDRESS;
 import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig.EMAIL_TRANSPORT_PROTOCOL;
-
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSinkFactory;
-
-import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
 public class EmailSinkFactory implements TableSinkFactory {
@@ -41,7 +41,16 @@ public class EmailSinkFactory implements TableSinkFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(EMAIL_FROM_ADDRESS, EMAIL_TO_ADDRESS, EMAIL_HOST, EMAIL_TRANSPORT_PROTOCOL,
-            EMAIL_SMTP_AUTH, EMAIL_AUTHORIZATION_CODE, EMAIL_MESSAGE_HEADLINE, EMAIL_MESSAGE_CONTENT).build();
+        return OptionRule.builder()
+                .required(
+                        EMAIL_FROM_ADDRESS,
+                        EMAIL_TO_ADDRESS,
+                        EMAIL_HOST,
+                        EMAIL_TRANSPORT_PROTOCOL,
+                        EMAIL_SMTP_AUTH,
+                        EMAIL_AUTHORIZATION_CODE,
+                        EMAIL_MESSAGE_HEADLINE,
+                        EMAIL_MESSAGE_CONTENT)
+                .build();
     }
 }

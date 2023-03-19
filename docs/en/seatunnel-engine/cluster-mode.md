@@ -1,6 +1,7 @@
 ---
+
 sidebar_position: 3
----
+-------------------
 
 # Run Job With Cluster Mode
 
@@ -12,8 +13,9 @@ In the cluster mode, the SeaTunnel Engine cluster needs to be deployed first, an
 
 Deploy a SeaTunnel Engine Cluster reference [SeaTunnel Engine Cluster Deploy](deployment.md)
 
-## Submit Job 
+## Submit Job
 
 ```shell
 $SEATUNNEL_HOME/bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template
 ```
+

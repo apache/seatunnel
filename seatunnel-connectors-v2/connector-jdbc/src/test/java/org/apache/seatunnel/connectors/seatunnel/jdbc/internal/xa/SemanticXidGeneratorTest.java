@@ -44,11 +44,12 @@ class SemanticXidGeneratorTest {
         check(longJobContext);
     }
 
-    void check(JobContext jobContext){
+    void check(JobContext jobContext) {
         DefaultSinkWriterContext dc1 = new DefaultSinkWriterContext(Integer.MAX_VALUE);
         Xid xid1 = xidGenerator.generateXid(jobContext, dc1, System.currentTimeMillis());
         Assertions.assertTrue(xidGenerator.belongsToSubtask(xid1, jobContext, dc1));
-        Assertions.assertFalse(xidGenerator.belongsToSubtask(xid1, jobContext, new DefaultSinkWriterContext(2)));
+        Assertions.assertFalse(
+                xidGenerator.belongsToSubtask(xid1, jobContext, new DefaultSinkWriterContext(2)));
         Assertions.assertFalse(xidGenerator.belongsToSubtask(xid1, new JobContext(), dc1));
     }
 }

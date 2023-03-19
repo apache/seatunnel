@@ -40,20 +40,33 @@ public class KafkaConsumerThread implements Runnable {
     public KafkaConsumerThread(ConsumerMetadata metadata) {
         this.metadata = metadata;
         this.tasks = new LinkedBlockingQueue<>();
-        this.consumer = initConsumer(this.metadata.getBootstrapServers(), this.metadata.getConsumerGroup(),
-            this.metadata.getProperties(), !this.metadata.isCommitOnCheckpoint());
+        this.consumer =
+                initConsumer(
+                        this.metadata.getBootstrapServers(),
+                        this.metadata.getConsumerGroup(),
+                        this.metadata.getProperties(),
+                        !this.metadata.isCommitOnCheckpoint());
     }
 
     @Override
     public void run() {
-        while (!Thread.currentThread().isInterrupted()) {
-            try {
-                Consumer<KafkaConsumer<byte[], byte[]>> task = tasks.poll(1, TimeUnit.SECONDS);
-                if (task != null) {
-                    task.accept(consumer);
+        try {
+            while (!Thread.currentThread().isInterrupted()) {
+                try {
+                    Consumer<KafkaConsumer<byte[], byte[]>> task = tasks.poll(1, TimeUnit.SECONDS);
+                    if (task != null) {
+                        task.accept(consumer);
+                    }
+                } catch (InterruptedException e) {
+                    throw new KafkaConnectorException(
+                            KafkaConnectorErrorCode.CONSUME_THREAD_RUN_ERROR, e);
                 }
-            } catch (InterruptedException e) {
-                throw new KafkaConnectorException(KafkaConnectorErrorCode.CONSUME_THREAD_RUN_ERROR, e);
+            }
+        } finally {
+            try {
+                consumer.close();
+            } catch (Throwable t) {
+                throw new KafkaConnectorException(KafkaConnectorErrorCode.CONSUMER_CLOSE_FAILED, t);
             }
         }
     }
@@ -62,19 +75,31 @@ public class KafkaConsumerThread implements Runnable {
         return tasks;
     }
 
-    private KafkaConsumer<byte[], byte[]> initConsumer(String bootstrapServer, String consumerGroup,
-                                                       Properties properties, boolean autoCommit) {
+    private KafkaConsumer<byte[], byte[]> initConsumer(
+            String bootstrapServer,
+            String consumerGroup,
+            Properties properties,
+            boolean autoCommit) {
         Properties props = new Properties();
-        properties.forEach((key, value) -> props.setProperty(String.valueOf(key), String.valueOf(value)));
+        properties.forEach(
+                (key, value) -> props.setProperty(String.valueOf(key), String.valueOf(value)));
         props.setProperty(ConsumerConfig.GROUP_ID_CONFIG, consumerGroup);
         props.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServer);
         if (this.metadata.getProperties().get("client.id") == null) {
-            props.setProperty(ConsumerConfig.CLIENT_ID_CONFIG, CLIENT_ID_PREFIX + "-consumer-" + this.hashCode());
+            props.setProperty(
+                    ConsumerConfig.CLIENT_ID_CONFIG,
+                    CLIENT_ID_PREFIX + "-consumer-" + this.hashCode());
         } else {
-            props.setProperty(ConsumerConfig.CLIENT_ID_CONFIG, this.metadata.getProperties().get("client.id").toString());
+            props.setProperty(
+                    ConsumerConfig.CLIENT_ID_CONFIG,
+                    this.metadata.getProperties().get("client.id").toString());
         }
-        props.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
-        props.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
+        props.setProperty(
+                ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+                ByteArrayDeserializer.class.getName());
+        props.setProperty(
+                ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+                ByteArrayDeserializer.class.getName());
         props.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, String.valueOf(autoCommit));
 
         // Disable auto create topics feature

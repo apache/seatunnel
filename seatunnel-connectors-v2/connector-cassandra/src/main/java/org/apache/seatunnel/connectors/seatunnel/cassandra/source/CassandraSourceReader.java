@@ -44,13 +44,14 @@ public class CassandraSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
 
     @Override
     public void open() throws Exception {
-        session = CassandraClient.getCqlSessionBuilder(
-            cassandraConfig.getHost(),
-            cassandraConfig.getKeyspace(),
-            cassandraConfig.getUsername(),
-            cassandraConfig.getPassword(),
-            cassandraConfig.getDatacenter()
-        ).build();
+        session =
+                CassandraClient.getCqlSessionBuilder(
+                                cassandraConfig.getHost(),
+                                cassandraConfig.getKeyspace(),
+                                cassandraConfig.getUsername(),
+                                cassandraConfig.getPassword(),
+                                cassandraConfig.getDatacenter())
+                        .build();
     }
 
     @Override
@@ -63,7 +64,11 @@ public class CassandraSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         try {
-            ResultSet resultSet = session.execute(CassandraClient.createSimpleStatement(cassandraConfig.getCql(), cassandraConfig.getConsistencyLevel()));
+            ResultSet resultSet =
+                    session.execute(
+                            CassandraClient.createSimpleStatement(
+                                    cassandraConfig.getCql(),
+                                    cassandraConfig.getConsistencyLevel()));
             resultSet.forEach(row -> output.collect(TypeConvertUtil.buildSeaTunnelRow(row)));
         } finally {
             this.readerContext.signalNoMoreElement();
@@ -71,6 +76,5 @@ public class CassandraSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {
-    }
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
 }

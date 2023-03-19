@@ -28,13 +28,13 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
 
-public class PrintMessageOperation extends Operation implements IdentifiedDataSerializable, AllowedDuringPassiveState {
+public class PrintMessageOperation extends Operation
+        implements IdentifiedDataSerializable, AllowedDuringPassiveState {
     private String message;
 
     private String response;
 
-    public PrintMessageOperation() {
-    }
+    public PrintMessageOperation() {}
 
     public PrintMessageOperation(String message) {
         this.message = message;

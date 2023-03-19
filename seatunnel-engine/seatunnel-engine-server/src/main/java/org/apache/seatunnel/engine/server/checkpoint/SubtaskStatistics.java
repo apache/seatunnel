@@ -30,14 +30,10 @@ public class SubtaskStatistics implements Serializable {
 
     private final int subtaskIndex;
 
-    /**
-     * Timestamp when the ack from this subtask was received at the coordinator.
-     */
+    /** Timestamp when the ack from this subtask was received at the coordinator. */
     private final long ackTimestamp;
 
-    /**
-     * Size of the checkpointed state at this subtask.
-     */
+    /** Size of the checkpointed state at this subtask. */
     private final long stateSize;
 
     private final SubtaskStatus subtaskStatus;

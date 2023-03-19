@@ -59,7 +59,8 @@ public class OracleTypeMapper implements JdbcDialectTypeMapper {
     // ------------------------------time-------------------------
     private static final String ORACLE_DATE = "DATE";
     private static final String ORACLE_TIMESTAMP = "TIMESTAMP";
-    private static final String ORACLE_TIMESTAMP_WITH_LOCAL_TIME_ZONE = "TIMESTAMP WITH LOCAL TIME ZONE";
+    private static final String ORACLE_TIMESTAMP_WITH_LOCAL_TIME_ZONE =
+            "TIMESTAMP WITH LOCAL TIME ZONE";
 
     // ------------------------------blob-------------------------
     private static final String ORACLE_BLOB = "BLOB";
@@ -69,7 +70,8 @@ public class OracleTypeMapper implements JdbcDialectTypeMapper {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
-    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException {
+    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
+            throws SQLException {
         String oracleType = metadata.getColumnTypeName(colIndex).toUpperCase();
         String columnName = metadata.getColumnName(colIndex);
         int precision = metadata.getPrecision(colIndex);
@@ -78,7 +80,7 @@ public class OracleTypeMapper implements JdbcDialectTypeMapper {
             case ORACLE_INTEGER:
                 return BasicType.INT_TYPE;
             case ORACLE_FLOAT:
-                //The float type will be converted to DecimalType(10, -127),
+                // The float type will be converted to DecimalType(10, -127),
                 // which will lose precision in the spark engine
                 return new DecimalType(38, 18);
             case ORACLE_NUMBER:
@@ -115,14 +117,15 @@ public class OracleTypeMapper implements JdbcDialectTypeMapper {
             case ORACLE_LONG_RAW:
             case ORACLE_BFILE:
                 return PrimitiveByteArrayType.INSTANCE;
-            //Doesn't support yet
+                // Doesn't support yet
             case ORACLE_UNKNOWN:
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
-                throw new JdbcConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
-                    String.format(
-                        "Doesn't support ORACLE type '%s' on column '%s'  yet.",
-                        oracleType, jdbcColumnName));
+                throw new JdbcConnectorException(
+                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        String.format(
+                                "Doesn't support ORACLE type '%s' on column '%s'  yet.",
+                                oracleType, jdbcColumnName));
         }
     }
 }

@@ -39,3 +39,4 @@ Sink plugin common parameters, please refer to [Sink Common Options](common-opti
 ### 2.2.0-beta 2022-09-26
 
 - Add Greenplum Sink Connector
+

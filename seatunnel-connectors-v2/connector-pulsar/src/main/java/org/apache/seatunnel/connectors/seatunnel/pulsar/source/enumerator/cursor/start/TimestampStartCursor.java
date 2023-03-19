@@ -21,9 +21,7 @@ package org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.curso
 import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.PulsarClientException;
 
-/**
- * This cursor would left pulsar start consuming from a specific timestamp.
- */
+/** This cursor would left pulsar start consuming from a specific timestamp. */
 public class TimestampStartCursor implements StartCursor {
     private static final long serialVersionUID = 5170578885838095320L;
 

@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.config;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.common.annotations.VisibleForTesting;
 import lombok.AllArgsConstructor;
@@ -51,7 +51,7 @@ public class RabbitmqConfig implements Serializable {
     private Integer requestedFrameMax;
     private Integer requestedHeartbeat;
     private Integer prefetchCount;
-    private  long deliveryTimeout;
+    private long deliveryTimeout;
     private String queueName;
     private String routingKey;
     private boolean logFailuresOnly = false;
@@ -61,113 +61,140 @@ public class RabbitmqConfig implements Serializable {
 
     private final Map<String, Object> sinkOptionProps = new HashMap<>();
 
-    public static final Option<String> HOST = Options.key("host")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("the default host to use for connections");
+    public static final Option<String> HOST =
+            Options.key("host")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("the default host to use for connections");
 
-    public static final Option<Integer> PORT = Options.key("port")
-            .intType()
-            .noDefaultValue()
-            .withDescription("the default port to use for connections");
+    public static final Option<Integer> PORT =
+            Options.key("port")
+                    .intType()
+                    .noDefaultValue()
+                    .withDescription("the default port to use for connections");
 
-    public static final Option<String> VIRTUAL_HOST = Options.key("virtual_host")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("the virtual host to use when connecting to the broker");
+    public static final Option<String> VIRTUAL_HOST =
+            Options.key("virtual_host")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("the virtual host to use when connecting to the broker");
 
-    public static final Option<String> USERNAME = Options.key("username")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("the AMQP user name to use when connecting to the broker");
+    public static final Option<String> USERNAME =
+            Options.key("username")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("the AMQP user name to use when connecting to the broker");
 
-    public static final Option<String> PASSWORD = Options.key("password")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("the password to use when connecting to the broker");
+    public static final Option<String> PASSWORD =
+            Options.key("password")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("the password to use when connecting to the broker");
 
+    public static final Option<String> QUEUE_NAME =
+            Options.key("queue_name")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("the queue to write the message to");
 
-    public static final Option<String> QUEUE_NAME = Options.key("queue_name")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("the queue to write the message to");
+    public static final Option<String> URL =
+            Options.key("url")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "convenience method for setting the fields in an AMQP URI: host, port, username, password and virtual host");
 
-    public static final Option<String> URL = Options.key("url")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("convenience method for setting the fields in an AMQP URI: host, port, username, password and virtual host");
+    public static final Option<Integer> NETWORK_RECOVERY_INTERVAL =
+            Options.key("network_recovery_interval")
+                    .intType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "how long will automatic recovery wait before attempting to reconnect, in ms");
 
-    public static final Option<Integer> NETWORK_RECOVERY_INTERVAL = Options.key("network_recovery_interval")
-            .intType()
-            .noDefaultValue()
-            .withDescription("how long will automatic recovery wait before attempting to reconnect, in ms");
+    public static final Option<Boolean> AUTOMATIC_RECOVERY_ENABLED =
+            Options.key("AUTOMATIC_RECOVERY_ENABLED")
+                    .booleanType()
+                    .noDefaultValue()
+                    .withDescription("if true, enables connection recovery");
 
-    public static final Option<Boolean> AUTOMATIC_RECOVERY_ENABLED = Options.key("AUTOMATIC_RECOVERY_ENABLED")
-            .booleanType()
-            .noDefaultValue()
-            .withDescription("if true, enables connection recovery");
+    public static final Option<Boolean> TOPOLOGY_RECOVERY_ENABLED =
+            Options.key("topology_recovery_enabled")
+                    .booleanType()
+                    .noDefaultValue()
+                    .withDescription("if true, enables topology recovery");
 
-    public static final Option<Boolean> TOPOLOGY_RECOVERY_ENABLED = Options.key("topology_recovery_enabled")
-            .booleanType()
-            .noDefaultValue()
-            .withDescription("if true, enables topology recovery");
+    public static final Option<Integer> CONNECTION_TIMEOUT =
+            Options.key("connection_timeout")
+                    .intType()
+                    .noDefaultValue()
+                    .withDescription("connection TCP establishment timeout in milliseconds");
 
-    public static final Option<Integer> CONNECTION_TIMEOUT = Options.key("connection_timeout")
-            .intType()
-            .noDefaultValue()
-            .withDescription("connection TCP establishment timeout in milliseconds");
+    public static final Option<Integer> REQUESTED_CHANNEL_MAX =
+            Options.key("requested_channel_max")
+                    .intType()
+                    .noDefaultValue()
+                    .withDescription("initially requested maximum channel number");
 
+    public static final Option<Integer> REQUESTED_FRAME_MAX =
+            Options.key("requested_frame_max")
+                    .intType()
+                    .noDefaultValue()
+                    .withDescription("the requested maximum frame size");
 
-    public static final Option<Integer> REQUESTED_CHANNEL_MAX = Options.key("requested_channel_max")
-            .intType()
-            .noDefaultValue()
-            .withDescription("initially requested maximum channel number");
+    public static final Option<Integer> REQUESTED_HEARTBEAT =
+            Options.key("requested_heartbeat")
+                    .intType()
+                    .noDefaultValue()
+                    .withDescription("the requested heartbeat timeout");
 
-    public static final Option<Integer> REQUESTED_FRAME_MAX = Options.key("requested_frame_max")
-            .intType()
-            .noDefaultValue()
-            .withDescription("the requested maximum frame size");
+    public static final Option<Long> PREFETCH_COUNT =
+            Options.key("prefetch_count")
+                    .longType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "prefetchCount the max number of messages to receive without acknowledgement\n");
 
-    public static final Option<Integer> REQUESTED_HEARTBEAT = Options.key("requested_heartbeat")
-            .intType()
-            .noDefaultValue()
-            .withDescription("the requested heartbeat timeout");
+    public static final Option<Integer> DELIVERY_TIMEOUT =
+            Options.key("delivery_timeout")
+                    .intType()
+                    .noDefaultValue()
+                    .withDescription("deliveryTimeout maximum wait time");
 
-    public static final Option<Long> PREFETCH_COUNT = Options.key("prefetch_count")
-            .longType()
-            .noDefaultValue()
-            .withDescription("prefetchCount the max number of messages to receive without acknowledgement\n");
+    public static final Option<String> ROUTING_KEY =
+            Options.key("routing_key")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("the routing key to publish the message to");
 
-    public static final Option<Integer> DELIVERY_TIMEOUT = Options.key("delivery_timeout")
-            .intType()
-            .noDefaultValue()
-            .withDescription("deliveryTimeout maximum wait time");
+    public static final Option<String> EXCHANGE =
+            Options.key("exchange")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("the exchange to publish the message to");
 
-    public static final Option<String> ROUTING_KEY = Options.key("routing_key")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("the routing key to publish the message to");
+    public static final Option<Boolean> FOR_E2E_TESTING =
+            Options.key("for_e2e_testing")
+                    .booleanType()
+                    .noDefaultValue()
+                    .withDescription("use to recognize E2E mode");
 
-    public static final Option<String> EXCHANGE = Options.key("exchange")
-        .stringType()
-        .noDefaultValue()
-        .withDescription("the exchange to publish the message to");
-
-    public static final Option<Boolean> FOR_E2E_TESTING = Options.key("for_e2e_testing")
-        .booleanType()
-        .noDefaultValue()
-        .withDescription("use to recognize E2E mode");
-
-    public static final Option<Map<String, String>> RABBITMQ_CONFIG = Options.key("rabbitmq.config").mapType()
-        .defaultValue(Collections.emptyMap()).withDescription("In addition to the above parameters that must be specified by the RabbitMQ client, the user can also specify multiple non-mandatory parameters for the client, " +
-            "covering [all the parameters specified in the official RabbitMQ document](https://www.rabbitmq.com/configure.html).");
+    public static final Option<Map<String, String>> RABBITMQ_CONFIG =
+            Options.key("rabbitmq.config")
+                    .mapType()
+                    .defaultValue(Collections.emptyMap())
+                    .withDescription(
+                            "In addition to the above parameters that must be specified by the RabbitMQ client, the user can also specify multiple non-mandatory parameters for the client, "
+                                    + "covering [all the parameters specified in the official RabbitMQ document](https://www.rabbitmq.com/configure.html).");
 
     private void parseSinkOptionProperties(Config pluginConfig) {
         if (CheckConfigUtil.isValidParam(pluginConfig, RABBITMQ_CONFIG.key())) {
-            pluginConfig.getObject(RABBITMQ_CONFIG.key()).forEach((key, value) -> {
-                final String configKey = key.toLowerCase();
-                this.sinkOptionProps.put(configKey, value.unwrapped());
-            });
+            pluginConfig
+                    .getObject(RABBITMQ_CONFIG.key())
+                    .forEach(
+                            (key, value) -> {
+                                final String configKey = key.toLowerCase();
+                                this.sinkOptionProps.put(configKey, value.unwrapped());
+                            });
         }
     }
 
@@ -224,7 +251,5 @@ public class RabbitmqConfig implements Serializable {
     }
 
     @VisibleForTesting
-    public RabbitmqConfig() {
-
-    }
+    public RabbitmqConfig() {}
 }

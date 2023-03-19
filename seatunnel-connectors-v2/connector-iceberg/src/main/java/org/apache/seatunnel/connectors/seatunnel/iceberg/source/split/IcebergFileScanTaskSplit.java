@@ -19,11 +19,12 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.source.split;
 
 import org.apache.seatunnel.api.source.SourceSplit;
 
+import org.apache.iceberg.FileScanTask;
+
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.Setter;
-import org.apache.iceberg.FileScanTask;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -36,8 +37,7 @@ public class IcebergFileScanTaskSplit implements SourceSplit {
     private static final long serialVersionUID = -9043797960947110643L;
 
     private final FileScanTask task;
-    @Setter
-    private volatile long recordOffset;
+    @Setter private volatile long recordOffset;
 
     public IcebergFileScanTaskSplit(@NonNull FileScanTask task) {
         this(task, 0);
@@ -50,10 +50,12 @@ public class IcebergFileScanTaskSplit implements SourceSplit {
 
     @Override
     public String toString() {
-        return "IcebergFileScanTaskSplit{" +
-            "task=" + toString(task) +
-            ", recordOffset=" + recordOffset +
-            '}';
+        return "IcebergFileScanTaskSplit{"
+                + "task="
+                + toString(task)
+                + ", recordOffset="
+                + recordOffset
+                + '}';
     }
 
     private String toString(FileScanTask task) {
@@ -61,8 +63,11 @@ public class IcebergFileScanTaskSplit implements SourceSplit {
         taskInfo.put("file", task.file().path().toString());
         taskInfo.put("start", task.start());
         taskInfo.put("length", task.length());
-        taskInfo.put("deletes", task.deletes().stream().map(
-            deleteFile -> deleteFile.path()).collect(Collectors.toList()));
+        taskInfo.put(
+                "deletes",
+                task.deletes().stream()
+                        .map(deleteFile -> deleteFile.path())
+                        .collect(Collectors.toList()));
         return taskInfo.toString();
     }
 }

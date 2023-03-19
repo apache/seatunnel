@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.api.table.type;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import com.google.common.collect.Lists;
 
 import java.util.Arrays;
@@ -27,23 +24,26 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public class MapType<K, V> implements CompositeType<Map<K, V>> {
 
-    private static final List<SqlType> SUPPORTED_KEY_TYPES = Arrays.asList(
-        SqlType.NULL,
-        SqlType.BOOLEAN,
-        SqlType.TINYINT,
-        SqlType.SMALLINT,
-        SqlType.INT,
-        SqlType.BIGINT,
-        SqlType.DATE,
-        SqlType.TIME,
-        SqlType.TIMESTAMP,
-        SqlType.FLOAT,
-        SqlType.DOUBLE,
-        SqlType.STRING,
-        SqlType.DECIMAL
-    );
+    private static final List<SqlType> SUPPORTED_KEY_TYPES =
+            Arrays.asList(
+                    SqlType.NULL,
+                    SqlType.BOOLEAN,
+                    SqlType.TINYINT,
+                    SqlType.SMALLINT,
+                    SqlType.INT,
+                    SqlType.BIGINT,
+                    SqlType.DATE,
+                    SqlType.TIME,
+                    SqlType.TIMESTAMP,
+                    SqlType.FLOAT,
+                    SqlType.DOUBLE,
+                    SqlType.STRING,
+                    SqlType.DECIMAL);
 
     private final SeaTunnelDataType<K> keyType;
     private final SeaTunnelDataType<V> valueType;
@@ -51,7 +51,10 @@ public class MapType<K, V> implements CompositeType<Map<K, V>> {
     public MapType(SeaTunnelDataType<K> keyType, SeaTunnelDataType<V> valueType) {
         checkNotNull(keyType, "The key type is required.");
         checkNotNull(valueType, "The value type is required.");
-        checkArgument(SUPPORTED_KEY_TYPES.contains(keyType.getSqlType()), "Unsupported key types: %s", keyType);
+        checkArgument(
+                SUPPORTED_KEY_TYPES.contains(keyType.getSqlType()),
+                "Unsupported key types: %s",
+                keyType);
         this.keyType = keyType;
         this.valueType = valueType;
     }

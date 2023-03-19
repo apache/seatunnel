@@ -25,5 +25,4 @@ import java.sql.SQLException;
 public interface StatementFactory {
 
     PreparedStatement createStatement(Connection connection) throws SQLException;
-
 }

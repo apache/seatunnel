@@ -17,16 +17,17 @@
 
 package org.apache.seatunnel.common;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import java.io.Closeable;
 import java.util.Optional;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public final class Handover<T> implements Closeable {
+    private static final int DEFAULT_QUEUE_SIZE = 10000;
     private final Object lock = new Object();
     private final LinkedBlockingQueue<T> blockingQueue =
-        new LinkedBlockingQueue<>();
+            new LinkedBlockingQueue<>(DEFAULT_QUEUE_SIZE);
     private Throwable error;
 
     public boolean isEmpty() {
@@ -42,8 +43,7 @@ public final class Handover<T> implements Closeable {
         return Optional.empty();
     }
 
-    public void produce(final T element)
-        throws InterruptedException, ClosedException {
+    public void produce(final T element) throws InterruptedException, ClosedException {
         if (error != null) {
             throw new ClosedException();
         }

@@ -19,11 +19,12 @@ package org.apache.seatunnel.e2e.common;
 
 import org.apache.seatunnel.e2e.common.container.spark.AbstractTestSparkContainer;
 
-import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.containers.Container;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 
@@ -44,7 +45,8 @@ public abstract class AbstractSparkContainer extends AbstractTestSparkContainer 
         log.info("The TestContainer[{}] is closed.", identifier());
     }
 
-    public Container.ExecResult executeSeaTunnelSparkJob(String confFile) throws IOException, InterruptedException {
+    public Container.ExecResult executeSeaTunnelSparkJob(String confFile)
+            throws IOException, InterruptedException {
         return executeJob(confFile);
     }
 }

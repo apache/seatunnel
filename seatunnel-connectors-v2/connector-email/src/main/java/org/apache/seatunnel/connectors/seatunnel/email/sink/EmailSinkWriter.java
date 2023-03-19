@@ -17,12 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.email.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkConfig;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.connectors.seatunnel.email.exception.EmailConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.email.exception.EmailConnectorException;
 
 import com.sun.mail.util.MailSSLSocketFactory;
 import lombok.extern.slf4j.Slf4j;
@@ -69,7 +72,6 @@ public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         }
         stringBuffer.deleteCharAt(fields.length - 1);
         stringBuffer.append("\n");
-
     }
 
     @Override
@@ -88,21 +90,26 @@ public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             sf.setTrustAllHosts(true);
             properties.put("mail.smtp.ssl.enable", "true");
             properties.put("mail.smtp.ssl.socketFactory", sf);
-            Session session = Session.getDefaultInstance(properties, new Authenticator() {
-                @Override
-                protected PasswordAuthentication getPasswordAuthentication() {
-                    return new PasswordAuthentication(config.getEmailFromAddress(), config.getEmailAuthorizationCode());
-                }
-            });
-            //Create the default MimeMessage object
+            Session session =
+                    Session.getDefaultInstance(
+                            properties,
+                            new Authenticator() {
+                                @Override
+                                protected PasswordAuthentication getPasswordAuthentication() {
+                                    return new PasswordAuthentication(
+                                            config.getEmailFromAddress(),
+                                            config.getEmailAuthorizationCode());
+                                }
+                            });
+            // Create the default MimeMessage object
             MimeMessage message = new MimeMessage(session);
 
             // Set the email address
             message.setFrom(new InternetAddress(config.getEmailFromAddress()));
 
             // Set the recipient email address
-            message.addRecipient(Message.RecipientType.TO,
-                    new InternetAddress(config.getEmailToAddress()));
+            message.addRecipient(
+                    Message.RecipientType.TO, new InternetAddress(config.getEmailToAddress()));
 
             // Setting the Email subject
             message.setSubject(config.getEmailMessageHeadline());
@@ -130,8 +137,8 @@ public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             Transport.send(message);
             log.info("Sent message successfully....");
         } catch (Exception e) {
-            log.warn("send email Fail.", e);
-            throw new RuntimeException("send email Fail.", e);
+            throw new EmailConnectorException(
+                    EmailConnectorErrorCode.SEND_EMAIL_FAILED, "Send email failed", e);
         }
     }
 
@@ -139,18 +146,17 @@ public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         try {
             String data = stringBuffer.toString();
             File file = new File("emailsink.csv");
-            //if file doesnt exists, then create it
+            // if file doesn't exist, then create it
             if (!file.exists()) {
                 file.createNewFile();
             }
-            FileWriter fileWritter = new FileWriter(file.getName());
-            fileWritter.write(data);
-            fileWritter.close();
+            FileWriter fileWriter = new FileWriter(file.getName());
+            fileWriter.write(data);
+            fileWriter.close();
             log.info("Create File successfully....");
         } catch (IOException e) {
-            log.warn("Create File Fail.", e);
-            throw new RuntimeException("Create File Fail.", e);
+            throw new EmailConnectorException(
+                    CommonErrorCode.FILE_OPERATION_FAILED, "Create file failed", e);
         }
-
     }
 }

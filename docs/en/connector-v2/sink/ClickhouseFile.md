@@ -20,7 +20,7 @@ Write data to Clickhouse can also be done using JDBC
 
 ## Options
 
-| name                   | type    | required | default value                          |
+|          name          |  type   | required |             default value              |
 |------------------------|---------|----------|----------------------------------------|
 | host                   | string  | yes      | -                                      |
 | database               | string  | yes      | -                                      |
@@ -63,7 +63,7 @@ The table name
 ### sharding_key [string]
 
 When ClickhouseFile split data, which node to send data to is a problem, the default is random selection, but the
-'sharding_key' parameter can be used to specify the field for the sharding algorithm. 
+'sharding_key' parameter can be used to specify the field for the sharding algorithm.
 
 ### clickhouse_local_path [string]
 
@@ -104,7 +104,7 @@ you need to use this mode to take other ways to realize the `--path` parameter f
 ### file_fields_delimiter [string]
 
 ClickhouseFile uses csv format to temporarily save data. If the data in the row contains the delimiter value
-of csv, it may cause program exceptions. 
+of csv, it may cause program exceptions.
 Avoid this with this configuration. Value string has to be an exactly one character long
 
 ### file_temp_path [string]
@@ -118,20 +118,20 @@ Sink plugin common parameters, please refer to [Sink Common Options](common-opti
 ## Examples
 
 ```hocon
-  ClickhouseFile {
-    host = "192.168.0.1:8123"
-    database = "default"
-    table = "fake_all"
-    username = "default"
-    password = ""
-    clickhouse_local_path = "/Users/seatunnel/Tool/clickhouse local"
-    sharding_key = "age"
-    node_free_password = false
-    node_pass = [{
-      node_address = "192.168.0.1"
-      password = "seatunnel"
-    }]
-  }
+ClickhouseFile {
+  host = "192.168.0.1:8123"
+  database = "default"
+  table = "fake_all"
+  username = "default"
+  password = ""
+  clickhouse_local_path = "/Users/seatunnel/Tool/clickhouse local"
+  sharding_key = "age"
+  node_free_password = false
+  node_pass = [{
+    node_address = "192.168.0.1"
+    password = "seatunnel"
+  }]
+}
 ```
 
 ## Changelog
@@ -144,3 +144,4 @@ Sink plugin common parameters, please refer to [Sink Common Options](common-opti
 
 - [BugFix] Fix generated data part name conflict and improve file commit logic [3416](https://github.com/apache/incubator-seatunnel/pull/3416)
 - [Feature] Support compatible_mode compatible with lower version Clickhouse  [3416](https://github.com/apache/incubator-seatunnel/pull/3416)
+

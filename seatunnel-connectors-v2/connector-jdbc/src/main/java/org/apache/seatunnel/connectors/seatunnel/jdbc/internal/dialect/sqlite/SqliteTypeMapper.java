@@ -92,7 +92,8 @@ public class SqliteTypeMapper implements JdbcDialectTypeMapper {
     private static final String SQLITE_LONGVARBINARY = "LONGVARBINARY";
 
     @Override
-    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException {
+    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
+            throws SQLException {
         String columnTypeName = metadata.getColumnTypeName(colIndex).toUpperCase().trim();
         switch (columnTypeName) {
             case SQLITE_BIT:
@@ -159,7 +160,7 @@ public class SqliteTypeMapper implements JdbcDialectTypeMapper {
             case SQLITE_LONGVARBINARY:
                 return PrimitiveByteArrayType.INSTANCE;
 
-            //Doesn't support yet
+                // Doesn't support yet
             case SQLITE_UNKNOWN:
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);

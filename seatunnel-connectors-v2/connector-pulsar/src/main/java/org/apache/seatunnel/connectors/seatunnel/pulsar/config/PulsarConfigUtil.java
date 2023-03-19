@@ -36,8 +36,7 @@ public class PulsarConfigUtil {
 
     public static final String IDENTIFIER = "pulsar";
 
-    private PulsarConfigUtil() {
-    }
+    private PulsarConfigUtil() {}
 
     public static PulsarAdmin createAdmin(PulsarAdminConfig config) {
         PulsarAdminBuilder builder = PulsarAdmin.builder();
@@ -46,7 +45,8 @@ public class PulsarConfigUtil {
         try {
             return builder.build();
         } catch (PulsarClientException e) {
-            throw new PulsarConnectorException(PulsarConnectorErrorCode.OPEN_PULSAR_ADMIN_FAILED, e);
+            throw new PulsarConnectorException(
+                    PulsarConnectorErrorCode.OPEN_PULSAR_ADMIN_FAILED, e);
         }
     }
 
@@ -57,12 +57,13 @@ public class PulsarConfigUtil {
         try {
             return builder.build();
         } catch (PulsarClientException e) {
-            throw new PulsarConnectorException(PulsarConnectorErrorCode.OPEN_PULSAR_CLIENT_FAILED, e);
+            throw new PulsarConnectorException(
+                    PulsarConnectorErrorCode.OPEN_PULSAR_CLIENT_FAILED, e);
         }
     }
 
     public static ConsumerBuilder<byte[]> createConsumerBuilder(
-        PulsarClient client, PulsarConsumerConfig config) {
+            PulsarClient client, PulsarConsumerConfig config) {
         ConsumerBuilder<byte[]> builder = client.newConsumer(Schema.BYTES);
         builder.subscriptionName(config.getSubscriptionName());
         return builder;
@@ -75,12 +76,16 @@ public class PulsarConfigUtil {
 
         if (StringUtils.isNotBlank(config.getAuthPluginClassName())) {
             try {
-                return AuthenticationFactory.create(config.getAuthPluginClassName(), config.getAuthParams());
+                return AuthenticationFactory.create(
+                        config.getAuthPluginClassName(), config.getAuthParams());
             } catch (PulsarClientException.UnsupportedAuthenticationException e) {
-                throw new PulsarConnectorException(PulsarConnectorErrorCode.PULSAR_AUTHENTICATION_FAILED, e);
+                throw new PulsarConnectorException(
+                        PulsarConnectorErrorCode.PULSAR_AUTHENTICATION_FAILED, e);
             }
         } else {
-            throw new PulsarConnectorException(PulsarConnectorErrorCode.PULSAR_AUTHENTICATION_FAILED, "Authentication parameters are required when using authentication plug-in.");
+            throw new PulsarConnectorException(
+                    PulsarConnectorErrorCode.PULSAR_AUTHENTICATION_FAILED,
+                    "Authentication parameters are required when using authentication plug-in.");
         }
     }
 }

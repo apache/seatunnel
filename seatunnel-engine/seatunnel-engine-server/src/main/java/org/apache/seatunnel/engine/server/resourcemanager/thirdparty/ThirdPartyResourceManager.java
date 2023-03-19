@@ -26,5 +26,4 @@ public interface ThirdPartyResourceManager {
     CompletableFuture<CreateWorkerResult> createNewWorker(ResourceProfile resourceProfile);
 
     CompletableFuture<Void> releaseWorker(String workerID);
-
 }

@@ -20,14 +20,10 @@ package org.apache.seatunnel.core.starter;
 import java.util.List;
 
 /**
- * a Starter is for building a commandline start command
- * based on different engine for SeaTunnel job.
+ * A starter for building a commandline start command based on different engine for SeaTunnel job.
  */
 public interface Starter {
 
-    /**
-     * return the SeaTunnel job commandline start commands
-     */
+    /** Return the SeaTunnel job commandline start commands */
     List<String> buildCommands() throws Exception;
-
 }

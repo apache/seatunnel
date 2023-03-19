@@ -34,8 +34,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class XaGroupOpsImpl
-    implements XaGroupOps {
+public class XaGroupOpsImpl implements XaGroupOps {
 
     private static final long serialVersionUID = 1L;
 
@@ -49,12 +48,12 @@ public class XaGroupOpsImpl
 
     @Override
     public GroupXaOperationResult<XidInfo> commit(
-        List<XidInfo> xids, boolean allowOutOfOrderCommits, int maxCommitAttempts) {
+            List<XidInfo> xids, boolean allowOutOfOrderCommits, int maxCommitAttempts) {
         GroupXaOperationResult<XidInfo> result = new GroupXaOperationResult<>();
         int origSize = xids.size();
         LOG.info("commit {} transactions", origSize);
         for (Iterator<XidInfo> i = xids.iterator();
-             i.hasNext() && (result.hasNoFailures() || allowOutOfOrderCommits); ) {
+                i.hasNext() && (result.hasNoFailures() || allowOutOfOrderCommits); ) {
             XidInfo x = i.next();
             i.remove();
             try {
@@ -68,7 +67,7 @@ public class XaGroupOpsImpl
             }
         }
         result.getForRetry().addAll(xids);
-        //TODO At present, it is impossible to distinguish whether
+        // TODO At present, it is impossible to distinguish whether
         // the repeated Commit failure caused by restore (exception should not be thrown) or
         // the failure of normal process Commit (exception should be thrown).
         // So currently the exception is not thrown.
@@ -76,13 +75,13 @@ public class XaGroupOpsImpl
         // result.throwIfAnyFailed("commit");
         throwIfAnyReachedMaxAttempts(result, maxCommitAttempts);
         result.getTransientFailure()
-            .ifPresent(
-                f ->
-                    LOG.warn(
-                        "failed to commit {} transactions out of {} (keep them to retry later)",
-                        result.getForRetry().size(),
-                        origSize,
-                        f));
+                .ifPresent(
+                        f ->
+                                LOG.warn(
+                                        "failed to commit {} transactions out of {} (keep them to retry later)",
+                                        result.getForRetry().size(),
+                                        origSize,
+                                        f));
         return result;
     }
 
@@ -121,11 +120,20 @@ public class XaGroupOpsImpl
     }
 
     @Override
-    public void recoverAndRollback(JobContext context, SinkWriter.Context sinkContext, XidGenerator xidGenerator,
-                                   Xid excludeXid) {
-        Collection<Xid> recovered = xaFacade.recover().stream()
-            .map(x -> new XidImpl(x.getFormatId(), x.getGlobalTransactionId(), x.getBranchQualifier())).collect(
-                Collectors.toList());
+    public void recoverAndRollback(
+            JobContext context,
+            SinkWriter.Context sinkContext,
+            XidGenerator xidGenerator,
+            Xid excludeXid) {
+        Collection<Xid> recovered =
+                xaFacade.recover().stream()
+                        .map(
+                                x ->
+                                        new XidImpl(
+                                                x.getFormatId(),
+                                                x.getGlobalTransactionId(),
+                                                x.getBranchQualifier()))
+                        .collect(Collectors.toList());
         recovered.remove(excludeXid);
         if (recovered.isEmpty()) {
             return;
@@ -143,7 +151,7 @@ public class XaGroupOpsImpl
     }
 
     private static void throwIfAnyReachedMaxAttempts(
-        GroupXaOperationResult<XidInfo> result, int maxAttempts) {
+            GroupXaOperationResult<XidInfo> result, int maxAttempts) {
         List<XidInfo> reached = null;
         for (XidInfo x : result.getForRetry()) {
             if (x.getAttempts() >= maxAttempts) {
@@ -154,10 +162,11 @@ public class XaGroupOpsImpl
             }
         }
         if (reached != null) {
-            throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED,
-                String.format(
-                    "reached max number of commit attempts (%d) for transactions: %s",
-                    maxAttempts, reached));
+            throw new JdbcConnectorException(
+                    JdbcConnectorErrorCode.XA_OPERATION_FAILED,
+                    String.format(
+                            "reached max number of commit attempts (%d) for transactions: %s",
+                            maxAttempts, reached));
         }
     }
 }

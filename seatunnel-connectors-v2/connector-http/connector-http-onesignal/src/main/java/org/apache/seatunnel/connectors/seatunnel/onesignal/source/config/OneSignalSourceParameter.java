@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.onesignal.source.config;
 
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
-
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
 import java.util.HashMap;
 
@@ -28,8 +28,13 @@ public class OneSignalSourceParameter extends HttpParameter {
         super.buildWithConfig(pluginConfig);
         // put authorization in headers
         this.headers = this.getHeaders() == null ? new HashMap<>() : this.getHeaders();
-        this.headers.put(OneSignalSourceConfig.CONTENT_TYPE, OneSignalSourceConfig.APPLICATION_JSON);
-        this.headers.put(OneSignalSourceConfig.AUTHORIZATION, OneSignalSourceConfig.BASIC + " " + pluginConfig.getString(OneSignalSourceConfig.PASSWORD.key()));
+        this.headers.put(
+                OneSignalSourceConfig.CONTENT_TYPE, OneSignalSourceConfig.APPLICATION_JSON);
+        this.headers.put(
+                OneSignalSourceConfig.AUTHORIZATION,
+                OneSignalSourceConfig.BASIC
+                        + " "
+                        + pluginConfig.getString(OneSignalSourceConfig.PASSWORD.key()));
         this.setHeaders(this.headers);
     }
 }

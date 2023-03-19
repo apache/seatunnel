@@ -20,34 +20,34 @@
 
 package org.apache.seatunnel.engine.checkpoint.storage.hdfs.common;
 
-import static org.apache.hadoop.fs.FileSystem.FS_DEFAULT_NAME_KEY;
-
 import org.apache.hadoop.conf.Configuration;
 
 import java.util.Map;
 
+import static org.apache.hadoop.fs.FileSystem.FS_DEFAULT_NAME_KEY;
+
 /**
- * S3Configuration
- * we just support s3n and s3a protocol.
- * some hadoop low version not support s3a, if you want to use s3a, you should check your hadoop version first.
- * <p>
- * bucket is required, and the default schema is s3n
- * we used the bucket name to get the protocol,if you used s3a, this bucket name must be s3a://bucket, if you used s3n, this bucket name must be s3n://bucket
- * <p>
- * other configuration is optional, if you need to set other configuration, you can set it in the config
- * and the parameter name is the same as the hadoop configuration.
- * <p>
- * eg: if you want to set the endpoint, you can set it in the config like this: config.put("fs.s3a.endpoint", "http://),
- * the prefix is fs.s3a and must be the same as the hadoop configuration
- * <p>
- * more information about the configuration, please refer to the official website:
+ * S3Configuration we just support s3n and s3a protocol. some hadoop low version not support s3a, if
+ * you want to use s3a, you should check your hadoop version first.
+ *
+ * <p>bucket is required, and the default schema is s3n we used the bucket name to get the
+ * protocol,if you used s3a, this bucket name must be s3a://bucket, if you used s3n, this bucket
+ * name must be s3n://bucket
+ *
+ * <p>other configuration is optional, if you need to set other configuration, you can set it in the
+ * config and the parameter name is the same as the hadoop configuration.
+ *
+ * <p>eg: if you want to set the endpoint, you can set it in the config like this:
+ * config.put("fs.s3a.endpoint", "http://), the prefix is fs.s3a and must be the same as the hadoop
+ * configuration
+ *
+ * <p>more information about the configuration, please refer to the official website:
  * https://hadoop.apache.org/docs/current/hadoop-aws/tools/hadoop-aws/index.html
  */
 public class S3Configuration extends AbstractConfiguration {
 
-    /**************** S3 required keys ***************/
+    /** ************** S3 required keys ************** */
     public static final String S3_BUCKET_KEY = "s3.bucket";
-
 
     /* S3 constants */
     private static final String HDFS_S3N_IMPL = "org.apache.hadoop.fs.s3native.NativeS3FileSystem";
@@ -76,5 +76,4 @@ public class S3Configuration extends AbstractConfiguration {
     private String formatKey(String protocol, String key) {
         return String.format(S3_FORMAT_KEY, protocol, key);
     }
-
 }

@@ -24,7 +24,6 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.config.Sql
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.SqlServerDialect;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerUtils;
 
-import io.debezium.connector.sqlserver.Lsn;
 import io.debezium.connector.sqlserver.SourceInfo;
 import io.debezium.connector.sqlserver.SqlServerConnection;
 import io.debezium.jdbc.JdbcConnection;
@@ -37,8 +36,7 @@ public class LsnOffsetFactory extends OffsetFactory {
 
     private final SqlServerDialect dialect;
 
-    public LsnOffsetFactory(SqlServerSourceConfigFactory configFactory,
-                            SqlServerDialect dialect) {
+    public LsnOffsetFactory(SqlServerSourceConfigFactory configFactory, SqlServerDialect dialect) {
         this.sourceConfig = configFactory.create(0);
         this.dialect = dialect;
     }
@@ -64,13 +62,13 @@ public class LsnOffsetFactory extends OffsetFactory {
 
     @Override
     public Offset specific(Map<String, String> offset) {
-        return new LsnOffset(Lsn.valueOf(offset.get(SourceInfo.CHANGE_LSN_KEY)));
+        return LsnOffset.valueOf(offset.get(SourceInfo.COMMIT_LSN_KEY));
     }
 
     @Override
     public Offset specific(String filename, Long position) {
         throw new UnsupportedOperationException(
-            "not supported create new Offset by filename and position.");
+                "not supported create new Offset by filename and position.");
     }
 
     @Override

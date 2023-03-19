@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.amazondynamodb;
 
-import static org.awaitility.Awaitility.given;
-
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -32,8 +30,6 @@ import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
-import com.google.common.collect.Lists;
-import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -43,6 +39,9 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
+
+import com.google.common.collect.Lists;
+import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.SdkBytes;
@@ -78,6 +77,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.awaitility.Awaitility.given;
+
 @Slf4j
 public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
     private static final String AMAZONDYNAMODB_DOCKER_IMAGE = "amazon/dynamodb-local";
@@ -103,22 +104,29 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
     @BeforeAll
     @Override
     public void startUp() throws Exception {
-        dynamoDB = new GenericContainer<>(AMAZONDYNAMODB_DOCKER_IMAGE)
-            .withNetwork(NETWORK)
-            .withNetworkAliases(AMAZONDYNAMODB_CONTAINER_HOST)
-            .withExposedPorts(AMAZONDYNAMODB_CONTAINER_PORT)
-            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(AMAZONDYNAMODB_DOCKER_IMAGE)));
-        dynamoDB.setPortBindings(Lists.newArrayList(String.format("%s:%s", AMAZONDYNAMODB_CONTAINER_PORT, AMAZONDYNAMODB_CONTAINER_PORT)));
+        dynamoDB =
+                new GenericContainer<>(AMAZONDYNAMODB_DOCKER_IMAGE)
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(AMAZONDYNAMODB_CONTAINER_HOST)
+                        .withExposedPorts(AMAZONDYNAMODB_CONTAINER_PORT)
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(
+                                        DockerLoggerFactory.getLogger(
+                                                AMAZONDYNAMODB_DOCKER_IMAGE)));
+        dynamoDB.setPortBindings(
+                Lists.newArrayList(
+                        String.format(
+                                "%s:%s",
+                                AMAZONDYNAMODB_CONTAINER_PORT, AMAZONDYNAMODB_CONTAINER_PORT)));
         Startables.deepStart(Stream.of(dynamoDB)).join();
         log.info("dynamodb container started");
         given().ignoreExceptions()
-            .await()
-            .atLeast(100, TimeUnit.MILLISECONDS)
-            .pollInterval(500, TimeUnit.MILLISECONDS)
-            .atMost(120, TimeUnit.SECONDS)
-            .untilAsserted(this::initializeDynamodbClient);
+                .await()
+                .atLeast(100, TimeUnit.MILLISECONDS)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(this::initializeDynamodbClient);
         batchInsertData();
-
     }
 
     @AfterAll
@@ -130,23 +138,29 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
     }
 
     private void initializeDynamodbClient() throws ConnectException {
-        dynamoDbClient = DynamoDbClient.builder()
-            .endpointOverride(URI.create("http://" + dynamoDB.getHost() + ":" + AMAZONDYNAMODB_CONTAINER_PORT))
-            // The region is meaningless for local DynamoDb but required for client builder validation
-            .region(Region.US_EAST_1)
-            .credentialsProvider(StaticCredentialsProvider.create(
-                AwsBasicCredentials.create("dummy-key", "dummy-secret")))
-            .build();
+        dynamoDbClient =
+                DynamoDbClient.builder()
+                        .endpointOverride(
+                                URI.create(
+                                        "http://"
+                                                + dynamoDB.getHost()
+                                                + ":"
+                                                + AMAZONDYNAMODB_CONTAINER_PORT))
+                        // The region is meaningless for local DynamoDb but required for client
+                        // builder validation
+                        .region(Region.US_EAST_1)
+                        .credentialsProvider(
+                                StaticCredentialsProvider.create(
+                                        AwsBasicCredentials.create("dummy-key", "dummy-secret")))
+                        .build();
 
         createTable(dynamoDbClient, SOURCE_TABLE);
         createTable(dynamoDbClient, SINK_TABLE);
     }
 
     private void batchInsertData() {
-        dynamoDbClient.putItem(PutItemRequest.builder()
-            .tableName(SOURCE_TABLE)
-            .item(randomRow())
-            .build());
+        dynamoDbClient.putItem(
+                PutItemRequest.builder().tableName(SOURCE_TABLE).item(randomRow()).build());
     }
 
     private void clearSinkTable() {
@@ -155,152 +169,198 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
     }
 
     private void assertHasData() {
-        ScanResponse scan = dynamoDbClient.scan(ScanRequest.builder().tableName(SINK_TABLE).build());
+        ScanResponse scan =
+                dynamoDbClient.scan(ScanRequest.builder().tableName(SINK_TABLE).build());
         Assertions.assertTrue(scan.hasItems(), "sink table is empty.");
     }
 
     private void compareResult() {
-        Map<String, AttributeValue> sourceAttributeValueMap = dynamoDbClient.scan(ScanRequest.builder().tableName(SOURCE_TABLE).build()).items().get(0);
-        Map<String, AttributeValue> sinkAttributeValueMap = dynamoDbClient.scan(ScanRequest.builder().tableName(SINK_TABLE).build()).items().get(0);
-        sourceAttributeValueMap.keySet().forEach(key -> {
-            AttributeValue sourceAttributeValue = sourceAttributeValueMap.get(key);
-            AttributeValue sinkAttributeValue = sinkAttributeValueMap.get(key);
-            Assertions.assertEquals(sourceAttributeValue, sinkAttributeValue);
-        });
-
+        Map<String, AttributeValue> sourceAttributeValueMap =
+                dynamoDbClient
+                        .scan(ScanRequest.builder().tableName(SOURCE_TABLE).build())
+                        .items()
+                        .get(0);
+        Map<String, AttributeValue> sinkAttributeValueMap =
+                dynamoDbClient
+                        .scan(ScanRequest.builder().tableName(SINK_TABLE).build())
+                        .items()
+                        .get(0);
+        sourceAttributeValueMap
+                .keySet()
+                .forEach(
+                        key -> {
+                            AttributeValue sourceAttributeValue = sourceAttributeValueMap.get(key);
+                            AttributeValue sinkAttributeValue = sinkAttributeValueMap.get(key);
+                            Assertions.assertEquals(sourceAttributeValue, sinkAttributeValue);
+                        });
     }
 
     private Map<String, AttributeValue> randomRow() {
-        SeaTunnelRowType seatunnelRowType = new SeaTunnelRowType(
-            new String[]{
-                "id",
-                "c_map",
-                "c_array",
-                "c_string",
-                "c_boolean",
-                "c_tinyint",
-                "c_smallint",
-                "c_int",
-                "c_bigint",
-                "c_float",
-                "c_double",
-                "c_decimal",
-                "c_bytes",
-                "c_date",
-                "c_timestamp"
-            },
-            new SeaTunnelDataType[]{
-                BasicType.STRING_TYPE,
-                new MapType(BasicType.STRING_TYPE, BasicType.SHORT_TYPE),
-                ArrayType.BYTE_ARRAY_TYPE,
-                BasicType.STRING_TYPE,
-                BasicType.BOOLEAN_TYPE,
-                BasicType.BYTE_TYPE,
-                BasicType.SHORT_TYPE,
-                BasicType.INT_TYPE,
-                BasicType.LONG_TYPE,
-                BasicType.FLOAT_TYPE,
-                BasicType.DOUBLE_TYPE,
-                new DecimalType(2, 1),
-                PrimitiveByteArrayType.INSTANCE,
-                LocalTimeType.LOCAL_DATE_TYPE,
-                LocalTimeType.LOCAL_DATE_TIME_TYPE
-            }
-        );
+        SeaTunnelRowType seatunnelRowType =
+                new SeaTunnelRowType(
+                        new String[] {
+                            "id",
+                            "c_map",
+                            "c_array",
+                            "c_string",
+                            "c_boolean",
+                            "c_tinyint",
+                            "c_smallint",
+                            "c_int",
+                            "c_bigint",
+                            "c_float",
+                            "c_double",
+                            "c_decimal",
+                            "c_bytes",
+                            "c_date",
+                            "c_timestamp"
+                        },
+                        new SeaTunnelDataType[] {
+                            BasicType.STRING_TYPE,
+                            new MapType(BasicType.STRING_TYPE, BasicType.SHORT_TYPE),
+                            ArrayType.BYTE_ARRAY_TYPE,
+                            BasicType.STRING_TYPE,
+                            BasicType.BOOLEAN_TYPE,
+                            BasicType.BYTE_TYPE,
+                            BasicType.SHORT_TYPE,
+                            BasicType.INT_TYPE,
+                            BasicType.LONG_TYPE,
+                            BasicType.FLOAT_TYPE,
+                            BasicType.DOUBLE_TYPE,
+                            new DecimalType(2, 1),
+                            PrimitiveByteArrayType.INSTANCE,
+                            LocalTimeType.LOCAL_DATE_TYPE,
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE
+                        });
 
-        SeaTunnelRow row = new SeaTunnelRow(
-            new Object[]{
-                "1",
-                Collections.singletonMap("key", Short.parseShort("1")),
-                new Byte[]{Byte.parseByte("1")},
-                "string",
-                Boolean.FALSE,
-                Byte.parseByte("1"),
-                Short.parseShort("1"),
-                Integer.parseInt("1"),
-                Long.parseLong("1"),
-                Float.parseFloat("1.1"),
-                Double.parseDouble("1.1"),
-                BigDecimal.valueOf(11, 1),
-                "test".getBytes(),
-                LocalDate.now(),
-                LocalDateTime.now()
-            });
+        SeaTunnelRow row =
+                new SeaTunnelRow(
+                        new Object[] {
+                            "1",
+                            Collections.singletonMap("key", Short.parseShort("1")),
+                            new Byte[] {Byte.parseByte("1")},
+                            "string",
+                            Boolean.FALSE,
+                            Byte.parseByte("1"),
+                            Short.parseShort("1"),
+                            Integer.parseInt("1"),
+                            Long.parseLong("1"),
+                            Float.parseFloat("1.1"),
+                            Double.parseDouble("1.1"),
+                            BigDecimal.valueOf(11, 1),
+                            "test".getBytes(),
+                            LocalDate.now(),
+                            LocalDateTime.now()
+                        });
 
         Map<String, AttributeValue> data = new HashMap<>(seatunnelRowType.getTotalFields());
         for (int index = 0; index < seatunnelRowType.getTotalFields(); index++) {
-            data.put(seatunnelRowType.getFieldName(index),
-                convertItem(row.getField(index), seatunnelRowType.getFieldType(index), convertType(seatunnelRowType.getFieldType(index))));
+            data.put(
+                    seatunnelRowType.getFieldName(index),
+                    convertItem(
+                            row.getField(index),
+                            seatunnelRowType.getFieldType(index),
+                            convertType(seatunnelRowType.getFieldType(index))));
         }
         return data;
     }
 
     private static void createTable(DynamoDbClient ddb, String tableName) {
         DynamoDbWaiter dbWaiter = ddb.waiter();
-        CreateTableRequest request = CreateTableRequest.builder()
-            .attributeDefinitions(AttributeDefinition.builder()
-                .attributeName(PARTITION_KEY)
-                .attributeType(ScalarAttributeType.S)
-                .build())
-            .keySchema(KeySchemaElement.builder()
-                .attributeName(PARTITION_KEY)
-                .keyType(KeyType.HASH)
-                .build())
-            .provisionedThroughput(ProvisionedThroughput.builder()
-                .readCapacityUnits(10L)
-                .writeCapacityUnits(10L)
-                .build())
-            .tableName(tableName)
-            .build();
+        CreateTableRequest request =
+                CreateTableRequest.builder()
+                        .attributeDefinitions(
+                                AttributeDefinition.builder()
+                                        .attributeName(PARTITION_KEY)
+                                        .attributeType(ScalarAttributeType.S)
+                                        .build())
+                        .keySchema(
+                                KeySchemaElement.builder()
+                                        .attributeName(PARTITION_KEY)
+                                        .keyType(KeyType.HASH)
+                                        .build())
+                        .provisionedThroughput(
+                                ProvisionedThroughput.builder()
+                                        .readCapacityUnits(10L)
+                                        .writeCapacityUnits(10L)
+                                        .build())
+                        .tableName(tableName)
+                        .build();
 
         try {
             ddb.createTable(request);
-            DescribeTableRequest tableRequest = DescribeTableRequest.builder()
-                .tableName(tableName)
-                .build();
+            DescribeTableRequest tableRequest =
+                    DescribeTableRequest.builder().tableName(tableName).build();
 
             // Wait until the Amazon DynamoDB table is created.
-            WaiterResponse<DescribeTableResponse> waiterResponse = dbWaiter.waitUntilTableExists(tableRequest);
-            waiterResponse.matched().response().ifPresent(describeTableResponse -> {
-                log.info(describeTableResponse.toString());
-            });
+            WaiterResponse<DescribeTableResponse> waiterResponse =
+                    dbWaiter.waitUntilTableExists(tableRequest);
+            waiterResponse
+                    .matched()
+                    .response()
+                    .ifPresent(
+                            describeTableResponse -> {
+                                log.info(describeTableResponse.toString());
+                            });
 
         } catch (DynamoDbException e) {
             log.error(e.getMessage());
         }
     }
 
-    private AttributeValue convertItem(Object value, SeaTunnelDataType seaTunnelDataType, AttributeValue.Type measurementsType) {
+    private AttributeValue convertItem(
+            Object value,
+            SeaTunnelDataType seaTunnelDataType,
+            AttributeValue.Type measurementsType) {
         if (value == null) {
             return AttributeValue.builder().nul(true).build();
         }
         switch (measurementsType) {
             case N:
-                return AttributeValue.builder().n(Integer.toString(((Number) value).intValue())).build();
+                return AttributeValue.builder()
+                        .n(Integer.toString(((Number) value).intValue()))
+                        .build();
             case S:
                 return AttributeValue.builder().s(String.valueOf(value)).build();
             case BOOL:
                 return AttributeValue.builder().bool((Boolean) value).build();
             case B:
-                return AttributeValue.builder().b(SdkBytes.fromByteArrayUnsafe((byte[]) value)).build();
+                return AttributeValue.builder()
+                        .b(SdkBytes.fromByteArrayUnsafe((byte[]) value))
+                        .build();
             case SS:
                 return AttributeValue.builder().ss((Collection<String>) value).build();
             case NS:
-                return AttributeValue.builder().ns(((Collection<Number>) value)
-                    .stream().map(Object::toString).collect(Collectors.toList())).build();
+                return AttributeValue.builder()
+                        .ns(
+                                ((Collection<Number>) value)
+                                        .stream()
+                                                .map(Object::toString)
+                                                .collect(Collectors.toList()))
+                        .build();
             case BS:
-                return AttributeValue.builder().bs(
-                    ((Collection<Number>) value)
-                        .stream().map(number ->
-                            SdkBytes.fromByteArray((byte[]) value)).collect(Collectors.toList())
-                ).build();
+                return AttributeValue.builder()
+                        .bs(
+                                ((Collection<Number>) value)
+                                        .stream()
+                                                .map(
+                                                        number ->
+                                                                SdkBytes.fromByteArray(
+                                                                        (byte[]) value))
+                                                .collect(Collectors.toList()))
+                        .build();
             case M:
                 MapType<?, ?> mapType = (MapType<?, ?>) seaTunnelDataType;
                 Map<String, Object> map = (Map) value;
                 Map<String, AttributeValue> resultMap = new HashMap<>(map.size());
                 for (Map.Entry<String, Object> entry : map.entrySet()) {
                     String mapKeyName = entry.getKey();
-                    resultMap.put(mapKeyName, convertItem(entry.getValue(), mapType.getValueType(), convertType(mapType.getValueType())));
+                    resultMap.put(
+                            mapKeyName,
+                            convertItem(
+                                    entry.getValue(),
+                                    mapType.getValueType(),
+                                    convertType(mapType.getValueType())));
                 }
                 return AttributeValue.builder().m(resultMap).build();
             case L:
@@ -308,12 +368,21 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
                 BasicType<?> elementType = arrayType.getElementType();
                 Object[] l = (Object[]) value;
                 return AttributeValue.builder()
-                    .l(Stream.of(l).map(o -> convertItem(o, elementType, convertType(elementType)))
-                        .collect(Collectors.toList())).build();
+                        .l(
+                                Stream.of(l)
+                                        .map(
+                                                o ->
+                                                        convertItem(
+                                                                o,
+                                                                elementType,
+                                                                convertType(elementType)))
+                                        .collect(Collectors.toList()))
+                        .build();
             case NUL:
                 return AttributeValue.builder().nul(true).build();
             default:
-                throw new UnsupportedOperationException("Unsupported dataType: " + measurementsType);
+                throw new UnsupportedOperationException(
+                        "Unsupported dataType: " + measurementsType);
         }
     }
 
@@ -343,7 +412,8 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
             case ARRAY:
                 return AttributeValue.Type.L;
             default:
-                throw new UnsupportedOperationException("Unsupported dataType: " + seaTunnelDataType);
+                throw new UnsupportedOperationException(
+                        "Unsupported dataType: " + seaTunnelDataType);
         }
     }
 }

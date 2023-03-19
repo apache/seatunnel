@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.config;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
@@ -26,12 +26,11 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.PartitionConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import lombok.Data;
 import lombok.NonNull;
-import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.lang3.StringUtils;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -40,6 +39,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 @Data
 public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfig {
@@ -50,7 +51,8 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
 
     private String partitionDirExpression;
 
-    private boolean isPartitionFieldWriteInFile = BaseSinkConfig.IS_PARTITION_FIELD_WRITE_IN_FILE.defaultValue();
+    private boolean isPartitionFieldWriteInFile =
+            BaseSinkConfig.IS_PARTITION_FIELD_WRITE_IN_FILE.defaultValue();
 
     private String tmpPath = BaseSinkConfig.TMP_PATH.defaultValue();
 
@@ -58,7 +60,7 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
 
     private boolean isEnableTransaction = BaseSinkConfig.IS_ENABLE_TRANSACTION.defaultValue();
 
-    //---------------------generator by config params-------------------
+    // ---------------------generator by config params-------------------
 
     private List<Integer> sinkColumnsIndexInRow;
 
@@ -66,10 +68,12 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
 
     public FileSinkConfig(@NonNull Config config, @NonNull SeaTunnelRowType seaTunnelRowTypeInfo) {
         super(config);
-        checkArgument(!CollectionUtils.isEmpty(Arrays.asList(seaTunnelRowTypeInfo.getFieldNames())));
+        checkArgument(
+                !CollectionUtils.isEmpty(Arrays.asList(seaTunnelRowTypeInfo.getFieldNames())));
 
-        if (config.hasPath(BaseSinkConfig.SINK_COLUMNS.key()) &&
-                !CollectionUtils.isEmpty(config.getStringList(BaseSinkConfig.SINK_COLUMNS.key()))) {
+        if (config.hasPath(BaseSinkConfig.SINK_COLUMNS.key())
+                && !CollectionUtils.isEmpty(
+                        config.getStringList(BaseSinkConfig.SINK_COLUMNS.key()))) {
             this.sinkColumnList = config.getStringList(BaseSinkConfig.SINK_COLUMNS.key());
         }
 
@@ -84,71 +88,84 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
             this.partitionFieldList = Collections.emptyList();
         }
 
-        if (config.hasPath(BaseSinkConfig.PARTITION_DIR_EXPRESSION.key()) &&
-                !StringUtils.isBlank(config.getString(BaseSinkConfig.PARTITION_DIR_EXPRESSION.key()))) {
-            this.partitionDirExpression = config.getString(BaseSinkConfig.PARTITION_DIR_EXPRESSION.key());
+        if (config.hasPath(BaseSinkConfig.PARTITION_DIR_EXPRESSION.key())
+                && !StringUtils.isBlank(
+                        config.getString(BaseSinkConfig.PARTITION_DIR_EXPRESSION.key()))) {
+            this.partitionDirExpression =
+                    config.getString(BaseSinkConfig.PARTITION_DIR_EXPRESSION.key());
         }
 
         if (config.hasPath(BaseSinkConfig.IS_PARTITION_FIELD_WRITE_IN_FILE.key())) {
-            this.isPartitionFieldWriteInFile = config.getBoolean(BaseSinkConfig.IS_PARTITION_FIELD_WRITE_IN_FILE.key());
+            this.isPartitionFieldWriteInFile =
+                    config.getBoolean(BaseSinkConfig.IS_PARTITION_FIELD_WRITE_IN_FILE.key());
         }
 
-        if (config.hasPath(BaseSinkConfig.TMP_PATH.key()) &&
-                !StringUtils.isBlank(config.getString(BaseSinkConfig.TMP_PATH.key()))) {
+        if (config.hasPath(BaseSinkConfig.TMP_PATH.key())
+                && !StringUtils.isBlank(config.getString(BaseSinkConfig.TMP_PATH.key()))) {
             this.tmpPath = config.getString(BaseSinkConfig.TMP_PATH.key());
         }
 
-        if (config.hasPath(BaseSinkConfig.FILENAME_TIME_FORMAT.key()) &&
-                !StringUtils.isBlank(config.getString(BaseSinkConfig.FILENAME_TIME_FORMAT.key()))) {
+        if (config.hasPath(BaseSinkConfig.FILENAME_TIME_FORMAT.key())
+                && !StringUtils.isBlank(
+                        config.getString(BaseSinkConfig.FILENAME_TIME_FORMAT.key()))) {
             this.fileNameTimeFormat = config.getString(BaseSinkConfig.FILENAME_TIME_FORMAT.key());
         }
 
         if (config.hasPath(BaseSinkConfig.IS_ENABLE_TRANSACTION.key())) {
-            this.isEnableTransaction = config.getBoolean(BaseSinkConfig.IS_ENABLE_TRANSACTION.key());
+            this.isEnableTransaction =
+                    config.getBoolean(BaseSinkConfig.IS_ENABLE_TRANSACTION.key());
         }
 
-        if (this.isEnableTransaction &&
-                !this.fileNameExpression.contains(BaseSinkConfig.TRANSACTION_EXPRESSION)) {
-            throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
-                    "file_name_expression must contains " +
-                    BaseSinkConfig.TRANSACTION_EXPRESSION + " when is_enable_transaction is true");
+        if (this.isEnableTransaction
+                && !this.fileNameExpression.contains(BaseSinkConfig.TRANSACTION_EXPRESSION)) {
+            throw new FileConnectorException(
+                    CommonErrorCode.ILLEGAL_ARGUMENT,
+                    "file_name_expression must contains "
+                            + BaseSinkConfig.TRANSACTION_EXPRESSION
+                            + " when is_enable_transaction is true");
         }
 
         // check partition field must in seaTunnelRowTypeInfo
         if (!CollectionUtils.isEmpty(this.partitionFieldList)
-            && (CollectionUtils.isEmpty(this.sinkColumnList) ||
-                !new HashSet<>(this.sinkColumnList).containsAll(this.partitionFieldList))) {
-            throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
-                    "partition fields must in sink columns");
+                && (CollectionUtils.isEmpty(this.sinkColumnList)
+                        || !new HashSet<>(this.sinkColumnList)
+                                .containsAll(this.partitionFieldList))) {
+            throw new FileConnectorException(
+                    CommonErrorCode.ILLEGAL_ARGUMENT, "partition fields must in sink columns");
         }
 
         if (!CollectionUtils.isEmpty(this.partitionFieldList) && !isPartitionFieldWriteInFile) {
             if (!this.sinkColumnList.removeAll(this.partitionFieldList)) {
-                throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
+                throw new FileConnectorException(
+                        CommonErrorCode.ILLEGAL_ARGUMENT,
                         "remove partition field from sink columns error");
             }
         }
 
         if (CollectionUtils.isEmpty(this.sinkColumnList)) {
-            throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
-                    "sink columns can not be empty");
+            throw new FileConnectorException(
+                    CommonErrorCode.ILLEGAL_ARGUMENT, "sink columns can not be empty");
         }
 
-        Map<String, Integer> columnsMap = new HashMap<>(seaTunnelRowTypeInfo.getFieldNames().length);
+        Map<String, Integer> columnsMap =
+                new HashMap<>(seaTunnelRowTypeInfo.getFieldNames().length);
         String[] fieldNames = seaTunnelRowTypeInfo.getFieldNames();
         for (int i = 0; i < fieldNames.length; i++) {
             columnsMap.put(fieldNames[i].toLowerCase(), i);
         }
 
-        // init sink column index and partition field index, we will use the column index to found the data in SeaTunnelRow
-        this.sinkColumnsIndexInRow = this.sinkColumnList.stream()
-            .map(column -> columnsMap.get(column.toLowerCase()))
-            .collect(Collectors.toList());
+        // init sink column index and partition field index, we will use the column index to found
+        // the data in SeaTunnelRow
+        this.sinkColumnsIndexInRow =
+                this.sinkColumnList.stream()
+                        .map(column -> columnsMap.get(column.toLowerCase()))
+                        .collect(Collectors.toList());
 
         if (!CollectionUtils.isEmpty(this.partitionFieldList)) {
-            this.partitionFieldsIndexInRow = this.partitionFieldList.stream()
-                .map(columnsMap::get)
-                .collect(Collectors.toList());
+            this.partitionFieldsIndexInRow =
+                    this.partitionFieldList.stream()
+                            .map(columnsMap::get)
+                            .collect(Collectors.toList());
         }
     }
 }

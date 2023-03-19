@@ -17,12 +17,12 @@
 
 package org.apache.seatunnel.api.common.metrics;
 
-import static java.util.stream.Collectors.groupingBy;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.SerializationFeature;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import lombok.Getter;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -38,35 +38,30 @@ import java.util.function.Predicate;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
+import static java.util.stream.Collectors.groupingBy;
+
 public final class JobMetrics implements Serializable {
 
     private static final JobMetrics EMPTY = new JobMetrics(Collections.emptyMap());
 
     private static final Collector<Measurement, ?, Map<String, List<Measurement>>> COLLECTOR =
-        Collectors.groupingBy(Measurement::metric);
+            Collectors.groupingBy(Measurement::metric);
 
-    private Map<String, List<Measurement>> metrics; //metric name -> set of measurements
+    @Getter private Map<String, List<Measurement>> metrics; // metric name -> set of measurements
 
-    JobMetrics() { //needed for deserialization
+    JobMetrics() { // needed for deserialization
     }
 
     private JobMetrics(Map<String, List<Measurement>> metrics) {
         this.metrics = new HashMap<>(metrics);
     }
 
-    /**
-     * Returns an empty {@link JobMetrics} object.
-     */
-
+    /** Returns an empty {@link JobMetrics} object. */
     public static JobMetrics empty() {
         return EMPTY;
     }
 
-    /**
-     * Builds a {@link JobMetrics} object based on a map of
-     * {@link Measurement}s.
-     */
-
+    /** Builds a {@link JobMetrics} object based on a map of {@link Measurement}s. */
     public static JobMetrics of(Map<String, List<Measurement>> metrics) {
         return new JobMetrics(metrics);
     }
@@ -77,25 +72,34 @@ public final class JobMetrics implements Serializable {
         }
         Map<String, List<Measurement>> metricsMap = new HashMap<>();
         metrics.forEach((key, value) -> metricsMap.put(key, new ArrayList<>(value)));
-        jobMetrics.metrics.forEach((key, value) -> metricsMap.merge(key, value, (v1, v2) -> {
-            v1.addAll(v2);
-            return v1;
-        }));
+        jobMetrics.metrics.forEach(
+                (key, value) ->
+                        metricsMap.merge(
+                                key,
+                                value,
+                                (v1, v2) -> {
+                                    List<Measurement> ms = new ArrayList<>(v2);
+                                    for (Measurement m1 : v1) {
+                                        if (v2.stream()
+                                                .noneMatch(
+                                                        m2 -> m2.getTags().equals(m1.getTags()))) {
+                                            ms.add(m1);
+                                        }
+                                    }
+                                    return ms;
+                                }));
         return new JobMetrics(metricsMap);
     }
 
-    /**
-     * Returns all metrics present.
-     */
-
+    /** Returns all metrics present. */
     public Set<String> metrics() {
         return Collections.unmodifiableSet(metrics.keySet());
     }
 
     /**
      * Returns all {@link Measurement}s associated with a given metric name.
-     * <p>
-     * For a list of job-specific metric names please see {@link MetricNames}.
+     *
+     * <p>For a list of job-specific metric names please see {@link MetricNames}.
      */
     public List<Measurement> get(String metricName) {
         Objects.requireNonNull(metricName);
@@ -111,10 +115,10 @@ public final class JobMetrics implements Serializable {
         Objects.requireNonNull(predicate, "predicate");
 
         Map<String, List<Measurement>> filteredMetrics =
-            metrics.values().stream()
-                   .flatMap(List::stream)
-                   .filter(predicate)
-                   .collect(COLLECTOR);
+                metrics.values().stream()
+                        .flatMap(List::stream)
+                        .filter(predicate)
+                        .collect(COLLECTOR);
         return new JobMetrics(filteredMetrics);
     }
 
@@ -140,22 +144,32 @@ public final class JobMetrics implements Serializable {
     public String toString() {
         StringBuilder sb = new StringBuilder();
         metrics.entrySet().stream()
-            .sorted(Comparator.comparing(Entry::getKey))
-            .forEach(mainEntry -> {
-                sb.append(mainEntry.getKey()).append(":\n");
-                mainEntry.getValue().stream()
-                    .collect(groupingBy(m -> {
-                        String vertex = m.tag(MetricTags.TASK_NAME);
-                        return vertex == null ? "" : vertex;
-                    }))
-                    .entrySet().stream()
-                    .sorted(Comparator.comparing(Entry::getKey))
-                    .forEach(e -> {
-                        String vertexName = e.getKey();
-                        sb.append("  ").append(vertexName).append(":\n");
-                        e.getValue().forEach(m -> sb.append("    ").append(m).append("\n"));
-                    });
-            });
+                .sorted(Comparator.comparing(Entry::getKey))
+                .forEach(
+                        mainEntry -> {
+                            sb.append(mainEntry.getKey()).append(":\n");
+                            mainEntry.getValue().stream()
+                                    .collect(
+                                            groupingBy(
+                                                    m -> {
+                                                        String vertex = m.tag(MetricTags.TASK_NAME);
+                                                        return vertex == null ? "" : vertex;
+                                                    }))
+                                    .entrySet()
+                                    .stream()
+                                    .sorted(Comparator.comparing(Entry::getKey))
+                                    .forEach(
+                                            e -> {
+                                                String vertexName = e.getKey();
+                                                sb.append("  ").append(vertexName).append(":\n");
+                                                e.getValue()
+                                                        .forEach(
+                                                                m ->
+                                                                        sb.append("    ")
+                                                                                .append(m)
+                                                                                .append("\n"));
+                                            });
+                        });
         return sb.toString();
     }
 

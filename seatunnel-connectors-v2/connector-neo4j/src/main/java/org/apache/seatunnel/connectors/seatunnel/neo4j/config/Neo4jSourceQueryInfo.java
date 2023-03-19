@@ -17,5 +17,4 @@
 
 package org.apache.seatunnel.connectors.seatunnel.neo4j.config;
 
-public class Neo4jSourceQueryInfo extends Neo4jQueryInfo {
-}
+public class Neo4jSourceQueryInfo extends Neo4jQueryInfo {}

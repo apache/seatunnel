@@ -21,17 +21,12 @@ import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 
 /**
- * Command interface.
+ * Command interface, only has one method {@link Command#execute()}, used to execute the command
  *
- * @param <T> args type
+ * @param <T> args type, extends from {@link CommandArgs}
  */
 @FunctionalInterface
 public interface Command<T extends CommandArgs> {
 
-    /**
-     * Execute command
-     *
-     */
     void execute() throws CommandExecuteException, ConfigCheckException;
-
 }

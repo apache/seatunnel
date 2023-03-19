@@ -22,20 +22,24 @@ import org.apache.seatunnel.api.configuration.Options;
 
 public class SheetsConfig {
 
-    public static final Option<String> SERVICE_ACCOUNT_KEY = Options.key("service_account_key")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("Google Sheets login service account key");
-    public static final Option<String> SHEET_ID = Options.key("sheet_id")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("Google Sheets sheet id");
-    public static final Option<String> SHEET_NAME = Options.key("sheet_name")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("Google Sheets sheet name that you want to import");
-    public static final Option<String> RANGE = Options.key("range")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("Google Sheets sheet range that you want to import");
+    public static final Option<String> SERVICE_ACCOUNT_KEY =
+            Options.key("service_account_key")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Google Sheets login service account key");
+    public static final Option<String> SHEET_ID =
+            Options.key("sheet_id")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Google Sheets sheet id");
+    public static final Option<String> SHEET_NAME =
+            Options.key("sheet_name")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Google Sheets sheet name that you want to import");
+    public static final Option<String> RANGE =
+            Options.key("range")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Google Sheets sheet range that you want to import");
 }

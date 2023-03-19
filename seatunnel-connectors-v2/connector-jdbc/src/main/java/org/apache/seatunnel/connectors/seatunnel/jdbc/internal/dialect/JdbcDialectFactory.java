@@ -19,9 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
 /**
  * A factory to create a specific {@link JdbcDialect}
+ *
  * @see JdbcDialect
  */
-
 public interface JdbcDialectFactory {
 
     /**

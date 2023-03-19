@@ -17,17 +17,18 @@
     limitations under the License.
 
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
     <parent>
-        <artifactId>seatunnel-examples</artifactId>
         <groupId>org.apache.seatunnel</groupId>
+        <artifactId>seatunnel-examples</artifactId>
         <version>${revision}</version>
     </parent>
-    <modelVersion>4.0.0</modelVersion>
 
     <artifactId>seatunnel-flink-connector-v2-example</artifactId>
+    <name>SeaTunnel : Examples : Flink Connector V2</name>
+
     <properties>
         <flink.scope>compile</flink.scope>
         <mock-webserver.version>3.6.0</mock-webserver.version>
@@ -40,11 +41,20 @@
             <groupId>com.typesafe</groupId>
             <artifactId>config</artifactId>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-flink-starter</artifactId>
+            <artifactId>seatunnel-flink-13-starter</artifactId>
             <version>${project.version}</version>
         </dependency>
+
+        <!--   seatunnel-transforms-v2   -->
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-transforms-v2</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!--   seatunnel-transforms-v2   -->
 
         <!--   seatunnel-connector   -->
         <dependency>

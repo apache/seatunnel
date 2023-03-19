@@ -33,9 +33,16 @@ public class SentrySinkFactory implements TableSinkFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(SentryConfig.DSN)
-            .optional(SentryConfig.ENV, SentryConfig.CACHE_DIRPATH, SentryConfig.ENABLE_EXTERNAL_CONFIGURATION,
-                SentryConfig.FLUSH_TIMEOUTMILLIS, SentryConfig.MAX_CACHEITEMS, SentryConfig.MAX_QUEUESIZE,
-                SentryConfig.RELEASE).build();
+        return OptionRule.builder()
+                .required(SentryConfig.DSN)
+                .optional(
+                        SentryConfig.ENV,
+                        SentryConfig.CACHE_DIRPATH,
+                        SentryConfig.ENABLE_EXTERNAL_CONFIGURATION,
+                        SentryConfig.FLUSH_TIMEOUTMILLIS,
+                        SentryConfig.MAX_CACHEITEMS,
+                        SentryConfig.MAX_QUEUESIZE,
+                        SentryConfig.RELEASE)
+                .build();
     }
 }

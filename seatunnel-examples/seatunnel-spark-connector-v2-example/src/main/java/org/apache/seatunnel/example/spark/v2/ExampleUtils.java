@@ -18,11 +18,9 @@
 package org.apache.seatunnel.example.spark.v2;
 
 import org.apache.seatunnel.common.config.DeployMode;
-import org.apache.seatunnel.core.starter.Seatunnel;
-import org.apache.seatunnel.core.starter.command.Command;
+import org.apache.seatunnel.core.starter.SeaTunnel;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
-import org.apache.seatunnel.core.starter.spark.command.SparkCommandBuilder;
 
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
@@ -31,19 +29,19 @@ import java.nio.file.Paths;
 
 public class ExampleUtils {
 
-    public static void builder(String configurePath) throws FileNotFoundException, URISyntaxException, CommandException {
+    public static void builder(String configurePath)
+            throws FileNotFoundException, URISyntaxException, CommandException {
         String configFile = getTestConfigFile(configurePath);
         SparkCommandArgs sparkCommandArgs = new SparkCommandArgs();
         sparkCommandArgs.setConfigFile(configFile);
         sparkCommandArgs.setCheckConfig(false);
         sparkCommandArgs.setVariables(null);
         sparkCommandArgs.setDeployMode(DeployMode.CLIENT);
-        Command<SparkCommandArgs> sparkCommand =
-                new SparkCommandBuilder().buildCommand(sparkCommandArgs);
-        Seatunnel.run(sparkCommand);
+        SeaTunnel.run(sparkCommandArgs.buildCommand());
     }
 
-    private static String getTestConfigFile(String configFile) throws FileNotFoundException, URISyntaxException {
+    private static String getTestConfigFile(String configFile)
+            throws FileNotFoundException, URISyntaxException {
         URL resource = SeaTunnelApiExample.class.getResource(configFile);
         if (resource == null) {
             throw new FileNotFoundException("Can't find config file: " + configFile);

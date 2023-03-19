@@ -32,21 +32,26 @@ import java.util.Optional;
 /**
  * The SeaTunnel sink interface, developer should implement this class when create a sink connector.
  *
- * @param <IN>                    The data class by sink accept. Only support
- *                                {@link org.apache.seatunnel.api.table.type.SeaTunnelRow} at now.
- * @param <StateT>                The state should be saved when job execute, this class should implement interface
- *                                {@link Serializable}.
- * @param <CommitInfoT>           The commit message class return by {@link SinkWriter#prepareCommit()}, then
- *                                {@link SinkCommitter} or {@link SinkAggregatedCommitter} and handle it, this class should implement interface
- *                                {@link Serializable}.
- * @param <AggregatedCommitInfoT> The aggregated commit message class, combine by {@link CommitInfoT}.
- *                                {@link SinkAggregatedCommitter} handle it, this class should implement interface {@link Serializable}.
+ * @param <IN> The data class by sink accept. Only support {@link
+ *     org.apache.seatunnel.api.table.type.SeaTunnelRow} at now.
+ * @param <StateT> The state should be saved when job execute, this class should implement interface
+ *     {@link Serializable}.
+ * @param <CommitInfoT> The commit message class return by {@link SinkWriter#prepareCommit()}, then
+ *     {@link SinkCommitter} or {@link SinkAggregatedCommitter} and handle it, this class should
+ *     implement interface {@link Serializable}.
+ * @param <AggregatedCommitInfoT> The aggregated commit message class, combine by {@link
+ *     CommitInfoT}. {@link SinkAggregatedCommitter} handle it, this class should implement
+ *     interface {@link Serializable}.
  */
 public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
-    extends Serializable, PluginIdentifierInterface, SeaTunnelPluginLifeCycle, SeaTunnelJobAware {
+        extends Serializable,
+                PluginIdentifierInterface,
+                SeaTunnelPluginLifeCycle,
+                SeaTunnelJobAware {
 
     /**
-     * Set the row type info of sink row data. This method will be automatically called by translation.
+     * Set the row type info of sink row data. This method will be automatically called by
+     * translation.
      *
      * @param seaTunnelRowType The row type info of sink.
      */
@@ -68,8 +73,8 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
      */
     SinkWriter<IN, CommitInfoT, StateT> createWriter(SinkWriter.Context context) throws IOException;
 
-    default SinkWriter<IN, CommitInfoT, StateT> restoreWriter(SinkWriter.Context context,
-                                                              List<StateT> states) throws IOException {
+    default SinkWriter<IN, CommitInfoT, StateT> restoreWriter(
+            SinkWriter.Context context, List<StateT> states) throws IOException {
         return createWriter(context);
     }
 
@@ -93,7 +98,8 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
     }
 
     /**
-     * Get {@link CommitInfoT} serializer. So that {@link CommitInfoT} can be transferred across processes
+     * Get {@link CommitInfoT} serializer. So that {@link CommitInfoT} can be transferred across
+     * processes
      *
      * @return Serializer of {@link CommitInfoT}
      */
@@ -107,12 +113,14 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
      * @return Return sink aggregated committer instance
      * @throws IOException throws IOException when createAggregatedCommitter failed.
      */
-    default Optional<SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT>> createAggregatedCommitter() throws IOException {
+    default Optional<SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT>>
+            createAggregatedCommitter() throws IOException {
         return Optional.empty();
     }
 
     /**
-     * Get {@link AggregatedCommitInfoT} serializer. So that {@link AggregatedCommitInfoT} can be transferred across processes
+     * Get {@link AggregatedCommitInfoT} serializer. So that {@link AggregatedCommitInfoT} can be
+     * transferred across processes
      *
      * @return Serializer of {@link AggregatedCommitInfoT}
      */

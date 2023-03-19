@@ -23,10 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 
 import com.google.auto.service.AutoService;
 
-/**
- * Dialect Factory of {@link SapHanaDialect}
- */
-
+/** Dialect Factory of {@link SapHanaDialect} */
 @AutoService(JdbcDialectFactory.class)
 public class SapHanaDialectFactory implements JdbcDialectFactory {
     @Override

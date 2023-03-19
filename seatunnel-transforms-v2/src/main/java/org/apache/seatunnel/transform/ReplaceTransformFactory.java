@@ -17,17 +17,17 @@
 
 package org.apache.seatunnel.transform;
 
-import static org.apache.seatunnel.transform.ReplaceTransform.KEY_IS_REGEX;
-import static org.apache.seatunnel.transform.ReplaceTransform.KEY_PATTERN;
-import static org.apache.seatunnel.transform.ReplaceTransform.KEY_REPLACEMENT;
-import static org.apache.seatunnel.transform.ReplaceTransform.KEY_REPLACE_FIELD;
-import static org.apache.seatunnel.transform.ReplaceTransform.KEY_REPLACE_FIRST;
-
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 
 import com.google.auto.service.AutoService;
+
+import static org.apache.seatunnel.transform.ReplaceTransform.KEY_IS_REGEX;
+import static org.apache.seatunnel.transform.ReplaceTransform.KEY_PATTERN;
+import static org.apache.seatunnel.transform.ReplaceTransform.KEY_REPLACEMENT;
+import static org.apache.seatunnel.transform.ReplaceTransform.KEY_REPLACE_FIELD;
+import static org.apache.seatunnel.transform.ReplaceTransform.KEY_REPLACE_FIRST;
 
 @AutoService(Factory.class)
 public class ReplaceTransformFactory implements TableTransformFactory {
@@ -39,9 +39,9 @@ public class ReplaceTransformFactory implements TableTransformFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-            .required(KEY_REPLACE_FIELD, KEY_PATTERN, KEY_REPLACEMENT)
-            .optional(KEY_IS_REGEX)
-            .conditional(KEY_IS_REGEX, true, KEY_REPLACE_FIRST)
-            .build();
+                .required(KEY_REPLACE_FIELD, KEY_PATTERN, KEY_REPLACEMENT)
+                .optional(KEY_IS_REGEX)
+                .conditional(KEY_IS_REGEX, true, KEY_REPLACE_FIRST)
+                .build();
     }
 }

@@ -21,12 +21,13 @@ import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 public class FieldMapperTransformException extends SeaTunnelRuntimeException {
-    public FieldMapperTransformException(SeaTunnelErrorCode seaTunnelErrorCode,
-                                         String errorMessage) {
+    public FieldMapperTransformException(
+            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
         super(seaTunnelErrorCode, errorMessage);
     }
 
-    public FieldMapperTransformException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+    public FieldMapperTransformException(
+            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
         super(seaTunnelErrorCode, errorMessage, cause);
     }
 

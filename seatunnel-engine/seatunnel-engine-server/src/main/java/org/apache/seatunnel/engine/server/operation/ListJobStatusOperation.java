@@ -30,16 +30,21 @@ public class ListJobStatusOperation extends Operation implements AllowedDuringPa
 
     private String response;
 
-    public ListJobStatusOperation() {
-    }
+    public ListJobStatusOperation() {}
 
     @Override
     public void run() {
         SeaTunnelServer service = getService();
-        CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> {
-            return service.getCoordinatorService().getJobHistoryService().listAllJob();
-        });
-
+        CompletableFuture<String> future =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            return service.getCoordinatorService()
+                                    .getJobHistoryService()
+                                    .listAllJob();
+                        },
+                        getNodeEngine()
+                                .getExecutionService()
+                                .getExecutor("list_job_status_operation"));
         try {
             response = future.get();
         } catch (InterruptedException | ExecutionException e) {

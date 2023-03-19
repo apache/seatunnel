@@ -26,9 +26,14 @@ public class DateUtils {
     private static final Map<Formatter, DateTimeFormatter> FORMATTER_MAP = new HashMap<>();
 
     static {
-        FORMATTER_MAP.put(Formatter.YYYY_MM_DD, DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD.value));
-        FORMATTER_MAP.put(Formatter.YYYY_MM_DD_SPOT, DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_SPOT.value));
-        FORMATTER_MAP.put(Formatter.YYYY_MM_DD_SLASH, DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_SLASH.value));
+        FORMATTER_MAP.put(
+                Formatter.YYYY_MM_DD, DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD.value));
+        FORMATTER_MAP.put(
+                Formatter.YYYY_MM_DD_SPOT,
+                DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_SPOT.value));
+        FORMATTER_MAP.put(
+                Formatter.YYYY_MM_DD_SLASH,
+                DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_SLASH.value));
     }
 
     public static LocalDate parse(String date, Formatter formatter) {

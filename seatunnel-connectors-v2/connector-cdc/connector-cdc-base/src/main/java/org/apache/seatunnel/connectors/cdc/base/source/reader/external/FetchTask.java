@@ -20,19 +20,19 @@ package org.apache.seatunnel.connectors.cdc.base.source.reader.external;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 
+import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.source.SourceRecord;
+
 import io.debezium.connector.base.ChangeEventQueue;
 import io.debezium.pipeline.DataChangeEvent;
 import io.debezium.relational.TableId;
 import io.debezium.relational.Tables;
-import org.apache.kafka.connect.data.Struct;
-import org.apache.kafka.connect.source.SourceRecord;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
 /** The task to fetching data of a Split. */
-
 public interface FetchTask<Split> {
 
     /** Execute current task. */
@@ -40,6 +40,9 @@ public interface FetchTask<Split> {
 
     /** Returns current task is running or not. */
     boolean isRunning();
+
+    /** Close this task */
+    void shutdown();
 
     /** Returns the split that the task used. */
     Split getSplit();
@@ -63,5 +66,7 @@ public interface FetchTask<Split> {
         void rewriteOutputBuffer(Map<Struct, SourceRecord> outputBuffer, SourceRecord changeRecord);
 
         List<SourceRecord> formatMessageTimestamp(Collection<SourceRecord> snapshotRecords);
+
+        void close();
     }
 }

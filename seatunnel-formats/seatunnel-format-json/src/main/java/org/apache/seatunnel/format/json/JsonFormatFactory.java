@@ -46,7 +46,7 @@ public class JsonFormatFactory implements DeserializationFormatFactory, Serializ
 
     @Override
     public DeserializationFormat createDeserializationFormat(TableFactoryContext context) {
-        Map<String, String> options = context.getOptions();
+        Map<String, String> options = context.getOptions().toMap();
         boolean failOnMissingField = JsonFormatOptions.getFailOnMissingField(options);
         boolean ignoreParseErrors = JsonFormatOptions.getIgnoreParseErrors(options);
 

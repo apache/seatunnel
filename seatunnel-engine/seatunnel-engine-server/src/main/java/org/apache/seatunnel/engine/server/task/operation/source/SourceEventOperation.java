@@ -33,12 +33,10 @@ public abstract class SourceEventOperation extends TaskOperation {
 
     protected byte[] sourceEvent;
 
-    public SourceEventOperation() {
-    }
+    public SourceEventOperation() {}
 
-    public SourceEventOperation(TaskLocation targetTaskLocation,
-                                TaskLocation currentTaskLocation,
-                                SourceEvent event) {
+    public SourceEventOperation(
+            TaskLocation targetTaskLocation, TaskLocation currentTaskLocation, SourceEvent event) {
         super(targetTaskLocation);
         this.currentTaskLocation = currentTaskLocation;
         this.sourceEvent = SerializationUtils.serialize(event);

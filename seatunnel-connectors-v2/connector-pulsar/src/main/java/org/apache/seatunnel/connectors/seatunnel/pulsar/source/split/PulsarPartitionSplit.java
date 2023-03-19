@@ -33,17 +33,14 @@ public class PulsarPartitionSplit implements SourceSplit {
 
     private final StopCursor stopCursor;
 
-    @Nullable
-    private MessageId latestConsumedId;
+    @Nullable private MessageId latestConsumedId;
 
     public PulsarPartitionSplit(TopicPartition partition, StopCursor stopCursor) {
         this(partition, stopCursor, null);
     }
 
     public PulsarPartitionSplit(
-        TopicPartition partition,
-        StopCursor stopCursor,
-        MessageId latestConsumedId) {
+            TopicPartition partition, StopCursor stopCursor, MessageId latestConsumedId) {
         this.partition = Preconditions.checkNotNull(partition);
         this.stopCursor = Preconditions.checkNotNull(stopCursor);
         this.latestConsumedId = latestConsumedId;
@@ -57,8 +54,7 @@ public class PulsarPartitionSplit implements SourceSplit {
         return stopCursor;
     }
 
-    @Nullable
-    public MessageId getLatestConsumedId() {
+    @Nullable public MessageId getLatestConsumedId() {
         return latestConsumedId;
     }
 

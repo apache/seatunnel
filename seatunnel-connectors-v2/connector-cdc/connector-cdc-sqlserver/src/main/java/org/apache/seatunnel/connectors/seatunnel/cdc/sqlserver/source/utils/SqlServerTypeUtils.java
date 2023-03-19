@@ -31,9 +31,8 @@ import java.sql.Types;
 import java.util.List;
 
 /** Utilities for converting from SqlServer types to SeaTunnel types. */
-
 public class SqlServerTypeUtils {
-    public static SeaTunnelDataType<?> convertFromColumn(Column column)  {
+    public static SeaTunnelDataType<?> convertFromColumn(Column column) {
         switch (column.jdbcType()) {
             case Types.CHAR:
             case Types.VARCHAR:
@@ -72,9 +71,9 @@ public class SqlServerTypeUtils {
                 return BasicType.BOOLEAN_TYPE;
             default:
                 throw new UnsupportedOperationException(
-                    String.format(
-                        "Don't support SqlSever type '%s' yet, jdbcType:'%s'.",
-                        column.typeName(), column.jdbcType()));
+                        String.format(
+                                "Don't support SqlSever type '%s' yet, jdbcType:'%s'.",
+                                column.typeName(), column.jdbcType()));
         }
     }
 
@@ -84,7 +83,9 @@ public class SqlServerTypeUtils {
         String[] fieldNames = columns.stream().map(Column::name).toArray(String[]::new);
 
         SeaTunnelDataType<?>[] fieldTypes =
-            columns.stream().map(SqlServerTypeUtils::convertFromColumn).toArray(SeaTunnelDataType[]::new);
+                columns.stream()
+                        .map(SqlServerTypeUtils::convertFromColumn)
+                        .toArray(SeaTunnelDataType[]::new);
 
         return new SeaTunnelRowType(fieldNames, fieldTypes);
     }

@@ -23,8 +23,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.wechat.sink.config.WeChatSinkConfig;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
-import lombok.SneakyThrows;
 import org.apache.commons.collections4.CollectionUtils;
+
+import lombok.SneakyThrows;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -34,8 +35,8 @@ public class WeChatBotMessageSerializationSchema implements SerializationSchema 
     private final SeaTunnelRowType rowType;
     private final JsonSerializationSchema jsonSerializationSchema;
 
-    public WeChatBotMessageSerializationSchema(WeChatSinkConfig weChatSinkConfig,
-                                               SeaTunnelRowType rowType) {
+    public WeChatBotMessageSerializationSchema(
+            WeChatSinkConfig weChatSinkConfig, SeaTunnelRowType rowType) {
         this.weChatSinkConfig = weChatSinkConfig;
         this.rowType = rowType;
         this.jsonSerializationSchema = new JsonSerializationSchema(rowType);
@@ -50,7 +51,7 @@ public class WeChatBotMessageSerializationSchema implements SerializationSchema 
             stringBuffer.append(rowType.getFieldName(i) + ": " + row.getField(i) + "\\n");
         }
         if (totalFields > 0) {
-            //remove last empty line
+            // remove last empty line
             stringBuffer.delete(stringBuffer.length() - 2, stringBuffer.length());
         }
 
@@ -60,11 +61,15 @@ public class WeChatBotMessageSerializationSchema implements SerializationSchema 
             content.put(WeChatSinkConfig.MENTIONED_LIST, weChatSinkConfig.getMentionedList());
         }
         if (!CollectionUtils.isEmpty(weChatSinkConfig.getMentionedMobileList())) {
-            content.put(WeChatSinkConfig.MENTIONED_MOBILE_LIST, weChatSinkConfig.getMentionedMobileList());
+            content.put(
+                    WeChatSinkConfig.MENTIONED_MOBILE_LIST,
+                    weChatSinkConfig.getMentionedMobileList());
         }
 
         Map<String, Object> wechatMessage = new HashMap<>();
-        wechatMessage.put(WeChatSinkConfig.WECHAT_SEND_MSG_TYPE_KEY, WeChatSinkConfig.WECHAT_SEND_MSG_SUPPORT_TYPE);
+        wechatMessage.put(
+                WeChatSinkConfig.WECHAT_SEND_MSG_TYPE_KEY,
+                WeChatSinkConfig.WECHAT_SEND_MSG_SUPPORT_TYPE);
         wechatMessage.put(WeChatSinkConfig.WECHAT_SEND_MSG_SUPPORT_TYPE, content);
         return jsonSerializationSchema.getMapper().writeValueAsBytes(wechatMessage);
     }

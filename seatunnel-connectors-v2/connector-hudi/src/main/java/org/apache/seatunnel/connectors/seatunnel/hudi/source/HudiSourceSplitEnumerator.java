@@ -38,7 +38,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class HudiSourceSplitEnumerator implements SourceSplitEnumerator<HudiSourceSplit, HudiSourceState> {
+public class HudiSourceSplitEnumerator
+        implements SourceSplitEnumerator<HudiSourceSplit, HudiSourceState> {
 
     private final Context<HudiSourceSplit> context;
     private Set<HudiSourceSplit> pendingSplit;
@@ -46,15 +47,20 @@ public class HudiSourceSplitEnumerator implements SourceSplitEnumerator<HudiSour
     private final String tablePath;
     private final String confPaths;
 
-    public HudiSourceSplitEnumerator(SourceSplitEnumerator.Context<HudiSourceSplit> context, String tablePath, String confPaths) {
+    public HudiSourceSplitEnumerator(
+            SourceSplitEnumerator.Context<HudiSourceSplit> context,
+            String tablePath,
+            String confPaths) {
         this.context = context;
         this.tablePath = tablePath;
         this.confPaths = confPaths;
     }
 
-    public HudiSourceSplitEnumerator(SourceSplitEnumerator.Context<HudiSourceSplit> context, String tablePath,
-                                     String confPaths,
-                                     HudiSourceState sourceState) {
+    public HudiSourceSplitEnumerator(
+            SourceSplitEnumerator.Context<HudiSourceSplit> context,
+            String tablePath,
+            String confPaths,
+            HudiSourceState sourceState) {
         this(context, tablePath, confPaths);
         this.assignedSplit = sourceState.getAssignedSplit();
     }
@@ -86,9 +92,7 @@ public class HudiSourceSplitEnumerator implements SourceSplitEnumerator<HudiSour
     }
 
     @Override
-    public void close() throws IOException {
-
-    }
+    public void close() throws IOException {}
 
     @Override
     public void addSplitsBack(List<HudiSourceSplit> splits, int subtaskId) {
@@ -104,7 +108,8 @@ public class HudiSourceSplitEnumerator implements SourceSplitEnumerator<HudiSour
             readySplit.computeIfAbsent(taskId, id -> new ArrayList<>());
         }
 
-        pendingSplit.forEach(s -> readySplit.get(getSplitOwner(s.splitId(), taskIdList.size())).add(s));
+        pendingSplit.forEach(
+                s -> readySplit.get(getSplitOwner(s.splitId(), taskIdList.size())).add(s));
         readySplit.forEach(context::assignSplit);
         assignedSplit.addAll(pendingSplit);
         pendingSplit.clear();
@@ -132,12 +137,8 @@ public class HudiSourceSplitEnumerator implements SourceSplitEnumerator<HudiSour
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) {
-
-    }
+    public void notifyCheckpointComplete(long checkpointId) {}
 
     @Override
-    public void handleSplitRequest(int subtaskId) {
-
-    }
+    public void handleSplitRequest(int subtaskId) {}
 }

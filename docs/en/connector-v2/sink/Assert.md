@@ -12,19 +12,19 @@ A flink sink plugin which can assert illegal data by user defined rules
 
 ## Options
 
-| name                                        | type        | required | default value |
-| ------------------------------------------- | ----------  | -------- | ------------- |
-|rules                                        | ConfigMap   | yes      | -             |
-|rules.field_rules                            | string      | yes      | -             |
-|rules.field_rules.field_name                 | string      | yes      | -             |
-|rules.field_rules.field_type                 | string      | no       | -             |
-|rules.field_rules.field_value                | ConfigList  | no       | -             |
-|rules.field_rules.field_value.rule_type      | string      | no       | -             |
-|rules.field_rules.field_value.rule_value     | double      | no       | -             |
-|rules.row_rules                              | string      | yes      | -             |
-|rules.row_rules.rule_type                    | string      | no       | -             |
-|rules.row_rules.rule_value                   | string      | no       | -             |
-| common-options                              |             | no       | -             |
+|                   name                   |    type    | required | default value |
+|------------------------------------------|------------|----------|---------------|
+| rules                                    | ConfigMap  | yes      | -             |
+| rules.field_rules                        | string     | yes      | -             |
+| rules.field_rules.field_name             | string     | yes      | -             |
+| rules.field_rules.field_type             | string     | no       | -             |
+| rules.field_rules.field_value            | ConfigList | no       | -             |
+| rules.field_rules.field_value.rule_type  | string     | no       | -             |
+| rules.field_rules.field_value.rule_value | double     | no       | -             |
+| rules.row_rules                          | string     | yes      | -             |
+| rules.row_rules.rule_type                | string     | no       | -             |
+| rules.row_rules.rule_value               | string     | no       | -             |
+| common-options                           |            | no       | -             |
 
 ### rules [ConfigMap]
 
@@ -66,6 +66,7 @@ the value related to rule type
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## Example
+
 the whole config obey with `hocon` style
 
 ```hocon
@@ -129,9 +130,11 @@ Assert {
 - Add Assert Sink Connector
 
 ### 2.3.0-beta 2022-10-20
+
 - [Improve] 1.Support check the number of rows ([2844](https://github.com/apache/incubator-seatunnel/pull/2844)) ([3031](https://github.com/apache/incubator-seatunnel/pull/3031)):
-    - check rows not empty
-    - check minimum number of rows
-    - check maximum number of rows
+  - check rows not empty
+  - check minimum number of rows
+  - check maximum number of rows
 - [Improve] 2.Support direct define of data values(row) ([2844](https://github.com/apache/incubator-seatunnel/pull/2844)) ([3031](https://github.com/apache/incubator-seatunnel/pull/3031))
 - [Improve] 3.Support setting parallelism as 1 ([2844](https://github.com/apache/incubator-seatunnel/pull/2844)) ([3031](https://github.com/apache/incubator-seatunnel/pull/3031))
+

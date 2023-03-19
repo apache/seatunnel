@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test;
 public class KafkaStartOffsetTest {
 
     @Test
-    void getTopicNameAndPartition(){
+    void getTopicNameAndPartition() {
         String topicName = "my-topic-test";
         int partIndex = 1;
         String key = "my-topic-test-1";

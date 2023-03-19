@@ -46,7 +46,6 @@ public class TeradataTypeMapper implements JdbcDialectTypeMapper {
     private static final String TERADATA_VARCHAR = "VARCHAR";
     private static final String TERADATA_CLOB = "CLOB";
 
-
     // ---------------------------binary---------------------------
     private static final String TERADATA_BYTE = "BYTE";
     private static final String TERADATA_VARBYTE = "VARBYTE";
@@ -60,7 +59,8 @@ public class TeradataTypeMapper implements JdbcDialectTypeMapper {
     private static final String TERADATA_BLOB = "BLOB";
 
     @Override
-    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException {
+    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
+            throws SQLException {
         String teradataType = metadata.getColumnTypeName(colIndex).toUpperCase();
         switch (teradataType) {
             case TERADATA_BYTEINT:
@@ -74,7 +74,8 @@ public class TeradataTypeMapper implements JdbcDialectTypeMapper {
             case TERADATA_FLOAT:
                 return BasicType.FLOAT_TYPE;
             case TERADATA_DECIMAL:
-                return new DecimalType(metadata.getPrecision(colIndex), metadata.getScale(colIndex));
+                return new DecimalType(
+                        metadata.getPrecision(colIndex), metadata.getScale(colIndex));
             case TERADATA_CHAR:
             case TERADATA_VARCHAR:
             case TERADATA_CLOB:
@@ -91,10 +92,11 @@ public class TeradataTypeMapper implements JdbcDialectTypeMapper {
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
-                throw new JdbcConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                    String.format(
-                        "Doesn't support TERADATA type '%s' on column '%s'  yet.",
-                        teradataType, jdbcColumnName));
+                throw new JdbcConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        String.format(
+                                "Doesn't support TERADATA type '%s' on column '%s'  yet.",
+                                teradataType, jdbcColumnName));
         }
     }
 }
