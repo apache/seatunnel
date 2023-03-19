@@ -25,9 +25,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
-import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -38,7 +39,7 @@ public class OceanBaseTypeMapper implements JdbcDialectTypeMapper {
 
     private static final int PRECISION_MAX = 38;
     private static final int SCALE_MAX = 10;
-    //ref https://www.oceanbase.com/docs/community-observer-cn-10000000000901502
+    // ref https://www.oceanbase.com/docs/community-observer-cn-10000000000901502
     // ============================data types=====================
     private static final String OCEANBASE_UNKNOWN = "UNKNOWN";
     private static final String OCEANBASE_BIT = "BIT";
@@ -83,7 +84,8 @@ public class OceanBaseTypeMapper implements JdbcDialectTypeMapper {
     private static final String OCEANBASE_LONGBLOB = "LONGBLOB";
 
     @Override
-    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException {
+    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
+            throws SQLException {
         String oceanBaseType = metadata.getColumnTypeName(colIndex).toUpperCase();
         int precision = metadata.getPrecision(colIndex);
         int scale = metadata.getScale(colIndex);
@@ -152,10 +154,10 @@ public class OceanBaseTypeMapper implements JdbcDialectTypeMapper {
                 return BasicType.STRING_TYPE;
             case OCEANBASE_LONGTEXT:
                 LOG.warn(
-                    "Type '{}' has a maximum precision of 50331648 in OceanBase. "
-                        + "Due to limitations in the seatunnel type system, "
-                        + "the precision will be set to 2147483647.",
-                    OCEANBASE_LONGTEXT);
+                        "Type '{}' has a maximum precision of 50331648 in OceanBase. "
+                                + "Due to limitations in the seatunnel type system, "
+                                + "the precision will be set to 2147483647.",
+                        OCEANBASE_LONGTEXT);
                 return BasicType.STRING_TYPE;
 
             case OCEANBASE_TINYBLOB:
@@ -168,9 +170,9 @@ public class OceanBaseTypeMapper implements JdbcDialectTypeMapper {
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
                 throw new UnsupportedOperationException(
-                    String.format(
-                        "Doesn't support OceanBase type '%s' on column '%s' yet.",
-                        oceanBaseType, jdbcColumnName));
+                        String.format(
+                                "Doesn't support OceanBase type '%s' on column '%s' yet.",
+                                oceanBaseType, jdbcColumnName));
         }
     }
 }
