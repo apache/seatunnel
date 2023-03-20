@@ -45,11 +45,8 @@ public class PaimonAggregatedCommitter
 
     private final Table table;
 
-    private final String commitUser;
-
-    public PaimonAggregatedCommitter(Table table, String commitUser) {
+    public PaimonAggregatedCommitter(Table table) {
         this.table = table;
-        this.commitUser = commitUser;
     }
 
     @Override
