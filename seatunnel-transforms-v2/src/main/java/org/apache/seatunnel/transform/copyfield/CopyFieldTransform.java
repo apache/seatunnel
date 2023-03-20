@@ -15,12 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform;
+package org.apache.seatunnel.transform.copyfield;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -33,6 +36,7 @@ import org.apache.seatunnel.transform.common.SeaTunnelRowAccessor;
 import org.apache.seatunnel.transform.common.SingleFieldOutputTransform;
 
 import com.google.auto.service.AutoService;
+import lombok.NonNull;
 
 import java.lang.reflect.Array;
 import java.util.HashMap;
@@ -40,23 +44,15 @@ import java.util.Map;
 
 @AutoService(SeaTunnelTransform.class)
 public class CopyFieldTransform extends SingleFieldOutputTransform {
-
-    public static final Option<String> SRC_FIELD =
-            Options.key("src_field")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Src field you want to copy");
-
-    public static final Option<String> DEST_FIELD =
-            Options.key("dest_field")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Copy Src field to Dest field");
-
-    private String srcField;
     private int srcFieldIndex;
     private SeaTunnelDataType srcFieldDataType;
-    private String destField;
+    private CopyFieldTransformConfig copyFieldTransformConfig;
+    private CatalogTable catalogTable;
+
+    public CopyFieldTransform(@NonNull CopyFieldTransformConfig copyFieldTransformConfig, @NonNull CatalogTable catalogTable) {
+        this.copyFieldTransformConfig = copyFieldTransformConfig;
+        this.catalogTable = catalogTable;
+    }
 
     @Override
     public String getPluginName() {
@@ -65,29 +61,23 @@ public class CopyFieldTransform extends SingleFieldOutputTransform {
 
     @Override
     protected void setConfig(Config pluginConfig) {
-        CheckResult checkResult =
-                CheckConfigUtil.checkAllExists(pluginConfig, SRC_FIELD.key(), DEST_FIELD.key());
-        if (!checkResult.isSuccess()) {
-            throw new IllegalArgumentException("Failed to check config! " + checkResult.getMsg());
-        }
-
-        this.srcField = pluginConfig.getString(SRC_FIELD.key());
-        this.destField = pluginConfig.getString(DEST_FIELD.key());
+        ConfigValidator.of(ReadonlyConfig.fromConfig(pluginConfig)).validate(new CopyFieldTransformFactory().optionRule());
+        this.copyFieldTransformConfig = CopyFieldTransformConfig.of(ReadonlyConfig.fromConfig(pluginConfig));
     }
 
     @Override
     protected void setInputRowType(SeaTunnelRowType inputRowType) {
-        srcFieldIndex = inputRowType.indexOf(srcField);
+        srcFieldIndex = inputRowType.indexOf(copyFieldTransformConfig.getSrcField());
         if (srcFieldIndex == -1) {
             throw new IllegalArgumentException(
-                    "Cannot find [" + srcField + "] field in input row type");
+                    "Cannot find [" + copyFieldTransformConfig.getSrcField() + "] field in input row type");
         }
         srcFieldDataType = inputRowType.getFieldType(srcFieldIndex);
     }
 
     @Override
     protected String getOutputFieldName() {
-        return destField;
+        return copyFieldTransformConfig.getDestField();
     }
 
     @Override
