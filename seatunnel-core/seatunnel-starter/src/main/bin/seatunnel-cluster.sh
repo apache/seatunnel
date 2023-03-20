@@ -38,6 +38,7 @@ APP_DIR=`cd "$PRG_DIR/.." >/dev/null; pwd`
 CONF_DIR=${APP_DIR}/config
 APP_JAR=${APP_DIR}/starter/seatunnel-starter.jar
 APP_MAIN="org.apache.seatunnel.core.starter.seatunnel.SeaTunnelServer"
+OUT="${APP_DIR}/logs/seatunnel-server.out"
 
 if [ -f "${CONF_DIR}/seatunnel-env.sh" ]; then
     . "${CONF_DIR}/seatunnel-env.sh"
@@ -69,7 +70,10 @@ do
   if [[ "${i}" == *"JvmOption"* ]]; then
     JVM_OPTION="${i}"
     JAVA_OPTS="${JAVA_OPTS} ${JVM_OPTION#*=}"
-    break
+  elif [[ "${i}" == "-d" || "${i}" == "--daemon" ]]; then
+    DAEMON=true
+  elif [[ "${i}" == "-h" || "${i}" == "--help" ]]; then
+    HELP=true
   fi
 done
 
@@ -92,4 +96,10 @@ JVM_OPTIONS=`java -cp ${CLASS_PATH} org.apache.seatunnel.core.starter.seatunnel.
 JAVA_OPTS="${JAVA_OPTS} ${JVM_OPTIONS//\$\{loggc\}/${ST_TMPDIR}}"
 echo "JAVA_OPTS:" ${JAVA_OPTS}
 
-java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}
+if [[ $DAEMON == true && $HELP == false ]]; then
+ touch $SEATUNNEL_HOME/logs/seatunnel-server.out
+ java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args} > "$OUT" 200<&- 2>&1 < /dev/null &
+ else
+ java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}
+fi
+
