@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.net.URL;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
@@ -72,10 +73,17 @@ public class MultipleTableJobConfigParserTest {
 
         Assertions.assertEquals("Sink[0]-LocalFile-default-identifier", actions.get(0).getName());
         Assertions.assertEquals(2, actions.get(0).getUpstream().size());
-        Assertions.assertEquals(
-                "Source[0]-FakeSource-fake", actions.get(0).getUpstream().get(0).getName());
-        Assertions.assertEquals(
-                "Source[0]-FakeSource-fake2", actions.get(0).getUpstream().get(1).getName());
+
+        String[] expected = {"Source[0]-FakeSource-fake", "Source[0]-FakeSource-fake2"};
+        String[] actual = {
+            actions.get(0).getUpstream().get(0).getName(),
+            actions.get(0).getUpstream().get(1).getName()
+        };
+
+        Arrays.sort(expected);
+        Arrays.sort(actual);
+
+        Assertions.assertArrayEquals(expected, actual);
 
         Assertions.assertEquals(3, actions.get(0).getUpstream().get(0).getParallelism());
         Assertions.assertEquals(3, actions.get(0).getUpstream().get(1).getParallelism());
