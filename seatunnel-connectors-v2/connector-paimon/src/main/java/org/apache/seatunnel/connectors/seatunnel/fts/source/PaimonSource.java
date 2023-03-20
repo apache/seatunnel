@@ -52,6 +52,7 @@ import static org.apache.seatunnel.connectors.seatunnel.fts.config.PaimonConfig.
 import static org.apache.seatunnel.connectors.seatunnel.fts.config.PaimonConfig.TABLE;
 import static org.apache.seatunnel.connectors.seatunnel.fts.config.PaimonConfig.WAREHOUSE;
 
+/** Paimon connector source class. */
 @AutoService(SeaTunnelSource.class)
 public class PaimonSource
         implements SeaTunnelSource<SeaTunnelRow, PaimonSourceSplit, PaimonSourceState> {

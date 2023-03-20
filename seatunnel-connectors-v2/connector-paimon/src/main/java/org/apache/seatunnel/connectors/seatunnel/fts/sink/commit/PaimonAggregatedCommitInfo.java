@@ -25,6 +25,7 @@ import lombok.Data;
 import java.io.Serializable;
 import java.util.List;
 
+/** Paimon connector aggregate commit information class. */
 @Data
 @AllArgsConstructor
 public class PaimonAggregatedCommitInfo implements Serializable {

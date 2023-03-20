@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.fts.exception;
 
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
+/** Paimon connector error codes. */
 public enum PaimonConnectorErrorCode implements SeaTunnelErrorCode {
     TABLE_WRITE_COMMIT_FAILED("PAIMON-01", "Paimon write commit failed"),
     TABLE_WRITE_RECORD_FAILED("PAIMON-02", "Write record to paimon failed"),

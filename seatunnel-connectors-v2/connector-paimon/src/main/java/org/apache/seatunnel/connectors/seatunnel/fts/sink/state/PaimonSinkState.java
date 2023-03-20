@@ -25,9 +25,10 @@ import lombok.Data;
 import java.io.Serializable;
 import java.util.List;
 
+/** Paimon sink state class, save the list of has pre committed messages. */
 @Data
 @AllArgsConstructor
-public class PaimonState implements Serializable {
+public class PaimonSinkState implements Serializable {
 
     private static final long serialVersionUID = 1L;
 

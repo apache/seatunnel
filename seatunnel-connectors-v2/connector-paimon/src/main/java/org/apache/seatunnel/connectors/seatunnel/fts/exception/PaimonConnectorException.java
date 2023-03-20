@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.fts.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
+/** Paimon connector exception class. */
 public class PaimonConnectorException extends SeaTunnelRuntimeException {
     public PaimonConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
         super(seaTunnelErrorCode, errorMessage);

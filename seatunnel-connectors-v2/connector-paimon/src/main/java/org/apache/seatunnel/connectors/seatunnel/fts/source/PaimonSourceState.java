@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.fts.source;
 import java.io.Serializable;
 import java.util.Set;
 
+/** Paimon connector source state, saves the splits has assigned to readers. */
 public class PaimonSourceState implements Serializable {
 
     private static final long serialVersionUID = 1L;

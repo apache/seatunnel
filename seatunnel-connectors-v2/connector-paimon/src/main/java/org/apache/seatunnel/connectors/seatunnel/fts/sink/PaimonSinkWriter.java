@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.fts.exception.PaimonConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.fts.exception.PaimonConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.fts.sink.commit.PaimonCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.fts.sink.state.PaimonState;
+import org.apache.seatunnel.connectors.seatunnel.fts.sink.state.PaimonSinkState;
 import org.apache.seatunnel.connectors.seatunnel.fts.utils.RowConverter;
 
 import org.apache.paimon.data.InternalRow;
@@ -37,7 +37,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-public class PaimonSinkWriter implements SinkWriter<SeaTunnelRow, PaimonCommitInfo, PaimonState> {
+public class PaimonSinkWriter
+        implements SinkWriter<SeaTunnelRow, PaimonCommitInfo, PaimonSinkState> {
 
     private final Table table;
 
@@ -57,7 +58,7 @@ public class PaimonSinkWriter implements SinkWriter<SeaTunnelRow, PaimonCommitIn
             Context context,
             Table table,
             SeaTunnelRowType seaTunnelRowType,
-            List<PaimonState> states) {
+            List<PaimonSinkState> states) {
         this.table = table;
         this.seaTunnelRowType = seaTunnelRowType;
         this.context = context;

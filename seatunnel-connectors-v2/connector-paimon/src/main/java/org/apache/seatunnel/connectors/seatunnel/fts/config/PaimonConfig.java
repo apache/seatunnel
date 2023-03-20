@@ -19,9 +19,15 @@ package org.apache.seatunnel.connectors.seatunnel.fts.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 
 import java.util.List;
 
+/**
+ * Utility class to store configuration options, used by {@link SeaTunnelSource} and {@link
+ * SeaTunnelSink}.
+ */
 public class PaimonConfig {
 
     public static final Option<String> WAREHOUSE =

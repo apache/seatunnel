@@ -54,6 +54,12 @@ public class RowTypeConverter {
 
     private RowTypeConverter() {}
 
+    /**
+     * Convert Paimon row type {@link RowType} to SeaTunnel row type {@link SeaTunnelRowType}
+     *
+     * @param rowType Paimon row type
+     * @return SeaTunnel row type {@link SeaTunnelRowType}
+     */
     public static SeaTunnelRowType convert(RowType rowType) {
         String[] fieldNames = rowType.getFieldNames().toArray(new String[0]);
         SeaTunnelDataType<?>[] dataTypes =
@@ -63,6 +69,12 @@ public class RowTypeConverter {
         return new SeaTunnelRowType(fieldNames, dataTypes);
     }
 
+    /**
+     * Convert SeaTunnel row type {@link SeaTunnelRowType} to Paimon row type {@link RowType}
+     *
+     * @param seaTunnelRowType SeaTunnel row type {@link SeaTunnelRowType}
+     * @return Paimon row type {@link RowType}
+     */
     public static RowType convert(SeaTunnelRowType seaTunnelRowType) {
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
         DataType[] dataTypes =
@@ -72,10 +84,20 @@ public class RowTypeConverter {
         return DataTypes.ROW(dataTypes);
     }
 
+    /**
+     * Mapping SeaTunnel data type {@link SeaTunnelDataType} to Paimon data type {@link DataType}
+     *
+     * @param dataType SeaTunnel data type {@link SeaTunnelDataType}
+     * @return Paimon data type {@link DataType}
+     */
     public static DataType convert(SeaTunnelDataType<?> dataType) {
         return SeaTunnelTypeToPaimonVisitor.INSTANCE.visit(dataType);
     }
 
+    /**
+     * A visitor that convert SeaTunnel data type {@link SeaTunnelDataType} to Paimon data type
+     * {@link DataType}
+     */
     private static class SeaTunnelTypeToPaimonVisitor {
 
         private static final SeaTunnelTypeToPaimonVisitor INSTANCE =
@@ -138,6 +160,10 @@ public class RowTypeConverter {
         }
     }
 
+    /**
+     * A visitor that convert Paimon data type {@link DataType} to SeaTunnel data type {@link
+     * SeaTunnelDataType}
+     */
     private static class PaimonToSeaTunnelTypeVisitor
             extends DataTypeDefaultVisitor<SeaTunnelDataType> {
 

@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
+/** Paimon connector source reader. */
 @Slf4j
 public class PaimonSourceReader implements SourceReader<SeaTunnelRow, PaimonSourceSplit> {
 

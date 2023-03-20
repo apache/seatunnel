@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.source.SourceSplit;
 
 import org.apache.paimon.table.source.Split;
 
+/** Paimon source split, wrapped the {@link Split} of paimon table. */
 public class PaimonSourceSplit implements SourceSplit {
     private static final long serialVersionUID = 1L;
 

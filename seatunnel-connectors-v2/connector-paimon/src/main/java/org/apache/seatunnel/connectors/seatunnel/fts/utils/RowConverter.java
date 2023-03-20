@@ -57,6 +57,13 @@ public class RowConverter {
 
     private RowConverter() {}
 
+    /**
+     * Convert Paimon array {@link InternalArray} to SeaTunnel array.
+     *
+     * @param array Paimon array object
+     * @param dataType Data type of the array
+     * @return SeaTunnel array object
+     */
     public static Object convert(InternalArray array, SeaTunnelDataType<?> dataType) {
         BasicType<?> elementType = ((ArrayType<?, ?>) dataType).getElementType();
         switch (elementType.getSqlType()) {
@@ -115,6 +122,13 @@ public class RowConverter {
         }
     }
 
+    /**
+     * Convert SeaTunnel array to Paimon array {@link InternalArray}
+     *
+     * @param array Seatunnel array object
+     * @param dataType SeaTunnel array data type
+     * @return Paimon array object {@link BinaryArray}
+     */
     public static BinaryArray convert(Object array, SeaTunnelDataType<?> dataType) {
         BasicType<?> elementType = ((ArrayType<?, ?>) dataType).getElementType();
         int length = ((Object[]) array).length;
@@ -211,6 +225,13 @@ public class RowConverter {
         return binaryArray;
     }
 
+    /**
+     * Convert Paimon row {@link InternalRow} to SeaTunnelRow {@link SeaTunnelRow}
+     *
+     * @param rowData Paimon row object
+     * @param seaTunnelRowType SeaTunnel row type
+     * @return SeaTunnel row
+     */
     public static SeaTunnelRow convert(InternalRow rowData, SeaTunnelRowType seaTunnelRowType) {
         Object[] objects = new Object[seaTunnelRowType.getTotalFields()];
         for (int i = 0; i < objects.length; i++) {
@@ -295,6 +316,13 @@ public class RowConverter {
         return new SeaTunnelRow(objects);
     }
 
+    /**
+     * Convert SeaTunnel row {@link SeaTunnelRow} to Paimon row {@link InternalRow}
+     *
+     * @param seaTunnelRow SeaTunnel row object
+     * @param seaTunnelRowType Seatunnel row type
+     * @return Paimon row object
+     */
     public static InternalRow convert(
             SeaTunnelRow seaTunnelRow, SeaTunnelRowType seaTunnelRowType) {
         BinaryRow binaryRow = new BinaryRow(seaTunnelRowType.getTotalFields());

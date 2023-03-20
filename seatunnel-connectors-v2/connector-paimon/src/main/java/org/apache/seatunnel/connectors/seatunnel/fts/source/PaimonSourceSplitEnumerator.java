@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/** Paimon source split enumerator, used to calculate the splits for every reader. */
 @Slf4j
 public class PaimonSourceSplitEnumerator
         implements SourceSplitEnumerator<PaimonSourceSplit, PaimonSourceState> {

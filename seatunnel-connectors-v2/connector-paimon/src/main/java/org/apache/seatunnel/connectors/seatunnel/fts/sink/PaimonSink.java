@@ -35,7 +35,7 @@ import org.apache.seatunnel.connectors.seatunnel.fts.exception.PaimonConnectorEx
 import org.apache.seatunnel.connectors.seatunnel.fts.sink.commit.PaimonAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.fts.sink.commit.PaimonAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.fts.sink.commit.PaimonCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.fts.sink.state.PaimonState;
+import org.apache.seatunnel.connectors.seatunnel.fts.sink.state.PaimonSinkState;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.paimon.catalog.Catalog;
@@ -60,7 +60,7 @@ import static org.apache.seatunnel.connectors.seatunnel.fts.config.PaimonConfig.
 @AutoService(SeaTunnelSink.class)
 public class PaimonSink
         implements SeaTunnelSink<
-                SeaTunnelRow, PaimonState, PaimonCommitInfo, PaimonAggregatedCommitInfo> {
+                SeaTunnelRow, PaimonSinkState, PaimonCommitInfo, PaimonAggregatedCommitInfo> {
 
     private static final long serialVersionUID = 1L;
 
@@ -123,7 +123,7 @@ public class PaimonSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, PaimonCommitInfo, PaimonState> createWriter(
+    public SinkWriter<SeaTunnelRow, PaimonCommitInfo, PaimonSinkState> createWriter(
             SinkWriter.Context context) throws IOException {
         return new PaimonSinkWriter(context, table, seaTunnelRowType);
     }
@@ -135,8 +135,8 @@ public class PaimonSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, PaimonCommitInfo, PaimonState> restoreWriter(
-            SinkWriter.Context context, List<PaimonState> states) throws IOException {
+    public SinkWriter<SeaTunnelRow, PaimonCommitInfo, PaimonSinkState> restoreWriter(
+            SinkWriter.Context context, List<PaimonSinkState> states) throws IOException {
         return new PaimonSinkWriter(context, table, seaTunnelRowType, states);
     }
 }

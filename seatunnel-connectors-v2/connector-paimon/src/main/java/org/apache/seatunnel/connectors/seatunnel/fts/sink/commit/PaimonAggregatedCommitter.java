@@ -35,6 +35,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/** Paimon connector aggregated committer class */
 @Slf4j
 public class PaimonAggregatedCommitter
         implements SinkAggregatedCommitter<PaimonCommitInfo, PaimonAggregatedCommitInfo> {
