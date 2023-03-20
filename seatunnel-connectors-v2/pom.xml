@@ -72,7 +72,7 @@
         <module>connector-selectdb-cloud</module>
         <module>connector-hbase</module>
         <module>connector-rocketmq</module>
-        <module>connector-flink-table-store</module>
+        <module>connector-paimon</module>
     </modules>
 
     <dependencyManagement>
