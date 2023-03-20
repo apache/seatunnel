@@ -30,6 +30,7 @@ import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 
 import org.awaitility.Awaitility;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -111,5 +112,12 @@ public class RestApiIT {
                 .statusCode(200)
                 .body("[0].jobName", equalTo("fake_to_file"))
                 .body("[0].jobStatus", equalTo("RUNNING"));
+    }
+
+    @AfterAll
+    static void afterClass() {
+        if (hazelcastInstance != null) {
+            hazelcastInstance.shutdown();
+        }
     }
 }
