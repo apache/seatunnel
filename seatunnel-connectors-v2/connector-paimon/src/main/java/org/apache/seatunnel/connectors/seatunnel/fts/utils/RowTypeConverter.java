@@ -32,6 +32,7 @@ import org.apache.paimon.types.BooleanType;
 import org.apache.paimon.types.CharType;
 import org.apache.paimon.types.DataType;
 import org.apache.paimon.types.DataTypeDefaultVisitor;
+import org.apache.paimon.types.DataTypes;
 import org.apache.paimon.types.DateType;
 import org.apache.paimon.types.DecimalType;
 import org.apache.paimon.types.DoubleType;
@@ -45,6 +46,8 @@ import org.apache.paimon.types.TimestampType;
 import org.apache.paimon.types.TinyIntType;
 import org.apache.paimon.types.VarBinaryType;
 import org.apache.paimon.types.VarCharType;
+
+import java.util.Arrays;
 
 /** The converter for converting {@link RowType} and {@link SeaTunnelRowType} */
 public class RowTypeConverter {
@@ -61,7 +64,78 @@ public class RowTypeConverter {
     }
 
     public static RowType convert(SeaTunnelRowType seaTunnelRowType) {
-        return null;
+        SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
+        DataType[] dataTypes =
+                Arrays.stream(fieldTypes)
+                        .map(SeaTunnelTypeToPaimonVisitor.INSTANCE::visit)
+                        .toArray(DataType[]::new);
+        return DataTypes.ROW(dataTypes);
+    }
+
+    public static DataType convert(SeaTunnelDataType<?> dataType) {
+        return SeaTunnelTypeToPaimonVisitor.INSTANCE.visit(dataType);
+    }
+
+    private static class SeaTunnelTypeToPaimonVisitor {
+
+        private static final SeaTunnelTypeToPaimonVisitor INSTANCE =
+                new SeaTunnelTypeToPaimonVisitor();
+
+        private SeaTunnelTypeToPaimonVisitor() {}
+
+        public DataType visit(SeaTunnelDataType<?> dataType) {
+            switch (dataType.getSqlType()) {
+                case TINYINT:
+                    return DataTypes.TINYINT();
+                case SMALLINT:
+                    return DataTypes.SMALLINT();
+                case INT:
+                    return DataTypes.INT();
+                case BIGINT:
+                    return DataTypes.BIGINT();
+                case FLOAT:
+                    return DataTypes.FLOAT();
+                case DOUBLE:
+                    return DataTypes.DOUBLE();
+                case DECIMAL:
+                    return DataTypes.DECIMAL(
+                            ((DecimalType) dataType).getPrecision(),
+                            ((DecimalType) dataType).getScale());
+                case STRING:
+                    return DataTypes.STRING();
+                case BYTES:
+                    return DataTypes.BYTES();
+                case BOOLEAN:
+                    return DataTypes.BOOLEAN();
+                case DATE:
+                    return DataTypes.TIMESTAMP(3);
+                case TIMESTAMP:
+                    return DataTypes.TIMESTAMP(6);
+                case MAP:
+                    SeaTunnelDataType<?> keyType =
+                            ((org.apache.seatunnel.api.table.type.MapType<?, ?>) dataType)
+                                    .getKeyType();
+                    SeaTunnelDataType<?> valueType =
+                            ((org.apache.seatunnel.api.table.type.MapType<?, ?>) dataType)
+                                    .getValueType();
+                    return DataTypes.MAP(visit(keyType), visit(valueType));
+                case ARRAY:
+                    BasicType<?> elementType =
+                            ((org.apache.seatunnel.api.table.type.ArrayType<?, ?>) dataType)
+                                    .getElementType();
+                    return DataTypes.ARRAY(visit(elementType));
+                case ROW:
+                    SeaTunnelDataType<?>[] fieldTypes =
+                            ((SeaTunnelRowType) dataType).getFieldTypes();
+                    DataType[] dataTypes =
+                            Arrays.stream(fieldTypes).map(this::visit).toArray(DataType[]::new);
+                    return DataTypes.ROW(dataTypes);
+                default:
+                    throw new PaimonConnectorException(
+                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            "Unsupported data type: " + dataType.getSqlType());
+            }
+        }
     }
 
     private static class PaimonToSeaTunnelTypeVisitor

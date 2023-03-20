@@ -27,12 +27,28 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.fts.exception.PaimonConnectorException;
 
+import org.apache.paimon.data.BinaryArray;
+import org.apache.paimon.data.BinaryArrayWriter;
+import org.apache.paimon.data.BinaryMap;
+import org.apache.paimon.data.BinaryRow;
+import org.apache.paimon.data.BinaryRowWriter;
+import org.apache.paimon.data.BinaryString;
+import org.apache.paimon.data.BinaryWriter;
+import org.apache.paimon.data.Decimal;
 import org.apache.paimon.data.InternalArray;
 import org.apache.paimon.data.InternalMap;
 import org.apache.paimon.data.InternalRow;
 import org.apache.paimon.data.Timestamp;
+import org.apache.paimon.data.serializer.InternalArraySerializer;
+import org.apache.paimon.data.serializer.InternalMapSerializer;
+import org.apache.paimon.data.serializer.InternalRowSerializer;
+import org.apache.paimon.types.DataType;
+import org.apache.paimon.types.DataTypes;
+import org.apache.paimon.types.RowType;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -97,6 +113,102 @@ public class RowConverter {
                         String.format("Array type not support this genericType [%s]", elementType);
                 throw new PaimonConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
         }
+    }
+
+    public static BinaryArray convert(Object array, SeaTunnelDataType<?> dataType) {
+        BasicType<?> elementType = ((ArrayType<?, ?>) dataType).getElementType();
+        int length = ((Object[]) array).length;
+        BinaryArray binaryArray = new BinaryArray();
+        BinaryArrayWriter binaryArrayWriter;
+        switch (elementType.getSqlType()) {
+            case STRING:
+                binaryArrayWriter =
+                        new BinaryArrayWriter(
+                                binaryArray,
+                                length,
+                                BinaryArray.calculateFixLengthPartSize(DataTypes.STRING()));
+                for (int i = 0; i < ((String[]) array).length; i++) {
+                    binaryArrayWriter.writeString(
+                            i, BinaryString.fromString(((String[]) array)[i]));
+                }
+                break;
+            case BOOLEAN:
+                binaryArrayWriter =
+                        new BinaryArrayWriter(
+                                binaryArray,
+                                length,
+                                BinaryArray.calculateFixLengthPartSize(DataTypes.BOOLEAN()));
+                for (int i = 0; i < ((Boolean[]) array).length; i++) {
+                    binaryArrayWriter.writeBoolean(i, ((Boolean[]) array)[i]);
+                }
+                break;
+            case TINYINT:
+                binaryArrayWriter =
+                        new BinaryArrayWriter(
+                                binaryArray,
+                                length,
+                                BinaryArray.calculateFixLengthPartSize(DataTypes.TINYINT()));
+                for (int i = 0; i < ((Byte[]) array).length; i++) {
+                    binaryArrayWriter.writeByte(i, ((Byte[]) array)[i]);
+                }
+                break;
+            case SMALLINT:
+                binaryArrayWriter =
+                        new BinaryArrayWriter(
+                                binaryArray,
+                                length,
+                                BinaryArray.calculateFixLengthPartSize(DataTypes.SMALLINT()));
+                for (int i = 0; i < ((Short[]) array).length; i++) {
+                    binaryArrayWriter.writeShort(i, ((Short[]) array)[i]);
+                }
+                break;
+            case INT:
+                binaryArrayWriter =
+                        new BinaryArrayWriter(
+                                binaryArray,
+                                length,
+                                BinaryArray.calculateFixLengthPartSize(DataTypes.INT()));
+                for (int i = 0; i < ((Integer[]) array).length; i++) {
+                    binaryArrayWriter.writeInt(i, ((Integer[]) array)[i]);
+                }
+                break;
+            case BIGINT:
+                binaryArrayWriter =
+                        new BinaryArrayWriter(
+                                binaryArray,
+                                length,
+                                BinaryArray.calculateFixLengthPartSize(DataTypes.BIGINT()));
+                for (int i = 0; i < ((Long[]) array).length; i++) {
+                    binaryArrayWriter.writeLong(i, ((Long[]) array)[i]);
+                }
+                break;
+            case FLOAT:
+                binaryArrayWriter =
+                        new BinaryArrayWriter(
+                                binaryArray,
+                                length,
+                                BinaryArray.calculateFixLengthPartSize(DataTypes.FLOAT()));
+                for (int i = 0; i < ((Float[]) array).length; i++) {
+                    binaryArrayWriter.writeFloat(i, ((Float[]) array)[i]);
+                }
+                break;
+            case DOUBLE:
+                binaryArrayWriter =
+                        new BinaryArrayWriter(
+                                binaryArray,
+                                length,
+                                BinaryArray.calculateFixLengthPartSize(DataTypes.DOUBLE()));
+                for (int i = 0; i < ((Double[]) array).length; i++) {
+                    binaryArrayWriter.writeDouble(i, ((Double[]) array)[i]);
+                }
+                break;
+            default:
+                String errorMsg =
+                        String.format("Array type not support this genericType [%s]", elementType);
+                throw new PaimonConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
+        }
+        binaryArrayWriter.complete();
+        return binaryArray;
     }
 
     public static SeaTunnelRow convert(InternalRow rowData, SeaTunnelRowType seaTunnelRowType) {
@@ -185,7 +297,90 @@ public class RowConverter {
 
     public static InternalRow convert(
             SeaTunnelRow seaTunnelRow, SeaTunnelRowType seaTunnelRowType) {
-        // TODO implementation
-        return null;
+        BinaryRow binaryRow = new BinaryRow(seaTunnelRowType.getTotalFields());
+        BinaryWriter binaryWriter = new BinaryRowWriter(binaryRow);
+        SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
+        for (int i = 0; i < fieldTypes.length; i++) {
+            switch (fieldTypes[i].getSqlType()) {
+                case TINYINT:
+                    binaryWriter.writeByte(i, (Byte) seaTunnelRow.getField(i));
+                    break;
+                case SMALLINT:
+                    binaryWriter.writeShort(i, (Short) seaTunnelRow.getField(i));
+                    break;
+                case INT:
+                    binaryWriter.writeInt(i, (Integer) seaTunnelRow.getField(i));
+                    break;
+                case BIGINT:
+                    binaryWriter.writeLong(i, (Long) seaTunnelRow.getField(i));
+                    break;
+                case FLOAT:
+                    binaryWriter.writeFloat(i, (Float) seaTunnelRow.getField(i));
+                    break;
+                case DOUBLE:
+                    binaryWriter.writeDouble(i, (Double) seaTunnelRow.getField(i));
+                    break;
+                case DECIMAL:
+                    DecimalType fieldType = (DecimalType) seaTunnelRowType.getFieldType(i);
+                    binaryWriter.writeDecimal(
+                            i, (Decimal) seaTunnelRow.getField(i), fieldType.getPrecision());
+                    break;
+                case STRING:
+                    binaryWriter.writeString(
+                            i, BinaryString.fromString((String) seaTunnelRow.getField(i)));
+                    break;
+                case BYTES:
+                    binaryWriter.writeBinary(i, (byte[]) seaTunnelRow.getField(i));
+                    break;
+                case BOOLEAN:
+                    binaryWriter.writeBoolean(i, (Boolean) seaTunnelRow.getField(i));
+                    break;
+                case DATE:
+                    LocalDate date = (LocalDate) seaTunnelRow.getField(i);
+                    LocalTime time = LocalTime.of(0, 0, 0);
+                    binaryWriter.writeTimestamp(
+                            i, Timestamp.fromLocalDateTime(date.atTime(time)), 3);
+                    break;
+                case TIMESTAMP:
+                    LocalDateTime datetime = (LocalDateTime) seaTunnelRow.getField(i);
+                    binaryWriter.writeTimestamp(i, Timestamp.fromLocalDateTime(datetime), 9);
+                    break;
+                case MAP:
+                    MapType<?, ?> mapType = (MapType<?, ?>) seaTunnelRowType.getFieldType(i);
+                    SeaTunnelDataType<?> keyType = mapType.getKeyType();
+                    SeaTunnelDataType<?> valueType = mapType.getValueType();
+                    DataType paimonKeyType = RowTypeConverter.convert(keyType);
+                    DataType paimonValueType = RowTypeConverter.convert(valueType);
+                    Map<?, ?> field = (Map<?, ?>) seaTunnelRow.getField(i);
+                    Object[] keys = field.keySet().toArray(new Object[0]);
+                    Object[] values = field.values().toArray(new Object[0]);
+                    binaryWriter.writeMap(
+                            i,
+                            BinaryMap.valueOf(convert(keys, keyType), convert(values, valueType)),
+                            new InternalMapSerializer(paimonKeyType, paimonValueType));
+                    break;
+                case ARRAY:
+                    ArrayType<?, ?> arrayType = (ArrayType<?, ?>) seaTunnelRowType.getFieldType(i);
+                    BinaryArray paimonArray = convert(seaTunnelRowType.getFieldType(i), arrayType);
+                    binaryWriter.writeArray(
+                            i,
+                            paimonArray,
+                            new InternalArraySerializer(
+                                    RowTypeConverter.convert(arrayType.getElementType())));
+                    break;
+                case ROW:
+                    SeaTunnelDataType<?> rowType = seaTunnelRowType.getFieldType(i);
+                    Object row = seaTunnelRow.getField(i);
+                    InternalRow paimonRow = convert((SeaTunnelRow) row, (SeaTunnelRowType) rowType);
+                    RowType paimonRowType = RowTypeConverter.convert((SeaTunnelRowType) rowType);
+                    binaryWriter.writeRow(i, paimonRow, new InternalRowSerializer(paimonRowType));
+                    break;
+                default:
+                    throw new PaimonConnectorException(
+                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            "Unsupported data type " + seaTunnelRowType.getFieldType(i));
+            }
+        }
+        return binaryRow;
     }
 }
