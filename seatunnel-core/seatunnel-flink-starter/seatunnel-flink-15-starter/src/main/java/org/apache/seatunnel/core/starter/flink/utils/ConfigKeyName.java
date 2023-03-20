@@ -27,7 +27,7 @@ public class ConfigKeyName {
     public static final String BUFFER_TIMEOUT_MILLIS = "execution.buffer.timeout";
     public static final String PARALLELISM = "execution.parallelism";
     public static final String MAX_PARALLELISM = "execution.max-parallelism";
-    public static final String CHECKPOINT_INTERVAL = "execution.checkpoint.interval";
+    @Deprecated public static final String CHECKPOINT_INTERVAL = "execution.checkpoint.interval";
     public static final String CHECKPOINT_MODE = "execution.checkpoint.mode";
     public static final String CHECKPOINT_TIMEOUT = "execution.checkpoint.timeout";
     public static final String CHECKPOINT_DATA_URI = "execution.checkpoint.data-uri";

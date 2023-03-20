@@ -33,9 +33,25 @@ public class TaskExecutionState implements Serializable {
             TaskGroupLocation taskGroupLocation,
             ExecutionState executionState,
             Throwable throwable) {
+        this(
+                taskGroupLocation,
+                executionState,
+                throwable == null ? "" : ExceptionUtils.getMessage(throwable));
+    }
+
+    public TaskExecutionState(TaskGroupLocation taskGroupLocation, ExecutionState executionState) {
         this.taskGroupLocation = taskGroupLocation;
         this.executionState = executionState;
-        this.throwableMsg = throwable == null ? "" : ExceptionUtils.getMessage(throwable);
+        this.throwableMsg = null;
+    }
+
+    public TaskExecutionState(
+            TaskGroupLocation taskGroupLocation,
+            ExecutionState executionState,
+            String throwableMsg) {
+        this.taskGroupLocation = taskGroupLocation;
+        this.executionState = executionState;
+        this.throwableMsg = throwableMsg;
     }
 
     public ExecutionState getExecutionState() {

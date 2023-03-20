@@ -41,10 +41,7 @@ import org.apache.spark.sql.catalyst.expressions.SpecificInternalRow;
 import org.apache.spark.sql.catalyst.util.ArrayBasedMapData;
 import org.apache.spark.sql.catalyst.util.ArrayData;
 import org.apache.spark.sql.catalyst.util.MapData;
-import org.apache.spark.sql.types.DataType;
-import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.Decimal;
-import org.apache.spark.sql.types.StructType;
 import org.apache.spark.unsafe.types.UTF8String;
 
 import java.io.IOException;
@@ -243,24 +240,5 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             newArray[i] = reconvert(values[i], arrayType.getElementType());
         }
         return newArray;
-    }
-
-    public Object[] convertDateTime(InternalRow internalRow, StructType structType) {
-        Object[] fields =
-                Arrays.stream(((SpecificInternalRow) internalRow).values())
-                        .map(MutableValue::boxed)
-                        .toArray();
-        int len = structType.fields().length;
-        for (int i = 0; i < len; i++) {
-            DataType dataType = structType.fields()[i].dataType();
-            Object field = fields[i];
-            if (dataType == DataTypes.TimestampType && field instanceof Long) {
-                fields[i] = Timestamp.from(InstantConverterUtils.ofEpochMicro((long) field));
-            }
-            if (dataType == DataTypes.DateType && field instanceof Integer) {
-                fields[i] = Date.valueOf(LocalDate.ofEpochDay((int) field));
-            }
-        }
-        return fields;
     }
 }

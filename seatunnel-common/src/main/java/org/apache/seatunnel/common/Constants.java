@@ -18,8 +18,6 @@
 package org.apache.seatunnel.common;
 
 public final class Constants {
-    public static final String ROW_ROOT = "__root__";
-    public static final String ROW_TMP = "__tmp__";
 
     public static final String LOGO = "SeaTunnel";
 
@@ -38,8 +36,6 @@ public final class Constants {
     public static final String HDFS_ROOT = "hdfs.root";
 
     public static final String HDFS_USER = "hdfs.user";
-
-    public static final String CHECKPOINT_INTERVAL = "checkpoint.interval";
 
     public static final String CHECKPOINT_ID = "checkpoint.id";
 
