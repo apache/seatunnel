@@ -60,6 +60,9 @@ public class KafkaConsumerThread implements Runnable {
                 } catch (InterruptedException e) {
                     throw new KafkaConnectorException(
                             KafkaConnectorErrorCode.CONSUME_THREAD_RUN_ERROR, e);
+                } catch (Exception e) {
+                    throw new KafkaConnectorException(
+                            KafkaConnectorErrorCode.CONSUME_THREAD_RUN_ERROR, e);
                 }
             }
         } finally {
