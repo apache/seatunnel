@@ -66,8 +66,7 @@ public class RowConverter {
      * @return SeaTunnel array object
      */
     public static Object convert(InternalArray array, SeaTunnelDataType<?> dataType) {
-        BasicType<?> elementType = ((ArrayType<?, ?>) dataType).getElementType();
-        switch (elementType.getSqlType()) {
+        switch (dataType.getSqlType()) {
             case STRING:
                 String[] strings = new String[array.size()];
                 for (int j = 0; j < strings.length; j++) {
@@ -118,7 +117,7 @@ public class RowConverter {
                 return doubles;
             default:
                 String errorMsg =
-                        String.format("Array type not support this genericType [%s]", elementType);
+                        String.format("Array type not support this genericType [%s]", dataType);
                 throw new PaimonConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
         }
     }
@@ -257,11 +256,11 @@ public class RowConverter {
                     break;
                 case DECIMAL:
                     SeaTunnelDataType<?> decimalType = seaTunnelRowType.getFieldType(i);
-                    objects[i] =
-                            rowData.getDecimal(
+                    Decimal decimal = rowData.getDecimal(
                                     i,
                                     ((DecimalType) decimalType).getPrecision(),
                                     ((DecimalType) decimalType).getScale());
+                    objects[i] = decimal.toBigDecimal();
                     break;
                 case STRING:
                     objects[i] = rowData.getString(i).toString();
@@ -284,7 +283,7 @@ public class RowConverter {
                 case ARRAY:
                     SeaTunnelDataType<?> arrayType = seaTunnelRowType.getFieldType(i);
                     InternalArray array = rowData.getArray(i);
-                    objects[i] = convert(array, arrayType);
+                    objects[i] = convert(array, ((ArrayType<?, ?>) arrayType).getElementType());
                     break;
                 case MAP:
                     SeaTunnelDataType<?> mapType = seaTunnelRowType.getFieldType(i);
