@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.fts.sink;
+package org.apache.seatunnel.connectors.seatunnel.paimon.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -30,12 +30,12 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.fts.exception.PaimonConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.fts.exception.PaimonConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.fts.sink.commit.PaimonAggregatedCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.fts.sink.commit.PaimonAggregatedCommitter;
-import org.apache.seatunnel.connectors.seatunnel.fts.sink.commit.PaimonCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.fts.sink.state.PaimonSinkState;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit.PaimonAggregatedCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit.PaimonAggregatedCommitter;
+import org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit.PaimonCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.paimon.sink.state.PaimonSinkState;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.paimon.catalog.Catalog;
@@ -53,9 +53,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.apache.seatunnel.connectors.seatunnel.fts.config.PaimonConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.fts.config.PaimonConfig.TABLE;
-import static org.apache.seatunnel.connectors.seatunnel.fts.config.PaimonConfig.WAREHOUSE;
+import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.WAREHOUSE;
 
 @AutoService(SeaTunnelSink.class)
 public class PaimonSink

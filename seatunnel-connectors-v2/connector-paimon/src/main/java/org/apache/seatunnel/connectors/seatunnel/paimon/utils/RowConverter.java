@@ -15,17 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.fts.utils;
+package org.apache.seatunnel.connectors.seatunnel.paimon.utils;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.fts.exception.PaimonConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 
 import org.apache.paimon.data.BinaryArray;
 import org.apache.paimon.data.BinaryArrayWriter;
@@ -256,7 +255,8 @@ public class RowConverter {
                     break;
                 case DECIMAL:
                     SeaTunnelDataType<?> decimalType = seaTunnelRowType.getFieldType(i);
-                    Decimal decimal = rowData.getDecimal(
+                    Decimal decimal =
+                            rowData.getDecimal(
                                     i,
                                     ((DecimalType) decimalType).getPrecision(),
                                     ((DecimalType) decimalType).getScale());
@@ -350,7 +350,12 @@ public class RowConverter {
                 case DECIMAL:
                     DecimalType fieldType = (DecimalType) seaTunnelRowType.getFieldType(i);
                     binaryWriter.writeDecimal(
-                            i, Decimal.fromBigDecimal((BigDecimal) seaTunnelRow.getField(i), fieldType.getPrecision(), fieldType.getScale()), fieldType.getPrecision());
+                            i,
+                            Decimal.fromBigDecimal(
+                                    (BigDecimal) seaTunnelRow.getField(i),
+                                    fieldType.getPrecision(),
+                                    fieldType.getScale()),
+                            fieldType.getPrecision());
                     break;
                 case STRING:
                     binaryWriter.writeString(
@@ -388,7 +393,8 @@ public class RowConverter {
                     break;
                 case ARRAY:
                     ArrayType<?, ?> arrayType = (ArrayType<?, ?>) seaTunnelRowType.getFieldType(i);
-                    BinaryArray paimonArray = convert(seaTunnelRow.getField(i), arrayType.getElementType());
+                    BinaryArray paimonArray =
+                            convert(seaTunnelRow.getField(i), arrayType.getElementType());
                     binaryWriter.writeArray(
                             i,
                             paimonArray,

@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.fts.sink;
+package org.apache.seatunnel.connectors.seatunnel.paimon.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.fts.exception.PaimonConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.fts.exception.PaimonConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.fts.sink.commit.PaimonCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.fts.sink.state.PaimonSinkState;
-import org.apache.seatunnel.connectors.seatunnel.fts.utils.RowConverter;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit.PaimonCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.paimon.sink.state.PaimonSinkState;
+import org.apache.seatunnel.connectors.seatunnel.paimon.utils.RowConverter;
 
 import org.apache.paimon.data.InternalRow;
 import org.apache.paimon.table.Table;

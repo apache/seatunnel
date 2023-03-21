@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.fts.sink.commit;
+package org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit;
 
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
-import org.apache.seatunnel.connectors.seatunnel.fts.exception.PaimonConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.fts.exception.PaimonConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 
 import org.apache.paimon.operation.Lock;
 import org.apache.paimon.table.Table;

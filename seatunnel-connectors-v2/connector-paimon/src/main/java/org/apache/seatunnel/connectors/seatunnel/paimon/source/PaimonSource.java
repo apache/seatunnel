@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.fts.source;
+package org.apache.seatunnel.connectors.seatunnel.paimon.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -31,9 +31,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.fts.exception.PaimonConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.fts.exception.PaimonConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.fts.utils.RowTypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.paimon.utils.RowTypeConverter;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.paimon.catalog.Catalog;
@@ -48,9 +48,9 @@ import com.google.auto.service.AutoService;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.apache.seatunnel.connectors.seatunnel.fts.config.PaimonConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.fts.config.PaimonConfig.TABLE;
-import static org.apache.seatunnel.connectors.seatunnel.fts.config.PaimonConfig.WAREHOUSE;
+import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.WAREHOUSE;
 
 /** Paimon connector source class. */
 @AutoService(SeaTunnelSource.class)

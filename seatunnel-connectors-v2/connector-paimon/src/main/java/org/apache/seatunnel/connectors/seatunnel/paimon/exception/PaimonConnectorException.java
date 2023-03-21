@@ -15,32 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.fts.exception;
+package org.apache.seatunnel.connectors.seatunnel.paimon.exception;
 
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-/** Paimon connector error codes. */
-public enum PaimonConnectorErrorCode implements SeaTunnelErrorCode {
-    TABLE_WRITE_COMMIT_FAILED("PAIMON-01", "Paimon write commit failed"),
-    TABLE_WRITE_RECORD_FAILED("PAIMON-02", "Write record to paimon failed"),
-    TABLE_PRE_COMMIT_FAILED("PAIMON-03", "Paimon pre commit failed"),
-    GET_TABLE_FAILED("PAIMON-04", "Get table from database failed");
-
-    private final String code;
-    private final String description;
-
-    PaimonConnectorErrorCode(String code, String description) {
-        this.code = code;
-        this.description = description;
+/** Paimon connector exception class. */
+public class PaimonConnectorException extends SeaTunnelRuntimeException {
+    public PaimonConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
+        super(seaTunnelErrorCode, errorMessage);
     }
 
-    @Override
-    public String getCode() {
-        return code;
+    public PaimonConnectorException(
+            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+        super(seaTunnelErrorCode, errorMessage, cause);
     }
 
-    @Override
-    public String getDescription() {
-        return description;
+    public PaimonConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
+        super(seaTunnelErrorCode, cause);
     }
 }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.fts.sink.state;
+package org.apache.seatunnel.connectors.seatunnel.paimon.sink.state;
 
 import org.apache.paimon.table.sink.CommitMessage;
 

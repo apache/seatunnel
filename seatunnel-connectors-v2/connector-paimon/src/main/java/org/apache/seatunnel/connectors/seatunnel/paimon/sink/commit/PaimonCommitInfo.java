@@ -15,23 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.fts.source;
+package org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit;
+
+import org.apache.paimon.table.sink.CommitMessage;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
 import java.io.Serializable;
-import java.util.Set;
+import java.util.List;
 
-/** Paimon connector source state, saves the splits has assigned to readers. */
-public class PaimonSourceState implements Serializable {
-
+/** Paimon connector commit information class, contains the list of {@link CommitMessage}. */
+@Data
+@AllArgsConstructor
+public class PaimonCommitInfo implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    private final Set<PaimonSourceSplit> assignedSplits;
-
-    public PaimonSourceState(Set<PaimonSourceSplit> assignedSplits) {
-        this.assignedSplits = assignedSplits;
-    }
-
-    public Set<PaimonSourceSplit> getAssignedSplits() {
-        return assignedSplits;
-    }
+    List<CommitMessage> committables;
 }
