@@ -64,7 +64,7 @@ public class PaimonSink
 
     private static final long serialVersionUID = 1L;
 
-    public static final String PLUGIN_NAME = "FlinkTableStore";
+    public static final String PLUGIN_NAME = "Paimon";
 
     private SeaTunnelRowType seaTunnelRowType;
 

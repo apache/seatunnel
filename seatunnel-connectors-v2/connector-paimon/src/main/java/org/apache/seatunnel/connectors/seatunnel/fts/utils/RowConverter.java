@@ -46,6 +46,7 @@ import org.apache.paimon.types.DataType;
 import org.apache.paimon.types.DataTypes;
 import org.apache.paimon.types.RowType;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -130,20 +131,19 @@ public class RowConverter {
      * @return Paimon array object {@link BinaryArray}
      */
     public static BinaryArray convert(Object array, SeaTunnelDataType<?> dataType) {
-        BasicType<?> elementType = ((ArrayType<?, ?>) dataType).getElementType();
         int length = ((Object[]) array).length;
         BinaryArray binaryArray = new BinaryArray();
         BinaryArrayWriter binaryArrayWriter;
-        switch (elementType.getSqlType()) {
+        switch (dataType.getSqlType()) {
             case STRING:
                 binaryArrayWriter =
                         new BinaryArrayWriter(
                                 binaryArray,
                                 length,
                                 BinaryArray.calculateFixLengthPartSize(DataTypes.STRING()));
-                for (int i = 0; i < ((String[]) array).length; i++) {
+                for (int i = 0; i < ((Object[]) array).length; i++) {
                     binaryArrayWriter.writeString(
-                            i, BinaryString.fromString(((String[]) array)[i]));
+                            i, BinaryString.fromString((String) ((Object[]) array)[i]));
                 }
                 break;
             case BOOLEAN:
@@ -152,8 +152,8 @@ public class RowConverter {
                                 binaryArray,
                                 length,
                                 BinaryArray.calculateFixLengthPartSize(DataTypes.BOOLEAN()));
-                for (int i = 0; i < ((Boolean[]) array).length; i++) {
-                    binaryArrayWriter.writeBoolean(i, ((Boolean[]) array)[i]);
+                for (int i = 0; i < ((Object[]) array).length; i++) {
+                    binaryArrayWriter.writeBoolean(i, (Boolean) ((Object[]) array)[i]);
                 }
                 break;
             case TINYINT:
@@ -162,8 +162,8 @@ public class RowConverter {
                                 binaryArray,
                                 length,
                                 BinaryArray.calculateFixLengthPartSize(DataTypes.TINYINT()));
-                for (int i = 0; i < ((Byte[]) array).length; i++) {
-                    binaryArrayWriter.writeByte(i, ((Byte[]) array)[i]);
+                for (int i = 0; i < ((Object[]) array).length; i++) {
+                    binaryArrayWriter.writeByte(i, (Byte) ((Object[]) array)[i]);
                 }
                 break;
             case SMALLINT:
@@ -172,8 +172,8 @@ public class RowConverter {
                                 binaryArray,
                                 length,
                                 BinaryArray.calculateFixLengthPartSize(DataTypes.SMALLINT()));
-                for (int i = 0; i < ((Short[]) array).length; i++) {
-                    binaryArrayWriter.writeShort(i, ((Short[]) array)[i]);
+                for (int i = 0; i < ((Object[]) array).length; i++) {
+                    binaryArrayWriter.writeShort(i, (Short) ((Object[]) array)[i]);
                 }
                 break;
             case INT:
@@ -182,8 +182,8 @@ public class RowConverter {
                                 binaryArray,
                                 length,
                                 BinaryArray.calculateFixLengthPartSize(DataTypes.INT()));
-                for (int i = 0; i < ((Integer[]) array).length; i++) {
-                    binaryArrayWriter.writeInt(i, ((Integer[]) array)[i]);
+                for (int i = 0; i < ((Object[]) array).length; i++) {
+                    binaryArrayWriter.writeInt(i, (Integer) ((Object[]) array)[i]);
                 }
                 break;
             case BIGINT:
@@ -192,8 +192,8 @@ public class RowConverter {
                                 binaryArray,
                                 length,
                                 BinaryArray.calculateFixLengthPartSize(DataTypes.BIGINT()));
-                for (int i = 0; i < ((Long[]) array).length; i++) {
-                    binaryArrayWriter.writeLong(i, ((Long[]) array)[i]);
+                for (int i = 0; i < ((Object[]) array).length; i++) {
+                    binaryArrayWriter.writeLong(i, (Long) ((Object[]) array)[i]);
                 }
                 break;
             case FLOAT:
@@ -202,8 +202,8 @@ public class RowConverter {
                                 binaryArray,
                                 length,
                                 BinaryArray.calculateFixLengthPartSize(DataTypes.FLOAT()));
-                for (int i = 0; i < ((Float[]) array).length; i++) {
-                    binaryArrayWriter.writeFloat(i, ((Float[]) array)[i]);
+                for (int i = 0; i < ((Object[]) array).length; i++) {
+                    binaryArrayWriter.writeFloat(i, (Float) ((Object[]) array)[i]);
                 }
                 break;
             case DOUBLE:
@@ -212,13 +212,13 @@ public class RowConverter {
                                 binaryArray,
                                 length,
                                 BinaryArray.calculateFixLengthPartSize(DataTypes.DOUBLE()));
-                for (int i = 0; i < ((Double[]) array).length; i++) {
-                    binaryArrayWriter.writeDouble(i, ((Double[]) array)[i]);
+                for (int i = 0; i < ((Object[]) array).length; i++) {
+                    binaryArrayWriter.writeDouble(i, (Double) ((Object[]) array)[i]);
                 }
                 break;
             default:
                 String errorMsg =
-                        String.format("Array type not support this genericType [%s]", elementType);
+                        String.format("Array type not support this genericType [%s]", dataType);
                 throw new PaimonConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
         }
         binaryArrayWriter.complete();
@@ -351,7 +351,7 @@ public class RowConverter {
                 case DECIMAL:
                     DecimalType fieldType = (DecimalType) seaTunnelRowType.getFieldType(i);
                     binaryWriter.writeDecimal(
-                            i, (Decimal) seaTunnelRow.getField(i), fieldType.getPrecision());
+                            i, Decimal.fromBigDecimal((BigDecimal) seaTunnelRow.getField(i), fieldType.getPrecision(), fieldType.getScale()), fieldType.getPrecision());
                     break;
                 case STRING:
                     binaryWriter.writeString(
@@ -389,7 +389,7 @@ public class RowConverter {
                     break;
                 case ARRAY:
                     ArrayType<?, ?> arrayType = (ArrayType<?, ?>) seaTunnelRowType.getFieldType(i);
-                    BinaryArray paimonArray = convert(seaTunnelRowType.getFieldType(i), arrayType);
+                    BinaryArray paimonArray = convert(seaTunnelRow.getField(i), arrayType.getElementType());
                     binaryWriter.writeArray(
                             i,
                             paimonArray,
