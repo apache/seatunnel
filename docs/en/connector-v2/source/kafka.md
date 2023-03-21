@@ -157,13 +157,15 @@ source {
         topic = "seatunnel"
         bootstrap.servers = "xx.amazonaws.com.cn:9096,xxx.amazonaws.com.cn:9096,xxxx.amazonaws.com.cn:9096"
         consumer.group = "seatunnel_group"
-        kafka.security.protocol=SASL_SSL
-        kafka.sasl.mechanism=SCRAM-SHA-512
-        kafka.sasl.jaas.config="org.apache.kafka.common.security.scram.ScramLoginModule required \nusername=${username}\npassword=${password};"
-        #kafka.security.protocol=SASL_SSL
-        #kafka.sasl.mechanism=AWS_MSK_IAM
-        #kafka.sasl.jaas.config="software.amazon.msk.auth.iam.IAMLoginModule required;"
-        #kafka.sasl.client.callback.handler.class="software.amazon.msk.auth.iam.IAMClientCallbackHandler"
+        kafka.config = {
+            security.protocol=SASL_SSL
+            sasl.mechanism=SCRAM-SHA-512
+            sasl.jaas.config="org.apache.kafka.common.security.scram.ScramLoginModule required \nusername=${username}\npassword=${password};"
+            #security.protocol=SASL_SSL
+            #sasl.mechanism=AWS_MSK_IAM
+            #sasl.jaas.config="software.amazon.msk.auth.iam.IAMLoginModule required;"
+            #sasl.client.callback.handler.class="software.amazon.msk.auth.iam.IAMClientCallbackHandler"
+        }
     }
 }
 ```
@@ -191,13 +193,15 @@ source {
         topic = "seatunnel"
         bootstrap.servers = "xx.amazonaws.com.cn:9098,xxx.amazonaws.com.cn:9098,xxxx.amazonaws.com.cn:9098"
         consumer.group = "seatunnel_group"
-        #kafka.security.protocol=SASL_SSL
-        #kafka.sasl.mechanism=SCRAM-SHA-512
-        #kafka.sasl.jaas.config="org.apache.kafka.common.security.scram.ScramLoginModule required \nusername=${username}\npassword=${password};"
-        kafka.security.protocol=SASL_SSL
-        kafka.sasl.mechanism=AWS_MSK_IAM
-        kafka.sasl.jaas.config="software.amazon.msk.auth.iam.IAMLoginModule required;"
-        kafka.sasl.client.callback.handler.class="software.amazon.msk.auth.iam.IAMClientCallbackHandler"
+        kafka.config = {
+            #security.protocol=SASL_SSL
+            #sasl.mechanism=SCRAM-SHA-512
+            #sasl.jaas.config="org.apache.kafka.common.security.scram.ScramLoginModule required \nusername=${username}\npassword=${password};"
+            security.protocol=SASL_SSL
+            sasl.mechanism=AWS_MSK_IAM
+            sasl.jaas.config="software.amazon.msk.auth.iam.IAMLoginModule required;"
+            sasl.client.callback.handler.class="software.amazon.msk.auth.iam.IAMClientCallbackHandler"
+        }
     }
 }
 ```
