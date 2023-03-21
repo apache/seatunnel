@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.pulsar.config;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
 
@@ -26,11 +29,28 @@ import org.apache.pulsar.client.api.Authentication;
 import org.apache.pulsar.client.api.AuthenticationFactory;
 import org.apache.pulsar.client.api.ClientBuilder;
 import org.apache.pulsar.client.api.ConsumerBuilder;
+import org.apache.pulsar.client.api.MessageRoutingMode;
+import org.apache.pulsar.client.api.Producer;
+import org.apache.pulsar.client.api.ProducerBuilder;
 import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.client.api.Schema;
+import org.apache.pulsar.client.api.TypedMessageBuilder;
+import org.apache.pulsar.client.api.transaction.Transaction;
+import org.apache.pulsar.client.api.transaction.TransactionCoordinatorClient;
+import org.apache.pulsar.client.impl.ProducerBase;
+import org.apache.pulsar.client.impl.PulsarClientImpl;
+import org.apache.pulsar.client.impl.TypedMessageBuilderImpl;
 import org.apache.pulsar.client.impl.auth.AuthenticationDisabled;
+import org.apache.pulsar.client.impl.transaction.TransactionImpl;
 import org.apache.pulsar.shade.org.apache.commons.lang3.StringUtils;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+
+import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SinkProperties.PULSAR_CONFIG_PREFIX;
 
 public class PulsarConfigUtil {
 
@@ -50,10 +70,14 @@ public class PulsarConfigUtil {
         }
     }
 
-    public static PulsarClient createClient(PulsarClientConfig config) {
+    public static PulsarClient createClient(
+            PulsarClientConfig config, PulsarSemantics pulsarSemantics) {
         ClientBuilder builder = PulsarClient.builder();
         builder.serviceUrl(config.getServiceUrl());
         builder.authentication(createAuthentication(config));
+        if (PulsarSemantics.EXACTLY_ONCE == pulsarSemantics) {
+            builder.enableTransaction(true);
+        }
         try {
             return builder.build();
         } catch (PulsarClientException e) {
@@ -87,5 +111,102 @@ public class PulsarConfigUtil {
                     PulsarConnectorErrorCode.PULSAR_AUTHENTICATION_FAILED,
                     "Authentication parameters are required when using authentication plug-in.");
         }
+    }
+
+    /**
+     * get TransactionCoordinatorClient
+     *
+     * @param pulsarClient
+     * @return
+     */
+    public static TransactionCoordinatorClient getTcClient(PulsarClient pulsarClient) {
+        TransactionCoordinatorClient coordinatorClient =
+                ((PulsarClientImpl) pulsarClient).getTcClient();
+        // enabled transaction.
+        if (coordinatorClient == null) {
+            throw new IllegalArgumentException("You haven't enable transaction in Pulsar client.");
+        }
+
+        return coordinatorClient;
+    }
+
+    /**
+     * create transaction
+     *
+     * @param pulsarClient
+     * @param timeout
+     * @return
+     * @throws PulsarClientException
+     * @throws InterruptedException
+     * @throws ExecutionException
+     */
+    public static Transaction getTransaction(PulsarClient pulsarClient, int timeout)
+            throws PulsarClientException, InterruptedException, ExecutionException {
+        Transaction transaction =
+                pulsarClient
+                        .newTransaction()
+                        .withTransactionTimeout(timeout, TimeUnit.SECONDS)
+                        .build()
+                        .get();
+        return transaction;
+    }
+
+    /**
+     * create a Producer
+     *
+     * @param pulsarClient
+     * @param topic
+     * @param pulsarSemantics
+     * @param pluginConfig
+     * @param messageRoutingMode
+     * @return
+     * @throws PulsarClientException
+     */
+    public static Producer<byte[]> createProducer(
+            PulsarClient pulsarClient,
+            String topic,
+            PulsarSemantics pulsarSemantics,
+            Config pluginConfig,
+            MessageRoutingMode messageRoutingMode)
+            throws PulsarClientException {
+        ProducerBuilder<byte[]> producerBuilder = pulsarClient.newProducer(Schema.BYTES);
+        producerBuilder.topic(topic);
+        producerBuilder.messageRoutingMode(messageRoutingMode);
+        producerBuilder.blockIfQueueFull(true);
+        if (pluginConfig.hasPath(PULSAR_CONFIG_PREFIX.key())) {
+            Config pulsarConfig =
+                    TypesafeConfigUtils.extractSubConfig(
+                            pluginConfig, PULSAR_CONFIG_PREFIX.key(), false);
+            Map<String, String> pulsarProperties = new HashMap<>();
+            pulsarConfig
+                    .entrySet()
+                    .forEach(
+                            entry -> {
+                                pulsarProperties.put(entry.getKey(), entry.getValue().render());
+                            });
+            producerBuilder.properties(pulsarProperties);
+        }
+        if (PulsarSemantics.EXACTLY_ONCE == pulsarSemantics) {
+            /**
+             * A condition for pulsar to open a transaction Only producers disabled sendTimeout are
+             * allowed to produce transactional messages
+             */
+            producerBuilder.sendTimeout(0, TimeUnit.SECONDS);
+        }
+        return producerBuilder.create();
+    }
+
+    /**
+     * create TypedMessageBuilder
+     *
+     * @param producer
+     * @param transaction
+     * @return
+     * @throws PulsarClientException
+     */
+    public static TypedMessageBuilder<byte[]> createTypedMessageBuilder(
+            Producer<byte[]> producer, TransactionImpl transaction) throws PulsarClientException {
+        ProducerBase<byte[]> producerBase = (ProducerBase<byte[]>) producer;
+        return new TypedMessageBuilderImpl<byte[]>(producerBase, Schema.BYTES, transaction);
     }
 }
