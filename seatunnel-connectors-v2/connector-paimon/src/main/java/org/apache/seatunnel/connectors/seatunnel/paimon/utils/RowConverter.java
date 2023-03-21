@@ -272,7 +272,7 @@ public class RowConverter {
                     objects[i] = rowData.getBinary(i);
                     break;
                 case DATE:
-                    objects[i] = LocalDate.ofEpochDay(rowData.getInt(i));
+                    objects[i] = rowData.getTimestamp(i, 3).toLocalDateTime().toLocalDate();
                     break;
                 case TIMESTAMP:
                     // Now SeaTunnel not supported assigned the timezone for timestamp,

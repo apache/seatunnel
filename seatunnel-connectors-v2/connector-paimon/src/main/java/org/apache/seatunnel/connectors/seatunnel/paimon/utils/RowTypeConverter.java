@@ -30,6 +30,7 @@ import org.apache.paimon.types.BigIntType;
 import org.apache.paimon.types.BinaryType;
 import org.apache.paimon.types.BooleanType;
 import org.apache.paimon.types.CharType;
+import org.apache.paimon.types.DataField;
 import org.apache.paimon.types.DataType;
 import org.apache.paimon.types.DataTypeDefaultVisitor;
 import org.apache.paimon.types.DataTypes;
@@ -81,7 +82,12 @@ public class RowTypeConverter {
                 Arrays.stream(fieldTypes)
                         .map(SeaTunnelTypeToPaimonVisitor.INSTANCE::visit)
                         .toArray(DataType[]::new);
-        return DataTypes.ROW(dataTypes);
+        DataField[] dataFields = new DataField[dataTypes.length];
+        for (int i = 0; i < dataTypes.length; i++) {
+            DataField dataField = new DataField(i, seaTunnelRowType.getFieldName(i), dataTypes[i]);
+            dataFields[i] = dataField;
+        }
+        return DataTypes.ROW(dataFields);
     }
 
     /**
@@ -121,8 +127,10 @@ public class RowTypeConverter {
                     return DataTypes.DOUBLE();
                 case DECIMAL:
                     return DataTypes.DECIMAL(
-                            ((DecimalType) dataType).getPrecision(),
-                            ((DecimalType) dataType).getScale());
+                            ((org.apache.seatunnel.api.table.type.DecimalType) dataType)
+                                    .getPrecision(),
+                            ((org.apache.seatunnel.api.table.type.DecimalType) dataType)
+                                    .getScale());
                 case STRING:
                     return DataTypes.STRING();
                 case BYTES:
@@ -130,7 +138,7 @@ public class RowTypeConverter {
                 case BOOLEAN:
                     return DataTypes.BOOLEAN();
                 case DATE:
-                    return DataTypes.TIMESTAMP(3);
+                    return DataTypes.DATE();
                 case TIMESTAMP:
                     return DataTypes.TIMESTAMP(6);
                 case MAP:
