@@ -54,6 +54,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.HDFS_SITE_PATH;
 import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.TABLE;
 import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.WAREHOUSE;
 
@@ -80,7 +81,9 @@ public class PaimonSink
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         this.pluginConfig = pluginConfig;
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, WAREHOUSE.key());
+        CheckResult result =
+                CheckConfigUtil.checkAllExists(
+                        pluginConfig, WAREHOUSE.key(), DATABASE.key(), TABLE.key());
         if (!result.isSuccess()) {
             throw new PaimonConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -95,10 +98,11 @@ public class PaimonSink
         final Map<String, String> optionsMap = new HashMap<>();
         optionsMap.put(WAREHOUSE.key(), warehouse);
         final Options options = Options.fromMap(optionsMap);
-        // TODO: support user-defined options or user-defined hdfs-site.xml
         final Configuration hadoopConf = new Configuration();
+        if (pluginConfig.hasPath(HDFS_SITE_PATH.key())) {
+            hadoopConf.addResource(pluginConfig.getString(HDFS_SITE_PATH.key()));
+        }
         final CatalogContext catalogContext = CatalogContext.create(options, hadoopConf);
-        // TODO: support create paimon table automatically
         try (Catalog catalog = CatalogFactory.createCatalog(catalogContext)) {
             Identifier identifier = Identifier.create(database, table);
             this.table = catalog.getTable(identifier);

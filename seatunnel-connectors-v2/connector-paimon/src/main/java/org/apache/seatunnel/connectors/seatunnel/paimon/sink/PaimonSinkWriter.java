@@ -27,16 +27,23 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.sink.state.PaimonSinkSta
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.RowConverter;
 
 import org.apache.paimon.data.InternalRow;
+import org.apache.paimon.operation.Lock;
 import org.apache.paimon.table.Table;
+import org.apache.paimon.table.sink.BatchTableCommit;
 import org.apache.paimon.table.sink.BatchTableWrite;
 import org.apache.paimon.table.sink.CommitMessage;
+import org.apache.paimon.table.sink.InnerTableCommit;
 import org.apache.paimon.table.sink.TableWrite;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
+@Slf4j
 public class PaimonSinkWriter
         implements SinkWriter<SeaTunnelRow, PaimonCommitInfo, PaimonSinkState> {
 
@@ -62,7 +69,20 @@ public class PaimonSinkWriter
         this.table = table;
         this.seaTunnelRowType = seaTunnelRowType;
         this.context = context;
-        // TODO: recommit committables
+        try (BatchTableCommit tableCommit =
+                ((InnerTableCommit) table.newBatchWriteBuilder().newCommit())
+                        .withLock(Lock.emptyFactory().create())) {
+            List<CommitMessage> commitables =
+                    states.stream()
+                            .map(PaimonSinkState::getCommittables)
+                            .flatMap(List::stream)
+                            .collect(Collectors.toList());
+            log.info("Trying to recommit states {}", commitables);
+            tableCommit.commit(commitables);
+        } catch (Exception e) {
+            throw new PaimonConnectorException(
+                    PaimonConnectorErrorCode.TABLE_WRITE_COMMIT_FAILED, e);
+        }
     }
 
     @Override
