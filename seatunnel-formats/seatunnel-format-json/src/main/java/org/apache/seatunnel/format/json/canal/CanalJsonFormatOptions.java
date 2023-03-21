@@ -24,7 +24,7 @@ import org.apache.seatunnel.format.json.JsonFormatOptions;
 
 import java.util.Map;
 
-/** Option utils for canal-json format. */
+/** Option utils for canal_json format. */
 public class CanalJsonFormatOptions {
 
     public static final Option<Boolean> IGNORE_PARSE_ERRORS = JsonFormatOptions.IGNORE_PARSE_ERRORS;

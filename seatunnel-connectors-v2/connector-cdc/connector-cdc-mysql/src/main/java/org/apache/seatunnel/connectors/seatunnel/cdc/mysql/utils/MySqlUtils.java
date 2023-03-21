@@ -339,12 +339,15 @@ public class MySqlUtils {
     private static PreparedStatement initStatement(JdbcConnection jdbc, String sql, int fetchSize)
             throws SQLException {
         final Connection connection = jdbc.connection();
+        // Add MySQL metadata locks to prevent modification of table structure.
         connection.setAutoCommit(false);
         final PreparedStatement statement =
                 connection.prepareStatement(
                         sql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-        if (fetchSize == 0) {
+        if (fetchSize <= 0) {
             statement.setFetchSize(Integer.MIN_VALUE);
+        } else {
+            statement.setFetchSize(fetchSize);
         }
         return statement;
     }

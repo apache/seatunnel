@@ -21,6 +21,8 @@ import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
 import org.apache.seatunnel.core.starter.command.Command;
+import org.apache.seatunnel.core.starter.command.ConfDecryptCommand;
+import org.apache.seatunnel.core.starter.command.ConfEncryptCommand;
 import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.core.starter.seatunnel.command.ClientExecuteCommand;
 import org.apache.seatunnel.core.starter.seatunnel.command.SeaTunnelConfValidateCommand;
@@ -59,7 +61,7 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     @Parameter(
             names = {"-cn", "--cluster"},
             description = "The name of cluster")
-    private String clusterName = "seatunnel_default_cluster";
+    private String clusterName;
 
     @Parameter(
             names = {"-j", "--job-id"},
@@ -91,9 +93,14 @@ public class ClientCommandArgs extends AbstractCommandArgs {
         Common.setDeployMode(getDeployMode());
         if (checkConfig) {
             return new SeaTunnelConfValidateCommand(this);
-        } else {
-            return new ClientExecuteCommand(this);
         }
+        if (encrypt) {
+            return new ConfEncryptCommand(this);
+        }
+        if (decrypt) {
+            return new ConfDecryptCommand(this);
+        }
+        return new ClientExecuteCommand(this);
     }
 
     public DeployMode getDeployMode() {

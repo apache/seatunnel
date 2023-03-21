@@ -21,12 +21,10 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.sink.SupportDataSaveMode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.constants.CollectionConstants;
-import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
@@ -61,16 +59,6 @@ public class ConnectorInstanceLoader {
 
         SeaTunnelSource seaTunnelSource =
                 sourcePluginDiscovery.createPluginInstance(pluginIdentifier, pluginJars);
-        seaTunnelSource.prepare(sourceConfig);
-        seaTunnelSource.setJobContext(jobContext);
-        if (jobContext.getJobMode() == JobMode.BATCH
-                && seaTunnelSource.getBoundedness()
-                        == org.apache.seatunnel.api.source.Boundedness.UNBOUNDED) {
-            throw new UnsupportedOperationException(
-                    String.format(
-                            "'%s' source don't support off-line job.",
-                            seaTunnelSource.getPluginName()));
-        }
         return new ImmutablePair<>(seaTunnelSource, new HashSet<>(pluginJarPaths));
     }
 
@@ -87,13 +75,6 @@ public class ConnectorInstanceLoader {
                 sinkPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier));
         SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable> seaTunnelSink =
                 sinkPluginDiscovery.createPluginInstance(pluginIdentifier, pluginJars);
-        seaTunnelSink.prepare(sinkConfig);
-        seaTunnelSink.setJobContext(jobContext);
-        if (seaTunnelSink.getClass().isAssignableFrom(SupportDataSaveMode.class)) {
-            SupportDataSaveMode saveModeSink = (SupportDataSaveMode) seaTunnelSink;
-            saveModeSink.checkOptions(sinkConfig);
-        }
-
         return new ImmutablePair<>(seaTunnelSink, new HashSet<>(pluginJarPaths));
     }
 
@@ -111,8 +92,6 @@ public class ConnectorInstanceLoader {
                 transformPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier));
         SeaTunnelTransform<?> seaTunnelTransform =
                 transformPluginDiscovery.createPluginInstance(pluginIdentifier, pluginJars);
-        seaTunnelTransform.prepare(transformConfig);
-        seaTunnelTransform.setJobContext(jobContext);
         return new ImmutablePair<>(seaTunnelTransform, new HashSet<>(pluginJarPaths));
     }
 }

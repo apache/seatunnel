@@ -74,7 +74,7 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         ConfigValidator.of(ReadonlyConfig.fromConfig(pluginConfig))
                 .validate(new StarRocksCatalogFactory().optionRule());
         sinkConfig = SinkConfig.of(ReadonlyConfig.fromConfig(pluginConfig));
-        if (StringUtils.isEmpty(sinkConfig.getTable())) {
+        if (StringUtils.isEmpty(sinkConfig.getTable()) && catalogTable != null) {
             sinkConfig.setTable(catalogTable.getTableId().getTableName());
         }
         dataSaveMode = DataSaveMode.KEEP_SCHEMA_AND_DATA;
@@ -128,6 +128,8 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
 
     @Override
     public void handleSaveMode(DataSaveMode saveMode) {
-        autoCreateTable(sinkConfig.getSaveModeCreateTemplate());
+        if (catalogTable != null) {
+            autoCreateTable(sinkConfig.getSaveModeCreateTemplate());
+        }
     }
 }

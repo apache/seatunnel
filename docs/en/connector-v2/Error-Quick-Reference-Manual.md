@@ -169,16 +169,10 @@ problems encountered by users.
 
 ## SelectDB Cloud Connector Error Codes
 
-|    code     |             description             |                                                               solution                                                                |
-|-------------|-------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------|
-| SelectDB-01 | upload file to stage failed         | When users encounter this error code, it means that upload file to SelectDB Cloud failed, please check the configuration and network. |
-| SelectDB-01 | commit copy into sql failed         | When users encounter this error code, it means that commit copy into sql to SelectDB Cloud failed, please check the configuration.    |
-| SelectDB-03 | Closing httpClient failed           | When users encounter this error code, it means that closing the http connection failed. please check the network.                     |
-| SelectDB-04 | Get the redirected s3 address filed | When users encounter this error code, it means that get the redirected s3 address failed, please check the network.                   |
-| SelectDB-05 | error while loading data            | When users encounter this error code, it means that the file write check failed. please check the configuration.                      |
-| SelectDB-07 | buffer stop failed                  | When users encounter this error code, it means that the buffer stop failed. Check the detailed exception information.                 |
-| SelectDB-08 | buffer read failed                  | When users encounter this error code, it means that the buffer read failed. Check the detailed exception information.                 |
-| SelectDB-09 | buffer write failed                 | When users encounter this error code, it means that the buffer write failed. Check the detailed exception information.                |
+|    code     |         description         |                                                                 solution                                                                  |
+|-------------|-----------------------------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| SelectDB-01 | stage load file error       | When users encounter this error code, it means that stage load file to SelectDB Cloud failed, please check the configuration and network. |
+| SelectDB-02 | commit copy into sql failed | When users encounter this error code, it means that commit copy into sql to SelectDB Cloud failed, please check the configuration.        |
 
 ## Clickhouse Connector Error Codes
 
