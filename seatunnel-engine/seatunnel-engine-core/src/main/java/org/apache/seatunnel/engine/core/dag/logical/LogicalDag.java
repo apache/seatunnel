@@ -31,6 +31,7 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -89,7 +90,7 @@ public class LogicalDag implements IdentifiedDataSerializable {
         JsonObject logicalDag = new JsonObject();
         JsonArray vertices = new JsonArray();
 
-        logicalVertexMap.values().stream()
+        logicalVertexMap.values().stream().sorted(Comparator.comparing(LogicalVertex::getVertexId))
                 .forEach(
                         v -> {
                             JsonObject vertex = new JsonObject();
