@@ -40,6 +40,7 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
@@ -324,6 +325,9 @@ public class MultipleTableJobConfigParser {
         Config config = transforms.poll();
         final ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
         final String factoryId = getFactoryId(readonlyConfig);
+        // get factory urls
+        Set<URL> factoryUrls =
+                getFactoryUrls(readonlyConfig, classLoader, TableTransformFactory.class, factoryId);
         final List<String> inputIds = getInputIds(readonlyConfig);
 
         List<Tuple2<CatalogTable, Action>> inputs =
@@ -379,7 +383,22 @@ public class MultipleTableJobConfigParser {
             return;
         }
 
-        // TODO: TableTransformFactory is not available.
+        CatalogTable catalogTable = inputs.get(0)._1();
+        SeaTunnelTransform<?> transform =
+                FactoryUtil.createAndPrepareTransform(
+                        catalogTable, readonlyConfig, classLoader, factoryId);
+        long id = idGenerator.getNextId();
+        String actionName =
+                JobConfigParser.createTransformActionName(
+                        0, factoryId, JobConfigParser.getTableName(config));
+
+        TransformAction transformAction =
+                new TransformAction(
+                        id, actionName, new ArrayList<>(inputActions), transform, factoryUrls);
+        tableWithActionMap.put(
+                tableId,
+                Collections.singletonList(
+                        new Tuple2<>(transform.getProducedCatalogTable(), transformAction)));
         return;
     }
 
