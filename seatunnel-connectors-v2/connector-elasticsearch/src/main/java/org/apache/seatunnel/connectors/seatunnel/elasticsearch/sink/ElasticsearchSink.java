@@ -73,12 +73,12 @@ public class ElasticsearchSink
         if (pluginConfig.hasPath(BATCH_INTERVAL_MS.key())) {
             batchIntervalMs = pluginConfig.getInt(BATCH_INTERVAL_MS.key());
         }
-        if (maxBatchSize < 0 || maxRetryCount < 0 || batchIntervalMs < 0) {
+        if (maxBatchSize < 0 || maxRetryCount < 0) {
             throw new ElasticsearchConnectorException(
                     CommonErrorCode.ILLEGAL_ARGUMENT,
                     "An invalid parameter should be a positive integer greater than zero "
                             + "Check the following parameters "
-                            + "max_batch_size、batch_interval_ms、max_retry_count ");
+                            + "max_batch_size、max_retry_count ");
         }
     }
 

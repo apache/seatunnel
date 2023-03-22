@@ -30,7 +30,7 @@ Engine Supported
 | password                | string  | no       |               |
 | max_retry_count         | int     | no       | 3             |
 | max_batch_size          | int     | no       | 10            |
-| batch_interval_ms       | int     | no       | 1000          |
+| batch_interval_ms       | int     | no       | -1            |
 | tls_verify_certificate  | boolean | no       | true          |
 | tls_verify_hostnames    | boolean | no       | true          |
 | tls_keystore_path       | string  | no       | -             |
@@ -78,7 +78,7 @@ batch bulk doc max size
 
 ### batch_interval_ms [int]
 
-batch interval milliSecond
+batch interval milliSecond Disable by default
 
 ### tls_verify_certificate [boolean]
 
@@ -188,4 +188,5 @@ sink {
 
 - [Feature] Support CDC write DELETE/UPDATE/INSERT events ([3673](https://github.com/apache/incubator-seatunnel/pull/3673))
 - [Feature] Support https protocol & compatible with opensearch ([3997](https://github.com/apache/incubator-seatunnel/pull/3997))
+- [Feature] Support Interval write ([4349](https://github.com/apache/incubator-seatunnel/pull/4349))
 

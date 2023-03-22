@@ -62,8 +62,8 @@ public class SinkConfig {
     public static final Option<Integer> BATCH_INTERVAL_MS =
             Options.key("batch_interval_ms")
                     .intType()
-                    .defaultValue(1000)
-                    .withDescription("batch interval milliSecond");
+                    .defaultValue(-1)
+                    .withDescription("batch interval milliSecond Disable by default");
 
     @SuppressWarnings("checkstyle:MagicNumber")
     public static final Option<Integer> MAX_RETRY_COUNT =
