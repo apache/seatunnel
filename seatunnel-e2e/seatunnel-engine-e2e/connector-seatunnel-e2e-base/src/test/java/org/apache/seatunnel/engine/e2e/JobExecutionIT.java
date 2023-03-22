@@ -28,11 +28,13 @@ import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
 import org.awaitility.Awaitility;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.CompletableFuture;
@@ -40,9 +42,14 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class JobExecutionIT {
+
+    private static HazelcastInstanceImpl hazelcastInstance;
+
     @BeforeAll
     public static void beforeClass() throws Exception {
-        SeaTunnelServerStarter.createHazelcastInstance(TestUtils.getClusterName("JobExecutionIT"));
+        hazelcastInstance =
+                SeaTunnelServerStarter.createHazelcastInstance(
+                        TestUtils.getClusterName("JobExecutionIT"));
     }
 
     @Test
@@ -120,5 +127,12 @@ public class JobExecutionIT {
                                         objectCompletableFuture.isDone()
                                                 && JobStatus.CANCELED.equals(
                                                         objectCompletableFuture.get())));
+    }
+
+    @AfterAll
+    static void afterClass() {
+        if (hazelcastInstance != null) {
+            hazelcastInstance.shutdown();
+        }
     }
 }
