@@ -201,12 +201,13 @@ CDC(Change data capture) event
 ```
 sink {
     jdbc {
-        url = "jdbc:mysql://localhost:3306/test"
+        url = "jdbc:mysql://localhost:3306"
         driver = "com.mysql.cj.jdbc.Driver"
         user = "root"
         password = "123456"
         
-        table = sink_table
+        database = "sink_database"
+        table = "sink_table"
         primary_keys = ["key1", "key2", ...]
     }
 }
