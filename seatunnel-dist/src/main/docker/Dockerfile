@@ -18,7 +18,6 @@
 FROM openjdk:8-alpine
 
 ENV DOCKER true
-ENV TZ Asia/Shanghai
 ENV SEATUNNEL_HOME /opt/seatunnel
 
 ADD ./target/apache-seatunnel-incubating-*-SNAPSHOT-bin.tar.gz /opt/
