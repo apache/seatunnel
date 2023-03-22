@@ -214,6 +214,11 @@ public class ReadableConfigTest {
         list.add("VII");
         Assertions.assertEquals(
                 list, config.get(Options.key("option.list").listType().noDefaultValue()));
+        list = new ArrayList<>();
+        list.add("Silk");
+        list.add("Song");
+        Assertions.assertEquals(
+                list, config.get(Options.key("option.list-str").listType().noDefaultValue()));
     }
 
     @Test
