@@ -15,26 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform;
+package org.apache.seatunnel.transform.filterfield;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
+import org.apache.seatunnel.transform.copyfield.CopyFieldTransform;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.transform.FilterRowKindTransform.EXCLUDE_KINDS;
-import static org.apache.seatunnel.transform.FilterRowKindTransform.INCLUDE_KINDS;
-
 @AutoService(Factory.class)
-public class FilterRowKindTransformFactory implements TableTransformFactory {
+public class FilterFieldTransformFactory implements TableTransformFactory {
     @Override
     public String factoryIdentifier() {
-        return "FilterRowKind";
+        return "Filter";
     }
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().exclusive(EXCLUDE_KINDS, INCLUDE_KINDS).build();
+        return OptionRule.builder().required(FilterFieldTransformConfig.KEY_FIELDS).build();
+    }
+
+    @Override
+    public TableTransform createTransform(TableFactoryContext context) {
+        FilterFieldTransformConfig config = FilterFieldTransformConfig.of(context.getOptions());
+        CatalogTable catalogTable = context.getCatalogTable();
+        return () -> new FilterFieldTransform(config, catalogTable);
     }
 }

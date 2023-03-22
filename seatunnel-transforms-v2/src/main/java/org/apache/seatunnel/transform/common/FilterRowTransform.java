@@ -17,11 +17,32 @@
 
 package org.apache.seatunnel.transform.common;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
+import lombok.NonNull;
+
 public abstract class FilterRowTransform extends AbstractSeaTunnelTransform {
+    public FilterRowTransform(@NonNull CatalogTable inputCatalogTable) {
+        super(inputCatalogTable);
+    }
+
     @Override
-    protected SeaTunnelRowType transformRowType(SeaTunnelRowType inputRowType) {
-        return inputRowType;
+    public CatalogTable getProducedCatalogTable() {
+        return super.getProducedCatalogTable();
+    }
+
+    @Override
+    protected TableSchema transformTableSchema() {
+        return inputCatalogTable.getTableSchema();
+    }
+
+    @Override
+    protected TableIdentifier transformTableIdentifier() {
+        return inputCatalogTable.getTableId();
     }
 }

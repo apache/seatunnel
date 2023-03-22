@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.factory.TableFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 
 import com.google.auto.service.AutoService;
+import lombok.NonNull;
 
 @AutoService(Factory.class)
 public class SplitTransformFactory implements TableTransformFactory {
@@ -41,7 +42,7 @@ public class SplitTransformFactory implements TableTransformFactory {
     }
 
     @Override
-    public TableTransform createTransform(TableFactoryContext context) {
+    public TableTransform createTransform(@NonNull TableFactoryContext context) {
         SplitTransformConfig splitTransformConfig = SplitTransformConfig.of(context.getOptions());
         CatalogTable catalogTable = context.getCatalogTable();
         return () -> new SplitTransform(splitTransformConfig, catalogTable);

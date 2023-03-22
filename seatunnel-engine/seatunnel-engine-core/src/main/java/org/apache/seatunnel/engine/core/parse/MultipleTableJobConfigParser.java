@@ -218,12 +218,8 @@ public class MultipleTableJobConfigParser {
         }
         try {
             virtualCreator.accept(factory.get());
-        } catch (Exception e) {
-            if (e instanceof UnsupportedOperationException
-                    && "The Factory has not been implemented and the deprecated Plugin will be used."
-                            .equals(e.getMessage())) {
-                return true;
-            }
+        } catch (UnsupportedOperationException e) {
+            return true;
         }
         return false;
     }
@@ -361,10 +357,10 @@ public class MultipleTableJobConfigParser {
                         (factory) -> factory.createTransform(null));
 
         Set<Action> inputActions = inputs.stream().map(Tuple2::_2).collect(Collectors.toSet());
-        SeaTunnelDataType<?> expectedType = getProducedType(inputs.get(0)._2());
-        checkProducedTypeEquals(inputActions);
         int spareParallelism = inputs.get(0)._2().getParallelism();
         if (fallback) {
+            SeaTunnelDataType<?> expectedType = getProducedType(inputs.get(0)._2());
+            checkProducedTypeEquals(inputActions);
             int parallelism =
                     readonlyConfig.getOptional(CommonOptions.PARALLELISM).orElse(spareParallelism);
             Tuple2<CatalogTable, Action> tuple =

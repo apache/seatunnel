@@ -17,23 +17,21 @@
 
 package org.apache.seatunnel.transform.copyfield;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.transform.common.SeaTunnelRowAccessor;
 import org.apache.seatunnel.transform.common.SingleFieldOutputTransform;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
 import lombok.NonNull;
@@ -47,11 +45,18 @@ public class CopyFieldTransform extends SingleFieldOutputTransform {
     private int srcFieldIndex;
     private SeaTunnelDataType srcFieldDataType;
     private CopyFieldTransformConfig copyFieldTransformConfig;
-    private CatalogTable catalogTable;
 
-    public CopyFieldTransform(@NonNull CopyFieldTransformConfig copyFieldTransformConfig, @NonNull CatalogTable catalogTable) {
+    public CopyFieldTransform(@NonNull CopyFieldTransformConfig copyFieldTransformConfig,
+                              @NonNull CatalogTable catalogTable) {
+        super(catalogTable);
         this.copyFieldTransformConfig = copyFieldTransformConfig;
-        this.catalogTable = catalogTable;
+        SeaTunnelRowType seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
+        srcFieldIndex = seaTunnelRowType.indexOf(copyFieldTransformConfig.getSrcField());
+        if (srcFieldIndex == -1) {
+            throw new IllegalArgumentException(
+                "Cannot find [" + copyFieldTransformConfig.getSrcField() + "] field in input row type");
+        }
+        srcFieldDataType = seaTunnelRowType.getFieldType(srcFieldIndex);
     }
 
     @Override
@@ -60,29 +65,8 @@ public class CopyFieldTransform extends SingleFieldOutputTransform {
     }
 
     @Override
-    protected void setConfig(Config pluginConfig) {
-        ConfigValidator.of(ReadonlyConfig.fromConfig(pluginConfig)).validate(new CopyFieldTransformFactory().optionRule());
-        this.copyFieldTransformConfig = CopyFieldTransformConfig.of(ReadonlyConfig.fromConfig(pluginConfig));
-    }
-
-    @Override
-    protected void setInputRowType(SeaTunnelRowType inputRowType) {
-        srcFieldIndex = inputRowType.indexOf(copyFieldTransformConfig.getSrcField());
-        if (srcFieldIndex == -1) {
-            throw new IllegalArgumentException(
-                    "Cannot find [" + copyFieldTransformConfig.getSrcField() + "] field in input row type");
-        }
-        srcFieldDataType = inputRowType.getFieldType(srcFieldIndex);
-    }
-
-    @Override
-    protected String getOutputFieldName() {
-        return copyFieldTransformConfig.getDestField();
-    }
-
-    @Override
-    protected SeaTunnelDataType getOutputFieldDataType() {
-        return srcFieldDataType;
+    protected Column getOutputColumn() {
+        return PhysicalColumn.of(copyFieldTransformConfig.getDestField(), BasicType.STRING_TYPE, 200, true, "", "");
     }
 
     @Override
@@ -123,7 +107,7 @@ public class CopyFieldTransform extends SingleFieldOutputTransform {
                     return null;
                 }
                 Object newArray =
-                        Array.newInstance(arrayType.getElementType().getTypeClass(), array.length);
+                    Array.newInstance(arrayType.getElementType().getTypeClass(), array.length);
                 for (int i = 0; i < array.length; i++) {
                     Array.set(newArray, i, clone(arrayType.getElementType(), array[i]));
                 }
@@ -134,8 +118,8 @@ public class CopyFieldTransform extends SingleFieldOutputTransform {
                 Map newMap = new HashMap();
                 for (Object key : map.keySet()) {
                     newMap.put(
-                            clone(mapType.getKeyType(), key),
-                            clone(mapType.getValueType(), map.get(key)));
+                        clone(mapType.getKeyType(), key),
+                        clone(mapType.getValueType(), map.get(key)));
                 }
                 return newMap;
             case ROW:
@@ -157,7 +141,12 @@ public class CopyFieldTransform extends SingleFieldOutputTransform {
                 return null;
             default:
                 throw new UnsupportedOperationException(
-                        "Unsupported type: " + dataType.getSqlType());
+                    "Unsupported type: " + dataType.getSqlType());
         }
+    }
+
+    @Override
+    public void prepare(Config pluginConfig) throws PrepareFailException {
+
     }
 }

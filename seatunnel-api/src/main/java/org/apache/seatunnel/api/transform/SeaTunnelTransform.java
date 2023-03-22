@@ -20,6 +20,7 @@ package org.apache.seatunnel.api.transform;
 import org.apache.seatunnel.api.common.PluginIdentifierInterface;
 import org.apache.seatunnel.api.common.SeaTunnelPluginLifeCycle;
 import org.apache.seatunnel.api.source.SeaTunnelJobAware;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import java.io.Serializable;
@@ -43,9 +44,18 @@ public interface SeaTunnelTransform<T>
     /**
      * Get the data type of the records produced by this transform.
      *
+     * Replaced by getCatalogTable
+     *
      * @return Produced data type.
      */
     SeaTunnelDataType<T> getProducedType();
+
+    /**
+     * Get the catalog table output by this transform
+     *
+     * @return
+     */
+    CatalogTable getProducedCatalogTable();
 
     /**
      * Transform input data to {@link this#getProducedType()} types data.

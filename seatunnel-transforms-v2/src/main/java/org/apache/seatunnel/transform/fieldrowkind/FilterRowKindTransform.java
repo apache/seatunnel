@@ -15,12 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform;
+package org.apache.seatunnel.transform.fieldrowkind;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
@@ -29,6 +31,7 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.transform.common.FilterRowTransform;
 
 import com.google.auto.service.AutoService;
+import lombok.NonNull;
 import lombok.ToString;
 
 import java.util.Collections;
@@ -52,6 +55,12 @@ public class FilterRowKindTransform extends FilterRowTransform {
 
     private Set<RowKind> includeKinds = Collections.emptySet();
     private Set<RowKind> excludeKinds = Collections.emptySet();
+
+    public FilterRowKindTransform(@NonNull FilterRowKinkTransformConfig config, @NonNull CatalogTable inputCatalogTable) {
+        super(inputCatalogTable);
+        this.includeKinds = config.getIncludeKinds();
+        this.excludeKinds = config.getExcludeKinds();
+    }
 
     @Override
     public String getPluginName() {

@@ -17,14 +17,20 @@
 
 package org.apache.seatunnel.transform.common;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import lombok.NonNull;
 
 import java.util.Objects;
 
@@ -39,25 +45,33 @@ public abstract class AbstractSeaTunnelTransform implements SeaTunnelTransform<S
     protected String outputTableName;
     protected SeaTunnelRowType outputRowType;
 
+    protected CatalogTable inputCatalogTable;
+
+    protected volatile CatalogTable outputCatalogTable;
+
+    public AbstractSeaTunnelTransform(@NonNull CatalogTable inputCatalogTable) {
+        this.inputCatalogTable = inputCatalogTable;
+    }
+
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         if (!pluginConfig.hasPath(SOURCE_TABLE_NAME)) {
             throw new IllegalArgumentException(
-                    "The configuration missing key: " + SOURCE_TABLE_NAME);
+                "The configuration missing key: " + SOURCE_TABLE_NAME);
         }
         if (!pluginConfig.hasPath(RESULT_TABLE_NAME)) {
             throw new IllegalArgumentException(
-                    "The configuration missing key: " + RESULT_TABLE_NAME);
+                "The configuration missing key: " + RESULT_TABLE_NAME);
         }
 
         this.inputTableName = pluginConfig.getString(SOURCE_TABLE_NAME);
         this.outputTableName = pluginConfig.getString(RESULT_TABLE_NAME);
         if (Objects.equals(inputTableName, outputTableName)) {
             throw new IllegalArgumentException(
-                    "source and result cannot be equals: "
-                            + inputTableName
-                            + ", "
-                            + outputTableName);
+                "source and result cannot be equals: "
+                    + inputTableName
+                    + ", "
+                    + outputTableName);
         }
 
         setConfig(pluginConfig);
@@ -67,11 +81,6 @@ public abstract class AbstractSeaTunnelTransform implements SeaTunnelTransform<S
     public void setTypeInfo(SeaTunnelDataType<SeaTunnelRow> inputDataType) {
         this.inputRowType = (SeaTunnelRowType) inputDataType;
         this.outputRowType = transformRowType(clone(inputRowType));
-    }
-
-    @Override
-    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return outputRowType;
     }
 
     @Override
@@ -106,4 +115,27 @@ public abstract class AbstractSeaTunnelTransform implements SeaTunnelTransform<S
 
         return new SeaTunnelRowType(fieldNames, fieldTypes);
     }
+
+    @Override
+    public CatalogTable getProducedCatalogTable() {
+        if (outputCatalogTable == null) {
+            synchronized (this) {
+                outputCatalogTable = transformCatalogTable();
+            }
+        }
+
+        return outputCatalogTable;
+    }
+
+    private CatalogTable transformCatalogTable() {
+        TableIdentifier tableIdentifier = transformTableIdentifier();
+        TableSchema tableSchema = transformTableSchema();
+        CatalogTable catalogTable = CatalogTable.of(tableIdentifier, tableSchema, inputCatalogTable.getOptions(),
+            inputCatalogTable.getPartitionKeys(), inputCatalogTable.getComment());
+        return catalogTable;
+    }
+
+    protected abstract TableSchema transformTableSchema();
+
+    protected abstract TableIdentifier transformTableIdentifier();
 }

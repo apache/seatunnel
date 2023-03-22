@@ -83,6 +83,12 @@ public final class TableSchema implements Serializable {
             return this;
         }
 
+        public Builder constraintKey(List<ConstraintKey> constraintKeys) {
+            this.constraintKeys.addAll(constraintKeys);
+            return this;
+        }
+
+
         public TableSchema build() {
             return new TableSchema(columns, primaryKey, constraintKeys);
         }
