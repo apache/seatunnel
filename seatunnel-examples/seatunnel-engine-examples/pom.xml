@@ -62,10 +62,5 @@
             <artifactId>connector-console</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-assert</artifactId>
-            <version>${project.version}</version>
-        </dependency>
     </dependencies>
 </project>
