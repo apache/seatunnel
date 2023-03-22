@@ -56,6 +56,7 @@ import java.util.concurrent.ExecutionException;
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOBS_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOB_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.SYSTEM_MONITORING_INFORMATION;
 
 public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCommand> {
 
@@ -88,6 +89,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 handleRunningJobsInfo(httpGetCommand);
             } else if (uri.startsWith(RUNNING_JOB_URL)) {
                 handleJobInfoById(httpGetCommand, uri);
+            } else if (uri.startsWith(SYSTEM_MONITORING_INFORMATION)) {
+                getSystemMonitoringInformation(httpGetCommand);
             } else {
                 original.handle(httpGetCommand);
             }
