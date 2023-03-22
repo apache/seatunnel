@@ -90,7 +90,8 @@ public class LogicalDag implements IdentifiedDataSerializable {
         JsonObject logicalDag = new JsonObject();
         JsonArray vertices = new JsonArray();
 
-        logicalVertexMap.values().stream().sorted(Comparator.comparing(LogicalVertex::getVertexId))
+        logicalVertexMap.values().stream()
+                .sorted(Comparator.comparing(LogicalVertex::getVertexId))
                 .forEach(
                         v -> {
                             JsonObject vertex = new JsonObject();
