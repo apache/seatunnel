@@ -19,6 +19,7 @@
 - [Hbase] Add hbase sink connector #4049
 - [Github] Add Github source connector #4155
 - [CDC] Support export debezium-json format to kafka #4339
+- [GoogleFirestore] Support Google Firestore sink #4304
 ### Formats
 - [Canal]Support read canal format message #3950
 
