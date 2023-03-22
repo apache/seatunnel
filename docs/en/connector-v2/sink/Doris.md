@@ -82,7 +82,7 @@ Use JSON format to import data
 ```
 sink {
     Doris {
-        fenodes = ["e2e_dorisdb:8030"]
+        fenodes = "e2e_dorisdb:8030"
         username = root
         password = ""
         table.identifier = "test.e2e_table_sink"
@@ -102,7 +102,7 @@ Use CSV format to import data
 ```
 sink {
     Doris {
-        fenodes = ["e2e_dorisdb:8030"]
+        fenodes = "e2e_dorisdb:8030"
         username = root
         password = ""
         table.identifier = "test.e2e_table_sink"

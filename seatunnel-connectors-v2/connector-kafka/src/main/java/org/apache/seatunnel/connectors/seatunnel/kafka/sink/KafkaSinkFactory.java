@@ -17,12 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.Config;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 
 import com.google.auto.service.AutoService;
+
+import java.util.Arrays;
 
 @AutoService(Factory.class)
 public class KafkaSinkFactory implements TableSinkFactory {
@@ -34,9 +41,22 @@ public class KafkaSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(Config.TOPIC, Config.BOOTSTRAP_SERVERS)
+                .required(Config.FORMAT, Config.BOOTSTRAP_SERVERS)
+                .conditional(
+                        Config.FORMAT,
+                        Arrays.asList(
+                                MessageFormat.JSON, MessageFormat.CANAL_JSON, MessageFormat.TEXT),
+                        Config.TOPIC)
                 .optional(Config.KAFKA_CONFIG, Config.ASSIGN_PARTITIONS, Config.TRANSACTION_PREFIX)
                 .exclusive(Config.PARTITION, Config.PARTITION_KEY_FIELDS)
                 .build();
+    }
+
+    @Override
+    public TableSink createSink(TableFactoryContext context) {
+        return () ->
+                new KafkaSink(
+                        ConfigFactory.parseMap(context.getOptions().toMap()),
+                        context.getCatalogTable().getTableSchema().toPhysicalRowDataType());
     }
 }

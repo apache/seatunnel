@@ -39,8 +39,9 @@ public class StorageTest {
 
         Map<Long, TaskStatistics> taskStatisticsMap = new HashMap<>();
         taskStatisticsMap.put(1L, new TaskStatistics(1L, 32));
-        Map<Long, ActionState> actionStateMap = new HashMap<>();
-        actionStateMap.put(2L, new ActionState("test", 13));
+        Map<ActionStateKey, ActionState> actionStateMap = new HashMap<>();
+        ActionStateKey actionStateKey = new ActionStateKey("test-action");
+        actionStateMap.put(actionStateKey, new ActionState(actionStateKey, 13));
         CompletedCheckpoint completedCheckpoint =
                 new CompletedCheckpoint(
                         1,

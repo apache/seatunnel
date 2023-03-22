@@ -58,15 +58,15 @@ class NodeExtensionCommon {
         // TODO This is where cluster state changes are handled
     }
 
-    void printNodeInfo(ILogger log, String addToProductName) {
-        log.info(imdgVersionMessage());
+    void printNodeInfo(ILogger log) {
+        log.info(imgVersionMessage());
         log.info(clusterNameMessage());
         log.fine(serializationVersionMessage());
         log.info('\n' + Constants.ST_LOGO);
         log.info(Constants.COPYRIGHT_LINE);
     }
 
-    private String imdgVersionMessage() {
+    private String imgVersionMessage() {
         String build = node.getBuildInfo().getBuild();
         String revision = node.getBuildInfo().getRevision();
         if (!revision.isEmpty()) {

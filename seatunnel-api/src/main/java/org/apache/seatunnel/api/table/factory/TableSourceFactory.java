@@ -36,7 +36,8 @@ public interface TableSourceFactory extends Factory {
      */
     default <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableFactoryContext context) {
-        throw new UnsupportedOperationException("unsupported now");
+        throw new UnsupportedOperationException(
+                "The Factory has not been implemented and the deprecated Plugin will be used.");
     }
 
     /**

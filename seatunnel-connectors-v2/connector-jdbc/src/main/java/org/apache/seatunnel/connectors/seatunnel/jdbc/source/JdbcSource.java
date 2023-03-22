@@ -151,7 +151,8 @@ public class JdbcSource
             ResultSetMetaData resultSetMetaData =
                     jdbcDialect.getResultSetMetaData(conn, jdbcSourceConfig);
             for (int i = 1; i <= resultSetMetaData.getColumnCount(); i++) {
-                fieldNames.add(resultSetMetaData.getColumnName(i));
+                // Support AS syntax
+                fieldNames.add(resultSetMetaData.getColumnLabel(i));
                 seaTunnelDataTypes.add(jdbcDialectTypeMapper.mapping(resultSetMetaData, i));
             }
         } catch (Exception e) {
