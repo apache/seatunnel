@@ -65,6 +65,7 @@ public abstract class AbstractCatalogSupportTransform extends AbstractSeaTunnelT
     }
 
     protected abstract TableSchema transformTableSchema();
+
     protected abstract TableIdentifier transformTableIdentifier();
 
     @Override
