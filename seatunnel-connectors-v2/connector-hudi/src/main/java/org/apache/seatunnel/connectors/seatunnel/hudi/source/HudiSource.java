@@ -33,6 +33,7 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.hudi.state.HudiSourceState;
 import org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiUtil;
 
 import com.google.auto.service.AutoService;

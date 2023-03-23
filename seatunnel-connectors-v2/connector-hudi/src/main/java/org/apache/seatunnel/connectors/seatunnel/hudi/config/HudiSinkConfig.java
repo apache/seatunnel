@@ -15,20 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hudi.source;
+package org.apache.seatunnel.connectors.seatunnel.hudi.config;
+
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+
+import lombok.Builder;
+import lombok.Data;
 
 import java.io.Serializable;
-import java.util.Set;
 
-public class HudiSourceState implements Serializable {
+@Data
+@Builder(builderClassName = "Builder")
+public class HudiSinkConfig implements Serializable {
 
-    private final Set<HudiSourceSplit> assignedSplit;
+    public static HudiSinkConfig of(ReadonlyConfig config) {
+        HudiSinkConfig.Builder builder = HudiSinkConfig.builder();
 
-    public HudiSourceState(Set<HudiSourceSplit> assignedSplit) {
-        this.assignedSplit = assignedSplit;
-    }
-
-    public Set<HudiSourceSplit> getAssignedSplit() {
-        return assignedSplit;
+        return builder.build();
     }
 }
