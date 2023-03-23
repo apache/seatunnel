@@ -34,6 +34,10 @@ Used to read data from Http.
 | retry_backoff_multiplier_ms | int    | No       | 100           |
 | retry_backoff_max_ms        | int    | No       | 10000         |
 | common-options              |        | No       | -             |
+| paging.pageNoField          | String | No       | -             |
+| paging.pageNo               | String | No       | -             |
+| paging.pageSizeField        | String | No       | -             |
+| paging.pageSize             | int    | No       | -             |
 
 ### url [String]
 
@@ -278,6 +282,32 @@ simple:
 ```hocon
 Http {
   url = "https://tyrantlucifer.com/api/getDemoData"
+  schema {
+    fields {
+      code = int
+      message = string
+      data = string
+      ok = boolean
+    }
+  }
+}
+```
+
+### page options
+
+## Example
+
+simple:
+
+```hocon
+Http {
+  url = "https://tyrantlucifer.com/api/getDemoData"
+  pageing = {
+    pageNoField = "pageNo",
+    pageNo = "1-2,4,8-10",
+    pageSizeField = "pageSize",
+    pageSize = 10
+  }
   schema {
     fields {
       code = int

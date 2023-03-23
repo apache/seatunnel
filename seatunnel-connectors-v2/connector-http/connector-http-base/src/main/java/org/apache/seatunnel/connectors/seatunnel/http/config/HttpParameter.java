@@ -25,6 +25,11 @@ import java.io.Serializable;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig.PAGE_NO;
+import static org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig.PAGE_NO_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig.PAGE_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig.PAGE_SIZE_FIELD;
+
 @Data
 @SuppressWarnings("MagicNumber")
 public class HttpParameter implements Serializable {
@@ -80,20 +85,15 @@ public class HttpParameter implements Serializable {
             this.setPollIntervalMillis(pluginConfig.getInt(HttpConfig.POLL_INTERVAL_MILLS.key()));
         }
 
-        if (pluginConfig.hasPath(HttpConfig.PAGE.key())) {
-            String pageList =
-                    pluginConfig
-                            .getConfig(HttpConfig.PAGE.key())
-                            .root()
-                            .toConfig()
-                            .getString("pageList");
-            String pageField =
-                    pluginConfig
-                            .getConfig(HttpConfig.PAGE.key())
-                            .root()
-                            .toConfig()
-                            .getString("pageField");
-            this.setHttpPage(HttpPage.builder().pageField(pageField).pageList(pageList).build());
+        if (pluginConfig.hasPath(HttpConfig.PAGING.key())) {
+            Config config = pluginConfig.getConfig(HttpConfig.PAGING.key());
+            httpPage =
+                    HttpPage.builder()
+                            .pageNoField(config.getString(PAGE_NO_FIELD))
+                            .pageNo(config.getString(PAGE_NO))
+                            .pageSizeField(config.getString(PAGE_SIZE_FIELD))
+                            .pageSize(config.getString(PAGE_SIZE))
+                            .build();
         }
         this.setRetryParameters(pluginConfig);
     }

@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
@@ -37,6 +38,7 @@ import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.Option;
 import com.jayway.jsonpath.ReadContext;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -88,42 +90,30 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
+        HttpResponse response = null;
         try {
-            HttpResponse response = null;
             if (this.httpParameter.getHttpPage() != null) {
                 HttpPage httpPage = this.httpParameter.getHttpPage();
-                List<Integer> pageNumbers = getPageNumbers(httpPage.getPageList());
-                for (Integer pageNumber : pageNumbers) {
-                    this.httpParameter
-                            .getParams()
-                            .put(httpPage.getPageField(), pageNumber.toString());
+                List<String> pageNumbers = getPageNumbers(httpPage.getPageNo());
+                Map<String, String> params = this.httpParameter.getParams();
+
+                params.put(httpPage.getPageSizeField(), httpPage.getPageSize());
+                for (String pageNumber : pageNumbers) {
+                    params.put(httpPage.getPageNoField(), pageNumber);
                     response = httpClient.execute(httpParameter);
+                    ValidityParametersAndSubmit(response, output);
                 }
             } else {
                 response = httpClient.execute(httpParameter);
+                ValidityParametersAndSubmit(response, output);
             }
-            if (HttpResponse.STATUS_OK == response.getCode()) {
-                String content = response.getContent();
-                if (!Strings.isNullOrEmpty(content)) {
-                    if (contentJson != null) {
-                        content = JsonUtils.stringToJsonNode(getPartOfJson(content)).toString();
-                    }
-                    if (jsonField != null) {
-                        this.initJsonPath(jsonField);
-                        content =
-                                JsonUtils.toJsonNode(parseToMap(decodeJSON(content), jsonField))
-                                        .toString();
-                    }
-                    deserializationCollector.collect(content.getBytes(), output);
-                }
-                return;
-            }
-            log.error(
-                    "http client execute exception, http response status code:[{}], content:[{}]",
-                    response.getCode(),
-                    response.getContent());
         } catch (Exception e) {
-            log.error(e.getMessage(), e);
+            assert response != null;
+            throw new HttpConnectorException(
+                    CommonErrorCode.ILLEGAL_ARGUMENT,
+                    String.format(
+                            "http client execute exception, http response status code:[%d], content:[%s]",
+                            response.getCode(), response.getContent()));
         } finally {
             if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
                 // signal to the source that we have reached the end of the data.
@@ -218,22 +208,41 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         }
     }
 
-    public static List<Integer> getPageNumbers(String pageNumbersString) {
-        List<Integer> pageNumbers = new ArrayList<>();
+    public static List<String> getPageNumbers(String pageNumbersString) {
+        List<String> pageNumbers = new ArrayList<>();
         String[] ranges = pageNumbersString.split(",");
         for (String range : ranges) {
             String[] limits = range.split("-");
             if (limits.length == 1) {
-                int pageNumber = Integer.parseInt(limits[0].trim());
+                String pageNumber = limits[0].trim();
                 pageNumbers.add(pageNumber);
             } else if (limits.length == 2) {
                 int start = Integer.parseInt(limits[0].trim());
                 int end = Integer.parseInt(limits[1].trim());
                 for (int i = start; i <= end; i++) {
-                    pageNumbers.add(i);
+                    pageNumbers.add(String.valueOf(i));
                 }
             }
         }
         return pageNumbers;
+    }
+
+    @SneakyThrows
+    public void ValidityParametersAndSubmit(HttpResponse response, Collector<SeaTunnelRow> output) {
+        if (HttpResponse.STATUS_OK == response.getCode()) {
+            String content = response.getContent();
+            if (!Strings.isNullOrEmpty(content)) {
+                if (contentJson != null) {
+                    content = JsonUtils.stringToJsonNode(getPartOfJson(content)).toString();
+                }
+                if (jsonField != null) {
+                    this.initJsonPath(jsonField);
+                    content =
+                            JsonUtils.toJsonNode(parseToMap(decodeJSON(content), jsonField))
+                                    .toString();
+                }
+                deserializationCollector.collect(content.getBytes(), output);
+            }
+        }
     }
 }

@@ -9,7 +9,8 @@ import java.io.Serializable;
 @Builder
 public class HttpPage implements Serializable {
 
-    private String pageNum;
-    private String pageField;
-    private String paheSize;
+    private String pageNo;
+    private String pageNoField;
+    private String pageSize;
+    private String pageSizeField;
 }
