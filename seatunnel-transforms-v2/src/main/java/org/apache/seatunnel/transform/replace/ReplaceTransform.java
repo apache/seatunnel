@@ -1,0 +1,136 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.transform.replace;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+import org.apache.seatunnel.transform.common.SeaTunnelRowAccessor;
+import org.apache.seatunnel.transform.common.SingleFieldOutputTransform;
+
+import org.apache.commons.collections4.CollectionUtils;
+
+import com.google.auto.service.AutoService;
+import lombok.NonNull;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@AutoService(SeaTunnelTransform.class)
+public class ReplaceTransform extends SingleFieldOutputTransform {
+    private ReplaceTransformConfig replaceTransformConfig;
+    private int inputFieldIndex;
+
+    public ReplaceTransform() {
+        super();
+    }
+
+    public ReplaceTransform(
+            @NonNull ReplaceTransformConfig config, @NonNull CatalogTable inputCatalogTable) {
+        super(inputCatalogTable);
+        this.replaceTransformConfig = config;
+    }
+
+    @Override
+    public String getPluginName() {
+        return "Replace";
+    }
+
+    @Override
+    protected void setConfig(Config pluginConfig) {
+        ConfigValidator.of(ReadonlyConfig.fromConfig(pluginConfig))
+                .validate(new ReplaceTransformFactory().optionRule());
+        this.replaceTransformConfig =
+                ReplaceTransformConfig.of(ReadonlyConfig.fromConfig(pluginConfig));
+    }
+
+    @Override
+    protected void setInputRowType(SeaTunnelRowType rowType) {
+        inputFieldIndex = rowType.indexOf(replaceTransformConfig.getReplaceField());
+        if (inputFieldIndex == -1) {
+            throw new IllegalArgumentException(
+                    "Cannot find ["
+                            + replaceTransformConfig.getReplaceField()
+                            + "] field in input row type");
+        }
+    }
+
+    @Override
+    protected String getOutputFieldName() {
+        return replaceTransformConfig.getReplaceField();
+    }
+
+    @Override
+    protected SeaTunnelDataType getOutputFieldDataType() {
+        return BasicType.STRING_TYPE;
+    }
+
+    @Override
+    protected Object getOutputFieldValue(SeaTunnelRowAccessor inputRow) {
+        Object inputFieldValue = inputRow.getField(inputFieldIndex);
+        if (inputFieldValue == null) {
+            return null;
+        }
+
+        if (replaceTransformConfig.isRegex()) {
+            if (replaceTransformConfig.isReplaceFirst()) {
+                return inputFieldValue
+                        .toString()
+                        .replaceFirst(
+                                replaceTransformConfig.getPattern(),
+                                replaceTransformConfig.getReplacement());
+            }
+            return inputFieldValue
+                    .toString()
+                    .replaceAll(
+                            replaceTransformConfig.getPattern(),
+                            replaceTransformConfig.getReplacement());
+        }
+        return inputFieldValue
+                .toString()
+                .replace(
+                        replaceTransformConfig.getPattern(),
+                        replaceTransformConfig.getReplacement());
+    }
+
+    @Override
+    protected Column getOutputColumn() {
+        List<Column> columns = inputCatalogTable.getTableSchema().getColumns();
+        List<Column> collect =
+                columns.stream()
+                        .filter(
+                                column ->
+                                        column.getName()
+                                                .equals(replaceTransformConfig.getReplaceField()))
+                        .collect(Collectors.toList());
+        if (CollectionUtils.isEmpty(collect)) {
+            throw new IllegalArgumentException(
+                    "Cannot find ["
+                            + replaceTransformConfig.getReplaceField()
+                            + "] field in input catalog table");
+        }
+        return collect.get(0).copy();
+    }
+}

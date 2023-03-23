@@ -241,7 +241,7 @@ public abstract class MultipleFieldOutputTransform extends AbstractCatalogSuppor
 
     @Override
     protected TableIdentifier transformTableIdentifier() {
-        return inputCatalogTable.getTableId();
+        return inputCatalogTable.getTableId().copy();
     }
 
     protected abstract Column[] getOutputColumns();
