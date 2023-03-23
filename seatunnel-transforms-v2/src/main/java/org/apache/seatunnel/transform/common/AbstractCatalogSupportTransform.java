@@ -38,7 +38,9 @@ public abstract class AbstractCatalogSupportTransform extends AbstractSeaTunnelT
     public CatalogTable getProducedCatalogTable() {
         if (outputCatalogTable == null) {
             synchronized (this) {
-                outputCatalogTable = transformCatalogTable();
+                if (outputCatalogTable == null) {
+                     outputCatalogTable = transformCatalogTable();
+                }
             }
         }
 
