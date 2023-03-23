@@ -27,14 +27,6 @@ import org.testcontainers.containers.Container;
 
 import java.io.IOException;
 
-@DisabledOnContainer({
-    TestContainerId.FLINK_1_13,
-    TestContainerId.FLINK_1_14,
-    TestContainerId.FLINK_1_15,
-    TestContainerId.FLINK_1_16,
-    TestContainerId.SPARK_2_4,
-    TestContainerId.SPARK_3_3
-})
 public class TestSplitIT extends TestSuiteBase {
 
     @TestTemplate
