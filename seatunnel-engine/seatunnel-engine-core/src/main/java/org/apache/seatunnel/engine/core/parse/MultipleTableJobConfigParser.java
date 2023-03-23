@@ -74,6 +74,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -360,7 +361,10 @@ public class MultipleTableJobConfigParser {
                         factoryId,
                         (factory) -> factory.createTransform(null));
 
-        Set<Action> inputActions = inputs.stream().map(Tuple2::_2).collect(Collectors.toSet());
+        Set<Action> inputActions =
+                inputs.stream()
+                        .map(Tuple2::_2)
+                        .collect(Collectors.toCollection(LinkedHashSet::new));
         SeaTunnelDataType<?> expectedType = getProducedType(inputs.get(0)._2());
         checkProducedTypeEquals(inputActions);
         int spareParallelism = inputs.get(0)._2().getParallelism();
@@ -472,7 +476,7 @@ public class MultipleTableJobConfigParser {
                     inputVertices.stream()
                             .flatMap(Collection::stream)
                             .map(Tuple2::_2)
-                            .collect(Collectors.toSet());
+                            .collect(Collectors.toCollection(LinkedHashSet::new));
             checkProducedTypeEquals(inputActions);
             Tuple2<CatalogTable, Action> inputActionSample = inputVertices.get(0).get(0);
             SinkAction<?, ?, ?, ?> sinkAction =
