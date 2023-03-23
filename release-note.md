@@ -5,6 +5,7 @@
 - [Script]Add support close engine instance shell
 - [Client]Add Zeta Client ShutdownHook To Cancel Job
 - [Script]Add a jvm.properties file to define the SeaTunnel Zeta JVM Options
+- [Script] Run the server through daemon #4161
 ### Core
 - [Starter][Flink]Support transform-v2 for flink #3396
 - [Flink] Support flink 1.14.x #3963
@@ -71,6 +72,7 @@
 - [Checkpoint] Add savepoint and restore with savepoint #3930
 - [Core]Fix Local Mode can't deserialize split (#3817)
 - [Metrics] Fix Metrics will lose when Job be canceled or restart. #3797 #3977
+- [Restapi] add get running job info by jobId. #4140
 
 ### Documents
 - [Doc] seatunnel run with flink operator error #3998

@@ -76,6 +76,23 @@ public class CatalogTableUtil implements Serializable {
         this.catalogTable = catalogTable;
     }
 
+    @Deprecated
+    public static CatalogTable getCatalogTable(String tableName, SeaTunnelRowType rowType) {
+        TableSchema.Builder schemaBuilder = TableSchema.builder();
+        for (int i = 0; i < rowType.getTotalFields(); i++) {
+            PhysicalColumn column =
+                    PhysicalColumn.of(
+                            rowType.getFieldName(i), rowType.getFieldType(i), 0, true, null, null);
+            schemaBuilder.column(column);
+        }
+        return CatalogTable.of(
+                TableIdentifier.of("schema", "default", tableName),
+                schemaBuilder.build(),
+                new HashMap<>(),
+                new ArrayList<>(),
+                "It is converted from RowType and only has column information.");
+    }
+
     public static List<CatalogTable> getCatalogTables(Config config, ClassLoader classLoader) {
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
         Map<String, String> catalogOptions =
@@ -103,11 +120,13 @@ public class CatalogTableUtil implements Serializable {
                         catalogConfig,
                         classLoader,
                         factoryId);
-        if (!optionalCatalog.isPresent()) {
-            return Collections.emptyList();
-        }
+        return optionalCatalog
+                .map(catalog -> getCatalogTables(catalogConfig, catalog))
+                .orElse(Collections.emptyList());
+    }
 
-        Catalog catalog = optionalCatalog.get();
+    public static List<CatalogTable> getCatalogTables(
+            ReadonlyConfig catalogConfig, Catalog catalog) {
         // Get the list of specified tables
         List<String> tableNames = catalogConfig.get(CatalogOptions.TABLE_NAMES);
         List<CatalogTable> catalogTables = new ArrayList<>();

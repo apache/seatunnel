@@ -15,25 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.factory;
+package org.apache.seatunnel.engine.server.rest;
 
-import org.apache.seatunnel.api.table.connector.TableTransform;
+public class RestConstant {
 
-/**
- * This is an SPI interface, used to create {@link
- * org.apache.seatunnel.api.table.connector.TableTransform}. Each plugin need to have it own
- * implementation.
- */
-public interface TableTransformFactory extends Factory {
-
-    /**
-     * We will never use this method now. So gave a default implement and return null.
-     *
-     * @param context TableFactoryContext
-     * @return
-     */
-    default <T> TableTransform<T> createTransform(TableFactoryContext context) {
-        throw new UnsupportedOperationException(
-                "The Factory has not been implemented and the deprecated Plugin will be used.");
-    }
+    public static final String RUNNING_JOBS_URL = "/hazelcast/rest/maps/running-jobs";
+    public static final String RUNNING_JOB_URL = "/hazelcast/rest/maps/running-job";
 }

@@ -15,25 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.factory;
+package org.apache.seatunnel.api.source;
 
-import org.apache.seatunnel.api.table.connector.TableTransform;
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.env.ParsingMode;
 
-/**
- * This is an SPI interface, used to create {@link
- * org.apache.seatunnel.api.table.connector.TableTransform}. Each plugin need to have it own
- * implementation.
- */
-public interface TableTransformFactory extends Factory {
-
-    /**
-     * We will never use this method now. So gave a default implement and return null.
-     *
-     * @param context TableFactoryContext
-     * @return
-     */
-    default <T> TableTransform<T> createTransform(TableFactoryContext context) {
-        throw new UnsupportedOperationException(
-                "The Factory has not been implemented and the deprecated Plugin will be used.");
-    }
+public interface SourceOptions {
+    Option<ParsingMode> DAG_PARSING_MODE =
+            Options.key("dag-parsing.mode")
+                    .enumType(ParsingMode.class)
+                    .defaultValue(ParsingMode.SINGLENESS)
+                    .withDescription("Whether to enable parsing support for multi-table source");
 }
