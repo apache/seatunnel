@@ -53,7 +53,8 @@ public class FileSinkAggregatedCommitter
                                         mvFileEntry.getKey(), mvFileEntry.getValue(), true);
                             }
                             // second delete transaction directory
-                            fileSystemUtils.deleteFile(entry.getKey());
+                            fileSystemUtils.deleteFile(
+                                    entry.getKey().substring(0, entry.getKey().lastIndexOf("/")));
                         }
                     } catch (Exception e) {
                         log.error(
