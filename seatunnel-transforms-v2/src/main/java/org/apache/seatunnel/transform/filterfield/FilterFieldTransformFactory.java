@@ -15,15 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform;
+package org.apache.seatunnel.transform.filterfield;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 
 import com.google.auto.service.AutoService;
-
-import static org.apache.seatunnel.transform.FilterFieldTransform.KEY_FIELDS;
 
 @AutoService(Factory.class)
 public class FilterFieldTransformFactory implements TableTransformFactory {
@@ -34,6 +36,15 @@ public class FilterFieldTransformFactory implements TableTransformFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(KEY_FIELDS).build();
+        return OptionRule.builder().required(FilterFieldTransformConfig.KEY_FIELDS).build();
+    }
+
+    @Override
+    public TableTransform createTransform(TableFactoryContext context) {
+        ReadonlyConfig config = context.getOptions();
+        FilterFieldTransformConfig filterFieldTransformConfig =
+                FilterFieldTransformConfig.of(config);
+        CatalogTable catalogTable = context.getCatalogTable();
+        return () -> new FilterFieldTransform(filterFieldTransformConfig, catalogTable);
     }
 }

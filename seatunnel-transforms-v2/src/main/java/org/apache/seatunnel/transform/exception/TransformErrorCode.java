@@ -19,14 +19,18 @@ package org.apache.seatunnel.transform.exception;
 
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
-public enum FieldMapperTransformErrorCode implements SeaTunnelErrorCode {
+public enum TransformErrorCode implements SeaTunnelErrorCode {
     INPUT_FIELD_NOT_FOUND(
-            "FIELD_MAPPER_TRANSFORM-01", "field mapper input field not found in inputRowType");
+            "FIELD_MAPPER_TRANSFORM-01", "field mapper input field not found in inputRowType"),
+
+    FILTER_FIELD_NOT_FOUND("FILTER_FIELD_TRANSFORM-01", "filter filed not found"),
+
+    SPLIT_OUTPUT_FIELD_EXISTS("SPLIT_TRANSFORM-01", "split output field exists");
 
     private final String code;
     private final String description;
 
-    FieldMapperTransformErrorCode(String code, String description) {
+    TransformErrorCode(String code, String description) {
         this.code = code;
         this.description = description;
     }

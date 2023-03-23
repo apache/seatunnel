@@ -30,6 +30,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
 import org.apache.seatunnel.transform.common.SeaTunnelRowAccessor;
+import org.apache.seatunnel.transform.exception.TransformErrorCode;
+import org.apache.seatunnel.transform.exception.TransformException;
 
 import com.google.auto.service.AutoService;
 import lombok.NonNull;
@@ -62,6 +64,16 @@ public class SplitTransform extends MultipleFieldOutputTransform {
                             + splitTransformConfig.getSplitField()
                             + "] field in input row type");
         }
+
+        Arrays.stream(splitTransformConfig.getOutputFields())
+                .forEach(
+                        filed -> {
+                            if (seaTunnelRowType.indexOf(filed) > -1) {
+                                throw new TransformException(
+                                        TransformErrorCode.SPLIT_OUTPUT_FIELD_EXISTS, filed);
+                            }
+                        });
+
         this.outputCatalogTable = getProducedCatalogTable();
     }
 

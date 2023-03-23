@@ -32,8 +32,8 @@ import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.transform.common.AbstractSeaTunnelTransform;
-import org.apache.seatunnel.transform.exception.FieldMapperTransformErrorCode;
 import org.apache.seatunnel.transform.exception.FieldMapperTransformException;
+import org.apache.seatunnel.transform.exception.TransformErrorCode;
 
 import com.google.auto.service.AutoService;
 import com.google.common.collect.Lists;
@@ -112,7 +112,7 @@ public class FieldMapperTransform extends AbstractSeaTunnelTransform {
                     int fieldIndex = inputFieldNames.indexOf(key);
                     if (fieldIndex < 0) {
                         throw new FieldMapperTransformException(
-                                FieldMapperTransformErrorCode.INPUT_FIELD_NOT_FOUND,
+                                TransformErrorCode.INPUT_FIELD_NOT_FOUND,
                                 "Can not found field " + key + " from inputRowType");
                     }
                     needReaderColIndex.add(fieldIndex);
