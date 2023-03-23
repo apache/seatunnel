@@ -25,7 +25,9 @@ public enum TransformErrorCode implements SeaTunnelErrorCode {
 
     FILTER_FIELD_NOT_FOUND("FILTER_FIELD_TRANSFORM-01", "filter filed not found"),
 
-    SPLIT_OUTPUT_FIELD_EXISTS("SPLIT_TRANSFORM-01", "split output field exists");
+    SPLIT_OUTPUT_FIELD_EXISTS("SPLIT_TRANSFORM-01", "split output field exists"),
+
+    MAPPER_FIELD_NOT_FOUND("FIELD_MAPPER_TRANSFORM-01", "mapper field not found");
 
     private final String code;
     private final String description;
