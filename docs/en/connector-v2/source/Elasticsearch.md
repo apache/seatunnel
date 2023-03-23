@@ -6,7 +6,7 @@
 
 Used to read data from Elasticsearch.
 
-support version >= 2.x and < 8.x.
+support version >= 2.x and <= 8.x.
 
 ## Key features
 
