@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform;
+package org.apache.seatunnel.transform.filterrowkind;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 
 import com.google.auto.service.AutoService;
-
-import static org.apache.seatunnel.transform.FilterRowKindTransform.EXCLUDE_KINDS;
-import static org.apache.seatunnel.transform.FilterRowKindTransform.INCLUDE_KINDS;
 
 @AutoService(Factory.class)
 public class FilterRowKindTransformFactory implements TableTransformFactory {
@@ -35,6 +35,17 @@ public class FilterRowKindTransformFactory implements TableTransformFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().exclusive(EXCLUDE_KINDS, INCLUDE_KINDS).build();
+        return OptionRule.builder()
+                .exclusive(
+                        FilterRowKinkTransformConfig.EXCLUDE_KINDS,
+                        FilterRowKinkTransformConfig.INCLUDE_KINDS)
+                .build();
+    }
+
+    @Override
+    public TableTransform createTransform(TableFactoryContext context) {
+        FilterRowKinkTransformConfig config = FilterRowKinkTransformConfig.of(context.getOptions());
+        CatalogTable catalogTable = context.getCatalogTable();
+        return () -> new FilterRowKindTransform(config, catalogTable);
     }
 }

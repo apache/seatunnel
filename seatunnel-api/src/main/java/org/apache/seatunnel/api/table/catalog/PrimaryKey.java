@@ -18,12 +18,15 @@
 package org.apache.seatunnel.api.table.catalog;
 
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 
-@Data
+@Setter
+@Getter
 @AllArgsConstructor
 public class PrimaryKey implements Serializable {
     private static final long serialVersionUID = 1L;
@@ -35,5 +38,9 @@ public class PrimaryKey implements Serializable {
 
     public static PrimaryKey of(String primaryKey, List<String> columnNames) {
         return new PrimaryKey(primaryKey, columnNames);
+    }
+
+    public PrimaryKey copy() {
+        return PrimaryKey.of(primaryKey, new ArrayList<String>(columnNames));
     }
 }

@@ -25,6 +25,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import lombok.NonNull;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+
 public abstract class AbstractCatalogSupportTransform extends AbstractSeaTunnelTransform {
     protected CatalogTable inputCatalogTable;
 
@@ -58,8 +61,8 @@ public abstract class AbstractCatalogSupportTransform extends AbstractSeaTunnelT
                 CatalogTable.of(
                         tableIdentifier,
                         tableSchema,
-                        inputCatalogTable.getOptions(),
-                        inputCatalogTable.getPartitionKeys(),
+                        new HashMap<>(inputCatalogTable.getOptions()),
+                        new ArrayList<>(inputCatalogTable.getPartitionKeys()),
                         inputCatalogTable.getComment());
         return catalogTable;
     }

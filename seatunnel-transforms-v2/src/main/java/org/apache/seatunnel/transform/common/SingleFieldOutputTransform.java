@@ -19,6 +19,8 @@ package org.apache.seatunnel.transform.common;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -150,10 +152,15 @@ public abstract class SingleFieldOutputTransform extends AbstractCatalogSupportT
     @Override
     protected TableSchema transformTableSchema() {
         Column outputColumn = getOutputColumn();
+
+        PrimaryKey copyPrimaryKey = inputCatalogTable.getTableSchema().getPrimaryKey().copy();
+        List<ConstraintKey> copyConstraintKeys =
+                inputCatalogTable.getTableSchema().getConstraintKeys().stream()
+                        .map(ConstraintKey::copy)
+                        .collect(Collectors.toList());
         TableSchema.Builder builder =
-                TableSchema.builder()
-                        .primaryKey(inputCatalogTable.getTableSchema().getPrimaryKey())
-                        .constraintKey(inputCatalogTable.getTableSchema().getConstraintKeys());
+                TableSchema.builder().primaryKey(copyPrimaryKey).constraintKey(copyConstraintKeys);
+
         List<Column> copyInputColumns =
                 inputCatalogTable.getTableSchema().getColumns().stream()
                         .map(Column::copy)

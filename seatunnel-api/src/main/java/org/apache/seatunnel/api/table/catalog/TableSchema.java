@@ -26,6 +26,7 @@ import lombok.Data;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /** Represent a physical table schema. */
 @Data
@@ -91,5 +92,16 @@ public final class TableSchema implements Serializable {
         public TableSchema build() {
             return new TableSchema(columns, primaryKey, constraintKeys);
         }
+    }
+
+    public TableSchema copy() {
+        List<Column> copyColumns = columns.stream().map(Column::copy).collect(Collectors.toList());
+        List<ConstraintKey> copyConstraintKeys =
+                constraintKeys.stream().map(ConstraintKey::copy).collect(Collectors.toList());
+        return TableSchema.builder()
+                .constraintKey(copyConstraintKeys)
+                .columns(copyColumns)
+                .primaryKey(primaryKey.copy())
+                .build();
     }
 }
