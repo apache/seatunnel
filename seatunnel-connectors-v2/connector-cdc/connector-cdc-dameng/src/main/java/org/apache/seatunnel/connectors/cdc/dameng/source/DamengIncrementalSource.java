@@ -17,16 +17,21 @@
 
 package org.apache.seatunnel.connectors.cdc.dameng.source;
 
+import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
+import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.dameng.config.DamengSourceConfig;
 import org.apache.seatunnel.connectors.cdc.dameng.config.DamengSourceConfigFactory;
+import org.apache.seatunnel.connectors.cdc.dameng.config.DamengSourceOptions;
 import org.apache.seatunnel.connectors.cdc.dameng.source.offset.LogMinerOffsetFactory;
 import org.apache.seatunnel.connectors.cdc.dameng.utils.DamengUtils;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
@@ -42,7 +47,8 @@ import java.sql.SQLException;
 import java.time.ZoneId;
 
 @AutoService(SeaTunnelSource.class)
-public class DamengIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig> {
+public class DamengIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig>
+        implements SupportParallelism {
     static final String IDENTIFIER = "Dameng-CDC";
 
     private DamengSourceConfig sourceConfig;
@@ -51,6 +57,16 @@ public class DamengIncrementalSource<T> extends IncrementalSource<T, JdbcSourceC
     @Override
     public String getPluginName() {
         return IDENTIFIER;
+    }
+
+    @Override
+    public Option<StartupMode> getStartupModeOption() {
+        return DamengSourceOptions.STARTUP_MODE;
+    }
+
+    @Override
+    public Option<StopMode> getStopModeOption() {
+        return DamengSourceOptions.STOP_MODE;
     }
 
     @Override
