@@ -85,6 +85,6 @@ public class NodeExtension extends DefaultNodeExtension {
 
     @Override
     public void printNodeInfo() {
-        extCommon.printNodeInfo(systemLogger, "");
+        extCommon.printNodeInfo(systemLogger);
     }
 }

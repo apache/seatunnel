@@ -72,6 +72,7 @@
                                 <exclude>com/typesafe/config/impl/PathParser.class</exclude>
                                 <exclude>com/typesafe/config/impl/Path.class</exclude>
                                 <exclude>com/typesafe/config/impl/SimpleConfigObject.class</exclude>
+                                <exclude>com/typesafe/config/impl/PropertiesParser.class</exclude>
                             </excludes>
                         </filter>
                     </filters>

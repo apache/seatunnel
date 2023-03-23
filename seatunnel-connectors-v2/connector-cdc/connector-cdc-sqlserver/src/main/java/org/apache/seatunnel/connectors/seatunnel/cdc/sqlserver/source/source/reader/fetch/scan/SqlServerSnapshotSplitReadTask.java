@@ -197,7 +197,7 @@ public class SqlServerSnapshotSplitReadTask extends AbstractSnapshotChangeEventS
                                 new Object[] {snapshotSplit.getSplitStart()},
                                 new Object[] {snapshotSplit.getSplitEnd()},
                                 snapshotSplit.getSplitKeyType().getTotalFields(),
-                                connectorConfig.getQueryFetchSize());
+                                connectorConfig.getSnapshotFetchSize());
                 ResultSet rs = selectStatement.executeQuery()) {
 
             ColumnUtils.ColumnArray columnArray = ColumnUtils.toArray(rs, table);

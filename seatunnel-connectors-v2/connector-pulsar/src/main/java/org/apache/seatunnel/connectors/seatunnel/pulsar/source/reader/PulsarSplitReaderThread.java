@@ -81,6 +81,7 @@ public class PulsarSplitReaderThread extends Thread implements Closeable {
         if (split.getLatestConsumedId() == null) {
             startCursor.seekPosition(consumer);
         }
+        this.running = true;
     }
 
     @Override
@@ -118,11 +119,11 @@ public class PulsarSplitReaderThread extends Thread implements Closeable {
         }
     }
 
-    public void committingCursor(MessageId offsetsToCommit) {
+    public void committingCursor(MessageId offsetsToCommit) throws PulsarClientException {
         if (consumer == null) {
             consumer = createPulsarConsumer(split);
         }
-        consumer.acknowledgeAsync(offsetsToCommit);
+        consumer.acknowledgeCumulative(offsetsToCommit);
     }
 
     /** Create a specified {@link Consumer} by the given split information. */

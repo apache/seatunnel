@@ -19,15 +19,16 @@ package org.apache.seatunnel.connectors.cdc.base.option;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.configuration.SingleChoiceOption;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 
-import java.util.ArrayList;
 import java.util.Map;
 
 @SuppressWarnings("MagicNumber")
 public class SourceOptions {
+
+    public static final String STARTUP_MODE_KEY = "startup.mode";
+    public static final String STOP_MODE_KEY = "stop.mode";
 
     public static final Option<Integer> SNAPSHOT_SPLIT_SIZE =
             Options.key("snapshot.split.size")
@@ -42,24 +43,6 @@ public class SourceOptions {
                     .defaultValue(1024)
                     .withDescription(
                             "The maximum fetch size for per poll when read table snapshot.");
-
-    public static final SingleChoiceOption<StartupMode> STARTUP_MODE =
-            (SingleChoiceOption)
-                    Options.key("startup.mode")
-                            .singleChoice(StartupMode.class, new ArrayList<>())
-                            .defaultValue(StartupMode.INITIAL)
-                            .withDescription(
-                                    "Optional startup mode for CDC source, valid enumerations are "
-                                            + "\"initial\", \"earliest\", \"latest\", \"timestamp\"\n or \"specific\"");
-
-    public static final SingleChoiceOption<StopMode> STOP_MODE =
-            (SingleChoiceOption)
-                    Options.key("stop.mode")
-                            .singleChoice(StopMode.class, new ArrayList<>())
-                            .defaultValue(StopMode.NEVER)
-                            .withDescription(
-                                    "Optional stop mode for CDC source, valid enumerations are "
-                                            + "\"never\", \"latest\", \"timestamp\"\n or \"specific\"");
 
     public static final Option<Long> STARTUP_TIMESTAMP =
             Options.key("startup.timestamp")
@@ -124,9 +107,6 @@ public class SourceOptions {
                 .optional(FORMAT)
                 .optional(SNAPSHOT_SPLIT_SIZE, SNAPSHOT_FETCH_SIZE)
                 .optional(INCREMENTAL_PARALLELISM)
-                .optional(STARTUP_MODE, STOP_MODE)
-                .optional(DEBEZIUM_PROPERTIES)
-                .conditional(STARTUP_MODE, StartupMode.TIMESTAMP, STARTUP_TIMESTAMP)
-                .conditional(STOP_MODE, StopMode.TIMESTAMP, STOP_TIMESTAMP);
+                .optional(DEBEZIUM_PROPERTIES);
     }
 }
