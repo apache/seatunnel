@@ -24,6 +24,9 @@ public class ExceptionUtils {
     private ExceptionUtils() {}
 
     public static String getMessage(Throwable e) {
+        if (e == null) {
+            return "";
+        }
         try (StringWriter sw = new StringWriter();
                 PrintWriter pw = new PrintWriter(sw)) {
             // Output the error stack information to the printWriter

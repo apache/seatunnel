@@ -23,6 +23,8 @@ hazelcast:
       endpoint-groups:
         CLUSTER_WRITE:
           enabled: true
+        DATA:
+          enabled: true
     join:
       tcp-ip:
         enabled: true

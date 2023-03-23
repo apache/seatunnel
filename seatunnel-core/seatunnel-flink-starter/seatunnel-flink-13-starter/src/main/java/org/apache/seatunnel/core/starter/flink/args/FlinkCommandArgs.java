@@ -21,6 +21,8 @@ import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
 import org.apache.seatunnel.core.starter.command.Command;
+import org.apache.seatunnel.core.starter.command.ConfDecryptCommand;
+import org.apache.seatunnel.core.starter.command.ConfEncryptCommand;
 import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.core.starter.flink.command.FlinkConfValidateCommand;
 import org.apache.seatunnel.core.starter.flink.command.FlinkTaskExecuteCommand;
@@ -56,9 +58,14 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
         Common.setDeployMode(getDeployMode());
         if (checkConfig) {
             return new FlinkConfValidateCommand(this);
-        } else {
-            return new FlinkTaskExecuteCommand(this);
         }
+        if (encrypt) {
+            return new ConfEncryptCommand(this);
+        }
+        if (decrypt) {
+            return new ConfDecryptCommand(this);
+        }
+        return new FlinkTaskExecuteCommand(this);
     }
 
     @Override

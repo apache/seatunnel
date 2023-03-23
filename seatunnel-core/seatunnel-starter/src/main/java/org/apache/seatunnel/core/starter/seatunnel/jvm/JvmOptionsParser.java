@@ -65,32 +65,26 @@ final class JvmOptionsParser {
 
     @SneakyThrows
     List<String> readJvmOptionsFiles(final Path config) {
-        final ArrayList<Path> jvmOptionsFiles = new ArrayList<>();
-        jvmOptionsFiles.add(config.resolve("jvm_options"));
-
         final List<String> jvmOptions = new ArrayList<>();
-
-        for (final Path jvmOptionsFile : jvmOptionsFiles) {
-            final SortedMap<Integer, String> invalidLines = new TreeMap<>();
-            try (InputStream is = Files.newInputStream(jvmOptionsFile);
-                    Reader reader = new InputStreamReader(is, StandardCharsets.UTF_8);
-                    BufferedReader br = new BufferedReader(reader)) {
-                parse(
-                        JavaVersion.majorVersion(JavaVersion.CURRENT),
-                        br,
-                        jvmOptions::add,
-                        invalidLines::put);
-            }
-            if (!invalidLines.isEmpty()) {
-                throw new JvmOptionsParserException(
-                        CommonErrorCode.IMPROPERLY_FORMATTED_JVM_OPTION,
-                        String.format(
-                                Locale.ROOT,
-                                "encountered [%d] error%s parsing [%s]",
-                                invalidLines.size(),
-                                invalidLines.size() == 1 ? "" : "s",
-                                jvmOptionsFile));
-            }
+        final SortedMap<Integer, String> invalidLines = new TreeMap<>();
+        try (InputStream is = Files.newInputStream(config);
+                Reader reader = new InputStreamReader(is, StandardCharsets.UTF_8);
+                BufferedReader br = new BufferedReader(reader)) {
+            parse(
+                    JavaVersion.majorVersion(JavaVersion.CURRENT),
+                    br,
+                    jvmOptions::add,
+                    invalidLines::put);
+        }
+        if (!invalidLines.isEmpty()) {
+            throw new JvmOptionsParserException(
+                    CommonErrorCode.IMPROPERLY_FORMATTED_JVM_OPTION,
+                    String.format(
+                            Locale.ROOT,
+                            "encountered [%d] error%s parsing [%s]",
+                            invalidLines.size(),
+                            invalidLines.size() == 1 ? "" : "s",
+                            config));
         }
         return jvmOptions;
     }

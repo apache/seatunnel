@@ -494,15 +494,12 @@ public class SubPlan {
                         coordinator.updateTaskExecutionState(
                                 new TaskExecutionState(
                                         coordinator.getTaskGroupLocation(),
-                                        ExecutionState.FINISHED,
-                                        null)));
+                                        ExecutionState.FINISHED)));
         physicalVertexList.forEach(
                 task ->
                         task.updateTaskExecutionState(
                                 new TaskExecutionState(
-                                        task.getTaskGroupLocation(),
-                                        ExecutionState.FINISHED,
-                                        null)));
+                                        task.getTaskGroupLocation(), ExecutionState.FINISHED)));
     }
 
     /** restore the pipeline state after new Master Node active */

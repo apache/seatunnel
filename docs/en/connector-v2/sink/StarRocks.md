@@ -93,7 +93,7 @@ Whether to enable upsert/delete, only supports PrimaryKey model.
 
 We use templates to automatically create starrocks tables,
 which will create corresponding table creation statements based on the type of upstream data and schema type,
-and the default template can be modified according to the situation
+and the default template can be modified according to the situation. Only work on multi-table mode at now.
 
 ```sql
 CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
@@ -105,6 +105,23 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
     "replication_num" = "1"
 );
 ```
+
+If a custom field is filled in the template, such as adding an `id` field
+
+```sql
+CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
+(   
+    id,
+    ${rowtype_fields}
+) ENGINE = OLAP DISTRIBUTED BY HASH (${rowtype_primary_key})
+    PROPERTIES
+(
+    "replication_num" = "1"
+);
+```
+
+The connector will automatically obtain the corresponding type from the upstream to complete the filling,
+and remove the id field from `rowtype_fields`. This method can be used to customize the modification of field types and attributes.
 
 You can use the following placeholders
 
