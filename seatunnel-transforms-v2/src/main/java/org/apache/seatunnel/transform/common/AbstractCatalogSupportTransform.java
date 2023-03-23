@@ -30,6 +30,10 @@ public abstract class AbstractCatalogSupportTransform extends AbstractSeaTunnelT
 
     protected volatile CatalogTable outputCatalogTable;
 
+    public AbstractCatalogSupportTransform() {
+        super();
+    }
+
     public AbstractCatalogSupportTransform(@NonNull CatalogTable inputCatalogTable) {
         this.inputCatalogTable = inputCatalogTable;
     }
@@ -66,6 +70,9 @@ public abstract class AbstractCatalogSupportTransform extends AbstractSeaTunnelT
 
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
+        if (outputRowType != null) {
+            return outputRowType;
+        }
         return getProducedCatalogTable().getTableSchema().toPhysicalRowDataType();
     }
 }

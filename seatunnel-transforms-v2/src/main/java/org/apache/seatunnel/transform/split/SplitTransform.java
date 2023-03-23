@@ -45,6 +45,10 @@ public class SplitTransform extends MultipleFieldOutputTransform {
     private SplitTransformConfig splitTransformConfig;
     private int splitFieldIndex;
 
+    public SplitTransform() {
+        super();
+    }
+
     public SplitTransform(
             @NonNull SplitTransformConfig splitTransformConfig,
             @NonNull CatalogTable catalogTable) {

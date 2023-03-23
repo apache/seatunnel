@@ -45,6 +45,10 @@ public abstract class MultipleFieldOutputTransform extends AbstractCatalogSuppor
     private int[] fieldsIndex;
     private SeaTunnelRowContainerGenerator rowContainerGenerator;
 
+    public MultipleFieldOutputTransform() {
+        super();
+    }
+
     public MultipleFieldOutputTransform(@NonNull CatalogTable inputCatalogTable) {
         super(inputCatalogTable);
     }
