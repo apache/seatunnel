@@ -31,7 +31,7 @@
 
     <properties>
         <hive.exec.version>2.3.9</hive.exec.version>
-        <hudi.version>0.11.1</hudi.version>
+        <hudi.version>0.13.0</hudi.version>
         <commons.lang3.version>3.4</commons.lang3.version>
     </properties>
 
@@ -100,6 +100,12 @@
                     <artifactId>javax.el</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.hudi</groupId>
+            <artifactId>hudi-java-client</artifactId>
+            <version>${hudi.version}</version>
         </dependency>
 
         <dependency>
