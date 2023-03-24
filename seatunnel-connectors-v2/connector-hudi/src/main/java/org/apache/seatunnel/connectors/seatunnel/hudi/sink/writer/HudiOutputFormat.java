@@ -15,17 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hudi.state;
+package org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import org.apache.hudi.client.WriteStatus;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import java.io.Serializable;
-import java.util.List;
 
-@Data
-@AllArgsConstructor
-public class HudiCommitInfo implements Serializable {
-    private final List<WriteStatus> writeStatusList;
+public class HudiOutputFormat implements Serializable {
+
+    public String convertSchema(SeaTunnelRowType seaTunnelRowType) {
+
+        return "";
+    }
+
 }

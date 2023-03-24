@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
@@ -36,19 +34,19 @@ import org.apache.seatunnel.connectors.seatunnel.hudi.state.HudiAggregatedCommit
 import org.apache.seatunnel.connectors.seatunnel.hudi.state.HudiCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.hudi.state.HudiSinkState;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import com.google.auto.service.AutoService;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
 @AutoService(SeaTunnelSink.class)
 public class HudiSink
-        implements SeaTunnelSink<
-                SeaTunnelRow, HudiSinkState, HudiCommitInfo, HudiAggregatedCommitInfo> {
+    implements SeaTunnelSink<
+    SeaTunnelRow, HudiSinkState, HudiCommitInfo, HudiAggregatedCommitInfo> {
 
-    private Config pluginConfig;
     private HudiSinkConfig hudiSinkConfig;
     private SeaTunnelRowType seaTunnelRowType;
 
@@ -61,7 +59,6 @@ public class HudiSink
     public void prepare(Config pluginConfig) throws PrepareFailException {
         ReadonlyConfig config = ReadonlyConfig.fromConfig(pluginConfig);
         this.hudiSinkConfig = HudiSinkConfig.of(config);
-        this.pluginConfig = pluginConfig;
     }
 
     @Override
@@ -76,7 +73,7 @@ public class HudiSink
 
     @Override
     public SinkWriter<SeaTunnelRow, HudiCommitInfo, HudiSinkState> restoreWriter(
-            SinkWriter.Context context, List<HudiSinkState> states) throws IOException {
+        SinkWriter.Context context, List<HudiSinkState> states) throws IOException {
         return SeaTunnelSink.super.restoreWriter(context, states);
     }
 
@@ -92,8 +89,8 @@ public class HudiSink
 
     @Override
     public Optional<SinkAggregatedCommitter<HudiCommitInfo, HudiAggregatedCommitInfo>>
-            createAggregatedCommitter() throws IOException {
-        return Optional.of(new HudiSinkAggregatedCommitter(hudiSinkConfig));
+    createAggregatedCommitter() throws IOException {
+        return Optional.of(new HudiSinkAggregatedCommitter(hudiSinkConfig,seaTunnelRowType));
     }
 
     @Override
@@ -103,10 +100,8 @@ public class HudiSink
 
     @Override
     public SinkWriter<SeaTunnelRow, HudiCommitInfo, HudiSinkState> createWriter(
-            SinkWriter.Context context) throws IOException {
-        HudiSinkWriter hudiSinkWriter =
-                new HudiSinkWriter(
-                        context, Collections.emptyList(), seaTunnelRowType, pluginConfig);
-        return hudiSinkWriter;
+        SinkWriter.Context context) throws IOException {
+        return new HudiSinkWriter(
+            context, seaTunnelRowType, hudiSinkConfig);
     }
 }
