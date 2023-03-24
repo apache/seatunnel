@@ -37,6 +37,7 @@ import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
+import org.apache.pulsar.client.api.MessageId;
 import org.apache.pulsar.client.api.MessageRoutingMode;
 import org.apache.pulsar.client.api.Producer;
 import org.apache.pulsar.client.api.PulsarClient;
@@ -51,6 +52,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SinkProperties.DEFAULT_FORMAT;
@@ -74,6 +77,7 @@ public class PulsarSinkWriter
     private int transactionTimeout = TRANSACTION_TIMEOUT.defaultValue();
     private PulsarSemantics pulsarSemantics = SEMANTICS.defaultValue();
     private MessageRoutingMode messageRoutingMode = MESSAGE_ROUTING_MODE.defaultValue();
+    private final AtomicLong pendingMessages;
 
     public PulsarSinkWriter(
             Context context,
@@ -128,6 +132,7 @@ public class PulsarSinkWriter
                     PulsarConnectorErrorCode.CREATE_PRODUCER_FAILED,
                     "Pulsar Producer create fail.");
         }
+        this.pendingMessages = new AtomicLong(0);
     }
 
     @Override
@@ -146,7 +151,17 @@ public class PulsarSinkWriter
         if (PulsarSemantics.NON == pulsarSemantics) {
             typedMessageBuilder.sendAsync();
         } else {
-            typedMessageBuilder.send();
+            pendingMessages.incrementAndGet();
+            CompletableFuture<MessageId> future = typedMessageBuilder.sendAsync();
+            future.whenComplete(
+                    (id, ex) -> {
+                        pendingMessages.decrementAndGet();
+                        if (ex != null) {
+                            throw new PulsarConnectorException(
+                                    PulsarConnectorErrorCode.SEND_MESSAGE_FAILED,
+                                    "send message failed");
+                        }
+                    });
         }
     }
 
@@ -165,6 +180,9 @@ public class PulsarSinkWriter
         if (PulsarSemantics.NON != pulsarSemantics) {
             /** flush pending messages */
             producer.flush();
+            while (pendingMessages.longValue() > 0) {
+                producer.flush();
+            }
         }
         if (PulsarSemantics.EXACTLY_ONCE == pulsarSemantics) {
             List<PulsarSinkState> pulsarSinkStates =

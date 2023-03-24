@@ -28,7 +28,8 @@ public enum PulsarConnectorErrorCode implements SeaTunnelErrorCode {
     GET_TOPIC_PARTITION_FAILED("PULSAR-06", "Get partition information of pulsar topic failed"),
     ACK_CUMULATE_FAILED("PULSAR-07", "Pulsar consumer acknowledgeCumulative failed"),
     CREATE_PRODUCER_FAILED("PULSAR-08", "create producer failed"),
-    CREATE_TRANSACTION_FAILED("PULSAR-09", "create transaction failed");
+    CREATE_TRANSACTION_FAILED("PULSAR-09", "create transaction failed"),
+    SEND_MESSAGE_FAILED("PULSAR-10", "send message failed");
 
     private final String code;
     private final String description;

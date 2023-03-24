@@ -209,6 +209,7 @@ problems encountered by users.
 | PULSAR-07 | Pulsar consumer acknowledgeCumulative failed     | When users encounter this error code, it means that Pulsar consumer acknowledgeCumulative failed                      |
 | PULSAR-08 | Pulsar create producer failed                    | When users encounter this error code, it means that create producer failed, please check it                           |
 | PULSAR-09 | Pulsar create transaction failed                 | When users encounter this error code, it means that Pulsar create transaction failed, please check it                 |
+| PULSAR-10 | Pulsar send message failed                       | When users encounter this error code, it means that Pulsar sned message failed, please check it                       |
 
 ## StarRocks Connector Error Codes
 
