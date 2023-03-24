@@ -38,7 +38,7 @@ public class PaimonIT extends TestSuiteBase {
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
-                Path schemaPath = ContainerUtil.getResourcesFile("/schema-0").toPath();
+                Path schemaPath = ContainerUtil.getResourcesFile("/schema-0.json").toPath();
                 container.copyFileToContainer(
                         MountableFile.forHostPath(schemaPath),
                         "/tmp/paimon/default.db/st_test/schema/schema-0");
