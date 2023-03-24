@@ -67,7 +67,7 @@
             <artifactId>connector-console</artifactId>
             <version>${project.version}</version>
         </dependency>
-        
+
         <!--   seatunnel connectors   -->
         <!--flink-->
         <dependency>
