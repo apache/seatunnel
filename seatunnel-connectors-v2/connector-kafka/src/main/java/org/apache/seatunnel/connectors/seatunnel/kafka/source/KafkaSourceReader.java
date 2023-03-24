@@ -236,10 +236,13 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                                                         if (this.metadata.isCommitOnCheckpoint()) {
                                                             Map<TopicPartition, OffsetAndMetadata>
                                                                     offsets = new HashMap<>();
-                                                            offsets.put(
-                                                                    topicPartition,
-                                                                    new OffsetAndMetadata(offset));
-                                                            consumer.commitSync(offsets);
+                                                            if (offset >= 0) {
+                                                                offsets.put(
+                                                                        topicPartition,
+                                                                        new OffsetAndMetadata(
+                                                                                offset));
+                                                                consumer.commitSync(offsets);
+                                                            }
                                                         }
                                                     });
                                 } catch (InterruptedException e) {
