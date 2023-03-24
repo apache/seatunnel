@@ -316,7 +316,9 @@ public class MultipleTableJobConfigParser {
             return;
         }
         Queue<Config> configList = new LinkedList<>(transformConfigs);
-        parseTransform(configList, classLoader, tableWithActionMap);
+        while (!configList.isEmpty()) {
+            parseTransform(configList, classLoader, tableWithActionMap);
+        }
     }
 
     private void parseTransform(
