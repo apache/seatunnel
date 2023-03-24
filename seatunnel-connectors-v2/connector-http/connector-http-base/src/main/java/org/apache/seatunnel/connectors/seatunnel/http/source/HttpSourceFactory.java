@@ -55,7 +55,8 @@ public class HttpSourceFactory implements TableSourceFactory {
                 .optional(HttpConfig.POLL_INTERVAL_MILLS)
                 .optional(HttpConfig.RETRY)
                 .optional(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS)
-                .optional(HttpConfig.RETRY_BACKOFF_MAX_MS);
+                .optional(HttpConfig.RETRY_BACKOFF_MAX_MS)
+                .optional(HttpConfig.PAGING);
     }
 
     @Override

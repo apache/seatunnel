@@ -34,10 +34,10 @@ Used to read data from Http.
 | retry_backoff_multiplier_ms | int    | No       | 100           |
 | retry_backoff_max_ms        | int    | No       | 10000         |
 | common-options              |        | No       | -             |
-| paging.pageNoField          | String | No       | -             |
-| paging.pageNo               | String | No       | -             |
-| paging.pageSizeField        | String | No       | -             |
-| paging.pageSize             | int    | No       | -             |
+| paging.page_no_field        | String | No       | -             |
+| paging.page_no              | String | No       | -             |
+| paging.page_size_field      | String | No       | -             |
+| paging.page_size            | int    | No       | -             |
 
 ### url [String]
 
@@ -303,10 +303,10 @@ simple:
 Http {
   url = "https://tyrantlucifer.com/api/getDemoData"
   pageing = {
-    pageNoField = "pageNo",
-    pageNo = "1-2,4,8-10",
-    pageSizeField = "pageSize",
-    pageSize = 10
+    page_no_field = "pageNo",
+    page_no = "1-2,4,8-10",
+    page_size_field = "pageSize",
+    page_size = 10
   }
   schema {
     fields {

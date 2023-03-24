@@ -66,6 +66,7 @@
 - [Kudu] Fix connector source snapshot state NPE #4027
 - [Maxcompute] Fix some data type parse fail #3894
 - [Doris] Fix content-length header already present #4277
+- [Http] http connector support pagable #4372
 
 ### Zeta Engine
 - [Checkpoint] Fix Checkpoint Continue Trigger After Job CANCELED #3808

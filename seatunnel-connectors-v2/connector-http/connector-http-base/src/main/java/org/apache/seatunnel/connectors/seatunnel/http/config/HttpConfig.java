@@ -27,13 +27,13 @@ public class HttpConfig {
     public static final int DEFAULT_RETRY_BACKOFF_MULTIPLIER_MS = 100;
     public static final int DEFAULT_RETRY_BACKOFF_MAX_MS = 10000;
 
-    public static final String PAGE_NO = "pageNo";
+    public static final String PAGE_NO = "page_no";
 
-    public static final String PAGE_NO_FIELD = "pageNoField";
+    public static final String PAGE_NO_FIELD = "page_no_field";
 
-    public static final String PAGE_SIZE = "pageSize";
+    public static final String PAGE_SIZE = "page_size";
 
-    public static final String PAGE_SIZE_FIELD = "pageSizeField";
+    public static final String PAGE_SIZE_FIELD = "page_size_field";
 
     public static final Option<String> URL =
             Options.key("url").stringType().noDefaultValue().withDescription("Http request url");
