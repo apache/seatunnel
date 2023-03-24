@@ -15,17 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform;
+package org.apache.seatunnel.transform.split;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 
 import com.google.auto.service.AutoService;
-
-import static org.apache.seatunnel.transform.SplitTransform.KEY_OUTPUT_FIELDS;
-import static org.apache.seatunnel.transform.SplitTransform.KEY_SEPARATOR;
-import static org.apache.seatunnel.transform.SplitTransform.KEY_SPLIT_FIELD;
+import lombok.NonNull;
 
 @AutoService(Factory.class)
 public class SplitTransformFactory implements TableTransformFactory {
@@ -37,7 +37,17 @@ public class SplitTransformFactory implements TableTransformFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(KEY_SEPARATOR, KEY_SPLIT_FIELD, KEY_OUTPUT_FIELDS)
+                .required(
+                        SplitTransformConfig.KEY_SEPARATOR,
+                        SplitTransformConfig.KEY_SPLIT_FIELD,
+                        SplitTransformConfig.KEY_OUTPUT_FIELDS)
                 .build();
+    }
+
+    @Override
+    public TableTransform createTransform(@NonNull TableFactoryContext context) {
+        SplitTransformConfig splitTransformConfig = SplitTransformConfig.of(context.getOptions());
+        CatalogTable catalogTable = context.getCatalogTable();
+        return () -> new SplitTransform(splitTransformConfig, catalogTable);
     }
 }
