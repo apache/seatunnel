@@ -57,7 +57,7 @@ public class KafkaConsumerThread implements Runnable {
                     if (task != null) {
                         task.accept(consumer);
                     }
-                } catch (InterruptedException e) {
+                } catch (Exception e) {
                     throw new KafkaConnectorException(
                             KafkaConnectorErrorCode.CONSUME_THREAD_RUN_ERROR, e);
                 }
