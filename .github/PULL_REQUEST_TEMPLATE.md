@@ -22,7 +22,6 @@ Feel free to ping committers for the review!
 
 ## Check list
 
-* [ ] Does the commit message comply with the Angular commit convention? For more details you can refer to [coding-guide](../docs/en/contribution/coding-guide.md)
 * [ ] Code changed are covered with tests, or it does not need tests for reason:
 * [ ] If any new Jar binary package adding in your PR, please add License Notice according
   [New License Guide](https://github.com/apache/incubator-seatunnel/blob/dev/docs/en/contribution/new-license.md)
