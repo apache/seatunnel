@@ -17,10 +17,10 @@ Seatunnel also supports to encode the INSERT/UPDATE/DELETE messages in Seatunnel
 
 |             option             | default | required |                                                                                                Description                                                                                                 |
 |--------------------------------|---------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| format                         | (none)  | yes      | Specify what format to use, here should be 'canal-json'.                                                                                                                                                   |
-| canal-json.ignore-parse-errors | false   | no       | Skip fields and rows with parse errors instead of failing. Fields are set to null in case of errors.                                                                                                       |
-| canal-json.database.include    | (none)  | no       | An optional regular expression to only read the specific databases changelog rows by regular matching the "database" meta field in the Canal record. The pattern string is compatible with Java's Pattern. |
-| canal-json.table.include       | (none)  | no       | An optional regular expression to only read the specific tables changelog rows by regular matching the "table" meta field in the Canal record. The pattern string is compatible with Java's Pattern.       |
+| format                         | (none)  | yes      | Specify what format to use, here should be 'canal_json'.                                                                                                                                                   |
+| canal_json.ignore-parse-errors | false   | no       | Skip fields and rows with parse errors instead of failing. Fields are set to null in case of errors.                                                                                                       |
+| canal_json.database.include    | (none)  | no       | An optional regular expression to only read the specific databases changelog rows by regular matching the "database" meta field in the Canal record. The pattern string is compatible with Java's Pattern. |
+| canal_json.table.include       | (none)  | no       | An optional regular expression to only read the specific tables changelog rows by regular matching the "table" meta field in the Canal record. The pattern string is compatible with Java's Pattern.       |
 
 # How to use Canal format
 
@@ -95,7 +95,7 @@ source {
            weight = "string"
       }
     },
-    format = canal-json
+    format = canal_json
   }
 
 }
@@ -107,7 +107,7 @@ sink {
   Kafka {
     bootstrap.servers = "localhost:9092"
     topic = "consume-binlog"
-    format = canal-json
+    format = canal_json
   }
 }
 ```

@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
+import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.SeaTunnelSourceCollector;
@@ -214,7 +215,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             if (barrier.snapshot()) {
                 List<byte[]> states =
                         serializeStates(splitSerializer, reader.snapshotState(barrier.getId()));
-                runningTask.addState(barrier, sourceAction.getId(), states);
+                runningTask.addState(barrier, ActionStateKey.of(sourceAction), states);
             }
             // ack after #addState
             runningTask.ack(barrier);

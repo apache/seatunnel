@@ -103,17 +103,6 @@ seatunnel:
 
 About the checkpoint storage, you can see [checkpoint storage](checkpoint-storage.md)
 
-### 4.4 Intermediate Queue Type
-
-Task internal exchange queue type. There are currently two types of `disruptor` and `blockingqueue`.
-
-```
-seatunnel:
-    engine:
-        queue-type: disruptor
-        # other config
-```
-
 ## 5. Config SeaTunnel Engine Server
 
 All SeaTunnel Engine Server config in `hazelcast.yaml` file.
@@ -235,9 +224,11 @@ hazelcast-client:
 
 ## 7. Start SeaTunnel Engine Server Node
 
+Can be started by a daemon with `-d`.
+
 ```shell
 mkdir -p $SEATUNNEL_HOME/logs
-nohup bin/seatunnel-cluster.sh 2>&1 &
+./bin/seatunnel-cluster.sh -d
 ```
 
 The logs will write in `$SEATUNNEL_HOME/logs/seatunnel-engine-server.log`

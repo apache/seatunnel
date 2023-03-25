@@ -38,6 +38,7 @@
             you need to open this annotation and change the dependency of config-shade to project.
             <module>seatunnel-config</module>
         -->
+        <module>seatunnel-config</module>
         <module>seatunnel-common</module>
         <module>seatunnel-core</module>
         <module>seatunnel-transforms-v2</module>
@@ -124,7 +125,7 @@
         <maven-dependency-plugin.version>3.1.1</maven-dependency-plugin.version>
         <p3c-pmd.version>1.3.0</p3c-pmd.version>
         <maven-scm-provider-jgit.version>1.9.5</maven-scm-provider-jgit.version>
-        <testcontainer.version>1.17.3</testcontainer.version>
+        <testcontainer.version>1.17.6</testcontainer.version>
         <spotless.version>2.29.0</spotless.version>
         <jsqlparser.version>4.5</jsqlparser.version>
         <!-- Option args -->
@@ -284,7 +285,7 @@
             <dependency>
                 <groupId>org.apache.seatunnel</groupId>
                 <artifactId>seatunnel-config-shade</artifactId>
-                <version>${seatunnel.config.shade.version}</version>
+                <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>commons-codec</groupId>

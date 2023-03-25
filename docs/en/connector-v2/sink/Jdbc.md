@@ -38,7 +38,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | primary_keys                              | Array   | No       | -             |
 | support_upsert_by_query_primary_key_exist | Boolean | No       | false         |
 | connection_check_timeout_sec              | Int     | No       | 30            |
-| max_retries                               | Int     | No       | 3             |
+| max_retries                               | Int     | No       | 0             |
 | batch_size                                | Int     | No       | 1000          |
 | batch_interval_ms                         | Int     | No       | 1000          |
 | is_exactly_once                           | Boolean | No       | false         |
@@ -168,7 +168,7 @@ Simple
 
 ```
 jdbc {
-    url = "jdbc:mysql://localhost/test"
+    url = "jdbc:mysql://localhost:3306/test"
     driver = "com.mysql.cj.jdbc.Driver"
     user = "root"
     password = "123456"
@@ -182,7 +182,7 @@ Exactly-once
 ```
 jdbc {
 
-    url = "jdbc:mysql://localhost/test"
+    url = "jdbc:mysql://localhost:3306/test"
     driver = "com.mysql.cj.jdbc.Driver"
 
     max_retries = 0
@@ -201,12 +201,13 @@ CDC(Change data capture) event
 ```
 sink {
     jdbc {
-        url = "jdbc:mysql://localhost/test"
+        url = "jdbc:mysql://localhost:3306"
         driver = "com.mysql.cj.jdbc.Driver"
         user = "root"
         password = "123456"
         
-        table = sink_table
+        database = "sink_database"
+        table = "sink_table"
         primary_keys = ["key1", "key2", ...]
     }
 }

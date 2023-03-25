@@ -33,6 +33,7 @@ import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.connector.TableSource;
+import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -156,8 +157,7 @@ public final class FactoryUtil {
     }
 
     public static <T extends Factory> URL getFactoryUrl(T factory) {
-        URL jarUrl = factory.getClass().getProtectionDomain().getCodeSource().getLocation();
-        return jarUrl;
+        return factory.getClass().getProtectionDomain().getCodeSource().getLocation();
     }
 
     public static <T extends Factory> Optional<T> discoverOptionalFactory(
@@ -309,5 +309,18 @@ public final class FactoryUtil {
         }
 
         return sinkOptionRule;
+    }
+
+    public static SeaTunnelTransform<?> createAndPrepareTransform(
+            CatalogTable catalogTable,
+            ReadonlyConfig options,
+            ClassLoader classLoader,
+            String factoryIdentifier) {
+        final TableTransformFactory factory =
+                discoverFactory(classLoader, TableTransformFactory.class, factoryIdentifier);
+        TableFactoryContext context =
+                new TableFactoryContext(
+                        Collections.singletonList(catalogTable), options, classLoader);
+        return factory.createTransform(context).createTransform();
     }
 }

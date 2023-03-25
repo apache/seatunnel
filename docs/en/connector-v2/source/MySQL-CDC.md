@@ -5,7 +5,7 @@
 ## Description
 
 The MySQL CDC connector allows for reading snapshot data and incremental data from MySQL database. This document
-describes how to setup the MySQL CDC connector to run SQL queries against MySQL databases.
+describes how to set up the MySQL CDC connector to run SQL queries against MySQL databases.
 
 ## Key features
 
@@ -38,12 +38,13 @@ describes how to setup the MySQL CDC connector to run SQL queries against MySQL 
 | snapshot.fetch.size                            | Integer  | No       | 1024          |
 | server-id                                      | String   | No       | -             |
 | server-time-zone                               | String   | No       | UTC           |
-| connect.timeout                                | Duration | No       | 30s           |
+| connect.timeout.ms                             | Duration | No       | 30000         |
 | connect.max-retries                            | Integer  | No       | 3             |
 | connection.pool.size                           | Integer  | No       | 20            |
 | chunk-key.even-distribution.factor.upper-bound | Double   | No       | 1000          |
 | chunk-key.even-distribution.factor.lower-bound | Double   | No       | 0.05          |
 | debezium.*                                     | config   | No       | -             |
+| format                                         | Enum     | No       | DEFAULT       |
 | common-options                                 |          | no       | -             |
 
 ### username [String]
@@ -137,7 +138,7 @@ By default, a random number is generated between 5400 and 6400, though we recomm
 
 The session time zone in database server.
 
-### connect.timeout [Duration]
+### connect.timeout.ms [long]
 
 The maximum time that the connector should wait after trying to connect to the database server before timing out.
 
@@ -155,6 +156,10 @@ Pass-through Debezium's properties to Debezium Embedded Engine which is used to 
 
 See more about
 the [Debezium's MySQL Connector properties](https://debezium.io/documentation/reference/1.6/connectors/mysql.html#mysql-connector-properties)
+
+### format [Enum]
+
+Optional output format for MySQL CDC, valid enumerations are "DEFAULT"、"COMPATIBLE_DEBEZIUM_JSON".
 
 #### example
 
@@ -191,7 +196,7 @@ source {
 
 ## Changelog
 
-### next version
-
 - Add MySQL CDC Source Connector
+
+### next version
 

@@ -43,6 +43,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.isDataChangeRecord;
 
 /** Deserialization schema from Debezium object to {@link SeaTunnelRow}. */
 @Slf4j
@@ -109,6 +110,11 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
     @Override
     public void deserialize(SourceRecord record, Collector<SeaTunnelRow> collector)
             throws Exception {
+        if (!isDataChangeRecord(record)) {
+            log.debug("Unsupported record {}, just skip.", record);
+            return;
+        }
+
         Envelope.Operation operation = Envelope.operationFor(record);
         Struct messageStruct = (Struct) record.value();
         Schema valueSchema = record.valueSchema();
@@ -116,7 +122,13 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
         Struct sourceStruct = messageStruct.getStruct(Envelope.FieldName.SOURCE);
         String databaseName = sourceStruct.getString(AbstractSourceInfo.DATABASE_NAME_KEY);
         String tableName = sourceStruct.getString(AbstractSourceInfo.TABLE_NAME_KEY);
-        String tableId = TablePath.of(databaseName, tableName).toString();
+        String schemaName = null;
+        try {
+            schemaName = sourceStruct.getString(AbstractSourceInfo.SCHEMA_NAME_KEY);
+        } catch (Throwable e) {
+            // ignore
+        }
+        String tableId = TablePath.of(databaseName, schemaName, tableName).toString();
         SeaTunnelRowDebeziumDeserializationConverters converters;
         if (!multipleTableRowConverters.isEmpty()) {
             converters = multipleTableRowConverters.get(tableId);

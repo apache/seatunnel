@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunnelRowSerializer;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -82,7 +83,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
     private static final String KAFKA_HOST = "kafkaCluster";
 
-    private static final String DEFAULT_FORMAT = "json";
+    private static final MessageFormat DEFAULT_FORMAT = MessageFormat.JSON;
 
     private static final String DEFAULT_FIELD_DELIMITER = ",";
 
@@ -113,9 +114,12 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
         log.info("Write 100 records to topic test_topic_source");
         DefaultSeaTunnelRowSerializer serializer =
-                new DefaultSeaTunnelRowSerializer(
-                        SEATUNNEL_ROW_TYPE, DEFAULT_FORMAT, DEFAULT_FIELD_DELIMITER);
-        generateTestData(row -> serializer.serializeRow("test_topic_source", row), 0, 100);
+                DefaultSeaTunnelRowSerializer.create(
+                        "test_topic_source",
+                        SEATUNNEL_ROW_TYPE,
+                        DEFAULT_FORMAT,
+                        DEFAULT_FIELD_DELIMITER);
+        generateTestData(row -> serializer.serializeRow(row), 0, 100);
     }
 
     @AfterAll
@@ -191,10 +195,45 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     public void testSourceKafkaJsonToConsole(TestContainer container)
             throws IOException, InterruptedException {
         DefaultSeaTunnelRowSerializer serializer =
-                new DefaultSeaTunnelRowSerializer(
-                        SEATUNNEL_ROW_TYPE, DEFAULT_FORMAT, DEFAULT_FIELD_DELIMITER);
-        generateTestData(row -> serializer.serializeRow("test_topic_json", row), 0, 100);
+                DefaultSeaTunnelRowSerializer.create(
+                        "test_topic_json",
+                        SEATUNNEL_ROW_TYPE,
+                        DEFAULT_FORMAT,
+                        DEFAULT_FIELD_DELIMITER);
+        generateTestData(row -> serializer.serializeRow(row), 0, 100);
         Container.ExecResult execResult = container.executeJob("/kafkasource_json_to_console.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    public void testSourceKafkaJsonFormatErrorHandleWaySkipToConsole(TestContainer container)
+            throws IOException, InterruptedException {
+        DefaultSeaTunnelRowSerializer serializer =
+                DefaultSeaTunnelRowSerializer.create(
+                        "test_topic_error_message",
+                        SEATUNNEL_ROW_TYPE,
+                        DEFAULT_FORMAT,
+                        DEFAULT_FIELD_DELIMITER);
+        generateTestData(row -> serializer.serializeRow(row), 0, 100);
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/kafka/kafkasource_format_error_handle_way_skip_to_console.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    public void testSourceKafkaJsonFormatErrorHandleWayFailToConsole(TestContainer container)
+            throws IOException, InterruptedException {
+        DefaultSeaTunnelRowSerializer serializer =
+                DefaultSeaTunnelRowSerializer.create(
+                        "test_topic_error_message",
+                        SEATUNNEL_ROW_TYPE,
+                        DEFAULT_FORMAT,
+                        DEFAULT_FIELD_DELIMITER);
+        generateTestData(row -> serializer.serializeRow(row), 0, 100);
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/kafka/kafkasource_format_error_handle_way_fail_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
@@ -210,9 +249,12 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     public void testSourceKafkaStartConfig(TestContainer container)
             throws IOException, InterruptedException {
         DefaultSeaTunnelRowSerializer serializer =
-                new DefaultSeaTunnelRowSerializer(
-                        SEATUNNEL_ROW_TYPE, DEFAULT_FORMAT, DEFAULT_FIELD_DELIMITER);
-        generateTestData(row -> serializer.serializeRow("test_topic_group", row), 100, 150);
+                DefaultSeaTunnelRowSerializer.create(
+                        "test_topic_group",
+                        SEATUNNEL_ROW_TYPE,
+                        DEFAULT_FORMAT,
+                        DEFAULT_FIELD_DELIMITER);
+        generateTestData(row -> serializer.serializeRow(row), 100, 150);
         testKafkaGroupOffsetsToConsole(container);
     }
 

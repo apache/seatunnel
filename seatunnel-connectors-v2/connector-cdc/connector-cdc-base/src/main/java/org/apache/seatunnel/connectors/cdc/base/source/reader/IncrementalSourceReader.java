@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 
@@ -56,8 +57,6 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                 SourceRecords, T, SourceSplitBase, SourceSplitStateBase> {
 
     private final Map<String, SnapshotSplit> finishedUnackedSplits;
-
-    private final Map<String, IncrementalSplit> uncompletedIncrementalSplits;
 
     private volatile boolean running = false;
     private final int subtaskId;
@@ -79,7 +78,6 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                 context);
         this.sourceConfig = sourceConfig;
         this.finishedUnackedSplits = new HashMap<>();
-        this.uncompletedIncrementalSplits = new HashMap<>();
         this.subtaskId = context.getIndexOfSubtask();
     }
 
@@ -110,15 +108,15 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                     unfinishedSplits.add(split);
                 }
             } else {
-                // the incremental split is uncompleted
-                uncompletedIncrementalSplits.put(split.splitId(), split.asIncrementalSplit());
                 unfinishedSplits.add(split.asIncrementalSplit());
             }
         }
         // notify split enumerator again about the finished unacked snapshot splits
         reportFinishedSnapshotSplitsIfNeed();
         // add all un-finished splits (including incremental split) to SourceReaderBase
-        super.addSplits(unfinishedSplits);
+        if (!unfinishedSplits.isEmpty()) {
+            super.addSplits(unfinishedSplits);
+        }
     }
 
     @Override
@@ -168,16 +166,18 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
 
     @Override
     public List<SourceSplitBase> snapshotState(long checkpointId) {
-        // unfinished splits
         List<SourceSplitBase> stateSplits = super.snapshotState(checkpointId);
 
+        // unfinished splits
+        List<SourceSplitBase> unfinishedSplits =
+                stateSplits.stream()
+                        .filter(split -> !finishedUnackedSplits.containsKey(split.splitId()))
+                        .collect(Collectors.toList());
+
         // add finished snapshot splits that didn't receive ack yet
-        stateSplits.addAll(finishedUnackedSplits.values());
+        unfinishedSplits.addAll(finishedUnackedSplits.values());
 
-        // add incremental splits who are uncompleted
-        stateSplits.addAll(uncompletedIncrementalSplits.values());
-
-        return stateSplits;
+        return unfinishedSplits;
     }
 
     @Override
