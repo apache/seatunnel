@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -184,7 +185,7 @@ public abstract class MultipleFieldOutputTransform extends AbstractCatalogSuppor
                 TableSchema.builder()
                         .primaryKey(inputCatalogTable.getTableSchema().getPrimaryKey())
                         .constraintKey(inputCatalogTable.getTableSchema().getConstraintKeys());
-        List<Column> copyInputColumns =
+        List<Column> columns =
                 inputCatalogTable.getTableSchema().getColumns().stream()
                         .map(Column::copy)
                         .collect(Collectors.toList());
@@ -192,21 +193,31 @@ public abstract class MultipleFieldOutputTransform extends AbstractCatalogSuppor
         int addFieldCount = 0;
         this.fieldsIndex = new int[outputColumns.length];
         for (int i = 0; i < outputColumns.length; i++) {
-            for (int j = 0; j < copyInputColumns.size(); j++) {
-                if (copyInputColumns.get(j).getName().equals(outputColumns[i].getName())) {
-                    copyInputColumns.set(j, outputColumns[i]);
-                } else {
-                    addFieldCount++;
-                    copyInputColumns.add(outputColumns[i]);
+            Column outputColumn = outputColumns[i];
+            Optional<Column> optional =
+                    columns.stream()
+                            .filter(c -> c.getName().equals(outputColumn.getName()))
+                            .findFirst();
+            if (optional.isPresent()) {
+                Column originalColumn = optional.get();
+                int originalColumnIndex = columns.indexOf(originalColumn);
+                if (!originalColumn.getDataType().equals(outputColumn.getDataType())) {
+                    columns.set(
+                            originalColumnIndex, originalColumn.copy(outputColumn.getDataType()));
                 }
+                fieldsIndex[i] = originalColumnIndex;
+            } else {
+                addFieldCount++;
+                columns.add(outputColumn);
+                fieldsIndex[i] = columns.indexOf(outputColumn);
             }
         }
 
-        TableSchema outputTableSchema = builder.columns(copyInputColumns).build();
+        TableSchema outputTableSchema = builder.columns(columns).build();
         if (addFieldCount > 0) {
             int inputFieldLength =
                     inputCatalogTable.getTableSchema().toPhysicalRowDataType().getTotalFields();
-            int outputFieldLength = copyInputColumns.size();
+            int outputFieldLength = columns.size();
 
             rowContainerGenerator =
                     new SeaTunnelRowContainerGenerator() {
