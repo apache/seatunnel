@@ -43,9 +43,6 @@ public abstract class SingleFieldOutputTransform extends AbstractCatalogSupportT
     private int fieldIndex;
     private SeaTunnelRowContainerGenerator rowContainerGenerator;
 
-    public SingleFieldOutputTransform() {
-        super();
-    }
 
     public SingleFieldOutputTransform(@NonNull CatalogTable inputCatalogTable) {
         super(inputCatalogTable);
