@@ -19,18 +19,21 @@ package org.apache.seatunnel.transform.common;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
+import lombok.NoArgsConstructor;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -43,7 +46,6 @@ public abstract class SingleFieldOutputTransform extends AbstractCatalogSupportT
 
     private int fieldIndex;
     private SeaTunnelRowContainerGenerator rowContainerGenerator;
-
 
     public SingleFieldOutputTransform(@NonNull CatalogTable inputCatalogTable) {
         super(inputCatalogTable);
@@ -148,27 +150,40 @@ public abstract class SingleFieldOutputTransform extends AbstractCatalogSupportT
     @Override
     protected TableSchema transformTableSchema() {
         Column outputColumn = getOutputColumn();
-        TableSchema.Builder builder =
-                TableSchema.builder()
-                        .primaryKey(inputCatalogTable.getTableSchema().getPrimaryKey())
-                        .constraintKey(inputCatalogTable.getTableSchema().getConstraintKeys());
-        List<Column> copyInputColumns =
+        List<ConstraintKey> copiedConstraintKeys =
+                inputCatalogTable.getTableSchema().getConstraintKeys().stream()
+                        .map(ConstraintKey::copy)
+                        .collect(Collectors.toList());
+
+        TableSchema.Builder builder = TableSchema.builder();
+        if (inputCatalogTable.getTableSchema().getPrimaryKey() != null) {
+            builder = builder.primaryKey(inputCatalogTable.getTableSchema().getPrimaryKey().copy());
+        }
+        builder = builder.constraintKey(copiedConstraintKeys);
+        List<Column> columns =
                 inputCatalogTable.getTableSchema().getColumns().stream()
                         .map(Column::copy)
                         .collect(Collectors.toList());
 
         int addFieldCount = 0;
-        for (int j = 0; j < copyInputColumns.size(); j++) {
-            if (copyInputColumns.get(j).getName().equals(outputColumn.getName())) {
-                copyInputColumns.set(j, outputColumn);
-                this.fieldIndex = j;
-            } else {
-                addFieldCount++;
-                copyInputColumns.add(outputColumn);
+        Optional<Column> optional =
+                columns.stream()
+                        .filter(c -> c.getName().equals(outputColumn.getName()))
+                        .findFirst();
+        if (optional.isPresent()) {
+            Column originalColumn = optional.get();
+            int originalColumnIndex = columns.indexOf(originalColumn);
+            if (!originalColumn.getDataType().equals(outputColumn.getDataType())) {
+                columns.set(originalColumnIndex, originalColumn.copy(outputColumn.getDataType()));
             }
+            this.fieldIndex = originalColumnIndex;
+        } else {
+            addFieldCount++;
+            columns.add(outputColumn);
+            this.fieldIndex = columns.indexOf(outputColumn);
         }
 
-        TableSchema outputTableSchema = builder.columns(copyInputColumns).build();
+        TableSchema outputTableSchema = builder.columns(columns).build();
         if (addFieldCount > 0) {
             this.fieldIndex = outputTableSchema.getColumns().size() - 1;
             int inputFieldLength =

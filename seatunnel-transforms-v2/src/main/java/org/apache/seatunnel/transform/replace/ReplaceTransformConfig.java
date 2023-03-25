@@ -19,14 +19,10 @@ package org.apache.seatunnel.transform.replace;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
-import lombok.Getter;
-import lombok.Setter;
+import java.io.Serializable;
 
-@Getter
-@Setter
-public class ReplaceTransformConfig {
+public class ReplaceTransformConfig implements Serializable {
 
     public static final Option<String> KEY_REPLACE_FIELD =
             Options.key("replace_field")
@@ -57,20 +53,4 @@ public class ReplaceTransformConfig {
                     .booleanType()
                     .noDefaultValue()
                     .withDescription("Replace the first match string");
-
-    private String replaceField;
-    private String pattern;
-    private String replacement;
-    private boolean isRegex;
-    private boolean replaceFirst;
-
-    public static ReplaceTransformConfig of(ReadonlyConfig config) {
-        ReplaceTransformConfig replaceTransformConfig = new ReplaceTransformConfig();
-        replaceTransformConfig.setReplaceField(config.get(KEY_REPLACE_FIELD));
-        replaceTransformConfig.setPattern(config.get(KEY_PATTERN));
-        replaceTransformConfig.setReplacement(config.get(KEY_REPLACEMENT));
-        replaceTransformConfig.setRegex(config.get(KEY_IS_REGEX));
-        replaceTransformConfig.setReplaceFirst(config.get(KEY_REPLACE_FIRST));
-        return replaceTransformConfig;
-    }
 }

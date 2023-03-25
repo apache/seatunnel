@@ -50,9 +50,7 @@ public class ReplaceTransformFactory implements TableTransformFactory {
 
     @Override
     public TableTransform createTransform(TableFactoryContext context) {
-        ReplaceTransformConfig replaceTransformConfig =
-                ReplaceTransformConfig.of(context.getOptions());
         CatalogTable catalogTable = context.getCatalogTable();
-        return () -> new ReplaceTransform(replaceTransformConfig, catalogTable);
+        return () -> new ReplaceTransform(context.getOptions(), catalogTable);
     }
 }

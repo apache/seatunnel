@@ -82,8 +82,4 @@ public final class TableIdentifier implements Serializable {
     public String toString() {
         return String.join(".", catalogName, databaseName, tableName);
     }
-
-    public TableIdentifier copy() {
-        return TableIdentifier.of(catalogName, databaseName, tableName);
-    }
 }
