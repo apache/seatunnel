@@ -15,29 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform;
+package org.apache.seatunnel.transform.sqlengine.zeta.functions.udf;
 
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableTransformFactory;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.transform.sqlengine.zeta.ZetaUDF;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.transform.SplitTransform.KEY_OUTPUT_FIELDS;
-import static org.apache.seatunnel.transform.SplitTransform.KEY_SEPARATOR;
-import static org.apache.seatunnel.transform.SplitTransform.KEY_SPLIT_FIELD;
+import java.util.List;
 
-@AutoService(Factory.class)
-public class SplitTransformFactory implements TableTransformFactory {
+@AutoService(ZetaUDF.class)
+public class DesEncrypt implements ZetaUDF {
+
     @Override
-    public String factoryIdentifier() {
-        return "Split";
+    public String functionName() {
+        return "DES_ENCRYPT";
     }
 
     @Override
-    public OptionRule optionRule() {
-        return OptionRule.builder()
-                .required(KEY_SEPARATOR, KEY_SPLIT_FIELD, KEY_OUTPUT_FIELDS)
-                .build();
+    public SeaTunnelDataType<?> resultType(List<SeaTunnelDataType<?>> argsType) {
+        return BasicType.STRING_TYPE;
+    }
+
+    @Override
+    public Object evaluate(List<Object> args) {
+        String password = (String) args.get(0);
+        String data = (String) args.get(1);
+        if (password == null || data == null) {
+            return null;
+        }
+        return DESUtil.encrypt(password, data);
     }
 }

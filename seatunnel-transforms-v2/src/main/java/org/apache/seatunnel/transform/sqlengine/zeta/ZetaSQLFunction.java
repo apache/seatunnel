@@ -164,9 +164,13 @@ public class ZetaSQLFunction {
     private final SeaTunnelRowType inputRowType;
     private final ZetaSQLType zetaSQLType;
 
-    public ZetaSQLFunction(SeaTunnelRowType inputRowType, ZetaSQLType zetaSQLType) {
+    private final List<ZetaUDF> udfList;
+
+    public ZetaSQLFunction(
+            SeaTunnelRowType inputRowType, ZetaSQLType zetaSQLType, List<ZetaUDF> udfList) {
         this.inputRowType = inputRowType;
         this.zetaSQLType = zetaSQLType;
+        this.udfList = udfList;
     }
 
     public Object computeForValue(Expression expression, Object[] inputFields) {
@@ -403,6 +407,11 @@ public class ZetaSQLFunction {
             case NULLIF:
                 return SystemFunction.nullif(args);
             default:
+                for (ZetaUDF udf : udfList) {
+                    if (udf.functionName().equalsIgnoreCase(functionName)) {
+                        return udf.evaluate(args);
+                    }
+                }
                 throw new TransformException(
                         CommonErrorCode.UNSUPPORTED_OPERATION,
                         String.format("Unsupported function: %s", functionName));

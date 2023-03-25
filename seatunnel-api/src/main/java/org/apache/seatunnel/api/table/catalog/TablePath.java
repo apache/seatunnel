@@ -23,27 +23,38 @@ import java.util.Objects;
 public final class TablePath implements Serializable {
     private static final long serialVersionUID = 1L;
     private final String databaseName;
+    private final String schemaName;
     private final String tableName;
 
     private TablePath(String databaseName, String tableName) {
+        this(databaseName, null, tableName);
+    }
+
+    private TablePath(String databaseName, String schemaName, String tableName) {
         this.databaseName = databaseName;
+        this.schemaName = schemaName;
         this.tableName = tableName;
     }
 
     public static TablePath of(String fullName) {
         String[] paths = fullName.split("\\.");
 
-        if (paths.length != 2) {
-            throw new IllegalArgumentException(
-                    String.format(
-                            "Cannot get split '%s' to get databaseName and tableName", fullName));
+        if (paths.length == 2) {
+            return new TablePath(paths[0], paths[1]);
         }
-
-        return new TablePath(paths[0], paths[1]);
+        if (paths.length == 3) {
+            return new TablePath(paths[0], paths[1], paths[2]);
+        }
+        throw new IllegalArgumentException(
+                String.format("Cannot get split '%s' to get databaseName and tableName", fullName));
     }
 
     public static TablePath of(String databaseName, String tableName) {
-        return new TablePath(databaseName, tableName);
+        return of(databaseName, null, tableName);
+    }
+
+    public static TablePath of(String databaseName, String schemaName, String tableName) {
+        return new TablePath(databaseName, schemaName, tableName);
     }
 
     public String getDatabaseName() {
@@ -51,15 +62,31 @@ public final class TablePath implements Serializable {
     }
 
     public String getTableName() {
-        return tableName;
+        if (schemaName == null) {
+            return tableName;
+        }
+        return String.format("%s.%s", schemaName, tableName);
     }
 
     public String getFullName() {
-        return String.format("%s.%s", databaseName, tableName);
+        if (schemaName == null) {
+            return String.format("%s.%s", databaseName, tableName);
+        }
+        return String.format("%s.%s.%s", databaseName, schemaName, tableName);
     }
 
     public String getFullNameWithQuoted() {
-        return String.format("`%s`.`%s`", databaseName, tableName);
+        return getFullNameWithQuoted("`");
+    }
+
+    public String getFullNameWithQuoted(String quote) {
+        if (schemaName == null) {
+            return String.format(
+                    "%s%s%s.%s%s%s", quote, databaseName, quote, quote, tableName, quote);
+        }
+        return String.format(
+                "%s%s%s.%s%s%s.%s%s%s",
+                quote, databaseName, quote, quote, schemaName, quote, quote, tableName, quote);
     }
 
     @Override
@@ -75,12 +102,13 @@ public final class TablePath implements Serializable {
         TablePath that = (TablePath) o;
 
         return Objects.equals(databaseName, that.databaseName)
+                && Objects.equals(schemaName, that.schemaName)
                 && Objects.equals(tableName, that.tableName);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(databaseName, tableName);
+        return Objects.hash(databaseName, schemaName, tableName);
     }
 
     @Override
