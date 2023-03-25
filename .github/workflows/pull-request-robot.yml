@@ -17,7 +17,10 @@
 
 name: "Pull Request Robot"
 on:
-  - pull_request_target
+  pull_request:
+    types:
+      - opened
+      - reopened
 
 jobs:
   labelRobot:
