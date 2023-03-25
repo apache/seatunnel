@@ -15,26 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform;
+package org.apache.seatunnel.engine.server.rest;
 
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableTransformFactory;
+public class RestConstant {
 
-import com.google.auto.service.AutoService;
+    public static final String RUNNING_JOBS_URL = "/hazelcast/rest/maps/running-jobs";
+    public static final String RUNNING_JOB_URL = "/hazelcast/rest/maps/running-job";
 
-import static org.apache.seatunnel.transform.CopyFieldTransform.DEST_FIELD;
-import static org.apache.seatunnel.transform.CopyFieldTransform.SRC_FIELD;
-
-@AutoService(Factory.class)
-public class CopyFieldTransformFactory implements TableTransformFactory {
-    @Override
-    public String factoryIdentifier() {
-        return "Copy";
-    }
-
-    @Override
-    public OptionRule optionRule() {
-        return OptionRule.builder().required(SRC_FIELD, DEST_FIELD).build();
-    }
+    public static final String SYSTEM_MONITORING_INFORMATION =
+            "/hazelcast/rest/maps/system-monitoring-information";
 }

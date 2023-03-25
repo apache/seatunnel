@@ -33,6 +33,11 @@ public class ServerCommandArgs extends CommandArgs {
             description = "The name of cluster")
     private String clusterName;
 
+    @Parameter(
+            names = {"-d", "--daemon"},
+            description = "The cluster daemon mode")
+    private boolean daemonMode = false;
+
     @Override
     public Command<?> buildCommand() {
         return new ServerExecuteCommand(this);
