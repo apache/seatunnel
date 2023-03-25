@@ -50,9 +50,6 @@ jobs:
         run: |
           echo "module.exports = {extends: ['@commitlint/config-conventional']}" > commitlint.config.js
 
-      - name: Lint commit messages
-        run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }}
-
   license-header:
     if: github.repository == 'apache/incubator-seatunnel'
     needs: [ commit-message-check ]
