@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Slf4j
+@NoArgsConstructor
 public abstract class SingleFieldOutputTransform extends AbstractCatalogSupportTransform {
 
     private static final String[] TYPE_ARRAY_STRING = new String[0];
