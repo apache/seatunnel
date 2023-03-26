@@ -74,10 +74,6 @@ public final class TableIdentifier implements Serializable {
         return Objects.hash(catalogName, databaseName, tableName);
     }
 
-    public TableIdentifier copy() {
-        return TableIdentifier.of(catalogName, databaseName, tableName);
-    }
-
     @Override
     public String toString() {
         return String.join(".", catalogName, databaseName, tableName);
