@@ -15,23 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform;
+package org.apache.seatunnel.transform.fieldmapper;
 
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableTransformFactory;
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 
-import com.google.auto.service.AutoService;
+import lombok.Getter;
+import lombok.Setter;
 
-@AutoService(Factory.class)
-public class FieldMapperTransformFactory implements TableTransformFactory {
-    @Override
-    public String factoryIdentifier() {
-        return "FieldMapper";
-    }
+import java.io.Serializable;
+import java.util.Map;
 
-    @Override
-    public OptionRule optionRule() {
-        return OptionRule.builder().required(FieldMapperTransform.FIELD_MAPPER).build();
-    }
+@Getter
+@Setter
+public class FieldMapperTransformConfig implements Serializable {
+    public static final Option<Map<String, String>> FIELD_MAPPER =
+            Options.key("field_mapper")
+                    .mapType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Specify the field mapping relationship between input and output");
 }
