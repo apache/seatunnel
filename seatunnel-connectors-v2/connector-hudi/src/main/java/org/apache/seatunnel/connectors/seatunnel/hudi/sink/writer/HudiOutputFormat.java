@@ -27,5 +27,4 @@ public class HudiOutputFormat implements Serializable {
 
         return "";
     }
-
 }

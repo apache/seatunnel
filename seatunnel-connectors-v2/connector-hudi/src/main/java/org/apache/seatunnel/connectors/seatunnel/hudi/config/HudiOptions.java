@@ -17,43 +17,72 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi.config;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 
 import org.apache.hudi.common.model.HoodieTableType;
 import org.apache.hudi.common.model.WriteOperationType;
 
 public interface HudiOptions {
 
-    Option<String> CONF_FILES = Options.key("conf_files").stringType().noDefaultValue().withDescription("hudi conf files");
+    Option<String> CONF_FILES =
+            Options.key("conf_files")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("hudi conf files");
 
-    Option<String> TABLE_NAME = Options.key("table_name").stringType().noDefaultValue().withDescription("table_name");
+    Option<String> TABLE_NAME =
+            Options.key("table_name").stringType().noDefaultValue().withDescription("table_name");
 
-    Option<String> TABLE_PATH = Options.key("table_path").stringType().noDefaultValue().withDescription("table_path");
+    Option<String> TABLE_PATH =
+            Options.key("table_path").stringType().noDefaultValue().withDescription("table_path");
 
-    Option<HoodieTableType> TABLE_TYPE = Options.key("table_type").type(new TypeReference<HoodieTableType>() {
-        })
-        .defaultValue(HoodieTableType.COPY_ON_WRITE).withDescription("table_type");
-    Option<WriteOperationType> OP_TYPE = Options.key("op_type").type(new TypeReference<WriteOperationType>() {
-        })
-        .defaultValue(WriteOperationType.INSERT).withDescription("op_type");
+    Option<HoodieTableType> TABLE_TYPE =
+            Options.key("table_type")
+                    .type(new TypeReference<HoodieTableType>() {})
+                    .defaultValue(HoodieTableType.COPY_ON_WRITE)
+                    .withDescription("table_type");
+    Option<WriteOperationType> OP_TYPE =
+            Options.key("op_type")
+                    .type(new TypeReference<WriteOperationType>() {})
+                    .defaultValue(WriteOperationType.INSERT)
+                    .withDescription("op_type");
 
     Option<Integer> BATCH_INTERVAL_MS =
-        Options.key("batch_interval_ms")
-            .intType()
-            .defaultValue(1000)
-            .withDescription("batch interval milliSecond");
+            Options.key("batch_interval_ms")
+                    .intType()
+                    .defaultValue(1000)
+                    .withDescription("batch interval milliSecond");
 
-    Option<Integer> INSERT_SHUFFLE_PARALLELISM = Options.key("insert_shuffle_parallelism").intType().defaultValue(2).withDescription("insert_shuffle_parallelism");
+    Option<Integer> INSERT_SHUFFLE_PARALLELISM =
+            Options.key("insert_shuffle_parallelism")
+                    .intType()
+                    .defaultValue(2)
+                    .withDescription("insert_shuffle_parallelism");
 
-    Option<Integer> UPSERT_SHUFFLE_PARALLELISM = Options.key("upsert_shuffle_parallelism").intType().defaultValue(2).withDescription("upsert_shuffle_parallelism");
+    Option<Integer> UPSERT_SHUFFLE_PARALLELISM =
+            Options.key("upsert_shuffle_parallelism")
+                    .intType()
+                    .defaultValue(2)
+                    .withDescription("upsert_shuffle_parallelism");
 
-    Option<Integer> DELETE_SHUFFLE_PARALLELISM = Options.key("delete_shuffle_parallelism").intType().defaultValue(2).withDescription("delete_shuffle_parallelism");
+    Option<Integer> DELETE_SHUFFLE_PARALLELISM =
+            Options.key("delete_shuffle_parallelism")
+                    .intType()
+                    .defaultValue(2)
+                    .withDescription("delete_shuffle_parallelism");
 
-    Option<Integer> MIN_COMMITS_TO_KEEP = Options.key("min_commits_to_keep").intType().defaultValue(20).withDescription("hoodie.keep.min.commits");
+    Option<Integer> MIN_COMMITS_TO_KEEP =
+            Options.key("min_commits_to_keep")
+                    .intType()
+                    .defaultValue(20)
+                    .withDescription("hoodie.keep.min.commits");
 
-    Option<Integer> MAX_COMMITS_TO_KEEP = Options.key("max_commits_to_keep").intType().defaultValue(30).withDescription("hoodie.keep.max.commits");
-
+    Option<Integer> MAX_COMMITS_TO_KEEP =
+            Options.key("max_commits_to_keep")
+                    .intType()
+                    .defaultValue(30)
+                    .withDescription("hoodie.keep.max.commits");
 }

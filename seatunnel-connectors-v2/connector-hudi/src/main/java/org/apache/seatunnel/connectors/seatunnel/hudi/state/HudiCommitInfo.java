@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi.state;
 
+import org.apache.hudi.client.WriteStatus;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import org.apache.hudi.client.WriteStatus;
 
 import java.io.Serializable;
 import java.util.List;
@@ -27,5 +28,7 @@ import java.util.List;
 @Data
 @AllArgsConstructor
 public class HudiCommitInfo implements Serializable {
+
+    private final String instantTime;
     private final List<WriteStatus> writeStatusList;
 }

@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.hudi.state;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import org.apache.hudi.client.WriteStatus;
 
 import java.io.Serializable;
 import java.util.List;
@@ -29,5 +28,4 @@ import java.util.List;
 public class HudiAggregatedCommitInfo implements Serializable {
 
     private final List<HudiCommitInfo> hudiCommitInfoList;
-
 }

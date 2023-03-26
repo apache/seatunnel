@@ -46,16 +46,31 @@ public class HudiSinkAggregatedCommitter
 
     private final HudiOutputFormat hudiOutputFormat;
 
-    public HudiSinkAggregatedCommitter(HudiSinkConfig hudiSinkConfig, SeaTunnelRowType seaTunnelRowType) {
+    public HudiSinkAggregatedCommitter(
+            HudiSinkConfig hudiSinkConfig, SeaTunnelRowType seaTunnelRowType) {
         this.hudiSinkConfig = hudiSinkConfig;
         Configuration hadoopConf = HudiUtil.getConfiguration(hudiSinkConfig.getConfFile());
         hudiOutputFormat = new HudiOutputFormat();
-        HoodieWriteConfig cfg = HoodieWriteConfig.newBuilder().withPath(hudiSinkConfig.getTablePath())
-            .withSchema(hudiOutputFormat.convertSchema(seaTunnelRowType)).withParallelism(hudiSinkConfig.getInsertShuffleParallelism(), hudiSinkConfig.getUpsertShuffleParallelism())
-            .withDeleteParallelism(hudiSinkConfig.getDeleteShuffleParallelism()).forTable(hudiSinkConfig.getTableName())
-            .withIndexConfig(HoodieIndexConfig.newBuilder().withIndexType(HoodieIndex.IndexType.INMEMORY).build())
-            .withArchivalConfig(HoodieArchivalConfig.newBuilder().archiveCommitsWith(hudiSinkConfig.getMinCommitsToKeep(), hudiSinkConfig.getMaxCommitsToKeep()).build()).build();
-
+        HoodieWriteConfig cfg =
+                HoodieWriteConfig.newBuilder()
+                        .withPath(hudiSinkConfig.getTablePath())
+                        .withSchema(hudiOutputFormat.convertSchema(seaTunnelRowType))
+                        .withParallelism(
+                                hudiSinkConfig.getInsertShuffleParallelism(),
+                                hudiSinkConfig.getUpsertShuffleParallelism())
+                        .withDeleteParallelism(hudiSinkConfig.getDeleteShuffleParallelism())
+                        .forTable(hudiSinkConfig.getTableName())
+                        .withIndexConfig(
+                                HoodieIndexConfig.newBuilder()
+                                        .withIndexType(HoodieIndex.IndexType.INMEMORY)
+                                        .build())
+                        .withArchivalConfig(
+                                HoodieArchivalConfig.newBuilder()
+                                        .archiveCommitsWith(
+                                                hudiSinkConfig.getMinCommitsToKeep(),
+                                                hudiSinkConfig.getMaxCommitsToKeep())
+                                        .build())
+                        .build();
 
         writeClient = new HoodieJavaWriteClient<>(new HoodieJavaEngineContext(hadoopConf), cfg);
     }
@@ -64,8 +79,21 @@ public class HudiSinkAggregatedCommitter
     public List<HudiAggregatedCommitInfo> commit(
             List<HudiAggregatedCommitInfo> aggregatedCommitInfo) throws IOException {
 
-        writeClient
-        return null;
+        aggregatedCommitInfo.stream()
+                .filter(
+                        commit ->
+                                commit.getHudiCommitInfoList().stream()
+                                                .filter(
+                                                        aggreeCommit ->
+                                                                !writeClient.commit(
+                                                                        aggreeCommit
+                                                                                .getInstantTime(),
+                                                                        aggreeCommit
+                                                                                .getWriteStatusList()))
+                                                .count()
+                                        > 0);
+
+        return aggregatedCommitInfo;
     }
 
     @Override
@@ -74,8 +102,14 @@ public class HudiSinkAggregatedCommitter
     }
 
     @Override
-    public void abort(List<HudiAggregatedCommitInfo> aggregatedCommitInfo) throws Exception {}
+    public void abort(List<HudiAggregatedCommitInfo> aggregatedCommitInfo) throws Exception {
+        writeClient.rollbackFailedWrites();
+    }
 
     @Override
-    public void close() throws IOException {}
+    public void close() {
+        if (writeClient != null) {
+            writeClient.close();
+        }
+    }
 }
