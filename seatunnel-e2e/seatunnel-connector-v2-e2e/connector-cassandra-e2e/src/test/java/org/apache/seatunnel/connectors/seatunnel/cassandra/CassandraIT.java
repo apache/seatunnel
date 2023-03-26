@@ -68,6 +68,7 @@ import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -141,10 +142,12 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
             session.execute(
                     SimpleStatement.builder(config.getString(SOURCE_TABLE))
                             .setKeyspace(KEYSPACE)
+                            .setTimeout(Duration.ofSeconds(10))
                             .build());
             session.execute(
                     SimpleStatement.builder(config.getString(SINK_TABLE))
                             .setKeyspace(KEYSPACE)
+                            .setTimeout(Duration.ofSeconds(10))
                             .build());
         } catch (Exception e) {
             throw new RuntimeException("Initializing Cassandra table failed!", e);
