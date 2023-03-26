@@ -15,13 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.rest;
+package org.apache.seatunnel.connectors.seatunnel.kafka.config;
 
-public class RestConstant {
-
-    public static final String RUNNING_JOBS_URL = "/hazelcast/rest/maps/running-jobs";
-    public static final String RUNNING_JOB_URL = "/hazelcast/rest/maps/running-job";
-
-    public static final String SYSTEM_MONITORING_INFORMATION =
-            "/hazelcast/rest/maps/system-monitoring-information";
+public enum MessageFormatErrorHandleWay {
+    FAIL,
+    SKIP,
 }

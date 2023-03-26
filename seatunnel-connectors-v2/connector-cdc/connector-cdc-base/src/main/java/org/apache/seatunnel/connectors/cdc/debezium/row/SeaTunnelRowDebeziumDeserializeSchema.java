@@ -122,7 +122,13 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
         Struct sourceStruct = messageStruct.getStruct(Envelope.FieldName.SOURCE);
         String databaseName = sourceStruct.getString(AbstractSourceInfo.DATABASE_NAME_KEY);
         String tableName = sourceStruct.getString(AbstractSourceInfo.TABLE_NAME_KEY);
-        String tableId = TablePath.of(databaseName, tableName).toString();
+        String schemaName = null;
+        try {
+            schemaName = sourceStruct.getString(AbstractSourceInfo.SCHEMA_NAME_KEY);
+        } catch (Throwable e) {
+            // ignore
+        }
+        String tableId = TablePath.of(databaseName, schemaName, tableName).toString();
         SeaTunnelRowDebeziumDeserializationConverters converters;
         if (!multipleTableRowConverters.isEmpty()) {
             converters = multipleTableRowConverters.get(tableId);

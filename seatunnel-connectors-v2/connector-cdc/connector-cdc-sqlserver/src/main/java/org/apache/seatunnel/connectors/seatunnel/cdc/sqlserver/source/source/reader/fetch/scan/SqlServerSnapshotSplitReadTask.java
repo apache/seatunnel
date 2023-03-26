@@ -122,7 +122,7 @@ public class SqlServerSnapshotSplitReadTask extends AbstractSnapshotChangeEventS
         ctx.offset = offsetContext;
 
         final LsnOffset lowWatermark = SqlServerUtils.currentLsn(jdbcConnection);
-        log.info(
+        log.debug(
                 "Snapshot step 1 - Determining low watermark {} for split {}",
                 lowWatermark,
                 snapshotSplit);
@@ -130,11 +130,11 @@ public class SqlServerSnapshotSplitReadTask extends AbstractSnapshotChangeEventS
         dispatcher.dispatchWatermarkEvent(
                 offsetContext.getPartition(), snapshotSplit, lowWatermark, WatermarkKind.LOW);
 
-        log.info("Snapshot step 2 - Snapshotting data");
+        log.debug("Snapshot step 2 - Snapshotting data");
         createDataEvents(ctx, snapshotSplit.getTableId());
 
         final LsnOffset highWatermark = SqlServerUtils.currentLsn(jdbcConnection);
-        log.info(
+        log.debug(
                 "Snapshot step 3 - Determining high watermark {} for split {}",
                 highWatermark,
                 snapshotSplit);
@@ -174,7 +174,8 @@ public class SqlServerSnapshotSplitReadTask extends AbstractSnapshotChangeEventS
             throws InterruptedException {
 
         long exportStart = clock.currentTimeInMillis();
-        log.info("Exporting data from split '{}' of table {}", snapshotSplit.splitId(), table.id());
+        log.debug(
+                "Exporting data from split '{}' of table {}", snapshotSplit.splitId(), table.id());
 
         final String selectSql =
                 SqlServerUtils.buildSplitScanQuery(
@@ -182,7 +183,7 @@ public class SqlServerSnapshotSplitReadTask extends AbstractSnapshotChangeEventS
                         snapshotSplit.getSplitKeyType(),
                         snapshotSplit.getSplitStart() == null,
                         snapshotSplit.getSplitEnd() == null);
-        log.info(
+        log.debug(
                 "For split '{}' of table {} using select statement: '{}'",
                 snapshotSplit.splitId(),
                 table.id(),
@@ -213,7 +214,7 @@ public class SqlServerSnapshotSplitReadTask extends AbstractSnapshotChangeEventS
                 }
                 if (logTimer.expired()) {
                     long stop = clock.currentTimeInMillis();
-                    log.info(
+                    log.debug(
                             "Exported {} records for split '{}' after {}",
                             rows,
                             snapshotSplit.splitId(),
@@ -226,7 +227,7 @@ public class SqlServerSnapshotSplitReadTask extends AbstractSnapshotChangeEventS
                         getChangeRecordEmitter(snapshotContext, table.id(), row),
                         snapshotReceiver);
             }
-            log.info(
+            log.debug(
                     "Finished exporting {} records for split '{}', total duration '{}'",
                     rows,
                     snapshotSplit.splitId(),

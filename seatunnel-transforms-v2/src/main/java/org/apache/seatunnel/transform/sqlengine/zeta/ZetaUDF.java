@@ -15,13 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.rest;
+package org.apache.seatunnel.transform.sqlengine.zeta;
 
-public class RestConstant {
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
-    public static final String RUNNING_JOBS_URL = "/hazelcast/rest/maps/running-jobs";
-    public static final String RUNNING_JOB_URL = "/hazelcast/rest/maps/running-job";
+import java.util.List;
 
-    public static final String SYSTEM_MONITORING_INFORMATION =
-            "/hazelcast/rest/maps/system-monitoring-information";
+public interface ZetaUDF {
+    /**
+     * Function name
+     *
+     * @return function name
+     */
+    String functionName();
+
+    /**
+     * The type of function result
+     *
+     * @param argsType input arguments type
+     * @return result type
+     */
+    SeaTunnelDataType<?> resultType(List<SeaTunnelDataType<?>> argsType);
+
+    /**
+     * Evaluate
+     *
+     * @param args input arguments
+     * @return result value
+     */
+    Object evaluate(List<Object> args);
 }

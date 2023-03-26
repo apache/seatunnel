@@ -77,4 +77,7 @@ public abstract class Column implements Serializable {
 
     /** Returns a copy of the column with a replaced {@link SeaTunnelDataType}. */
     public abstract Column copy(SeaTunnelDataType<?> newType);
+
+    /** Returns a copy of the column. */
+    public abstract Column copy();
 }

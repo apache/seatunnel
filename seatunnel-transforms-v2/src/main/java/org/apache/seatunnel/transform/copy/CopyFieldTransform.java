@@ -15,89 +15,139 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform;
+package org.apache.seatunnel.transform.copy;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
 import org.apache.seatunnel.transform.common.SeaTunnelRowAccessor;
-import org.apache.seatunnel.transform.common.SingleFieldOutputTransform;
 
 import com.google.auto.service.AutoService;
+import lombok.NoArgsConstructor;
 
 import java.lang.reflect.Array;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
+@NoArgsConstructor
 @AutoService(SeaTunnelTransform.class)
-public class CopyFieldTransform extends SingleFieldOutputTransform {
+public class CopyFieldTransform extends MultipleFieldOutputTransform {
+    public static final String PLUGIN_NAME = "Copy";
 
-    public static final Option<String> SRC_FIELD =
-            Options.key("src_field")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Src field you want to copy");
+    private CopyTransformConfig config;
+    private List<String> fieldNames;
+    private List<Integer> fieldOriginalIndexs;
+    private List<SeaTunnelDataType> fieldTypes;
 
-    public static final Option<String> DEST_FIELD =
-            Options.key("dest_field")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Copy Src field to Dest field");
-
-    private String srcField;
-    private int srcFieldIndex;
-    private SeaTunnelDataType srcFieldDataType;
-    private String destField;
+    public CopyFieldTransform(CopyTransformConfig copyTransformConfig, CatalogTable catalogTable) {
+        super(catalogTable);
+        this.config = copyTransformConfig;
+        SeaTunnelRowType seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
+        initOutputFields(seaTunnelRowType, config.getFields());
+    }
 
     @Override
     public String getPluginName() {
-        return "Copy";
+        return PLUGIN_NAME;
     }
 
     @Override
     protected void setConfig(Config pluginConfig) {
-        CheckResult checkResult =
-                CheckConfigUtil.checkAllExists(pluginConfig, SRC_FIELD.key(), DEST_FIELD.key());
-        if (!checkResult.isSuccess()) {
-            throw new IllegalArgumentException("Failed to check config! " + checkResult.getMsg());
-        }
-
-        this.srcField = pluginConfig.getString(SRC_FIELD.key());
-        this.destField = pluginConfig.getString(DEST_FIELD.key());
+        ConfigValidator.of(ReadonlyConfig.fromConfig(pluginConfig))
+                .validate(new CopyFieldTransformFactory().optionRule());
+        this.config = CopyTransformConfig.of(ReadonlyConfig.fromConfig(pluginConfig));
     }
 
     @Override
     protected void setInputRowType(SeaTunnelRowType inputRowType) {
-        srcFieldIndex = inputRowType.indexOf(srcField);
-        if (srcFieldIndex == -1) {
-            throw new IllegalArgumentException(
-                    "Cannot find [" + srcField + "] field in input row type");
+        initOutputFields(inputRowType, config.getFields());
+    }
+
+    private void initOutputFields(
+            SeaTunnelRowType inputRowType, LinkedHashMap<String, String> fields) {
+        List<String> fieldNames = new ArrayList<>();
+        List<Integer> fieldOriginalIndexs = new ArrayList<>();
+        List<SeaTunnelDataType> fieldsType = new ArrayList<>();
+        for (Map.Entry<String, String> field : fields.entrySet()) {
+            String srcField = field.getValue();
+            int srcFieldIndex = inputRowType.indexOf(srcField);
+            if (srcFieldIndex == -1) {
+                throw new IllegalArgumentException(
+                        "Cannot find [" + srcField + "] field in input row type");
+            }
+            fieldNames.add(field.getKey());
+            fieldOriginalIndexs.add(srcFieldIndex);
+            fieldsType.add(inputRowType.getFieldType(srcFieldIndex));
         }
-        srcFieldDataType = inputRowType.getFieldType(srcFieldIndex);
+        this.fieldNames = fieldNames;
+        this.fieldOriginalIndexs = fieldOriginalIndexs;
+        this.fieldTypes = fieldsType;
     }
 
     @Override
-    protected String getOutputFieldName() {
-        return destField;
+    protected String[] getOutputFieldNames() {
+        return fieldNames.toArray(new String[0]);
     }
 
     @Override
-    protected SeaTunnelDataType getOutputFieldDataType() {
-        return srcFieldDataType;
+    protected SeaTunnelDataType[] getOutputFieldDataTypes() {
+        return fieldTypes.toArray(new SeaTunnelDataType[0]);
     }
 
     @Override
-    protected Object getOutputFieldValue(SeaTunnelRowAccessor inputRow) {
-        return clone(srcFieldDataType, inputRow.getField(srcFieldIndex));
+    protected Column[] getOutputColumns() {
+        if (inputCatalogTable == null) {
+            Column[] columns = new Column[fieldNames.size()];
+            for (int i = 0; i < fieldNames.size(); i++) {
+                columns[i] =
+                        PhysicalColumn.of(fieldNames.get(i), fieldTypes.get(i), 200, true, "", "");
+            }
+            return columns;
+        }
+
+        Map<String, Column> catalogTableColumns =
+                inputCatalogTable.getTableSchema().getColumns().stream()
+                        .collect(Collectors.toMap(column -> column.getName(), column -> column));
+
+        List<Column> columns = new ArrayList<>();
+        for (Map.Entry<String, String> copyField : config.getFields().entrySet()) {
+            Column srcColumn = catalogTableColumns.get(copyField.getValue());
+            PhysicalColumn destColumn =
+                    PhysicalColumn.of(
+                            copyField.getKey(),
+                            srcColumn.getDataType(),
+                            srcColumn.getColumnLength(),
+                            srcColumn.isNullable(),
+                            srcColumn.getDefaultValue(),
+                            srcColumn.getComment());
+            columns.add(destColumn);
+        }
+        return columns.toArray(new Column[0]);
+    }
+
+    @Override
+    protected Object[] getOutputFieldValues(SeaTunnelRowAccessor inputRow) {
+        Object[] fieldValues = new Object[fieldNames.size()];
+        for (int i = 0; i < fieldOriginalIndexs.size(); i++) {
+            fieldValues[i] =
+                    clone(fieldTypes.get(i), inputRow.getField(fieldOriginalIndexs.get(i)));
+        }
+        return fieldValues;
     }
 
     private Object clone(SeaTunnelDataType dataType, Object value) {
