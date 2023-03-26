@@ -12,7 +12,7 @@ Write data to Apache Paimon.
 
 ## Options
 
-| name           |  type  | required | default value |
+|      name      |  type  | required | default value |
 |----------------|--------|----------|---------------|
 | warehouse      | String | Yes      | -             |
 | database       | String | Yes      | -             |
@@ -48,3 +48,4 @@ sink {
 ### next version
 
 - Add Paimon Sink Connector
+

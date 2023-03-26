@@ -17,12 +17,12 @@ Read data from Apache Paimon.
 
 ## Options
 
-| name              |  type  | required | default value |
-|-------------------|--------|----------|---------------|
-| warehouse         | String | Yes      | -             |
-| database          | String | Yes      | -             |
-| table             | String | Yes      | -             |
-| hdfs_site_path    | String | No       | -             |
+|      name      |  type  | required | default value |
+|----------------|--------|----------|---------------|
+| warehouse      | String | Yes      | -             |
+| database       | String | Yes      | -             |
+| table          | String | Yes      | -             |
+| hdfs_site_path | String | No       | -             |
 
 ### warehouse [string]
 
