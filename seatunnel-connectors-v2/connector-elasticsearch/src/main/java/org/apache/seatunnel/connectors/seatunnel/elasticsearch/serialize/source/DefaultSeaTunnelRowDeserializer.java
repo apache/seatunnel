@@ -158,8 +158,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
             LocalDateTime localDateTime = parseDate(fieldValue);
             return localDateTime.toLocalTime();
         } else if (LocalTimeType.LOCAL_DATE_TIME_TYPE.equals(fieldType)) {
-            return LocalDateTime.ofInstant(
-                    Instant.ofEpochMilli(Long.parseLong(fieldValue)), ZoneId.systemDefault());
+            return parseDate(fieldValue);
         } else if (fieldType instanceof DecimalType) {
             return new BigDecimal(fieldValue);
         } else if (fieldType instanceof ArrayType) {
@@ -197,6 +196,13 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
     }
 
     private LocalDateTime parseDate(String fieldValue) {
+        // handle strings of timestamp type
+        try {
+            long ts = Long.parseLong(fieldValue);
+            return LocalDateTime.ofInstant(Instant.ofEpochMilli(ts), ZoneId.systemDefault());
+        } catch (NumberFormatException e) {
+            // no op
+        }
         String formatDate = fieldValue.replace("T", " ");
         if (fieldValue.length() == "yyyyMMdd".length()
                 || fieldValue.length() == "yyyy-MM-dd".length()) {
