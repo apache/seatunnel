@@ -38,8 +38,10 @@ import net.sf.jsqlparser.expression.Parenthesis;
 import net.sf.jsqlparser.expression.StringValue;
 import net.sf.jsqlparser.expression.TimeKeyExpression;
 import net.sf.jsqlparser.expression.operators.arithmetic.Concat;
+import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
 import net.sf.jsqlparser.schema.Column;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class ZetaSQLType {
@@ -60,8 +62,11 @@ public class ZetaSQLType {
 
     private final SeaTunnelRowType inputRowType;
 
-    public ZetaSQLType(SeaTunnelRowType inputRowType) {
+    private final List<ZetaUDF> udfList;
+
+    public ZetaSQLType(SeaTunnelRowType inputRowType, List<ZetaUDF> udfList) {
         this.inputRowType = inputRowType;
+        this.udfList = udfList;
     }
 
     public SeaTunnelDataType<?> getExpressionType(Expression expression) {
@@ -300,6 +305,21 @@ public class ZetaSQLType {
                 // Result has the same type as second argument
                 return getExpressionType(function.getParameters().getExpressions().get(1));
             default:
+                for (ZetaUDF udf : udfList) {
+                    if (udf.functionName().equalsIgnoreCase(function.getName())) {
+                        List<SeaTunnelDataType<?>> argsType = new ArrayList<>();
+                        ExpressionList expressionList = function.getParameters();
+                        if (expressionList != null) {
+                            List<Expression> expressions = expressionList.getExpressions();
+                            if (expressions != null) {
+                                for (Expression expression : expressions) {
+                                    argsType.add(getExpressionType(expression));
+                                }
+                            }
+                        }
+                        return udf.resultType(argsType);
+                    }
+                }
                 throw new TransformException(
                         CommonErrorCode.UNSUPPORTED_OPERATION,
                         String.format("Unsupported function: %s ", function.getName()));

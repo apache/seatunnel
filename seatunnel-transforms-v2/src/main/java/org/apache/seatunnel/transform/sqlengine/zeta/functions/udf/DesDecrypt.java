@@ -15,26 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform;
+package org.apache.seatunnel.transform.sqlengine.zeta.functions.udf;
 
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableTransformFactory;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.transform.sqlengine.zeta.ZetaUDF;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.transform.CopyFieldTransform.DEST_FIELD;
-import static org.apache.seatunnel.transform.CopyFieldTransform.SRC_FIELD;
+import java.util.List;
 
-@AutoService(Factory.class)
-public class CopyFieldTransformFactory implements TableTransformFactory {
+@AutoService(ZetaUDF.class)
+public class DesDecrypt implements ZetaUDF {
+
     @Override
-    public String factoryIdentifier() {
-        return "Copy";
+    public String functionName() {
+        return "DES_DECRYPT";
     }
 
     @Override
-    public OptionRule optionRule() {
-        return OptionRule.builder().required(SRC_FIELD, DEST_FIELD).build();
+    public SeaTunnelDataType<?> resultType(List<SeaTunnelDataType<?>> argsType) {
+        return BasicType.STRING_TYPE;
+    }
+
+    @Override
+    public Object evaluate(List<Object> args) {
+        String password = (String) args.get(0);
+        String data = (String) args.get(1);
+        if (password == null || data == null) {
+            return null;
+        }
+        return DESUtil.decrypt(password, data);
     }
 }

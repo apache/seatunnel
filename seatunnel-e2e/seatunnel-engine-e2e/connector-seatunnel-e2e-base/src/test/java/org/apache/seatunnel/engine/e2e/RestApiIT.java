@@ -43,6 +43,7 @@ import java.util.concurrent.TimeUnit;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.lessThan;
 
 @Slf4j
 public class RestApiIT {
@@ -112,6 +113,22 @@ public class RestApiIT {
                 .statusCode(200)
                 .body("[0].jobName", equalTo("fake_to_file"))
                 .body("[0].jobStatus", equalTo("RUNNING"));
+    }
+
+    @Test
+    public void testSystemMonitoringInformation() {
+        given().get(
+                        HOST
+                                + hazelcastInstance
+                                        .getCluster()
+                                        .getLocalMember()
+                                        .getAddress()
+                                        .getPort()
+                                + RestConstant.SYSTEM_MONITORING_INFORMATION)
+                .then()
+                .assertThat()
+                .time(lessThan(5000L))
+                .statusCode(200);
     }
 
     @AfterAll

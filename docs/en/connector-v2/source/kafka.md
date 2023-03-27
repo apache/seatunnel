@@ -28,6 +28,7 @@ Source connector for Apache Kafka.
 | common-options                      | config  | no       | -                        |
 | schema                              |         | no       | -                        |
 | format                              | String  | no       | json                     |
+| format_error_handle_way             | String  | no       | fail                     |
 | field_delimiter                     | String  | no       | ,                        |
 | start_mode                          | String  | no       | group_offsets            |
 | start_mode.offsets                  |         | no       |                          |
@@ -74,6 +75,12 @@ The structure of the data, including field names and field types.
 
 Data format. The default format is json. Optional text format. The default field separator is ", ".
 If you customize the delimiter, add the "field_delimiter" option.
+
+## format_error_handle_way
+
+The processing method of data format error. The default value is fail, and the optional value is (fail, skip).
+When fail is selected, data format error will block and an exception will be thrown.
+When skip is selected, data format error will skip this line data.
 
 ## field_delimiter
 
@@ -218,4 +225,5 @@ source {
 - [Improve] Support for dynamic discover topic & partition in streaming mode ([3125](https://github.com/apache/incubator-seatunnel/pull/3125))
 - [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/incubator-seatunnel/pull/3719)
 - [Bug] Fixed the problem that parsing the offset format failed when the startup mode was offset([3810](https://github.com/apache/incubator-seatunnel/pull/3810))
+- [Feature] Kafka source supports data deserialization failure skipping([4364](https://github.com/apache/incubator-seatunnel/pull/4364))
 
