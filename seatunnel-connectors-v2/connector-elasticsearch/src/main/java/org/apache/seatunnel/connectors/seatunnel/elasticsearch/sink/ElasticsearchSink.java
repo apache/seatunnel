@@ -54,7 +54,7 @@ public class ElasticsearchSink
 
     private int maxRetryCount = MAX_RETRY_COUNT.defaultValue();
 
-    private int batchIntervalMs = BATCH_INTERVAL_MS.defaultValue();
+    private Integer batchIntervalMs = BATCH_INTERVAL_MS.defaultValue();
 
     @Override
     public String getPluginName() {

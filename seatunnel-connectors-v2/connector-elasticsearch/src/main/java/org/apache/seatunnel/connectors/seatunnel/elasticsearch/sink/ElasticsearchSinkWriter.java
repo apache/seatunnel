@@ -94,7 +94,7 @@ public class ElasticsearchSinkWriter
                 new RetryMaterial(maxRetryCount, true, exception -> true, DEFAULT_SLEEP_TIME_MS);
         // Initialize the interval flush
         if (this.batchIntervalMs > 0) {
-            open();
+            startScheduler();
             log.info("The initial scheduling is complete batch_interval_ms :" + batchIntervalMs);
         }
     }
@@ -112,7 +112,7 @@ public class ElasticsearchSinkWriter
         }
     }
 
-    public void open() {
+    public void startScheduler() {
         this.scheduler =
                 Executors.newScheduledThreadPool(
                         1,
