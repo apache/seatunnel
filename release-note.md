@@ -21,6 +21,7 @@
 - [CDC] Support export debezium-json format to kafka #4339
 ### Formats
 - [Canal]Support read canal format message #3950
+- [MaxWell] Support read canal MaxWell message #4428
 
 ## Improves
 ### Connectors
