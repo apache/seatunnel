@@ -29,6 +29,7 @@ import org.apache.seatunnel.format.compatible.debezium.json.CompatibleDebeziumJs
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.apache.seatunnel.format.json.canal.CanalJsonSerializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
+import org.apache.seatunnel.format.json.maxwell.MaxWellJsonSerializationSchema;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -219,6 +220,8 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                         .build();
             case CANAL_JSON:
                 return new CanalJsonSerializationSchema(rowType);
+            case MAXWELL_JSON:
+                return new MaxWellJsonSerializationSchema(rowType);
             case COMPATIBLE_DEBEZIUM_JSON:
                 return new CompatibleDebeziumJsonSerializationSchema(rowType, isKey);
             default:

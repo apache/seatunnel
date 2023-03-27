@@ -45,7 +45,10 @@ public class KafkaSinkFactory implements TableSinkFactory {
                 .conditional(
                         Config.FORMAT,
                         Arrays.asList(
-                                MessageFormat.JSON, MessageFormat.CANAL_JSON, MessageFormat.TEXT),
+                                MessageFormat.JSON,
+                                MessageFormat.CANAL_JSON,
+                                MessageFormat.TEXT,
+                                MessageFormat.MAXWELL_JSON),
                         Config.TOPIC)
                 .optional(Config.KAFKA_CONFIG, Config.ASSIGN_PARTITIONS, Config.TRANSACTION_PREFIX)
                 .exclusive(Config.PARTITION, Config.PARTITION_KEY_FIELDS)
