@@ -27,7 +27,7 @@ on:
 jobs:
   deploy:
     name: Deploy maven packages to pkg.github
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     permissions:
       packages: write
       contents: read
