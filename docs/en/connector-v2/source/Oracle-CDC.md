@@ -20,12 +20,11 @@ describes how to setup the Oracle CDC connector to run SQL queries against Oracl
 
 |                      name                      |   type   | required | default value |
 |------------------------------------------------|----------|----------|---------------|
-| hostname                                       | String   | Yes      | -             |
-| port                                           | Integer  | No       | 3306          |
 | username                                       | String   | Yes      | -             |
 | password                                       | String   | Yes      | -             |
-| database-name                                  | String   | Yes      | -             |
-| table-name                                     | String   | Yes      | -             |
+| database-names                                 | List     | No       | -             |
+| table-names                                    | List     | Yes      | -             |
+| base-url                                       | String   | Yes      | -             |
 | startup.mode                                   | Enum     | No       | INITIAL       |
 | startup.timestamp                              | Long     | No       | -             |
 | startup.specific-offset.file                   | String   | No       | -             |
@@ -44,15 +43,8 @@ describes how to setup the Oracle CDC connector to run SQL queries against Oracl
 | chunk-key.even-distribution.factor.upper-bound | Double   | No       | 1000          |
 | chunk-key.even-distribution.factor.lower-bound | Double   | No       | 0.05          |
 | debezium.*                                     | config   | No       | -             |
+| format                                         | Enum     | No       | DEFAULT       |
 | common-options                                 |          | no       | -             |
-
-### hostname [String]
-
-IP address or hostname of the database server.
-
-### port [Integer]
-
-Integer port number of the database server.
 
 ### username [String]
 
@@ -62,13 +54,17 @@ Name of the database to use when connecting to the database server.
 
 Password to use when connecting to the database server.
 
-### database-name [String]
+### database-names [List]
 
 Database name of the database to monitor.
 
-### table-name [String]
+### table-names [List]
 
-Table name is a combination of schema name and table name (schemaName.tableName).
+Table name is a combination of schema name and table name (databaseName.schemaName.tableName).
+
+### base-url [String]
+
+URL has to be with database, like "jdbc:oracle:thin:@127.0.0.1:1521:test".
 
 ### startup.mode [Enum]
 
@@ -150,6 +146,10 @@ Pass-through Debezium's properties to Debezium Embedded Engine which is used to 
 See more about
 the [Debezium's Oracle Connector properties](https://debezium.io/documentation/reference/1.6/connectors/oracle.html#oracle-connector-properties)
 
+### format [Enum]
+
+Optional output format for Oracle CDC, valid enumerations are "DEFAULT"、"COMPATIBLE_DEBEZIUM_JSON".
+
 #### example
 
 ```conf
@@ -173,12 +173,15 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 source {
   Oracle-CDC {
     result_table_name = "customers"
-    hostname = "127.0.0.1"
-    port = "1521"
+    
+    catalog = {
+      factory = Oracle
+    }
+    base-url = "jdbc:oracle:thin:@127.0.0.1:1521:example_db"
     username = "cdcuser"
     password = "cdcpw"
-    database-name = "XE"
-    table-name = "cdcuser.orders"
+    database-names = ["EXAMPLE_DB"]
+    table-names = ["EXAMPLE_DB.EXAMPLE_SCHEMA.T1"]
   }
 }
 ```
@@ -188,4 +191,5 @@ source {
 ### next version
 
 - Add Oracle CDC Source Connector
+- [Feature] Support multi-table read ([4377](https://github.com/apache/incubator-seatunnel/pull/4377))
 

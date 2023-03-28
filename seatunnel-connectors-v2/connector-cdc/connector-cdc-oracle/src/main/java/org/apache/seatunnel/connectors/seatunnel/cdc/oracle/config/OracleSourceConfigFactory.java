@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.EmbeddedDatabaseHistory;
 
-import io.debezium.config.Configuration;
 import io.debezium.connector.oracle.OracleConnector;
 
 import java.util.Properties;
@@ -39,6 +38,8 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
 
     /** Creates a new {@link OracleSourceConfig} for the given subtask {@code subtaskId}. */
     public OracleSourceConfig create(int subtask) {
+        validateConfig();
+
         Properties props = new Properties();
         props.setProperty("connector.class", OracleConnector.class.getCanonicalName());
         // Logical name that identifies and provides a namespace for the particular Oracle
@@ -49,11 +50,9 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
         // and
         // underscores should be used.
         props.setProperty("database.server.name", DATABASE_SERVER_NAME);
-        props.setProperty("database.hostname", checkNotNull(hostname));
-        props.setProperty("database.port", String.valueOf(checkNotNull(port)));
+        props.setProperty("database.url", checkNotNull(originUrl));
         props.setProperty("database.user", checkNotNull(username));
         props.setProperty("database.password", checkNotNull(password));
-        props.setProperty("database.history.skip.unparseable.ddl", String.valueOf(true));
         props.setProperty("database.dbname", checkNotNull(databaseList.get(0)));
 
         // database history
@@ -79,7 +78,15 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
                     tableList.stream()
                             .map(
                                     tableStr -> {
-                                        return tableStr.substring(tableStr.indexOf(".") + 1);
+                                        String[] splits = tableStr.split("\\.");
+                                        if (splits.length == 2) {
+                                            return tableStr;
+                                        }
+                                        if (splits.length == 3) {
+                                            return String.join(".", splits[1], splits[2]);
+                                        }
+                                        throw new IllegalArgumentException(
+                                                "Invalid table name: " + tableStr);
                                     })
                             .collect(Collectors.joining(",")));
         }
@@ -89,7 +96,6 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
             props.putAll(dbzProperties);
         }
 
-        Configuration dbzConfiguration = Configuration.from(props);
         return new OracleSourceConfig(
                 startupConfig,
                 stopConfig,
@@ -110,5 +116,35 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
                 connectTimeoutMillis,
                 connectMaxRetries,
                 connectionPoolSize);
+    }
+
+    private void validateConfig() throws IllegalArgumentException {
+        if (databaseList.size() != 1) {
+            throw new IllegalArgumentException(
+                    "Oracle only supports single database, databaseList: " + databaseList);
+        }
+        for (String database : databaseList) {
+            for (int i = 0; i < database.length(); i++) {
+                if (Character.isLetter(database.charAt(i))
+                        && !Character.isUpperCase(database.charAt(i))) {
+                    throw new IllegalArgumentException(
+                            "Oracle database name must be in all uppercase, database: " + database);
+                }
+            }
+        }
+        for (String table : tableList) {
+            if (table.split("\\.").length != 3) {
+                throw new IllegalArgumentException(
+                        "Oracle table name format must be is: ${database}.${schema}.${table}, table: "
+                                + table);
+            }
+            for (int i = 0; i < table.length(); i++) {
+                if (Character.isLetter(table.charAt(i))
+                        && !Character.isUpperCase(table.charAt(i))) {
+                    throw new IllegalArgumentException(
+                            "Oracle table name must be in all uppercase, table: " + table);
+                }
+            }
+        }
     }
 }

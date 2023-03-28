@@ -17,33 +17,28 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source;
 
-import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionPoolFactory;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkSplitter;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
-import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
-import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.eumerator.OracleChunkSplitter;
-import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.reader.fetch.OracleScanFetchTask;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.reader.fetch.OracleSourceFetchTaskContext;
-import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.reader.fetch.OracleStreamFetchTask;
+import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.reader.fetch.logminer.OracleStreamFetchTask;
+import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.reader.fetch.scan.OracleSnapshotFetchTask;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleConnectionUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleSchema;
 
 import io.debezium.connector.oracle.OracleConnection;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
-import io.debezium.relational.history.TableChanges;
 import io.debezium.relational.history.TableChanges.TableChange;
 
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.List;
 
 import static org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleConnectionUtils.createOracleConnection;
@@ -114,30 +109,13 @@ public class OracleDialect implements JdbcDataSourceDialect {
     @Override
     public OracleSourceFetchTaskContext createFetchTaskContext(
             SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig) {
-        List<TableChanges.TableChange> tableChangeList = new ArrayList<>();
-        try (OracleConnection jdbcConnection =
-                createOracleConnection(taskSourceConfig.getDbzConfiguration())) {
-            // TODO: support save table schema
-            if (sourceSplitBase instanceof SnapshotSplit) {
-                SnapshotSplit snapshotSplit = (SnapshotSplit) sourceSplitBase;
-                tableChangeList.add(queryTableSchema(jdbcConnection, snapshotSplit.getTableId()));
-            } else {
-                IncrementalSplit incrementalSplit = (IncrementalSplit) sourceSplitBase;
-                for (TableId tableId : incrementalSplit.getTableIds()) {
-                    tableChangeList.add(queryTableSchema(jdbcConnection, tableId));
-                }
-            }
-        } catch (SQLException e) {
-            throw new SeaTunnelException(ExceptionUtils.getMessage(e));
-        }
-
-        return new OracleSourceFetchTaskContext(taskSourceConfig, this, tableChangeList);
+        return new OracleSourceFetchTaskContext(taskSourceConfig, this);
     }
 
     @Override
     public FetchTask<SourceSplitBase> createFetchTask(SourceSplitBase sourceSplitBase) {
         if (sourceSplitBase.isSnapshotSplit()) {
-            return new OracleScanFetchTask(sourceSplitBase.asSnapshotSplit());
+            return new OracleSnapshotFetchTask(sourceSplitBase.asSnapshotSplit());
         } else {
             return new OracleStreamFetchTask(sourceSplitBase.asIncrementalSplit());
         }

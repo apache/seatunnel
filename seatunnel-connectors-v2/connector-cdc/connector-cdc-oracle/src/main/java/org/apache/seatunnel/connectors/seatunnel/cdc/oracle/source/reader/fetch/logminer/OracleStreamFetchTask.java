@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.reader.fetch;
+package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.reader.fetch.logminer;
 
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
@@ -23,6 +23,9 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkKind;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.offset.RedoLogOffset;
+import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.reader.fetch.OracleSourceFetchTaskContext;
+import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.reader.fetch.scan.OracleSnapshotFetchTask;
+import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,9 +42,6 @@ import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.source.spi.ChangeEventSource;
 import io.debezium.util.Clock;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import static org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.offset.RedoLogOffset.NO_STOPPING_OFFSET;
 
 /** The task to work for fetching data of Oracle table stream split. */
@@ -49,7 +49,6 @@ public class OracleStreamFetchTask implements FetchTask<SourceSplitBase> {
 
     private final IncrementalSplit split;
     private volatile boolean taskRunning = false;
-    private RedoLogSplitReadTask redoLogSplitReadTask;
 
     public OracleStreamFetchTask(IncrementalSplit split) {
         this.split = split;
@@ -59,7 +58,7 @@ public class OracleStreamFetchTask implements FetchTask<SourceSplitBase> {
     public void execute(FetchTask.Context context) throws Exception {
         OracleSourceFetchTaskContext sourceFetchContext = (OracleSourceFetchTaskContext) context;
         taskRunning = true;
-        redoLogSplitReadTask =
+        RedoLogSplitReadTask redoLogSplitReadTask =
                 new RedoLogSplitReadTask(
                         sourceFetchContext.getDbzConnectorConfig(),
                         sourceFetchContext.getConnection(),
@@ -137,7 +136,7 @@ public class OracleStreamFetchTask implements FetchTask<SourceSplitBase> {
             // check do we need to stop for fetch binlog for snapshot split.
             if (isBoundedRead()) {
                 final RedoLogOffset currentRedoLogOffset =
-                        getCurrentRedoLogOffset(offsetContext.getOffset());
+                        OracleUtils.getRedoLogPosition(offsetContext.getOffset());
                 // reach the high watermark, the binlog fetcher should be finished
                 if (currentRedoLogOffset.isAtOrAfter(redoLogSplit.getStopOffset())) {
                     // send binlog end event
@@ -153,7 +152,7 @@ public class OracleStreamFetchTask implements FetchTask<SourceSplitBase> {
                                 new DebeziumException("Error processing binlog signal event", e));
                     }
                     // tell fetcher the binlog task finished
-                    ((OracleScanFetchTask.SnapshotBinlogSplitChangeEventSourceContext) context)
+                    ((OracleSnapshotFetchTask.SnapshotBinlogSplitChangeEventSourceContext) context)
                             .finished();
                 }
             }
@@ -161,16 +160,6 @@ public class OracleStreamFetchTask implements FetchTask<SourceSplitBase> {
 
         private boolean isBoundedRead() {
             return !NO_STOPPING_OFFSET.equals(redoLogSplit.getStopOffset());
-        }
-
-        public static RedoLogOffset getCurrentRedoLogOffset(Map<String, ?> offset) {
-            Map<String, String> offsetStrMap = new HashMap<>();
-            for (Map.Entry<String, ?> entry : offset.entrySet()) {
-                offsetStrMap.put(
-                        entry.getKey(),
-                        entry.getValue() == null ? null : entry.getValue().toString());
-            }
-            return new RedoLogOffset(offsetStrMap);
         }
     }
 

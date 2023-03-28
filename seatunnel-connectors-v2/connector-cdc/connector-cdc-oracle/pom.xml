@@ -26,6 +26,11 @@
         <version>${revision}</version>
     </parent>
     <artifactId>connector-cdc-oracle</artifactId>
+    <name>SeaTunnel : Connectors V2 : CDC : Oracle</name>
+
+    <properties>
+        <oracle.version>19.18.0.0</oracle.version>
+    </properties>
 
     <dependencyManagement>
         <dependencies>
@@ -44,18 +49,21 @@
             </dependency>
 
             <dependency>
-                <groupId>com.oracle.ojdbc</groupId>
-                <artifactId>ojdbc8</artifactId>
-                <version>19.3.0.0</version>
-                <scope>compile</scope>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>connector-jdbc</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
+                <groupId>com.oracle.database.jdbc</groupId>
+                <artifactId>ojdbc8</artifactId>
+                <version>${oracle.version}</version>
+            </dependency>
+            <dependency>
                 <groupId>com.oracle.database.xml</groupId>
                 <artifactId>xdb</artifactId>
-                <version>19.3.0.0</version>
+                <version>${oracle.version}</version>
             </dependency>
-
         </dependencies>
     </dependencyManagement>
 
@@ -72,15 +80,18 @@
         </dependency>
 
         <dependency>
-            <groupId>com.oracle.ojdbc</groupId>
-            <artifactId>ojdbc8</artifactId>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-jdbc</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.oracle.database.jdbc</groupId>
+            <artifactId>ojdbc8</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.oracle.database.xml</groupId>
             <artifactId>xdb</artifactId>
         </dependency>
-
     </dependencies>
 
 </project>

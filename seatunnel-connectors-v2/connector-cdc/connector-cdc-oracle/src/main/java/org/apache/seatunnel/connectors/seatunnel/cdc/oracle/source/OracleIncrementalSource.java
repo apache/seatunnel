@@ -21,7 +21,8 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportParallelism;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
@@ -31,15 +32,17 @@ import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
+import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
+import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeSchema;
 import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.offset.RedoLogOffsetFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
 
 import com.google.auto.service.AutoService;
 import io.debezium.connector.oracle.OracleConnection;
-import io.debezium.connector.oracle.OracleConnectorConfig;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 
@@ -53,6 +56,11 @@ public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceC
         implements SupportParallelism {
 
     static final String IDENTIFIER = "Oracle-CDC";
+
+    public OracleIncrementalSource(
+            ReadonlyConfig options, SeaTunnelDataType<SeaTunnelRow> dataType) {
+        super(options, dataType);
+    }
 
     @Override
     public String getPluginName() {
@@ -75,6 +83,7 @@ public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceC
         configFactory.fromReadonlyConfig(readonlyConfig);
         configFactory.startupOptions(startupConfig);
         configFactory.stopOptions(stopConfig);
+        configFactory.originUrl(config.get(JdbcCatalogOptions.BASE_URL));
         return configFactory;
     }
 
@@ -82,26 +91,34 @@ public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceC
     @Override
     public DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(
             ReadonlyConfig config) {
-        OracleSourceConfig oracleSourceConfig = (OracleSourceConfig) this.configFactory.create(0);
-        TableId tableId = this.dataSourceDialect.discoverDataCollections(oracleSourceConfig).get(0);
+        if (DeserializeFormat.COMPATIBLE_DEBEZIUM_JSON.equals(
+                config.get(JdbcSourceOptions.FORMAT))) {
+            return (DebeziumDeserializationSchema<T>)
+                    new DebeziumJsonDeserializeSchema(
+                            config.get(JdbcSourceOptions.DEBEZIUM_PROPERTIES));
+        }
 
-        OracleConnectorConfig dbzConnectorConfig = oracleSourceConfig.getDbzConnectorConfig();
-
-        OracleConnection oracleConnection =
-                createOracleConnection(dbzConnectorConfig.getJdbcConfig());
-
-        Table table =
-                ((OracleDialect) dataSourceDialect)
-                        .queryTableSchema(oracleConnection, tableId)
-                        .getTable();
-
-        SeaTunnelRowType seaTunnelRowType = convertFromTable(table);
-
+        SeaTunnelDataType<SeaTunnelRow> physicalRowType;
+        if (dataType == null) {
+            OracleSourceConfig oracleSourceConfig =
+                    (OracleSourceConfig) this.configFactory.create(0);
+            TableId tableId =
+                    this.dataSourceDialect.discoverDataCollections(oracleSourceConfig).get(0);
+            OracleConnection oracleConnection =
+                    createOracleConnection(oracleSourceConfig.getDbzConfiguration());
+            Table table =
+                    ((OracleDialect) dataSourceDialect)
+                            .queryTableSchema(oracleConnection, tableId)
+                            .getTable();
+            physicalRowType = convertFromTable(table);
+        } else {
+            physicalRowType = dataType;
+        }
         String zoneId = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
         return (DebeziumDeserializationSchema<T>)
                 SeaTunnelRowDebeziumDeserializeSchema.builder()
-                        .setPhysicalRowType(seaTunnelRowType)
-                        .setResultTypeInfo(seaTunnelRowType)
+                        .setPhysicalRowType(physicalRowType)
+                        .setResultTypeInfo(physicalRowType)
                         .setServerTimeZone(ZoneId.of(zoneId))
                         .build();
     }
