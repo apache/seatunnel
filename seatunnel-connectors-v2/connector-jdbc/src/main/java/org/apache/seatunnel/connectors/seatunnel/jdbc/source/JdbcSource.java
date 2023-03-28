@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
@@ -236,6 +237,6 @@ public class JdbcSource
     }
 
     private boolean isNumericType(SeaTunnelDataType<?> type) {
-        return type.equals(BasicType.INT_TYPE) || type.equals(BasicType.LONG_TYPE);
+        return type.equals(BasicType.INT_TYPE) || type.equals(BasicType.LONG_TYPE) || type instanceof DecimalType;
     }
 }
