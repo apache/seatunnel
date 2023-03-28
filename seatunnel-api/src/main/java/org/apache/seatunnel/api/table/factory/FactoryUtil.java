@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -114,6 +115,7 @@ public final class FactoryUtil {
                     ReadonlyConfig options,
                     ClassLoader classLoader) {
         TableFactoryContext context = new TableFactoryContext(acceptedTables, options, classLoader);
+        ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
         TableSource<T, SplitT, StateT> tableSource = factory.createSource(context);
         validateAndApplyMetadata(acceptedTables, tableSource);
         return tableSource.createSource();
@@ -136,6 +138,7 @@ public final class FactoryUtil {
             TableFactoryContext context =
                     new TableFactoryContext(
                             Collections.singletonList(catalogTable), options, classLoader);
+            ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
             return factory.createSink(context).createSink();
         } catch (Throwable t) {
             throw new FactoryException(
@@ -321,6 +324,7 @@ public final class FactoryUtil {
         TableFactoryContext context =
                 new TableFactoryContext(
                         Collections.singletonList(catalogTable), options, classLoader);
+        ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
         return factory.createTransform(context).createTransform();
     }
 }
