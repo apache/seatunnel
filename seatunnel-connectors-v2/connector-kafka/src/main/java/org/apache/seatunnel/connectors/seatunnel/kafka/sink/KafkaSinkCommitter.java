@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
 
@@ -33,11 +32,11 @@ import java.util.Properties;
 @Slf4j
 public class KafkaSinkCommitter implements SinkCommitter<KafkaCommitInfo> {
 
-    private final Config pluginConfig;
+    private final ReadonlyConfig pluginConfig;
 
     private KafkaInternalProducer<?, ?> kafkaProducer;
 
-    public KafkaSinkCommitter(Config pluginConfig) {
+    public KafkaSinkCommitter(ReadonlyConfig pluginConfig) {
         this.pluginConfig = pluginConfig;
     }
 
