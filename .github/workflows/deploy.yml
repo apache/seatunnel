@@ -22,7 +22,6 @@ on:
   push:
     branches:
       - '**-release'
-      - deploy/*
 
 jobs:
   deploy:
@@ -45,4 +44,5 @@ jobs:
         shell: bash
         run: |
           ./mvnw --batch-mode --settings maven-settings.xml clean deploy \
+                -DaltDeploymentRepository=github::default::https://maven.pkg.github.com/whaleops/SeaTunnel \
                 -Dmaven.test.skip -Dcheckstyle.skip -DretryFailedDeploymentCount=5
