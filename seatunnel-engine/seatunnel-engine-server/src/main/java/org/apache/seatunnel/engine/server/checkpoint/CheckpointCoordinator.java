@@ -212,6 +212,9 @@ public class CheckpointCoordinator {
     }
 
     private void handleCoordinatorError(CheckpointCloseReason reason, Throwable e) {
+        if (checkpointCoordinatorFuture.isDone()) {
+            return;
+        }
         CheckpointException checkpointException = new CheckpointException(reason, e);
         cleanPendingCheckpoint(reason);
         checkpointCoordinatorFuture.complete(
