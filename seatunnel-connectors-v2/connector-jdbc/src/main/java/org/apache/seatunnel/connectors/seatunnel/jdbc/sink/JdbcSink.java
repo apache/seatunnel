@@ -30,8 +30,9 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -160,8 +161,10 @@ public class JdbcSink
                         pStmt.execute();
                     }
                 } catch (Exception e) {
-                    throw new PrepareFailException(
-                            getPluginName(), PluginType.SINK, e.getMessage());
+                    throw new JdbcConnectorException(
+                            JdbcConnectorErrorCode.EXECUTE_SQL_FAILED,
+                            "Execute preSql failed." + e.getMessage(),
+                            e);
                 }
             }
         }
