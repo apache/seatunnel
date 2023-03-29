@@ -237,7 +237,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
+        java: [ '8' ]
         os: [ 'self-hosted' ]
     timeout-minutes: 36
     steps:
@@ -273,7 +273,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
+        java: [ '8' ]
         os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
@@ -301,7 +301,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
+        java: [ '8' ]
         os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
@@ -333,7 +333,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
+        java: [ '8' ]
         os: [ 'self-hosted' ]
     timeout-minutes: 45
     steps:
@@ -362,7 +362,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
+        java: [ '8' ]
         os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
@@ -390,7 +390,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
+        java: [ '8' ]
         os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
@@ -418,7 +418,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
+        java: [ '8' ]
         os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
@@ -448,7 +448,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
+        java: [ '8' ]
         os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
@@ -478,7 +478,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
+        java: [ '8' ]
         os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
@@ -508,7 +508,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
+        java: [ '8' ]
         os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
@@ -538,7 +538,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
+        java: [ '8' ]
         os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
@@ -568,7 +568,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
+        java: [ '8' ]
         os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
@@ -592,7 +592,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
+        java: [ '8' ]
         os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
@@ -616,7 +616,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
+        java: [ '8' ]
         os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
