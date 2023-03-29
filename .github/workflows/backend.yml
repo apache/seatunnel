@@ -284,6 +284,9 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11.0'
       - name: run updated modules integration test
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |
@@ -309,6 +312,9 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11.0'
       - name: run updated modules integration test
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |
@@ -423,6 +429,9 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11.0'
       - name: run some modules integration test
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -450,6 +459,9 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11.0'
       - name: run some modules integration test
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -477,6 +489,9 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11.0'
       - name: run some modules integration test
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -504,6 +519,9 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11.0'
       - name: run some modules integration test
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -531,6 +549,9 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11.0'
       - name: run some modules integration test
         if: needs.changes.outputs.api == 'true'
         run: |
