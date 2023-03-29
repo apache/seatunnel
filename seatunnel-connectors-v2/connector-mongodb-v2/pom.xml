@@ -26,7 +26,7 @@
         <version>${revision}</version>
     </parent>
 
-    <artifactId>connector-mongodb</artifactId>
+    <artifactId>connector-mongodb-v2</artifactId>
     <name>SeaTunnel : Connectors V2 : MongodbV2</name>
 
     <properties>

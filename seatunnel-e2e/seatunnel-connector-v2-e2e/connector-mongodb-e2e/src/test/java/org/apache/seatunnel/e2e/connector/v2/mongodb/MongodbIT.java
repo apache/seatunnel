@@ -1,4 +1,4 @@
-///*
+/// *
 // * Licensed to the Apache Software Foundation (ASF) under one or more
 // * contributor license agreements.  See the NOTICE file distributed with
 // * this work for additional information regarding copyright ownership.
@@ -15,57 +15,57 @@
 // * limitations under the License.
 // */
 //
-//package org.apache.seatunnel.e2e.connector.v2.mongodb;
+// package org.apache.seatunnel.e2e.connector.v2.mongodb;
 //
-//import org.apache.seatunnel.api.table.type.ArrayType;
-//import org.apache.seatunnel.api.table.type.BasicType;
-//import org.apache.seatunnel.api.table.type.DecimalType;
-//import org.apache.seatunnel.api.table.type.LocalTimeType;
-//import org.apache.seatunnel.api.table.type.MapType;
-//import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
-//import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-//import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-//import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-//import org.apache.seatunnel.connectors.seatunnel.mongodb.data.DefaultSerializer;
-//import org.apache.seatunnel.connectors.seatunnel.mongodb.data.Serializer;
-//import org.apache.seatunnel.e2e.common.TestResource;
-//import org.apache.seatunnel.e2e.common.TestSuiteBase;
-//import org.apache.seatunnel.e2e.common.container.TestContainer;
+// import org.apache.seatunnel.api.table.type.ArrayType;
+// import org.apache.seatunnel.api.table.type.BasicType;
+// import org.apache.seatunnel.api.table.type.DecimalType;
+// import org.apache.seatunnel.api.table.type.LocalTimeType;
+// import org.apache.seatunnel.api.table.type.MapType;
+// import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+// import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+// import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+// import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+// import org.apache.seatunnel.connectors.seatunnel.mongodb.data.DefaultSerializer;
+// import org.apache.seatunnel.connectors.seatunnel.mongodb.data.Serializer;
+// import org.apache.seatunnel.e2e.common.TestResource;
+// import org.apache.seatunnel.e2e.common.TestSuiteBase;
+// import org.apache.seatunnel.e2e.common.container.TestContainer;
 //
-//import org.awaitility.Awaitility;
-//import org.bson.Document;
-//import org.junit.jupiter.api.AfterAll;
-//import org.junit.jupiter.api.Assertions;
-//import org.junit.jupiter.api.BeforeAll;
-//import org.junit.jupiter.api.TestTemplate;
-//import org.testcontainers.containers.Container;
-//import org.testcontainers.containers.GenericContainer;
-//import org.testcontainers.containers.output.Slf4jLogConsumer;
-//import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
-//import org.testcontainers.lifecycle.Startables;
-//import org.testcontainers.utility.DockerImageName;
-//import org.testcontainers.utility.DockerLoggerFactory;
+// import org.awaitility.Awaitility;
+// import org.bson.Document;
+// import org.junit.jupiter.api.AfterAll;
+// import org.junit.jupiter.api.Assertions;
+// import org.junit.jupiter.api.BeforeAll;
+// import org.junit.jupiter.api.TestTemplate;
+// import org.testcontainers.containers.Container;
+// import org.testcontainers.containers.GenericContainer;
+// import org.testcontainers.containers.output.Slf4jLogConsumer;
+// import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
+// import org.testcontainers.lifecycle.Startables;
+// import org.testcontainers.utility.DockerImageName;
+// import org.testcontainers.utility.DockerLoggerFactory;
 //
-//import com.mongodb.client.MongoClient;
-//import com.mongodb.client.MongoClients;
-//import com.mongodb.client.MongoCollection;
-//import lombok.extern.slf4j.Slf4j;
+// import com.mongodb.client.MongoClient;
+// import com.mongodb.client.MongoClients;
+// import com.mongodb.client.MongoCollection;
+// import lombok.extern.slf4j.Slf4j;
 //
-//import java.io.IOException;
-//import java.math.BigDecimal;
-//import java.time.Duration;
-//import java.time.LocalDate;
-//import java.util.ArrayList;
-//import java.util.Collections;
-//import java.util.List;
-//import java.util.concurrent.TimeUnit;
-//import java.util.stream.Stream;
+// import java.io.IOException;
+// import java.math.BigDecimal;
+// import java.time.Duration;
+// import java.time.LocalDate;
+// import java.util.ArrayList;
+// import java.util.Collections;
+// import java.util.List;
+// import java.util.concurrent.TimeUnit;
+// import java.util.stream.Stream;
 //
-//import static java.net.HttpURLConnection.HTTP_OK;
-//import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
+// import static java.net.HttpURLConnection.HTTP_OK;
+// import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 //
-//@Slf4j
-//public class MongodbIT extends TestSuiteBase implements TestResource {
+// @Slf4j
+// public class MongodbIT extends TestSuiteBase implements TestResource {
 //
 //    private static final String MONGODB_IMAGE = "mongo:latest";
 //    private static final String MONGODB_CONTAINER_HOST = "e2e_mongodb";
@@ -193,7 +193,8 @@
 //                                                                || response == HTTP_UNAUTHORIZED)
 //                                        .withStartupTimeout(Duration.ofMinutes(2)))
 //                        .withLogConsumer(
-//                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MONGODB_IMAGE)));
+//                                new
+// Slf4jLogConsumer(DockerLoggerFactory.getLogger(MONGODB_IMAGE)));
 //        Startables.deepStart(Stream.of(mongodbContainer)).join();
 //        log.info("Mongodb container started");
 //
@@ -216,4 +217,4 @@
 //            mongodbContainer.close();
 //        }
 //    }
-//}
+// }

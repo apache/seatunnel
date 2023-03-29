@@ -3,6 +3,7 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.serde;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+
 import org.bson.Document;
 
 public class DocumentRowDataDeserializer implements DocumentDeserializer<SeaTunnelRow> {
@@ -12,7 +13,6 @@ public class DocumentRowDataDeserializer implements DocumentDeserializer<SeaTunn
     private final SeaTunnelDataType<?>[] fieldTypes;
 
     private final BsonToRowDataConverters bsonConverters;
-
 
     public DocumentRowDataDeserializer(String[] fieldNames, SeaTunnelDataType dataTypes) {
         if (fieldNames == null || fieldNames.length < 1) {
@@ -31,10 +31,8 @@ public class DocumentRowDataDeserializer implements DocumentDeserializer<SeaTunn
             String fieldName = this.fieldNames[i];
             Object o = document.get(fieldName);
             SeaTunnelDataType<?> fieldType = fieldTypes[i];
-            rowData.setField(
-                    i, bsonConverters.createConverter(fieldType).convert(null, o));
+            rowData.setField(i, bsonConverters.createConverter(fieldType).convert(null, o));
         }
         return rowData;
     }
 }
-

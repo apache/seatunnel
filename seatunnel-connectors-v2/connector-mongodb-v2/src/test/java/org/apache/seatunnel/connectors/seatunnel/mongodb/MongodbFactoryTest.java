@@ -1,4 +1,4 @@
-///*
+/// *
 // * Licensed to the Apache Software Foundation (ASF) under one or more
 // * contributor license agreements.  See the NOTICE file distributed with
 // * this work for additional information regarding copyright ownership.
@@ -15,19 +15,19 @@
 // * limitations under the License.
 // */
 //
-//package org.apache.seatunnel.connectors.seatunnel.mongodb;
+// package org.apache.seatunnel.connectors.seatunnel.mongodb;
 //
-//import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.MongodbSinkFactory;
-//import org.apache.seatunnel.connectors.seatunnel.mongodb.source.MongodbSourceFactory;
+// import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.MongodbSinkFactory;
+// import org.apache.seatunnel.connectors.seatunnel.mongodb.source.MongodbSourceFactory;
 //
-//import org.junit.jupiter.api.Assertions;
-//import org.junit.jupiter.api.Test;
+// import org.junit.jupiter.api.Assertions;
+// import org.junit.jupiter.api.Test;
 //
-//class MongodbFactoryTest {
+// class MongodbFactoryTest {
 //
 //    @Test
 //    void optionRule() {
 //        Assertions.assertNotNull((new MongodbSourceFactory()).optionRule());
 //        Assertions.assertNotNull((new MongodbSinkFactory()).optionRule());
 //    }
-//}
+// }

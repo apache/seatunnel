@@ -8,30 +8,29 @@ import static com.mongodb.client.model.Filters.and;
 import static com.mongodb.client.model.Filters.gte;
 import static com.mongodb.client.model.Filters.lt;
 
-/**
- * Helper class for using {@link MongoSplit}.
- **/
+/** Helper class for using {@link MongoSplit}. */
 public class MongoSplitUtils {
 
     private static final String SPLIT_ID_TEMPLATE = "split-%d";
 
-    public static MongoSplit createMongoSplit(int index,
-                                              BsonDocument matchQuery,
-                                              BsonDocument projection,
-                                              String splitKey,
-                                              @Nullable Object lowerBound,
-                                              @Nullable Object upperBound) {
+    public static MongoSplit createMongoSplit(
+            int index,
+            BsonDocument matchQuery,
+            BsonDocument projection,
+            String splitKey,
+            @Nullable Object lowerBound,
+            @Nullable Object upperBound) {
         return createMongoSplit(index, matchQuery, projection, splitKey, lowerBound, upperBound, 0);
     }
 
-
-    public static MongoSplit createMongoSplit(int index,
-                                              BsonDocument matchQuery,
-                                              BsonDocument projection,
-                                              String splitKey,
-                                              @Nullable Object lowerBound,
-                                              @Nullable Object upperBound,
-                                              long startOffset) {
+    public static MongoSplit createMongoSplit(
+            int index,
+            BsonDocument matchQuery,
+            BsonDocument projection,
+            String splitKey,
+            @Nullable Object lowerBound,
+            @Nullable Object upperBound,
+            long startOffset) {
         BsonDocument splitQuery = new BsonDocument();
         if (matchQuery != null) {
             matchQuery.forEach(splitQuery::append);
@@ -39,7 +38,8 @@ public class MongoSplitUtils {
         if (splitKey != null) {
             BsonDocument boundaryQuery;
             if (lowerBound != null && upperBound != null) {
-                boundaryQuery = and(gte(splitKey, lowerBound), lt(splitKey, upperBound)).toBsonDocument();
+                boundaryQuery =
+                        and(gte(splitKey, lowerBound), lt(splitKey, upperBound)).toBsonDocument();
             } else if (lowerBound != null) {
                 boundaryQuery = gte(splitKey, lowerBound).toBsonDocument();
             } else if (upperBound != null) {
@@ -47,10 +47,9 @@ public class MongoSplitUtils {
             } else {
                 boundaryQuery = new BsonDocument();
             }
-            boundaryQuery.forEach(
-                    splitQuery::append
-            );
+            boundaryQuery.forEach(splitQuery::append);
         }
-        return new MongoSplit(String.format(SPLIT_ID_TEMPLATE, index), splitQuery, projection, startOffset);
+        return new MongoSplit(
+                String.format(SPLIT_ID_TEMPLATE, index), splitQuery, projection, startOffset);
     }
 }

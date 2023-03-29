@@ -3,12 +3,12 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.serde;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+
 import org.bson.Document;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.Arrays;
-
 
 public class BsonToRowDataConverters implements Serializable {
 
@@ -55,7 +55,6 @@ public class BsonToRowDataConverters implements Serializable {
     private BsonToRowDataConverter createDateConverter() {
         return (reuse, value) -> value;
     }
-
 
     private BsonToRowDataConverter createRowConverter(SeaTunnelRowType type) {
         String[] fieldNames = type.getFieldNames();

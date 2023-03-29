@@ -1,15 +1,15 @@
 package org.apache.seatunnel.connectors.seatunnel.mongodb.source.enumerator;
 
-import com.google.common.collect.Lists;
-import com.mongodb.MongoNamespace;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.exception.MongodbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplit;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplitStrategy;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.Lists;
+import com.mongodb.MongoNamespace;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -17,12 +17,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * MongoSplitEnumerator generates {@link MongoSplit} according to partition strategies.
- **/
-public class MongoSplitEnumerator implements SourceSplitEnumerator<MongoSplit, ArrayList<MongoSplit>> {
-
-    private static final Logger LOG = LoggerFactory.getLogger(MongoSplitEnumerator.class);
+/** MongoSplitEnumerator generates {@link MongoSplit} according to partition strategies. */
+@Slf4j
+public class MongoSplitEnumerator
+        implements SourceSplitEnumerator<MongoSplit, ArrayList<MongoSplit>> {
 
     private final ArrayList<MongoSplit> pendingSplits = Lists.newArrayList();
 
@@ -30,49 +28,48 @@ public class MongoSplitEnumerator implements SourceSplitEnumerator<MongoSplit, A
 
     private final MongoClientProvider clientProvider;
 
-    private MongoSplitStrategy strategy;
+    private final MongoSplitStrategy strategy;
 
-    public MongoSplitEnumerator(Context<MongoSplit> context,
-                                MongoClientProvider clientProvider,
-                                MongoSplitStrategy strategy) {
+    public MongoSplitEnumerator(
+            Context<MongoSplit> context,
+            MongoClientProvider clientProvider,
+            MongoSplitStrategy strategy) {
         this(context, clientProvider, strategy, Collections.emptyList());
     }
 
-    public MongoSplitEnumerator(Context<MongoSplit> context,
-                                MongoClientProvider clientProvider,
-                                MongoSplitStrategy strategy,
-                                List<MongoSplit> splits) {
+    public MongoSplitEnumerator(
+            Context<MongoSplit> context,
+            MongoClientProvider clientProvider,
+            MongoSplitStrategy strategy,
+            List<MongoSplit> splits) {
         this.context = context;
         this.clientProvider = clientProvider;
         this.strategy = strategy;
         this.pendingSplits.addAll(splits);
     }
 
-
     @Override
-    public void open() {
-
-    }
+    public void open() {}
 
     @Override
     public void run() throws Exception {
-        LOG.info("Starting MongoSplitEnumerator.");
+        log.info("Starting MongoSplitEnumerator.");
         pendingSplits.addAll(strategy.split());
         MongoNamespace namespace = clientProvider.getDefaultCollection().getNamespace();
-        LOG.info("Added {} pending splits for namespace {}.",
-                pendingSplits.size(), namespace.getFullName());
+        log.info(
+                "Added {} pending splits for namespace {}.",
+                pendingSplits.size(),
+                namespace.getFullName());
         assignSplit(context.registeredReaders());
     }
 
     @Override
-    public void close() throws IOException {
-
-    }
+    public void close() throws IOException {}
 
     @Override
     public void addSplitsBack(List<MongoSplit> splits, int subtaskId) {
         if (splits != null) {
-            LOG.info("Received {} split(s) back from subtask {}.", splits.size(), subtaskId);
+            log.info("Received {} split(s) back from subtask {}.", splits.size(), subtaskId);
             pendingSplits.addAll(splits);
         }
     }
@@ -83,7 +80,7 @@ public class MongoSplitEnumerator implements SourceSplitEnumerator<MongoSplit, A
     }
 
     @Override
-    public void handleSplitRequest(int subtaskId) { // 处理增量的逻辑
+    public void handleSplitRequest(int subtaskId) {
         throw new MongodbConnectorException(
                 CommonErrorCode.UNSUPPORTED_OPERATION,
                 String.format("Unsupported handleSplitRequest: %d", subtaskId));
@@ -91,10 +88,7 @@ public class MongoSplitEnumerator implements SourceSplitEnumerator<MongoSplit, A
 
     @Override
     public void registerReader(int subtaskId) {
-        LOG.debug("Register reader {} to MongodbSourceSplitEnumerator.", subtaskId);
-        if (!pendingSplits.isEmpty()) {
-            assignSplit(Collections.singletonList(subtaskId));
-        }
+        // only add splits if the reader requests
     }
 
     @Override
@@ -108,19 +102,21 @@ public class MongoSplitEnumerator implements SourceSplitEnumerator<MongoSplit, A
     }
 
     private void assignSplit(Collection<Integer> readers) {
-        LOG.debug("Assign pendingSplits to readers {}", readers);
+        log.debug("Assign pendingSplits to readers {}", readers);
         for (int subtaskId : readers) {
-            LOG.info("Received split request from task {} on host {}.", subtaskId);
+            log.info("Received split request from taskId {}.", subtaskId);
             if (pendingSplits.size() > 0) {
                 MongoSplit nextSplit = pendingSplits.remove(0);
                 context.assignSplit(subtaskId, nextSplit);
-                LOG.info("Assigned split {} to subtask {}, remaining splits: {}.", nextSplit.splitId(), subtaskId,
+                log.info(
+                        "Assigned split {} to subtask {}, remaining splits: {}.",
+                        nextSplit.splitId(),
+                        subtaskId,
                         pendingSplits.size());
             } else {
-                LOG.info("No more splits can be assign, signal subtask {}.", subtaskId);
+                log.info("No more splits can be assign, signal subtask {}.", subtaskId);
                 context.signalNoMoreSplits(subtaskId);
             }
-
         }
     }
 }

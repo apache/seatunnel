@@ -1,15 +1,16 @@
 package org.apache.seatunnel.connectors.seatunnel.mongodb.internal;
 
+import org.bson.Document;
+
 import com.google.common.base.Preconditions;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
-import org.bson.Document;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 /** A simple implementation of {@link MongoClientProvider}. */
+@Slf4j
 public class MongoSingleCollectionProvider implements MongoClientProvider {
 
     /** Connection string to MongoDB standalone instances, replica sets or sharded clusters. */
@@ -29,9 +30,6 @@ public class MongoSingleCollectionProvider implements MongoClientProvider {
     private transient MongoDatabase database;
 
     private transient MongoCollection<Document> collection;
-
-    private static final Logger LOGGER =
-            LoggerFactory.getLogger(MongoSingleCollectionProvider.class);
 
     public MongoSingleCollectionProvider(
             String connectionString, String defaultDatabase, String defaultCollection) {
@@ -86,7 +84,7 @@ public class MongoSingleCollectionProvider implements MongoClientProvider {
                 client.close();
             }
         } catch (Exception e) {
-            LOGGER.error("Failed to close Mongo client", e);
+            log.error("Failed to close Mongo client", e);
         } finally {
             client = null;
         }
