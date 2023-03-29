@@ -18,7 +18,6 @@
 package org.apache.seatunnel.engine.server.task.operation.checkpoint;
 
 import org.apache.seatunnel.common.utils.RetryUtils;
-import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -53,13 +52,13 @@ public class CloseRequestOperation extends Operation implements IdentifiedDataSe
                     return null;
                 },
                 new RetryUtils.RetryMaterial(
-                        Constant.OPERATION_RETRY_TIME,
+                        server.getSeaTunnelConfig().getEngineConfig().getOperationMaxRetryTime(),
                         true,
                         exception ->
                                 exception instanceof TaskGroupContextNotFoundException
                                         && !server.taskIsEnded(
                                                 readerLocation.getTaskGroupLocation()),
-                        Constant.OPERATION_RETRY_SLEEP));
+                        server.getSeaTunnelConfig().getEngineConfig().getOperationRetrySleep()));
     }
 
     @Override

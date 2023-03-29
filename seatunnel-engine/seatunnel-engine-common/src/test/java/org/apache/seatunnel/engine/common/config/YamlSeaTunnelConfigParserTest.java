@@ -75,6 +75,9 @@ public class YamlSeaTunnelConfigParserTest {
                         .getStorage()
                         .getStoragePluginConfig()
                         .get("fs.defaultFS"));
+
+        Assertions.assertEquals(40, config.getEngineConfig().getOperationMaxRetryTime());
+        Assertions.assertEquals(1000, config.getEngineConfig().getOperationRetrySleep());
     }
 
     @Test

@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.dag.physical;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
@@ -136,30 +137,17 @@ public class PhysicalVertex {
         }
 
         this.nodeEngine = nodeEngine;
-        if (LOGGER.isFineEnabled() || LOGGER.isFinestEnabled()) {
-            this.taskFullName =
-                    String.format(
-                            "Job %s (%s), Pipeline: [(%d/%d)], task: [%s (%d/%d)], taskGroupLocation: [%s]",
-                            jobImmutableInformation.getJobConfig().getName(),
-                            jobImmutableInformation.getJobId(),
-                            pipelineId,
-                            totalPipelineNum,
-                            taskGroup.getTaskGroupName(),
-                            subTaskGroupIndex + 1,
-                            parallelism,
-                            taskGroupLocation);
-        } else {
-            this.taskFullName =
-                    String.format(
-                            "Job %s (%s), Pipeline: [(%d/%d)], task: [%s (%d/%d)]",
-                            jobImmutableInformation.getJobConfig().getName(),
-                            jobImmutableInformation.getJobId(),
-                            pipelineId,
-                            totalPipelineNum,
-                            taskGroup.getTaskGroupName(),
-                            subTaskGroupIndex + 1,
-                            parallelism);
-        }
+        this.taskFullName =
+                String.format(
+                        "Job %s (%s), Pipeline: [(%d/%d)], taskGroupLocation: [%s], task: [%s (%d/%d)]",
+                        jobImmutableInformation.getJobConfig().getName(),
+                        jobImmutableInformation.getJobId(),
+                        pipelineId,
+                        totalPipelineNum,
+                        taskGroupLocation,
+                        taskGroup.getTaskGroupName(),
+                        subTaskGroupIndex + 1,
+                        parallelism);
 
         this.taskFuture = new CompletableFuture<>();
 
@@ -426,9 +414,12 @@ public class PhysicalVertex {
         int i = 0;
         // In order not to generate uncontrolled tasks, We will try again until the taskFuture is
         // completed
+        SeaTunnelConfig seaTunnelConfig =
+                ((SeaTunnelServer) nodeEngine.getService(SeaTunnelServer.SERVICE_NAME))
+                        .getSeaTunnelConfig();
         while (!taskFuture.isDone()
                 && nodeEngine.getClusterService().getMember(getCurrentExecutionAddress()) != null
-                && i < Constant.OPERATION_RETRY_TIME) {
+                && i < seaTunnelConfig.getEngineConfig().getOperationMaxRetryTime()) {
             try {
                 i++;
                 LOGGER.info(
@@ -450,7 +441,7 @@ public class PhysicalVertex {
                                 "%s cancel failed with Exception: %s, retry %s",
                                 this.getTaskFullName(), ExceptionUtils.getMessage(e), i));
                 try {
-                    Thread.sleep(2000);
+                    Thread.sleep(seaTunnelConfig.getEngineConfig().getOperationRetrySleep());
                 } catch (InterruptedException ex) {
                     throw new RuntimeException(ex);
                 }

@@ -18,7 +18,6 @@
 package org.apache.seatunnel.engine.server.checkpoint.operation;
 
 import org.apache.seatunnel.common.utils.RetryUtils;
-import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -67,8 +66,8 @@ public class TaskReportStatusOperation extends Operation implements IdentifiedDa
 
     @Override
     public void run() throws Exception {
-        CoordinatorService coordinatorService =
-                ((SeaTunnelServer) getService()).getCoordinatorService();
+        SeaTunnelServer server = getService();
+        CoordinatorService coordinatorService = server.getCoordinatorService();
         RetryUtils.retryWithException(
                 () -> {
                     coordinatorService
@@ -78,9 +77,9 @@ public class TaskReportStatusOperation extends Operation implements IdentifiedDa
                     return null;
                 },
                 new RetryUtils.RetryMaterial(
-                        Constant.OPERATION_RETRY_TIME,
+                        server.getSeaTunnelConfig().getEngineConfig().getOperationMaxRetryTime(),
                         true,
                         e -> true,
-                        Constant.OPERATION_RETRY_SLEEP));
+                        server.getSeaTunnelConfig().getEngineConfig().getOperationRetrySleep()));
     }
 }

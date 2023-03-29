@@ -62,7 +62,7 @@ public class SeaTunnelServer
 
     @Getter private SeaTunnelHealthMonitor seaTunnelHealthMonitor;
 
-    private final SeaTunnelConfig seaTunnelConfig;
+    @Getter private final SeaTunnelConfig seaTunnelConfig;
 
     private volatile boolean isRunning = true;
 

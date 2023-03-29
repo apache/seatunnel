@@ -20,6 +20,8 @@ seatunnel:
     backup-count: 2
     queue-type: blockingqueue
     print-execution-info-interval: 10
+    operation-max-retry-time: 60
+    operation-retry-sleep: 2000
     slot-service:
       dynamic-slot: true
     checkpoint:

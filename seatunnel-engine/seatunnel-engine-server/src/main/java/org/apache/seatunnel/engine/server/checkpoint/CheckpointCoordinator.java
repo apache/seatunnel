@@ -245,8 +245,11 @@ public class CheckpointCoordinator {
                                 }
                             });
         }
+        List<ActionSubtaskState> finalStateList =
+                states.stream().filter(s -> s != null).collect(Collectors.toList());
         checkpointManager
-                .sendOperationToMemberNode(new NotifyTaskRestoreOperation(taskLocation, states))
+                .sendOperationToMemberNode(
+                        new NotifyTaskRestoreOperation(taskLocation, finalStateList))
                 .join();
     }
 

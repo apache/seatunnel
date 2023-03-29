@@ -18,7 +18,6 @@
 package org.apache.seatunnel.engine.server.task.operation;
 
 import org.apache.seatunnel.common.utils.RetryUtils;
-import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
@@ -57,10 +56,14 @@ public class GetTaskGroupAddressOperation extends Operation implements Identifie
                                                         .getTaskGroupLocation()
                                                         .getTaskGroupId()),
                         new RetryUtils.RetryMaterial(
-                                Constant.OPERATION_RETRY_TIME,
+                                server.getSeaTunnelConfig()
+                                        .getEngineConfig()
+                                        .getOperationMaxRetryTime(),
                                 true,
                                 Objects::nonNull,
-                                Constant.OPERATION_RETRY_SLEEP));
+                                server.getSeaTunnelConfig()
+                                        .getEngineConfig()
+                                        .getOperationMaxRetryTime()));
     }
 
     @Override

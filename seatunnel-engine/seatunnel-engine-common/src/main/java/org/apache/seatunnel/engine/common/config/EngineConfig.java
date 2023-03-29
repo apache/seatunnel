@@ -51,6 +51,10 @@ public class EngineConfig {
 
     private QueueType queueType = ServerConfigOptions.QUEUE_TYPE.defaultValue();
 
+    private int operationMaxRetryTime = ServerConfigOptions.OPERATION_MAX_RETRY_TIME.defaultValue();
+
+    private int operationRetrySleep = ServerConfigOptions.OPERATION_RETRY_SLEEP.defaultValue();
+
     public void setBackupCount(int newBackupCount) {
         checkBackupCount(newBackupCount, 0);
         this.backupCount = newBackupCount;
@@ -86,5 +90,18 @@ public class EngineConfig {
         checkNotNull(queueType);
         this.queueType = queueType;
         return this;
+    }
+
+    public void setOperationMaxRetryTime(int operationMaxRetryTime) {
+        checkPositive(
+                operationMaxRetryTime,
+                ServerConfigOptions.OPERATION_MAX_RETRY_TIME + " must be > 0");
+        this.operationMaxRetryTime = operationMaxRetryTime;
+    }
+
+    public void setOperationRetrySleep(int operationRetrySleep) {
+        checkPositive(
+                operationRetrySleep, ServerConfigOptions.OPERATION_RETRY_SLEEP + " must be > 0");
+        this.operationRetrySleep = operationRetrySleep;
     }
 }

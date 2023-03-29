@@ -19,6 +19,8 @@ seatunnel:
     engine:
         backup-count: 1
         print-execution-info-interval: 2
+        operation-max-retry-time: 40
+        operation-retry-sleep: 1000
         slot-service:
             dynamic-slot: false
             slot-num: 5

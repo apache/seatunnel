@@ -317,6 +317,7 @@ public class PhysicalPlanGenerator {
                                 ShuffleMultipleRowStrategy shuffleMultipleRowStrategy =
                                         (ShuffleMultipleRowStrategy) shuffleStrategy;
                                 for (Flow nextFlow : flow.getNext()) {
+                                    AtomicInteger atomicInteger = new AtomicInteger(-1);
                                     PhysicalExecutionFlow sinkFlow =
                                             (PhysicalExecutionFlow) nextFlow;
                                     SinkAction sinkAction = (SinkAction) sinkFlow.getAction();
@@ -385,9 +386,9 @@ public class PhysicalPlanGenerator {
                                     fillCheckpointPlan(seaTunnelTask);
                                     physicalVertices.add(
                                             new PhysicalVertex(
-                                                    parallelismIndex,
+                                                    atomicInteger.incrementAndGet(),
                                                     executorService,
-                                                    shuffleFlow.getAction().getParallelism(),
+                                                    flow.getNext().size(),
                                                     new TaskGroupDefaultImpl(
                                                             taskGroupLocation,
                                                             shuffleFlow.getAction().getName()

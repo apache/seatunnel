@@ -20,7 +20,6 @@ package org.apache.seatunnel.engine.server.task.operation.source;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.SerializationUtils;
-import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -61,11 +60,11 @@ public class SourceReaderEventOperation extends SourceEventOperation {
                     return null;
                 },
                 new RetryUtils.RetryMaterial(
-                        Constant.OPERATION_RETRY_TIME,
+                        server.getSeaTunnelConfig().getEngineConfig().getOperationMaxRetryTime(),
                         true,
                         exception ->
                                 exception instanceof TaskGroupContextNotFoundException
                                         && !server.taskIsEnded(taskLocation.getTaskGroupLocation()),
-                        Constant.OPERATION_RETRY_SLEEP));
+                        server.getSeaTunnelConfig().getEngineConfig().getOperationRetrySleep()));
     }
 }
