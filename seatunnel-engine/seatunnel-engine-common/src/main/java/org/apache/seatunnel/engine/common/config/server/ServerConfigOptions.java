@@ -49,7 +49,7 @@ public class ServerConfigOptions {
     public static final Option<Integer> JOB_METRICS_BACKUP_INTERVAL =
             Options.key("job-metrics-backup-interval")
                     .intType()
-                    .defaultValue(60)
+                    .defaultValue(10)
                     .withDescription("The interval (in seconds) of job metrics backups");
 
     public static final Option<ThreadShareMode> TASK_EXECUTION_THREAD_SHARE_MODE =
@@ -138,4 +138,16 @@ public class ServerConfigOptions {
                     .type(new TypeReference<Map<String, String>>() {})
                     .noDefaultValue()
                     .withDescription("The checkpoint storage instance configuration.");
+
+    public static final Option<Integer> OPERATION_MAX_RETRY_TIME =
+            Options.key("operation-max-retry-time")
+                    .intType()
+                    .defaultValue(60)
+                    .withDescription("The max retry time of operation.");
+
+    public static final Option<Integer> OPERATION_RETRY_SLEEP =
+            Options.key("operation-retry-sleep")
+                    .intType()
+                    .defaultValue(5000)
+                    .withDescription("The max retry time of operation.");
 }

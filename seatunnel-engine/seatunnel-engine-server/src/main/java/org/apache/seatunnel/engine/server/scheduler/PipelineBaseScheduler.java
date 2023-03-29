@@ -97,7 +97,10 @@ public class PipelineBaseScheduler implements JobScheduler {
                             pipeline,
                             jobMaster.getOwnedSlotProfiles(pipeline.getPipelineLocation()));
 
-            log.debug("slotProfiles: {}", slotProfiles);
+            log.debug(
+                    "slotProfiles: {}, PipelineLocation: {}",
+                    slotProfiles,
+                    pipeline.getPipelineLocation());
 
             // To ensure release pipeline resource after new master node active, we need store
             // slotProfiles first and then deploy tasks.
