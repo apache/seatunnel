@@ -33,7 +33,7 @@ jobs:
   code-style:
     if: github.repository == 'WhaleOps/SeaTunnel'
     name: Code style
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v3
@@ -46,7 +46,7 @@ jobs:
     if: github.repository == 'WhaleOps/SeaTunnel'
     name: Sanity check results
     needs: [ code-style ]
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 10
     steps:
       - name: Check results
@@ -54,7 +54,7 @@ jobs:
           [[ ${{ needs.code-style.result }} == 'success' ]] || exit 1;
 
   changes:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     # To prevent error when there's no base branch
     if: github.repository == 'WhaleOps/SeaTunnel'
     timeout-minutes: 10
@@ -231,8 +231,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
-        os: [ 'ubuntu-latest', 'windows-latest' ]
+        java: [ '8' ]
+        os: [ 'self-hosted' ]
     timeout-minutes: 36
     steps:
       - uses: actions/checkout@v2
@@ -267,8 +267,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
+        java: [ '8' ]
+        os: [ 'high-mem' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -278,6 +278,9 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11.0'
       - name: run updated modules integration test
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |
@@ -292,8 +295,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
+        java: [ '8' ]
+        os: [ 'high-mem' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -303,6 +306,9 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11.0'
       - name: run updated modules integration test
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |
@@ -321,8 +327,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
+        java: [ '8' ]
+        os: [ 'high-mem' ]
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v2
@@ -350,8 +356,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
+        java: [ '8' ]
+        os: [ 'high-mem' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -378,8 +384,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
+        java: [ '8' ]
+        os: [ 'high-mem' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -406,8 +412,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
+        java: [ '8' ]
+        os: [ 'high-mem' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -417,6 +423,9 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11.0'
       - name: run some modules integration test
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -433,8 +442,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
+        java: [ '8' ]
+        os: [ 'high-mem' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -444,6 +453,9 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11.0'
       - name: run some modules integration test
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -460,8 +472,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
+        java: [ '8' ]
+        os: [ 'high-mem' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -471,6 +483,9 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11.0'
       - name: run some modules integration test
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -487,8 +502,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
+        java: [ '8' ]
+        os: [ 'high-mem' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -498,6 +513,9 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11.0'
       - name: run some modules integration test
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -514,8 +532,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
+        java: [ '8' ]
+        os: [ 'high-mem' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -525,6 +543,9 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11.0'
       - name: run some modules integration test
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -541,8 +562,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
+        java: [ '8' ]
+        os: [ 'high-mem' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -565,8 +586,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
+        java: [ '8' ]
+        os: [ 'high-mem' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -589,8 +610,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
+        java: [ '8' ]
+        os: [ 'high-mem' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
