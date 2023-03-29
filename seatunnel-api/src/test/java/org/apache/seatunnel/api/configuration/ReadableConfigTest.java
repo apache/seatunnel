@@ -241,4 +241,46 @@ public class ReadableConfigTest {
                             Assertions.assertEquals(map, value.get(0));
                         });
     }
+
+    @Test
+    public void testEnumListOption() {
+        List<OptionTest.TestMode> list = new ArrayList<>();
+        list.add(OptionTest.TestMode.EARLIEST);
+        list.add(OptionTest.TestMode.LATEST);
+        Assertions.assertEquals(
+                list,
+                config.get(
+                        Options.key("option.enum-list")
+                                .listType(OptionTest.TestMode.class)
+                                .noDefaultValue()));
+    }
+
+    @Test
+    public void testNumericListOption() {
+        List<Integer> list = new ArrayList<>();
+        list.add(1);
+        list.add(2);
+        Assertions.assertEquals(
+                list,
+                config.get(
+                        Options.key("option.numeric-list")
+                                .listType(Integer.class)
+                                .noDefaultValue()));
+        List<Long> list2 = new ArrayList<>();
+        list2.add(1L);
+        list2.add(2L);
+        Assertions.assertEquals(
+                list2,
+                config.get(
+                        Options.key("option.numeric-list").listType(Long.class).noDefaultValue()));
+        List<Double> list3 = new ArrayList<>();
+        list3.add(1D);
+        list3.add(2D);
+        Assertions.assertEquals(
+                list3,
+                config.get(
+                        Options.key("option.numeric-list")
+                                .listType(Double.class)
+                                .noDefaultValue()));
+    }
 }

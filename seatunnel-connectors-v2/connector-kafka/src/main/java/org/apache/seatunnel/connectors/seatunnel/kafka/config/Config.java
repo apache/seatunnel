@@ -155,4 +155,20 @@ public class Config {
                     .defaultValue(-1L)
                     .withDescription(
                             "The interval for dynamically discovering topics and partitions.");
+
+    public static final Option<MessageFormatErrorHandleWay> MESSAGE_FORMAT_ERROR_HANDLE_WAY_OPTION =
+            Options.key("format_error_handle_way")
+                    .enumType(MessageFormatErrorHandleWay.class)
+                    .defaultValue(MessageFormatErrorHandleWay.FAIL)
+                    .withDescription(
+                            "The processing method of data format error. The default value is fail, and the optional value is (fail, skip). "
+                                    + "When fail is selected, data format error will block and an exception will be thrown. "
+                                    + "When skip is selected, data format error will skip this line data.");
+
+    public static final Option<KafkaSemantics> SEMANTICS =
+            Options.key("semantics")
+                    .enumType(KafkaSemantics.class)
+                    .defaultValue(KafkaSemantics.NON)
+                    .withDescription(
+                            "Semantics that can be chosen EXACTLY_ONCE/AT_LEAST_ONCE/NON, default NON.");
 }

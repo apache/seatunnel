@@ -15,29 +15,42 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform;
+package org.apache.seatunnel.transform.replace;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.transform.SplitTransform.KEY_OUTPUT_FIELDS;
-import static org.apache.seatunnel.transform.SplitTransform.KEY_SEPARATOR;
-import static org.apache.seatunnel.transform.SplitTransform.KEY_SPLIT_FIELD;
-
 @AutoService(Factory.class)
-public class SplitTransformFactory implements TableTransformFactory {
+public class ReplaceTransformFactory implements TableTransformFactory {
     @Override
     public String factoryIdentifier() {
-        return "Split";
+        return "Replace";
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(KEY_SEPARATOR, KEY_SPLIT_FIELD, KEY_OUTPUT_FIELDS)
+                .required(
+                        ReplaceTransformConfig.KEY_REPLACE_FIELD,
+                        ReplaceTransformConfig.KEY_PATTERN,
+                        ReplaceTransformConfig.KEY_REPLACEMENT)
+                .optional(ReplaceTransformConfig.KEY_IS_REGEX)
+                .conditional(
+                        ReplaceTransformConfig.KEY_IS_REGEX,
+                        true,
+                        ReplaceTransformConfig.KEY_REPLACE_FIRST)
                 .build();
+    }
+
+    @Override
+    public TableTransform createTransform(TableFactoryContext context) {
+        CatalogTable catalogTable = context.getCatalogTable();
+        return () -> new ReplaceTransform(context.getOptions(), catalogTable);
     }
 }

@@ -21,6 +21,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -35,5 +36,9 @@ public class PrimaryKey implements Serializable {
 
     public static PrimaryKey of(String primaryKey, List<String> columnNames) {
         return new PrimaryKey(primaryKey, columnNames);
+    }
+
+    public PrimaryKey copy() {
+        return PrimaryKey.of(primaryKey, new ArrayList<>(columnNames));
     }
 }
