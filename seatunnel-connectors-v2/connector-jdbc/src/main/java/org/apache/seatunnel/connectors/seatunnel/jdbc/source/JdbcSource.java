@@ -92,6 +92,10 @@ public class JdbcSource
             partitionParameter =
                     initPartitionParameterAndExtendSql(
                             jdbcConnectionProvider.getOrEstablishConnection());
+            if (partitionParameter == null) {
+                LOG.info("Change partition number to 1.");
+                jdbcSourceConfig.setPartitionNumber(1);
+            }
         } catch (Exception e) {
             throw new PrepareFailException("jdbc", PluginType.SOURCE, e.toString());
         }
@@ -182,14 +186,18 @@ public class JdbcSource
                                         "SELECT MAX(%s),MIN(%s) " + "FROM (%s) tt",
                                         columnName, columnName, query))) {
             if (rs.next()) {
-                max =
-                        jdbcSourceConfig.getPartitionUpperBound().isPresent()
-                                ? jdbcSourceConfig.getPartitionUpperBound().get()
-                                : Long.parseLong(rs.getString(1));
-                min =
-                        jdbcSourceConfig.getPartitionLowerBound().isPresent()
-                                ? jdbcSourceConfig.getPartitionLowerBound().get()
-                                : Long.parseLong(rs.getString(2));
+                if (rs.getString(1) != null && rs.getString(2) != null) {
+                    max =
+                            jdbcSourceConfig.getPartitionUpperBound().isPresent()
+                                    ? jdbcSourceConfig.getPartitionUpperBound().get()
+                                    : Long.parseLong(rs.getString(1));
+                    min =
+                            jdbcSourceConfig.getPartitionLowerBound().isPresent()
+                                    ? jdbcSourceConfig.getPartitionLowerBound().get()
+                                    : Long.parseLong(rs.getString(2));
+                } else {
+                    return null;
+                }
             }
         }
         return new PartitionParameter(
@@ -217,6 +225,11 @@ public class JdbcSource
             }
             PartitionParameter partitionParameter =
                     initPartitionParameter(partitionColumn, connection);
+            if (partitionParameter == null) {
+                LOG.info(
+                        "The partition_column parameter is configured, but the result set is empty");
+                return null;
+            }
             query =
                     String.format(
                             "SELECT * FROM (%s) tt where "
