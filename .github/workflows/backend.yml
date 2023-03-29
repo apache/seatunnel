@@ -46,7 +46,7 @@ jobs:
     if: github.repository == 'WhaleOps/SeaTunnel'
     name: Sanity check results
     needs: [ code-style ]
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 10
     steps:
       - name: Check results
@@ -54,7 +54,7 @@ jobs:
           [[ ${{ needs.code-style.result }} == 'success' ]] || exit 1;
 
   changes:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     # To prevent error when there's no base branch
     if: github.repository == 'WhaleOps/SeaTunnel'
     timeout-minutes: 10
@@ -232,7 +232,7 @@ jobs:
     strategy:
       matrix:
         java: [ '8', '11' ]
-        os: [ 'ubuntu-latest', 'windows-latest' ]
+        os: [ 'self-hosted' ]
     timeout-minutes: 36
     steps:
       - uses: actions/checkout@v2
@@ -268,7 +268,7 @@ jobs:
     strategy:
       matrix:
         java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
+        os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -293,7 +293,7 @@ jobs:
     strategy:
       matrix:
         java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
+        os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -322,7 +322,7 @@ jobs:
     strategy:
       matrix:
         java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
+        os: [ 'self-hosted' ]
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v2
@@ -351,7 +351,7 @@ jobs:
     strategy:
       matrix:
         java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
+        os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -379,7 +379,7 @@ jobs:
     strategy:
       matrix:
         java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
+        os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -407,7 +407,7 @@ jobs:
     strategy:
       matrix:
         java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
+        os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -434,7 +434,7 @@ jobs:
     strategy:
       matrix:
         java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
+        os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -461,7 +461,7 @@ jobs:
     strategy:
       matrix:
         java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
+        os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -488,7 +488,7 @@ jobs:
     strategy:
       matrix:
         java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
+        os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -515,7 +515,7 @@ jobs:
     strategy:
       matrix:
         java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
+        os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -542,7 +542,7 @@ jobs:
     strategy:
       matrix:
         java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
+        os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -566,7 +566,7 @@ jobs:
     strategy:
       matrix:
         java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
+        os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -590,7 +590,7 @@ jobs:
     strategy:
       matrix:
         java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
+        os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
