@@ -274,7 +274,7 @@ jobs:
     strategy:
       matrix:
         java: [ '8' ]
-        os: [ 'high-mem' ]
+        os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -302,7 +302,7 @@ jobs:
     strategy:
       matrix:
         java: [ '8' ]
-        os: [ 'high-mem' ]
+        os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -334,7 +334,7 @@ jobs:
     strategy:
       matrix:
         java: [ '8' ]
-        os: [ 'high-mem' ]
+        os: [ 'self-hosted' ]
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v2
@@ -363,7 +363,7 @@ jobs:
     strategy:
       matrix:
         java: [ '8' ]
-        os: [ 'high-mem' ]
+        os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -391,7 +391,7 @@ jobs:
     strategy:
       matrix:
         java: [ '8' ]
-        os: [ 'high-mem' ]
+        os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -419,7 +419,7 @@ jobs:
     strategy:
       matrix:
         java: [ '8' ]
-        os: [ 'high-mem' ]
+        os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -449,7 +449,7 @@ jobs:
     strategy:
       matrix:
         java: [ '8' ]
-        os: [ 'high-mem' ]
+        os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -479,7 +479,7 @@ jobs:
     strategy:
       matrix:
         java: [ '8' ]
-        os: [ 'high-mem' ]
+        os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -509,7 +509,7 @@ jobs:
     strategy:
       matrix:
         java: [ '8' ]
-        os: [ 'high-mem' ]
+        os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -539,7 +539,7 @@ jobs:
     strategy:
       matrix:
         java: [ '8' ]
-        os: [ 'high-mem' ]
+        os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -569,7 +569,7 @@ jobs:
     strategy:
       matrix:
         java: [ '8' ]
-        os: [ 'high-mem' ]
+        os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -593,7 +593,7 @@ jobs:
     strategy:
       matrix:
         java: [ '8' ]
-        os: [ 'high-mem' ]
+        os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
@@ -617,7 +617,7 @@ jobs:
     strategy:
       matrix:
         java: [ '8' ]
-        os: [ 'high-mem' ]
+        os: [ 'self-hosted' ]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2

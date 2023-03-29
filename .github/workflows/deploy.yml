@@ -22,7 +22,10 @@ on:
   push:
     branches:
       - '**-release'
-      - deploy/*
+
+env:
+  GH_USERNAME: ${{ secrets.GH_PACKAGE_USER }}
+  GH_TOKEN: ${{ secrets.GH_PACKAGE_TOKEN }}
 
 jobs:
   deploy:
@@ -44,5 +47,6 @@ jobs:
       - name: Deploy
         shell: bash
         run: |
-          ./mvnw --batch-mode --settings maven-settings.xml clean deploy \
+          ./mvnw --batch-mode -T4C -q --settings maven-settings.xml clean deploy \
+                -DaltDeploymentRepository=github::default::https://maven.pkg.github.com/whaleops/SeaTunnel \
                 -Dmaven.test.skip -Dcheckstyle.skip -DretryFailedDeploymentCount=5

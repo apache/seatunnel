@@ -17,33 +17,29 @@
 
 package org.apache.seatunnel.api.table.catalog;
 
-import java.io.Serializable;
-import java.util.Objects;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
+import java.io.Serializable;
+
+@Getter
+@EqualsAndHashCode
+@RequiredArgsConstructor
 public final class TablePath implements Serializable {
     private static final long serialVersionUID = 1L;
     private final String databaseName;
     private final String schemaName;
     private final String tableName;
 
-    private TablePath(String databaseName, String tableName) {
-        this(databaseName, null, tableName);
-    }
-
-    private TablePath(String databaseName, String schemaName, String tableName) {
-        this.databaseName = databaseName;
-        this.schemaName = schemaName;
-        this.tableName = tableName;
-    }
-
     public static TablePath of(String fullName) {
         String[] paths = fullName.split("\\.");
 
         if (paths.length == 2) {
-            return new TablePath(paths[0], paths[1]);
+            return of(paths[0], paths[1]);
         }
         if (paths.length == 3) {
-            return new TablePath(paths[0], paths[1], paths[2]);
+            return of(paths[0], paths[1], paths[2]);
         }
         throw new IllegalArgumentException(
                 String.format("Cannot get split '%s' to get databaseName and tableName", fullName));
@@ -57,14 +53,11 @@ public final class TablePath implements Serializable {
         return new TablePath(databaseName, schemaName, tableName);
     }
 
-    public String getDatabaseName() {
-        return databaseName;
+    public static TablePath of(String databaseName, String schemaName, String tableName) {
+        return new TablePath(databaseName, schemaName, tableName);
     }
 
-    public String getTableName() {
-        if (schemaName == null) {
-            return tableName;
-        }
+    public String getSchemaAndTableName() {
         return String.format("%s.%s", schemaName, tableName);
     }
 
@@ -87,28 +80,6 @@ public final class TablePath implements Serializable {
         return String.format(
                 "%s%s%s.%s%s%s.%s%s%s",
                 quote, databaseName, quote, quote, schemaName, quote, quote, tableName, quote);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        TablePath that = (TablePath) o;
-
-        return Objects.equals(databaseName, that.databaseName)
-                && Objects.equals(schemaName, that.schemaName)
-                && Objects.equals(tableName, that.tableName);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(databaseName, schemaName, tableName);
     }
 
     @Override

@@ -123,11 +123,17 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     protected Optional<PrimaryKey> getPrimaryKey(
             DatabaseMetaData metaData, String database, String table) throws SQLException {
+        return getPrimaryKey(metaData, database, table, table);
+    }
+
+    protected Optional<PrimaryKey> getPrimaryKey(
+            DatabaseMetaData metaData, String database, String schema, String table)
+            throws SQLException {
 
         // According to the Javadoc of java.sql.DatabaseMetaData#getPrimaryKeys,
         // the returned primary key columns are ordered by COLUMN_NAME, not by KEY_SEQ.
         // We need to sort them based on the KEY_SEQ value.
-        ResultSet rs = metaData.getPrimaryKeys(database, table, table);
+        ResultSet rs = metaData.getPrimaryKeys(database, schema, table);
 
         // seq -> column name
         List<Pair<Integer, String>> primaryKeyColumns = new ArrayList<>();
@@ -154,7 +160,13 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     protected List<ConstraintKey> getConstraintKeys(
             DatabaseMetaData metaData, String database, String table) throws SQLException {
-        ResultSet resultSet = metaData.getIndexInfo(database, table, table, false, false);
+        return getConstraintKeys(metaData, database, table, table);
+    }
+
+    protected List<ConstraintKey> getConstraintKeys(
+            DatabaseMetaData metaData, String database, String schema, String table)
+            throws SQLException {
+        ResultSet resultSet = metaData.getIndexInfo(database, schema, table, false, false);
         // index name -> index
         Map<String, ConstraintKey> constraintKeyMap = new HashMap<>();
         while (resultSet.next()) {
@@ -189,7 +201,13 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     protected Optional<String> getColumnDefaultValue(
             DatabaseMetaData metaData, String table, String column) throws SQLException {
-        try (ResultSet resultSet = metaData.getColumns(null, null, table, column)) {
+        return getColumnDefaultValue(metaData, null, null, table, column);
+    }
+
+    protected Optional<String> getColumnDefaultValue(
+            DatabaseMetaData metaData, String database, String schema, String table, String column)
+            throws SQLException {
+        try (ResultSet resultSet = metaData.getColumns(database, schema, table, column)) {
             while (resultSet.next()) {
                 String defaultValue = resultSet.getString("COLUMN_DEF");
                 return Optional.ofNullable(defaultValue);
