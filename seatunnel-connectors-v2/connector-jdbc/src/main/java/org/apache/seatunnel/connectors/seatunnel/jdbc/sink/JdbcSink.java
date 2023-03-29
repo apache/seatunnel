@@ -30,7 +30,10 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcAggregatedCommitInfo;
@@ -40,6 +43,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
 import com.google.auto.service.AutoService;
 
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -69,6 +74,8 @@ public class JdbcSink
         this.jdbcSinkConfig = JdbcSinkConfig.of(config);
         this.pluginConfig = pluginConfig;
         this.dialect = JdbcDialectLoader.load(jdbcSinkConfig.getJdbcConnectionConfig().getUrl());
+
+        preSqlExecution();
     }
 
     @Override
@@ -139,5 +146,24 @@ public class JdbcSink
             return Optional.of(new DefaultSerializer<>());
         }
         return Optional.empty();
+    }
+
+    private void preSqlExecution() {
+        if (this.jdbcSinkConfig.getPreSql() != null) {
+            for (String preSql : this.jdbcSinkConfig.getPreSql()) {
+                try {
+                    JdbcConnectionProvider jdbcConnectionProvider =
+                            new SimpleJdbcConnectionProvider(
+                                    jdbcSinkConfig.getJdbcConnectionConfig());
+                    try (Connection conn = jdbcConnectionProvider.getOrEstablishConnection();
+                            PreparedStatement pStmt = conn.prepareStatement(preSql)) {
+                        pStmt.execute();
+                    }
+                } catch (Exception e) {
+                    throw new PrepareFailException(
+                            getPluginName(), PluginType.SINK, e.getMessage());
+                }
+            }
+        }
     }
 }

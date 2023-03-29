@@ -36,6 +36,7 @@ public class JdbcSinkConfig implements Serializable {
     private JdbcConnectionConfig jdbcConnectionConfig;
     private boolean isExactlyOnce;
     private String simpleSql;
+    private List<String> preSql;
     private String database;
     private String table;
     private List<String> primaryKeys;
@@ -56,6 +57,8 @@ public class JdbcSinkConfig implements Serializable {
         } else {
             builder.simpleSql(config.get(JdbcOptions.QUERY));
         }
+        Optional<List<String>> optionalPreSql = config.getOptional(JdbcOptions.PRE_SQL);
+        optionalPreSql.ifPresent(builder::preSql);
         return builder.build();
     }
 }

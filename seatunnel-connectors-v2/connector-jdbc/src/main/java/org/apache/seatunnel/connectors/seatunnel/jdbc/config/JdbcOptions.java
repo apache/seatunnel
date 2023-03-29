@@ -47,6 +47,9 @@ public interface JdbcOptions {
     Option<String> QUERY =
             Options.key("query").stringType().noDefaultValue().withDescription("query");
 
+    Option<List<String>> PRE_SQL =
+            Options.key("pre_sql").listType().noDefaultValue().withDescription("pre_sql");
+
     Option<Boolean> AUTO_COMMIT =
             Options.key("auto_commit")
                     .booleanType()
