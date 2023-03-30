@@ -105,19 +105,14 @@ public class BsonToRowDataConverters implements Serializable {
     private BsonToRowDataConverter createMapConverter(MapType<?, ?> type) {
         BsonToRowDataConverter valueConverter = createConverter(type.getValueType());
         return (reuse, value) -> {
-                JsonNode jsonNode = (JsonNode)value;
-                Map<Object, Object> v = new HashMap<>();
-                jsonNode.fields()
-                        .forEachRemaining(
-                                new Consumer<Map.Entry<String, JsonNode>>() {
-                                    @Override
-                                    public void accept(Map.Entry<String, JsonNode> entry) {
-                                        v.put(
-                                                entry.getKey(),
-                                                valueConverter.convert(null, entry.getValue()));
-                                    }
-                                });
-                return v;
+                Map<Object, Object> map = new HashMap<>();
+                Document document = (Document) value;
+                for (String key : document.keySet()) {
+                    map.put(
+                            key,
+                            valueConverter.convert(null, document.get(key)));
+                }
+                return map;
             };
     }
 
