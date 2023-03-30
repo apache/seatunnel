@@ -138,6 +138,9 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 startTime = LocalDateTime.now();
                 // create job proxy
                 ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+                if (clientCommandArgs.isAsync()) {
+                    return;
+                }
                 // register cancelJob hook
                 Runtime.getRuntime()
                         .addShutdownHook(
