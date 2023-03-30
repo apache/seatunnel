@@ -1,14 +1,21 @@
 package org.apache.seatunnel.connectors.seatunnel.mongodb.serde;
 
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.bson.Document;
 
 import java.io.Serializable;
+import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Consumer;
 
 public class BsonToRowDataConverters implements Serializable {
 
@@ -42,9 +49,9 @@ public class BsonToRowDataConverters implements Serializable {
             case DECIMAL:
                 return (reuse, value) -> ((BigDecimal) value);
             case ARRAY:
-                return null;
+                return createArrayConverter((ArrayType<?, ?>) type);
             case MAP:
-                return null;
+                return createMapConverter((MapType<?, ?>) type);
             case ROW:
                 return this.createRowConverter((SeaTunnelRowType) type);
             default:
@@ -57,7 +64,6 @@ public class BsonToRowDataConverters implements Serializable {
     }
 
     private BsonToRowDataConverter createRowConverter(SeaTunnelRowType type) {
-        String[] fieldNames = type.getFieldNames();
         SeaTunnelDataType<?>[] fieldTypes = type.getFieldTypes();
         BsonToRowDataConverter[] fieldConverters =
                 Arrays.stream(fieldTypes)
@@ -74,13 +80,45 @@ public class BsonToRowDataConverters implements Serializable {
             }
 
             Document document = (Document) value;
+            Object[] fieldValue = document.values().toArray();
             for (int i = 0; i < fieldCount; ++i) {
-                String fieldName = fieldNames[i];
-                Object fieldValue = document.get(fieldName);
-                containerRow.setField(i, fieldConverters[i].convert(null, fieldValue));
+                Object o = fieldValue[i];
+                containerRow.setField(i, fieldConverters[i].convert(null, o));
             }
             return containerRow;
         };
+    }
+
+    private BsonToRowDataConverter createArrayConverter(ArrayType<?, ?> type) {
+        BsonToRowDataConverter valueConverter = createConverter(type.getElementType());
+        return (reuse, value) -> {
+            JsonNode jsonNode = (JsonNode)value;
+                Object arr =
+                        Array.newInstance(type.getElementType().getTypeClass(), jsonNode.size());
+                for (int i = 0; i < jsonNode.size(); i++) {
+                    Array.set(arr, i, valueConverter.convert(null, jsonNode.get(i)));
+                }
+                return arr;
+            };
+        }
+
+    private BsonToRowDataConverter createMapConverter(MapType<?, ?> type) {
+        BsonToRowDataConverter valueConverter = createConverter(type.getValueType());
+        return (reuse, value) -> {
+                JsonNode jsonNode = (JsonNode)value;
+                Map<Object, Object> v = new HashMap<>();
+                jsonNode.fields()
+                        .forEachRemaining(
+                                new Consumer<Map.Entry<String, JsonNode>>() {
+                                    @Override
+                                    public void accept(Map.Entry<String, JsonNode> entry) {
+                                        v.put(
+                                                entry.getKey(),
+                                                valueConverter.convert(null, entry.getValue()));
+                                    }
+                                });
+                return v;
+            };
     }
 
     private BsonToRowDataConverter wrapIntoNullableConverter(BsonToRowDataConverter converter) {
