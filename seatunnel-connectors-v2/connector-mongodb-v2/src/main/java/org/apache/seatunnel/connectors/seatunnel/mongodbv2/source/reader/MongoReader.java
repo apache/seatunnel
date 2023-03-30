@@ -81,7 +81,7 @@ public class MongoReader implements SourceReader<SeaTunnelRow, MongoSplit> {
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         synchronized (output.getCheckpointLock()) {
-           currentSplit = pendingSplits.poll();
+            currentSplit = pendingSplits.poll();
             if (null != currentSplit) {
                 if (cursor != null) {
                     // current split is in-progress
@@ -112,7 +112,6 @@ public class MongoReader implements SourceReader<SeaTunnelRow, MongoSplit> {
     @Override
     public List<MongoSplit> snapshotState(long checkpointId) throws Exception {
         return new ArrayList<>(Collections.singleton(currentSplit));
-
     }
 
     @Override
