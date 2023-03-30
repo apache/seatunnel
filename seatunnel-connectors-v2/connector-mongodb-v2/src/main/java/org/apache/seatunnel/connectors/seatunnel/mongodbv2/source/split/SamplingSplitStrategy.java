@@ -38,10 +38,6 @@ import java.util.stream.IntStream;
 
 import static java.util.stream.Collectors.toList;
 
-/**
- * A split strategy that splits a collection via key ranges (default to '_id' field). The ranges are
- * automatically calculated based on collection stats and sampling.
- */
 public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
 
     private final MongoClientProvider clientProvider;
