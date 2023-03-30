@@ -19,6 +19,7 @@
 - [Hbase] Add hbase sink connector #4049
 - [Github] Add Github source connector #4155
 - [CDC] Support export debezium-json format to kafka #4339
+- [Mongodb] Refactor mongodb source connector #4389
 ### Formats
 - [Canal]Support read canal format message #3950
 
