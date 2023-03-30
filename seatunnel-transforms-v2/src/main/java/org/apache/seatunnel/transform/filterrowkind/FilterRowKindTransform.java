@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform;
+package org.apache.seatunnel.transform.filterrowkind;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
@@ -29,44 +30,41 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.transform.common.FilterRowTransform;
 
 import com.google.auto.service.AutoService;
+import lombok.NoArgsConstructor;
+import lombok.NonNull;
 import lombok.ToString;
 
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 @ToString(of = {"includeKinds", "excludeKinds"})
 @AutoService(SeaTunnelTransform.class)
+@NoArgsConstructor
 public class FilterRowKindTransform extends FilterRowTransform {
-    public static final Option<List<RowKind>> INCLUDE_KINDS =
-            Options.key("include_kinds")
-                    .listType(RowKind.class)
-                    .noDefaultValue()
-                    .withDescription("the row kinds to include");
-    public static final Option<List<RowKind>> EXCLUDE_KINDS =
-            Options.key("exclude_kinds")
-                    .listType(RowKind.class)
-                    .noDefaultValue()
-                    .withDescription("the row kinds to exclude");
+    public static String PLUGIN_NAME = "FilterRowKind";
 
     private Set<RowKind> includeKinds = Collections.emptySet();
     private Set<RowKind> excludeKinds = Collections.emptySet();
 
-    @Override
-    public String getPluginName() {
-        return "FilterRowKind";
+    public FilterRowKindTransform(
+            @NonNull ReadonlyConfig config, @NonNull CatalogTable inputCatalogTable) {
+        super(inputCatalogTable);
+        initConfig(config);
     }
 
     @Override
-    protected void setConfig(Config pluginConfig) {
-        if (pluginConfig.hasPath(INCLUDE_KINDS.key())) {
-            includeKinds =
-                    new HashSet<>(pluginConfig.getEnumList(RowKind.class, INCLUDE_KINDS.key()));
-        }
-        if (pluginConfig.hasPath(EXCLUDE_KINDS.key())) {
+    public String getPluginName() {
+        return PLUGIN_NAME;
+    }
+
+    private void initConfig(ReadonlyConfig config) {
+        if (config.get(FilterRowKinkTransformConfig.INCLUDE_KINDS) == null) {
             excludeKinds =
-                    new HashSet<>(pluginConfig.getEnumList(RowKind.class, EXCLUDE_KINDS.key()));
+                    new HashSet<RowKind>(config.get(FilterRowKinkTransformConfig.EXCLUDE_KINDS));
+        } else {
+            includeKinds =
+                    new HashSet<RowKind>(config.get(FilterRowKinkTransformConfig.INCLUDE_KINDS));
         }
         if ((includeKinds.isEmpty() && excludeKinds.isEmpty())
                 || (!includeKinds.isEmpty() && !excludeKinds.isEmpty())) {
@@ -74,16 +72,25 @@ public class FilterRowKindTransform extends FilterRowTransform {
                     CommonErrorCode.ILLEGAL_ARGUMENT,
                     String.format(
                             "These options(%s,%s) are mutually exclusive, allowing only one set of options to be configured.",
-                            INCLUDE_KINDS.key(), EXCLUDE_KINDS.key()));
+                            FilterRowKinkTransformConfig.INCLUDE_KINDS.key(),
+                            FilterRowKinkTransformConfig.EXCLUDE_KINDS.key()));
         }
     }
 
     @Override
+    protected void setConfig(Config pluginConfig) {
+        ConfigValidator.of(ReadonlyConfig.fromConfig(pluginConfig))
+                .validate(new FilterRowKindTransformFactory().optionRule());
+        initConfig(ReadonlyConfig.fromConfig(pluginConfig));
+    }
+
+    @Override
     protected SeaTunnelRow transformRow(SeaTunnelRow inputRow) {
-        if (!excludeKinds.isEmpty()) {
-            return excludeKinds.contains(inputRow.getRowKind()) ? null : inputRow;
+        if (!this.excludeKinds.isEmpty()) {
+            return this.excludeKinds.contains(inputRow.getRowKind()) ? null : inputRow;
         }
-        if (!includeKinds.isEmpty()) {
+        if (!this.includeKinds.isEmpty()) {
+            Set<RowKind> includeKinds = this.includeKinds;
             return includeKinds.contains(inputRow.getRowKind()) ? inputRow : null;
         }
         throw new SeaTunnelRuntimeException(

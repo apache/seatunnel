@@ -15,33 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform;
+package org.apache.seatunnel.transform.filterrowkind;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.transform.ReplaceTransform.KEY_IS_REGEX;
-import static org.apache.seatunnel.transform.ReplaceTransform.KEY_PATTERN;
-import static org.apache.seatunnel.transform.ReplaceTransform.KEY_REPLACEMENT;
-import static org.apache.seatunnel.transform.ReplaceTransform.KEY_REPLACE_FIELD;
-import static org.apache.seatunnel.transform.ReplaceTransform.KEY_REPLACE_FIRST;
-
 @AutoService(Factory.class)
-public class ReplaceTransformFactory implements TableTransformFactory {
+public class FilterRowKindTransformFactory implements TableTransformFactory {
     @Override
     public String factoryIdentifier() {
-        return "Replace";
+        return FilterRowKindTransform.PLUGIN_NAME;
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(KEY_REPLACE_FIELD, KEY_PATTERN, KEY_REPLACEMENT)
-                .optional(KEY_IS_REGEX)
-                .conditional(KEY_IS_REGEX, true, KEY_REPLACE_FIRST)
+                .exclusive(
+                        FilterRowKinkTransformConfig.EXCLUDE_KINDS,
+                        FilterRowKinkTransformConfig.INCLUDE_KINDS)
                 .build();
+    }
+
+    @Override
+    public TableTransform createTransform(TableFactoryContext context) {
+        CatalogTable catalogTable = context.getCatalogTable();
+        return () -> new FilterRowKindTransform(context.getOptions(), catalogTable);
     }
 }
