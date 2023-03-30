@@ -15,12 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.mongodb.source.split;
+package org.apache.seatunnel.connectors.seatunnel.mongodbv2.serde;
 
-import java.util.List;
+import org.bson.Document;
 
-/** MongoSplitStrategy defines how to partition a Mongo data set into {@link MongoSplit}s. */
-public interface MongoSplitStrategy {
+import java.io.Serializable;
 
-    List<MongoSplit> split();
+/** DocumentDeserializer deserialize {@link Document} into POJOs or other Java objects . */
+public interface DocumentDeserializer<T> extends Serializable {
+
+    /**
+     * Serialize input Java objects into {@link Document}.
+     *
+     * @param document The input {@link Document}.
+     * @return The serialized object.
+     */
+    T deserialize(Document document);
 }

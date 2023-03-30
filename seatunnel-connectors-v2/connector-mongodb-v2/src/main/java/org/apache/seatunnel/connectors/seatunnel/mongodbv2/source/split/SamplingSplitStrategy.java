@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.mongodb.source.split;
+package org.apache.seatunnel.connectors.seatunnel.mongodbv2.source.split;
 
-import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoClientProvider;
+import org.apache.seatunnel.connectors.seatunnel.mongodbv2.internal.MongoClientProvider;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 

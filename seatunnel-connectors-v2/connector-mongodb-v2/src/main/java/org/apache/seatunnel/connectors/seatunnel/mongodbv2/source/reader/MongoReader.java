@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.mongodb.source.reader;
+package org.apache.seatunnel.connectors.seatunnel.mongodbv2.source.reader;
 
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoClientProvider;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.DocumentDeserializer;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplit;
+import org.apache.seatunnel.connectors.seatunnel.mongodbv2.internal.MongoClientProvider;
+import org.apache.seatunnel.connectors.seatunnel.mongodbv2.serde.DocumentDeserializer;
+import org.apache.seatunnel.connectors.seatunnel.mongodbv2.source.split.MongoSplit;
 
 import org.bson.Document;
 

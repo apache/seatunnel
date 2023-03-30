@@ -19,7 +19,9 @@ package org.apache.seatunnel.e2e.connector.v2.mongodb;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.awaitility.Awaitility;
 import org.bson.Document;
@@ -53,7 +55,10 @@ import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 
 @Slf4j
-public class MongodbIT extends TestSuiteBase implements TestResource {
+@DisabledOnContainer(
+        value = {},
+        type = {EngineType.FLINK, EngineType.SPARK})
+public class MongodbV2IT extends TestSuiteBase implements TestResource {
 
     private static final String MONGODB_IMAGE = "mongo:latest";
     private static final String MONGODB_CONTAINER_HOST = "e2e_mongodb";
@@ -69,7 +74,7 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testMongodbSourceToAssertSink(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/mongodb_source_to_assert.conf");
+        Container.ExecResult execResult = container.executeJob("/mongodbV2_source_to_assert.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 

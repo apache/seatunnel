@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.mongodb.internal;
+package org.apache.seatunnel.connectors.seatunnel.mongodbv2.internal;
 
 import com.google.common.base.Preconditions;
 

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.mongodb.source;
+package org.apache.seatunnel.connectors.seatunnel.mongodbv2.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -24,19 +24,21 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoClientProvider;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoColloctionProviders;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.DocumentDeserializer;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.DocumentRowDataDeserializer;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.source.enumerator.MongoSplitEnumerator;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.source.reader.MongoReader;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplit;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplitStrategy;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.SamplingSplitStrategy;
+import org.apache.seatunnel.connectors.seatunnel.mongodbv2.config.MongodbConfig;
+import org.apache.seatunnel.connectors.seatunnel.mongodbv2.internal.MongoClientProvider;
+import org.apache.seatunnel.connectors.seatunnel.mongodbv2.internal.MongoColloctionProviders;
+import org.apache.seatunnel.connectors.seatunnel.mongodbv2.serde.DocumentDeserializer;
+import org.apache.seatunnel.connectors.seatunnel.mongodbv2.serde.DocumentRowDataDeserializer;
+import org.apache.seatunnel.connectors.seatunnel.mongodbv2.source.enumerator.MongoSplitEnumerator;
+import org.apache.seatunnel.connectors.seatunnel.mongodbv2.source.reader.MongoReader;
+import org.apache.seatunnel.connectors.seatunnel.mongodbv2.source.split.MongoSplit;
+import org.apache.seatunnel.connectors.seatunnel.mongodbv2.source.split.MongoSplitStrategy;
+import org.apache.seatunnel.connectors.seatunnel.mongodbv2.source.split.SamplingSplitStrategy;
 
 import org.bson.BsonDocument;
 
@@ -44,18 +46,10 @@ import com.google.auto.service.AutoService;
 
 import java.util.ArrayList;
 
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.COLLECTION;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CONNECTION;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CONNECTOR_IDENTITY;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.MATCHQUERY;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.PROJECTION;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.SPLIT_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.SPLIT_SIZE;
-
 @AutoService(SeaTunnelSource.class)
-public class MongodbSource
-        implements SeaTunnelSource<SeaTunnelRow, MongoSplit, ArrayList<MongoSplit>> {
+public class MongodbV2Source
+        implements SeaTunnelSource<SeaTunnelRow, MongoSplit, ArrayList<MongoSplit>>,
+                SupportColumnProjection {
 
     private MongoClientProvider clientProvider;
 
@@ -67,17 +61,17 @@ public class MongodbSource
 
     @Override
     public String getPluginName() {
-        return CONNECTOR_IDENTITY;
+        return "MongodbV2";
     }
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        if (pluginConfig.hasPath(CONNECTION.key())
-                && pluginConfig.hasPath(DATABASE.key())
-                && pluginConfig.hasPath(COLLECTION.key())) {
-            String connection = pluginConfig.getString(CONNECTION.key());
-            String database = pluginConfig.getString(DATABASE.key());
-            String collection = pluginConfig.getString(COLLECTION.key());
+        if (pluginConfig.hasPath(MongodbConfig.CONNECTION.key())
+                && pluginConfig.hasPath(MongodbConfig.DATABASE.key())
+                && pluginConfig.hasPath(MongodbConfig.COLLECTION.key())) {
+            String connection = pluginConfig.getString(MongodbConfig.CONNECTION.key());
+            String database = pluginConfig.getString(MongodbConfig.DATABASE.key());
+            String collection = pluginConfig.getString(MongodbConfig.COLLECTION.key());
             clientProvider =
                     MongoColloctionProviders.getBuilder()
                             .connectionString(connection)
@@ -94,23 +88,25 @@ public class MongodbSource
         splitStrategy =
                 SamplingSplitStrategy.builder()
                         .setMatchQuery(
-                                pluginConfig.hasPath(MATCHQUERY.key())
+                                pluginConfig.hasPath(MongodbConfig.MATCHQUERY.key())
                                         ? BsonDocument.parse(
-                                                pluginConfig.getString(MATCHQUERY.key()))
+                                                pluginConfig.getString(
+                                                        MongodbConfig.MATCHQUERY.key()))
                                         : new BsonDocument())
                         .setClientProvider(clientProvider)
                         .setSplitKey(
-                                pluginConfig.hasPath(SPLIT_KEY.key())
-                                        ? pluginConfig.getString(SPLIT_KEY.key())
-                                        : SPLIT_KEY.defaultValue())
+                                pluginConfig.hasPath(MongodbConfig.SPLIT_KEY.key())
+                                        ? pluginConfig.getString(MongodbConfig.SPLIT_KEY.key())
+                                        : MongodbConfig.SPLIT_KEY.defaultValue())
                         .setSizePerSplit(
-                                pluginConfig.hasPath(SPLIT_SIZE.key())
-                                        ? pluginConfig.getLong(SPLIT_SIZE.key())
-                                        : SPLIT_SIZE.defaultValue())
+                                pluginConfig.hasPath(MongodbConfig.SPLIT_SIZE.key())
+                                        ? pluginConfig.getLong(MongodbConfig.SPLIT_SIZE.key())
+                                        : MongodbConfig.SPLIT_SIZE.defaultValue())
                         .setProjection(
-                                pluginConfig.hasPath(PROJECTION.key())
+                                pluginConfig.hasPath(MongodbConfig.PROJECTION.key())
                                         ? BsonDocument.parse(
-                                                pluginConfig.getString(PROJECTION.key()))
+                                                pluginConfig.getString(
+                                                        MongodbConfig.PROJECTION.key()))
                                         : new BsonDocument())
                         .build();
     }

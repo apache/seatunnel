@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.mongodb.config;
+package org.apache.seatunnel.connectors.seatunnel.mongodbv2.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
 public class MongodbConfig {
 
-    public static final String CONNECTOR_IDENTITY = "Mongodb";
+    public static final String CONNECTOR_IDENTITY = "MongodbV2";
 
     public static final Option<String> CONNECTION =
             Options.key("connection")

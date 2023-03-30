@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.mongodb.source.enumerator;
+package org.apache.seatunnel.connectors.seatunnel.mongodbv2.source.enumerator;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.exception.MongodbConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoClientProvider;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplit;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplitStrategy;
+import org.apache.seatunnel.connectors.seatunnel.mongodbv2.exception.MongodbConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.mongodbv2.internal.MongoClientProvider;
+import org.apache.seatunnel.connectors.seatunnel.mongodbv2.source.split.MongoSplit;
+import org.apache.seatunnel.connectors.seatunnel.mongodbv2.source.split.MongoSplitStrategy;
 
 import com.google.common.collect.Lists;
 import com.mongodb.MongoNamespace;

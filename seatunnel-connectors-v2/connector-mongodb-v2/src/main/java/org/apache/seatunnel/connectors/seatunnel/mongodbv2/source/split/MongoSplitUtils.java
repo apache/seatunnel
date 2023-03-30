@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.mongodb.source.split;
+package org.apache.seatunnel.connectors.seatunnel.mongodbv2.source.split;
 
 import org.bson.BsonDocument;
 

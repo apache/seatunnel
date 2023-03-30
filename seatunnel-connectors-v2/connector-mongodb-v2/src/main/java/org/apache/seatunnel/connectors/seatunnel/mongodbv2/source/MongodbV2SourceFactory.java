@@ -15,40 +15,44 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.mongodb.source;
+package org.apache.seatunnel.connectors.seatunnel.mongodbv2.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.mongodbv2.config.MongodbConfig;
+import org.apache.seatunnel.connectors.seatunnel.mongodbv2.source.split.MongoSplit;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.COLLECTION;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CONNECTOR_IDENTITY;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.MATCHQUERY;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.SPLIT_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.SPLIT_SIZE;
+import java.util.ArrayList;
 
 @AutoService(Factory.class)
-public class MongodbSourceFactory implements TableSourceFactory {
+public class MongodbV2SourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
-        return CONNECTOR_IDENTITY;
+        return "MongodbV2";
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(COLLECTION, DATABASE, COLLECTION, CatalogTableUtil.SCHEMA)
-                .optional(MATCHQUERY, SPLIT_SIZE, SPLIT_KEY)
+                .required(
+                        MongodbConfig.COLLECTION,
+                        MongodbConfig.DATABASE,
+                        MongodbConfig.COLLECTION,
+                        CatalogTableUtil.SCHEMA)
+                .optional(
+                        MongodbConfig.MATCHQUERY, MongodbConfig.SPLIT_SIZE, MongodbConfig.SPLIT_KEY)
                 .build();
     }
 
     @Override
-    public Class<? extends SeaTunnelSource> getSourceClass() {
-        return MongodbSource.class;
+    public Class<? extends SeaTunnelSource<SeaTunnelRow, MongoSplit, ArrayList<MongoSplit>>>
+            getSourceClass() {
+        return MongodbV2Source.class;
     }
 }
