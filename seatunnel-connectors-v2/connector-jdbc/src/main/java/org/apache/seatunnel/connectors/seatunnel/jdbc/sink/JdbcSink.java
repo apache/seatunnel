@@ -108,9 +108,9 @@ public class JdbcSink
         this.config = ReadonlyConfig.fromConfig(pluginConfig);
         this.jdbcSinkConfig = JdbcSinkConfig.of(config);
         this.dialect = JdbcDialectLoader.load(jdbcSinkConfig.getJdbcConnectionConfig().getUrl());
+        this.dataSaveMode = DataSaveMode.KEEP_SCHEMA_AND_DATA;
 
         preSqlExecution();
-        this.dataSaveMode = DataSaveMode.KEEP_SCHEMA_AND_DATA;
     }
 
     @Override
