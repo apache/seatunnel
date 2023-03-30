@@ -117,7 +117,8 @@ public class MongodbV2IT extends TestSuiteBase implements TestResource {
                 .append("c_timestamp", new Date(1652770572000L)) // 2023-05-17 00:36:12
                 .append(
                         "c_row",
-                        new Document("c_map",
+                        new Document(
+                                        "c_map",
                                         new Document("OQBqH", "wTKAH")
                                                 .append("rkvlO", "KXStv")
                                                 .append("pCMEX", "CyJKx")
