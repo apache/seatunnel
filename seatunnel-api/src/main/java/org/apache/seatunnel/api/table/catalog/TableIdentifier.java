@@ -51,7 +51,7 @@ public final class TableIdentifier implements Serializable {
     }
 
     public TableIdentifier copy() {
-        return TableIdentifier.of(catalogName, databaseName, tableName);
+        return TableIdentifier.of(catalogName, databaseName, schemaName, tableName);
     }
 
     @Override

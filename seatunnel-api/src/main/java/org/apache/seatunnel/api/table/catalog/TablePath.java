@@ -53,10 +53,6 @@ public final class TablePath implements Serializable {
         return new TablePath(databaseName, schemaName, tableName);
     }
 
-    public static TablePath of(String databaseName, String schemaName, String tableName) {
-        return new TablePath(databaseName, schemaName, tableName);
-    }
-
     public String getSchemaAndTableName() {
         return String.format("%s.%s", schemaName, tableName);
     }
