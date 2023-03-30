@@ -67,7 +67,7 @@ public class ClientJobProxy implements Job {
     private void submitJob(JobImmutableInformation jobImmutableInformation) {
         LOGGER.info(
                 String.format(
-                        "start submit job, job id: %s, with plugin jar %s",
+                        "Start submit job, job id: %s, with plugin jar %s",
                         jobImmutableInformation.getJobId(),
                         jobImmutableInformation.getPluginJarsUrls()));
         ClientMessage request =
@@ -79,6 +79,10 @@ public class ClientJobProxy implements Job {
         PassiveCompletableFuture<Void> submitJobFuture =
                 seaTunnelHazelcastClient.requestOnMasterAndGetCompletableFuture(request);
         submitJobFuture.join();
+        LOGGER.info(
+                String.format(
+                        "Submit job finished, job id: %s, job name: %s",
+                        jobImmutableInformation.getJobId(), jobImmutableInformation.getJobName()));
     }
 
     /**
