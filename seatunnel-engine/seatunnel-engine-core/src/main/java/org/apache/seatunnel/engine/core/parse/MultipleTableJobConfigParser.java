@@ -135,7 +135,9 @@ public class MultipleTableJobConfigParser {
         if (!commonPluginJars.isEmpty()) {
             connectorJars.addAll(commonPluginJars);
         }
-        ClassLoader classLoader = new SeaTunnelChildFirstClassLoader(connectorJars);
+        ClassLoader classLoader =
+                new SeaTunnelChildFirstClassLoader(
+                        connectorJars, Thread.currentThread().getContextClassLoader());
         Thread.currentThread().setContextClassLoader(classLoader);
         List<? extends Config> sourceConfigs =
                 TypesafeConfigUtils.getConfigList(
