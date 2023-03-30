@@ -33,4 +33,8 @@ public class PaimonSinkState implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private List<CommitMessage> committables;
+
+    private String commitUser;
+
+    private long checkpointId;
 }

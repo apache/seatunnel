@@ -30,30 +30,36 @@ import org.apache.paimon.data.InternalRow;
 import org.apache.paimon.operation.Lock;
 import org.apache.paimon.table.Table;
 import org.apache.paimon.table.sink.BatchTableCommit;
-import org.apache.paimon.table.sink.BatchTableWrite;
 import org.apache.paimon.table.sink.CommitMessage;
 import org.apache.paimon.table.sink.InnerTableCommit;
-import org.apache.paimon.table.sink.TableWrite;
+import org.apache.paimon.table.sink.StreamTableWrite;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
 public class PaimonSinkWriter
         implements SinkWriter<SeaTunnelRow, PaimonCommitInfo, PaimonSinkState> {
 
+    private String commitUser = UUID.randomUUID().toString();
+
+    private long checkpointId = 0;
+
+    private List<CommitMessage> committables = new ArrayList<>();
+
     private final Table table;
 
     private final SeaTunnelRowType seaTunnelRowType;
 
     private final SinkWriter.Context context;
-
-    private TableWrite tableWrite;
 
     public PaimonSinkWriter(Context context, Table table, SeaTunnelRowType seaTunnelRowType) {
         this.table = table;
@@ -69,8 +75,16 @@ public class PaimonSinkWriter
         this.table = table;
         this.seaTunnelRowType = seaTunnelRowType;
         this.context = context;
+        if (Objects.isNull(states) || states.isEmpty()) {
+            return;
+        }
+        this.commitUser = states.get(0).getCommitUser();
+        this.checkpointId = states.get(0).getCheckpointId();
         try (BatchTableCommit tableCommit =
-                ((InnerTableCommit) table.newBatchWriteBuilder().newCommit())
+                ((InnerTableCommit)
+                                table.newStreamWriteBuilder()
+                                        .withCommitUser(commitUser)
+                                        .newCommit())
                         .withLock(Lock.emptyFactory().create())) {
             List<CommitMessage> commitables =
                     states.stream()
@@ -87,10 +101,9 @@ public class PaimonSinkWriter
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
-        if (Objects.isNull(tableWrite)) {
-            tableWrite = table.newBatchWriteBuilder().newWrite();
-        }
         InternalRow rowData = RowConverter.convert(element, seaTunnelRowType);
+        StreamTableWrite tableWrite =
+                table.newStreamWriteBuilder().withCommitUser(commitUser).newWrite();
         try {
             tableWrite.write(rowData);
         } catch (Exception e) {
@@ -103,11 +116,13 @@ public class PaimonSinkWriter
 
     @Override
     public Optional<PaimonCommitInfo> prepareCommit() throws IOException {
-        if (Objects.isNull(tableWrite)) {
-            return Optional.empty();
-        }
         try {
-            List<CommitMessage> fileCommittables = ((BatchTableWrite) tableWrite).prepareCommit();
+            List<CommitMessage> fileCommittables =
+                    table.newStreamWriteBuilder()
+                            .withCommitUser(commitUser)
+                            .newWrite()
+                            .prepareCommit(true, checkpointId);
+            committables.addAll(fileCommittables);
             return Optional.of(new PaimonCommitInfo(fileCommittables));
         } catch (Exception e) {
             throw new PaimonConnectorException(
@@ -115,6 +130,15 @@ public class PaimonSinkWriter
                     "Flink table store failed to prepare commit",
                     e);
         }
+    }
+
+    @Override
+    public List<PaimonSinkState> snapshotState(long checkpointId) throws IOException {
+        this.checkpointId = checkpointId;
+        PaimonSinkState paimonSinkState =
+                new PaimonSinkState(new ArrayList<>(committables), commitUser, checkpointId);
+        committables.clear();
+        return Collections.singletonList(paimonSinkState);
     }
 
     @Override
