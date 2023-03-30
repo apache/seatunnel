@@ -84,6 +84,12 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     private boolean listJob = false;
 
     @Parameter(
+            names = {"--async"},
+            description =
+                    "Run the job asynchronously, when the job is submitted, the client will exit")
+    private boolean async = false;
+
+    @Parameter(
             names = {"-cj", "--close-job"},
             description = "Close client the task will also be closed")
     private boolean closeJob = true;
