@@ -132,6 +132,9 @@ public class MultipleTableJobConfigParser {
         } catch (IOException e) {
             LOGGER.info(e);
         }
+        if (!commonPluginJars.isEmpty()) {
+            connectorJars.addAll(commonPluginJars);
+        }
         ClassLoader classLoader = new SeaTunnelChildFirstClassLoader(connectorJars);
         Thread.currentThread().setContextClassLoader(classLoader);
         List<? extends Config> sourceConfigs =
