@@ -21,8 +21,9 @@ import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplit
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.SamplingSplitStrategy;
 
-import com.google.auto.service.AutoService;
 import org.bson.BsonDocument;
+
+import com.google.auto.service.AutoService;
 
 import java.util.ArrayList;
 
@@ -54,7 +55,9 @@ public class MongodbSource
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        if (pluginConfig.hasPath(CONNECTION.key()) && pluginConfig.hasPath(DATABASE.key()) && pluginConfig.hasPath(COLLECTION.key())){
+        if (pluginConfig.hasPath(CONNECTION.key())
+                && pluginConfig.hasPath(DATABASE.key())
+                && pluginConfig.hasPath(COLLECTION.key())) {
             String connection = pluginConfig.getString(CONNECTION.key());
             String database = pluginConfig.getString(DATABASE.key());
             String collection = pluginConfig.getString(COLLECTION.key());
@@ -70,19 +73,28 @@ public class MongodbSource
         } else {
             this.rowType = CatalogTableUtil.buildSimpleTextSchema();
         }
-        deserializer =
-                new DocumentRowDataDeserializer(
-                        rowType.getFieldNames(),
-                        rowType);
+        deserializer = new DocumentRowDataDeserializer(rowType.getFieldNames(), rowType);
         splitStrategy =
                 SamplingSplitStrategy.builder()
-                        .setMatchQuery(pluginConfig.hasPath(MATCHQUERY.key())
-                                ? BsonDocument.parse(pluginConfig.getString(MATCHQUERY.key())): new BsonDocument())
+                        .setMatchQuery(
+                                pluginConfig.hasPath(MATCHQUERY.key())
+                                        ? BsonDocument.parse(
+                                                pluginConfig.getString(MATCHQUERY.key()))
+                                        : new BsonDocument())
                         .setClientProvider(clientProvider)
-                        .setSplitKey(pluginConfig.hasPath(SPLIT_KEY.key()) ? pluginConfig.getString(SPLIT_KEY.key()) : SPLIT_KEY.defaultValue())
-                        .setSizePerSplit(pluginConfig.hasPath(SPLIT_SIZE.key()) ? pluginConfig.getLong(SPLIT_SIZE.key()) : SPLIT_SIZE.defaultValue())
-                        .setProjection(pluginConfig.hasPath(PROJECTION.key())
-                                ? BsonDocument.parse(pluginConfig.getString(PROJECTION.key())): new BsonDocument())
+                        .setSplitKey(
+                                pluginConfig.hasPath(SPLIT_KEY.key())
+                                        ? pluginConfig.getString(SPLIT_KEY.key())
+                                        : SPLIT_KEY.defaultValue())
+                        .setSizePerSplit(
+                                pluginConfig.hasPath(SPLIT_SIZE.key())
+                                        ? pluginConfig.getLong(SPLIT_SIZE.key())
+                                        : SPLIT_SIZE.defaultValue())
+                        .setProjection(
+                                pluginConfig.hasPath(PROJECTION.key())
+                                        ? BsonDocument.parse(
+                                                pluginConfig.getString(PROJECTION.key()))
+                                        : new BsonDocument())
                         .build();
     }
 

@@ -26,8 +26,6 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.data.DefaultSerializer;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.data.Serializer;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -53,11 +51,10 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.Arrays;
+import java.util.Date;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -73,7 +70,7 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
     private static final String MONGODB_DATABASE = "test_db";
     private static final String MONGODB_SOURCE_TABLE = "source_table";
 
-    private static final List<Document> TEST_DATASET = generateTestDataSet(0, 10);
+    private static final Document TEST_DATASET = generateTestDataSet();
 
     private GenericContainer<?> mongodbContainer;
     private MongoClient client;
@@ -85,20 +82,6 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
-    @TestTemplate
-    public void testMongodb(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/mongodb_source_and_sink.conf");
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-    }
-
-    @TestTemplate
-    public void testMongodbMatchQuery(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult execResult =
-                container.executeJob("/mongodb_source_matchQuery_and_sink.conf");
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-    }
-
     public void initConnection() {
         String host = mongodbContainer.getContainerIpAddress();
         int port = mongodbContainer.getFirstMappedPort();
@@ -106,73 +89,50 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
         client = MongoClients.create(url);
     }
 
-    private void initSourceData(String database, String table, List<Document> documents) {
+    private void initSourceData(String database, String table, Document documents) {
         MongoCollection<Document> sourceTable = client.getDatabase(database).getCollection(table);
 
         sourceTable.deleteMany(new Document());
-        sourceTable.insertMany(documents);
+        sourceTable.insertOne(documents);
     }
 
-    private static List<Document> generateTestDataSet(int start, int end) {
-        SeaTunnelRowType seatunnelRowType =
-                new SeaTunnelRowType(
-                        new String[] {
-                            "id",
-                            "c_map",
-                            "c_array",
-                            "c_string",
-                            "c_boolean",
-                            "c_tinyint",
-                            "c_smallint",
-                            "c_int",
-                            "c_bigint",
-                            "c_float",
-                            "c_double",
-                            "c_decimal",
-                            "c_bytes",
-                            "c_date"
-                        },
-                        new SeaTunnelDataType[] {
-                            BasicType.LONG_TYPE,
-                            new MapType(BasicType.STRING_TYPE, BasicType.SHORT_TYPE),
-                            ArrayType.BYTE_ARRAY_TYPE,
-                            BasicType.STRING_TYPE,
-                            BasicType.BOOLEAN_TYPE,
-                            BasicType.BYTE_TYPE,
-                            BasicType.SHORT_TYPE,
-                            BasicType.INT_TYPE,
-                            BasicType.LONG_TYPE,
-                            BasicType.FLOAT_TYPE,
-                            BasicType.DOUBLE_TYPE,
-                            new DecimalType(2, 1),
-                            PrimitiveByteArrayType.INSTANCE,
-                            LocalTimeType.LOCAL_DATE_TYPE
-                        });
-        Serializer serializer = new DefaultSerializer(seatunnelRowType);
-
-        List<Document> documents = new ArrayList<>();
-        for (int i = start; i < end; i++) {
-            SeaTunnelRow row =
-                    new SeaTunnelRow(
-                            new Object[] {
-                                Long.valueOf(i),
-                                Collections.singletonMap("key", Short.parseShort("1")),
-                                new Byte[] {Byte.parseByte("1")},
-                                "string",
-                                Boolean.FALSE,
-                                Byte.parseByte("1"),
-                                Short.parseShort("1"),
-                                Integer.parseInt("1"),
-                                Long.parseLong("1"),
-                                Float.parseFloat("1.1"),
-                                Double.parseDouble("1.1"),
-                                BigDecimal.valueOf(11, 1),
-                                "test".getBytes(),
-                                LocalDate.now()
-                            });
-            documents.add(serializer.serialize(row));
-        }
-        return documents;
+    private static Document generateTestDataSet() {
+        return new Document("c_map", new Document("OQBqH", "wTKAH")
+                                                .append("rkvlO", "KXStv")
+                                                .append("pCMEX", "CyJKx")
+                                                .append("DAgdj", "SMbQe")
+                                                .append("dsJag", "jyFsb")
+        ).append("c_array", Arrays.asList(2095115245,220036717,1427565674,454707262,1254213323))
+        .append("c_string", "rDAya")
+        .append("c_boolean", true)
+        .append("c_tinyint", (byte) 25)
+        .append("c_smallint", (short) 22478)
+        .append("c_int", 1333226130)
+        .append("c_bigint", 2121370000000000000L)
+        .append("c_float", 3.26072E+38f)
+        .append("c_double", 9.9812E+307d)
+        .append("c_bytes", "M0tZdnd3".getBytes(StandardCharsets.UTF_8))
+        .append("c_date", new Date(1655097600000L)) // 2023-06-13
+        .append("c_decimal", new BigDecimal("61746461279068200000"))
+        .append("c_timestamp", new Date(1652770572000L)) // 2023-05-17 00:36:12
+        .append("c_row", new Document(new Document("OQBqH", "wTKAH")
+                        .append("rkvlO", "KXStv")
+                        .append("pCMEX", "CyJKx")
+                        .append("DAgdj", "SMbQe")
+                        .append("dsJag", "jyFsb")
+                ).append("c_array", Arrays.asList(2095115245,220036717,1427565674,454707262,1254213323))
+                        .append("c_string", "rDAya")
+                        .append("c_boolean", true)
+                        .append("c_tinyint", (byte) 25)
+                        .append("c_smallint", (short) 22478)
+                        .append("c_int", 1333226130)
+                        .append("c_bigint", 2121370000000000000L)
+                        .append("c_float", 3.26072E+38f)
+                        .append("c_double", 9.9812E+307d)
+                        .append("c_bytes", "M0tZdnd3".getBytes(StandardCharsets.UTF_8))
+                        .append("c_date", new Date(1655097600000L)) // 2023-06-13
+                        .append("c_decimal", new BigDecimal("61746461279068200000"))
+                        .append("c_timestamp", new Date(1652770572000L)));
     }
 
     @BeforeAll

@@ -19,10 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import java.util.List;
-import java.util.Map;
 
 public class MongodbConfig {
 
@@ -32,57 +28,41 @@ public class MongodbConfig {
             Options.key("connection")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription(
-                            "In addition to the above parameters that must be specified by the Kafka producer or consumer client, "
-                                    + "the user can also specify multiple non-mandatory parameters for the producer or consumer client, "
-                                    + "covering all the producer parameters specified in the official Kafka document.");
+                    .withDescription("Link string of Mongodb");
 
     public static final Option<String> DATABASE =
             Options.key("database")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription(
-                            "Kafka topic name. If there are multiple topics, use , to split, for example: \"tpc1,tpc2\".");
+                    .withDescription("Mongodb's database name");
 
     public static final Option<String> COLLECTION =
             Options.key("collection")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription(
-                            "If pattern is set to true,the regular expression for a pattern of topic names to read from."
-                                    + " All topics in clients with names that match the specified regular expression will be subscribed by the consumer.");
+                    .withDescription("The collection name of Mongodb");
 
     public static final Option<String> MATCHQUERY =
             Options.key("matchquery")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Kafka cluster address, separated by \",\".");
-
-    public static final Option<Config> SCHEMA =
-            Options.key("schema")
-                    .objectType(Config.class)
-                    .noDefaultValue()
-                    .withDescription(
-                            "The structure of the data, including field names and field types.");
+                    .withDescription("Mongodb's query syntax");
 
     public static final Option<String> SPLIT_KEY =
             Options.key("split.key")
                     .stringType()
                     .defaultValue("_id")
-                    .withDescription(
-                            "The structure of the data, including field names and field types.");
+                    .withDescription("The key of Mongodb fragmentation");
 
     public static final Option<Long> SPLIT_SIZE =
             Options.key("split.size")
                     .longType()
                     .defaultValue(64 * 1024 * 1024L)
-                    .withDescription(
-                            "The structure of the data, including field names and field types.");
+                    .withDescription("The size of Mongodb fragment");
 
     public static final Option<String> PROJECTION =
             Options.key("projection")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription(
-                            "The structure of the data, including field names and field types.");
+                    .withDescription("Fields projection by Mongodb");
 }
