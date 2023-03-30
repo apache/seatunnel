@@ -17,15 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.v2.mongodb;
 
-import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.MapType;
-import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -97,42 +88,56 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
     }
 
     private static Document generateTestDataSet() {
-        return new Document("c_map", new Document("OQBqH", "wTKAH")
+        return new Document(
+                        "c_map",
+                        new Document("OQBqH", "wTKAH")
+                                .append("rkvlO", "KXStv")
+                                .append("pCMEX", "CyJKx")
+                                .append("DAgdj", "SMbQe")
+                                .append("dsJag", "jyFsb"))
+                .append(
+                        "c_array",
+                        Arrays.asList(2095115245, 220036717, 1427565674, 454707262, 1254213323))
+                .append("c_string", "rDAya")
+                .append("c_boolean", true)
+                .append("c_tinyint", (byte) 25)
+                .append("c_smallint", (short) 22478)
+                .append("c_int", 1333226130)
+                .append("c_bigint", 2121370000000000000L)
+                .append("c_float", 3.26072E+38f)
+                .append("c_double", 9.9812E+307d)
+                .append("c_bytes", "M0tZdnd3".getBytes(StandardCharsets.UTF_8))
+                .append("c_date", new Date(1655097600000L)) // 2023-06-13
+                .append("c_decimal", new BigDecimal("61746461279068200000"))
+                .append("c_timestamp", new Date(1652770572000L)) // 2023-05-17 00:36:12
+                .append(
+                        "c_row",
+                        new Document(
+                                        new Document("OQBqH", "wTKAH")
                                                 .append("rkvlO", "KXStv")
                                                 .append("pCMEX", "CyJKx")
                                                 .append("DAgdj", "SMbQe")
-                                                .append("dsJag", "jyFsb")
-        ).append("c_array", Arrays.asList(2095115245,220036717,1427565674,454707262,1254213323))
-        .append("c_string", "rDAya")
-        .append("c_boolean", true)
-        .append("c_tinyint", (byte) 25)
-        .append("c_smallint", (short) 22478)
-        .append("c_int", 1333226130)
-        .append("c_bigint", 2121370000000000000L)
-        .append("c_float", 3.26072E+38f)
-        .append("c_double", 9.9812E+307d)
-        .append("c_bytes", "M0tZdnd3".getBytes(StandardCharsets.UTF_8))
-        .append("c_date", new Date(1655097600000L)) // 2023-06-13
-        .append("c_decimal", new BigDecimal("61746461279068200000"))
-        .append("c_timestamp", new Date(1652770572000L)) // 2023-05-17 00:36:12
-        .append("c_row", new Document(new Document("OQBqH", "wTKAH")
-                        .append("rkvlO", "KXStv")
-                        .append("pCMEX", "CyJKx")
-                        .append("DAgdj", "SMbQe")
-                        .append("dsJag", "jyFsb")
-                ).append("c_array", Arrays.asList(2095115245,220036717,1427565674,454707262,1254213323))
-                        .append("c_string", "rDAya")
-                        .append("c_boolean", true)
-                        .append("c_tinyint", (byte) 25)
-                        .append("c_smallint", (short) 22478)
-                        .append("c_int", 1333226130)
-                        .append("c_bigint", 2121370000000000000L)
-                        .append("c_float", 3.26072E+38f)
-                        .append("c_double", 9.9812E+307d)
-                        .append("c_bytes", "M0tZdnd3".getBytes(StandardCharsets.UTF_8))
-                        .append("c_date", new Date(1655097600000L)) // 2023-06-13
-                        .append("c_decimal", new BigDecimal("61746461279068200000"))
-                        .append("c_timestamp", new Date(1652770572000L)));
+                                                .append("dsJag", "jyFsb"))
+                                .append(
+                                        "c_array",
+                                        Arrays.asList(
+                                                2095115245,
+                                                220036717,
+                                                1427565674,
+                                                454707262,
+                                                1254213323))
+                                .append("c_string", "rDAya")
+                                .append("c_boolean", true)
+                                .append("c_tinyint", (byte) 25)
+                                .append("c_smallint", (short) 22478)
+                                .append("c_int", 1333226130)
+                                .append("c_bigint", 2121370000000000000L)
+                                .append("c_float", 3.26072E+38f)
+                                .append("c_double", 9.9812E+307d)
+                                .append("c_bytes", "M0tZdnd3".getBytes(StandardCharsets.UTF_8))
+                                .append("c_date", new Date(1655097600000L)) // 2023-06-13
+                                .append("c_decimal", new BigDecimal("61746461279068200000"))
+                                .append("c_timestamp", new Date(1652770572000L)));
     }
 
     @BeforeAll
