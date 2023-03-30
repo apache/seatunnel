@@ -32,6 +32,7 @@ import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
 import org.apache.seatunnel.transform.common.SeaTunnelRowAccessor;
 
 import com.google.auto.service.AutoService;
+import lombok.NoArgsConstructor;
 import lombok.NonNull;
 
 import java.util.Arrays;
@@ -41,13 +42,10 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 @AutoService(SeaTunnelTransform.class)
+@NoArgsConstructor
 public class SplitTransform extends MultipleFieldOutputTransform {
     private SplitTransformConfig splitTransformConfig;
     private int splitFieldIndex;
-
-    public SplitTransform() {
-        super();
-    }
 
     public SplitTransform(
             @NonNull SplitTransformConfig splitTransformConfig,

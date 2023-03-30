@@ -15,19 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.tidb;
 
-import org.apache.seatunnel.transform.filterrowkind.FilterRowKindTransformFactory;
+import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+public class TiDBCatalog extends MySqlCatalog {
 
-public class FilterRowKindTransformFactoryTest {
+    static {
+        SYS_DATABASES.clear();
+        SYS_DATABASES.add("information_schema");
+        SYS_DATABASES.add("mysql");
+        SYS_DATABASES.add("performance_schema");
+        SYS_DATABASES.add("metrics_schema");
+    }
 
-    @Test
-    public void testOptionRule() throws Exception {
-        FilterRowKindTransformFactory filterRowKindTransformFactory =
-                new FilterRowKindTransformFactory();
-        Assertions.assertNotNull(filterRowKindTransformFactory.optionRule());
+    public TiDBCatalog(
+            String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
+        super(catalogName, username, pwd, urlInfo);
     }
 }
