@@ -69,7 +69,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-mongodb</artifactId>
+            <artifactId>connector-mongodb-v2</artifactId>
             <version>${project.version}</version>
         </dependency>
         <!--   seatunnel connectors   -->

@@ -22,8 +22,18 @@ import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplit
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.SamplingSplitStrategy;
 
 import com.google.auto.service.AutoService;
+import org.bson.BsonDocument;
 
 import java.util.ArrayList;
+
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.COLLECTION;
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CONNECTION;
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CONNECTOR_IDENTITY;
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.MATCHQUERY;
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.PROJECTION;
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.SPLIT_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.SPLIT_SIZE;
 
 @AutoService(SeaTunnelSource.class)
 public class MongodbSource
@@ -39,19 +49,22 @@ public class MongodbSource
 
     @Override
     public String getPluginName() {
-        return "Mongodb";
+        return CONNECTOR_IDENTITY;
     }
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        String CONNECT_STRING = String.format("mongodb://%s:%d/%s", "localhost", 27017, "test");
-        clientProvider =
-                MongoColloctionProviders.getBuilder()
-                        .connectionString(CONNECT_STRING)
-                        .database("test")
-                        .collection("users")
-                        .build();
-
+        if (pluginConfig.hasPath(CONNECTION.key()) && pluginConfig.hasPath(DATABASE.key()) && pluginConfig.hasPath(COLLECTION.key())){
+            String connection = pluginConfig.getString(CONNECTION.key());
+            String database = pluginConfig.getString(DATABASE.key());
+            String collection = pluginConfig.getString(COLLECTION.key());
+            clientProvider =
+                    MongoColloctionProviders.getBuilder()
+                            .connectionString(connection)
+                            .database(database)
+                            .collection(collection)
+                            .build();
+        }
         if (pluginConfig.hasPath(CatalogTableUtil.SCHEMA.key())) {
             this.rowType = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
         } else {
@@ -59,16 +72,17 @@ public class MongodbSource
         }
         deserializer =
                 new DocumentRowDataDeserializer(
-                        new String[] {
-                            "_id", "userId", "userName", "age", "score", "user_id", "gold", "level"
-                        },
+                        rowType.getFieldNames(),
                         rowType);
-        //        deserializer = document -> new SeaTunnelRow(document.values().toArray());
-
         splitStrategy =
                 SamplingSplitStrategy.builder()
-                        // .setMatchQuery(gte("user_id", 1000).toBsonDocument())
+                        .setMatchQuery(pluginConfig.hasPath(MATCHQUERY.key())
+                                ? BsonDocument.parse(pluginConfig.getString(MATCHQUERY.key())): new BsonDocument())
                         .setClientProvider(clientProvider)
+                        .setSplitKey(pluginConfig.hasPath(SPLIT_KEY.key()) ? pluginConfig.getString(SPLIT_KEY.key()) : SPLIT_KEY.defaultValue())
+                        .setSizePerSplit(pluginConfig.hasPath(SPLIT_SIZE.key()) ? pluginConfig.getLong(SPLIT_SIZE.key()) : SPLIT_SIZE.defaultValue())
+                        .setProjection(pluginConfig.hasPath(PROJECTION.key())
+                                ? BsonDocument.parse(pluginConfig.getString(PROJECTION.key())): new BsonDocument())
                         .build();
     }
 
