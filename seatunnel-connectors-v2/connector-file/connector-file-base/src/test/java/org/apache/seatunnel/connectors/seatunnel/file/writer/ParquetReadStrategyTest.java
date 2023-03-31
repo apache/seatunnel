@@ -121,6 +121,22 @@ public class ParquetReadStrategyTest {
         parquetReadStrategy.read(path, testCollector);
     }
 
+    @Test
+    public void testParquetReadArray() throws Exception {
+        URL resource = ParquetReadStrategyTest.class.getResource("/array.parquet");
+        Assertions.assertNotNull(resource);
+        String path = Paths.get(resource.toURI()).toString();
+        ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        parquetReadStrategy.init(localConf);
+        SeaTunnelRowType seaTunnelRowTypeInfo =
+                parquetReadStrategy.getSeaTunnelRowTypeInfo(localConf, path);
+        Assertions.assertNotNull(seaTunnelRowTypeInfo);
+        System.out.println(seaTunnelRowTypeInfo);
+        TestCollector testCollector = new TestCollector();
+        parquetReadStrategy.read(path, testCollector);
+    }
+
     public static class TestCollector implements Collector<SeaTunnelRow> {
 
         private final List<SeaTunnelRow> rows = new ArrayList<>();
