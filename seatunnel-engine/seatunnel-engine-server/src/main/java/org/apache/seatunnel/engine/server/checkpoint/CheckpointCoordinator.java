@@ -60,6 +60,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow;
@@ -126,6 +127,8 @@ public class CheckpointCoordinator {
     private final ExecutorService executorService;
 
     private CompletableFuture<CheckpointCoordinatorState> checkpointCoordinatorFuture;
+
+    private AtomicReference<String> errorByPhysicalVertex = new AtomicReference<>();
 
     @SneakyThrows
     public CheckpointCoordinator(
@@ -212,15 +215,16 @@ public class CheckpointCoordinator {
     }
 
     private void handleCoordinatorError(CheckpointCloseReason reason, Throwable e) {
+        CheckpointException checkpointException = new CheckpointException(reason, e);
+        errorByPhysicalVertex.compareAndSet(null, ExceptionUtils.getMessage(checkpointException));
+
         if (checkpointCoordinatorFuture.isDone()) {
             return;
         }
-        CheckpointException checkpointException = new CheckpointException(reason, e);
         cleanPendingCheckpoint(reason);
         checkpointCoordinatorFuture.complete(
                 new CheckpointCoordinatorState(
-                        CheckpointCoordinatorStatus.FAILED,
-                        ExceptionUtils.getMessage(checkpointException)));
+                        CheckpointCoordinatorStatus.FAILED, errorByPhysicalVertex.get()));
         checkpointManager.handleCheckpointError(pipelineId);
     }
 
@@ -295,6 +299,7 @@ public class CheckpointCoordinator {
 
     protected void restoreCoordinator(boolean alreadyStarted) {
         LOG.info("received restore CheckpointCoordinator with alreadyStarted= " + alreadyStarted);
+        errorByPhysicalVertex = new AtomicReference<>();
         checkpointCoordinatorFuture = new CompletableFuture<>();
         cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET);
         shutdown = false;
