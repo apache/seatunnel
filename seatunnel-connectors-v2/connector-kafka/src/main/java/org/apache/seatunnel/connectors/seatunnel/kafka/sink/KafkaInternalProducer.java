@@ -17,21 +17,22 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
+import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.clients.producer.internals.TransactionManager;
+import org.apache.kafka.common.errors.ProducerFencedException;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
-
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.internals.TransactionManager;
-import org.apache.kafka.common.errors.ProducerFencedException;
-
-import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.concurrent.Future;
 
 /** A {@link KafkaProducer} that allow resume transaction from transactionId */
 @Slf4j
@@ -55,21 +56,39 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
 
     @Override
     public void beginTransaction() throws ProducerFencedException {
+        if (log.isDebugEnabled()) {
+            log.debug("KafkaInternalProducer.beginTransaction. " + this.transactionalId);
+        }
         super.beginTransaction();
     }
 
     @Override
     public void commitTransaction() throws ProducerFencedException {
+        if (log.isDebugEnabled()) {
+            log.debug("KafkaInternalProducer.commitTransaction." + this.transactionalId);
+        }
         super.commitTransaction();
     }
 
     @Override
     public void abortTransaction() throws ProducerFencedException {
+        if (log.isDebugEnabled()) {
+            log.debug("KafkaInternalProducer.abortTransaction." + this.transactionalId);
+        }
+
         super.abortTransaction();
     }
 
     public void setTransactionalId(String transactionalId) {
+        if (log.isDebugEnabled()) {
+            log.debug("KafkaInternalProducer.abortTransaction. Target transactionalId=" + transactionalId);
+        }
+
         if (!transactionalId.equals(this.transactionalId)) {
+            if (log.isDebugEnabled()) {
+                log.debug("KafkaInternalProducer.abortTransaction. Current transactionalId={} not match target transactionalId={}",
+                        this.transactionalId, transactionalId);
+            }
             Object transactionManager = getTransactionManager();
             synchronized (transactionManager) {
                 ReflectionUtils.setField(transactionManager, "transactionalId", transactionalId);
@@ -80,6 +99,14 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
                 this.transactionalId = transactionalId;
             }
         }
+    }
+
+    @Override
+    public Future<RecordMetadata> send(ProducerRecord<K, V> record) {
+        if (log.isDebugEnabled()) {
+            log.debug("KafkaInternalProducer.send. " + transactionalId);
+        }
+        return super.send(record);
     }
 
     public short getEpoch() {

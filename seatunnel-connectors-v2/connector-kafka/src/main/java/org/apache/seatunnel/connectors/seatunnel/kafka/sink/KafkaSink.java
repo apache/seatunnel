@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
@@ -46,6 +46,7 @@ import java.util.Optional;
  * {@link KafkaSinkWriter} and {@link KafkaSinkCommitter}.
  */
 @AutoService(SeaTunnelSink.class)
+@Slf4j
 @NoArgsConstructor
 public class KafkaSink
         implements SeaTunnelSink<
@@ -79,6 +80,9 @@ public class KafkaSink
     @Override
     public SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState> createWriter(
             SinkWriter.Context context) {
+        if (log.isDebugEnabled()) {
+            log.debug("KafkaSink.createWriter");
+        }
         return new KafkaSinkWriter(
                 context, seaTunnelRowType, pluginConfig, Collections.emptyList());
     }
@@ -86,6 +90,9 @@ public class KafkaSink
     @Override
     public SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState> restoreWriter(
             SinkWriter.Context context, List<KafkaSinkState> states) {
+        if (log.isDebugEnabled()) {
+            log.debug("KafkaSink.restoreWriter");
+        }
         return new KafkaSinkWriter(context, seaTunnelRowType, pluginConfig, states);
     }
 
