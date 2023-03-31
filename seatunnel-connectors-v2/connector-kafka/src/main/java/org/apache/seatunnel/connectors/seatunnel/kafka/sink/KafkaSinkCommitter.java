@@ -47,8 +47,14 @@ public class KafkaSinkCommitter implements SinkCommitter<KafkaCommitInfo> {
         }
         for (KafkaCommitInfo commitInfo : commitInfos) {
             String transactionId = commitInfo.getTransactionId();
+            if (commitInfo.getRecordNumInTransaction() != null && commitInfo.getRecordNumInTransaction() == 0) {
+                if (log.isDebugEnabled()) {
+                    log.debug("Committing transaction skipped, transaction is empty  {}", transactionId);
+                }
+                continue;
+            }
             if (log.isDebugEnabled()) {
-                log.debug("Committing transaction {}", transactionId);
+                log.debug("Committing transaction {} commitInfo={}", transactionId, commitInfo);
             }
             KafkaProducer<?, ?> producer = getProducer(commitInfo);
             producer.commitTransaction();
