@@ -269,7 +269,7 @@ public class CheckpointManager {
     }
 
     protected InvocationFuture<?> sendOperationToMemberNode(TaskOperation operation) {
-        log.info(
+        log.debug(
                 "Sead Operation : "
                         + operation.getClass().getSimpleName()
                         + " to "
