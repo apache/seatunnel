@@ -43,6 +43,7 @@
         <teradata.version>17.20.00.12</teradata.version>
         <redshift.version>2.1.0.9</redshift.version>
         <saphana.version>2.14.7</saphana.version>
+        <snowflake.version>3.13.29</snowflake.version>
     </properties>
 
     <dependencyManagement>
@@ -122,6 +123,12 @@
                 <version>${saphana.version}</version>
                 <scope>provided</scope>
             </dependency>
+
+            <dependency>
+                <groupId>net.snowflake</groupId>
+                <artifactId>snowflake-jdbc</artifactId>
+                <version>${snowflake.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -184,5 +191,6 @@
             <groupId>com.sap.cloud.db.jdbc</groupId>
             <artifactId>ngdbc</artifactId>
         </dependency>
+
     </dependencies>
 </project>
