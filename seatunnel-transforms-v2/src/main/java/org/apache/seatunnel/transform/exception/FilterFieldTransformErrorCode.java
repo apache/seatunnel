@@ -15,18 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform;
+package org.apache.seatunnel.transform.exception;
 
-import org.apache.seatunnel.transform.filter.FilterFieldTransformFactory;
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+public enum FilterFieldTransformErrorCode implements SeaTunnelErrorCode {
+    FILTER_FIELD_NOT_FOUND("FILTER_FIELD_TRANSFORM-01", "filter field not found");
 
-public class FilterFieldTransformFactoryTest {
+    private final String code;
+    private final String description;
 
-    @Test
-    public void testOptionRule() throws Exception {
-        FilterFieldTransformFactory filterFieldTransformFactory = new FilterFieldTransformFactory();
-        Assertions.assertNotNull(filterFieldTransformFactory.optionRule());
+    FilterFieldTransformErrorCode(String code, String description) {
+        this.code = code;
+        this.description = description;
+    }
+
+    @Override
+    public String getCode() {
+        return this.code;
+    }
+
+    @Override
+    public String getDescription() {
+        return this.description;
     }
 }
