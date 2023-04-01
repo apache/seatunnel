@@ -216,11 +216,10 @@ public class JdbcSink
                 }
             }
         }
-
-        preSqlExecution();
     }
 
-    private void preSqlExecution() {
+    @Override
+    public void preSink() {
         if (this.jdbcSinkConfig.getPreSql() != null) {
             for (String preSql : this.jdbcSinkConfig.getPreSql()) {
                 try {

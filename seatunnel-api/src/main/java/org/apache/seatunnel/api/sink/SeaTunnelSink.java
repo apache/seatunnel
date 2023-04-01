@@ -127,4 +127,7 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
     default Optional<Serializer<AggregatedCommitInfoT>> getAggregatedCommitInfoSerializer() {
         return Optional.empty();
     }
+
+    /** This method will be called before sink write data */
+    default void preSink() {}
 }

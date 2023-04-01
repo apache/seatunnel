@@ -577,6 +577,7 @@ public class MultipleTableJobConfigParser {
                         factoryUrls,
                         actionConfig);
         handleSaveMode(sink);
+        sink.preSink();
         sinkAction.setParallelism(parallelism);
         return sinkAction;
     }
