@@ -124,7 +124,7 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
         return (long) ReflectionUtils.getField(producerIdAndEpoch, "producerId").get();
     }
 
-    public void resumeTransaction(long producerId, short epoch) {
+    public void resumeTransaction(long producerId, short epoch, boolean txnStarted) {
 
         log.info(
                 "Attempting to resume transaction {} with producerId {} and epoch {}",
@@ -152,7 +152,7 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
             transitionTransactionManagerStateTo(transactionManager, "READY");
 
             transitionTransactionManagerStateTo(transactionManager, "IN_TRANSACTION");
-            ReflectionUtils.setField(transactionManager, "transactionStarted", true);
+            ReflectionUtils.setField(transactionManager, "transactionStarted", txnStarted);
         }
     }
 
@@ -186,6 +186,12 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
         }
         return transactionManagerOptional.get();
     }
+
+    public boolean isTxnStarted() {
+        Object transactionManager = getTransactionManager();
+        return (boolean) ReflectionUtils.getField(transactionManager, "transactionStarted").get();
+    }
+
 
     private static void transitionTransactionManagerStateTo(
             Object transactionManager, String state) {

@@ -72,7 +72,7 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
                         transactionId,
                         kafkaProperties,
                         this.kafkaProducer.getProducerId(),
-                        this.kafkaProducer.getEpoch(), recordNumInTransaction);
+                        this.kafkaProducer.getEpoch(), this.kafkaProducer.isTxnStarted());
         return Optional.of(kafkaCommitInfo);
     }
 
