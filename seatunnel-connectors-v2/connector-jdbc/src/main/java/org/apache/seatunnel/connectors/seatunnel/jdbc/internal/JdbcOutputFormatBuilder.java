@@ -103,16 +103,11 @@ public class JdbcOutputFormatBuilder {
             SeaTunnelRowType rowType,
             String[] pkNames,
             boolean supportUpsertByQueryPrimaryKeyExist) {
-        int[] pkFields =
-                Arrays.stream(pkNames)
-                        .mapToInt(Arrays.asList(rowType.getFieldNames())::indexOf)
-                        .toArray();
+        int[] pkFields = Arrays.stream(pkNames).mapToInt(rowType::indexOf).toArray();
         SeaTunnelDataType[] pkTypes =
                 Arrays.stream(pkFields)
-                        .mapToObj(
-                                (IntFunction<SeaTunnelDataType>)
-                                        index -> rowType.getFieldType(index))
-                        .toArray(length -> new SeaTunnelDataType[length]);
+                        .mapToObj((IntFunction<SeaTunnelDataType>) rowType::getFieldType)
+                        .toArray(SeaTunnelDataType[]::new);
 
         Function<SeaTunnelRow, SeaTunnelRow> keyExtractor = createKeyExtractor(pkFields);
         JdbcBatchStatementExecutor<SeaTunnelRow> deleteExecutor =
