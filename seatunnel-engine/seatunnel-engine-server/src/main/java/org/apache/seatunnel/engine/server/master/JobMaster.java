@@ -78,7 +78,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
@@ -400,23 +399,23 @@ public class JobMaster {
         removeJobIMap();
     }
 
-    public Address queryTaskGroupAddress(long taskGroupId) {
-        for (PipelineLocation pipelineLocation : ownedSlotProfilesIMap.keySet()) {
-            Optional<TaskGroupLocation> currentVertex =
-                    ownedSlotProfilesIMap.get(pipelineLocation).keySet().stream()
-                            .filter(
-                                    taskGroupLocation ->
-                                            taskGroupLocation.getTaskGroupId() == taskGroupId)
-                            .findFirst();
-            if (currentVertex.isPresent()) {
-                return ownedSlotProfilesIMap
-                        .get(pipelineLocation)
-                        .get(currentVertex.get())
-                        .getWorker();
+    public Address queryTaskGroupAddress(TaskGroupLocation taskGroupLocation) {
+
+        PipelineLocation pipelineLocation =
+                new PipelineLocation(
+                        taskGroupLocation.getJobId(), taskGroupLocation.getPipelineId());
+
+        Map<TaskGroupLocation, SlotProfile> taskGroupLocationSlotProfileMap =
+                ownedSlotProfilesIMap.get(pipelineLocation);
+
+        if (null != taskGroupLocationSlotProfileMap) {
+            SlotProfile slotProfile = taskGroupLocationSlotProfileMap.get(taskGroupLocation);
+            if (null != slotProfile) {
+                return slotProfile.getWorker();
             }
         }
         throw new IllegalArgumentException(
-                "can't find task group address from task group id: " + taskGroupId);
+                "can't find task group address from taskGroupLocation: " + taskGroupLocation);
     }
 
     public ClassLoader getClassLoader() {
