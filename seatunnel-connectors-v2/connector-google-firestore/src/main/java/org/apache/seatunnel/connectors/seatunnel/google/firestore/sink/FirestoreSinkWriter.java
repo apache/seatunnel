@@ -77,7 +77,9 @@ public class FirestoreSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                 firestore.close();
             } catch (Exception e) {
                 throw new FirestoreConnectorException(
-                        FirestoreConnectorErrorCode.CLOSE_CLIENT_FAILED, "Close Firestore client failed.", e);
+                        FirestoreConnectorErrorCode.CLOSE_CLIENT_FAILED,
+                        "Close Firestore client failed.",
+                        e);
             }
         }
     }
