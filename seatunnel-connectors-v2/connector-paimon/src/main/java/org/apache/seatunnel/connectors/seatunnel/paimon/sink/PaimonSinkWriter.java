@@ -30,9 +30,10 @@ import org.apache.paimon.data.InternalRow;
 import org.apache.paimon.operation.Lock;
 import org.apache.paimon.table.Table;
 import org.apache.paimon.table.sink.BatchTableCommit;
+import org.apache.paimon.table.sink.BatchTableWrite;
 import org.apache.paimon.table.sink.CommitMessage;
 import org.apache.paimon.table.sink.InnerTableCommit;
-import org.apache.paimon.table.sink.StreamTableWrite;
+import org.apache.paimon.table.sink.TableWrite;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -50,6 +51,8 @@ public class PaimonSinkWriter
         implements SinkWriter<SeaTunnelRow, PaimonCommitInfo, PaimonSinkState> {
 
     private String commitUser = UUID.randomUUID().toString();
+
+    private TableWrite tableWrite = null;
 
     private long checkpointId = 0;
 
@@ -81,10 +84,7 @@ public class PaimonSinkWriter
         this.commitUser = states.get(0).getCommitUser();
         this.checkpointId = states.get(0).getCheckpointId();
         try (BatchTableCommit tableCommit =
-                ((InnerTableCommit)
-                                table.newStreamWriteBuilder()
-                                        .withCommitUser(commitUser)
-                                        .newCommit())
+                ((InnerTableCommit) table.newBatchWriteBuilder().newCommit())
                         .withLock(Lock.emptyFactory().create())) {
             List<CommitMessage> commitables =
                     states.stream()
@@ -101,9 +101,10 @@ public class PaimonSinkWriter
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
+        if (Objects.isNull(tableWrite)) {
+            tableWrite = table.newBatchWriteBuilder().newWrite();
+        }
         InternalRow rowData = RowConverter.convert(element, seaTunnelRowType);
-        StreamTableWrite tableWrite =
-                table.newStreamWriteBuilder().withCommitUser(commitUser).newWrite();
         try {
             tableWrite.write(rowData);
         } catch (Exception e) {
@@ -117,11 +118,7 @@ public class PaimonSinkWriter
     @Override
     public Optional<PaimonCommitInfo> prepareCommit() throws IOException {
         try {
-            List<CommitMessage> fileCommittables =
-                    table.newStreamWriteBuilder()
-                            .withCommitUser(commitUser)
-                            .newWrite()
-                            .prepareCommit(true, checkpointId);
+            List<CommitMessage> fileCommittables = ((BatchTableWrite) tableWrite).prepareCommit();
             committables.addAll(fileCommittables);
             return Optional.of(new PaimonCommitInfo(fileCommittables));
         } catch (Exception e) {
