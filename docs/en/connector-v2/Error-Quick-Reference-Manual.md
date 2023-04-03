@@ -246,3 +246,9 @@ problems encountered by users.
 |---------------|---------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | S3RedShift-01 | Aggregate committer error | S3Redshift Sink Connector will write data to s3 and then move file to the target s3 path. And then use `Copy` action copy the data to Redshift. Please check the error log and find out the specific reason. |
 
+## FilterFieldTransform Error Codes
+
+|           code            |      description       |        solution         |
+|---------------------------|------------------------|-------------------------|
+| FILTER_FIELD_TRANSFORM-01 | filter field not found | filter field not found. |
+

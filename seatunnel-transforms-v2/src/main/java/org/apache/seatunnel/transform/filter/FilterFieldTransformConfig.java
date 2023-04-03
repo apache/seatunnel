@@ -15,18 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform;
+package org.apache.seatunnel.transform.filter;
 
-import org.apache.seatunnel.transform.filter.FilterFieldTransformFactory;
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import lombok.Getter;
+import lombok.Setter;
 
-public class FilterFieldTransformFactoryTest {
+import java.io.Serializable;
+import java.util.List;
 
-    @Test
-    public void testOptionRule() throws Exception {
-        FilterFieldTransformFactory filterFieldTransformFactory = new FilterFieldTransformFactory();
-        Assertions.assertNotNull(filterFieldTransformFactory.optionRule());
-    }
+@Getter
+@Setter
+public class FilterFieldTransformConfig implements Serializable {
+    public static final Option<List<String>> KEY_FIELDS =
+            Options.key("fields")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The list of fields that need to be kept. Fields not in the list will be deleted");
 }

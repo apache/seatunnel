@@ -184,10 +184,9 @@ public class CatalogTableUtil implements Serializable {
     }
 
     public static SeaTunnelDataType<?> parseDataType(String columnStr) {
-        columnStr = columnStr.toUpperCase().replace(" ", "");
         SqlType sqlType = null;
         try {
-            sqlType = SqlType.valueOf(columnStr);
+            sqlType = SqlType.valueOf(columnStr.toUpperCase().replace(" ", ""));
         } catch (IllegalArgumentException e) {
             // nothing
         }
@@ -228,14 +227,15 @@ public class CatalogTableUtil implements Serializable {
     }
 
     private static SeaTunnelDataType<?> parseComplexDataType(String columnStr) {
-        if (columnStr.startsWith(SqlType.MAP.name())) {
-            return parseMapType(columnStr);
+        String column = columnStr.toUpperCase().replace(" ", "");
+        if (column.startsWith(SqlType.MAP.name())) {
+            return parseMapType(column);
         }
-        if (columnStr.startsWith(SqlType.ARRAY.name())) {
-            return parseArrayType(columnStr);
+        if (column.startsWith(SqlType.ARRAY.name())) {
+            return parseArrayType(column);
         }
-        if (columnStr.startsWith(SqlType.DECIMAL.name())) {
-            return parseDecimalType(columnStr);
+        if (column.startsWith(SqlType.DECIMAL.name())) {
+            return parseDecimalType(column);
         }
         return parseRowType(columnStr);
     }
