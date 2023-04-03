@@ -19,12 +19,14 @@ package org.apache.seatunnel.e2e.connector.paimon;
 
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.utility.MountableFile;
@@ -32,7 +34,11 @@ import org.testcontainers.utility.MountableFile;
 import java.io.IOException;
 import java.nio.file.Path;
 
-@Disabled("Because paimon not supported flink 13, so this case will fail when in e2e test step")
+@DisabledOnContainer(
+        value = TestContainerId.FLINK_1_13,
+        type = {EngineType.SPARK, EngineType.SEATUNNEL},
+        disabledReason =
+                "Paimon does not support flink 1.13 and all connectors e2e has some issues with spark engine and zeta engine")
 public class PaimonIT extends TestSuiteBase {
 
     @TestContainerExtension
