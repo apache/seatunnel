@@ -23,4 +23,5 @@ public enum MessageFormat {
     CANAL_JSON,
     COMPATIBLE_DEBEZIUM_JSON,
     DEBEZIUM_FORMAT
+
 }

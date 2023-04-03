@@ -267,7 +267,7 @@ public class KafkaSource
                                     .setIgnoreParseErrors(true)
                                     .build();
                     break;
-                case DEBEZIUM_FORMAT:
+                case DEBEZIUM_JSON:
                     deserializationSchema =
                             new DebeziumJsonDeserializationSchema(typeInfo, true, false);
                     break;
