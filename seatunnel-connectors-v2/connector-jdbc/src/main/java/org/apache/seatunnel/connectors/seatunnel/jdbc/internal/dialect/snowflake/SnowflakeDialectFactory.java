@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.snowflake;
 
-import com.google.auto.service.AutoService;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
+
+import com.google.auto.service.AutoService;
 
 /** Factory for {@link SnowflakeDialect}. */
 @AutoService(JdbcDialectFactory.class)

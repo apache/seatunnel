@@ -192,5 +192,10 @@
             <artifactId>ngdbc</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>net.snowflake</groupId>
+            <artifactId>snowflake-jdbc</artifactId>
+        </dependency>
+
     </dependencies>
 </project>
