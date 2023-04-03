@@ -43,8 +43,6 @@ import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEBEZIUM_FORMAT;
-
 @RequiredArgsConstructor
 public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
     private final Function<SeaTunnelRow, String> topicExtractor;
@@ -222,7 +220,7 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                         .build();
             case CANAL_JSON:
                 return new CanalJsonSerializationSchema(rowType);
-            case DEBEZIUM_FORMAT:
+            case DEBEZIUM_JSON:
                 return new DebeziumJsonSerializationSchema(rowType);
             case COMPATIBLE_DEBEZIUM_JSON:
                 return new CompatibleDebeziumJsonSerializationSchema(rowType, isKey);
