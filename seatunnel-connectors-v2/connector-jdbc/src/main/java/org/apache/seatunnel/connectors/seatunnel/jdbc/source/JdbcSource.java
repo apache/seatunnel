@@ -48,6 +48,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -58,6 +59,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @AutoService(SeaTunnelSource.class)
+@Slf4j
 public class JdbcSource
         implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit, JdbcSourceState>,
                 SupportParallelism,
@@ -174,13 +176,11 @@ public class JdbcSource
             return new PartitionParameter(
                     columnName, min, max, jdbcSourceConfig.getPartitionNumber().orElse(null));
         }
-        try (ResultSet rs =
-                connection
-                        .createStatement()
-                        .executeQuery(
-                                String.format(
-                                        "SELECT MAX(%s),MIN(%s) " + "FROM (%s) tt",
-                                        columnName, columnName, query))) {
+        String maxMinSql =
+                String.format(
+                        "SELECT MAX(%s),MIN(%s) " + "FROM (%s) tt", columnName, columnName, query);
+        log.info("sql used to query max and min:\n{}\n", maxMinSql);
+        try (ResultSet rs = connection.createStatement().executeQuery(maxMinSql)) {
             if (rs.next()) {
                 max =
                         jdbcSourceConfig.getPartitionUpperBound().isPresent()
@@ -192,6 +192,7 @@ public class JdbcSource
                                 : Long.parseLong(rs.getString(2));
             }
         }
+        log.info("query result: min = {}, max = {}", min, max);
         return new PartitionParameter(
                 columnName, min, max, jdbcSourceConfig.getPartitionNumber().orElse(null));
     }
@@ -225,7 +226,7 @@ public class JdbcSource
                                     + partitionColumn
                                     + " <= ?",
                             query);
-
+            log.info("source query sql:\n{}\n", query);
             return partitionParameter;
         } else {
             LOG.info(
