@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.sqlengine.zeta.functions.udf;
+package org.apache.seatunnel.transform.sql.zeta.functions.udf;
 
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.transform.sqlengine.zeta.ZetaUDF;
+import org.apache.seatunnel.transform.sql.zeta.ZetaUDF;
 
 import com.google.auto.service.AutoService;
 

@@ -15,36 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.sqlengine.zeta.functions.udf;
+package org.apache.seatunnel.transform.sql;
 
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.transform.sqlengine.zeta.ZetaUDF;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 
 import com.google.auto.service.AutoService;
 
-import java.util.List;
+import static org.apache.seatunnel.transform.sql.SQLTransform.KEY_QUERY;
 
-@AutoService(ZetaUDF.class)
-public class DesEncrypt implements ZetaUDF {
-
+@AutoService(Factory.class)
+public class SQLTransformFactory implements TableTransformFactory {
     @Override
-    public String functionName() {
-        return "DES_ENCRYPT";
+    public String factoryIdentifier() {
+        return "Sql";
     }
 
     @Override
-    public SeaTunnelDataType<?> resultType(List<SeaTunnelDataType<?>> argsType) {
-        return BasicType.STRING_TYPE;
-    }
-
-    @Override
-    public Object evaluate(List<Object> args) {
-        String password = (String) args.get(0);
-        String data = (String) args.get(1);
-        if (password == null || data == null) {
-            return null;
-        }
-        return DESUtil.encrypt(password, data);
+    public OptionRule optionRule() {
+        return OptionRule.builder().required(KEY_QUERY).build();
     }
 }
