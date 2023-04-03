@@ -62,7 +62,8 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
         } catch (Exception e) {
             throw new StarRocksConnectorException(
                     CommonErrorCode.WRITER_OPERATION_FAILED,
-                    "serialize failed. Row={" + element + "}");
+                    "serialize failed. Row={" + element + "}",
+                    e);
         }
         manager.write(record);
     }
