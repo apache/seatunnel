@@ -27,7 +27,7 @@ Snowflake account password
 
 ### query [string]
 
-SQL query to read data source from snowflake. Currently have to use <database>.<schema>.<table> because snowwflake schema is not supported in the jdbc connector yet.
+SQL query to read data source from snowflake. Currently have to use database.schema.table because snowwflake schema is not supported in the jdbc connector yet.
 
 ## Example
 

@@ -29,7 +29,7 @@ Snowflake account password
 
 ### query [string]
 
-SQL query to write data into snowflake. Currently have to use <database>.<schema>.<table> because snowflake schema is not supported in the jdbc connector yet.
+SQL query to write data into snowflake. Currently have to use database.schema.table because snowflake schema is not supported in the jdbc connector yet.
 
 ## Example
 
