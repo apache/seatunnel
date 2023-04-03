@@ -227,7 +227,8 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         }
     }
 
-    private HazelcastInstance createServerInLocal(String clusterName, SeaTunnelConfig seaTunnelConfig) {
+    private HazelcastInstance createServerInLocal(
+            String clusterName, SeaTunnelConfig seaTunnelConfig) {
         seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
         return HazelcastInstanceFactory.newHazelcastInstance(
                 seaTunnelConfig.getHazelcastConfig(),
