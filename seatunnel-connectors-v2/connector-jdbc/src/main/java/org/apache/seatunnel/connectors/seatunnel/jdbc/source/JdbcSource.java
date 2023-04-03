@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -53,6 +54,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -165,8 +167,8 @@ public class JdbcSource
 
     private PartitionParameter initPartitionParameter(String columnName, Connection connection)
             throws SQLException {
-        long max = Long.MAX_VALUE;
-        long min = Long.MIN_VALUE;
+        Object max = null;
+        Object min = null;
         if (jdbcSourceConfig.getPartitionLowerBound().isPresent()
                 && jdbcSourceConfig.getPartitionUpperBound().isPresent()) {
             max = jdbcSourceConfig.getPartitionUpperBound().get();
@@ -182,15 +184,40 @@ public class JdbcSource
                                         "SELECT MAX(%s),MIN(%s) " + "FROM (%s) tt",
                                         columnName, columnName, query))) {
             if (rs.next()) {
-                max =
-                        jdbcSourceConfig.getPartitionUpperBound().isPresent()
-                                ? jdbcSourceConfig.getPartitionUpperBound().get()
-                                : Long.parseLong(rs.getString(1));
-                min =
-                        jdbcSourceConfig.getPartitionLowerBound().isPresent()
-                                ? jdbcSourceConfig.getPartitionLowerBound().get()
-                                : Long.parseLong(rs.getString(2));
+                int columnType = rs.getMetaData().getColumnType(1);
+                switch (columnType) {
+                    case Types.INTEGER:
+                    case Types.BIGINT:
+                    case Types.SMALLINT:
+                    case Types.TINYINT:
+                        max = Long.parseLong(rs.getString(1));
+                        min = Long.parseLong(rs.getString(2));
+                        break;
+                    case Types.DATE:
+                        max = rs.getDate(1);
+                        min = rs.getDate(2);
+                        break;
+                    case Types.TIME:
+                        max = rs.getTime(1);
+                        min = rs.getTime(2);
+                        break;
+                    case Types.TIMESTAMP:
+                        max = rs.getTimestamp(1);
+                        min = rs.getTimestamp(2);
+                        break;
+                    default:
+                        throw new JdbcConnectorException(
+                                CommonErrorCode.UNSUPPORTED_OPERATION,
+                                String.format(
+                                        "Unsupported partition column type: %s",
+                                        rs.getMetaData().getColumnTypeName(1)));
+                }
             }
+        }
+        if (min == null || max == null) {
+            throw new JdbcConnectorException(
+                    CommonErrorCode.UNSUPPORTED_OPERATION,
+                    "Query for max/min partition column values failed");
         }
         return new PartitionParameter(
                 columnName, min, max, jdbcSourceConfig.getPartitionNumber().orElse(null));
@@ -210,10 +237,10 @@ public class JdbcSource
                         String.format("field %s not contain in query %s", partitionColumn, query));
             }
             SeaTunnelDataType<?> partitionColumnType = fieldTypes.get(partitionColumn);
-            if (!isNumericType(partitionColumnType)) {
+            if (!isNumericType(partitionColumnType) && !isDateTimeType(partitionColumnType)) {
                 throw new JdbcConnectorException(
                         CommonErrorCode.ILLEGAL_ARGUMENT,
-                        String.format("%s is not numeric type", partitionColumn));
+                        String.format("%s is not numeric or datetime type", partitionColumn));
             }
             PartitionParameter partitionParameter =
                     initPartitionParameter(partitionColumn, connection);
@@ -237,5 +264,11 @@ public class JdbcSource
 
     private boolean isNumericType(SeaTunnelDataType<?> type) {
         return type.equals(BasicType.INT_TYPE) || type.equals(BasicType.LONG_TYPE);
+    }
+
+    private boolean isDateTimeType(SeaTunnelDataType<?> type) {
+        return type.getSqlType().equals(LocalTimeType.LOCAL_DATE_TIME_TYPE.getSqlType())
+                || type.getSqlType().equals(LocalTimeType.LOCAL_DATE_TYPE.getSqlType())
+                || type.getSqlType().equals(LocalTimeType.LOCAL_TIME_TYPE.getSqlType());
     }
 }
