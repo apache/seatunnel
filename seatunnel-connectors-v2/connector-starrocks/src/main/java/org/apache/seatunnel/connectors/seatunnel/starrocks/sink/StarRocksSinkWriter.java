@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
@@ -46,8 +44,7 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
     private final StarRocksISerializer serializer;
     private final StarRocksSinkManager manager;
 
-    public StarRocksSinkWriter(Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
-        SinkConfig sinkConfig = SinkConfig.loadConfig(pluginConfig);
+    public StarRocksSinkWriter(SinkConfig sinkConfig, SeaTunnelRowType seaTunnelRowType) {
         List<String> fieldNames =
                 Arrays.stream(seaTunnelRowType.getFieldNames()).collect(Collectors.toList());
         if (sinkConfig.isEnableUpsertDelete()) {
@@ -59,7 +56,13 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
-        String record = serializer.serialize(element);
+        String record;
+        try {
+            record = serializer.serialize(element);
+        } catch (Exception e) {
+            log.error("serialize failed. Row={}", element);
+            throw e;
+        }
         manager.write(record);
     }
 

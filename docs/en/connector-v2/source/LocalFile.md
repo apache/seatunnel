@@ -25,29 +25,31 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 - [ ] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
-- [x] file format
+- [x] file format type
   - [x] text
   - [x] csv
   - [x] parquet
   - [x] orc
   - [x] json
+  - [x] excel
 
 ## Options
 
-|           name            |  type   | required |      default value      |               remarks                |
-|---------------------------|---------|----------|-------------------------|--------------------------------------|
-| path                      | string  | yes      | -                       |                                      |
-| type                      | string  | yes      | -                       |                                      |
-| read_columns              | list    | no       | -                       |                                      |
-| delimiter                 | string  | no       | \001                    |                                      |
-| parse_partition_from_path | boolean | no       | true                    |                                      |
-| date_format               | string  | no       | yyyy-MM-dd              |                                      |
-| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss     |                                      |
-| time_format               | string  | no       | HH:mm:ss                |                                      |
-| skip_header_row_number    | long    | no       | 0                       |                                      |
-| schema                    | config  | no       | -                       |                                      |
-| common-options            | object  | no       | -                       |                                      |
-| sheet_name                | string  | no       | "Sheet${Random number}" | Only used when file_format is excel. |
+|           name            |  type   | required | default value           |
+|---------------------------|---------|----------|-------------------------|
+| path                      | string  | yes      | -                       |
+| file_format_type          | string  | yes      | -                       |
+| read_columns              | list    | no       | -                       |
+| delimiter                 | string  | no       | \001                    |
+| parse_partition_from_path | boolean | no       | true                    |
+| date_format               | string  | no       | yyyy-MM-dd              |
+| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss     |
+| time_format               | string  | no       | HH:mm:ss                |
+| skip_header_row_number    | long    | no       | 0                       |
+| schema                    | config  | no       | -                       |
+| common-options            |         | no       | -                       |
+| sheet_name                | string  | no       | "Sheet${Random number}" |
+
 
 ### path [string]
 
@@ -107,7 +109,7 @@ For example, set like following:
 
 then Seatunnel will skip the first 2 lines from source files
 
-### type [string]
+### file_format_type [string]
 
 File type, supported as the following file types:
 
@@ -229,7 +231,7 @@ Reader the sheet of the workbook
 
 LocalFile {
   path = "/apps/hive/demo/student"
-  type = "parquet"
+  file_format_type = "parquet"
 }
 
 ```
@@ -244,7 +246,7 @@ LocalFile {
     }
   }
   path = "/apps/hive/demo/student"
-  type = "json"
+  file_format_type = "json"
 }
 
 ```

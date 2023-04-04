@@ -111,7 +111,7 @@ public class IncrementalSourceRecordEmitter<T>
                 splitState.asSnapshotSplitState().setHighWatermark(watermark);
             }
         } else if (isSchemaChangeEvent(element) && splitState.isIncrementalSplitState()) {
-            // TODO Currently not supported Schema Change
+            emitElement(element, output);
         } else if (isDataChangeRecord(element)) {
             if (splitState.isIncrementalSplitState()) {
                 Offset position = getOffsetPosition(element);
@@ -119,8 +119,7 @@ public class IncrementalSourceRecordEmitter<T>
             }
             emitElement(element, output);
         } else {
-            // unknown element
-            log.info("Meet unknown element {}, just skip.", element);
+            emitElement(element, output);
         }
     }
 

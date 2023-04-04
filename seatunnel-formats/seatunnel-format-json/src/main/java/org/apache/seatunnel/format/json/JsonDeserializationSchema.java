@@ -23,6 +23,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.Deserialization
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.NullNode;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
@@ -122,8 +123,8 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
         }
     }
 
-    private SeaTunnelRow convertJsonNode(JsonNode jsonNode) throws IOException {
-        if (jsonNode == null) {
+    private SeaTunnelRow convertJsonNode(JsonNode jsonNode) {
+        if (jsonNode.isNull()) {
             return null;
         }
         try {
@@ -152,7 +153,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
             return objectMapper.readTree(message);
         } catch (Throwable t) {
             if (ignoreParseErrors) {
-                return null;
+                return NullNode.getInstance();
             }
             throw new SeaTunnelJsonFormatException(
                     CommonErrorCode.JSON_OPERATION_FAILED,
@@ -166,7 +167,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
             return objectMapper.readTree(message);
         } catch (Throwable t) {
             if (ignoreParseErrors) {
-                return null;
+                return NullNode.getInstance();
             }
             throw new SeaTunnelJsonFormatException(
                     CommonErrorCode.JSON_OPERATION_FAILED,

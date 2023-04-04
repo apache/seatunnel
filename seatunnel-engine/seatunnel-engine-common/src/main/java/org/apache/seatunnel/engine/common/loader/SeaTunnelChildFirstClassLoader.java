@@ -56,6 +56,14 @@ public class SeaTunnelChildFirstClassLoader extends SeaTunnelBaseClassLoader {
                 NOOP_EXCEPTION_HANDLER);
     }
 
+    public SeaTunnelChildFirstClassLoader(List<URL> urls, ClassLoader parent) {
+        this(
+                urls.toArray(new URL[0]),
+                parent,
+                DEFAULT_PARENT_FIRST_PATTERNS,
+                NOOP_EXCEPTION_HANDLER);
+    }
+
     public SeaTunnelChildFirstClassLoader(
             URL[] urls,
             ClassLoader parent,

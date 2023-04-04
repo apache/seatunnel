@@ -27,6 +27,12 @@ import org.apache.commons.lang3.StringUtils;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAccessor;
+import java.time.temporal.TemporalQueries;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -100,6 +106,33 @@ public class AssertExecutor {
         if (value instanceof Number
                 && AssertFieldRule.AssertRuleType.MIN.equals(valueRule.getRuleType())) {
             return ((Number) value).doubleValue() >= valueRule.getRuleValue();
+        }
+        if (valueRule.getEqualTo() != null) {
+            if (value instanceof String) {
+                return value.equals(valueRule.getEqualTo());
+            }
+            if (value instanceof Number) {
+                return ((Number) value).doubleValue() == Double.parseDouble(valueRule.getEqualTo());
+            }
+            if (value instanceof Boolean) {
+                return value.equals(Boolean.parseBoolean(valueRule.getEqualTo()));
+            }
+            if (value instanceof LocalDateTime) {
+                TemporalAccessor parsedTimestamp =
+                        DateTimeFormatter.ISO_LOCAL_DATE_TIME.parse(valueRule.getEqualTo());
+                LocalTime localTime = parsedTimestamp.query(TemporalQueries.localTime());
+                LocalDate localDate = parsedTimestamp.query(TemporalQueries.localDate());
+                return ((LocalDateTime) value).isEqual(LocalDateTime.of(localDate, localTime));
+            }
+            if (value instanceof LocalDate) {
+                DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+                return ((LocalDate) value).isEqual(LocalDate.parse(valueRule.getEqualTo(), fmt));
+            }
+            if (value instanceof LocalTime) {
+                DateTimeFormatter fmt = DateTimeFormatter.ofPattern("HH:mm:ss");
+                return value.equals(LocalTime.parse(valueRule.getEqualTo(), fmt));
+            }
+            return false;
         }
 
         String valueStr = Objects.isNull(value) ? StringUtils.EMPTY : String.valueOf(value);

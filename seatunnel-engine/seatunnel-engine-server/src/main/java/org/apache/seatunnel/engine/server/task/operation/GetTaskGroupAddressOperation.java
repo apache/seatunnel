@@ -52,10 +52,7 @@ public class GetTaskGroupAddressOperation extends Operation implements Identifie
                         () ->
                                 server.getCoordinatorService()
                                         .getJobMaster(taskLocation.getJobId())
-                                        .queryTaskGroupAddress(
-                                                taskLocation
-                                                        .getTaskGroupLocation()
-                                                        .getTaskGroupId()),
+                                        .queryTaskGroupAddress(taskLocation.getTaskGroupLocation()),
                         new RetryUtils.RetryMaterial(
                                 Constant.OPERATION_RETRY_TIME,
                                 true,

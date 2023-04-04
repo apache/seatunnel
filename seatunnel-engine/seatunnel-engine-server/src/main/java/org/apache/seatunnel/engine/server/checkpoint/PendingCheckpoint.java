@@ -51,7 +51,7 @@ public class PendingCheckpoint implements Checkpoint {
 
     private final Map<Long, TaskStatistics> taskStatistics;
 
-    private final Map<Long, ActionState> actionStates;
+    private final Map<ActionStateKey, ActionState> actionStates;
 
     private final CompletableFuture<CompletedCheckpoint> completableFuture;
 
@@ -65,7 +65,7 @@ public class PendingCheckpoint implements Checkpoint {
             CheckpointType checkpointType,
             Set<Long> notYetAcknowledgedTasks,
             Map<Long, TaskStatistics> taskStatistics,
-            Map<Long, ActionState> actionStates) {
+            Map<ActionStateKey, ActionState> actionStates) {
         this.jobId = jobId;
         this.pipelineId = pipelineId;
         this.checkpointId = checkpointId;
@@ -106,7 +106,7 @@ public class PendingCheckpoint implements Checkpoint {
         return taskStatistics;
     }
 
-    protected Map<Long, ActionState> getActionStates() {
+    protected Map<ActionStateKey, ActionState> getActionStates() {
         return actionStates;
     }
 
@@ -118,6 +118,7 @@ public class PendingCheckpoint implements Checkpoint {
             TaskLocation taskLocation,
             List<ActionSubtaskState> states,
             SubtaskStatus subtaskStatus) {
+        LOG.debug("acknowledgeTask states [{}]", states);
         boolean exist = notYetAcknowledgedTasks.remove(taskLocation.getTaskID());
         if (!exist) {
             return;
@@ -126,9 +127,9 @@ public class PendingCheckpoint implements Checkpoint {
 
         long stateSize = 0;
         for (ActionSubtaskState state : states) {
-            ActionState actionState = actionStates.get(state.getActionId());
+            ActionState actionState = actionStates.get(state.getStateKey());
             if (actionState == null) {
-                return;
+                continue;
             }
             stateSize +=
                     state.getState().stream().filter(Objects::nonNull).map(s -> s.length).count();
@@ -164,11 +165,21 @@ public class PendingCheckpoint implements Checkpoint {
     }
 
     public void abortCheckpoint(CheckpointCloseReason closedReason, @Nullable Throwable cause) {
-        if (closedReason.equals(CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET)) {
+        if (closedReason.equals(CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET)
+                || closedReason.equals(CheckpointCloseReason.PIPELINE_END)) {
             completableFuture.complete(null);
         } else {
             this.failureCause = new CheckpointException(closedReason, cause);
             completableFuture.completeExceptionally(failureCause);
         }
+    }
+
+    public String getInfo() {
+        return String.format(
+                "%s/%s/%s, %s",
+                this.getJobId(),
+                this.getPipelineId(),
+                this.getCheckpointId(),
+                this.getCheckpointType());
     }
 }

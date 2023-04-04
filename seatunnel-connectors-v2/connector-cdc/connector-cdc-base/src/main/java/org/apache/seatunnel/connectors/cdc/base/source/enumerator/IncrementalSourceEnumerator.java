@@ -101,7 +101,7 @@ public class IncrementalSourceEnumerator
     @Override
     public void handleSourceEvent(int subtaskId, SourceEvent sourceEvent) {
         if (sourceEvent instanceof CompletedSnapshotSplitsReportEvent) {
-            LOG.info(
+            LOG.debug(
                     "The enumerator receives completed split watermarks(log offset) {} from subtask {}.",
                     sourceEvent,
                     subtaskId);
@@ -158,7 +158,7 @@ public class IncrementalSourceEnumerator
                 final SourceSplitBase sourceSplit = split.get();
                 context.assignSplit(nextAwaiting, sourceSplit);
                 awaitingReader.remove();
-                LOG.info("Assign split {} to subtask {}", sourceSplit, nextAwaiting);
+                LOG.debug("Assign split {} to subtask {}", sourceSplit, nextAwaiting);
             } else {
                 // there is no available splits by now, skip assigning
                 break;

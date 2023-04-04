@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.engine.server.execution.BlockTask;
 import org.apache.seatunnel.engine.server.execution.ExceptionTestTask;
 import org.apache.seatunnel.engine.server.execution.FixedCallTestTimeTask;
 import org.apache.seatunnel.engine.server.execution.StopTimeTestTask;
@@ -81,11 +82,37 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                         "ts",
                         Lists.newArrayList(testTask1, testTask2));
         CompletableFuture<TaskExecutionState> completableFuture =
-                taskExecutionService.deployLocalTask(ts, new CompletableFuture<>());
+                taskExecutionService.deployLocalTask(ts);
 
         taskExecutionService.cancelTaskGroup(ts.getTaskGroupLocation());
 
         await().atMost(sleepTime + 10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> assertEquals(CANCELED, completableFuture.get().getExecutionState()));
+    }
+
+    @Test
+    @Disabled(
+            "As we have more and more test cases the test the load of the test container will up, the test case may failed")
+    public void testCancelBlockTask() throws InterruptedException {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+
+        BlockTask testTask1 = new BlockTask();
+        BlockTask testTask2 = new BlockTask();
+
+        TaskGroupDefaultImpl ts =
+                new TaskGroupDefaultImpl(
+                        new TaskGroupLocation(jobId, pipeLineId, FLAKE_ID_GENERATOR.newId()),
+                        "ts",
+                        Lists.newArrayList(testTask1, testTask2));
+        CompletableFuture<TaskExecutionState> completableFuture =
+                taskExecutionService.deployLocalTask(ts);
+
+        Thread.sleep(5000);
+
+        taskExecutionService.cancelTaskGroup(ts.getTaskGroupLocation());
+
+        await().atMost(10, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> assertEquals(CANCELED, completableFuture.get().getExecutionState()));
     }
@@ -109,8 +136,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                                 new TaskGroupLocation(
                                         jobId, pipeLineId, FLAKE_ID_GENERATOR.newId()),
                                 "ts",
-                                Lists.newArrayList(testTask1, testTask2)),
-                        new CompletableFuture<>());
+                                Lists.newArrayList(testTask1, testTask2)));
         completableFuture.whenComplete((unused, throwable) -> futureMark.set(true));
         stop.set(true);
 
@@ -146,8 +172,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                                 new TaskGroupLocation(
                                         jobId, pipeLineId, FLAKE_ID_GENERATOR.newId()),
                                 "t1",
-                                Lists.newArrayList(criticalTask)),
-                        new CompletableFuture<>());
+                                Lists.newArrayList(criticalTask)));
 
         // Run it for a while
         Thread.sleep(taskRunTime);
@@ -202,8 +227,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                                 new TaskGroupLocation(
                                         jobId, pipeLineId, FLAKE_ID_GENERATOR.newId()),
                                 "ts",
-                                Lists.newArrayList(tasks)),
-                        new CompletableFuture<>());
+                                Lists.newArrayList(tasks)));
 
         CompletableFuture<TaskExecutionState> t1c =
                 taskExecutionService.deployLocalTask(
@@ -211,8 +235,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                                 new TaskGroupLocation(
                                         jobId, pipeLineId, FLAKE_ID_GENERATOR.newId()),
                                 "t1",
-                                Lists.newArrayList(t1)),
-                        new CompletableFuture<>());
+                                Lists.newArrayList(t1)));
 
         CompletableFuture<TaskExecutionState> t2c =
                 taskExecutionService.deployLocalTask(
@@ -220,8 +243,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                                 new TaskGroupLocation(
                                         jobId, pipeLineId, FLAKE_ID_GENERATOR.newId()),
                                 "t2",
-                                Lists.newArrayList(t2)),
-                        new CompletableFuture<>());
+                                Lists.newArrayList(t2)));
 
         Thread.sleep(taskRunTime);
 
@@ -276,7 +298,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
         CompletableFuture<TaskExecutionState> completableFuture =
-                taskExecutionService.deployLocalTask(taskGroup, new CompletableFuture<>());
+                taskExecutionService.deployLocalTask(taskGroup);
 
         // stop tasks
         Thread.sleep(taskRunTime);

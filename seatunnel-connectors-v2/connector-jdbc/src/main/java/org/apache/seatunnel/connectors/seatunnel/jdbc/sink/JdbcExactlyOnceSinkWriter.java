@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormat;
@@ -78,11 +78,11 @@ public class JdbcExactlyOnceSinkWriter implements SinkWriter<SeaTunnelRow, XidIn
             SinkWriter.Context sinkcontext,
             JobContext context,
             JdbcDialect dialect,
-            JdbcSinkOptions jdbcSinkOptions,
+            JdbcSinkConfig jdbcSinkConfig,
             SeaTunnelRowType rowType,
             List<JdbcSinkState> states) {
         checkArgument(
-                jdbcSinkOptions.getJdbcConnectionOptions().getMaxRetries() == 0,
+                jdbcSinkConfig.getJdbcConnectionConfig().getMaxRetries() == 0,
                 "JDBC XA sink requires maxRetries equal to 0, otherwise it could "
                         + "cause duplicates.");
 
@@ -90,11 +90,11 @@ public class JdbcExactlyOnceSinkWriter implements SinkWriter<SeaTunnelRow, XidIn
         this.sinkcontext = sinkcontext;
         this.recoverStates = states;
         this.xidGenerator = XidGenerator.semanticXidGenerator();
-        checkState(jdbcSinkOptions.isExactlyOnce(), "is_exactly_once config error");
+        checkState(jdbcSinkConfig.isExactlyOnce(), "is_exactly_once config error");
         this.xaFacade =
-                XaFacade.fromJdbcConnectionOptions(jdbcSinkOptions.getJdbcConnectionOptions());
+                XaFacade.fromJdbcConnectionOptions(jdbcSinkConfig.getJdbcConnectionConfig());
         this.outputFormat =
-                new JdbcOutputFormatBuilder(dialect, xaFacade, jdbcSinkOptions, rowType).build();
+                new JdbcOutputFormatBuilder(dialect, xaFacade, jdbcSinkConfig, rowType).build();
         this.xaGroupOps = new XaGroupOpsImpl(xaFacade);
     }
 
