@@ -44,6 +44,7 @@ import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -55,6 +56,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
+@Slf4j
 public class CatalogTableUtil implements Serializable {
     public static final Option<Map<String, String>> SCHEMA =
             Options.key("schema").mapType().noDefaultValue().withDescription("SeaTunnel Schema");
@@ -121,7 +123,17 @@ public class CatalogTableUtil implements Serializable {
                         classLoader,
                         factoryId);
         return optionalCatalog
-                .map(catalog -> getCatalogTables(catalogConfig, catalog))
+                .map(
+                        catalog -> {
+                            long startTime = System.currentTimeMillis();
+                            List<CatalogTable> catalogTables =
+                                    getCatalogTables(catalogConfig, catalog);
+                            log.info(
+                                    String.format(
+                                            "Get catalog tables, cost time: %d",
+                                            System.currentTimeMillis() - startTime));
+                            return catalogTables;
+                        })
                 .orElse(Collections.emptyList());
     }
 
