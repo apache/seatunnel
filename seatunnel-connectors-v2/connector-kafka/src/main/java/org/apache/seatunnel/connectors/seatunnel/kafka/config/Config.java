@@ -171,4 +171,15 @@ public class Config {
                     .defaultValue(KafkaSemantics.NON)
                     .withDescription(
                             "Semantics that can be chosen EXACTLY_ONCE/AT_LEAST_ONCE/NON, default NON.");
+
+    /**
+     * Customize the row separator, if a message contains multiple row of data, you can customize
+     * the line separator to split.
+     */
+    public static final Option<String> ROW_DELIMITER =
+            Options.key("row_delimiter")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Customize the row separator, if a message contains multiple row of data, you can customize the line separator to split.");
 }

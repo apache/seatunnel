@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
@@ -26,6 +28,7 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormatError
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
@@ -50,6 +53,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.ROW_DELIMITER;
+
 @Slf4j
 public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSourceSplit> {
 
@@ -68,12 +73,14 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     private final LinkedBlockingQueue<KafkaSourceSplit> pendingPartitionsQueue;
 
     private volatile boolean running = false;
+    private String rowDelimiter;
 
     KafkaSourceReader(
             ConsumerMetadata metadata,
             DeserializationSchema<SeaTunnelRow> deserializationSchema,
             Context context,
-            MessageFormatErrorHandleWay messageFormatErrorHandleWay) {
+            MessageFormatErrorHandleWay messageFormatErrorHandleWay,
+            Config config) {
         this.metadata = metadata;
         this.context = context;
         this.messageFormatErrorHandleWay = messageFormatErrorHandleWay;
@@ -84,6 +91,9 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
         this.executorService =
                 Executors.newCachedThreadPool(r -> new Thread(r, "Kafka Source Data Consumer"));
         pendingPartitionsQueue = new LinkedBlockingQueue<>();
+        if (config.hasPath(ROW_DELIMITER.key())) {
+            this.rowDelimiter = config.getString(ROW_DELIMITER.key());
+        }
     }
 
     @Override
@@ -150,8 +160,22 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                                                             recordList) {
 
                                                         try {
-                                                            deserializationSchema.deserialize(
-                                                                    record.value(), output);
+                                                            if (StringUtils.isBlank(rowDelimiter)) {
+                                                                deserializationSchema.deserialize(
+                                                                        record.value(), output);
+                                                            } else {
+                                                                byte[] message = record.value();
+                                                                String[] rows =
+                                                                        StringUtils.split(
+                                                                                new String(message),
+                                                                                rowDelimiter);
+                                                                for (String row : rows) {
+                                                                    deserializationSchema
+                                                                            .deserialize(
+                                                                                    row.getBytes(),
+                                                                                    output);
+                                                                }
+                                                            }
                                                         } catch (IOException e) {
                                                             if (this.messageFormatErrorHandleWay
                                                                     == MessageFormatErrorHandleWay

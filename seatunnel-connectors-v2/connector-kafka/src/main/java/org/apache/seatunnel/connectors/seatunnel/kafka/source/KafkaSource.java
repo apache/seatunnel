@@ -87,6 +87,7 @@ public class KafkaSource
     private long discoveryIntervalMillis = KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS.defaultValue();
     private MessageFormatErrorHandleWay messageFormatErrorHandleWay =
             MessageFormatErrorHandleWay.FAIL;
+    private Config config;
 
     @Override
     public Boundedness getBoundedness() {
@@ -111,6 +112,7 @@ public class KafkaSource
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
+        this.config = config;
         this.metadata.setTopic(config.getString(TOPIC.key()));
         if (config.hasPath(PATTERN.key())) {
             this.metadata.setPattern(config.getBoolean(PATTERN.key()));
@@ -215,7 +217,11 @@ public class KafkaSource
     public SourceReader<SeaTunnelRow, KafkaSourceSplit> createReader(
             SourceReader.Context readerContext) throws Exception {
         return new KafkaSourceReader(
-                this.metadata, deserializationSchema, readerContext, messageFormatErrorHandleWay);
+                this.metadata,
+                deserializationSchema,
+                readerContext,
+                messageFormatErrorHandleWay,
+                config);
     }
 
     @Override

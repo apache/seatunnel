@@ -34,6 +34,7 @@ Source connector for Apache Kafka.
 | start_mode.offsets                  |         | no       |                          |
 | start_mode.timestamp                | Long    | no       |                          |
 | partition-discovery.interval-millis | long    | no       | -1                       |
+| row_delimiter                       | String  | no       | -                        |
 
 ### topic [string]
 
@@ -98,6 +99,10 @@ The time required for consumption mode to be "timestamp".
 ## start_mode.offsets
 
 The offset required for consumption mode to be specific_offsets.
+
+## row_delimiter
+
+Customize the row separator, if a message contains multiple row of data, you can customize the line separator to split.
 
 for example:
 

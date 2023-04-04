@@ -258,6 +258,21 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         testKafkaGroupOffsetsToConsole(container);
     }
 
+    @TestTemplate
+    public void testSourceKafkaRowDelimiterToConsole(TestContainer container)
+            throws IOException, InterruptedException {
+        DefaultSeaTunnelRowSerializer serializer =
+                DefaultSeaTunnelRowSerializer.create(
+                        "test_topic_row_delimiter",
+                        SEATUNNEL_ROW_TYPE,
+                        DEFAULT_FORMAT,
+                        DEFAULT_FIELD_DELIMITER);
+        generateTestData(row -> serializer.serializeRow(row), 0, 100);
+        Container.ExecResult execResult =
+                container.executeJob("/kafkasource_row_delimiter_to_console.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
     public void testKafkaLatestToConsole(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
