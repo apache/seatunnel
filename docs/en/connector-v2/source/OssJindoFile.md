@@ -34,6 +34,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
   - [x] parquet
   - [x] orc
   - [x] json
+  - [x] excel
 
 ## Options
 
@@ -54,6 +55,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | skip_header_row_number    | long    | no       | 0                   |
 | schema                    | config  | no       | -                   |
 | common-options            |         | no       | -                   |
+| sheet_name                | string  | no       | -                   |
 
 ### path [string]
 

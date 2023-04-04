@@ -26,6 +26,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
   - [x] text
   - [x] csv
   - [x] json
+  - [x] excel
 
 ## Options
 
@@ -45,6 +46,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | time_format               | string  | no       | HH:mm:ss            |
 | schema                    | config  | no       | -                   |
 | common-options            |         | no       | -                   |
+| sheet_name                | string  | no       | -                   |
 
 ### host [string]
 
