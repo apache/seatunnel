@@ -97,6 +97,9 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             if (clientCommandArgs.isListJob()) {
                 String jobStatus = engineClient.getJobClient().listJobStatus(true);
                 System.out.println(jobStatus);
+            } else if (clientCommandArgs.isGetRunningJobMetrics()) {
+                String runningJobMetrics = engineClient.getJobClient().getRunningJobMetrics();
+                System.out.println(runningJobMetrics);
             } else if (null != clientCommandArgs.getJobId()) {
                 String jobState =
                         engineClient

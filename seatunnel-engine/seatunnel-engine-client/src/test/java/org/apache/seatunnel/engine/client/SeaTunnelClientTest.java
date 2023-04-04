@@ -201,6 +201,56 @@ public class SeaTunnelClientTest {
     }
 
     @Test
+    public void testGetRunningJobMetrics() throws ExecutionException, InterruptedException {
+        Common.setDeployMode(DeployMode.CLUSTER);
+        String filePath = TestUtils.getResource("/batch_fake_to_console.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("fake_to_console1");
+
+        ClientJobProxy execute1 = CLIENT.createExecutionContext(filePath, jobConfig).execute();
+        long jobId1 = execute1.getJobId();
+
+        execute1.waitForJobComplete();
+
+        filePath = TestUtils.getResource("streaming_fake_to_console.conf");
+        jobConfig = new JobConfig();
+        jobConfig.setName("fake_to_console2");
+        ClientJobProxy execute2 = CLIENT.createExecutionContext(filePath, jobConfig).execute();
+        ClientJobProxy execute3 = CLIENT.createExecutionContext(filePath, jobConfig).execute();
+
+        long jobId2 = execute2.getJobId();
+        long jobId3 = execute3.getJobId();
+
+        await().atMost(30000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        CLIENT.getJobClient()
+                                                        .getJobStatus(jobId1)
+                                                        .equals("FINISHED")
+                                                && CLIENT.getJobClient()
+                                                        .getJobStatus(jobId2)
+                                                        .equals("RUNNING")
+                                                && CLIENT.getJobClient()
+                                                        .getJobStatus(jobId3)
+                                                        .equals("RUNNING")));
+
+        System.out.println(CLIENT.getJobClient().getRunningJobMetrics());
+
+        await().atMost(30000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            String runningJobMetrics = CLIENT.getJobClient().getRunningJobMetrics();
+                            Assertions.assertTrue(
+                                    runningJobMetrics.contains(jobId2 + "")
+                                            && runningJobMetrics.contains(jobId3 + ""));
+                        });
+
+        CLIENT.getJobClient().cancelJob(jobId2);
+        CLIENT.getJobClient().cancelJob(jobId3);
+    }
+
+    @Test
     public void testCancelJob() throws ExecutionException, InterruptedException {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/streaming_fake_to_console.conf");
