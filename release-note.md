@@ -45,7 +45,6 @@
 - [Hive] Support read user-defined partitions #3842
 - [SelectDB Cloud] Support SelectDB Cloud Sink Connector #3958
 - [File] add file excel sink and source #4164
-  =======
 - [Hive] Support read text table & Column projection #4105
 - [File] Support column projection #4105
 - [Github] Add github source connector #4155
