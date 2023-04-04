@@ -63,8 +63,7 @@ public class DebeziumJsonFormatFactory
         return new DeserializationFormat() {
             @Override
             public DeserializationSchema createDeserializationSchema() {
-                return new DebeziumJsonDeserializationSchema(
-                        null, schemaInclude, ignoreParseErrors);
+                return new DebeziumJsonDeserializationSchema(null, ignoreParseErrors);
             }
         };
     }

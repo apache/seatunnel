@@ -268,8 +268,7 @@ public class KafkaSource
                                     .build();
                     break;
                 case DEBEZIUM_JSON:
-                    deserializationSchema =
-                            new DebeziumJsonDeserializationSchema(typeInfo, true, false);
+                    deserializationSchema = new DebeziumJsonDeserializationSchema(typeInfo, true);
                     break;
                 default:
                     throw new SeaTunnelJsonFormatException(
