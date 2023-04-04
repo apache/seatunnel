@@ -231,4 +231,5 @@ source {
 - [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/incubator-seatunnel/pull/3719)
 - [Bug] Fixed the problem that parsing the offset format failed when the startup mode was offset([3810](https://github.com/apache/incubator-seatunnel/pull/3810))
 - [Feature] Kafka source supports data deserialization failure skipping([4364](https://github.com/apache/incubator-seatunnel/pull/4364))
+- [Feature] Add customize the row separator, if a message contains multiple row of data, you can customize the line separator to split.([4494](https://github.com/apache/incubator-seatunnel/pull/4494))
 
