@@ -91,6 +91,7 @@ public class FtpFileSource extends BaseFileSource {
                 case CSV:
                 case TEXT:
                 case JSON:
+                case EXCEL:
                     Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
                     SeaTunnelRowType userDefinedSchema =
                             SeaTunnelSchema.buildWithConfig(schemaConfig).getSeaTunnelRowType();
