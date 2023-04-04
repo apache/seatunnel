@@ -156,14 +156,17 @@ public class MultipleTableJobConfigParser {
         LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>> tableWithActionMap =
                 new LinkedHashMap<>();
 
+        log.info("start generating all sources.");
         for (Config sourceConfig : sourceConfigs) {
             Tuple2<String, List<Tuple2<CatalogTable, Action>>> tuple2 =
                     parseSource(sourceConfig, classLoader);
             tableWithActionMap.put(tuple2._1(), tuple2._2());
         }
 
+        log.info("start generating all transforms.");
         parseTransforms(transformConfigs, classLoader, tableWithActionMap);
 
+        log.info("start generating all sinks.");
         List<Action> sinkActions = new ArrayList<>();
         for (int configIndex = 0; configIndex < sinkConfigs.size(); configIndex++) {
             Config sinkConfig = sinkConfigs.get(configIndex);
