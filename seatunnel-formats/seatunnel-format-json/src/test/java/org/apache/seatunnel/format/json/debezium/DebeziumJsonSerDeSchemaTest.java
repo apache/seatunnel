@@ -52,7 +52,7 @@ public class DebeziumJsonSerDeSchemaTest {
     @Test
     void testNullRowMessages() throws Exception {
         DebeziumJsonDeserializationSchema deserializationSchema =
-                new DebeziumJsonDeserializationSchema(PHYSICAL_DATA_TYPE, false, false);
+                new DebeziumJsonDeserializationSchema(PHYSICAL_DATA_TYPE, false);
         SimpleCollector collector = new SimpleCollector();
 
         deserializationSchema.deserialize(null, collector);
@@ -61,20 +61,15 @@ public class DebeziumJsonSerDeSchemaTest {
     }
 
     @Test
-    public void testSerializationAndSchemaIncludeDeserialization() throws Exception {
-        testSerializationDeserialization("debezium-data-schema-include.txt", true);
-    }
-
-    @Test
     public void testSerializationAndSchemaExcludeDeserialization() throws Exception {
-        testSerializationDeserialization("debezium-data-schema-exclude.txt", false);
+        testSerializationDeserialization("debezium-data.txt", false);
     }
 
     private void testSerializationDeserialization(String resourceFile, boolean schemaInclude)
             throws Exception {
         List<String> lines = readLines(resourceFile);
         DebeziumJsonDeserializationSchema deserializationSchema =
-                new DebeziumJsonDeserializationSchema(PHYSICAL_DATA_TYPE, schemaInclude, false);
+                new DebeziumJsonDeserializationSchema(PHYSICAL_DATA_TYPE, schemaInclude);
 
         SimpleCollector collector = new SimpleCollector();
 

@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.format.json.debezium;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.RowKind;
@@ -28,8 +31,6 @@ import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import java.io.IOException;
-
-import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 
 public class DebeziumJsonDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
     private static final long serialVersionUID = 1L;
@@ -48,23 +49,13 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
 
     private final JsonDeserializationSchema jsonDeserializer;
 
-    /**
-     * Flag indicating whether the Debezium JSON data contains schema part or not. When Debezium
-     * Kafka Connect enables "value.converter.schemas.enable", the JSON will contain "schema"
-     * information, but we just ignore "schema" and extract data from "payload".
-     */
-    private final boolean schemaInclude;
-
     private final boolean ignoreParseErrors;
 
-    public DebeziumJsonDeserializationSchema(
-            SeaTunnelRowType rowType, boolean schemaInclude, boolean ignoreParseErrors) {
+    public DebeziumJsonDeserializationSchema(SeaTunnelRowType rowType, boolean ignoreParseErrors) {
         this.rowType = rowType;
-        this.schemaInclude = schemaInclude;
         this.ignoreParseErrors = ignoreParseErrors;
         this.jsonDeserializer =
-                new JsonDeserializationSchema(
-                        false, ignoreParseErrors, createJsonRowType(rowType, schemaInclude));
+                new JsonDeserializationSchema(false, ignoreParseErrors, createJsonRowType(rowType));
     }
 
     @Override
@@ -81,38 +72,35 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
         }
 
         try {
-            SeaTunnelRow row = jsonDeserializer.deserialize(message);
-            SeaTunnelRow payload;
-            if (schemaInclude) {
-                payload = (SeaTunnelRow) row.getField(0);
-            } else {
-                payload = row;
-            }
+            ObjectNode jsonNode = (ObjectNode) convertBytes(message);
+            String op = jsonNode.get("op").asText();
 
-            SeaTunnelRow before = (SeaTunnelRow) payload.getField(0);
-            SeaTunnelRow after = (SeaTunnelRow) payload.getField(1);
-            String op = payload.getField(2).toString();
             if (OP_CREATE.equals(op) || OP_READ.equals(op)) {
-                after.setRowKind(RowKind.INSERT);
-                out.collect(after);
+                SeaTunnelRow insert = convertJsonNode(jsonNode.get("after"));
+                insert.setRowKind(RowKind.INSERT);
+                out.collect(insert);
             } else if (OP_UPDATE.equals(op)) {
+                SeaTunnelRow before = convertJsonNode(jsonNode.get("before"));
                 if (before == null) {
                     throw new SeaTunnelJsonFormatException(
                             CommonErrorCode.UNSUPPORTED_DATA_TYPE,
                             String.format(REPLICA_IDENTITY_EXCEPTION, "UPDATE"));
                 }
                 before.setRowKind(RowKind.UPDATE_BEFORE);
-                after.setRowKind(RowKind.UPDATE_AFTER);
                 out.collect(before);
+
+                SeaTunnelRow after = convertJsonNode(jsonNode.get("after"));
+                after.setRowKind(RowKind.UPDATE_AFTER);
                 out.collect(after);
             } else if (OP_DELETE.equals(op)) {
-                if (before == null) {
+                SeaTunnelRow delete = convertJsonNode(jsonNode.get("before"));
+                if (delete == null) {
                     throw new SeaTunnelJsonFormatException(
                             CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                            String.format(REPLICA_IDENTITY_EXCEPTION, "DELETE"));
+                            String.format(REPLICA_IDENTITY_EXCEPTION, "UPDATE"));
                 }
-                before.setRowKind(RowKind.DELETE);
-                out.collect(before);
+                delete.setRowKind(RowKind.DELETE);
+                out.collect(delete);
             } else {
                 if (!ignoreParseErrors) {
                     throw new SeaTunnelJsonFormatException(
@@ -133,27 +121,30 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
         }
     }
 
+    private JsonNode convertBytes(byte[] message) {
+        try {
+            return jsonDeserializer.deserializeToJsonNode(message);
+        } catch (Exception t) {
+            if (ignoreParseErrors) {
+                return null;
+            }
+            throw new SeaTunnelJsonFormatException(
+                    CommonErrorCode.JSON_OPERATION_FAILED,
+                    String.format("Failed to deserialize JSON '%s'.", new String(message)),
+                    t);
+        }
+    }
+
+    private SeaTunnelRow convertJsonNode(JsonNode root) {
+        return jsonDeserializer.convertToRowData(root);
+    }
+
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
         return this.rowType;
     }
 
-    private static SeaTunnelRowType createJsonRowType(
-            SeaTunnelRowType databaseSchema, boolean schemaInclude) {
-        SeaTunnelRowType payload =
-                new SeaTunnelRowType(
-                        new String[] {"before", "after", "op"},
-                        new SeaTunnelDataType[] {databaseSchema, databaseSchema, STRING_TYPE});
-        if (schemaInclude) {
-            // when Debezium Kafka connect enables "value.converter.schemas.enable",
-            // the JSON will contain "schema" information, but we just ignore "schema"
-            // and extract data from "payload".
-            return new SeaTunnelRowType(
-                    new String[] {"payload"}, new SeaTunnelDataType[] {payload});
-        } else {
-            // payload contains some other information, e.g. "source", "ts_ms"
-            // but we don't need them.
-            return payload;
-        }
+    private static SeaTunnelRowType createJsonRowType(SeaTunnelRowType databaseSchema) {
+        return databaseSchema;
     }
 }
