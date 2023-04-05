@@ -517,7 +517,7 @@ public class JobMaster {
                                         Arrays.toString(taskGroupLocations.toArray()),
                                         ExceptionUtils.getMessage(e)));
                     } catch (Exception e) {
-                        throw new SeaTunnelException(e.getMessage());
+                        throw new SeaTunnelEngineException(ExceptionUtils.getMessage(e));
                     }
                 });
         return metrics;

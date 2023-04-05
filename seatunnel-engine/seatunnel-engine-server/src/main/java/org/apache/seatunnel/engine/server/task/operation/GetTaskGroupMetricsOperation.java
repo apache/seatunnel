@@ -32,7 +32,6 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 public class GetTaskGroupMetricsOperation extends Operation implements IdentifiedDataSerializable {
@@ -59,7 +58,7 @@ public class GetTaskGroupMetricsOperation extends Operation implements Identifie
                     "Caller "
                             + callerAddress
                             + " cannot get taskGroupLocation metrics"
-                            + Arrays.toString(taskGroupLocations.toArray())
+                            + taskGroupLocations.toString()
                             + " because it is not master. Master is: "
                             + masterAddress);
         }
