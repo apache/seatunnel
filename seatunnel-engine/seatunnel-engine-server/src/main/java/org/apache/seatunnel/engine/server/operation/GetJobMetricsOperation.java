@@ -73,7 +73,7 @@ public class GetJobMetricsOperation extends Operation
                 CompletableFuture.supplyAsync(
                         () -> {
                             return toJsonString(
-                                    service.getCoordinatorService().getJobMetrics(jobId));
+                                    service.getCoordinatorService().getJobMetrics(jobId).getMetrics());
                         },
                         getNodeEngine()
                                 .getExecutionService()

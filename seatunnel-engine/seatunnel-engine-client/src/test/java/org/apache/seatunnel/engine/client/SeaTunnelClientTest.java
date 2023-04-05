@@ -190,6 +190,8 @@ public class SeaTunnelClientTest {
 
             String jobMetrics = CLIENT.getJobMetrics(jobId);
 
+            System.out.println(jobMetrics);
+
             Assertions.assertTrue(jobMetrics.contains(SOURCE_RECEIVED_COUNT));
             Assertions.assertTrue(jobMetrics.contains(SOURCE_RECEIVED_QPS));
             Assertions.assertTrue(jobMetrics.contains(SINK_WRITE_COUNT));
