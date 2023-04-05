@@ -27,9 +27,7 @@ public class Config {
 
     public static final String CONNECTOR_IDENTITY = "Kafka";
     public static final String REPLICATION_FACTOR = "replication.factor";
-
     public static final String DEBEZIUM_FORMAT = "debezium-json";
-
     /** The default field delimiter is “,” */
     public static final String DEFAULT_FIELD_DELIMITER = ",";
 
