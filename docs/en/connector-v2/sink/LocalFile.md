@@ -211,7 +211,7 @@ LocalFile {
 
 ```
 
-For text file format with `sheet_name` and `max_rows_in_memory`
+For excel file format with `sheet_name` and `max_rows_in_memory`
 
 ```bash
 
