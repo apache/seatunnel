@@ -28,6 +28,7 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] parquet
   - [x] orc
   - [x] json
+  - [x] excel
 
 ## Options
 
@@ -54,6 +55,8 @@ By default, we use 2PC commit to ensure `exactly-once`
 | batch_size                       | int     | no       | 1000000                                               |                                                                                                        |
 | compress_codec                   | string  | no       | none                                                  |                                                                                                        |
 | common-options                   | object  | no       | -                                                     |                                                                                                        |
+| max_rows_in_memory               | int     | no       | -                                                     | Only used when file_format is excel.                                                                   |
+| sheet_name                       | string  | no       | Sheet${Random number}                                 | Only used when file_format is excel.                                                                   |
 
 ### path [string]
 
@@ -186,12 +189,21 @@ The compress codec of files and the details that supported as the following show
 - txt: `lzo` `none`
 - json: `lzo` `none`
 - csv: `lzo` `none`
+- excel: `none`
 - orc: `lzo` `snappy` `lz4` `zlib` `none`
 - parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`
 
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
+
+### max_rows_in_memory [int]
+
+When File Format is Excel,The maximum number of data items that can be cached in the memory.
+
+### sheet_name [string]
+
+Writer the sheet of the workbook
 
 ## Example
 

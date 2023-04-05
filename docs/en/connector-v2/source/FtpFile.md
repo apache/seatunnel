@@ -30,7 +30,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 
 ## Options
 
-|           name            |  type   | required |    default value    |
+| name                      | type    | required | default value       |
 |---------------------------|---------|----------|---------------------|
 | host                      | string  | yes      | -                   |
 | port                      | int     | yes      | -                   |
@@ -222,6 +222,10 @@ connector will generate data as the following:
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
+
+### sheet_name [string]
+
+Reader the sheet of the workbook,Only used when file_format is excel.
 
 ## Example
 

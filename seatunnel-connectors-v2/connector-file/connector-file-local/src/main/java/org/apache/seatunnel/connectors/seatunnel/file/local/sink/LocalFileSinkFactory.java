@@ -54,8 +54,7 @@ public class LocalFileSinkFactory implements TableSinkFactory {
                         BaseSinkConfig.TXT_COMPRESS)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
-                        FileFormat.EXCEL,
-                        BaseSinkConfig.TXT_COMPRESS)
+                        FileFormat.EXCEL)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.ORC,

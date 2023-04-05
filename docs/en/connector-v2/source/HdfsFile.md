@@ -35,24 +35,24 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 
 ## Options
 
-| name                      | type    | required | default value         |
-|---------------------------|---------|----------|-----------------------|
-| path                      | string  | yes      | -                     |
-| file_format_type          | string  | yes      | -                     |
-| fs.defaultFS              | string  | yes      | -                     |
-| read_columns              | list    | yes      | -                     |
-| hdfs_site_path            | string  | no       | -                     |
-| delimiter                 | string  | no       | \001                  |
-| parse_partition_from_path | boolean | no       | true                  |
-| date_format               | string  | no       | yyyy-MM-dd            |
-| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss   |
-| time_format               | string  | no       | HH:mm:ss              |
-| kerberos_principal        | string  | no       | -                     |
-| kerberos_keytab_path      | string  | no       | -                     |
-| skip_header_row_number    | long    | no       | 0                     |
-| schema                    | config  | no       | -                     |
-| common-options            |         | no       | -                     |
-| sheet_name                | string  | no       | Sheet${Random number} |
+| name                      | type    | required | default value       |
+|---------------------------|---------|----------|---------------------|
+| path                      | string  | yes      | -                   |
+| file_format_type          | string  | yes      | -                   |
+| fs.defaultFS              | string  | yes      | -                   |
+| read_columns              | list    | yes      | -                   |
+| hdfs_site_path            | string  | no       | -                   |
+| delimiter                 | string  | no       | \001                |
+| parse_partition_from_path | boolean | no       | true                |
+| date_format               | string  | no       | yyyy-MM-dd          |
+| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss |
+| time_format               | string  | no       | HH:mm:ss            |
+| kerberos_principal        | string  | no       | -                   |
+| kerberos_keytab_path      | string  | no       | -                   |
+| skip_header_row_number    | long    | no       | 0                   |
+| schema                    | config  | no       | -                   |
+| common-options            |         | no       | -                   |
+| sheet_name                | string  | no       | -                   |
 
 ### path [string]
 
@@ -241,7 +241,7 @@ The file type supported column projection as the following shown:
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
-### sheet_name
+### sheet_name [string]
 
 Reader the sheet of the workbook,Only used when file_format is excel.
 

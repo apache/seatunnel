@@ -30,23 +30,23 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 
 ## Options
 
-| name                      | type    | required | default value         |
-|---------------------------|---------|----------|-----------------------|
-| host                      | string  | yes      | -                     |
-| port                      | int     | yes      | -                     |
-| user                      | string  | yes      | -                     |
-| password                  | string  | yes      | -                     |
-| path                      | string  | yes      | -                     |
-| file_format_type          | string  | yes      | -                     |
-| delimiter                 | string  | no       | \001                  |
-| parse_partition_from_path | boolean | no       | true                  |
-| date_format               | string  | no       | yyyy-MM-dd            |
-| skip_header_row_number    | long    | no       | 0                     |
-| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss   |
-| time_format               | string  | no       | HH:mm:ss              |
-| schema                    | config  | no       | -                     |
-| common-options            |         | no       | -                     |
-| sheet_name                | string  | no       | Sheet${Random number} |
+| name                      | type    | required | default value       |
+|---------------------------|---------|----------|---------------------|
+| host                      | string  | yes      | -                   |
+| port                      | int     | yes      | -                   |
+| user                      | string  | yes      | -                   |
+| password                  | string  | yes      | -                   |
+| path                      | string  | yes      | -                   |
+| file_format_type          | string  | yes      | -                   |
+| delimiter                 | string  | no       | \001                |
+| parse_partition_from_path | boolean | no       | true                |
+| date_format               | string  | no       | yyyy-MM-dd          |
+| skip_header_row_number    | long    | no       | 0                   |
+| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss |
+| time_format               | string  | no       | HH:mm:ss            |
+| schema                    | config  | no       | -                   |
+| common-options            |         | no       | -                   |
+| sheet_name                | string  | no       | -                   |
 
 ### host [string]
 
@@ -137,6 +137,7 @@ The file type supported column projection as the following shown:
 - csv
 - orc
 - parquet
+- excel
 
 **Tips: If the user wants to use this feature when reading `text` `json` `csv` files, the schema option must be configured**
 
@@ -220,6 +221,10 @@ connector will generate data as the following:
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
+
+### sheet_name [string]
+
+Reader the sheet of the workbook,Only used when file_format is excel.
 
 ## Example
 
