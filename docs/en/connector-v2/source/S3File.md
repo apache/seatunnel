@@ -37,7 +37,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 
 ## Options
 
-|              name               |  type   | required |                     default value                     |
+| name                            | type    | required | default value                                         |
 |---------------------------------|---------|----------|-------------------------------------------------------|
 | path                            | string  | yes      | -                                                     |
 | file_format_type                | string  | yes      | -                                                     |
@@ -56,7 +56,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | skip_header_row_number          | long    | no       | 0                                                     |
 | schema                          | config  | no       | -                                                     |
 | common-options                  |         | no       | -                                                     |
-| sheet_name                      | string  | no       | -                                                     |
+| sheet_name                      | string  | no       | Sheet${Random number}                                 |
 
 ### path [string]
 

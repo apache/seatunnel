@@ -30,23 +30,23 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 
 ## Options
 
-|           name            |  type   | required |    default value    |
-|---------------------------|---------|----------|---------------------|
-| host                      | string  | yes      | -                   |
-| port                      | int     | yes      | -                   |
-| user                      | string  | yes      | -                   |
-| password                  | string  | yes      | -                   |
-| path                      | string  | yes      | -                   |
-| file_format_type          | string  | yes      | -                   |
-| delimiter                 | string  | no       | \001                |
-| parse_partition_from_path | boolean | no       | true                |
-| date_format               | string  | no       | yyyy-MM-dd          |
-| skip_header_row_number    | long    | no       | 0                   |
-| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss |
-| time_format               | string  | no       | HH:mm:ss            |
-| schema                    | config  | no       | -                   |
-| common-options            |         | no       | -                   |
-| sheet_name                | string  | no       | -                   |
+| name                      | type    | required | default value         |
+|---------------------------|---------|----------|-----------------------|
+| host                      | string  | yes      | -                     |
+| port                      | int     | yes      | -                     |
+| user                      | string  | yes      | -                     |
+| password                  | string  | yes      | -                     |
+| path                      | string  | yes      | -                     |
+| file_format_type          | string  | yes      | -                     |
+| delimiter                 | string  | no       | \001                  |
+| parse_partition_from_path | boolean | no       | true                  |
+| date_format               | string  | no       | yyyy-MM-dd            |
+| skip_header_row_number    | long    | no       | 0                     |
+| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss   |
+| time_format               | string  | no       | HH:mm:ss              |
+| schema                    | config  | no       | -                     |
+| common-options            |         | no       | -                     |
+| sheet_name                | string  | no       | Sheet${Random number} |
 
 ### host [string]
 

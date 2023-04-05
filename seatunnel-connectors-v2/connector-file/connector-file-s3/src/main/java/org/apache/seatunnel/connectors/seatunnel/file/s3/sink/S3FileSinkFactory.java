@@ -64,6 +64,10 @@ public class S3FileSinkFactory implements TableSinkFactory {
                         BaseSinkConfig.TXT_COMPRESS)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
+                        FileFormat.EXCEL,
+                        BaseSinkConfig.TXT_COMPRESS)
+                .conditional(
+                        BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.ORC,
                         BaseSinkConfig.ORC_COMPRESS)
                 .conditional(

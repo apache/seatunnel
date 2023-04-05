@@ -30,7 +30,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-|               name               |  type   | required |               default value                |                          remarks                          |
+| name                             | type    | required | default value                              | remarks                                                   |
 |----------------------------------|---------|----------|--------------------------------------------|-----------------------------------------------------------|
 | path                             | string  | yes      | -                                          |                                                           |
 | custom_filename                  | boolean | no       | false                                      | Whether you need custom the filename                      |
@@ -48,9 +48,8 @@ By default, we use 2PC commit to ensure `exactly-once`
 | batch_size                       | int     | no       | 1000000                                    |                                                           |
 | compress_codec                   | string  | no       | none                                       |                                                           |
 | common-options                   | object  | no       | -                                          |                                                           |
-| common-options                   | object  | no       | -                                          |                                                           |
 | max_rows_in_memory               | int     | no       | -                                          | Only used when file_format is excel.                      |
-| sheet_name                       | string  | no       | "Sheet${Random number}"                    | Only used when file_format is excel.                      |
+| sheet_name                       | string  | no       | Sheet${Random number}                      | Only used when file_format is excel.                      |
 
 ### path [string]
 
