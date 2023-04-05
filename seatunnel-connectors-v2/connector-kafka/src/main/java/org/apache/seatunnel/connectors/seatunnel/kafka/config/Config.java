@@ -27,16 +27,6 @@ public class Config {
 
     public static final String CONNECTOR_IDENTITY = "Kafka";
     public static final String REPLICATION_FACTOR = "replication.factor";
-
-    /** The default data format is JSON */
-    public static final String DEFAULT_FORMAT = "json";
-
-    public static final String TEXT_FORMAT = "text";
-
-    public static final String CANAL_FORMAT = "canal-json";
-
-    public static final String DEBEZIUM_FORMAT = "debezium-json";
-
     /** The default field delimiter is “,” */
     public static final String DEFAULT_FIELD_DELIMITER = ",";
 

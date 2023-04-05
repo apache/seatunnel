@@ -15,11 +15,10 @@ Seatunnel also supports to encode the INSERT/UPDATE/DELETE messages in Seatunnel
 
 # Format Options
 
-|              option               | default | required |                                                                                                                         Description                                                                                                                         |
-|-----------------------------------|---------|----------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| format                            | (none)  | yes      | Specify what format to use, here should be 'debezium-json'.                                                                                                                                                                                                 |
-| debezium-json.ignore-parse-errors | false   | no       | Skip fields and rows with parse errors instead of failing. Fields are set to null in case of errors.                                                                                                                                                        |
-| debezium-schemaInclude            | (none)  | no       | Flag indicating whether the Debezium JSON data contains schema part or not. When Debezium Kafka Connect enables "value.converter.schemas.enable", the JSON will contain "schema"  information, but we just ignore "schema" and extract data from "payload". |
+|              option               | default | required |                                             Description                                              |
+|-----------------------------------|---------|----------|------------------------------------------------------------------------------------------------------|
+| format                            | (none)  | yes      | Specify what format to use, here should be 'debezium-json'.                                          |
+| debezium-json.ignore-parse-errors | false   | no       | Skip fields and rows with parse errors instead of failing. Fields are set to null in case of errors. |
 
 # How to use Debezium format
 
