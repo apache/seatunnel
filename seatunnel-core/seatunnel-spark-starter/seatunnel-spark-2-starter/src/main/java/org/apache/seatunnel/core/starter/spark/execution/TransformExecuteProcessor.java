@@ -126,13 +126,18 @@ public class TransformExecuteProcessor
                 (StructType) TypeConverterUtils.convert(transform.getProducedType());
         ExpressionEncoder<Row> encoder = RowEncoder.apply(structType);
         return stream.mapPartitions(
-                (MapPartitionsFunction<Row, Row>)
-                        (Iterator<Row> rowIterator) -> {
-                            TransformIterator iterator =
-                                    new TransformIterator(rowIterator, transform, structType);
-                            return iterator;
-                        },
-                encoder);
+                        (MapPartitionsFunction<Row, Row>)
+                                (Iterator<Row> rowIterator) -> {
+                                    TransformIterator iterator =
+                                            new TransformIterator(
+                                                    rowIterator, transform, structType);
+                                    return iterator;
+                                },
+                        encoder)
+                .filter(
+                        (Row row) -> {
+                            return row != null;
+                        });
     }
 
     private static class TransformIterator implements Iterator<Row>, Serializable {
@@ -156,16 +161,13 @@ public class TransformExecuteProcessor
 
         @Override
         public Row next() {
-            while (sourceIterator.hasNext()) {
-                Row row = sourceIterator.next();
-                SeaTunnelRow seaTunnelRow = new SeaTunnelRow(((GenericRowWithSchema) row).values());
-                seaTunnelRow = (SeaTunnelRow) transform.map(seaTunnelRow);
-                if (seaTunnelRow == null) {
-                    continue;
-                }
-                return new GenericRowWithSchema(seaTunnelRow.getFields(), structType);
+            Row row = sourceIterator.next();
+            SeaTunnelRow seaTunnelRow = new SeaTunnelRow(((GenericRowWithSchema) row).values());
+            seaTunnelRow = (SeaTunnelRow) transform.map(seaTunnelRow);
+            if (seaTunnelRow == null) {
+                return null;
             }
-            return sourceIterator.next();
+            return new GenericRowWithSchema(seaTunnelRow.getFields(), structType);
         }
     }
 }
