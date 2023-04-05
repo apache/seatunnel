@@ -38,7 +38,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 
 ## Options
 
-| name                      | type    | required | default value       |
+|           name            |  type   | required |    default value    |
 |---------------------------|---------|----------|---------------------|
 | path                      | string  | yes      | -                   |
 | file_format_type          | string  | yes      | -                   |

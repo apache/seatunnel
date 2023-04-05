@@ -54,9 +54,7 @@ public class HdfsFileSinkFactory implements TableSinkFactory {
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.JSON,
                         BaseSinkConfig.TXT_COMPRESS)
-                .conditional(
-                        BaseSinkConfig.FILE_FORMAT_TYPE,
-                        FileFormat.EXCEL)
+                .conditional(BaseSinkConfig.FILE_FORMAT_TYPE, FileFormat.EXCEL)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.ORC,
