@@ -17,12 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
-import com.google.common.collect.Lists;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSinkState;
+
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
+
+import com.google.common.collect.Lists;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
 import java.util.List;
@@ -72,7 +74,8 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
                         transactionId,
                         kafkaProperties,
                         this.kafkaProducer.getProducerId(),
-                        this.kafkaProducer.getEpoch(), this.kafkaProducer.isTxnStarted());
+                        this.kafkaProducer.getEpoch(),
+                        this.kafkaProducer.isTxnStarted());
         return Optional.of(kafkaCommitInfo);
     }
 

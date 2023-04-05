@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import lombok.extern.slf4j.Slf4j;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
@@ -36,6 +36,7 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSinkState;
 
 import com.google.auto.service.AutoService;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
 import java.util.List;

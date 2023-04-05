@@ -17,12 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
-import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
+
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.Properties;
@@ -85,7 +87,8 @@ public class KafkaSinkCommitter implements SinkCommitter<KafkaCommitInfo> {
                     new KafkaInternalProducer<>(
                             commitInfo.getKafkaProperties(), commitInfo.getTransactionId());
         }
-        kafkaProducer.resumeTransaction(commitInfo.getProducerId(), commitInfo.getEpoch(), commitInfo.isTxnStarted());
+        kafkaProducer.resumeTransaction(
+                commitInfo.getProducerId(), commitInfo.getEpoch(), commitInfo.isTxnStarted());
         return kafkaProducer;
     }
 }

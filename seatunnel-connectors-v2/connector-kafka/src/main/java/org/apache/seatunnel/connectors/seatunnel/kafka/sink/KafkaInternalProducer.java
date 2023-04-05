@@ -17,15 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
-import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.common.utils.ReflectionUtils;
+import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
+
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.clients.producer.internals.TransactionManager;
 import org.apache.kafka.common.errors.ProducerFencedException;
-import org.apache.seatunnel.common.utils.ReflectionUtils;
-import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -81,13 +83,17 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
 
     public void setTransactionalId(String transactionalId) {
         if (log.isDebugEnabled()) {
-            log.debug("KafkaInternalProducer.abortTransaction. Target transactionalId=" + transactionalId);
+            log.debug(
+                    "KafkaInternalProducer.abortTransaction. Target transactionalId="
+                            + transactionalId);
         }
 
         if (!transactionalId.equals(this.transactionalId)) {
             if (log.isDebugEnabled()) {
-                log.debug("KafkaInternalProducer.abortTransaction. Current transactionalId={} not match target transactionalId={}",
-                        this.transactionalId, transactionalId);
+                log.debug(
+                        "KafkaInternalProducer.abortTransaction. Current transactionalId={} not match target transactionalId={}",
+                        this.transactionalId,
+                        transactionalId);
             }
             Object transactionManager = getTransactionManager();
             synchronized (transactionManager) {
@@ -191,7 +197,6 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
         Object transactionManager = getTransactionManager();
         return (boolean) ReflectionUtils.getField(transactionManager, "transactionStarted").get();
     }
-
 
     private static void transitionTransactionManagerStateTo(
             Object transactionManager, String state) {

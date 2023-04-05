@@ -17,10 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
-import org.apache.commons.collections4.CollectionUtils;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -33,6 +29,11 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunne
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.SeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSinkState;
+
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
 
 import java.util.Arrays;
 import java.util.Collections;
