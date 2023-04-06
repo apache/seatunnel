@@ -69,6 +69,8 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
 
     private int cellCount;
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     @SneakyThrows
     @Override
     public void read(String path, Collector<SeaTunnelRow> output) {
@@ -191,7 +193,6 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
 
     @SneakyThrows
     private Object convert(Object field, SeaTunnelDataType<?> fieldType) {
-        ObjectMapper objectMapper = new ObjectMapper();
         if (field == null) {
             return "";
         }

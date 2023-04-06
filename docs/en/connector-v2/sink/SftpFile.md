@@ -169,9 +169,10 @@ The compress codec of files and the details that supported as the following show
 - txt: `lzo` `none`
 - json: `lzo` `none`
 - csv: `lzo` `none`
-- excel: `none`
 - orc: `lzo` `snappy` `lz4` `zlib` `none`
 - parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`
+
+Tips: excel type does not support any compression format
 
 ### common options
 
