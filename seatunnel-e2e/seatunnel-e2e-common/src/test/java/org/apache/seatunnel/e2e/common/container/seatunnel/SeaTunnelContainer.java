@@ -17,22 +17,20 @@
 
 package org.apache.seatunnel.e2e.common.container.seatunnel;
 
+import com.google.auto.service.AutoService;
+import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
-
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
-
-import com.google.auto.service.AutoService;
-import lombok.NoArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.nio.file.Paths;
@@ -140,9 +138,9 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     }
 
     @Override
-    public Container.ExecResult executeJob(String confFile)
+    public Container.ExecResult executeJob(String confFile, float timeoutSeconds)
             throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
-        return executeJob(server, confFile);
+        return executeJob(server, confFile, timeoutSeconds);
     }
 }

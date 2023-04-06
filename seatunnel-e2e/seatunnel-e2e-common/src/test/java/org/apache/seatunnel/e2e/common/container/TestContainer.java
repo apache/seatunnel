@@ -18,7 +18,6 @@
 package org.apache.seatunnel.e2e.common.container;
 
 import org.apache.seatunnel.e2e.common.TestResource;
-
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.Network;
 
@@ -33,5 +32,14 @@ public interface TestContainer extends TestResource {
     void executeExtraCommands(ContainerExtendedFactory extendedFactory)
             throws IOException, InterruptedException;
 
-    Container.ExecResult executeJob(String confFile) throws IOException, InterruptedException;
+    default Container.ExecResult executeJob(String confFile) throws IOException, InterruptedException {
+        return executeJob(confFile, -1);
+    }
+
+    Container.ExecResult executeJob(String confFile, float timeoutSeconds) throws IOException, InterruptedException;
+
+    default void stopContainer() throws IOException, InterruptedException {
+//        new DockerClient().execCreateCmd().exec().getId()
+//        throw new NotImplementedException();
+    }
 }

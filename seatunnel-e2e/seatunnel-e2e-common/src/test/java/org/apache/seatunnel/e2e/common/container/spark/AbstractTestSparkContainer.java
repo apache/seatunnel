@@ -17,17 +17,15 @@
 
 package org.apache.seatunnel.e2e.common.container.spark;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
-
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
-
-import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -91,9 +89,9 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
         extendedFactory.extend(master);
     }
 
-    public Container.ExecResult executeJob(String confFile)
+    public Container.ExecResult executeJob(String confFile, float timeoutSeconds)
             throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
-        return executeJob(master, confFile);
+        return executeJob(master, confFile, timeoutSeconds);
     }
 }

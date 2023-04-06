@@ -18,7 +18,6 @@
 package org.apache.seatunnel.e2e.common.container;
 
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
@@ -89,7 +88,7 @@ public abstract class AbstractTestContainer implements TestContainer {
                 container, this.startModuleFullPath, SEATUNNEL_HOME);
     }
 
-    protected Container.ExecResult executeJob(GenericContainer<?> container, String confFile)
+    protected Container.ExecResult executeJob(GenericContainer<?> container, String confFile, float timeoutSeconds)
             throws IOException, InterruptedException {
         final String confInContainerPath = copyConfigFileToContainer(container, confFile);
         // copy connectors
@@ -100,12 +99,16 @@ public abstract class AbstractTestContainer implements TestContainer {
                 getConnectorNamePrefix(),
                 getConnectorType(),
                 SEATUNNEL_HOME);
-        return executeCommand(container, confInContainerPath);
+        return executeCommand(container, confInContainerPath, timeoutSeconds);
     }
 
-    protected Container.ExecResult executeCommand(GenericContainer<?> container, String configPath)
+    protected Container.ExecResult executeCommand(GenericContainer<?> container, String configPath, float timeoutSeconds)
             throws IOException, InterruptedException {
         final List<String> command = new ArrayList<>();
+        if (timeoutSeconds > 0) {
+            command.add("timeout");
+            command.add("" + timeoutSeconds);
+        }
         String binPath = Paths.get(SEATUNNEL_HOME, "bin", getStartShellName()).toString();
         // base command
         command.add(adaptPathForWin(binPath));
