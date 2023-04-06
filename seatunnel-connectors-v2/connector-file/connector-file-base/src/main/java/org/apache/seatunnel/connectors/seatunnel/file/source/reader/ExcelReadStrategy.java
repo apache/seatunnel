@@ -127,6 +127,12 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
 
     @Override
     public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
+        if (isNullOrEmpty(seaTunnelRowType.getFieldNames())
+                || isNullOrEmpty(seaTunnelRowType.getFieldTypes())) {
+            throw new FileConnectorException(
+                    CommonErrorCode.UNSUPPORTED_OPERATION,
+                    "Schmea information is not set or incorrect schmea settings");
+        }
         SeaTunnelRowType userDefinedRowTypeWithPartition =
                 mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
         // column projection
@@ -240,5 +246,9 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                         CommonErrorCode.UNSUPPORTED_DATA_TYPE,
                         "User defined schema validation failed");
         }
+    }
+
+    private <T> boolean isNullOrEmpty(T[] arr) {
+        return arr == null || arr.length == 0;
     }
 }
