@@ -29,8 +29,9 @@ import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginD
 import org.apache.seatunnel.translation.flink.serialization.FlinkRowConverter;
 import org.apache.seatunnel.translation.flink.utils.TypeConverterUtils;
 
-import org.apache.flink.api.common.functions.FlatMapFunction;
+import org.apache.flink.api.common.functions.RichFlatMapFunction;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.Collector;
@@ -120,7 +121,19 @@ public class TransformExecuteProcessor
                 new FlinkRowConverter(transform.getProducedType());
         DataStream<Row> output =
                 stream.flatMap(
-                        new FlatMapFunction<Row, Row>() {
+                        new RichFlatMapFunction<Row, Row>() {
+                            @Override
+                            public void open(Configuration parameters) throws Exception {
+                                super.open(parameters);
+                                transform.open();
+                            }
+
+                            @Override
+                            public void close() throws Exception {
+                                super.close();
+                                transform.close();
+                            }
+
                             @Override
                             public void flatMap(Row value, Collector<Row> out) throws Exception {
                                 SeaTunnelRow seaTunnelRow =
