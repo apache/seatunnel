@@ -40,7 +40,6 @@ import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.DateUtil;
-import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -54,6 +53,8 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
+import java.util.Objects;
+import java.util.stream.IntStream;
 
 import static org.apache.seatunnel.common.utils.DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
 
@@ -65,6 +66,8 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
     private final TimeUtils.Formatter timeFormat = TimeUtils.Formatter.HH_MM_SS;
 
     private int[] indexes;
+
+    private int cellCount;
 
     @SneakyThrows
     @Override
@@ -80,7 +83,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                         ? workbook.getSheet(
                                 pluginConfig.getString(BaseSourceConfig.SHEET_NAME.key()))
                         : workbook.getSheetAt(0);
-        int cellCount = seaTunnelRowType.getTotalFields();
+        cellCount = seaTunnelRowType.getTotalFields();
         cellCount = partitionsMap.isEmpty() ? cellCount : cellCount + partitionsMap.size();
         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(cellCount);
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
@@ -92,27 +95,34 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                     CommonErrorCode.UNSUPPORTED_OPERATION,
                     "Skip the number of rows exceeds the maximum or minimum limit of Sheet");
         }
-        for (int i = (int) skipHeaderNumber; i < rowCount; i++) {
-            Row rowData = sheet.getRow(i);
-            if (rowData != null) {
-                for (int j = 0; j < cellCount; j++) {
-                    Cell cell = rowData.getCell(j);
-                    if (cell != null) {
-                        seaTunnelRow.setField(
-                                j, convert(getCellValue(cell.getCellType(), cell), fieldTypes[j]));
-                    } else {
-                        seaTunnelRow.setField(j, null);
-                    }
-                }
-            }
-            if (isMergePartition) {
-                int index = seaTunnelRowType.getTotalFields();
-                for (String value : partitionsMap.values()) {
-                    seaTunnelRow.setField(index++, value);
-                }
-            }
-            output.collect(seaTunnelRow);
-        }
+        IntStream.range((int) skipHeaderNumber, rowCount)
+                .mapToObj(sheet::getRow)
+                .filter(Objects::nonNull)
+                .forEach(
+                        rowData -> {
+                            int[] cellIndexes =
+                                    indexes == null
+                                            ? IntStream.range(0, cellCount).toArray()
+                                            : indexes;
+                            int z = 0;
+                            for (int j : cellIndexes) {
+                                Cell cell = rowData.getCell(j);
+                                seaTunnelRow.setField(
+                                        z++,
+                                        cell == null
+                                                ? null
+                                                : convert(
+                                                        getCellValue(cell.getCellType(), cell),
+                                                        fieldTypes[z - 1]));
+                            }
+                            if (isMergePartition) {
+                                int index = seaTunnelRowType.getTotalFields();
+                                for (String value : partitionsMap.values()) {
+                                    seaTunnelRow.setField(index++, value);
+                                }
+                            }
+                            output.collect(seaTunnelRow);
+                        });
     }
 
     @Override
