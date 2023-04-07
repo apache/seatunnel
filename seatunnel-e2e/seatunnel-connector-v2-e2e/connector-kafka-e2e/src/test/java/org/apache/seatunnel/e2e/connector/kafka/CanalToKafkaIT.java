@@ -88,7 +88,7 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
 
     private static final String KAFKA_TOPIC = "test-canal-sink";
 
-    private static final int KAFKA_PORT = 9093;
+    private static final int KAFKA_PORT = 9092;
 
     private static final String KAFKA_HOST = "kafkaCluster";
 
