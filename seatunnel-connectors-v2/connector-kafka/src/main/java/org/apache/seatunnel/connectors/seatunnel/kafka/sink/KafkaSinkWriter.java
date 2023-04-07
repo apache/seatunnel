@@ -31,16 +31,25 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSinkState;
 
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.DescribeTopicsResult;
+import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.KafkaFuture;
+import org.apache.kafka.common.TopicPartitionInfo;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
+
+import lombok.SneakyThrows;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Random;
+import java.util.concurrent.ExecutionException;
 
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.ASSIGN_PARTITIONS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.BOOTSTRAP_SERVERS;
@@ -164,6 +173,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         return kafkaProperties;
     }
 
+    @SneakyThrows
     private SeaTunnelRowSerializer<byte[], byte[]> getSerializer(
             ReadonlyConfig pluginConfig, SeaTunnelRowType seaTunnelRowType) {
         MessageFormat messageFormat = pluginConfig.get(FORMAT);
@@ -175,6 +185,30 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
         String topic = pluginConfig.get(TOPIC);
         if (pluginConfig.get(PARTITION) != null) {
+            Integer partition = pluginConfig.get(PARTITION);
+            try (AdminClient adminClient = AdminClient.create(getKafkaProperties(pluginConfig))) {
+                DescribeTopicsResult describeTopicsResult =
+                        adminClient.describeTopics(Collections.singleton(topic));
+                KafkaFuture<Map<String, TopicDescription>> topicDescriptionMapFuture =
+                        describeTopicsResult.all();
+                Map<String, TopicDescription> topicDescriptionMap = topicDescriptionMapFuture.get();
+                TopicDescription topicDescription = topicDescriptionMap.get(topic);
+                List<TopicPartitionInfo> partitionInfoList = topicDescription.partitions();
+                boolean partitionExists =
+                        partitionInfoList.stream()
+                                .map(TopicPartitionInfo::partition)
+                                .anyMatch(p -> p.equals(partition));
+                if (!partitionExists) {
+                    throw new KafkaConnectorException(
+                            CommonErrorCode.ILLEGAL_ARGUMENT,
+                            String.format(
+                                    "The specified partition number does not exist,Please detect the partition information under %s.",
+                                    topic));
+                }
+            } catch (InterruptedException | ExecutionException e) {
+                throw new KafkaConnectorException(
+                        CommonErrorCode.ILLEGAL_ARGUMENT, e.getMessage(), e);
+            }
             return DefaultSeaTunnelRowSerializer.create(
                     topic, pluginConfig.get(PARTITION), seaTunnelRowType, messageFormat, delimiter);
         } else {
