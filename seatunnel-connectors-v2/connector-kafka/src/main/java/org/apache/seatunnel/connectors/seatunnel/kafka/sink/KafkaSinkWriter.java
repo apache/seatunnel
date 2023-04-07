@@ -216,7 +216,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
                         CommonErrorCode.ILLEGAL_ARGUMENT, e.getMessage(), e);
             }
             return DefaultSeaTunnelRowSerializer.create(
-                    topic, pluginConfig.get(PARTITION), seaTunnelRowType, messageFormat, delimiter);
+                    topic, partition, seaTunnelRowType, messageFormat, delimiter);
         } else {
             return DefaultSeaTunnelRowSerializer.create(
                     topic,
