@@ -90,6 +90,17 @@ The selected field must be an existing field in the upstream.
 
 We can specify the partition, all messages will be sent to this partition.
 
+For example:
+```shell
+./bin/kafka-topics.sh --describe --topic my_topic --zookeeper localhost:2181
+
+Topic:my_topic  PartitionCount:3        ReplicationFactor:1     Configs:
+Topic: my_topic Partition: 0    Leader: 0       Replicas: 0     Isr: 0
+Topic: my_topic Partition: 1    Leader: 0       Replicas: 0     Isr: 0
+Topic: my_topic Partition: 2    Leader: 0       Replicas: 0     Isr: 0
+```
+We need to write all the data to partition 2, partition=2.
+
 ### assign_partitions [array]
 
 We can decide which partition to send based on the content of the message. The function of this parameter is to distribute information.
