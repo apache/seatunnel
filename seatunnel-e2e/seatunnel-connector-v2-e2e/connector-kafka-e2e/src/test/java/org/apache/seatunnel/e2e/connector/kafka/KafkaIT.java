@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.kafka;
 
-import org.apache.seatunnel.e2e.common.container.EngineType;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -35,7 +33,9 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunnelRowSerializer;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -82,7 +82,7 @@ import java.util.stream.Stream;
         value = {},
         type = {EngineType.FLINK, EngineType.SPARK})
 public class KafkaIT extends TestSuiteBase implements TestResource {
-    private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:6.2.1";
+    private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:latest";
 
     private static final int KAFKA_PORT = 9093;
 
@@ -225,7 +225,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         "/kafka/kafkasource_format_error_handle_way_skip_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
-    
+
+    @TestTemplate
     public void testSourceKafkaJsonFormatErrorHandleWayFailToConsole(TestContainer container)
             throws IOException, InterruptedException {
         DefaultSeaTunnelRowSerializer serializer =
