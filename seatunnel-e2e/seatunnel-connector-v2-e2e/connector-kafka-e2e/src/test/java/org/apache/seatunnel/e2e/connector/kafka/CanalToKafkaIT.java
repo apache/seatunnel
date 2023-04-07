@@ -41,6 +41,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
@@ -69,7 +70,7 @@ import static org.awaitility.Awaitility.given;
 
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.FLINK, EngineType.SPARK})
+        type = {EngineType.FLINK, EngineType.SEATUNNEL})
 public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(CanalToKafkaIT.class);
@@ -88,9 +89,7 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
 
     private static final String KAFKA_TOPIC = "test-canal-sink";
 
-    private static final int KAFKA_PORT = 9093;
-
-    private static final String KAFKA_HOST = "kafkaCluster";
+    private static final String KAFKA_HOST = "kafka.canal";
 
     private static KafkaContainer KAFKA_CONTAINER;
 
@@ -139,9 +138,6 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                         .withUsername("st_user")
                         .withPassword("seatunnel")
                         .withLogConsumer(new Slf4jLogConsumer(LOG));
-        mySqlContainer.setPortBindings(
-                com.google.common.collect.Lists.newArrayList(
-                        String.format("%s:%s", MYSQL_PORT, MYSQL_PORT)));
         return mySqlContainer;
     }
 
@@ -173,9 +169,6 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(KAFKA_IMAGE_NAME)));
-        KAFKA_CONTAINER.setPortBindings(
-                com.google.common.collect.Lists.newArrayList(
-                        String.format("%s:%s", KAFKA_PORT, KAFKA_PORT)));
     }
 
     private void createPostgreSQLContainer() throws ClassNotFoundException {
@@ -274,7 +267,7 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                         POSTGRESQL_CONTAINER.getUsername(),
                         POSTGRESQL_CONTAINER.getPassword())) {
             try (Statement statement = connection.createStatement()) {
-                ResultSet resultSet = statement.executeQuery("select * from sink");
+                ResultSet resultSet = statement.executeQuery("select * from sink order by id");
                 while (resultSet.next()) {
                     List<Object> row =
                             Arrays.asList(
