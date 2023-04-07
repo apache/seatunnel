@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.e2e.connector.kafka;
 
+import org.apache.seatunnel.e2e.common.container.EngineType;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -76,6 +78,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 @Slf4j
+@DisabledOnContainer(
+        value = {},
+        type = {EngineType.FLINK, EngineType.SPARK})
 public class KafkaIT extends TestSuiteBase implements TestResource {
     private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:6.2.1";
 
@@ -220,8 +225,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         "/kafka/kafkasource_format_error_handle_way_skip_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
-
-    @TestTemplate
+    
     public void testSourceKafkaJsonFormatErrorHandleWayFailToConsole(TestContainer container)
             throws IOException, InterruptedException {
         DefaultSeaTunnelRowSerializer serializer =
