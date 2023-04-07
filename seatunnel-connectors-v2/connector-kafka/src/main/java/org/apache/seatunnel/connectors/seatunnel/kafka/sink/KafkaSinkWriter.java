@@ -44,6 +44,7 @@ import lombok.SneakyThrows;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -189,9 +190,14 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
             try (AdminClient adminClient = AdminClient.create(getKafkaProperties(pluginConfig))) {
                 DescribeTopicsResult describeTopicsResult =
                         adminClient.describeTopics(Collections.singleton(topic));
-                KafkaFuture<Map<String, TopicDescription>> topicDescriptionMapFuture =
-                        describeTopicsResult.all();
-                Map<String, TopicDescription> topicDescriptionMap = topicDescriptionMapFuture.get();
+                Map<String, KafkaFuture<TopicDescription>> topicDescriptionFutures =
+                        describeTopicsResult.values();
+                Map<String, TopicDescription> topicDescriptionMap = new HashMap<>();
+                for (Map.Entry<String, KafkaFuture<TopicDescription>> entry :
+                        topicDescriptionFutures.entrySet()) {
+                    TopicDescription topicDescription = entry.getValue().get();
+                    topicDescriptionMap.put(entry.getKey(), topicDescription);
+                }
                 TopicDescription topicDescription = topicDescriptionMap.get(topic);
                 List<TopicPartitionInfo> partitionInfoList = topicDescription.partitions();
                 boolean partitionExists =
