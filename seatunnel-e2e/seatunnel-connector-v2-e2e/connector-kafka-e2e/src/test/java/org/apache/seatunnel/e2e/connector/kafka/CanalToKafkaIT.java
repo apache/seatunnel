@@ -88,9 +88,7 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
 
     private static final String KAFKA_TOPIC = "test-canal-sink";
 
-    private static final int KAFKA_PORT = 9093;
-
-    private static final String KAFKA_HOST = "kafkaCluster";
+    private static final String KAFKA_HOST = "kafka_e2e";
 
     private static KafkaContainer KAFKA_CONTAINER;
 
@@ -99,8 +97,6 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
     // ----------------------------------------------------------------------------
     // mysql
     private static final String MYSQL_HOST = "mysql_e2e";
-
-    private static final int MYSQL_PORT = 3306;
 
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
 
@@ -153,13 +149,10 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                                 "/app/server/conf/example/instance.properties")
                         .withNetwork(NETWORK)
                         .withNetworkAliases(CANAL_HOST)
-                        .withCommand()
+                        //                        .withCommand()
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(CANAL_DOCKER_IMAGE)));
-        CANAL_CONTAINER.setPortBindings(
-                com.google.common.collect.Lists.newArrayList(
-                        String.format("%s:%s", CANAL_PORT, CANAL_PORT)));
     }
 
     private void createKafkaContainer() {
