@@ -47,6 +47,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | transaction_timeout_sec                   | Int     | No       | -1            |
 | auto_commit                               | Boolean | No       | true          |
 | common-options                            |         | no       | -             |
+| pre_sql                                   | Array   | No       | -             |
 
 ### driver [string]
 
@@ -133,6 +134,10 @@ Automatic transaction commit is enabled by default
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+
+### pre_sql [array]
+
+This option is used to support execute SQL when JDBC Sink prepared
 
 ## tips
 

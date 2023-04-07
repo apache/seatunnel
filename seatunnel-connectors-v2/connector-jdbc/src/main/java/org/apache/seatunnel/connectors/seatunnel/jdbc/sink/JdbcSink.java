@@ -39,6 +39,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.tidb.TiDBCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcAggregatedCommitInfo;
@@ -50,6 +54,8 @@ import org.apache.commons.lang3.StringUtils;
 import com.google.auto.service.AutoService;
 
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -207,6 +213,28 @@ public class JdbcSink
                 }
                 if (!catalog.tableExists(tablePath)) {
                     catalog.createTable(tablePath, catalogTable, true);
+                }
+            }
+        }
+    }
+
+    @Override
+    public void preSink() {
+        if (this.jdbcSinkConfig.getPreSql() != null) {
+            for (String preSql : this.jdbcSinkConfig.getPreSql()) {
+                try {
+                    JdbcConnectionProvider jdbcConnectionProvider =
+                            new SimpleJdbcConnectionProvider(
+                                    jdbcSinkConfig.getJdbcConnectionConfig());
+                    try (Connection conn = jdbcConnectionProvider.getOrEstablishConnection();
+                            PreparedStatement pStmt = conn.prepareStatement(preSql)) {
+                        pStmt.execute();
+                    }
+                } catch (Exception e) {
+                    throw new JdbcConnectorException(
+                            JdbcConnectorErrorCode.EXECUTE_SQL_FAILED,
+                            "Execute preSql failed." + e.getMessage(),
+                            e);
                 }
             }
         }
