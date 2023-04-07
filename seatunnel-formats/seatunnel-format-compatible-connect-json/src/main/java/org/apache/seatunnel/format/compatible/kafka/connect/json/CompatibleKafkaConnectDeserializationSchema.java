@@ -35,11 +35,11 @@ import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
+import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.header.Header;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.json.JsonConverterConfig;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.apache.kafka.connect.util.ConnectUtils;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -183,10 +183,11 @@ public class CompatibleKafkaConnectDeserializationSchema
 
     private SinkRecord convertToSinkRecord(ConsumerRecord<byte[], byte[]> msg) {
         SchemaAndValue keyAndSchema =
-                keyConverter.toConnectData(msg.topic(), msg.headers(), msg.key());
+                (msg.key() == null)
+                        ? SchemaAndValue.NULL
+                        : keyConverter.toConnectData(msg.topic(), msg.headers(), msg.key());
         SchemaAndValue valueAndSchema =
                 valueConverter.toConnectData(msg.topic(), msg.headers(), msg.value());
-        Long timestamp = ConnectUtils.checkAndConvertTimestamp(msg.timestamp());
         return new SinkRecord(
                 msg.topic(),
                 msg.partition(),
@@ -195,22 +196,28 @@ public class CompatibleKafkaConnectDeserializationSchema
                 valueAndSchema.schema(),
                 valueAndSchema.value(),
                 msg.offset(),
-                timestamp,
+                msg.timestamp(),
                 msg.timestampType(),
                 null);
     }
 
     private SinkRecord convertByTransforms(SinkRecord record) {
+        tryInitTransforms();
+        String connector;
         Header header = record.headers().lastWithName(DBZ_SOURCE_CONNECTOR);
         if (header != null) {
-            String connector = header.value().toString();
-            if (DBZ_SOURCE_CONNECTOR_MONGODB_VALUE.equals(connector)) {
-                return extractNewDocumentState.apply(record);
-            } else {
-                return this.extractNewRecordState.apply(record);
-            }
+            connector = header.value().toString();
+        } else {
+            connector =
+                    ((Struct) (((Struct) record.value()).get("source")))
+                            .get("connector")
+                            .toString();
         }
-        return record;
+        if (DBZ_SOURCE_CONNECTOR_MONGODB_VALUE.equals(connector)) {
+            return extractNewDocumentState.apply(record);
+        } else {
+            return this.extractNewRecordState.apply(record);
+        }
     }
 
     @Override

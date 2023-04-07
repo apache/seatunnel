@@ -18,12 +18,18 @@
 
 package org.apache.seatunnel.e2e.connector.kafka;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlContainer;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersion;
-import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.UniqueDatabase;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
+import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -36,11 +42,13 @@ import org.junit.jupiter.api.TestTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -61,9 +69,14 @@ import java.util.stream.Stream;
 import static org.awaitility.Awaitility.given;
 
 @Slf4j
+@DisabledOnContainer(
+        value = {},
+        type = {EngineType.SPARK, EngineType.SEATUNNEL})
 public class KafkaConnectToKafkaIT extends TestSuiteBase implements TestResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(KafkaConnectToKafkaIT.class);
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     // kafka
     private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:latest";
@@ -71,9 +84,7 @@ public class KafkaConnectToKafkaIT extends TestSuiteBase implements TestResource
     private static final String KAFKA_DEBEZIUM_TOPIC = "debezium_source_record";
     private static final String KAFKA_JDBC_TOPIC = "jdbc_source_record";
 
-    private static final int KAFKA_PORT = 9093;
-
-    private static final String KAFKA_HOST = "kafkaCluster";
+    private static final String KAFKA_HOST = "kafka_connect_source_record";
 
     private static KafkaContainer KAFKA_CONTAINER;
 
@@ -81,14 +92,26 @@ public class KafkaConnectToKafkaIT extends TestSuiteBase implements TestResource
 
     // ----------------------------------------------------------------------------
     // mysql
-    private static final String MYSQL_HOST = "mysql_e2e";
+    private static MySqlContainer MYSQL_CONTAINER;
+    private static final String MYSQL_DATABASE = "seatunnel";
+    private static final String MYSQL_HOST = "kafka_to_mysql_e2e";
 
     private static final int MYSQL_PORT = 3306;
 
-    private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
+    private static final String MYSQL_DRIVER_JAR =
+            "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
 
-    private final UniqueDatabase inventoryDatabase =
-            new UniqueDatabase(MYSQL_CONTAINER, "seatunnel", "mysqluser", "mysqlpw");
+    @TestContainerExtension
+    private final ContainerExtendedFactory extendedFactory =
+            container -> {
+                Container.ExecResult extraCommands =
+                        container.execInContainer(
+                                "bash",
+                                "-c",
+                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
+                                        + MYSQL_DRIVER_JAR);
+                Assertions.assertEquals(0, extraCommands.getExitCode());
+            };
 
     private static MySqlContainer createMySqlContainer(MySqlVersion version) {
         MySqlContainer mySqlContainer =
@@ -115,35 +138,46 @@ public class KafkaConnectToKafkaIT extends TestSuiteBase implements TestResource
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(KAFKA_IMAGE_NAME)));
-        KAFKA_CONTAINER.setPortBindings(
-                com.google.common.collect.Lists.newArrayList(
-                        String.format("%s:%s", KAFKA_PORT, KAFKA_PORT)));
     }
 
     @BeforeAll
     @Override
-    public void startUp() throws ClassNotFoundException {
+    public void startUp() {
 
         LOG.info("The first stage: Starting Kafka containers...");
         createKafkaContainer();
         Startables.deepStart(Stream.of(KAFKA_CONTAINER)).join();
         LOG.info("Kafka Containers are started");
 
+        given().ignoreExceptions()
+                .atLeast(100, TimeUnit.MILLISECONDS)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(this::initKafkaProducer);
+
         LOG.info("The second stage: Starting Mysql containers...");
+        MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
         Startables.deepStart(Stream.of(MYSQL_CONTAINER)).join();
         LOG.info("Mysql Containers are started");
 
         given().ignoreExceptions()
+                .await()
                 .atLeast(100, TimeUnit.MILLISECONDS)
                 .pollInterval(500, TimeUnit.MILLISECONDS)
-                .atMost(180, TimeUnit.SECONDS)
-                .untilAsserted(this::initKafkaProducer);
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(this::initializeDatabase);
+
+        given().ignoreExceptions()
+                .await()
+                .atLeast(100, TimeUnit.MILLISECONDS)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(this::initializeJdbcTable);
 
         log.info("Write 7 records to topic " + KAFKA_DEBEZIUM_TOPIC);
         generateConnectDebeziumRecord();
         log.info("Write 3 records to topic " + KAFKA_JDBC_TOPIC);
         generateConnectJdbcRecord();
-        inventoryDatabase.createAndInitialize();
     }
 
     @TestTemplate
@@ -214,11 +248,12 @@ public class KafkaConnectToKafkaIT extends TestSuiteBase implements TestResource
         Assertions.assertIterableEquals(expected, actual);
     }
 
+    @SneakyThrows
     public void generateConnectDebeziumRecord() {
         String[] debeziumSourceRecords = {
             // Read id=15,16
             "{\"schema\":{\"type\":\"struct\",\"fields\":[{\"type\":\"struct\",\"fields\":[{\"type\":\"int64\",\"optional\":false,\"field\":\"id\"},{\"type\":\"string\",\"optional\":true,\"field\":\"name\"},{\"type\":\"string\",\"optional\":true,\"field\":\"description\"},{\"type\":\"string\",\"optional\":true,\"field\":\"weight\"}],\"optional\":true,\"name\":\"kafkaconnect_debezium_record.test_database_001.seatunnel_test_cdc.Value\",\"field\":\"before\"},{\"type\":\"struct\",\"fields\":[{\"type\":\"int64\",\"optional\":false,\"field\":\"id\"},{\"type\":\"string\",\"optional\":true,\"field\":\"name\"},{\"type\":\"string\",\"optional\":true,\"field\":\"description\"},{\"type\":\"string\",\"optional\":true,\"field\":\"weight\"}],\"optional\":true,\"name\":\"kafkaconnect_debezium_record.test_database_001.seatunnel_test_cdc.Value\",\"field\":\"after\"},{\"type\":\"struct\",\"fields\":[{\"type\":\"string\",\"optional\":false,\"field\":\"version\"},{\"type\":\"string\",\"optional\":false,\"field\":\"connector\"},{\"type\":\"string\",\"optional\":false,\"field\":\"name\"},{\"type\":\"int64\",\"optional\":false,\"field\":\"ts_ms\"},{\"type\":\"string\",\"optional\":true,\"name\":\"io.debezium.data.Enum\",\"version\":1,\"parameters\":{\"allowed\":\"true,last,false,incremental\"},\"default\":\"false\",\"field\":\"snapshot\"},{\"type\":\"string\",\"optional\":false,\"field\":\"db\"},{\"type\":\"string\",\"optional\":true,\"field\":\"sequence\"},{\"type\":\"string\",\"optional\":true,\"field\":\"table\"},{\"type\":\"int64\",\"optional\":false,\"field\":\"server_id\"},{\"type\":\"string\",\"optional\":true,\"field\":\"gtid\"},{\"type\":\"string\",\"optional\":false,\"field\":\"file\"},{\"type\":\"int64\",\"optional\":false,\"field\":\"pos\"},{\"type\":\"int32\",\"optional\":false,\"field\":\"row\"},{\"type\":\"int64\",\"optional\":true,\"field\":\"thread\"},{\"type\":\"string\",\"optional\":true,\"field\":\"query\"}],\"optional\":false,\"name\":\"io.debezium.connector.mysql.Source\",\"field\":\"source\"},{\"type\":\"string\",\"optional\":false,\"field\":\"op\"},{\"type\":\"int64\",\"optional\":true,\"field\":\"ts_ms\"},{\"type\":\"struct\",\"fields\":[{\"type\":\"string\",\"optional\":false,\"field\":\"id\"},{\"type\":\"int64\",\"optional\":false,\"field\":\"total_order\"},{\"type\":\"int64\",\"optional\":false,\"field\":\"data_collection_order\"}],\"optional\":true,\"field\":\"transaction\"}],\"optional\":false,\"name\":\"kafkaconnect_debezium_record.test_database_001.seatunnel_test_cdc.Envelope\"},\"payload\":{\"before\":null,\"after\":{\"id\":15,\"name\":\"test\",\"description\":\"test\",\"weight\":\"20\"},\"source\":{\"version\":\"1.9.7.Final\",\"connector\":\"mysql\",\"name\":\"debezium-mysql-source\",\"ts_ms\":1680838002000,\"snapshot\":\"true\",\"db\":\"test_database_001\",\"sequence\":null,\"table\":\"seatunnel_test_cdc\",\"server_id\":0,\"gtid\":null,\"file\":\"mysql-bin.007009\",\"pos\":343976613,\"row\":0,\"thread\":null,\"query\":null},\"op\":\"r\",\"ts_ms\":1680838002399,\"transaction\":null}}",
-            "{\"schema\":{\"type\":\"struct\",\"fields\":[{\"type\":\"struct\",\"fields\":[{\"type\":\"int64\",\"optional\":false,\"field\":\"id\"},{\"type\":\"string\",\"optional\":true,\"field\":\"name\"},{\"type\":\"string\",\"optional\":true,\"field\":\"description\"},{\"type\":\"string\",\"optional\":true,\"field\":\"weight\"}],\"optional\":true,\"name\":\"kafkaconnect_debezium_record.test_database_001.seatunnel_test_cdc.Value\",\"field\":\"before\"},{\"type\":\"struct\",\"fields\":[{\"type\":\"int64\",\"optional\":false,\"field\":\"id\"},{\"type\":\"string\",\"optional\":true,\"field\":\"name\"},{\"type\":\"string\",\"optional\":true,\"field\":\"description\"},{\"type\":\"string\",\"optional\":true,\"field\":\"weight\"}],\"optional\":true,\"name\":\"kafkaconnect_debezium_record.test_database_001.seatunnel_test_cdc.Value\",\"field\":\"after\"},{\"type\":\"struct\",\"fields\":[{\"type\":\"string\",\"optional\":false,\"field\":\"version\"},{\"type\":\"string\",\"optional\":false,\"field\":\"connector\"},{\"type\":\"string\",\"optional\":false,\"field\":\"name\"},{\"type\":\"int64\",\"optional\":false,\"field\":\"ts_ms\"},{\"type\":\"string\",\"optional\":true,\"name\":\"io.debezium.data.Enum\",\"version\":1,\"parameters\":{\"allowed\":\"true,last,false,incremental\"},\"default\":\"false\",\"field\":\"snapshot\"},{\"type\":\"string\",\"optional\":false,\"field\":\"db\"},{\"type\":\"string\",\"optional\":true,\"field\":\"sequence\"},{\"type\":\"string\",\"optional\":true,\"field\":\"table\"},{\"type\":\"int64\",\"optional\":false,\"field\":\"server_id\"},{\"type\":\"string\",\"optional\":true,\"field\":\"gtid\"},{\"type\":\"string\",\"optional\":false,\"field\":\"file\"},{\"type\":\"int64\",\"optional\":false,\"field\":\"pos\"},{\"type\":\"int32\",\"optional\":false,\"field\":\"row\"},{\"type\":\"int64\",\"optional\":true,\"field\":\"thread\"},{\"type\":\"string\",\"optional\":true,\"field\":\"query\"}],\"optional\":false,\"name\":\"io.debezium.connector.mysql.Source\",\"field\":\"source\"},{\"type\":\"string\",\"optional\":false,\"field\":\"op\"},{\"type\":\"int64\",\"optional\":true,\"field\":\"ts_ms\"},{\"type\":\"struct\",\"fields\":[{\"type\":\"string\",\"optional\":false,\"field\":\"id\"},{\"type\":\"int64\",\"optional\":false,\"field\":\"total_order\"},{\"type\":\"int64\",\"optional\":false,\"field\":\"data_collection_order\"}],\"optional\":true,\"field\":\"transaction\"}],\"optional\":false,\"name\":\"kafkaconnect_debezium_record.test_database_001.seatunnel_test_cdc.Envelope\"},\"payload\":{\"before\":null,\"after\":{\"id\":16,\"name\":\"test-001\",\"description\":\"xoaoyi 001\",\"weight\":\"30\"},\"source\":{\"version\":\"1.9.7.Final\",\"connector\":\"mysql\",\"name\":\"debezium-mysql-source\",\"ts_ms\":1680838002000,\"snapshot\":\"last\",\"db\":\"test_database_001\",\"sequence\":null,\"table\":\"seatunnel_test_cdc\",\"server_id\":0,\"gtid\":null,\"file\":\"mysql-bin.007009\",\"pos\":343976613,\"row\":0,\"thread\":null,\"query\":null},\"op\":\"r\",\"ts_ms\":1680838002402,\"transaction\":null}}",
+            "{\"schema\":{\"type\":\"struct\",\"fields\":[{\"type\":\"struct\",\"fields\":[{\"type\":\"int64\",\"optional\":false,\"field\":\"id\"},{\"type\":\"string\",\"optional\":true,\"field\":\"name\"},{\"type\":\"string\",\"optional\":true,\"field\":\"description\"},{\"type\":\"string\",\"optional\":true,\"field\":\"weight\"}],\"optional\":true,\"name\":\"kafkaconnect_debezium_record.test_database_001.seatunnel_test_cdc.Value\",\"field\":\"before\"},{\"type\":\"struct\",\"fields\":[{\"type\":\"int64\",\"optional\":false,\"field\":\"id\"},{\"type\":\"string\",\"optional\":true,\"field\":\"name\"},{\"type\":\"string\",\"optional\":true,\"field\":\"description\"},{\"type\":\"string\",\"optional\":true,\"field\":\"weight\"}],\"optional\":true,\"name\":\"kafkaconnect_debezium_record.test_database_001.seatunnel_test_cdc.Value\",\"field\":\"after\"},{\"type\":\"struct\",\"fields\":[{\"type\":\"string\",\"optional\":false,\"field\":\"version\"},{\"type\":\"string\",\"optional\":false,\"field\":\"connector\"},{\"type\":\"string\",\"optional\":false,\"field\":\"name\"},{\"type\":\"int64\",\"optional\":false,\"field\":\"ts_ms\"},{\"type\":\"string\",\"optional\":true,\"name\":\"io.debezium.data.Enum\",\"version\":1,\"parameters\":{\"allowed\":\"true,last,false,incremental\"},\"default\":\"false\",\"field\":\"snapshot\"},{\"type\":\"string\",\"optional\":false,\"field\":\"db\"},{\"type\":\"string\",\"optional\":true,\"field\":\"sequence\"},{\"type\":\"string\",\"optional\":true,\"field\":\"table\"},{\"type\":\"int64\",\"optional\":false,\"field\":\"server_id\"},{\"type\":\"string\",\"optional\":true,\"field\":\"gtid\"},{\"type\":\"string\",\"optional\":false,\"field\":\"file\"},{\"type\":\"int64\",\"optional\":false,\"field\":\"pos\"},{\"type\":\"int32\",\"optional\":false,\"field\":\"row\"},{\"type\":\"int64\",\"optional\":true,\"field\":\"thread\"},{\"type\":\"string\",\"optional\":true,\"field\":\"query\"}],\"optional\":false,\"name\":\"io.debezium.connector.mysql.Source\",\"field\":\"source\"},{\"type\":\"string\",\"optional\":false,\"field\":\"op\"},{\"type\":\"int64\",\"optional\":true,\"field\":\"ts_ms\"},{\"type\":\"struct\",\"fields\":[{\"type\":\"string\",\"optional\":false,\"field\":\"id\"},{\"type\":\"int64\",\"optional\":false,\"field\":\"total_order\"},{\"type\":\"int64\",\"optional\":false,\"field\":\"data_collection_order\"}],\"optional\":true,\"field\":\"transaction\"}],\"optional\":false,\"name\":\"kafkaconnect_debezium_record.test_database_001.seatunnel_test_cdc.Envelope\"},\"payload\":{\"before\":null,\"after\":{\"id\":16,\"name\":\"test-001\",\"description\":\"test\",\"weight\":\"30\"},\"source\":{\"version\":\"1.9.7.Final\",\"connector\":\"mysql\",\"name\":\"debezium-mysql-source\",\"ts_ms\":1680838002000,\"snapshot\":\"last\",\"db\":\"test_database_001\",\"sequence\":null,\"table\":\"seatunnel_test_cdc\",\"server_id\":0,\"gtid\":null,\"file\":\"mysql-bin.007009\",\"pos\":343976613,\"row\":0,\"thread\":null,\"query\":null},\"op\":\"r\",\"ts_ms\":1680838002402,\"transaction\":null}}",
             // Create id=17
             "{\"schema\":{\"type\":\"struct\",\"fields\":[{\"type\":\"struct\",\"fields\":[{\"type\":\"int64\",\"optional\":false,\"field\":\"id\"},{\"type\":\"string\",\"optional\":true,\"field\":\"name\"},{\"type\":\"string\",\"optional\":true,\"field\":\"description\"},{\"type\":\"string\",\"optional\":true,\"field\":\"weight\"}],\"optional\":true,\"name\":\"kafkaconnect_debezium_record.test_database_001.seatunnel_test_cdc.Value\",\"field\":\"before\"},{\"type\":\"struct\",\"fields\":[{\"type\":\"int64\",\"optional\":false,\"field\":\"id\"},{\"type\":\"string\",\"optional\":true,\"field\":\"name\"},{\"type\":\"string\",\"optional\":true,\"field\":\"description\"},{\"type\":\"string\",\"optional\":true,\"field\":\"weight\"}],\"optional\":true,\"name\":\"kafkaconnect_debezium_record.test_database_001.seatunnel_test_cdc.Value\",\"field\":\"after\"},{\"type\":\"struct\",\"fields\":[{\"type\":\"string\",\"optional\":false,\"field\":\"version\"},{\"type\":\"string\",\"optional\":false,\"field\":\"connector\"},{\"type\":\"string\",\"optional\":false,\"field\":\"name\"},{\"type\":\"int64\",\"optional\":false,\"field\":\"ts_ms\"},{\"type\":\"string\",\"optional\":true,\"name\":\"io.debezium.data.Enum\",\"version\":1,\"parameters\":{\"allowed\":\"true,last,false,incremental\"},\"default\":\"false\",\"field\":\"snapshot\"},{\"type\":\"string\",\"optional\":false,\"field\":\"db\"},{\"type\":\"string\",\"optional\":true,\"field\":\"sequence\"},{\"type\":\"string\",\"optional\":true,\"field\":\"table\"},{\"type\":\"int64\",\"optional\":false,\"field\":\"server_id\"},{\"type\":\"string\",\"optional\":true,\"field\":\"gtid\"},{\"type\":\"string\",\"optional\":false,\"field\":\"file\"},{\"type\":\"int64\",\"optional\":false,\"field\":\"pos\"},{\"type\":\"int32\",\"optional\":false,\"field\":\"row\"},{\"type\":\"int64\",\"optional\":true,\"field\":\"thread\"},{\"type\":\"string\",\"optional\":true,\"field\":\"query\"}],\"optional\":false,\"name\":\"io.debezium.connector.mysql.Source\",\"field\":\"source\"},{\"type\":\"string\",\"optional\":false,\"field\":\"op\"},{\"type\":\"int64\",\"optional\":true,\"field\":\"ts_ms\"},{\"type\":\"struct\",\"fields\":[{\"type\":\"string\",\"optional\":false,\"field\":\"id\"},{\"type\":\"int64\",\"optional\":false,\"field\":\"total_order\"},{\"type\":\"int64\",\"optional\":false,\"field\":\"data_collection_order\"}],\"optional\":true,\"field\":\"transaction\"}],\"optional\":false,\"name\":\"kafkaconnect_debezium_record.test_database_001.seatunnel_test_cdc.Envelope\"},\"payload\":{\"before\":null,\"after\":{\"id\":17,\"name\":null,\"description\":null,\"weight\":null},\"source\":{\"version\":\"1.9.7.Final\",\"connector\":\"mysql\",\"name\":\"debezium-mysql-source\",\"ts_ms\":1680839484000,\"snapshot\":\"false\",\"db\":\"test_database_001\",\"sequence\":null,\"table\":\"seatunnel_test_cdc\",\"server_id\":1075402662,\"gtid\":\"d9f55c47-4d67-11ed-9b11-0c42a1da5d36:51548820\",\"file\":\"mysql-bin.007010\",\"pos\":88497283,\"row\":0,\"thread\":3948562,\"query\":null},\"op\":\"c\",\"ts_ms\":1680839484160,\"transaction\":null}}",
             // Update id =17
@@ -231,18 +266,27 @@ public class KafkaConnectToKafkaIT extends TestSuiteBase implements TestResource
             "{\"schema\":{\"type\":\"struct\",\"fields\":[{\"type\":\"struct\",\"fields\":[{\"type\":\"int64\",\"optional\":false,\"field\":\"id\"},{\"type\":\"string\",\"optional\":true,\"field\":\"name\"},{\"type\":\"string\",\"optional\":true,\"field\":\"description\"},{\"type\":\"string\",\"optional\":true,\"field\":\"weight\"}],\"optional\":true,\"name\":\"kafkaconnect_debezium_record.test_database_001.seatunnel_test_cdc.Value\",\"field\":\"before\"},{\"type\":\"struct\",\"fields\":[{\"type\":\"int64\",\"optional\":false,\"field\":\"id\"},{\"type\":\"string\",\"optional\":true,\"field\":\"name\"},{\"type\":\"string\",\"optional\":true,\"field\":\"description\"},{\"type\":\"string\",\"optional\":true,\"field\":\"weight\"}],\"optional\":true,\"name\":\"kafkaconnect_debezium_record.test_database_001.seatunnel_test_cdc.Value\",\"field\":\"after\"},{\"type\":\"struct\",\"fields\":[{\"type\":\"string\",\"optional\":false,\"field\":\"version\"},{\"type\":\"string\",\"optional\":false,\"field\":\"connector\"},{\"type\":\"string\",\"optional\":false,\"field\":\"name\"},{\"type\":\"int64\",\"optional\":false,\"field\":\"ts_ms\"},{\"type\":\"string\",\"optional\":true,\"name\":\"io.debezium.data.Enum\",\"version\":1,\"parameters\":{\"allowed\":\"true,last,false,incremental\"},\"default\":\"false\",\"field\":\"snapshot\"},{\"type\":\"string\",\"optional\":false,\"field\":\"db\"},{\"type\":\"string\",\"optional\":true,\"field\":\"sequence\"},{\"type\":\"string\",\"optional\":true,\"field\":\"table\"},{\"type\":\"int64\",\"optional\":false,\"field\":\"server_id\"},{\"type\":\"string\",\"optional\":true,\"field\":\"gtid\"},{\"type\":\"string\",\"optional\":false,\"field\":\"file\"},{\"type\":\"int64\",\"optional\":false,\"field\":\"pos\"},{\"type\":\"int32\",\"optional\":false,\"field\":\"row\"},{\"type\":\"int64\",\"optional\":true,\"field\":\"thread\"},{\"type\":\"string\",\"optional\":true,\"field\":\"query\"}],\"optional\":false,\"name\":\"io.debezium.connector.mysql.Source\",\"field\":\"source\"},{\"type\":\"string\",\"optional\":false,\"field\":\"op\"},{\"type\":\"int64\",\"optional\":true,\"field\":\"ts_ms\"},{\"type\":\"struct\",\"fields\":[{\"type\":\"string\",\"optional\":false,\"field\":\"id\"},{\"type\":\"int64\",\"optional\":false,\"field\":\"total_order\"},{\"type\":\"int64\",\"optional\":false,\"field\":\"data_collection_order\"}],\"optional\":true,\"field\":\"transaction\"}],\"optional\":false,\"name\":\"kafkaconnect_debezium_record.test_database_001.seatunnel_test_cdc.Envelope\"},\"payload\":{\"before\":{\"id\":17,\"name\":\"adsd\",\"description\":\"asca\",\"weight\":\"50\"},\"after\":null,\"source\":{\"version\":\"1.9.7.Final\",\"connector\":\"mysql\",\"name\":\"debezium-mysql-source\",\"ts_ms\":1680851317000,\"snapshot\":\"false\",\"db\":\"test_database_001\",\"sequence\":null,\"table\":\"seatunnel_test_cdc\",\"server_id\":1075402662,\"gtid\":\"d9f55c47-4d67-11ed-9b11-0c42a1da5d36:51702158\",\"file\":\"mysql-bin.007014\",\"pos\":115976082,\"row\":0,\"thread\":3957850,\"query\":null},\"op\":\"d\",\"ts_ms\":1680851317443,\"transaction\":null}}"
         };
         for (String value : debeziumSourceRecords) {
-            kafkaProducer.send(new ProducerRecord<>(KAFKA_DEBEZIUM_TOPIC, value.getBytes()));
+            JsonNode jsonNode = objectMapper.readTree(value);
+            byte[] bytes = objectMapper.writeValueAsBytes(jsonNode);
+            ProducerRecord<byte[], byte[]> producerRecord =
+                    new ProducerRecord<>(KAFKA_DEBEZIUM_TOPIC, null, bytes);
+            kafkaProducer.send(producerRecord);
         }
     }
 
+    @SneakyThrows
     public void generateConnectJdbcRecord() {
         String[] jdbcSourceRecords = {
             "{\"schema\":{\"type\":\"struct\",\"fields\":[{\"type\":\"int64\",\"optional\":false,\"field\":\"id\"},{\"type\":\"string\",\"optional\":true,\"field\":\"name\"},{\"type\":\"string\",\"optional\":true,\"field\":\"description\"},{\"type\":\"string\",\"optional\":true,\"field\":\"weight\"}],\"optional\":false,\"name\":\"test_database_001.seatunnel_test_cdc\"},\"payload\":{\"id\":15,\"name\":\"test\",\"description\":\"test\",\"weight\":\"20\"}}",
-            "{\"schema\":{\"type\":\"struct\",\"fields\":[{\"type\":\"int64\",\"optional\":false,\"field\":\"id\"},{\"type\":\"string\",\"optional\":true,\"field\":\"name\"},{\"type\":\"string\",\"optional\":true,\"field\":\"description\"},{\"type\":\"string\",\"optional\":true,\"field\":\"weight\"}],\"optional\":false,\"name\":\"test_database_001.seatunnel_test_cdc\"},\"payload\":{\"id\":16,\"name\":\"test-001\",\"description\":\"xoaoyi 001\",\"weight\":\"30\"}}",
+            "{\"schema\":{\"type\":\"struct\",\"fields\":[{\"type\":\"int64\",\"optional\":false,\"field\":\"id\"},{\"type\":\"string\",\"optional\":true,\"field\":\"name\"},{\"type\":\"string\",\"optional\":true,\"field\":\"description\"},{\"type\":\"string\",\"optional\":true,\"field\":\"weight\"}],\"optional\":false,\"name\":\"test_database_001.seatunnel_test_cdc\"},\"payload\":{\"id\":16,\"name\":\"test-001\",\"description\":\"test\",\"weight\":\"30\"}}",
             "{\"schema\":{\"type\":\"struct\",\"fields\":[{\"type\":\"int64\",\"optional\":false,\"field\":\"id\"},{\"type\":\"string\",\"optional\":true,\"field\":\"name\"},{\"type\":\"string\",\"optional\":true,\"field\":\"description\"},{\"type\":\"string\",\"optional\":true,\"field\":\"weight\"}],\"optional\":false,\"name\":\"test_database_001.seatunnel_test_cdc\"},\"payload\":{\"id\":18,\"name\":\"sdc\",\"description\":\"sdc\",\"weight\":\"sdc\"}}"
         };
         for (String value : jdbcSourceRecords) {
-            kafkaProducer.send(new ProducerRecord<>(KAFKA_JDBC_TOPIC, value.getBytes()));
+            JsonNode jsonNode = objectMapper.readTree(value);
+            byte[] bytes = objectMapper.writeValueAsBytes(jsonNode);
+            ProducerRecord<byte[], byte[]> producerRecord =
+                    new ProducerRecord<>(KAFKA_JDBC_TOPIC, null, bytes);
+            kafkaProducer.send(producerRecord);
         }
     }
 
@@ -259,5 +303,48 @@ public class KafkaConnectToKafkaIT extends TestSuiteBase implements TestResource
     public void tearDown() {
         MYSQL_CONTAINER.close();
         KAFKA_CONTAINER.close();
+    }
+
+    protected void initializeDatabase() {
+        try (Connection connection =
+                DriverManager.getConnection(
+                        MYSQL_CONTAINER.getJdbcUrl(),
+                        MYSQL_CONTAINER.getUsername(),
+                        MYSQL_CONTAINER.getPassword())) {
+            Statement statement = connection.createStatement();
+            String sql = "CREATE DATABASE IF NOT EXISTS " + MYSQL_DATABASE;
+            statement.execute(sql);
+        } catch (SQLException e) {
+            throw new RuntimeException("Initializing Mysql database failed!", e);
+        }
+    }
+
+    private void initializeJdbcTable() {
+        try (Connection connection =
+                DriverManager.getConnection(
+                        MYSQL_CONTAINER.getJdbcUrl(),
+                        MYSQL_CONTAINER.getUsername(),
+                        MYSQL_CONTAINER.getPassword())) {
+            Statement statement = connection.createStatement();
+            String debeziumSink =
+                    "create table seatunnel.debezium_sink(\n"
+                            + "id INT NOT NULL PRIMARY KEY,\n"
+                            + "name varchar(255),\n"
+                            + "description varchar(255),\n"
+                            + "weight varchar(255)"
+                            + ")";
+            statement.addBatch(debeziumSink);
+            String jdbcSink =
+                    "create table seatunnel.jdbc_sink(\n"
+                            + "id INT NOT NULL PRIMARY KEY,\n"
+                            + "name varchar(255),\n"
+                            + "description varchar(255),\n"
+                            + "weight varchar(255)"
+                            + ")";
+            statement.addBatch(jdbcSink);
+            statement.executeBatch();
+        } catch (SQLException e) {
+            throw new RuntimeException("Initializing Mysql table failed!", e);
+        }
     }
 }

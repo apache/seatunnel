@@ -268,6 +268,7 @@ public class KafkaSource
                             CanalJsonDeserializationSchema.builder(typeInfo)
                                     .setIgnoreParseErrors(true)
                                     .build();
+                    break;
                 case COMPATIBLE_KAFKA_CONNECT_JSON:
                     deserializationSchema =
                             new CompatibleKafkaConnectDeserializationSchema(

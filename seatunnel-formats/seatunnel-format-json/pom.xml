@@ -35,12 +35,6 @@
             <version>${project.version}</version>
             <scope>provided</scope>
         </dependency>
-        <dependency>
-            <groupId>org.apache.kafka</groupId>
-            <artifactId>connect-json</artifactId>
-            <version>3.4.0</version>
-            <scope>compile</scope>
-        </dependency>
 
     </dependencies>
 
