@@ -55,7 +55,6 @@ import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
-import org.testcontainers.shaded.com.google.common.collect.Lists;
 import org.testcontainers.shaded.org.awaitility.Awaitility;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -77,9 +76,7 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class KafkaIT extends TestSuiteBase implements TestResource {
-    private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:6.2.1";
-
-    private static final int KAFKA_PORT = 9093;
+    private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:latest";
 
     private static final String KAFKA_HOST = "kafkaCluster";
 
@@ -101,8 +98,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(KAFKA_IMAGE_NAME)));
-        kafkaContainer.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", KAFKA_PORT, KAFKA_PORT)));
+
         Startables.deepStart(Stream.of(kafkaContainer)).join();
         log.info("Kafka container started");
         Awaitility.given()
