@@ -31,16 +31,18 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class GetTaskGroupMetricsOperation extends Operation implements IdentifiedDataSerializable {
 
-    private TaskGroupLocation taskGroupLocation;
+    private List<TaskGroupLocation> taskGroupLocations;
     private RawJobMetrics response;
 
     public GetTaskGroupMetricsOperation() {}
 
-    public GetTaskGroupMetricsOperation(TaskGroupLocation taskGroupLocation) {
-        this.taskGroupLocation = taskGroupLocation;
+    public GetTaskGroupMetricsOperation(List<TaskGroupLocation> taskGroupLocations) {
+        this.taskGroupLocations = taskGroupLocations;
     }
 
     @Override
@@ -56,13 +58,13 @@ public class GetTaskGroupMetricsOperation extends Operation implements Identifie
                     "Caller "
                             + callerAddress
                             + " cannot get taskGroupLocation metrics"
-                            + taskGroupLocation.toString()
+                            + taskGroupLocations.toString()
                             + " because it is not master. Master is: "
                             + masterAddress);
         }
 
         JobMetricsCollector metricsRenderer =
-                new JobMetricsCollector(taskGroupLocation, nodeEngine.getLocalMember(), logger);
+                new JobMetricsCollector(taskGroupLocations, nodeEngine.getLocalMember(), logger);
         nodeEngine.getMetricsRegistry().collect(metricsRenderer);
         response = metricsRenderer.getMetrics();
     }
@@ -70,13 +72,20 @@ public class GetTaskGroupMetricsOperation extends Operation implements Identifie
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        out.writeObject(taskGroupLocation);
+        out.writeInt(taskGroupLocations.size());
+        for (TaskGroupLocation taskGroupLocation : taskGroupLocations) {
+            out.writeObject(taskGroupLocation);
+        }
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        taskGroupLocation = in.readObject();
+        int size = in.readInt();
+        this.taskGroupLocations = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            taskGroupLocations.add(in.readObject());
+        }
     }
 
     @Override
