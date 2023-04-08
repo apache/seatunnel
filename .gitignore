@@ -20,7 +20,6 @@ logs.zip
 # Intellij Idea files
 .idea/
 *.iml
-.idea/*
 
 .DS_Store
 
@@ -49,3 +48,5 @@ spark-warehouse
 *.flattened-pom.xml
 
 seatunnel-examples
+
+dist

@@ -16,7 +16,7 @@
 # limitations under the License.
 #
 
-#This script is used to download the connector plug-ins required during the running process. 
+#This script is used to download the connector plug-ins required during the running process.
 #All are downloaded by default. You can also choose what you need. 
 #You only need to configure the plug-in name in config/plugin_config.
 
@@ -32,7 +32,7 @@ fi
 
 echo "Install hadoop shade jar, usage version is ${version}"
 
-${SEATUNNEL_HOME}/mvnw dependency:get -DgroupId=org.apache.seatunnel -Dclassifier=optional -DartifactId=seatunnel-hadoop3-3.1.4-uber -Dversion=${version} -Ddest=${SEATUNNEL_HOME}/lib
+${SEATUNNEL_HOME}/mvnw dependency:copy -Dartifact=org.apache.seatunnel:seatunnel-hadoop3-3.1.4-uber:${version}:jar:optional -DoutputDirectory=${SEATUNNEL_HOME}/lib
 
 echo "Install SeaTunnel connectors plugins, usage version is ${version}"
 
@@ -40,21 +40,21 @@ echo "Install SeaTunnel connectors plugins, usage version is ${version}"
 if [ ! -d ${SEATUNNEL_HOME}/connectors ];
   then
       mkdir ${SEATUNNEL_HOME}/connectors
-      echo "create connectors directory"
+      echo "Create connectors directory"
 fi
 
 # create the seatunnel connectors directory (for v2)
 if [ ! -d ${SEATUNNEL_HOME}/connectors/seatunnel ];
   then
       mkdir ${SEATUNNEL_HOME}/connectors/seatunnel
-      echo "create seatunnel connectors directory"
+      echo "Create seatunnel connectors directory"
 fi  
 
 while read line; do
     if  [ ${line:0:1} != "-" ] && [ ${line:0:1} != "#" ]
       	then
-      		echo "install connector : " $line
-      		${SEATUNNEL_HOME}/mvnw dependency:get -DgroupId=org.apache.seatunnel -DartifactId=${line} -Dversion=${version} -Ddest=${SEATUNNEL_HOME}/connectors/seatunnel
+      		echo "Install connector : " $line
+      		${SEATUNNEL_HOME}/mvnw dependency:copy -Dartifact=org.apache.seatunnel:${line}:${version}:jar -DoutputDirectory=${SEATUNNEL_HOME}/connectors/seatunnel
     fi
 
 done < ${SEATUNNEL_HOME}/config/plugin_config
