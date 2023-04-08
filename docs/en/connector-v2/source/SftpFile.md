@@ -26,6 +26,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
   - [x] text
   - [x] csv
   - [x] json
+  - [x] excel
 
 ## Options
 
@@ -45,6 +46,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | time_format               | string  | no       | HH:mm:ss            |
 | schema                    | config  | no       | -                   |
 | common-options            |         | no       | -                   |
+| sheet_name                | string  | no       | -                   |
 
 ### host [string]
 
@@ -135,6 +137,7 @@ The file type supported column projection as the following shown:
 - csv
 - orc
 - parquet
+- excel
 
 **Tips: If the user wants to use this feature when reading `text` `json` `csv` files, the schema option must be configured**
 
@@ -218,6 +221,10 @@ connector will generate data as the following:
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
+
+### sheet_name [string]
+
+Reader the sheet of the workbook,Only used when file_format is excel.
 
 ## Example
 
