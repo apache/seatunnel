@@ -49,7 +49,7 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
-import com.beust.jcommander.internal.Lists;
+import com.google.common.collect.Lists;
 
 import java.io.IOException;
 import java.sql.Connection;
