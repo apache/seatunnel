@@ -15,22 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.flink;
+package org.apache.seatunnel.core.starter.spark;
 
 import org.apache.seatunnel.core.starter.SeaTunnel;
 import org.apache.seatunnel.core.starter.enums.EngineType;
 import org.apache.seatunnel.core.starter.exception.CommandException;
-import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
+import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
-public class SeaTunnelFlink {
+public class SeaTunnelSpark {
+
     public static void main(String[] args) throws CommandException {
-        FlinkCommandArgs flinkCommandArgs =
+        SparkCommandArgs sparkCommandArgs =
                 CommandLineUtils.parse(
                         args,
-                        new FlinkCommandArgs(),
-                        EngineType.FLINK15.getStarterShellName(),
+                        new SparkCommandArgs(),
+                        EngineType.SPARK2.getStarterShellName(),
                         true);
-        SeaTunnel.run(flinkCommandArgs.buildCommand());
+        SeaTunnel.run(sparkCommandArgs.buildCommand());
     }
 }

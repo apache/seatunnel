@@ -30,8 +30,8 @@ import java.util.Objects;
 /** The SeaTunnel flink starter, used to generate the final flink job execute command. */
 public class FlinkStarter implements Starter {
     private static final String APP_NAME = SeaTunnelFlink.class.getName();
-    public static final String APP_JAR_NAME = EngineType.FLINK15.getStarterJarName();
-    public static final String SHELL_NAME = EngineType.FLINK15.getStarterShellName();
+    public static final String APP_JAR_NAME = EngineType.FLINK13.getStarterJarName();
+    public static final String SHELL_NAME = EngineType.FLINK13.getStarterShellName();
     private final FlinkCommandArgs flinkCommandArgs;
     private final String appJar;
 

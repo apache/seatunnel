@@ -96,7 +96,7 @@ public class SparkStarter implements Starter {
                 CommandLineUtils.parse(
                         args,
                         new SparkCommandArgs(),
-                        EngineType.SPARK3.getStarterShellName(),
+                        EngineType.SPARK2.getStarterShellName(),
                         true);
         DeployMode deployMode = commandArgs.getDeployMode();
         switch (deployMode) {
@@ -257,7 +257,7 @@ public class SparkStarter implements Starter {
     /** append appJar to StringBuilder */
     protected void appendAppJar(List<String> commands) {
         commands.add(
-                Common.appStarterDir().resolve(EngineType.SPARK3.getStarterJarName()).toString());
+                Common.appStarterDir().resolve(EngineType.SPARK2.getStarterJarName()).toString());
     }
 
     @SuppressWarnings("checkstyle:Indentation")

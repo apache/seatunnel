@@ -30,7 +30,7 @@ public class SeaTunnelSpark {
                 CommandLineUtils.parse(
                         args,
                         new SparkCommandArgs(),
-                        EngineType.SPARK2.getStarterShellName(),
+                        EngineType.SPARK3.getStarterShellName(),
                         true);
         SeaTunnel.run(sparkCommandArgs.buildCommand());
     }

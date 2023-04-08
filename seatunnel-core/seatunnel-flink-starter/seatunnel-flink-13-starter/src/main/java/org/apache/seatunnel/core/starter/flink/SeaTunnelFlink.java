@@ -29,7 +29,7 @@ public class SeaTunnelFlink {
                 CommandLineUtils.parse(
                         args,
                         new FlinkCommandArgs(),
-                        EngineType.FLINK15.getStarterShellName(),
+                        EngineType.FLINK13.getStarterShellName(),
                         true);
         SeaTunnel.run(flinkCommandArgs.buildCommand());
     }
