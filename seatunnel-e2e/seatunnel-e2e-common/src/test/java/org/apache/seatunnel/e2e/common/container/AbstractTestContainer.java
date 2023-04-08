@@ -18,6 +18,7 @@
 package org.apache.seatunnel.e2e.common.container;
 
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
@@ -88,7 +89,8 @@ public abstract class AbstractTestContainer implements TestContainer {
                 container, this.startModuleFullPath, SEATUNNEL_HOME);
     }
 
-    protected Container.ExecResult executeJob(GenericContainer<?> container, String confFile, float timeoutSeconds)
+    protected Container.ExecResult executeJob(
+            GenericContainer<?> container, String confFile, float timeoutSeconds)
             throws IOException, InterruptedException {
         final String confInContainerPath = copyConfigFileToContainer(container, confFile);
         // copy connectors
@@ -102,7 +104,8 @@ public abstract class AbstractTestContainer implements TestContainer {
         return executeCommand(container, confInContainerPath, timeoutSeconds);
     }
 
-    protected Container.ExecResult executeCommand(GenericContainer<?> container, String configPath, float timeoutSeconds)
+    protected Container.ExecResult executeCommand(
+            GenericContainer<?> container, String configPath, float timeoutSeconds)
             throws IOException, InterruptedException {
         final List<String> command = new ArrayList<>();
         if (timeoutSeconds > 0) {

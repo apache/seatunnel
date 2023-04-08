@@ -17,7 +17,25 @@
 
 package org.apache.seatunnel.e2e.connector.kafka;
 
-import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
+import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunnelRowSerializer;
+import org.apache.seatunnel.e2e.common.TestResource;
+import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.format.text.TextSerializationSchema;
+
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -30,26 +48,7 @@ import org.apache.kafka.common.IsolationLevel;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.MapType;
-import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.utils.function.FunctionWithException;
-import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
-import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunnelRowSerializer;
-import org.apache.seatunnel.e2e.common.TestResource;
-import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.format.text.TextSerializationSchema;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
-import org.junit.Assert;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -61,6 +60,8 @@ import org.testcontainers.shaded.com.google.common.collect.Lists;
 import org.testcontainers.shaded.org.awaitility.Awaitility;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -152,26 +153,12 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testSinkKafkaExactlyOnce(TestContainer container) throws IOException, InterruptedException, ExecutionException, TimeoutException {
-
+    public void testSinkKafkaExactlyOnce(TestContainer container)
+            throws IOException, InterruptedException, ExecutionException, TimeoutException {
         container.executeJob("/kafka/kafkasink_fake_to_kafka_exactly_once.conf", 30);
-
-//        Future<Container.ExecResult> future = new FutureTask<>(() -> container.executeJob("/kafkasink_fake_to_kafka_exactly_once.conf"));
-//        Thread.sleep(60 * 1000);
         String topicName = "test01";
         Map<String, String> data = getKafkaConsumerData(topicName, r -> String.valueOf(r.offset()));
-        ObjectMapper objectMapper = new ObjectMapper();
-        log.info("kafkaConsumerData: record num = {}", data.size());
         Assertions.assertEquals(4, data.size());
-        data.forEach((k, v) -> {
-            ObjectNode objectNode = null;
-            try {
-                log.info("kafkaConsumerData: k={}, v={}", k, objectMapper.readValue(v, ObjectNode.class).toString());
-            } catch (JsonProcessingException e) {
-                throw new RuntimeException(e);
-            }
-
-        });
     }
 
     @TestTemplate
@@ -336,7 +323,9 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
                 OffsetResetStrategy.EARLIEST.toString().toLowerCase());
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        props.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, IsolationLevel.READ_COMMITTED.name().toLowerCase());
+        props.put(
+                ConsumerConfig.ISOLATION_LEVEL_CONFIG,
+                IsolationLevel.READ_COMMITTED.name().toLowerCase());
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         return props;
     }
@@ -346,22 +335,22 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         for (int i = start; i < end; i++) {
             SeaTunnelRow row =
                     new SeaTunnelRow(
-                            new Object[]{
-                                    Long.valueOf(i),
-                                    Collections.singletonMap("key", Short.parseShort("1")),
-                                    new Byte[]{Byte.parseByte("1")},
-                                    "string",
-                                    Boolean.FALSE,
-                                    Byte.parseByte("1"),
-                                    Short.parseShort("1"),
-                                    Integer.parseInt("1"),
-                                    Long.parseLong("1"),
-                                    Float.parseFloat("1.1"),
-                                    Double.parseDouble("1.1"),
-                                    BigDecimal.valueOf(11, 1),
-                                    "test".getBytes(),
-                                    LocalDate.now(),
-                                    LocalDateTime.now()
+                            new Object[] {
+                                Long.valueOf(i),
+                                Collections.singletonMap("key", Short.parseShort("1")),
+                                new Byte[] {Byte.parseByte("1")},
+                                "string",
+                                Boolean.FALSE,
+                                Byte.parseByte("1"),
+                                Short.parseShort("1"),
+                                Integer.parseInt("1"),
+                                Long.parseLong("1"),
+                                Float.parseFloat("1.1"),
+                                Double.parseDouble("1.1"),
+                                BigDecimal.valueOf(11, 1),
+                                "test".getBytes(),
+                                LocalDate.now(),
+                                LocalDateTime.now()
                             });
             ProducerRecord<byte[], byte[]> producerRecord = converter.convert(row);
             producer.send(producerRecord);
@@ -370,46 +359,47 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
     private static final SeaTunnelRowType SEATUNNEL_ROW_TYPE =
             new SeaTunnelRowType(
-                    new String[]{
-                            "id",
-                            "c_map",
-                            "c_array",
-                            "c_string",
-                            "c_boolean",
-                            "c_tinyint",
-                            "c_smallint",
-                            "c_int",
-                            "c_bigint",
-                            "c_float",
-                            "c_double",
-                            "c_decimal",
-                            "c_bytes",
-                            "c_date",
-                            "c_timestamp"
+                    new String[] {
+                        "id",
+                        "c_map",
+                        "c_array",
+                        "c_string",
+                        "c_boolean",
+                        "c_tinyint",
+                        "c_smallint",
+                        "c_int",
+                        "c_bigint",
+                        "c_float",
+                        "c_double",
+                        "c_decimal",
+                        "c_bytes",
+                        "c_date",
+                        "c_timestamp"
                     },
-                    new SeaTunnelDataType[]{
-                            BasicType.LONG_TYPE,
-                            new MapType(BasicType.STRING_TYPE, BasicType.SHORT_TYPE),
-                            ArrayType.BYTE_ARRAY_TYPE,
-                            BasicType.STRING_TYPE,
-                            BasicType.BOOLEAN_TYPE,
-                            BasicType.BYTE_TYPE,
-                            BasicType.SHORT_TYPE,
-                            BasicType.INT_TYPE,
-                            BasicType.LONG_TYPE,
-                            BasicType.FLOAT_TYPE,
-                            BasicType.DOUBLE_TYPE,
-                            new DecimalType(2, 1),
-                            PrimitiveByteArrayType.INSTANCE,
-                            LocalTimeType.LOCAL_DATE_TYPE,
-                            LocalTimeType.LOCAL_DATE_TIME_TYPE
+                    new SeaTunnelDataType[] {
+                        BasicType.LONG_TYPE,
+                        new MapType(BasicType.STRING_TYPE, BasicType.SHORT_TYPE),
+                        ArrayType.BYTE_ARRAY_TYPE,
+                        BasicType.STRING_TYPE,
+                        BasicType.BOOLEAN_TYPE,
+                        BasicType.BYTE_TYPE,
+                        BasicType.SHORT_TYPE,
+                        BasicType.INT_TYPE,
+                        BasicType.LONG_TYPE,
+                        BasicType.FLOAT_TYPE,
+                        BasicType.DOUBLE_TYPE,
+                        new DecimalType(2, 1),
+                        PrimitiveByteArrayType.INSTANCE,
+                        LocalTimeType.LOCAL_DATE_TYPE,
+                        LocalTimeType.LOCAL_DATE_TIME_TYPE
                     });
 
     private Map<String, String> getKafkaConsumerData(String topicName) {
         return getKafkaConsumerData(topicName, ConsumerRecord::key);
     }
 
-    private Map<String, String> getKafkaConsumerData(String topicName, Function<ConsumerRecord<String, String>, String> keyProvider) {
+    private Map<String, String> getKafkaConsumerData(
+            String topicName, Function<ConsumerRecord<String, String>, String> keyProvider) {
         Map<String, String> data = new HashMap<>();
         try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
             consumer.subscribe(Arrays.asList(topicName));
