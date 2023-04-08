@@ -31,7 +31,7 @@ tar -xzvf "apache-seatunnel-incubating-${version}-bin.tar.gz"
 
 ## Step 3: Install connectors plugin
 
-Since 2.2.0-beta, the binary package does not provide connector dependencies by default, so when using it for the first time, we need to execute the following command to install the connector: (Of course, you can also manually download the connector from [Apache Maven Repository](https://repo.maven.apache.org/maven2/org/apache/seatunnel/ to download, then manually move to the seatunnel subdirectory under the connectors directory).
+Since 2.2.0-beta, the binary package does not provide connector dependencies by default, so when using it for the first time, we need to execute the following command to install the connector: (Of course, you can also manually download the connector from [Apache Maven Repository](https://repo.maven.apache.org/maven2/org/apache/seatunnel/) to download, then manually move to the seatunnel subdirectory under the connectors directory).
 
 ```bash
 sh bin/install_plugin.sh 2.3.0-beta

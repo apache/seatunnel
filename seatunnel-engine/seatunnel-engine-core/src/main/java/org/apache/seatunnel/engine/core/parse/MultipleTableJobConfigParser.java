@@ -42,10 +42,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.Constants;
-import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
+import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.common.constants.JobMode;
-import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
@@ -56,6 +55,8 @@ import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SinkConfig;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.actions.TransformAction;
+import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -66,7 +67,6 @@ import com.hazelcast.logging.Logger;
 import lombok.extern.slf4j.Slf4j;
 import scala.Tuple2;
 
-import java.io.IOException;
 import java.io.Serializable;
 import java.net.URL;
 import java.nio.file.Paths;
@@ -85,6 +85,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.apache.seatunnel.engine.core.parse.ConfigParserUtil.getFactoryId;
 import static org.apache.seatunnel.engine.core.parse.ConfigParserUtil.getFactoryUrls;
@@ -126,14 +127,6 @@ public class MultipleTableJobConfigParser {
     }
 
     public ImmutablePair<List<Action>, Set<URL>> parse() {
-        List<URL> connectorJars = new ArrayList<>();
-        try {
-            connectorJars = FileUtils.searchJarFiles(Common.connectorJarDir("seatunnel"));
-        } catch (IOException e) {
-            LOGGER.info(e);
-        }
-        ClassLoader classLoader = new SeaTunnelChildFirstClassLoader(connectorJars);
-        Thread.currentThread().setContextClassLoader(classLoader);
         List<? extends Config> sourceConfigs =
                 TypesafeConfigUtils.getConfigList(
                         seaTunnelJobConfig, "source", Collections.emptyList());
@@ -144,6 +137,15 @@ public class MultipleTableJobConfigParser {
                 TypesafeConfigUtils.getConfigList(
                         seaTunnelJobConfig, "sink", Collections.emptyList());
 
+        List<URL> connectorJars = getConnectorJarList(sourceConfigs, sinkConfigs);
+        if (!commonPluginJars.isEmpty()) {
+            connectorJars.addAll(commonPluginJars);
+        }
+        ClassLoader classLoader =
+                new SeaTunnelChildFirstClassLoader(
+                        connectorJars, Thread.currentThread().getContextClassLoader());
+        Thread.currentThread().setContextClassLoader(classLoader);
+
         ConfigParserUtil.checkGraph(sourceConfigs, transformConfigs, sinkConfigs);
 
         this.fillJobConfig();
@@ -151,14 +153,17 @@ public class MultipleTableJobConfigParser {
         LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>> tableWithActionMap =
                 new LinkedHashMap<>();
 
+        log.info("start generating all sources.");
         for (Config sourceConfig : sourceConfigs) {
             Tuple2<String, List<Tuple2<CatalogTable, Action>>> tuple2 =
                     parseSource(sourceConfig, classLoader);
             tableWithActionMap.put(tuple2._1(), tuple2._2());
         }
 
+        log.info("start generating all transforms.");
         parseTransforms(transformConfigs, classLoader, tableWithActionMap);
 
+        log.info("start generating all sinks.");
         List<Action> sinkActions = new ArrayList<>();
         for (int configIndex = 0; configIndex < sinkConfigs.size(); configIndex++) {
             Config sinkConfig = sinkConfigs.get(configIndex);
@@ -174,6 +179,32 @@ public class MultipleTableJobConfigParser {
         Set<URL> urls = new HashSet<>();
         fillUsedFactoryUrls(sinkActions, urls);
         return urls;
+    }
+
+    private List<URL> getConnectorJarList(
+            List<? extends Config> sourceConfigs, List<? extends Config> sinkConfigs) {
+        List<PluginIdentifier> factoryIds =
+                Stream.concat(
+                                sourceConfigs.stream()
+                                        .map(ConfigParserUtil::getFactoryId)
+                                        .map(
+                                                factory ->
+                                                        PluginIdentifier.of(
+                                                                CollectionConstants
+                                                                        .SEATUNNEL_PLUGIN,
+                                                                CollectionConstants.SOURCE_PLUGIN,
+                                                                factory)),
+                                sinkConfigs.stream()
+                                        .map(ConfigParserUtil::getFactoryId)
+                                        .map(
+                                                factory ->
+                                                        PluginIdentifier.of(
+                                                                CollectionConstants
+                                                                        .SEATUNNEL_PLUGIN,
+                                                                CollectionConstants.SINK_PLUGIN,
+                                                                factory)))
+                        .collect(Collectors.toList());
+        return new SeaTunnelSinkPluginDiscovery().getPluginJarPaths(factoryIds);
     }
 
     private void fillUsedFactoryUrls(List<Action> actions, Set<URL> result) {

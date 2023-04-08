@@ -147,11 +147,15 @@ public abstract class SeaTunnelTask extends AbstractTask {
                     }
                     currState = READY_START;
                     reportTaskStatus(READY_START);
+                } else {
+                    Thread.sleep(100);
                 }
                 break;
             case READY_START:
                 if (startCalled) {
                     currState = STARTING;
+                } else {
+                    Thread.sleep(100);
                 }
                 break;
             case STARTING:

@@ -15,25 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform;
+package org.apache.seatunnel.transform.exception;
 
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableTransformFactory;
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
-import com.google.auto.service.AutoService;
+public enum FilterFieldTransformErrorCode implements SeaTunnelErrorCode {
+    FILTER_FIELD_NOT_FOUND("FILTER_FIELD_TRANSFORM-01", "filter field not found");
 
-import static org.apache.seatunnel.transform.FilterFieldTransform.KEY_FIELDS;
+    private final String code;
+    private final String description;
 
-@AutoService(Factory.class)
-public class FilterFieldTransformFactory implements TableTransformFactory {
-    @Override
-    public String factoryIdentifier() {
-        return "Filter";
+    FilterFieldTransformErrorCode(String code, String description) {
+        this.code = code;
+        this.description = description;
     }
 
     @Override
-    public OptionRule optionRule() {
-        return OptionRule.builder().required(KEY_FIELDS).build();
+    public String getCode() {
+        return this.code;
+    }
+
+    @Override
+    public String getDescription() {
+        return this.description;
     }
 }

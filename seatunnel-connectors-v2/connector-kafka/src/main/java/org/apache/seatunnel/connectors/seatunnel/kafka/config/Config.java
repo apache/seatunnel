@@ -163,4 +163,11 @@ public class Config {
                             "The processing method of data format error. The default value is fail, and the optional value is (fail, skip). "
                                     + "When fail is selected, data format error will block and an exception will be thrown. "
                                     + "When skip is selected, data format error will skip this line data.");
+
+    public static final Option<KafkaSemantics> SEMANTICS =
+            Options.key("semantics")
+                    .enumType(KafkaSemantics.class)
+                    .defaultValue(KafkaSemantics.NON)
+                    .withDescription(
+                            "Semantics that can be chosen EXACTLY_ONCE/AT_LEAST_ONCE/NON, default NON.");
 }

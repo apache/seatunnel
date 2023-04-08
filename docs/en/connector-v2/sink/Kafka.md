@@ -51,11 +51,9 @@ Currently two formats are supported:
 
 Kafka Brokers List.
 
-### kafka.* [kafka producer config]
+### kafka.config [kafka producer config]
 
 In addition to the above parameters that must be specified by the `Kafka producer` client, the user can also specify multiple non-mandatory parameters for the `producer` client, covering [all the producer parameters specified in the official Kafka document](https://kafka.apache.org/documentation.html#producerconfigs).
-
-The way to specify the parameter is to add the prefix `kafka.` to the original parameter name. For example, the way to specify `request.timeout.ms` is: `kafka.request.timeout.ms = 60000` . If these non-essential parameters are not specified, they will use the default values given in the official Kafka documentation.
 
 ### semantics [string]
 
@@ -158,9 +156,11 @@ sink {
       format = json
       kafka.request.timeout.ms = 60000
       semantics = EXACTLY_ONCE
-      kafka.security.protocol=SASL_SSL
-      kafka.sasl.mechanism=SCRAM-SHA-512
-      kafka.sasl.jaas.config="org.apache.kafka.common.security.scram.ScramLoginModule required \nusername=${username}\npassword=${password};"
+      kafka.config = {
+         security.protocol=SASL_SSL
+         sasl.mechanism=SCRAM-SHA-512
+         sasl.jaas.config="org.apache.kafka.common.security.scram.ScramLoginModule required \nusername=${username}\npassword=${password};"
+      }
   }
   
 }
@@ -192,10 +192,12 @@ sink {
       format = json
       kafka.request.timeout.ms = 60000
       semantics = EXACTLY_ONCE
-      kafka.security.protocol=SASL_SSL
-      kafka.sasl.mechanism=AWS_MSK_IAM
-      kafka.sasl.jaas.config="software.amazon.msk.auth.iam.IAMLoginModule required;"
-      kafka.sasl.client.callback.handler.class="software.amazon.msk.auth.iam.IAMClientCallbackHandler"
+      kafka.config = {
+         security.protocol=SASL_SSL
+         sasl.mechanism=AWS_MSK_IAM
+         sasl.jaas.config="software.amazon.msk.auth.iam.IAMLoginModule required;"
+         sasl.client.callback.handler.class="software.amazon.msk.auth.iam.IAMClientCallbackHandler"
+      }
   }
   
 }

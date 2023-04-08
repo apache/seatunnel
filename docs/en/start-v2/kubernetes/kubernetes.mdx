@@ -144,11 +144,20 @@ source {
 }
 
 transform {
-
+  FieldMapper {
+    source_table_name = "fake"
+    result_table_name = "fake1"
+    field_mapper = {
+      age = age
+      name = new_name
+    }
+  }
 }
 
 sink {
-  Console {}
+  Console {
+    source_table_name = "fake1"
+  }
 }
 ```
 
