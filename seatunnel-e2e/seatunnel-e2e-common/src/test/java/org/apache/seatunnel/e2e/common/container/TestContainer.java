@@ -40,9 +40,4 @@ public interface TestContainer extends TestResource {
 
     Container.ExecResult executeJob(String confFile, float timeoutSeconds)
             throws IOException, InterruptedException;
-
-    default void stopContainer() throws IOException, InterruptedException {
-        //        new DockerClient().execCreateCmd().exec().getId()
-        //        throw new NotImplementedException();
-    }
 }
