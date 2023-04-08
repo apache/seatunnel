@@ -15,25 +15,42 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform;
+package org.apache.seatunnel.transform.replace;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.transform.FilterFieldTransform.KEY_FIELDS;
-
 @AutoService(Factory.class)
-public class FilterFieldTransformFactory implements TableTransformFactory {
+public class ReplaceTransformFactory implements TableTransformFactory {
     @Override
     public String factoryIdentifier() {
-        return "Filter";
+        return "Replace";
     }
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(KEY_FIELDS).build();
+        return OptionRule.builder()
+                .required(
+                        ReplaceTransformConfig.KEY_REPLACE_FIELD,
+                        ReplaceTransformConfig.KEY_PATTERN,
+                        ReplaceTransformConfig.KEY_REPLACEMENT)
+                .optional(ReplaceTransformConfig.KEY_IS_REGEX)
+                .conditional(
+                        ReplaceTransformConfig.KEY_IS_REGEX,
+                        true,
+                        ReplaceTransformConfig.KEY_REPLACE_FIRST)
+                .build();
+    }
+
+    @Override
+    public TableTransform createTransform(TableFactoryContext context) {
+        CatalogTable catalogTable = context.getCatalogTable();
+        return () -> new ReplaceTransform(context.getOptions(), catalogTable);
     }
 }

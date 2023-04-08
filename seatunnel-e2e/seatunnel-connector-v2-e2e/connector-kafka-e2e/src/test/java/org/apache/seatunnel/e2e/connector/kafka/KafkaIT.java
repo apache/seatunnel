@@ -53,9 +53,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
-import org.testcontainers.shaded.com.google.common.collect.Lists;
 import org.testcontainers.shaded.org.awaitility.Awaitility;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -77,9 +77,7 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class KafkaIT extends TestSuiteBase implements TestResource {
-    private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:6.2.1";
-
-    private static final int KAFKA_PORT = 9093;
+    private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.0.9";
 
     private static final String KAFKA_HOST = "kafkaCluster";
 
@@ -101,8 +99,6 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(KAFKA_IMAGE_NAME)));
-        kafkaContainer.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", KAFKA_PORT, KAFKA_PORT)));
         Startables.deepStart(Stream.of(kafkaContainer)).join();
         log.info("Kafka container started");
         Awaitility.given()
@@ -110,7 +106,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 .atLeast(100, TimeUnit.MILLISECONDS)
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .atMost(180, TimeUnit.SECONDS)
-                .untilAsserted(() -> initKafkaProducer());
+                .untilAsserted(this::initKafkaProducer);
 
         log.info("Write 100 records to topic test_topic_source");
         DefaultSeaTunnelRowSerializer serializer =
@@ -119,7 +115,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         SEATUNNEL_ROW_TYPE,
                         DEFAULT_FORMAT,
                         DEFAULT_FIELD_DELIMITER);
-        generateTestData(row -> serializer.serializeRow(row), 0, 100);
+        generateTestData(serializer::serializeRow, 0, 100);
     }
 
     @AfterAll
@@ -202,6 +198,38 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         DEFAULT_FIELD_DELIMITER);
         generateTestData(row -> serializer.serializeRow(row), 0, 100);
         Container.ExecResult execResult = container.executeJob("/kafkasource_json_to_console.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    public void testSourceKafkaJsonFormatErrorHandleWaySkipToConsole(TestContainer container)
+            throws IOException, InterruptedException {
+        DefaultSeaTunnelRowSerializer serializer =
+                DefaultSeaTunnelRowSerializer.create(
+                        "test_topic_error_message",
+                        SEATUNNEL_ROW_TYPE,
+                        DEFAULT_FORMAT,
+                        DEFAULT_FIELD_DELIMITER);
+        generateTestData(row -> serializer.serializeRow(row), 0, 100);
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/kafka/kafkasource_format_error_handle_way_skip_to_console.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    public void testSourceKafkaJsonFormatErrorHandleWayFailToConsole(TestContainer container)
+            throws IOException, InterruptedException {
+        DefaultSeaTunnelRowSerializer serializer =
+                DefaultSeaTunnelRowSerializer.create(
+                        "test_topic_error_message",
+                        SEATUNNEL_ROW_TYPE,
+                        DEFAULT_FORMAT,
+                        DEFAULT_FIELD_DELIMITER);
+        generateTestData(row -> serializer.serializeRow(row), 0, 100);
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/kafka/kafkasource_format_error_handle_way_fail_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 

@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
-
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -50,7 +48,11 @@ public class KafkaSinkFactory implements TableSinkFactory {
                                 MessageFormat.TEXT,
                                 MessageFormat.MAXWELL_JSON),
                         Config.TOPIC)
-                .optional(Config.KAFKA_CONFIG, Config.ASSIGN_PARTITIONS, Config.TRANSACTION_PREFIX)
+                .optional(
+                        Config.KAFKA_CONFIG,
+                        Config.ASSIGN_PARTITIONS,
+                        Config.TRANSACTION_PREFIX,
+                        Config.SEMANTICS)
                 .exclusive(Config.PARTITION, Config.PARTITION_KEY_FIELDS)
                 .build();
     }
@@ -59,7 +61,7 @@ public class KafkaSinkFactory implements TableSinkFactory {
     public TableSink createSink(TableFactoryContext context) {
         return () ->
                 new KafkaSink(
-                        ConfigFactory.parseMap(context.getOptions().toMap()),
+                        context.getOptions(),
                         context.getCatalogTable().getTableSchema().toPhysicalRowDataType());
     }
 }

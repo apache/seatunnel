@@ -49,6 +49,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -136,7 +137,7 @@ public class JobConfigParser {
                     inputVertices.stream()
                             .flatMap(Collection::stream)
                             .map(Tuple2::_2)
-                            .collect(Collectors.toSet());
+                            .collect(Collectors.toCollection(LinkedHashSet::new));
             checkProducedTypeEquals(inputActions);
             SinkAction<?, ?, ?, ?> sinkAction =
                     parseSink(

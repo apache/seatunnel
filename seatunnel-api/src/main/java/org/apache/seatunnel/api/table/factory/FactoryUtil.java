@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -33,6 +34,7 @@ import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.connector.TableSource;
+import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -113,6 +115,7 @@ public final class FactoryUtil {
                     ReadonlyConfig options,
                     ClassLoader classLoader) {
         TableFactoryContext context = new TableFactoryContext(acceptedTables, options, classLoader);
+        ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
         TableSource<T, SplitT, StateT> tableSource = factory.createSource(context);
         validateAndApplyMetadata(acceptedTables, tableSource);
         return tableSource.createSource();
@@ -135,6 +138,7 @@ public final class FactoryUtil {
             TableFactoryContext context =
                     new TableFactoryContext(
                             Collections.singletonList(catalogTable), options, classLoader);
+            ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
             return factory.createSink(context).createSink();
         } catch (Throwable t) {
             throw new FactoryException(
@@ -308,5 +312,19 @@ public final class FactoryUtil {
         }
 
         return sinkOptionRule;
+    }
+
+    public static SeaTunnelTransform<?> createAndPrepareTransform(
+            CatalogTable catalogTable,
+            ReadonlyConfig options,
+            ClassLoader classLoader,
+            String factoryIdentifier) {
+        final TableTransformFactory factory =
+                discoverFactory(classLoader, TableTransformFactory.class, factoryIdentifier);
+        TableFactoryContext context =
+                new TableFactoryContext(
+                        Collections.singletonList(catalogTable), options, classLoader);
+        ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
+        return factory.createTransform(context).createTransform();
     }
 }
