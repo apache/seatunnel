@@ -84,8 +84,6 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
     private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.3.3";
 
-    private static final int KAFKA_PORT = 9093;
-
     private static final String KAFKA_HOST = "kafkaCluster";
 
     private static final MessageFormat DEFAULT_FORMAT = MessageFormat.JSON;
