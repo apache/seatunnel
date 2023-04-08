@@ -44,6 +44,7 @@ import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -55,6 +56,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
+@Slf4j
 public class CatalogTableUtil implements Serializable {
     public static final Option<Map<String, String>> SCHEMA =
             Options.key("schema").mapType().noDefaultValue().withDescription("SeaTunnel Schema");
@@ -121,7 +123,17 @@ public class CatalogTableUtil implements Serializable {
                         classLoader,
                         factoryId);
         return optionalCatalog
-                .map(catalog -> getCatalogTables(catalogConfig, catalog))
+                .map(
+                        catalog -> {
+                            long startTime = System.currentTimeMillis();
+                            List<CatalogTable> catalogTables =
+                                    getCatalogTables(catalogConfig, catalog);
+                            log.info(
+                                    String.format(
+                                            "Get catalog tables, cost time: %d",
+                                            System.currentTimeMillis() - startTime));
+                            return catalogTables;
+                        })
                 .orElse(Collections.emptyList());
     }
 
@@ -184,10 +196,9 @@ public class CatalogTableUtil implements Serializable {
     }
 
     public static SeaTunnelDataType<?> parseDataType(String columnStr) {
-        columnStr = columnStr.toUpperCase().replace(" ", "");
         SqlType sqlType = null;
         try {
-            sqlType = SqlType.valueOf(columnStr);
+            sqlType = SqlType.valueOf(columnStr.toUpperCase().replace(" ", ""));
         } catch (IllegalArgumentException e) {
             // nothing
         }
@@ -228,14 +239,15 @@ public class CatalogTableUtil implements Serializable {
     }
 
     private static SeaTunnelDataType<?> parseComplexDataType(String columnStr) {
-        if (columnStr.startsWith(SqlType.MAP.name())) {
-            return parseMapType(columnStr);
+        String column = columnStr.toUpperCase().replace(" ", "");
+        if (column.startsWith(SqlType.MAP.name())) {
+            return parseMapType(column);
         }
-        if (columnStr.startsWith(SqlType.ARRAY.name())) {
-            return parseArrayType(columnStr);
+        if (column.startsWith(SqlType.ARRAY.name())) {
+            return parseArrayType(column);
         }
-        if (columnStr.startsWith(SqlType.DECIMAL.name())) {
-            return parseDecimalType(columnStr);
+        if (column.startsWith(SqlType.DECIMAL.name())) {
+            return parseDecimalType(column);
         }
         return parseRowType(columnStr);
     }
