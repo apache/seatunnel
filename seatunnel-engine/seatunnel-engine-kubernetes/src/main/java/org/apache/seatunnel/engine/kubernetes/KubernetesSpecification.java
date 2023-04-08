@@ -23,7 +23,6 @@ import io.fabric8.kubernetes.api.model.apps.Deployment;
 
 import java.util.List;
 
-/** Composition of the created Kubernetes components that represents a Flink application. */
 public class KubernetesSpecification {
 
     private Deployment deployment;
