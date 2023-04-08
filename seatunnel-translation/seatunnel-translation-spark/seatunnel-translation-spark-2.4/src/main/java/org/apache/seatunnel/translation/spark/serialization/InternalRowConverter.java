@@ -245,7 +245,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         return newArray;
     }
 
-    public Object[] convertDateTime(InternalRow internalRow, StructType structType) {
+    public Object[] convertToFields(InternalRow internalRow, StructType structType) {
         Object[] fields =
                 Arrays.stream(((SpecificInternalRow) internalRow).values())
                         .map(MutableValue::boxed)
@@ -259,6 +259,9 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             }
             if (dataType == DataTypes.DateType && field instanceof Integer) {
                 fields[i] = Date.valueOf(LocalDate.ofEpochDay((int) field));
+            }
+            if (field instanceof UTF8String) {
+                fields[i] = field.toString();
             }
         }
         return fields;

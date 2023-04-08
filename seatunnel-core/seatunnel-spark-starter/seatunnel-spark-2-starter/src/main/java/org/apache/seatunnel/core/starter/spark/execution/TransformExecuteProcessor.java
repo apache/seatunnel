@@ -187,7 +187,7 @@ public class TransformExecuteProcessor
 
                 InternalRow internalRow = outputRowConverter.convert(seaTunnelRow);
 
-                Object[] fields = outputRowConverter.convertDateTime(internalRow, structType);
+                Object[] fields = outputRowConverter.convertToFields(internalRow, structType);
 
                 return new GenericRowWithSchema(fields, structType);
             } catch (IOException ie) {
