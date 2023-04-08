@@ -18,7 +18,6 @@
 
 package org.apache.seatunnel.e2e.connector.kafka;
 
-import com.google.common.collect.Lists;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlContainer;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersion;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.UniqueDatabase;
@@ -50,6 +49,8 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
+import com.google.common.collect.Lists;
+
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -60,11 +61,11 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.given;
-import java.util.Properties;
 
 @DisabledOnContainer(
         value = {},
@@ -207,8 +208,6 @@ public class MaxWellToKafkaIT extends TestSuiteBase implements TestResource {
                 .atMost(180, TimeUnit.SECONDS)
                 .untilAsserted(this::initKafkaConsumer);
         inventoryDatabase.createAndInitialize();
-        // ensure canal has handled the data
-        Thread.sleep(10 * 1000);
     }
 
     @TestTemplate
