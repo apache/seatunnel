@@ -28,8 +28,11 @@ import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
+import org.apache.spark.api.java.function.MapPartitionsFunction;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
+import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder;
+import org.apache.spark.sql.catalyst.encoders.RowEncoder;
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema;
 import org.apache.spark.sql.types.StructType;
 
@@ -37,6 +40,7 @@ import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -120,18 +124,50 @@ public class TransformExecuteProcessor
         transform.setTypeInfo(seaTunnelDataType);
         StructType structType =
                 (StructType) TypeConverterUtils.convert(transform.getProducedType());
-        SeaTunnelRow seaTunnelRow;
-        List<Row> outputRows = new ArrayList<>();
-        Iterator<Row> rowIterator = stream.toLocalIterator();
-        while (rowIterator.hasNext()) {
-            Row row = rowIterator.next();
-            seaTunnelRow = new SeaTunnelRow(((GenericRowWithSchema) row).values());
+        ExpressionEncoder<Row> encoder = RowEncoder.apply(structType);
+        return stream.mapPartitions(
+                        (MapPartitionsFunction<Row, Row>)
+                                (Iterator<Row> rowIterator) -> {
+                                    TransformIterator iterator =
+                                            new TransformIterator(
+                                                    rowIterator, transform, structType);
+                                    return iterator;
+                                },
+                        encoder)
+                .filter(
+                        (Row row) -> {
+                            return row != null;
+                        });
+    }
+
+    private static class TransformIterator implements Iterator<Row>, Serializable {
+        private Iterator<Row> sourceIterator;
+        private SeaTunnelTransform<SeaTunnelRow> transform;
+        private StructType structType;
+
+        public TransformIterator(
+                Iterator<Row> sourceIterator,
+                SeaTunnelTransform<SeaTunnelRow> transform,
+                StructType structType) {
+            this.sourceIterator = sourceIterator;
+            this.transform = transform;
+            this.structType = structType;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return sourceIterator.hasNext();
+        }
+
+        @Override
+        public Row next() {
+            Row row = sourceIterator.next();
+            SeaTunnelRow seaTunnelRow = new SeaTunnelRow(((GenericRowWithSchema) row).values());
             seaTunnelRow = (SeaTunnelRow) transform.map(seaTunnelRow);
             if (seaTunnelRow == null) {
-                continue;
+                return null;
             }
-            outputRows.add(new GenericRowWithSchema(seaTunnelRow.getFields(), structType));
+            return new GenericRowWithSchema(seaTunnelRow.getFields(), structType);
         }
-        return sparkRuntimeEnvironment.getSparkSession().createDataFrame(outputRows, structType);
     }
 }

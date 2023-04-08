@@ -23,6 +23,8 @@
 - [Canal]Support read canal format message #3950
 
 ## Improves
+### Core
+- [Starter][Spark] Push transform operation from Spark Driver to Executors #4502
 ### Connectors
 - [CDC]Add mysql-cdc source factory #3791
 - [JDBC]Fix the problem that the exception cannot be thrown normally #3796
@@ -58,7 +60,6 @@
 - [Storage] Remove seatunnel-api from engine storage. #3834
 - [Core] change queue to disruptor. #3847
 - [Improve] Statistics server job and system resource usage. #3982
-- 
 ## Bug Fixes
 ### Connectors
 - [ClickHouse File] Fix ClickhouseFile Committer Serializable Problems #3803
