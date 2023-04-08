@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.connector.kafka;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -81,6 +82,7 @@ import static org.awaitility.Awaitility.given;
 @DisabledOnContainer(
         value = {},
         type = {EngineType.SEATUNNEL, EngineType.SPARK})
+@Slf4j
 public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(DebeziumToKafkaIT.class);
@@ -269,7 +271,7 @@ public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testKafakSinkDebeziumFormat(TestContainer container)
+    public void testKafkaSinkDebeziumFormat(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 container.executeJob("/kafkasource_debezium_to_kafka.conf");
@@ -295,7 +297,7 @@ public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testDebeziumFormatKafakCdcToPgsql(TestContainer container)
+    public void testDebeziumFormatKafkaCdcToPgsql(TestContainer container)
             throws IOException, InterruptedException, SQLException {
         Container.ExecResult execResult =
                 container.executeJob("/kafkasource_debezium_cdc_to_pgsql.conf");
@@ -423,7 +425,7 @@ public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
                 }
             }
         } catch (SocketException ex) {
-            ex.printStackTrace();
+            log.warn("Failed to get linux local ip, it will return [\"\"] ", ex);
         }
         return ip;
     }
