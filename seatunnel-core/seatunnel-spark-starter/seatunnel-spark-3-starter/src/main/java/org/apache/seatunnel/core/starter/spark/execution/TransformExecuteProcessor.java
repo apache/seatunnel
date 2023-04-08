@@ -26,10 +26,12 @@ import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
+import org.apache.seatunnel.translation.spark.serialization.InternalRowConverter;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
+import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema;
 import org.apache.spark.sql.types.StructType;
 
@@ -123,16 +125,22 @@ public class TransformExecuteProcessor
         SeaTunnelRow seaTunnelRow;
         List<Row> outputRows = new ArrayList<>();
         Iterator<Row> rowIterator = stream.toLocalIterator();
+        InternalRowConverter inputRowConverter = new InternalRowConverter(seaTunnelDataType);
+        InternalRowConverter outputRowConverter =
+                new InternalRowConverter(transform.getProducedType());
         while (rowIterator.hasNext()) {
             Row row = rowIterator.next();
-            seaTunnelRow = new SeaTunnelRow(((GenericRowWithSchema) row).values());
+            seaTunnelRow = inputRowConverter.reconvert(InternalRow.apply(row.toSeq()));
             seaTunnelRow = (SeaTunnelRow) transform.map(seaTunnelRow);
             if (seaTunnelRow == null) {
                 continue;
             }
-            outputRows.add(new GenericRowWithSchema(seaTunnelRow.getFields(), structType));
-        }
+            InternalRow internalRow = outputRowConverter.convert(seaTunnelRow);
 
+            Object[] fields = outputRowConverter.convertDateTime(internalRow, structType);
+
+            outputRows.add(new GenericRowWithSchema(fields, structType));
+        }
         return sparkRuntimeEnvironment.getSparkSession().createDataFrame(outputRows, structType);
     }
 }
