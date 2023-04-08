@@ -88,7 +88,7 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
 
     private static final String KAFKA_TOPIC = "test-canal-sink";
 
-    private static final String KAFKA_HOST = "kafka_e2e"
+    private static final String KAFKA_HOST = "kafka_e2e";
 
     private static KafkaContainer KAFKA_CONTAINER;
 
