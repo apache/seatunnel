@@ -38,6 +38,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 
@@ -140,25 +141,16 @@ public class JdbcOutputFormatBuilder {
             SeaTunnelDataType[] pkTypes,
             Function<SeaTunnelRow, SeaTunnelRow> keyExtractor,
             boolean supportUpsertByQueryPrimaryKeyExist) {
-        return dialect.getUpsertStatement(database, table, rowType.getFieldNames(), pkNames)
-                .map(
-                        upsertSQL ->
-                                createSimpleExecutor(upsertSQL, rowType, dialect.getRowConverter()))
-                .orElseGet(
-                        () -> {
-                            if (supportUpsertByQueryPrimaryKeyExist) {
-                                return createInsertOrUpdateByQueryExecutor(
-                                        dialect,
-                                        database,
-                                        table,
-                                        rowType,
-                                        pkNames,
-                                        pkTypes,
-                                        keyExtractor);
-                            }
-                            return createInsertOrUpdateExecutor(
-                                    dialect, database, table, rowType, pkNames);
-                        });
+        Optional<String> upsertSQL =
+                dialect.getUpsertStatement(database, table, rowType.getFieldNames(), pkNames);
+        if (upsertSQL.isPresent()) {
+            return createSimpleExecutor(upsertSQL.get(), rowType, dialect.getRowConverter());
+        }
+        if (supportUpsertByQueryPrimaryKeyExist) {
+            return createInsertOrUpdateByQueryExecutor(
+                    dialect, database, table, rowType, pkNames, pkTypes, keyExtractor);
+        }
+        return createInsertOrUpdateExecutor(dialect, database, table, rowType, pkNames);
     }
 
     private static JdbcBatchStatementExecutor<SeaTunnelRow> createInsertOrUpdateExecutor(

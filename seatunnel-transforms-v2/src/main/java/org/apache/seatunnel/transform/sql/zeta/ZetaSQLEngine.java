@@ -89,10 +89,7 @@ public class ZetaSQLEngine implements SQLEngine {
             }
             Select select = (Select) statement;
             if (!(select.getSelectBody() instanceof PlainSelect)) {
-                throw new IllegalArgumentException("Unsupported SQL syntax: %s");
-            }
-            if (!(select.getSelectBody() instanceof PlainSelect)) {
-                throw new IllegalArgumentException("Unsupported SQL syntax: %s");
+                throw new IllegalArgumentException("Unsupported SQL syntax");
             }
             PlainSelect selectBody = (PlainSelect) select.getSelectBody();
 
