@@ -50,7 +50,6 @@ public class KafkaSinkFactory implements TableSinkFactory {
                         Config.ASSIGN_PARTITIONS,
                         Config.TRANSACTION_PREFIX,
                         Config.SEMANTICS)
-                .exclusive(Config.PARTITION, Config.PARTITION_KEY_FIELDS)
                 .build();
     }
 

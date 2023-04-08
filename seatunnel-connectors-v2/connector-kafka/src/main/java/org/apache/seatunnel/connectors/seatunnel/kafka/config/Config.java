@@ -108,7 +108,7 @@ public class Config {
     public static final Option<Integer> PARTITION =
             Options.key("partition")
                     .intType()
-                    .noDefaultValue()
+                    .defaultValue(0)
                     .withDescription(
                             "We can specify the partition, all messages will be sent to this partition.");
 

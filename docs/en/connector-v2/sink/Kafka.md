@@ -21,7 +21,7 @@ By default, we will use 2pc to guarantee the message is sent to kafka exactly on
 | kafka.config         | map    | no       | -             |
 | semantics            | string | no       | NON           |
 | partition_key_fields | array  | no       | -             |
-| partition            | int    | no       | -             |
+| partition            | int    | no       | 0             |
 | assign_partitions    | array  | no       | -             |
 | transaction_prefix   | string | no       | -             |
 | format               | String | no       | json          |
