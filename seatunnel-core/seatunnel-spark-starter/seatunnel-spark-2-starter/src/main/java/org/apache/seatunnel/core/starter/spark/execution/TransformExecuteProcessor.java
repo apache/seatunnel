@@ -126,13 +126,20 @@ public class TransformExecuteProcessor
         transform.setTypeInfo(seaTunnelDataType);
         StructType structType =
                 (StructType) TypeConverterUtils.convert(transform.getProducedType());
+        InternalRowConverter inputRowConverter = new InternalRowConverter(seaTunnelDataType);
+        InternalRowConverter outputRowConverter =
+                new InternalRowConverter(transform.getProducedType());
         ExpressionEncoder<Row> encoder = RowEncoder.apply(structType);
         return stream.mapPartitions(
                         (MapPartitionsFunction<Row, Row>)
                                 (Iterator<Row> rowIterator) -> {
                                     TransformIterator iterator =
                                             new TransformIterator(
-                                                    rowIterator, transform, structType);
+                                                    rowIterator,
+                                                    transform,
+                                                    structType,
+                                                    inputRowConverter,
+                                                    outputRowConverter);
                                     return iterator;
                                 },
                         encoder)
@@ -146,16 +153,19 @@ public class TransformExecuteProcessor
         private Iterator<Row> sourceIterator;
         private SeaTunnelTransform<SeaTunnelRow> transform;
         private StructType structType;
+        private InternalRowConverter inputRowConverter;
         private InternalRowConverter outputRowConverter;
 
         public TransformIterator(
                 Iterator<Row> sourceIterator,
                 SeaTunnelTransform<SeaTunnelRow> transform,
                 StructType structType,
+                InternalRowConverter inputRowConverter,
                 InternalRowConverter outputRowConverter) {
             this.sourceIterator = sourceIterator;
             this.transform = transform;
             this.structType = structType;
+            this.inputRowConverter = inputRowConverter;
             this.outputRowConverter = outputRowConverter;
         }
 
@@ -166,18 +176,23 @@ public class TransformExecuteProcessor
 
         @Override
         public Row next() {
-            Row row = sourceIterator.next();
-            SeaTunnelRow seaTunnelRow = new SeaTunnelRow(((GenericRowWithSchema) row).values());
-            seaTunnelRow = (SeaTunnelRow) transform.map(seaTunnelRow);
-            if (seaTunnelRow == null) {
-                return null;
+            try {
+                Row row = sourceIterator.next();
+                SeaTunnelRow seaTunnelRow =
+                        inputRowConverter.reconvert(InternalRow.apply(row.toSeq()));
+                seaTunnelRow = (SeaTunnelRow) transform.map(seaTunnelRow);
+                if (seaTunnelRow == null) {
+                    return null;
+                }
+
+                InternalRow internalRow = outputRowConverter.convert(seaTunnelRow);
+
+                Object[] fields = outputRowConverter.convertDateTime(internalRow, structType);
+
+                return new GenericRowWithSchema(fields, structType);
+            } catch (IOException ie) {
+                throw new TaskExecuteException("Row convert failed, cause: " + ie.getMessage(), ie);
             }
-
-            InternalRow internalRow = outputRowConverter.convert(seaTunnelRow);
-
-            Object[] fields = outputRowConverter.convertDateTime(internalRow, structType);
-
-            return new GenericRowWithSchema(fields, structType);
         }
     }
 }
