@@ -31,7 +31,7 @@ import java.util.Map;
 public class DebeziumJsonFormatFactory
         implements DeserializationFormatFactory, SerializationFormatFactory {
 
-    public static final String IDENTIFIER = "debezium-json";
+    public static final String IDENTIFIER = "debezium_json";
 
     @Override
     public String factoryIdentifier() {

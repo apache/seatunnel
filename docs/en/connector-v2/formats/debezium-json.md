@@ -17,7 +17,7 @@ Seatunnel also supports to encode the INSERT/UPDATE/DELETE messages in Seatunnel
 
 |              option               | default | required |                                             Description                                              |
 |-----------------------------------|---------|----------|------------------------------------------------------------------------------------------------------|
-| format                            | (none)  | yes      | Specify what format to use, here should be 'debezium-json'.                                          |
+| format                            | (none)  | yes      | Specify what format to use, here should be 'debezium_json'.                                          |
 | debezium-json.ignore-parse-errors | false   | no       | Skip fields and rows with parse errors instead of failing. Fields are set to null in case of errors. |
 
 # How to use Debezium format
@@ -88,7 +88,7 @@ source {
            weight = "string"
       }
     }
-    format = debezium-json
+    format = debezium_json
   }
 
 }
@@ -100,7 +100,7 @@ sink {
   Kafka {
     bootstrap.servers = "kafkaCluster:9092"
     topic = "consume-binlog"
-    format = debezium-json
+    format = debezium_json
   }
 }
 ```
