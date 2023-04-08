@@ -26,6 +26,7 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] parquet
   - [x] orc
   - [x] json
+  - [x] excel
 - [x] compress codec
   - [x] lzo
 
@@ -54,6 +55,8 @@ By default, we use 2PC commit to ensure `exactly-once`
 | kerberos_keytab_path             | string  | no       | -                                          |                                                           |
 | compress_codec                   | string  | no       | none                                       |                                                           |
 | common-options                   | object  | no       | -                                          |                                                           |
+| max_rows_in_memory               | int     | no       | -                                          | Only used when file_format is excel.                      |
+| sheet_name                       | string  | no       | Sheet${Random number}                      | Only used when file_format is excel.                      |
 
 ### fs.defaultFS [string]
 
@@ -99,7 +102,7 @@ When the format in the `file_name_expression` parameter is `xxxx-${now}` , `file
 
 We supported as the following file types:
 
-`text` `json` `csv` `orc` `parquet`
+`text` `json` `csv` `orc` `parquet` `excel`
 
 Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.
 
@@ -163,7 +166,8 @@ The compress codec of files and the details that supported as the following show
 - csv: `lzo` `none`
 - orc: `lzo` `snappy` `lz4` `zlib` `none`
 - parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`
-- 
+
+Tips: excel type does not support any compression format
 
 ### kerberos_principal [string]
 
@@ -176,6 +180,14 @@ The keytab path of kerberos
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+
+### max_rows_in_memory [int]
+
+When File Format is Excel,The maximum number of data items that can be cached in the memory.
+
+### sheet_name [string]
+
+Writer the sheet of the workbook
 
 ## Example
 
