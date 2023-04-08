@@ -34,6 +34,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
   - [x] parquet
   - [x] orc
   - [x] json
+  - [x] excel
 
 ## Options
 
@@ -54,6 +55,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | time_format               | string  | no       | HH:mm:ss            |
 | schema                    | config  | no       | -                   |
 | common-options            |         | no       | -                   |
+| sheet_name                | string  | no       | -                   |
 
 ### path [string]
 
@@ -117,7 +119,7 @@ then Seatunnel will skip the first 2 lines from source files
 
 File type, supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json`
+`text` `csv` `parquet` `orc` `json` `excel`
 
 If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
 
@@ -234,12 +236,17 @@ The file type supported column projection as the following shown:
 - csv
 - orc
 - parquet
+- excel
 
 **Tips: If the user wants to use this feature when reading `text` `json` `csv` files, the schema option must be configured**
 
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
+
+### sheet_name [string]
+
+Reader the sheet of the workbook,Only used when file_format is excel.
 
 ## Example
 
