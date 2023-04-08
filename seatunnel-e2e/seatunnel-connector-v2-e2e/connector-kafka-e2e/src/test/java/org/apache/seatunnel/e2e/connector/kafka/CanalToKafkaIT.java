@@ -80,8 +80,6 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
 
     private static final String CANAL_HOST = "canal_e2e";
 
-    private static final int CANAL_PORT = 11111;
-
     // ----------------------------------------------------------------------------
     // kafka
     private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:latest";
@@ -149,7 +147,6 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                                 "/app/server/conf/example/instance.properties")
                         .withNetwork(NETWORK)
                         .withNetworkAliases(CANAL_HOST)
-                        //                        .withCommand()
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(CANAL_DOCKER_IMAGE)));
@@ -165,7 +162,7 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                                         DockerLoggerFactory.getLogger(KAFKA_IMAGE_NAME)));
     }
 
-    private void createPostgreSQLContainer() throws ClassNotFoundException {
+    private void createPostgreSQLContainer() {
         POSTGRESQL_CONTAINER =
                 new PostgreSQLContainer<>(DockerImageName.parse(PG_IMAGE))
                         .withNetwork(NETWORK)
