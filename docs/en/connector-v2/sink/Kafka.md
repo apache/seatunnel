@@ -88,7 +88,7 @@ The selected field must be an existing field in the upstream.
 
 ### partition [int]
 
-We can specify the partition, all messages will be sent to this partition.
+We can specify the partition, all messages will be sent to this partition,Indicates that the first partition is sent by default
 
 ### assign_partitions [array]
 

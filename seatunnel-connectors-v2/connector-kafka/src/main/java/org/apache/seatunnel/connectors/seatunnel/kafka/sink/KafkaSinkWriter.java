@@ -174,16 +174,16 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         }
 
         String topic = pluginConfig.get(TOPIC);
-        if (pluginConfig.get(PARTITION) != null) {
-            return DefaultSeaTunnelRowSerializer.create(
-                    topic, pluginConfig.get(PARTITION), seaTunnelRowType, messageFormat, delimiter);
-        } else {
+        if (pluginConfig.get(PARTITION_KEY_FIELDS) != null) {
             return DefaultSeaTunnelRowSerializer.create(
                     topic,
                     getPartitionKeyFields(pluginConfig, seaTunnelRowType),
                     seaTunnelRowType,
                     messageFormat,
                     delimiter);
+        } else {
+            return DefaultSeaTunnelRowSerializer.create(
+                    topic, pluginConfig.get(PARTITION), seaTunnelRowType, messageFormat, delimiter);
         }
     }
 

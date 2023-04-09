@@ -110,7 +110,7 @@ public class Config {
                     .intType()
                     .defaultValue(0)
                     .withDescription(
-                            "We can specify the partition, all messages will be sent to this partition.");
+                            "We can specify the partition, all messages will be sent to this partition,Indicates that the first partition is sent by default.");
 
     public static final Option<List<String>> ASSIGN_PARTITIONS =
             Options.key("assign_partitions")
