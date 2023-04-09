@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer;
 
+import org.apache.hudi.common.model.*;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -34,26 +35,26 @@ import org.apache.hudi.client.HoodieJavaWriteClient;
 import org.apache.hudi.client.WriteStatus;
 import org.apache.hudi.client.common.HoodieJavaEngineContext;
 import org.apache.hudi.common.fs.FSUtils;
-import org.apache.hudi.common.model.HoodieAvroPayload;
-import org.apache.hudi.common.model.HoodieAvroRecord;
-import org.apache.hudi.common.model.HoodieRecord;
-import org.apache.hudi.common.model.WriteOperationType;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
+import org.apache.hudi.common.util.Option;
+import org.apache.hudi.common.util.StringUtils;
 import org.apache.hudi.config.HoodieArchivalConfig;
 import org.apache.hudi.config.HoodieIndexConfig;
 import org.apache.hudi.config.HoodieWriteConfig;
+import org.apache.hudi.exception.HoodieKeyException;
 import org.apache.hudi.index.HoodieIndex;
 import org.apache.hudi.org.apache.avro.Schema;
+import org.apache.hudi.org.apache.avro.generic.GenericData;
+import org.apache.hudi.org.apache.avro.generic.GenericRecord;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 public class HudiSinkWriter implements SinkWriter<SeaTunnelRow, HudiCommitInfo, HudiSinkState> {
 
@@ -84,6 +85,11 @@ public class HudiSinkWriter implements SinkWriter<SeaTunnelRow, HudiCommitInfo, 
     private transient volatile boolean closed = false;
 
     private transient volatile Exception flushException;
+
+    protected static final String DEFAULT_PARTITION_PATH = "default";
+    public static final String DEFAULT_PARTITION_PATH_SEPARATOR = "/";
+    protected static final String NULL_RECORDKEY_PLACEHOLDER = "__null__";
+    protected static final String EMPTY_RECORDKEY_PLACEHOLDER = "__empty__";
 
     public HudiSinkWriter(
             SinkWriter.Context context,
@@ -200,9 +206,87 @@ public class HudiSinkWriter implements SinkWriter<SeaTunnelRow, HudiCommitInfo, 
     }
 
     private HoodieRecord<HoodieAvroPayload> convertRow(SeaTunnelRow element) {
-        //
-        HoodieRecord<HoodieAvroPayload> hoodieAvroPayloadHoodieRecord = new HoodieAvroRecord<>();
-        return hoodieAvroPayloadHoodieRecord;
+        GenericRecord rec = new GenericData.Record(schema);
+        for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
+            rec.put(seaTunnelRowType.getFieldNames()[i], element.getField(i));
+        }
+
+        return new HoodieAvroRecord<>(
+                getHoodieKey(element, seaTunnelRowType), new HoodieAvroPayload(Option.of(rec)));
+    }
+
+    private HoodieKey getHoodieKey(SeaTunnelRow element, SeaTunnelRowType seaTunnelRowType) {
+        String partitionPath =
+                hudiSinkConfig.getPartitionFields() == null
+                        ? ""
+                        : getRecordPartitionPath(element, seaTunnelRowType);
+        String rowKey =
+                hudiSinkConfig.getRecordKeyFields() == null
+                                && hudiSinkConfig.getOpType().equals(WriteOperationType.INSERT)
+                        ? UUID.randomUUID().toString()
+                        : getRecordKey(element, seaTunnelRowType);
+        return new HoodieKey(rowKey, partitionPath);
+    }
+
+    private String getRecordKey(SeaTunnelRow element, SeaTunnelRowType seaTunnelRowType) {
+        boolean keyIsNullEmpty = true;
+        StringBuilder recordKey = new StringBuilder();
+        for (String recordKeyField : hudiSinkConfig.getRecordKeyFields().split(",")) {
+            String recordKeyValue =
+                    getNestedFieldValAsString(element, seaTunnelRowType, recordKeyField);
+            recordKeyField = recordKeyField.toLowerCase();
+            if (recordKeyValue == null) {
+                recordKey.append(recordKeyField + ":" + NULL_RECORDKEY_PLACEHOLDER + ",");
+            } else if (recordKeyValue.isEmpty()) {
+                recordKey.append(recordKeyField + ":" + EMPTY_RECORDKEY_PLACEHOLDER + ",");
+            } else {
+                recordKey.append(recordKeyField + ":" + recordKeyValue + ",");
+                keyIsNullEmpty = false;
+            }
+        }
+        recordKey.deleteCharAt(recordKey.length() - 1);
+        if (keyIsNullEmpty) {
+            throw new HoodieKeyException(
+                    "recordKey values: \""
+                            + recordKey
+                            + "\" for fields: "
+                            + hudiSinkConfig.getRecordKeyFields()
+                            + " cannot be entirely null or empty.");
+        }
+        return recordKey.toString();
+    }
+
+    private String getRecordPartitionPath(SeaTunnelRow element, SeaTunnelRowType seaTunnelRowType) {
+        if (hudiSinkConfig.getPartitionFields().isEmpty()) {
+            return "";
+        }
+
+        StringBuilder partitionPath = new StringBuilder();
+        String[] avroPartitionPathFields = hudiSinkConfig.getPartitionFields().split(",");
+        for (String partitionPathField : avroPartitionPathFields) {
+            String fieldVal =
+                    getNestedFieldValAsString(element, seaTunnelRowType, partitionPathField);
+            if (fieldVal == null || fieldVal.isEmpty()) {
+                partitionPath.append(partitionPathField + "=" + DEFAULT_PARTITION_PATH);
+            } else {
+                partitionPath.append(partitionPathField + "=" + fieldVal);
+            }
+            partitionPath.append(DEFAULT_PARTITION_PATH_SEPARATOR);
+        }
+        partitionPath.deleteCharAt(partitionPath.length() - 1);
+        return partitionPath.toString();
+    }
+
+    private String getNestedFieldValAsString(
+            SeaTunnelRow element, SeaTunnelRowType seaTunnelRowType, String fieldName) {
+        Object value = null;
+
+        if (Arrays.stream(seaTunnelRowType.getFieldNames())
+                .collect(Collectors.toList())
+                .contains(fieldName)) {
+            value = element.getField(seaTunnelRowType.indexOf(fieldName));
+        }
+        return StringUtils.objToString(value);
     }
 
     public void flush() {

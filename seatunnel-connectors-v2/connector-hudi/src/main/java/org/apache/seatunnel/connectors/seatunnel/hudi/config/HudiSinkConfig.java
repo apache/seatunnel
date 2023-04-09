@@ -54,7 +54,11 @@ public class HudiSinkConfig implements Serializable {
 
     private String confFile;
 
-    public int batchIntervalMs;
+    private int batchIntervalMs;
+
+    private String recordKeyFields;
+
+    private String partitionFields;
 
     public static HudiSinkConfig of(ReadonlyConfig config) {
         HudiSinkConfig.Builder builder = HudiSinkConfig.builder();
@@ -75,6 +79,10 @@ public class HudiSinkConfig implements Serializable {
         Optional<Integer> optionalBatchIntervalMs =
                 config.getOptional(HudiOptions.BATCH_INTERVAL_MS);
 
+        Optional<String> partitionFields = config.getOptional(HudiOptions.PARTITION_FIELDS);
+
+        Optional<String> recordKeyFields = config.getOptional(HudiOptions.RECORD_KEY_FIELDS);
+
         builder.confFile(config.get(HudiOptions.CONF_FILES));
         builder.tableName(config.get(HudiOptions.TABLE_NAME));
         builder.tablePath(config.get(HudiOptions.TABLE_PATH));
@@ -83,6 +91,12 @@ public class HudiSinkConfig implements Serializable {
 
         builder.batchIntervalMs(
                 optionalBatchIntervalMs.orElseGet(HudiOptions.BATCH_INTERVAL_MS::defaultValue));
+
+        builder.partitionFields(
+                partitionFields.orElseGet(HudiOptions.PARTITION_FIELDS::defaultValue));
+
+        builder.recordKeyFields(
+                recordKeyFields.orElseGet(HudiOptions.RECORD_KEY_FIELDS::defaultValue));
 
         builder.insertShuffleParallelism(
                 optionalInsertShuffleParallelism.orElseGet(

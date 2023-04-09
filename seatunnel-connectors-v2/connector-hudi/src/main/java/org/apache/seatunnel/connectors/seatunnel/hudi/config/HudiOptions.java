@@ -39,6 +39,18 @@ public interface HudiOptions {
     Option<String> TABLE_PATH =
             Options.key("table_path").stringType().noDefaultValue().withDescription("table_path");
 
+    Option<String> RECORD_KEY_FIELDS =
+            Options.key("record_key_fields")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("recordKeyFields");
+
+    Option<String> PARTITION_FIELDS =
+            Options.key("partition_fields")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("partitionFields");
+
     Option<HoodieTableType> TABLE_TYPE =
             Options.key("table_type")
                     .type(new TypeReference<HoodieTableType>() {})
