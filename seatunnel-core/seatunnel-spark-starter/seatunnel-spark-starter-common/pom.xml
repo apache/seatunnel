@@ -26,48 +26,42 @@
         <version>${revision}</version>
     </parent>
 
-    <artifactId>seatunnel-spark-2-starter</artifactId>
-    <name>SeaTunnel : Core : Spark Starter : 2.4</name>
+    <artifactId>seatunnel-spark-starter-common</artifactId>
+    <packaging>jar</packaging>
+    <name>SeaTunnel : Core : Spark Starter : Common</name>
+
+    <properties>
+        <scala.binary.version>2.12</scala.binary.version>
+    </properties>
 
     <dependencies>
 
         <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-translation-spark-3.3</artifactId>
+            <version>${project.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-streaming_${scala.binary.version}</artifactId>
-            <version>${spark.2.4.0.version}</version>
+            <version>${spark.3.3.0.version}</version>
             <scope>${spark.scope}</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-core_${scala.binary.version}</artifactId>
-            <version>${spark.2.4.0.version}</version>
+            <version>${spark.3.3.0.version}</version>
             <scope>${spark.scope}</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-sql_${scala.binary.version}</artifactId>
-            <version>${spark.2.4.0.version}</version>
+            <version>${spark.3.3.0.version}</version>
             <scope>${spark.scope}</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-translation-spark-2.4</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-spark-starter-common</artifactId>
-            <version>${project.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>*</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
     </dependencies>
