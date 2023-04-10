@@ -80,6 +80,8 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
 
     private static final String CANAL_HOST = "canal_e2e";
 
+    private static final int CANAL_PORT = 11111;
+
     // ----------------------------------------------------------------------------
     // kafka
     private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:latest";
