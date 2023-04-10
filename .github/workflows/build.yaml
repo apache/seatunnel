@@ -1,0 +1,52 @@
+name: Build Tarball
+
+on:
+  pull_request:
+    branches:
+      - "WT-2.4.4-dev"
+  push:
+    branches:
+      - "WT-2.4.4-dev"
+  workflow_dispatch:
+
+env:
+  GH_USERNAME: ${{ secrets.GH_PACKAGE_USER }}
+  GH_TOKEN: ${{ secrets.GH_PACKAGE_TOKEN }}
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build-and-upload:
+    name: Build and upload
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: 8
+          distribution: 'adopt'
+          cache: 'maven'
+      - name: Build and Package
+        run: |
+          ./mvnw -T4C -B -q -U -s maven-settings.xml \
+            -Dmaven.test.skip \
+            -Dcheckstyle.skip=true \
+            -Dlicense.skipAddThirdParty=true \
+            -Prelease \
+            ${{ github.event.inputs.maven-profiles }} \
+            package
+      - uses: whaleops/actions/seatunnel/build-and-upload-tar@main
+        with:
+          oss-config: ${{ secrets.OSS_CONFIG }}
+          artifact-pattern: seatunnel-dist/target/apache-seatunnel-*-bin.tar.gz
+          build-command: |
+            echo "No need to build, already built in previous step"
+            ls -alh seatunnel-dist/target
