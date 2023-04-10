@@ -108,9 +108,9 @@ public class Config {
     public static final Option<Integer> PARTITION =
             Options.key("partition")
                     .intType()
-                    .defaultValue(0)
+                    .noDefaultValue()
                     .withDescription(
-                            "We can specify the partition, all messages will be sent to this partition,Indicates that the first partition is sent by default.");
+                            "We can specify the partition, all messages will be sent to this partition.");
 
     public static final Option<List<String>> ASSIGN_PARTITIONS =
             Options.key("assign_partitions")

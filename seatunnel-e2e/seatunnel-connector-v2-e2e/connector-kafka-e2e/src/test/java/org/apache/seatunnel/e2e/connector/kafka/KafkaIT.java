@@ -156,6 +156,18 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testDefaultRandomSinkKafka(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/kafka_default_sink_fake_to_kafka.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        String topicName = "topic_default_sink_test";
+        Map<String, String> data = getKafkaConsumerData(topicName);
+        Assertions.assertEquals(10, data.size());
+    }
+
+    @TestTemplate
     public void testExtractTopicFunction(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/extractTopic_fake_to_kafka.conf");

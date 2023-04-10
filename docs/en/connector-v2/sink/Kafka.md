@@ -21,7 +21,7 @@ By default, we will use 2pc to guarantee the message is sent to kafka exactly on
 | kafka.config         | map    | no       | -             |
 | semantics            | string | no       | NON           |
 | partition_key_fields | array  | no       | -             |
-| partition            | int    | no       | 0             |
+| partition            | int    | no       | -             |
 | assign_partitions    | array  | no       | -             |
 | transaction_prefix   | string | no       | -             |
 | format               | String | no       | json          |
@@ -88,7 +88,7 @@ The selected field must be an existing field in the upstream.
 
 ### partition [int]
 
-We can specify the partition, all messages will be sent to this partition,Indicates that the first partition is sent by default
+We can specify the partition, all messages will be sent to this partition.
 
 ### assign_partitions [array]
 

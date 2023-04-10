@@ -181,9 +181,12 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
                     seaTunnelRowType,
                     messageFormat,
                     delimiter);
-        } else {
+        } else if (pluginConfig.get(PARTITION) != null) {
             return DefaultSeaTunnelRowSerializer.create(
                     topic, pluginConfig.get(PARTITION), seaTunnelRowType, messageFormat, delimiter);
+        } else {
+            return DefaultSeaTunnelRowSerializer.create(
+                    topic, Arrays.asList(), seaTunnelRowType, messageFormat, delimiter);
         }
     }
 
