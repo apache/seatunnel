@@ -26,12 +26,15 @@ import com.hazelcast.internal.metrics.collectors.MetricsCollector;
 import com.hazelcast.internal.metrics.impl.MetricsCompressor;
 import com.hazelcast.logging.ILogger;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.function.UnaryOperator;
+import java.util.stream.Collectors;
 
 public class JobMetricsCollector implements MetricsCollector {
 
-    private final TaskGroupLocation taskGroupLocation;
+    private final List<String> taskGroupLocationStrs;
     private final MetricsCompressor compressor;
     private final ILogger logger;
     private final UnaryOperator<MetricDescriptor> addPrefixFn;
@@ -40,7 +43,20 @@ public class JobMetricsCollector implements MetricsCollector {
         Objects.requireNonNull(member, "member");
         this.logger = Objects.requireNonNull(logger, "logger");
 
-        this.taskGroupLocation = taskGroupLocation;
+        this.taskGroupLocationStrs = Collections.singletonList(taskGroupLocation.toString());
+        this.addPrefixFn = JobMetricsUtil.addMemberPrefixFn(member);
+        this.compressor = new MetricsCompressor();
+    }
+
+    public JobMetricsCollector(
+            List<TaskGroupLocation> taskGroupLocations, Member member, ILogger logger) {
+        Objects.requireNonNull(member, "member");
+        this.logger = Objects.requireNonNull(logger, "logger");
+
+        this.taskGroupLocationStrs =
+                taskGroupLocations.stream()
+                        .map(TaskGroupLocation::toString)
+                        .collect(Collectors.toList());
         this.addPrefixFn = JobMetricsUtil.addMemberPrefixFn(member);
         this.compressor = new MetricsCompressor();
     }
@@ -49,7 +65,7 @@ public class JobMetricsCollector implements MetricsCollector {
     public void collectLong(MetricDescriptor descriptor, long value) {
         String taskGroupLocationStr =
                 JobMetricsUtil.getTaskGroupLocationFromMetricsDescriptor(descriptor);
-        if (taskGroupLocation.toString().equals(taskGroupLocationStr)) {
+        if (taskGroupLocationStrs.contains(taskGroupLocationStr)) {
             compressor.addLong(addPrefixFn.apply(descriptor), value);
         }
     }
@@ -58,7 +74,7 @@ public class JobMetricsCollector implements MetricsCollector {
     public void collectDouble(MetricDescriptor descriptor, double value) {
         String taskGroupLocationStr =
                 JobMetricsUtil.getTaskGroupLocationFromMetricsDescriptor(descriptor);
-        if (taskGroupLocation.toString().equals(taskGroupLocationStr)) {
+        if (taskGroupLocationStrs.contains(taskGroupLocationStr)) {
             compressor.addDouble(addPrefixFn.apply(descriptor), value);
         }
     }
@@ -67,7 +83,7 @@ public class JobMetricsCollector implements MetricsCollector {
     public void collectException(MetricDescriptor descriptor, Exception e) {
         String taskGroupLocationStr =
                 JobMetricsUtil.getTaskGroupLocationFromMetricsDescriptor(descriptor);
-        if (taskGroupLocation.toString().equals(taskGroupLocationStr)) {
+        if (taskGroupLocationStrs.contains(taskGroupLocationStr)) {
             logger.warning("Exception when rendering job metrics: " + e, e);
         }
     }
