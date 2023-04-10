@@ -83,15 +83,12 @@ public class HudiSinkAggregatedCommitter
                 .filter(
                         commit ->
                                 commit.getHudiCommitInfoList().stream()
-                                                .filter(
-                                                        aggreeCommit ->
-                                                                !writeClient.commit(
-                                                                        aggreeCommit
-                                                                                .getInstantTime(),
-                                                                        aggreeCommit
-                                                                                .getWriteStatusList()))
-                                                .count()
-                                        > 0);
+                                        .anyMatch(
+                                                aggreeCommit ->
+                                                        !writeClient.commit(
+                                                                aggreeCommit.getInstantTime(),
+                                                                aggreeCommit
+                                                                        .getWriteStatusList())));
 
         return aggregatedCommitInfo;
     }

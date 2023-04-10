@@ -33,6 +33,7 @@
         <hive.exec.version>2.3.9</hive.exec.version>
         <hudi.version>0.13.0</hudi.version>
         <commons.lang3.version>3.4</commons.lang3.version>
+        <jetty.all.version>9.4.48.v20220622</jetty.all.version>
     </properties>
 
     <dependencies>
@@ -87,6 +88,14 @@
                     <groupId>org.apache.hadoop</groupId>
                     <artifactId>hadoop-hdfs</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.eclipse.jetty</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.eclipse.jetty.aggregate</groupId>
+                    <artifactId>jetty-all</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 
@@ -112,6 +121,12 @@
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
             <version>${commons.lang3.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.eclipse.jetty.aggregate</groupId>
+            <artifactId>jetty-all</artifactId>
+            <version>${jetty.all.version}</version>
         </dependency>
     </dependencies>
 </project>

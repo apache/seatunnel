@@ -51,6 +51,8 @@ import org.apache.hudi.org.apache.avro.Schema;
 import org.apache.hudi.org.apache.avro.generic.GenericData;
 import org.apache.hudi.org.apache.avro.generic.GenericRecord;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -64,6 +66,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class HudiSinkWriter implements SinkWriter<SeaTunnelRow, HudiCommitInfo, HudiSinkState> {
 
     private final HoodieJavaWriteClient<HoodieAvroPayload> writeClient;
@@ -203,6 +206,23 @@ public class HudiSinkWriter implements SinkWriter<SeaTunnelRow, HudiCommitInfo, 
             if (writeClient != null) {
                 writeClient.close();
             }
+
+            if (this.scheduledFuture != null) {
+                scheduledFuture.cancel(false);
+                this.scheduler.shutdown();
+            }
+
+            if (batchCount > 0) {
+                try {
+                    flush();
+                } catch (Exception e) {
+                    log.warn("Writing records to JDBC failed.", e);
+                    throw new HudiConnectorException(
+                            CommonErrorCode.FLUSH_DATA_FAILED,
+                            "Writing records to hudi failed.",
+                            e);
+                }
+            }
             closed = true;
             checkFlushException();
         }
@@ -244,11 +264,19 @@ public class HudiSinkWriter implements SinkWriter<SeaTunnelRow, HudiCommitInfo, 
                     getNestedFieldValAsString(element, seaTunnelRowType, recordKeyField);
             recordKeyField = recordKeyField.toLowerCase();
             if (recordKeyValue == null) {
-                recordKey.append(recordKeyField + ":" + NULL_RECORDKEY_PLACEHOLDER + ",");
+                recordKey
+                        .append(recordKeyField)
+                        .append(":")
+                        .append(NULL_RECORDKEY_PLACEHOLDER)
+                        .append(",");
             } else if (recordKeyValue.isEmpty()) {
-                recordKey.append(recordKeyField + ":" + EMPTY_RECORDKEY_PLACEHOLDER + ",");
+                recordKey
+                        .append(recordKeyField)
+                        .append(":")
+                        .append(EMPTY_RECORDKEY_PLACEHOLDER)
+                        .append(",");
             } else {
-                recordKey.append(recordKeyField + ":" + recordKeyValue + ",");
+                recordKey.append(recordKeyField).append(":").append(recordKeyValue).append(",");
                 keyIsNullEmpty = false;
             }
         }
@@ -275,9 +303,9 @@ public class HudiSinkWriter implements SinkWriter<SeaTunnelRow, HudiCommitInfo, 
             String fieldVal =
                     getNestedFieldValAsString(element, seaTunnelRowType, partitionPathField);
             if (fieldVal == null || fieldVal.isEmpty()) {
-                partitionPath.append(partitionPathField + "=" + DEFAULT_PARTITION_PATH);
+                partitionPath.append(partitionPathField).append("=").append(DEFAULT_PARTITION_PATH);
             } else {
-                partitionPath.append(partitionPathField + "=" + fieldVal);
+                partitionPath.append(partitionPathField).append("=").append(fieldVal);
             }
             partitionPath.append(DEFAULT_PARTITION_PATH_SEPARATOR);
         }
@@ -297,7 +325,7 @@ public class HudiSinkWriter implements SinkWriter<SeaTunnelRow, HudiCommitInfo, 
         return StringUtils.objToString(value);
     }
 
-    public void flush() {
+    public synchronized void flush() {
         checkFlushException();
         instantTime = writeClient.startCommit();
         switch (opType) {
