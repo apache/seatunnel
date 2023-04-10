@@ -23,9 +23,14 @@ import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistExceptio
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Interface for reading and writing table metadata from SeaTunnel. Each connector need to contain
@@ -148,6 +153,23 @@ public interface Catalog {
 
     void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
             throws DatabaseNotExistException, CatalogException;
+
+    default String getUrlFromDatabaseName(String databaseName) {
+        return "";
+    }
+
+    default SeaTunnelDataType<?> fromJdbcType(ResultSetMetaData metadata, int colIndex)
+            throws SQLException {
+        return null;
+    }
+
+    default Map<String, String> buildConnectorOptions(TablePath tablePath) {
+        return null;
+    }
+
+    default Set<String> getSysDatabases() {
+        return null;
+    }
 
     // todo: Support for update table metadata
 

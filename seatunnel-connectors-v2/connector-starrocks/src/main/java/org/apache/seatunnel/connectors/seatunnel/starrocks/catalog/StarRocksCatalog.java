@@ -17,13 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.catalog;
 
-import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
-import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
@@ -36,6 +32,7 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
 import org.apache.commons.lang3.StringUtils;
@@ -52,7 +49,6 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -62,7 +58,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class StarRocksCatalog implements Catalog {
+public class StarRocksCatalog extends AbstractJdbcCatalog {
 
     protected final String catalogName;
     protected String defaultDatabase = "information_schema";
@@ -80,7 +76,14 @@ public class StarRocksCatalog implements Catalog {
         SYS_DATABASES.add("_statistics_");
     }
 
+    @Override
+    public Set<String> getSysDatabases() {
+        return SYS_DATABASES;
+    }
+
     public StarRocksCatalog(String catalogName, String username, String pwd, String defaultUrl) {
+
+        super(catalogName, username, pwd, JdbcUrlUtil.getUrlInfo(defaultUrl));
 
         checkArgument(StringUtils.isNotBlank(username));
         checkArgument(StringUtils.isNotBlank(pwd));
@@ -94,29 +97,6 @@ public class StarRocksCatalog implements Catalog {
         this.catalogName = catalogName;
         this.username = username;
         this.pwd = pwd;
-    }
-
-    @Override
-    public List<String> listDatabases() throws CatalogException {
-        try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd)) {
-
-            PreparedStatement ps = conn.prepareStatement("SHOW DATABASES;");
-
-            List<String> databases = new ArrayList<>();
-            ResultSet rs = ps.executeQuery();
-
-            while (rs.next()) {
-                String databaseName = rs.getString(1);
-                if (!SYS_DATABASES.contains(databaseName)) {
-                    databases.add(rs.getString(1));
-                }
-            }
-
-            return databases;
-        } catch (Exception e) {
-            throw new CatalogException(
-                    String.format("Failed listing database in catalog %s", this.catalogName), e);
-        }
     }
 
     @Override
@@ -147,54 +127,9 @@ public class StarRocksCatalog implements Catalog {
     }
 
     @Override
-    public CatalogTable getTable(TablePath tablePath)
-            throws CatalogException, TableNotExistException {
-        if (!tableExists(tablePath)) {
-            throw new TableNotExistException(catalogName, tablePath);
-        }
-
-        String dbUrl = urlInfo.getUrlWithDatabase(tablePath.getDatabaseName());
-        try (Connection conn = DriverManager.getConnection(dbUrl, username, pwd)) {
-            Optional<PrimaryKey> primaryKey =
-                    getPrimaryKey(tablePath.getDatabaseName(), tablePath.getTableName());
-
-            PreparedStatement ps =
-                    conn.prepareStatement(
-                            String.format(
-                                    "SELECT * FROM %s WHERE 1 = 0;",
-                                    tablePath.getFullNameWithQuoted()));
-
-            ResultSetMetaData tableMetaData = ps.getMetaData();
-
-            TableSchema.Builder builder = TableSchema.builder();
-            for (int i = 1; i <= tableMetaData.getColumnCount(); i++) {
-                SeaTunnelDataType<?> type = fromJdbcType(tableMetaData, i);
-                // TODO add default value and test it
-                builder.column(
-                        PhysicalColumn.of(
-                                tableMetaData.getColumnName(i),
-                                type,
-                                tableMetaData.getColumnDisplaySize(i),
-                                tableMetaData.isNullable(i) == ResultSetMetaData.columnNullable,
-                                null,
-                                tableMetaData.getColumnLabel(i)));
-            }
-
-            primaryKey.ifPresent(builder::primaryKey);
-
-            TableIdentifier tableIdentifier =
-                    TableIdentifier.of(
-                            catalogName, tablePath.getDatabaseName(), tablePath.getTableName());
-            return CatalogTable.of(
-                    tableIdentifier,
-                    builder.build(),
-                    buildConnectorOptions(tablePath),
-                    Collections.emptyList(),
-                    "");
-        } catch (Exception e) {
-            throw new CatalogException(
-                    String.format("Failed getting table %s", tablePath.getFullName()), e);
-        }
+    protected boolean createTableInternal(TablePath tablePath, CatalogTable table)
+            throws CatalogException {
+        return false;
     }
 
     @Override
@@ -207,6 +142,11 @@ public class StarRocksCatalog implements Catalog {
     public void dropTable(TablePath tablePath, boolean ignoreIfNotExists)
             throws TableNotExistException, CatalogException {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected boolean dropTableInternal(TablePath tablePath) throws CatalogException {
+        return false;
     }
 
     @Override
@@ -230,6 +170,11 @@ public class StarRocksCatalog implements Catalog {
     }
 
     @Override
+    protected boolean createDatabaseInternal(String databaseName) {
+        return false;
+    }
+
+    @Override
     public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
             throws DatabaseNotExistException, CatalogException {
         try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd)) {
@@ -246,8 +191,19 @@ public class StarRocksCatalog implements Catalog {
         }
     }
 
+    @Override
+    protected boolean dropDatabaseInternal(String databaseName) throws CatalogException {
+        return false;
+    }
+
+    @Override
+    public String getUrlFromDatabaseName(String databaseName) {
+        return null;
+    }
+
     /** @see com.mysql.cj.MysqlType */
-    private SeaTunnelDataType<?> fromJdbcType(ResultSetMetaData metadata, int colIndex)
+    @Override
+    public SeaTunnelDataType<?> fromJdbcType(ResultSetMetaData metadata, int colIndex)
             throws SQLException {
         MysqlType starrocksType = MysqlType.getByName(metadata.getColumnTypeName(colIndex));
         switch (starrocksType) {
@@ -315,7 +271,8 @@ public class StarRocksCatalog implements Catalog {
     }
 
     @SuppressWarnings("MagicNumber")
-    private Map<String, String> buildConnectorOptions(TablePath tablePath) {
+    @Override
+    public Map<String, String> buildConnectorOptions(TablePath tablePath) {
         Map<String, String> options = new HashMap<>(8);
         options.put("connector", "starrocks");
         options.put("url", baseUrl + tablePath.getDatabaseName());
