@@ -19,7 +19,10 @@ package org.apache.seatunnel.e2e.connector.file.local;
 
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
@@ -31,6 +34,10 @@ import org.testcontainers.utility.MountableFile;
 import java.io.IOException;
 import java.nio.file.Path;
 
+@DisabledOnContainer(
+        value = {TestContainerId.SPARK_2_4},
+        type = {EngineType.SEATUNNEL},
+        disabledReason = "The apache-compress version is not compatible with apache-poi")
 public class LocalFileIT extends TestSuiteBase {
 
     /** Copy data files to container */
