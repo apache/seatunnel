@@ -83,12 +83,7 @@ source {
 }
 
 transform {
-	sql {
-	 query = """
-	 	select .... from hdfs_table 
-	 	join es_table 
-	 	on hdfs_table.uid = es_table.uid where ..."""
-	}
+    ...
 }
 
 sink {
