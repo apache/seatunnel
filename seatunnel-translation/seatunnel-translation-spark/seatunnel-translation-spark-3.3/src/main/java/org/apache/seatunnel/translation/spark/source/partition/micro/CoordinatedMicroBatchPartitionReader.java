@@ -101,7 +101,7 @@ public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPart
                 return;
             }
             while (!handover.isEmpty()) {
-                Thread.sleep(CHECKPOINT_SLEEP_INTERVAL);
+                wait(CHECKPOINT_SLEEP_INTERVAL);
             }
             // Block #next() method
             synchronized (handover) {

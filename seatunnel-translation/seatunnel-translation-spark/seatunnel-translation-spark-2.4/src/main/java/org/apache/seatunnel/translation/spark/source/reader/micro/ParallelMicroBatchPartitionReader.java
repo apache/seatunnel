@@ -123,7 +123,7 @@ public class ParallelMicroBatchPartitionReader extends ParallelBatchPartitionRea
             do {
                 checkpointRetries--;
                 if (internalRowCollector.collectTotalCount() == 0) {
-                    Thread.sleep(CHECKPOINT_SLEEP_INTERVAL);
+                   wait(CHECKPOINT_SLEEP_INTERVAL);
                 }
                 synchronized (checkpointLock) {
                     if (internalRowCollector.collectTotalCount() != 0 || checkpointRetries == 0) {

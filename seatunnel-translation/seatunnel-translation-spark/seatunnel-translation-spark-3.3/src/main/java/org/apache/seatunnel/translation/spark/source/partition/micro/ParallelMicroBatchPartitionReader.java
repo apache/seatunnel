@@ -129,7 +129,7 @@ public class ParallelMicroBatchPartitionReader extends ParallelBatchPartitionRea
                         checkpointRetries = 0;
 
                         while (!handover.isEmpty()) {
-                            Thread.sleep(CHECKPOINT_SLEEP_INTERVAL);
+                            wait(CHECKPOINT_SLEEP_INTERVAL);
                         }
                         // Block #next() method
                         synchronized (handover) {

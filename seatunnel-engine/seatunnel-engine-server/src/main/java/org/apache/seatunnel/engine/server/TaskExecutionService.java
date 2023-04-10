@@ -238,12 +238,17 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             Set<URL> jars = taskImmutableInfo.getJars();
             ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
             if (!CollectionUtils.isEmpty(jars)) {
-                classLoader = new SeaTunnelChildFirstClassLoader(Lists.newArrayList(jars));
-                taskGroup =
+                try {
+                    classLoader = new SeaTunnelChildFirstClassLoader(Lists.newArrayList(jars));
+                    taskGroup =
                         CustomClassLoadedObject.deserializeWithCustomClassLoader(
-                                nodeEngine.getSerializationService(),
-                                classLoader,
-                                taskImmutableInfo.getGroup());
+                            nodeEngine.getSerializationService(),
+                            classLoader,
+                            taskImmutableInfo.getGroup());
+                }finally {
+                    ((SeaTunnelChildFirstClassLoader) classLoader).close();
+                }
+
             } else {
                 taskGroup =
                         nodeEngine.getSerializationService().toObject(taskImmutableInfo.getGroup());
