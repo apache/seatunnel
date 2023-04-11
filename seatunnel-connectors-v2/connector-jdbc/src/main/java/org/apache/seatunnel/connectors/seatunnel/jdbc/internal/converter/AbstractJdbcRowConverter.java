@@ -33,14 +33,18 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Objects;
 import java.util.Optional;
 
-/** Base class for all converters that convert between JDBC object and Seatunnel internal object. */
+/**
+ * Base class for all converters that convert between JDBC object and Seatunnel internal object.
+ */
 public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
 
     public abstract String converterName();
 
-    public AbstractJdbcRowConverter() {}
+    public AbstractJdbcRowConverter() {
+    }
 
     @Override
     @SuppressWarnings("checkstyle:Indentation")
@@ -125,60 +129,63 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                 continue;
             }
 
-            switch (seaTunnelDataType.getSqlType()) {
-                case STRING:
-                    statement.setString(statementIndex, (String) row.getField(fieldIndex));
-                    break;
-                case BOOLEAN:
-                    statement.setBoolean(statementIndex, (Boolean) row.getField(fieldIndex));
-                    break;
-                case TINYINT:
-                    statement.setByte(statementIndex, (Byte) row.getField(fieldIndex));
-                    break;
-                case SMALLINT:
-                    statement.setShort(statementIndex, (Short) row.getField(fieldIndex));
-                    break;
-                case INT:
-                    statement.setInt(statementIndex, (Integer) row.getField(fieldIndex));
-                    break;
-                case BIGINT:
-                    statement.setLong(statementIndex, (Long) row.getField(fieldIndex));
-                    break;
-                case FLOAT:
-                    statement.setFloat(statementIndex, (Float) row.getField(fieldIndex));
-                    break;
-                case DOUBLE:
-                    statement.setDouble(statementIndex, (Double) row.getField(fieldIndex));
-                    break;
-                case DECIMAL:
-                    statement.setBigDecimal(statementIndex, (BigDecimal) row.getField(fieldIndex));
-                    break;
-                case DATE:
-                    LocalDate localDate = (LocalDate) row.getField(fieldIndex);
-                    statement.setDate(statementIndex, java.sql.Date.valueOf(localDate));
-                    break;
-                case TIME:
-                    LocalTime localTime = (LocalTime) row.getField(fieldIndex);
-                    statement.setTime(statementIndex, java.sql.Time.valueOf(localTime));
-                    break;
-                case TIMESTAMP:
-                    LocalDateTime localDateTime = (LocalDateTime) row.getField(fieldIndex);
-                    statement.setTimestamp(
-                            statementIndex, java.sql.Timestamp.valueOf(localDateTime));
-                    break;
-                case BYTES:
-                    statement.setBytes(statementIndex, (byte[]) row.getField(fieldIndex));
-                    break;
-                case NULL:
-                    statement.setNull(statementIndex, java.sql.Types.NULL);
-                    break;
-                case MAP:
-                case ARRAY:
-                case ROW:
-                default:
-                    throw new JdbcConnectorException(
-                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                            "Unexpected value: " + seaTunnelDataType);
+            Object obj = row.getField(fieldIndex);
+            if (Objects.nonNull(obj)) {
+                switch (seaTunnelDataType.getSqlType()) {
+                    case STRING:
+                        statement.setString(statementIndex, (String) obj);
+                        break;
+                    case BOOLEAN:
+                        statement.setBoolean(statementIndex, (Boolean) obj);
+                        break;
+                    case TINYINT:
+                        statement.setByte(statementIndex, (Byte) obj);
+                        break;
+                    case SMALLINT:
+                        statement.setShort(statementIndex, (Short) obj);
+                        break;
+                    case INT:
+                        statement.setInt(statementIndex, (Integer) obj);
+                        break;
+                    case BIGINT:
+                        statement.setLong(statementIndex, (Long) obj);
+                        break;
+                    case FLOAT:
+                        statement.setFloat(statementIndex, (Float) obj);
+                        break;
+                    case DOUBLE:
+                        statement.setDouble(statementIndex, (Double) obj);
+                        break;
+                    case DECIMAL:
+                        statement.setBigDecimal(statementIndex, (BigDecimal) obj);
+                        break;
+                    case DATE:
+                        LocalDate localDate = (LocalDate) obj;
+                        statement.setDate(statementIndex, java.sql.Date.valueOf(localDate));
+                        break;
+                    case TIME:
+                        LocalTime localTime = (LocalTime) obj;
+                        statement.setTime(statementIndex, java.sql.Time.valueOf(localTime));
+                        break;
+                    case TIMESTAMP:
+                        LocalDateTime localDateTime = (LocalDateTime) obj;
+                        statement.setTimestamp(
+                                statementIndex, java.sql.Timestamp.valueOf(localDateTime));
+                        break;
+                    case BYTES:
+                        statement.setBytes(statementIndex, (byte[]) obj);
+                        break;
+                    case NULL:
+                        statement.setNull(statementIndex, java.sql.Types.NULL);
+                        break;
+                    case MAP:
+                    case ARRAY:
+                    case ROW:
+                    default:
+                        throw new JdbcConnectorException(
+                                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                                "Unexpected value: " + seaTunnelDataType);
+                }
             }
         }
         return statement;
