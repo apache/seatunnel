@@ -78,6 +78,7 @@
 
 ### Documents
 - [Doc] seatunnel run with flink operator error #3998
+- [Doc] Correct `transform sql` config on fqa.md #4493
 
 ## Test
 ### E2E
