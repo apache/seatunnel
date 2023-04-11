@@ -49,7 +49,9 @@ public class KafkaSinkFactory implements TableSinkFactory {
                         Config.KAFKA_CONFIG,
                         Config.ASSIGN_PARTITIONS,
                         Config.TRANSACTION_PREFIX,
-                        Config.SEMANTICS)
+                        Config.SEMANTICS,
+                        Config.PARTITION,
+                        Config.PARTITION_KEY_FIELDS)
                 .build();
     }
 
