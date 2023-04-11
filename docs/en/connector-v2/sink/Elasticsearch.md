@@ -13,7 +13,7 @@ Output data to `Elasticsearch`.
 
 Engine Supported
 
-* supported  `ElasticSearch version is >= 7.x`
+* supported  `ElasticSearch version is >= 2.x and <= 8.x`
 
 :::
 
