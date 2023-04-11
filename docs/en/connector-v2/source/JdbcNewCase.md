@@ -57,6 +57,26 @@ Read external data source data through JDBC.
 > Please download the support list corresponding to 'Maven' and copy it to the '$SEATNUNNEL_HOME/plugins/jdbc/lib/' working directory<br>
 > For example Mysql datasource: cp mysql-connector-java-xxx.jar $SEATNUNNEL_HOME/plugins/jdbc/lib/
 
+## Data Type Mapping
+
+| Seatunnel Data type |                                      Mysql Data type                                       | xxx Data type | xxx Data type |
+|---------------------|--------------------------------------------------------------------------------------------|---------------|---------------|
+| BIGINT              | BIGINT<br/>INT UNSIGNED                                                                    | xxx           | xxx           |
+| STRING              | VARCHAR(N)<BR/>CHAR(N)<BR/>TEXT<br/>TINYTEXT<br/>MEDIUMTEXT<br/>LONGTEXT<br/>JSON<br/>ENUM | xxx           | xxx           |
+| BOOLEAN             | BOOLEAN                                                                                    | xxx           | xxx           |
+| TINYINT             | TINYINT                                                                                    | xxx           | xxx           |
+| SMALLINT            | SMALLINT<br/>TINYINT UNSIGNED                                                              | xxx           | xxx           |
+| INT                 | INT<br/>SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED                             | xxx           | xxx           |
+| BIGINT              | STRING                                                                                     | xxx           | xxx           |
+| FLOAT               | FLOAT<br/>FLOAT UNSIGNED                                                                   | xxx           | xxx           |
+| DOUBLE              | DOUBLE<br/>DOUBLE UNSIGNED                                                                 | xxx           | xxx           |
+| DECIMAL(P, S)       | DECIMAL(P, S)                                                                              | xxx           | xxx           |
+| BYTES               | BIT                                                                                        | xxx           | xxx           |
+| DATE                | DATE                                                                                       | xxx           | xxx           |
+| TIME                | TIME                                                                                       | xxx           | xxx           |
+| TIMESTAMP           | DATETIME [(p)]                                                                             | xxx           | xxx           |
+| NULL                | NULL                                                                                       | xxx           | xxx           |
+
 ## Options
 
 |             name             |  type  | required |     default     |                                                                                                                     Description                                                                                                                     |
@@ -78,7 +98,7 @@ Read external data source data through JDBC.
 
 > If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
 
-## Example
+## Task Example
 
 ### simple:
 
