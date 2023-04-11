@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.core.starter.flink.execution;
 
+import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.api.common.PluginIdentifierInterface;
+import org.apache.seatunnel.api.transform.Transform;
+import org.apache.seatunnel.core.starter.flink.transforms.FlinkTransform;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.JobContext;
@@ -40,10 +44,12 @@ import com.google.common.collect.Lists;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.ServiceLoader;
 import java.util.stream.Collectors;
 
 public class TransformExecuteProcessor
-        extends FlinkAbstractPluginExecuteProcessor<SeaTunnelTransform> {
+        extends FlinkAbstractPluginExecuteProcessor<Transform> {
 
     private static final String PLUGIN_TYPE = "transform";
 
@@ -53,12 +59,12 @@ public class TransformExecuteProcessor
     }
 
     @Override
-    protected List<SeaTunnelTransform> initializePlugins(
+    protected List<Transform> initializePlugins(
             List<URL> jarPaths, List<? extends Config> pluginConfigs) {
         SeaTunnelTransformPluginDiscovery transformPluginDiscovery =
                 new SeaTunnelTransformPluginDiscovery();
         List<URL> pluginJars = new ArrayList<>();
-        List<SeaTunnelTransform> transforms =
+        List<Transform> transforms =
                 pluginConfigs.stream()
                         .map(
                                 transformConfig -> {
@@ -70,17 +76,21 @@ public class TransformExecuteProcessor
                                     List<URL> pluginJarPaths =
                                             transformPluginDiscovery.getPluginJarPaths(
                                                     Lists.newArrayList(pluginIdentifier));
-                                    SeaTunnelTransform<?> seaTunnelTransform =
-                                            transformPluginDiscovery.createPluginInstance(
-                                                    pluginIdentifier);
+                                    Transform transform = loadFlinkTransform(pluginIdentifier);
+                                    if(Objects.isNull(transform)){
+                                        transform = transformPluginDiscovery.createPluginInstance(
+                                                pluginIdentifier);
+                                    }
+
                                     jarPaths.addAll(pluginJarPaths);
-                                    seaTunnelTransform.prepare(transformConfig);
-                                    seaTunnelTransform.setJobContext(jobContext);
-                                    return seaTunnelTransform;
+                                    transform.prepare(transformConfig);
+                                    transform.setJobContext(jobContext);
+                                    return transform;
                                 })
                         .distinct()
                         .collect(Collectors.toList());
         jarPaths.addAll(pluginJars);
+
         return transforms;
     }
 
@@ -93,11 +103,20 @@ public class TransformExecuteProcessor
         DataStream<Row> input = upstreamDataStreams.get(0);
         List<DataStream<Row>> result = new ArrayList<>();
         for (int i = 0; i < plugins.size(); i++) {
+            Transform transform = plugins.get(i);
             try {
-                SeaTunnelTransform<SeaTunnelRow> transform = plugins.get(i);
                 Config pluginConfig = pluginConfigs.get(i);
                 DataStream<Row> stream = fromSourceTable(pluginConfig).orElse(input);
-                input = flinkTransform(transform, stream);
+                if (transform instanceof SeaTunnelTransform) {
+
+                    SeaTunnelTransform<SeaTunnelRow> seaTunnelTransform = (SeaTunnelTransform<SeaTunnelRow>) transform;
+                    input = flinkTransform(seaTunnelTransform, stream);
+
+                } else if (transform instanceof FlinkTransform) {
+                    FlinkTransform flinkTransform = (FlinkTransform) transform;
+                    input = flinkTransform.processStream(flinkRuntimeEnvironment, stream);
+                    flinkTransform.registerFunction(flinkRuntimeEnvironment);
+                }
                 registerResultTable(pluginConfig, input);
                 result.add(input);
             } catch (Exception e) {
@@ -134,5 +153,29 @@ public class TransformExecuteProcessor
                         },
                         rowTypeInfo);
         return output;
+    }
+
+    /**
+     * 加载flink相关转换组件
+     * @param pluginIdentifier
+     * @return
+     */
+    private FlinkTransform loadFlinkTransform(PluginIdentifier pluginIdentifier){
+        ServiceLoader<FlinkTransform> serviceLoader = ServiceLoader.load(FlinkTransform.class);
+        for (FlinkTransform t : serviceLoader) {
+            if (t instanceof PluginIdentifierInterface) {
+                // new api
+                PluginIdentifierInterface pluginIdentifierInstance = (PluginIdentifierInterface) t;
+                if (StringUtils.equalsIgnoreCase(
+                        pluginIdentifierInstance.getPluginName(),
+                        pluginIdentifier.getPluginName())) {
+                    return (FlinkTransform) pluginIdentifierInstance;
+                }
+            } else {
+                throw new UnsupportedOperationException(
+                        "Plugin instance: " + t + " is not supported.");
+            }
+        }
+        return null;
     }
 }

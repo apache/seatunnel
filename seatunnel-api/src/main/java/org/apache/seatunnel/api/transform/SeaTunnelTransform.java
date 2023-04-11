@@ -26,10 +26,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import java.io.Serializable;
 
 public interface SeaTunnelTransform<T>
-        extends Serializable,
-                PluginIdentifierInterface,
-                SeaTunnelPluginLifeCycle,
-                SeaTunnelJobAware {
+        extends Transform {
 
     /** call it when Transformer initialed */
     default void open() {}
