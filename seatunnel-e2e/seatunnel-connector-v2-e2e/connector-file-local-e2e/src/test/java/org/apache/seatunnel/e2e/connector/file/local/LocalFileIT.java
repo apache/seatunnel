@@ -69,7 +69,7 @@ public class LocalFileIT extends TestSuiteBase {
     public void testLocalFileReadAndWrite(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult excelWriteResult =
-                container.executeJob("/excel/fakesource_to_local_excel.conf");
+                container.executeJob("/excel/fake_to_local_excel.conf");
         Assertions.assertEquals(0, excelWriteResult.getExitCode(), excelWriteResult.getStderr());
         Container.ExecResult excelReadResult =
                 container.executeJob("/excel/local_excel_to_assert.conf");

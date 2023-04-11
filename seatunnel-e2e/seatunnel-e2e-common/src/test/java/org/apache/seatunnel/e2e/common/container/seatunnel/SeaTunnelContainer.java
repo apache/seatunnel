@@ -81,6 +81,12 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(PROJECT_ROOT_PATH + "/config/log4j2.properties"),
                 Paths.get(SEATUNNEL_HOME, "config/log4j2.properties").toString());
+
+        server.withCopyFileToContainer(
+                MountableFile.forHostPath(
+                        PROJECT_ROOT_PATH
+                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
+                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
         server.start();
         // execute extra commands
         executeExtraCommands(server);
