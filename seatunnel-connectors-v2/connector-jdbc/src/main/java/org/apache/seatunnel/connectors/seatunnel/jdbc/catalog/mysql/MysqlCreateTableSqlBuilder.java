@@ -48,7 +48,7 @@ public class MysqlCreateTableSqlBuilder {
 
     private List<ConstraintKey> constraintKeys;
 
-    private MysqlDataTypeConvertor mysqlDataTypeConvertor;
+    private final MysqlDataTypeConvertor mysqlDataTypeConvertor;
 
     private MysqlCreateTableSqlBuilder(String tableName) {
         checkNotNull(tableName, "tableName must not be null");
