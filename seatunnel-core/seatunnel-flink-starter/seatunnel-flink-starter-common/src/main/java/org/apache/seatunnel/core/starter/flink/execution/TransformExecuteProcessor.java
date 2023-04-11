@@ -124,13 +124,11 @@ public class TransformExecuteProcessor
                         new RichFlatMapFunction<Row, Row>() {
                             @Override
                             public void open(Configuration parameters) throws Exception {
-                                super.open(parameters);
                                 transform.open();
                             }
 
                             @Override
                             public void close() throws Exception {
-                                super.close();
                                 transform.close();
                             }
 
