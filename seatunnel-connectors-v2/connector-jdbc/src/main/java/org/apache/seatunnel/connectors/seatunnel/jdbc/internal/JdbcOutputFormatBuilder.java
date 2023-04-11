@@ -31,7 +31,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.InsertOr
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.SimpleBatchStatementExecutor;
 
-import com.google.common.base.Strings;
+import org.apache.commons.lang3.StringUtils;
+
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -56,7 +57,7 @@ public class JdbcOutputFormatBuilder {
         final String database = jdbcSinkConfig.getDatabase();
         final String table = jdbcSinkConfig.getTable();
         final List<String> primaryKeys = jdbcSinkConfig.getPrimaryKeys();
-        if (Strings.isNullOrEmpty(table) && Strings.isNullOrEmpty(database)) {
+        if (StringUtils.isNotBlank(jdbcSinkConfig.getSimpleSql())) {
             statementExecutorFactory =
                     () ->
                             createSimpleBufferedExecutor(
