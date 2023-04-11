@@ -35,8 +35,10 @@ import lombok.NonNull;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class TextWriteStrategy extends AbstractWriteStrategy {
     private final Map<String, FSDataOutputStream> beingWrittenOutputStream;
@@ -48,6 +50,8 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
     private final TimeUtils.Formatter timeFormat;
     private SerializationSchema serializationSchema;
 
+    private Boolean isPrintHeader;
+
     public TextWriteStrategy(FileSinkConfig fileSinkConfig) {
         super(fileSinkConfig);
         this.beingWrittenOutputStream = new HashMap<>();
@@ -57,6 +61,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
         this.dateFormat = fileSinkConfig.getDateFormat();
         this.dateTimeFormat = fileSinkConfig.getDatetimeFormat();
         this.timeFormat = fileSinkConfig.getTimeFormat();
+        this.isPrintHeader = fileSinkConfig.getIsPrintHeader();
     }
 
     @Override
@@ -80,6 +85,10 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
         FSDataOutputStream fsDataOutputStream = getOrCreateOutputStream(filePath);
         try {
             if (isFirstWrite.get(filePath)) {
+                if(isPrintHeader){
+                    fsDataOutputStream.write(getFieldNames().getBytes());
+                    fsDataOutputStream.write(rowDelimiter.getBytes());
+                }
                 isFirstWrite.put(filePath, false);
             } else {
                 fsDataOutputStream.write(rowDelimiter.getBytes());
@@ -153,5 +162,9 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
             }
         }
         return fsDataOutputStream;
+    }
+
+    private String getFieldNames() {
+        return Arrays.stream(seaTunnelRowType.getFieldNames()).collect(Collectors.joining(fieldDelimiter));
     }
 }

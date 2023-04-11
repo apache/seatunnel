@@ -70,6 +70,8 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
 
     private String sheetName;
 
+    private Boolean isPrintHeader = BaseSinkConfig.IS_PRINT_HEADER.defaultValue();
+
     public FileSinkConfig(@NonNull Config config, @NonNull SeaTunnelRowType seaTunnelRowTypeInfo) {
         super(config);
         checkArgument(
@@ -178,6 +180,10 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
 
         if (config.hasPath(BaseSinkConfig.SHEET_NAME.key())) {
             this.sheetName = config.getString(BaseSinkConfig.SHEET_NAME.key());
+        }
+
+        if(config.hasPath(BaseSinkConfig.IS_PRINT_HEADER.key())){
+            this.isPrintHeader = config.getBoolean(BaseSinkConfig.IS_PRINT_HEADER.key());
         }
     }
 }
