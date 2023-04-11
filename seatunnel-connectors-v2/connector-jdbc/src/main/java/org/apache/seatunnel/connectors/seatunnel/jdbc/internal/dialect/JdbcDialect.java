@@ -17,12 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static java.lang.String.format;
-
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 
@@ -35,6 +31,8 @@ import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
+import static java.lang.String.format;
 
 /**
  * Represents a dialect of SQL implemented by a particular JDBC system. Dialects should be immutable
@@ -63,9 +61,7 @@ public interface JdbcDialect extends Serializable {
      */
     JdbcDialectTypeMapper getJdbcDialectTypeMapper();
 
-    /**
-     * Quotes the identifier for table name or field name
-     */
+    /** Quotes the identifier for table name or field name */
     default String quoteIdentifier(String identifier) {
         return identifier;
     }
@@ -83,16 +79,16 @@ public interface JdbcDialect extends Serializable {
      */
     default String getInsertIntoStatement(String database, String tableName, String[] fieldNames) {
         String columns =
-            Arrays.stream(fieldNames)
-                .map(this::quoteIdentifier)
-                .collect(Collectors.joining(", "));
+                Arrays.stream(fieldNames)
+                        .map(this::quoteIdentifier)
+                        .collect(Collectors.joining(", "));
         String placeholders =
-            Arrays.stream(fieldNames)
-                .map(fieldName -> ":" + fieldName)
-                .collect(Collectors.joining(", "));
+                Arrays.stream(fieldNames)
+                        .map(fieldName -> ":" + fieldName)
+                        .collect(Collectors.joining(", "));
         return String.format(
-            "INSERT INTO %s.%s (%s) VALUES (%s)",
-            quoteIdentifier(database), quoteIdentifier(tableName), columns, placeholders);
+                "INSERT INTO %s.%s (%s) VALUES (%s)",
+                quoteIdentifier(database), quoteIdentifier(tableName), columns, placeholders);
     }
 
     /**
@@ -107,18 +103,18 @@ public interface JdbcDialect extends Serializable {
      * @return the dialects {@code UPDATE} statement.
      */
     default String getUpdateStatement(
-        String database, String tableName, String[] fieldNames, String[] conditionFields) {
+            String database, String tableName, String[] fieldNames, String[] conditionFields) {
         String setClause =
-            Arrays.stream(fieldNames)
-                .map(fieldName -> format("%s = :%s", quoteIdentifier(fieldName), fieldName))
-                .collect(Collectors.joining(", "));
+                Arrays.stream(fieldNames)
+                        .map(fieldName -> format("%s = :%s", quoteIdentifier(fieldName), fieldName))
+                        .collect(Collectors.joining(", "));
         String conditionClause =
-            Arrays.stream(conditionFields)
-                .map(fieldName -> format("%s = :%s", quoteIdentifier(fieldName), fieldName))
-                .collect(Collectors.joining(" AND "));
+                Arrays.stream(conditionFields)
+                        .map(fieldName -> format("%s = :%s", quoteIdentifier(fieldName), fieldName))
+                        .collect(Collectors.joining(" AND "));
         return String.format(
-            "UPDATE %s.%s SET %s WHERE %s",
-            quoteIdentifier(database), quoteIdentifier(tableName), setClause, conditionClause);
+                "UPDATE %s.%s SET %s WHERE %s",
+                quoteIdentifier(database), quoteIdentifier(tableName), setClause, conditionClause);
     }
 
     /**
@@ -134,12 +130,12 @@ public interface JdbcDialect extends Serializable {
      */
     default String getDeleteStatement(String database, String tableName, String[] conditionFields) {
         String conditionClause =
-            Arrays.stream(conditionFields)
-                .map(fieldName -> format("%s = :%s", quoteIdentifier(fieldName), fieldName))
-                .collect(Collectors.joining(" AND "));
+                Arrays.stream(conditionFields)
+                        .map(fieldName -> format("%s = :%s", quoteIdentifier(fieldName), fieldName))
+                        .collect(Collectors.joining(" AND "));
         return String.format(
-            "DELETE FROM %s.%s WHERE %s",
-            quoteIdentifier(database), quoteIdentifier(tableName), conditionClause);
+                "DELETE FROM %s.%s WHERE %s",
+                quoteIdentifier(database), quoteIdentifier(tableName), conditionClause);
     }
 
     /**
@@ -153,14 +149,14 @@ public interface JdbcDialect extends Serializable {
      * @return the dialects {@code QUERY} statement.
      */
     default String getRowExistsStatement(
-        String database, String tableName, String[] conditionFields) {
+            String database, String tableName, String[] conditionFields) {
         String fieldExpressions =
-            Arrays.stream(conditionFields)
-                .map(field -> format("%s = :%s", quoteIdentifier(field), field))
-                .collect(Collectors.joining(" AND "));
+                Arrays.stream(conditionFields)
+                        .map(field -> format("%s = :%s", quoteIdentifier(field), field))
+                        .collect(Collectors.joining(" AND "));
         return String.format(
-            "SELECT 1 FROM %s.%s WHERE %s",
-            quoteIdentifier(database), quoteIdentifier(tableName), fieldExpressions);
+                "SELECT 1 FROM %s.%s WHERE %s",
+                quoteIdentifier(database), quoteIdentifier(tableName), fieldExpressions);
     }
 
     /**
@@ -176,7 +172,7 @@ public interface JdbcDialect extends Serializable {
      * @return the dialects {@code UPSERT} statement or {@link Optional#empty()}.
      */
     Optional<String> getUpsertStatement(
-        String database, String tableName, String[] fieldNames, String[] uniqueKeyFields);
+            String database, String tableName, String[] fieldNames, String[] uniqueKeyFields);
 
     /**
      * Different dialects optimize their PreparedStatement
@@ -184,10 +180,10 @@ public interface JdbcDialect extends Serializable {
      * @return The logic about optimize PreparedStatement
      */
     default PreparedStatement creatPreparedStatement(
-        Connection connection, String queryTemplate, int fetchSize) throws SQLException {
+            Connection connection, String queryTemplate, int fetchSize) throws SQLException {
         PreparedStatement statement =
-            connection.prepareStatement(
-                queryTemplate, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+                connection.prepareStatement(
+                        queryTemplate, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
         if (fetchSize == Integer.MIN_VALUE || fetchSize > 0) {
             statement.setFetchSize(fetchSize);
         }
@@ -195,7 +191,7 @@ public interface JdbcDialect extends Serializable {
     }
 
     default ResultSetMetaData getResultSetMetaData(
-        Connection conn, JdbcSourceConfig jdbcSourceConfig) throws SQLException {
+            Connection conn, JdbcSourceConfig jdbcSourceConfig) throws SQLException {
         PreparedStatement ps = conn.prepareStatement(jdbcSourceConfig.getQuery());
         return ps.getMetaData();
     }
@@ -229,11 +225,10 @@ public interface JdbcDialect extends Serializable {
     }
 
     default String getDropTableSql(String tableName) {
-        return String.format(
-            "DROP TABLE %s IF EXIST;", tableName);
+        return String.format("DROP TABLE %s IF EXIST;", tableName);
     }
 
-    default String createTableSql(TablePath tablePath, CatalogTable catalogTable){
+    default String createTableSql(TablePath tablePath, CatalogTable catalogTable) {
         return "";
     }
 }

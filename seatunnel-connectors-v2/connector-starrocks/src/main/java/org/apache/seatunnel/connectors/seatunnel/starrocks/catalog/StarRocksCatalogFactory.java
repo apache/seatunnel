@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksOptions;
 
 import com.google.auto.service.AutoService;

@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.catalog;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -37,10 +35,12 @@ import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
-import com.mysql.cj.MysqlType;
 import org.apache.commons.lang3.StringUtils;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.mysql.cj.MysqlType;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -52,6 +52,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class StarRocksCatalog extends AbstractJdbcCatalog {
 
@@ -89,19 +91,19 @@ public class StarRocksCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected boolean createTableInternal(TablePath tablePath, CatalogTable table)
-        throws CatalogException {
+            throws CatalogException {
         throw new UnsupportedOperationException("Unsupported create table");
     }
 
     @Override
     public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
-        throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
+            throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public void dropTable(TablePath tablePath, boolean ignoreIfNotExists)
-        throws TableNotExistException, CatalogException {
+            throws TableNotExistException, CatalogException {
         throw new UnsupportedOperationException();
     }
 
@@ -112,21 +114,21 @@ public class StarRocksCatalog extends AbstractJdbcCatalog {
 
     @Override
     public void createDatabase(TablePath tablePath, boolean ignoreIfExists)
-        throws DatabaseAlreadyExistException, CatalogException {
+            throws DatabaseAlreadyExistException, CatalogException {
         try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd)) {
             if (ignoreIfExists) {
                 conn.createStatement()
-                    .execute(
-                        "CREATE DATABASE IF NOT EXISTS `"
-                            + tablePath.getDatabaseName()
-                            + "`");
+                        .execute(
+                                "CREATE DATABASE IF NOT EXISTS `"
+                                        + tablePath.getDatabaseName()
+                                        + "`");
             } else {
                 conn.createStatement()
-                    .execute("CREATE DATABASE `" + tablePath.getDatabaseName() + "`");
+                        .execute("CREATE DATABASE `" + tablePath.getDatabaseName() + "`");
             }
         } catch (Exception e) {
             throw new CatalogException(
-                String.format("Failed listing database in catalog %s", catalogName), e);
+                    String.format("Failed listing database in catalog %s", catalogName), e);
         }
     }
 
@@ -137,18 +139,18 @@ public class StarRocksCatalog extends AbstractJdbcCatalog {
 
     @Override
     public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
-        throws DatabaseNotExistException, CatalogException {
+            throws DatabaseNotExistException, CatalogException {
         try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd)) {
             if (ignoreIfNotExists) {
                 conn.createStatement()
-                    .execute("DROP DATABASE IF EXISTS `" + tablePath.getDatabaseName() + "`");
+                        .execute("DROP DATABASE IF EXISTS `" + tablePath.getDatabaseName() + "`");
             } else {
                 conn.createStatement()
-                    .execute(String.format("DROP DATABASE `%s`", tablePath.getDatabaseName()));
+                        .execute(String.format("DROP DATABASE `%s`", tablePath.getDatabaseName()));
             }
         } catch (Exception e) {
             throw new CatalogException(
-                String.format("Failed listing database in catalog %s", catalogName), e);
+                    String.format("Failed listing database in catalog %s", catalogName), e);
         }
     }
 
@@ -157,12 +159,10 @@ public class StarRocksCatalog extends AbstractJdbcCatalog {
         throw new UnsupportedOperationException();
     }
 
-    /**
-     * @see com.mysql.cj.MysqlType
-     */
+    /** @see com.mysql.cj.MysqlType */
     @Override
     public SeaTunnelDataType<?> fromJdbcType(ResultSetMetaData metadata, int colIndex)
-        throws SQLException {
+            throws SQLException {
         MysqlType starrocksType = MysqlType.getByName(metadata.getColumnTypeName(colIndex));
         switch (starrocksType) {
             case NULL:
@@ -221,10 +221,10 @@ public class StarRocksCatalog extends AbstractJdbcCatalog {
                 return new DecimalType(precision, scale);
             default:
                 throw new StarRocksConnectorException(
-                    CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                    String.format(
-                        "Doesn't support Starrocks type '%s' yet",
-                        starrocksType.getName()));
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        String.format(
+                                "Doesn't support Starrocks type '%s' yet",
+                                starrocksType.getName()));
         }
     }
 
@@ -241,13 +241,13 @@ public class StarRocksCatalog extends AbstractJdbcCatalog {
     }
 
     public void createTable(String sql)
-        throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
+            throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd)) {
             conn.createStatement().execute(sql);
         } catch (Exception e) {
             throw new CatalogException(
-                String.format("Failed create table in catalog %s, sql :[%s]", catalogName, sql),
-                e);
+                    String.format("Failed create table in catalog %s, sql :[%s]", catalogName, sql),
+                    e);
         }
     }
 
@@ -289,11 +289,11 @@ public class StarRocksCatalog extends AbstractJdbcCatalog {
         List<String> pkFields = new ArrayList<>();
         try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd)) {
             ResultSet rs =
-                conn.createStatement()
-                    .executeQuery(
-                        String.format(
-                            "SELECT COLUMN_NAME FROM information_schema.columns where TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s' AND COLUMN_KEY = 'PRI' ORDER BY ORDINAL_POSITION",
-                            schema, table));
+                    conn.createStatement()
+                            .executeQuery(
+                                    String.format(
+                                            "SELECT COLUMN_NAME FROM information_schema.columns where TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s' AND COLUMN_KEY = 'PRI' ORDER BY ORDINAL_POSITION",
+                                            schema, table));
             while (rs.next()) {
                 String columnName = rs.getString("COLUMN_NAME");
                 pkFields.add(columnName);

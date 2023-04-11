@@ -42,24 +42,24 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
     }
 
     public SqlServerCatalog(
-        String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
+            String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
         super(catalogName, username, pwd, urlInfo);
     }
 
     @Override
     protected boolean createTableInternal(TablePath tablePath, CatalogTable table)
-        throws CatalogException {
+            throws CatalogException {
         throw new UnsupportedOperationException("Unsupported create table");
     }
 
     @Override
     public SeaTunnelDataType<?> fromJdbcType(ResultSetMetaData metadata, int colIndex)
-        throws SQLException {
+            throws SQLException {
         Pair<SqlServerType, Map<String, Object>> pair =
-            SqlServerType.parse(metadata.getColumnTypeName(colIndex));
+                SqlServerType.parse(metadata.getColumnTypeName(colIndex));
         Map<String, Object> dataTypeProperties = new HashMap<>();
         dataTypeProperties.put(
-            SqlServerDataTypeConvertor.PRECISION, metadata.getPrecision(colIndex));
+                SqlServerDataTypeConvertor.PRECISION, metadata.getPrecision(colIndex));
         dataTypeProperties.put(SqlServerDataTypeConvertor.SCALE, metadata.getScale(colIndex));
         return new SqlServerDataTypeConvertor().toSeaTunnelType(pair.getLeft(), dataTypeProperties);
     }

@@ -20,8 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.tidb;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
 
-import java.util.Set;
-
 public class TiDBCatalog extends MySqlCatalog {
 
     static {
@@ -36,5 +34,4 @@ public class TiDBCatalog extends MySqlCatalog {
             String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
         super(catalogName, username, pwd, urlInfo);
     }
-
 }

@@ -18,9 +18,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -42,6 +39,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -63,6 +61,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public abstract class AbstractJdbcCatalog implements Catalog {
     private static final Logger LOG = LoggerFactory.getLogger(AbstractJdbcCatalog.class);
     protected final String catalogName;
@@ -76,12 +77,12 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     protected static final Set<String> SYS_DATABASES = new HashSet<>();
 
     public AbstractJdbcCatalog(
-        String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
+            String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
 
         checkArgument(StringUtils.isNotBlank(username));
         urlInfo.getDefaultDatabase()
-            .orElseThrow(
-                () -> new IllegalArgumentException("Can't find default database in url"));
+                .orElseThrow(
+                        () -> new IllegalArgumentException("Can't find default database in url"));
         checkArgument(StringUtils.isNotBlank(urlInfo.getUrlWithoutDatabase()));
         this.catalogName = catalogName;
         this.defaultDatabase = urlInfo.getDefaultDatabase().get();
@@ -122,7 +123,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             conn.getCatalog();
         } catch (SQLException e) {
             throw new CatalogException(
-                String.format("Failed connecting to %s via JDBC.", defaultUrl), e);
+                    String.format("Failed connecting to %s via JDBC.", defaultUrl), e);
         }
 
         LOG.info("Catalog {} established connection to {}", catalogName, defaultUrl);
@@ -152,20 +153,21 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             return databases;
         } catch (Exception e) {
             throw new CatalogException(
-                String.format("Failed listing database in catalog %s", this.catalogName), e);
+                    String.format("Failed listing database in catalog %s", this.catalogName), e);
         }
     }
 
     @Override
     public List<String> listTables(String databaseName)
-        throws CatalogException, DatabaseNotExistException {
+            throws CatalogException, DatabaseNotExistException {
         if (!databaseExists(databaseName)) {
             throw new DatabaseNotExistException(this.catalogName, databaseName);
         }
 
         String dbUrl = jdbcDialect.getUrlFromDatabaseName(baseUrl, databaseName, suffix);
         try (Connection conn = DriverManager.getConnection(dbUrl, username, pwd);
-             PreparedStatement ps = conn.prepareStatement(jdbcDialect.listTableSql(databaseName))) {
+                PreparedStatement ps =
+                        conn.prepareStatement(jdbcDialect.listTableSql(databaseName))) {
 
             ResultSet rs = ps.executeQuery();
 
@@ -178,18 +180,18 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             return tables;
         } catch (Exception e) {
             throw new CatalogException(
-                String.format("Failed listing database in catalog %s", catalogName), e);
+                    String.format("Failed listing database in catalog %s", catalogName), e);
         }
     }
 
     protected Optional<PrimaryKey> getPrimaryKey(
-        DatabaseMetaData metaData, String database, String table) throws SQLException {
+            DatabaseMetaData metaData, String database, String table) throws SQLException {
         return getPrimaryKey(metaData, database, table, table);
     }
 
     protected Optional<PrimaryKey> getPrimaryKey(
-        DatabaseMetaData metaData, String database, String schema, String table)
-        throws SQLException {
+            DatabaseMetaData metaData, String database, String schema, String table)
+            throws SQLException {
 
         // According to the Javadoc of java.sql.DatabaseMetaData#getPrimaryKeys,
         // the returned primary key columns are ordered by COLUMN_NAME, not by KEY_SEQ.
@@ -209,10 +211,10 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         }
         // initialize size
         List<String> pkFields =
-            primaryKeyColumns.stream()
-                .sorted(Comparator.comparingInt(Pair::getKey))
-                .map(Pair::getValue)
-                .collect(Collectors.toList());
+                primaryKeyColumns.stream()
+                        .sorted(Comparator.comparingInt(Pair::getKey))
+                        .map(Pair::getValue)
+                        .collect(Collectors.toList());
         if (CollectionUtils.isEmpty(pkFields)) {
             return Optional.empty();
         }
@@ -220,13 +222,13 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     }
 
     protected List<ConstraintKey> getConstraintKeys(
-        DatabaseMetaData metaData, String database, String table) throws SQLException {
+            DatabaseMetaData metaData, String database, String table) throws SQLException {
         return getConstraintKeys(metaData, database, table, table);
     }
 
     protected List<ConstraintKey> getConstraintKeys(
-        DatabaseMetaData metaData, String database, String schema, String table)
-        throws SQLException {
+            DatabaseMetaData metaData, String database, String schema, String table)
+            throws SQLException {
         ResultSet resultSet = metaData.getIndexInfo(database, schema, table, false, false);
         // index name -> index
         Map<String, ConstraintKey> constraintKeyMap = new HashMap<>();
@@ -236,38 +238,38 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             String unique = resultSet.getString("NON_UNIQUE");
 
             ConstraintKey constraintKey =
-                constraintKeyMap.computeIfAbsent(
-                    indexName,
-                    s -> {
-                        ConstraintKey.ConstraintType constraintType =
-                            ConstraintKey.ConstraintType.KEY;
-                        // 0 is unique.
-                        if ("0".equals(unique)) {
-                            constraintType = ConstraintKey.ConstraintType.UNIQUE_KEY;
-                        }
-                        return ConstraintKey.of(
-                            constraintType, indexName, new ArrayList<>());
-                    });
+                    constraintKeyMap.computeIfAbsent(
+                            indexName,
+                            s -> {
+                                ConstraintKey.ConstraintType constraintType =
+                                        ConstraintKey.ConstraintType.KEY;
+                                // 0 is unique.
+                                if ("0".equals(unique)) {
+                                    constraintType = ConstraintKey.ConstraintType.UNIQUE_KEY;
+                                }
+                                return ConstraintKey.of(
+                                        constraintType, indexName, new ArrayList<>());
+                            });
 
             ConstraintKey.ColumnSortType sortType =
-                "A".equals(resultSet.getString("ASC_OR_DESC"))
-                    ? ConstraintKey.ColumnSortType.ASC
-                    : ConstraintKey.ColumnSortType.DESC;
+                    "A".equals(resultSet.getString("ASC_OR_DESC"))
+                            ? ConstraintKey.ColumnSortType.ASC
+                            : ConstraintKey.ColumnSortType.DESC;
             ConstraintKey.ConstraintKeyColumn constraintKeyColumn =
-                new ConstraintKey.ConstraintKeyColumn(columnName, sortType);
+                    new ConstraintKey.ConstraintKeyColumn(columnName, sortType);
             constraintKey.getColumnNames().add(constraintKeyColumn);
         }
         return new ArrayList<>(constraintKeyMap.values());
     }
 
     protected Optional<String> getColumnDefaultValue(
-        DatabaseMetaData metaData, String table, String column) throws SQLException {
+            DatabaseMetaData metaData, String table, String column) throws SQLException {
         return getColumnDefaultValue(metaData, null, null, table, column);
     }
 
     protected Optional<String> getColumnDefaultValue(
-        DatabaseMetaData metaData, String database, String schema, String table, String column)
-        throws SQLException {
+            DatabaseMetaData metaData, String database, String schema, String table, String column)
+            throws SQLException {
         try (ResultSet resultSet = metaData.getColumns(database, schema, table, column)) {
             while (resultSet.next()) {
                 String defaultValue = resultSet.getString("COLUMN_DEF");
@@ -288,7 +290,8 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     public boolean tableExists(TablePath tablePath) throws CatalogException {
         try {
             return databaseExists(tablePath.getDatabaseName())
-                && listTables(tablePath.getDatabaseName()).contains(jdbcDialect.getTableName(tablePath));
+                    && listTables(tablePath.getDatabaseName())
+                            .contains(jdbcDialect.getTableName(tablePath));
         } catch (DatabaseNotExistException e) {
             return false;
         }
@@ -296,7 +299,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     @Override
     public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
-        throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
+            throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         checkNotNull(tablePath, "Table path cannot be null");
 
         if (!databaseExists(tablePath.getDatabaseName())) {
@@ -308,32 +311,33 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     }
 
     public CatalogTable getTable(TablePath tablePath)
-        throws CatalogException, TableNotExistException {
+            throws CatalogException, TableNotExistException {
         if (!tableExists(tablePath)) {
             throw new TableNotExistException(catalogName, tablePath);
         }
 
-        String dbUrl = jdbcDialect.getUrlFromDatabaseName(baseUrl, tablePath.getDatabaseName(), suffix);
+        String dbUrl =
+                jdbcDialect.getUrlFromDatabaseName(baseUrl, tablePath.getDatabaseName(), suffix);
         try (Connection conn = DriverManager.getConnection(dbUrl, username, pwd)) {
             DatabaseMetaData metaData = conn.getMetaData();
             Optional<PrimaryKey> primaryKey =
-                getPrimaryKey(
-                    metaData,
-                    tablePath.getDatabaseName(),
-                    tablePath.getSchemaName(),
-                    tablePath.getTableName());
+                    getPrimaryKey(
+                            metaData,
+                            tablePath.getDatabaseName(),
+                            tablePath.getSchemaName(),
+                            tablePath.getTableName());
             List<ConstraintKey> constraintKeys =
-                getConstraintKeys(
-                    metaData,
-                    tablePath.getDatabaseName(),
-                    tablePath.getSchemaName(),
-                    tablePath.getTableName());
+                    getConstraintKeys(
+                            metaData,
+                            tablePath.getDatabaseName(),
+                            tablePath.getSchemaName(),
+                            tablePath.getTableName());
 
             try (PreparedStatement ps =
-                     conn.prepareStatement(
-                         String.format(
-                             "SELECT * FROM %s WHERE 1 = 0;",
-                             tablePath.getFullNameWithQuoted("\"")))) {
+                    conn.prepareStatement(
+                            String.format(
+                                    "SELECT * FROM %s WHERE 1 = 0;",
+                                    tablePath.getFullNameWithQuoted("\"")))) {
                 ResultSetMetaData tableMetaData = ps.getMetaData();
                 TableSchema.Builder builder = TableSchema.builder();
                 // add column
@@ -343,24 +347,24 @@ public abstract class AbstractJdbcCatalog implements Catalog {
                     int columnDisplaySize = tableMetaData.getColumnDisplaySize(i);
                     String comment = tableMetaData.getColumnLabel(i);
                     boolean isNullable =
-                        tableMetaData.isNullable(i) == ResultSetMetaData.columnNullable;
+                            tableMetaData.isNullable(i) == ResultSetMetaData.columnNullable;
                     Object defaultValue =
-                        getColumnDefaultValue(
-                            metaData,
-                            tablePath.getDatabaseName(),
-                            tablePath.getSchemaName(),
-                            tablePath.getTableName(),
-                            columnName)
-                            .orElse(null);
+                            getColumnDefaultValue(
+                                            metaData,
+                                            tablePath.getDatabaseName(),
+                                            tablePath.getSchemaName(),
+                                            tablePath.getTableName(),
+                                            columnName)
+                                    .orElse(null);
 
                     PhysicalColumn physicalColumn =
-                        PhysicalColumn.of(
-                            columnName,
-                            type,
-                            columnDisplaySize,
-                            isNullable,
-                            defaultValue,
-                            comment);
+                            PhysicalColumn.of(
+                                    columnName,
+                                    type,
+                                    columnDisplaySize,
+                                    isNullable,
+                                    defaultValue,
+                                    comment);
                     builder.column(physicalColumn);
                 }
                 // add primary key
@@ -368,28 +372,28 @@ public abstract class AbstractJdbcCatalog implements Catalog {
                 // add constraint key
                 constraintKeys.forEach(builder::constraintKey);
                 TableIdentifier tableIdentifier =
-                    TableIdentifier.of(
-                        catalogName,
-                        tablePath.getDatabaseName(),
-                        tablePath.getSchemaName(),
-                        tablePath.getTableName());
+                        TableIdentifier.of(
+                                catalogName,
+                                tablePath.getDatabaseName(),
+                                tablePath.getSchemaName(),
+                                tablePath.getTableName());
                 return CatalogTable.of(
-                    tableIdentifier,
-                    builder.build(),
-                    buildConnectorOptions(tablePath),
-                    Collections.emptyList(),
-                    "");
+                        tableIdentifier,
+                        builder.build(),
+                        buildConnectorOptions(tablePath),
+                        Collections.emptyList(),
+                        "");
             }
 
         } catch (Exception e) {
             throw new CatalogException(
-                String.format("Failed getting table %s", tablePath.getFullName()), e);
+                    String.format("Failed getting table %s", tablePath.getFullName()), e);
         }
     }
 
     @Override
     public void dropTable(TablePath tablePath, boolean ignoreIfNotExists)
-        throws TableNotExistException, CatalogException {
+            throws TableNotExistException, CatalogException {
         checkNotNull(tablePath, "Table path cannot be null");
         if (!dropTableInternal(tablePath) && !ignoreIfNotExists) {
             throw new TableNotExistException(catalogName, tablePath);
@@ -397,21 +401,23 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     }
 
     protected boolean dropTableInternal(TablePath tablePath) throws CatalogException {
-        String dbUrl = jdbcDialect.getUrlFromDatabaseName(baseUrl, tablePath.getDatabaseName(), suffix);
+        String dbUrl =
+                jdbcDialect.getUrlFromDatabaseName(baseUrl, tablePath.getDatabaseName(), suffix);
         try (Connection conn = DriverManager.getConnection(dbUrl, username, pwd);
-             PreparedStatement ps =
-                 conn.prepareStatement(jdbcDialect.getDropTableSql(tablePath.getFullName()))) {
+                PreparedStatement ps =
+                        conn.prepareStatement(
+                                jdbcDialect.getDropTableSql(tablePath.getFullName()))) {
             // Will there exist concurrent drop for one table?
             return ps.execute();
         } catch (SQLException e) {
             throw new CatalogException(
-                String.format("Failed dropping table %s", tablePath.getFullName()), e);
+                    String.format("Failed dropping table %s", tablePath.getFullName()), e);
         }
     }
 
     @Override
     public void createDatabase(TablePath tablePath, boolean ignoreIfExists)
-        throws DatabaseAlreadyExistException, CatalogException {
+            throws DatabaseAlreadyExistException, CatalogException {
         checkNotNull(tablePath, "Table path cannot be null");
         checkNotNull(tablePath.getDatabaseName(), "Database name cannot be null");
 
@@ -423,10 +429,9 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         }
     }
 
-
     @Override
     public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
-        throws DatabaseNotExistException, CatalogException {
+            throws DatabaseNotExistException, CatalogException {
         checkNotNull(tablePath, "Table path cannot be null");
         checkNotNull(tablePath.getDatabaseName(), "Database name cannot be null");
 
@@ -436,7 +441,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     }
 
     protected SeaTunnelDataType<?> fromJdbcType(ResultSetMetaData metadata, int colIndex)
-        throws SQLException {
+            throws SQLException {
         return null;
     }
 
@@ -447,54 +452,57 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     protected Map<String, String> buildConnectorOptions(TablePath tablePath) {
         Map<String, String> options = new HashMap<>(8);
         options.put("connector", "jdbc");
-        options.put("url", jdbcDialect.getUrlFromDatabaseName(baseUrl, tablePath.getDatabaseName(), suffix));
+        options.put(
+                "url",
+                jdbcDialect.getUrlFromDatabaseName(baseUrl, tablePath.getDatabaseName(), suffix));
         options.put("table-name", tablePath.getFullName());
         options.put("username", username);
         options.put("password", pwd);
         return options;
     }
+
     protected boolean createDatabaseInternal(String databaseName) {
         try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd);
-             PreparedStatement ps =
-                 conn.prepareStatement(
-                     String.format(jdbcDialect.createDatabaseSql(databaseName)))) {
+                PreparedStatement ps =
+                        conn.prepareStatement(
+                                String.format(jdbcDialect.createDatabaseSql(databaseName)))) {
             return ps.execute();
         } catch (Exception e) {
             throw new CatalogException(
-                String.format(
-                    "Failed creating database %s in catalog %s",
-                    databaseName, this.catalogName),
-                e);
+                    String.format(
+                            "Failed creating database %s in catalog %s",
+                            databaseName, this.catalogName),
+                    e);
         }
     }
 
     protected boolean dropDatabaseInternal(String databaseName) throws CatalogException {
         try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd);
-             PreparedStatement ps =
-                 conn.prepareStatement(jdbcDialect.dropDatabaseSql(databaseName))) {
+                PreparedStatement ps =
+                        conn.prepareStatement(jdbcDialect.dropDatabaseSql(databaseName))) {
             return ps.execute();
         } catch (Exception e) {
             throw new CatalogException(
-                String.format(
-                    "Failed dropping database %s in catalog %s",
-                    databaseName, this.catalogName),
-                e);
+                    String.format(
+                            "Failed dropping database %s in catalog %s",
+                            databaseName, this.catalogName),
+                    e);
         }
-
     }
 
     // todo: If the origin source is mysql, we can directly use create table like to create the
     // target table?
     protected boolean createTableInternal(TablePath tablePath, CatalogTable table)
-        throws CatalogException{
-        String dbUrl = jdbcDialect.getUrlFromDatabaseName(baseUrl, tablePath.getDatabaseName(), suffix);
+            throws CatalogException {
+        String dbUrl =
+                jdbcDialect.getUrlFromDatabaseName(baseUrl, tablePath.getDatabaseName(), suffix);
         String createTableSql = jdbcDialect.createTableSql(tablePath, table);
         try (Connection conn = DriverManager.getConnection(dbUrl, username, pwd);
-             PreparedStatement ps = conn.prepareStatement(createTableSql)) {
+                PreparedStatement ps = conn.prepareStatement(createTableSql)) {
             return ps.execute();
         } catch (Exception e) {
             throw new CatalogException(
-                String.format("Failed creating table %s", tablePath.getFullName()), e);
+                    String.format("Failed creating table %s", tablePath.getFullName()), e);
         }
     }
 }
