@@ -69,7 +69,7 @@ The time in seconds to wait for the database operation used to validate the conn
 
 ### partition_column [string]
 
-The column name for parallelism's partition, only support numeric type.
+The column name for parallelism's partition, only support numeric, date, datetime and timestamp type.
 
 ### partition_upper_bound [long]
 

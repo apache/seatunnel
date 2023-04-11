@@ -60,6 +60,8 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
             Lists.newArrayList(
                     "/jdbc_mysql_source_and_sink.conf",
                     "/jdbc_mysql_source_and_sink_parallel.conf",
+                    "/jdbc_mysql_source_and_sink_parallel_date.conf",
+                    "/jdbc_mysql_source_and_sink_parallel_datetime.conf",
                     "/jdbc_mysql_source_and_sink_parallel_upper_lower.conf");
     private static final String CREATE_SQL =
             "CREATE TABLE IF NOT EXISTS %s\n"

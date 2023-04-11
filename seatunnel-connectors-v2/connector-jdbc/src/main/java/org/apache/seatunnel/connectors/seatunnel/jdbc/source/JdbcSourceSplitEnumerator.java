@@ -21,7 +21,9 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.split.JdbcDateTimeBetweenParametersProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.split.JdbcNumericBetweenParametersProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.split.JdbcParameterValuesProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSourceState;
 
 import org.slf4j.Logger;
@@ -106,12 +108,29 @@ public class JdbcSourceSplitEnumerator
                     partitionParameter.getPartitionNumber() != null
                             ? partitionParameter.getPartitionNumber()
                             : enumeratorContext.currentParallelism();
-            JdbcNumericBetweenParametersProvider jdbcNumericBetweenParametersProvider =
-                    new JdbcNumericBetweenParametersProvider(
-                                    partitionParameter.minValue, partitionParameter.maxValue)
-                            .ofBatchNum(partitionNumber);
-            Serializable[][] parameterValues =
-                    jdbcNumericBetweenParametersProvider.getParameterValues();
+            JdbcParameterValuesProvider jdbcParameterValuesProvider = null;
+            if (partitionParameter.minValue instanceof Long) {
+                jdbcParameterValuesProvider =
+                        new JdbcNumericBetweenParametersProvider(
+                                        (Long) partitionParameter.minValue,
+                                        (Long) partitionParameter.maxValue)
+                                .ofBatchNum(partitionNumber);
+            }
+            if (partitionParameter.minValue instanceof java.util.Date) {
+                jdbcParameterValuesProvider =
+                        new JdbcDateTimeBetweenParametersProvider(
+                                        (java.util.Date) partitionParameter.minValue,
+                                        (java.util.Date) partitionParameter.maxValue)
+                                .ofBatchNum(partitionNumber);
+            }
+            if (jdbcParameterValuesProvider == null) {
+                throw new JdbcConnectorException(
+                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        String.format(
+                                "Unsupported partition column type: %s",
+                                partitionParameter.minValue.getClass().getName()));
+            }
+            Serializable[][] parameterValues = jdbcParameterValuesProvider.getParameterValues();
             for (int i = 0; i < parameterValues.length; i++) {
                 allSplit.add(new JdbcSourceSplit(parameterValues[i], i));
             }
