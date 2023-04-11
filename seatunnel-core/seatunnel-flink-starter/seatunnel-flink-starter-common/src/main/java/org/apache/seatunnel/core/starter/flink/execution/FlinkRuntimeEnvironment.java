@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.core.starter.flink.execution;
 
+import org.apache.flink.table.api.Schema;
+import org.apache.flink.table.api.Table;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.env.EnvCommonOptions;
@@ -68,6 +70,12 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
     private JobMode jobMode;
 
     private String jobName = Constants.LOGO;
+
+
+    private static final String WATERMARK_NAME = "watermark_name";
+
+    private static final String WATERMARK_ALIAS_NAME = "watermark_alias_name";
+    private static final String WATERMARK_DELAY = "watermark_delay";
 
     private FlinkRuntimeEnvironment(Config config) {
         this.initialize(config);
@@ -318,11 +326,24 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
             String name = config.getString(RESULT_TABLE_NAME);
             StreamTableEnvironment tableEnvironment = this.getStreamTableEnvironment();
             if (!TableUtil.tableExists(tableEnvironment, name)) {
+                Table table;
+                if(config.hasPath(WATERMARK_NAME)){
+                    String watermark = config.getString(WATERMARK_NAME);
+                    String watermarkAlias = config.getString(WATERMARK_ALIAS_NAME);
+                    String delay = Objects.toString(config.getString(WATERMARK_DELAY), "000 00:00:00.000000000");
+                    table = tableEnvironment.fromDataStream(dataStream,
+                            Schema.newBuilder()
+                                    .columnByExpression(watermarkAlias, "CAST("+watermark+" AS TIMESTAMP(3))")
+                                    .watermark(watermarkAlias, watermarkAlias + " - INTERVAL '"+delay+"' DAY(3) TO SECOND(9)")
+                                    .build());
+                } else {
+                    table = tableEnvironment.fromDataStream(dataStream);
+                }
                 if (config.hasPath("field_name")) {
                     String fieldName = config.getString("field_name");
-                    tableEnvironment.registerDataStream(name, dataStream, fieldName);
+                    tableEnvironment.createTemporaryView(name, dataStream, fieldName);
                 } else {
-                    tableEnvironment.registerDataStream(name, dataStream);
+                    tableEnvironment.createTemporaryView(name, table);
                 }
             }
         }
