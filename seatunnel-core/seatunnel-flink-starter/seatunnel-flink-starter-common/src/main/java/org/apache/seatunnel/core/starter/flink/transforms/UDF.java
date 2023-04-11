@@ -17,14 +17,17 @@
 
 package org.apache.seatunnel.core.starter.flink.transforms;
 
-import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import org.apache.seatunnel.common.PropertiesUtil;
+import org.apache.seatunnel.core.starter.flink.execution.FlinkRuntimeEnvironment;
+
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.TableEnvironment;
 import org.apache.flink.table.functions.UserDefinedFunction;
 import org.apache.flink.types.Row;
-import org.apache.seatunnel.common.PropertiesUtil;
-import org.apache.seatunnel.core.starter.flink.execution.FlinkRuntimeEnvironment;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,7 +35,7 @@ import java.util.Properties;
 
 @SuppressWarnings("PMD")
 @Slf4j
-public class UDF extends AbstractFlinkTransform{
+public class UDF extends AbstractFlinkTransform {
 
     private static final String UDF_CONFIG_PREFIX = "function.";
     private List<String> classNames;
@@ -45,14 +48,17 @@ public class UDF extends AbstractFlinkTransform{
 
     @Override
     public void registerFunction(FlinkRuntimeEnvironment flinkEnvironment) {
-        TableEnvironment tEnv =
-                flinkEnvironment.getStreamTableEnvironment();
+        TableEnvironment tEnv = flinkEnvironment.getStreamTableEnvironment();
 
         for (int i = 0; i < functionNames.size(); i++) {
             try {
-                tEnv.createTemporarySystemFunction(functionNames.get(i), (Class<? extends UserDefinedFunction>) Class.forName(classNames.get(i)));
+                tEnv.createTemporarySystemFunction(
+                        functionNames.get(i),
+                        (Class<? extends UserDefinedFunction>) Class.forName(classNames.get(i)));
             } catch (ClassNotFoundException e) {
-                log.error("The udf class {} not founded, make sure you enter the correct class name", classNames.get(i));
+                log.error(
+                        "The udf class {} not founded, make sure you enter the correct class name",
+                        classNames.get(i));
                 throw new RuntimeException(e);
             }
         }
@@ -67,17 +73,15 @@ public class UDF extends AbstractFlinkTransform{
         classNames = new ArrayList<>(properties.size());
         functionNames = new ArrayList<>(properties.size());
 
-        properties.forEach((k, v) -> {
-            classNames.add(String.valueOf(v));
-            functionNames.add(String.valueOf(k));
-        });
-
+        properties.forEach(
+                (k, v) -> {
+                    classNames.add(String.valueOf(v));
+                    functionNames.add(String.valueOf(k));
+                });
     }
-
 
     @Override
     public String getPluginName() {
         return "udf";
     }
-
 }

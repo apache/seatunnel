@@ -36,15 +36,12 @@ import java.time.LocalTime;
 import java.util.Objects;
 import java.util.Optional;
 
-/**
- * Base class for all converters that convert between JDBC object and Seatunnel internal object.
- */
+/** Base class for all converters that convert between JDBC object and Seatunnel internal object. */
 public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
 
     public abstract String converterName();
 
-    public AbstractJdbcRowConverter() {
-    }
+    public AbstractJdbcRowConverter() {}
 
     @Override
     @SuppressWarnings("checkstyle:Indentation")

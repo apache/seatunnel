@@ -85,7 +85,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
         FSDataOutputStream fsDataOutputStream = getOrCreateOutputStream(filePath);
         try {
             if (isFirstWrite.get(filePath)) {
-                if(isPrintHeader){
+                if (isPrintHeader) {
                     fsDataOutputStream.write(getFieldNames().getBytes());
                     fsDataOutputStream.write(rowDelimiter.getBytes());
                 }
@@ -165,6 +165,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
     }
 
     private String getFieldNames() {
-        return Arrays.stream(seaTunnelRowType.getFieldNames()).collect(Collectors.joining(fieldDelimiter));
+        return Arrays.stream(seaTunnelRowType.getFieldNames())
+                .collect(Collectors.joining(fieldDelimiter));
     }
 }

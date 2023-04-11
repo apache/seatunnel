@@ -182,7 +182,7 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
             this.sheetName = config.getString(BaseSinkConfig.SHEET_NAME.key());
         }
 
-        if(config.hasPath(BaseSinkConfig.IS_PRINT_HEADER.key())){
+        if (config.hasPath(BaseSinkConfig.IS_PRINT_HEADER.key())) {
             this.isPrintHeader = config.getBoolean(BaseSinkConfig.IS_PRINT_HEADER.key());
         }
     }

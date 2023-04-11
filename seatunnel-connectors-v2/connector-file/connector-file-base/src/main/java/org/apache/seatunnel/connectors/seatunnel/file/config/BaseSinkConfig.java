@@ -233,8 +233,9 @@ public class BaseSinkConfig {
                     .noDefaultValue()
                     .withDescription("To be written sheet name,only valid for excel files");
 
-    public static final Option<Boolean> IS_PRINT_HEADER = Options.key("is_print_header")
-            .booleanType()
-            .defaultValue(false)
-            .withDescription("IS_PRINT_HEADER");
+    public static final Option<Boolean> IS_PRINT_HEADER =
+            Options.key("is_print_header")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("IS_PRINT_HEADER");
 }

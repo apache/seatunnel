@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.core.starter.flink.execution;
 
-import org.apache.flink.table.api.Schema;
-import org.apache.flink.table.api.Table;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.env.EnvCommonOptions;
@@ -44,6 +42,8 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.EnvironmentSettings;
+import org.apache.flink.table.api.Schema;
+import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableConfig;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
@@ -70,7 +70,6 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
     private JobMode jobMode;
 
     private String jobName = Constants.LOGO;
-
 
     private static final String WATERMARK_NAME = "watermark_name";
 
@@ -327,15 +326,26 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
             StreamTableEnvironment tableEnvironment = this.getStreamTableEnvironment();
             if (!TableUtil.tableExists(tableEnvironment, name)) {
                 Table table;
-                if(config.hasPath(WATERMARK_NAME)){
+                if (config.hasPath(WATERMARK_NAME)) {
                     String watermark = config.getString(WATERMARK_NAME);
                     String watermarkAlias = config.getString(WATERMARK_ALIAS_NAME);
-                    String delay = Objects.toString(config.getString(WATERMARK_DELAY), "000 00:00:00.000000000");
-                    table = tableEnvironment.fromDataStream(dataStream,
-                            Schema.newBuilder()
-                                    .columnByExpression(watermarkAlias, "CAST("+watermark+" AS TIMESTAMP(3))")
-                                    .watermark(watermarkAlias, watermarkAlias + " - INTERVAL '"+delay+"' DAY(3) TO SECOND(9)")
-                                    .build());
+                    String delay =
+                            Objects.toString(
+                                    config.getString(WATERMARK_DELAY), "000 00:00:00.000000000");
+                    table =
+                            tableEnvironment.fromDataStream(
+                                    dataStream,
+                                    Schema.newBuilder()
+                                            .columnByExpression(
+                                                    watermarkAlias,
+                                                    "CAST(" + watermark + " AS TIMESTAMP(3))")
+                                            .watermark(
+                                                    watermarkAlias,
+                                                    watermarkAlias
+                                                            + " - INTERVAL '"
+                                                            + delay
+                                                            + "' DAY(3) TO SECOND(9)")
+                                            .build());
                 } else {
                     table = tableEnvironment.fromDataStream(dataStream);
                 }

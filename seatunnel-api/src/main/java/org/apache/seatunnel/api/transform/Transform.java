@@ -8,7 +8,6 @@ import java.io.Serializable;
 
 public interface Transform
         extends Serializable,
-        PluginIdentifierInterface,
-        SeaTunnelPluginLifeCycle,
-        SeaTunnelJobAware {
-}
+                PluginIdentifierInterface,
+                SeaTunnelPluginLifeCycle,
+                SeaTunnelJobAware {}

@@ -17,16 +17,10 @@
 
 package org.apache.seatunnel.api.transform;
 
-import org.apache.seatunnel.api.common.PluginIdentifierInterface;
-import org.apache.seatunnel.api.common.SeaTunnelPluginLifeCycle;
-import org.apache.seatunnel.api.source.SeaTunnelJobAware;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
-import java.io.Serializable;
-
-public interface SeaTunnelTransform<T>
-        extends Transform {
+public interface SeaTunnelTransform<T> extends Transform {
 
     /** call it when Transformer initialed */
     default void open() {}
