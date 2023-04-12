@@ -22,8 +22,6 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFileScanTaskSplit;
 
-import org.apache.iceberg.Table;
-
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -62,18 +60,8 @@ public abstract class AbstractSplitEnumerator
     }
 
     @Override
-    public void run() {
-        refreshPendingSplits();
-        assignPendingSplits(context.registeredReaders());
-    }
-
-    @Override
-    public void close() throws IOException {
-        icebergTableLoader.close();
-    }
-
-    @Override
     public void addSplitsBack(List<IcebergFileScanTaskSplit> splits, int subtaskId) {
+        log.debug("Add back splits {} to IcebergSourceEnumerator.", splits);
         addPendingSplits(splits);
         if (context.registeredReaders().contains(subtaskId)) {
             assignPendingSplits(Collections.singleton(subtaskId));
@@ -81,36 +69,37 @@ public abstract class AbstractSplitEnumerator
     }
 
     @Override
+    public void registerReader(int subtaskId) {
+        log.debug("Register reader {} to IcebergSourceEnumerator.", subtaskId);
+        assignPendingSplits(Collections.singleton(subtaskId));
+    }
+
     public int currentUnassignedSplitSize() {
         return pendingSplits.size();
     }
 
     @Override
-    public void registerReader(int subtaskId) {
-        log.debug("Adding reader {} to IcebergSourceEnumerator.", subtaskId);
-        assignPendingSplits(Collections.singleton(subtaskId));
-    }
-
-    @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {}
 
-    protected void refreshPendingSplits() {
-        List<IcebergFileScanTaskSplit> newSplits = loadNewSplits(icebergTableLoader.loadTable());
-        addPendingSplits(newSplits);
+    @Override
+    public void close() throws IOException {
+        icebergTableLoader.close();
     }
 
-    protected abstract List<IcebergFileScanTaskSplit> loadNewSplits(Table table);
+    protected void addPendingSplits(Collection<IcebergFileScanTaskSplit> newSplits) {
+        log.debug("Add splits {} to pendingSplits", newSplits.size());
 
-    private void addPendingSplits(Collection<IcebergFileScanTaskSplit> newSplits) {
         int numReaders = context.currentParallelism();
         for (IcebergFileScanTaskSplit newSplit : newSplits) {
-            int ownerReader = newSplit.splitId().hashCode() % numReaders;
+            int ownerReader = (newSplit.splitId().hashCode() & Integer.MAX_VALUE) % numReaders;
             pendingSplits.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(newSplit);
             log.info("Assigning {} to {} reader.", newSplit, ownerReader);
         }
     }
 
     protected void assignPendingSplits(Set<Integer> pendingReaders) {
+        log.debug("Assign pendingSplits to readers {}", pendingReaders);
+
         for (int pendingReader : pendingReaders) {
             List<IcebergFileScanTaskSplit> pendingAssignmentForReader =
                     pendingSplits.remove(pendingReader);

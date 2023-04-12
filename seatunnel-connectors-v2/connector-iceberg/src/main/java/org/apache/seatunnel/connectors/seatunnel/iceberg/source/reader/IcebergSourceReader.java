@@ -106,13 +106,18 @@ public class IcebergSourceReader implements SourceReader<SeaTunnelRow, IcebergFi
             try (CloseableIterator<SeaTunnelRow> rowIterator =
                     icebergFileScanTaskSplitReader.open(currentReadSplit)) {
                 while (rowIterator.hasNext()) {
-                    output.collect(rowIterator.next());
+                    synchronized (output.getCheckpointLock()) {
+                        currentReadSplit.setRecordOffset(currentReadSplit.getRecordOffset() + 1);
+                        output.collect(rowIterator.next());
+                    }
                 }
             }
         }
 
-        if (noMoreSplitsAssignment && Boundedness.BOUNDED.equals(context.getBoundedness())) {
-            context.signalNoMoreElement();
+        if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
+            if (noMoreSplitsAssignment) {
+                context.signalNoMoreElement();
+            }
         } else {
             context.sendSplitRequest();
             if (pendingSplits.isEmpty()) {

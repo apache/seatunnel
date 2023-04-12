@@ -36,6 +36,8 @@ import java.util.Set;
 public class IcebergBatchSplitEnumerator extends AbstractSplitEnumerator {
 
     private final IcebergScanContext icebergScanContext;
+    private final boolean shouldEnumerate;
+    private volatile boolean splitLoadReady;
 
     public IcebergBatchSplitEnumerator(
             @NonNull SourceSplitEnumerator.Context<IcebergFileScanTaskSplit> context,
@@ -47,28 +49,38 @@ public class IcebergBatchSplitEnumerator extends AbstractSplitEnumerator {
                 sourceConfig,
                 restoreState != null ? restoreState.getPendingSplits() : Collections.emptyMap());
         this.icebergScanContext = icebergScanContext;
+        // split enumeration is not needed during restore scenario
+        this.shouldEnumerate = restoreState == null;
     }
 
     @Override
-    public void run() {
-        super.run();
-
+    public synchronized void run() {
         Set<Integer> readers = context.registeredReaders();
-        log.debug(
-                "No more splits to assign." + " Sending NoMoreSplitsEvent to reader {}.", readers);
+        if (shouldEnumerate) {
+            loadAllSplitsToPendingSplits(icebergTableLoader.loadTable());
+            assignPendingSplits(readers);
+        }
+
+        log.debug("No more splits to assign. Sending NoMoreSplitsEvent to readers {}.", readers);
         readers.forEach(context::signalNoMoreSplits);
     }
 
     @Override
     public IcebergSplitEnumeratorState snapshotState(long checkpointId) {
-        return new IcebergSplitEnumeratorState(null, pendingSplits);
+        if (splitLoadReady) {
+            return new IcebergSplitEnumeratorState(null, pendingSplits);
+        }
+        return null;
     }
 
-    @Override
-    public void handleSplitRequest(int subtaskId) {}
+    public void handleSplitRequest(int subtaskId) {
+        throw new UnsupportedOperationException("Unsupported handleSplitRequest: " + subtaskId);
+    }
 
-    @Override
-    protected List<IcebergFileScanTaskSplit> loadNewSplits(Table table) {
-        return IcebergScanSplitPlanner.planSplits(table, icebergScanContext);
+    private void loadAllSplitsToPendingSplits(Table table) {
+        List<IcebergFileScanTaskSplit> newSplits =
+                IcebergScanSplitPlanner.planSplits(table, icebergScanContext);
+        addPendingSplits(newSplits);
+        splitLoadReady = true;
     }
 }

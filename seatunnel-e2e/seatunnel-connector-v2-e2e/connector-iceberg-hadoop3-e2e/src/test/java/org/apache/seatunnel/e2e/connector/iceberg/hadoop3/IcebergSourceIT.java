@@ -26,6 +26,7 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileUtil;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.FileFormat;
@@ -53,6 +54,7 @@ import org.testcontainers.utility.MountableFile;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
@@ -133,6 +135,7 @@ public class IcebergSourceIT extends TestSuiteBase implements TestResource {
     }
 
     private void initializeIcebergTable() {
+        FileUtil.fullyDelete(new File(CATALOG_DIR));
         CATALOG = new IcebergCatalogFactory(CATALOG_NAME, CATALOG_TYPE, WAREHOUSE, null).create();
         if (!CATALOG.tableExists(TABLE)) {
             CATALOG.createTable(TABLE, SCHEMA);
