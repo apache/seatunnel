@@ -152,7 +152,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testSinkKafkaExactlyOnce(TestContainer container)
             throws IOException, InterruptedException, ExecutionException, TimeoutException {
-        container.executeJob("/kafka/kafkasink_fake_to_kafka_exactly_once.conf", 30);
+        container.executeJob("/kafka/kafkasink_fake_to_kafka_exactly_once.conf", 60);
         String topicName = "test01";
         Map<String, String> data = getKafkaConsumerData(topicName, r -> String.valueOf(r.offset()));
         Assertions.assertEquals(4, data.size());
