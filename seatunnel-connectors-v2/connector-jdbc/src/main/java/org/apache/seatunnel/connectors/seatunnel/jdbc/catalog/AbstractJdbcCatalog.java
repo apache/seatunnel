@@ -207,11 +207,6 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     }
 
     protected Optional<String> getColumnDefaultValue(
-            DatabaseMetaData metaData, String table, String column) throws SQLException {
-        return getColumnDefaultValue(metaData, null, null, table, column);
-    }
-
-    protected Optional<String> getColumnDefaultValue(
             DatabaseMetaData metaData, String database, String schema, String table, String column)
             throws SQLException {
         try (ResultSet resultSet = metaData.getColumns(database, schema, table, column)) {

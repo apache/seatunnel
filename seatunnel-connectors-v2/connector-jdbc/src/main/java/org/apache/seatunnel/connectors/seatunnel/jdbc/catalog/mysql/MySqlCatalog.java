@@ -34,6 +34,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalo
 
 import com.mysql.cj.MysqlType;
 import com.mysql.cj.jdbc.result.ResultSetImpl;
+import com.mysql.cj.util.StringUtils;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -159,6 +160,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
             List<ConstraintKey> constraintKeys =
                     getConstraintKeys(
                             metaData, tablePath.getDatabaseName(), tablePath.getTableName());
+            Map<String, Object> columnsDefaultValue = getColumnsDefaultValue(tablePath, conn);
 
             try (PreparedStatement ps =
                     conn.prepareStatement(
@@ -167,6 +169,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
                                     tablePath.getFullNameWithQuoted()))) {
                 ResultSetMetaData tableMetaData = ps.getMetaData();
                 TableSchema.Builder builder = TableSchema.builder();
+
                 // add column
                 for (int i = 1; i <= tableMetaData.getColumnCount(); i++) {
                     String columnName = tableMetaData.getColumnName(i);
@@ -175,9 +178,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
                     String comment = tableMetaData.getColumnLabel(i);
                     boolean isNullable =
                             tableMetaData.isNullable(i) == ResultSetMetaData.columnNullable;
-                    Object defaultValue =
-                            getColumnDefaultValue(metaData, tablePath.getTableName(), columnName)
-                                    .orElse(null);
+                    Object defaultValue = columnsDefaultValue.get(columnName);
 
                     PhysicalColumn physicalColumn =
                             PhysicalColumn.of(
@@ -207,6 +208,29 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         } catch (Exception e) {
             throw new CatalogException(
                     String.format("Failed getting table %s", tablePath.getFullName()), e);
+        }
+    }
+
+    public static Map<String, Object> getColumnsDefaultValue(TablePath tablePath, Connection conn) {
+        StringBuilder queryBuf = new StringBuilder("SHOW FULL COLUMNS FROM ");
+        queryBuf.append(StringUtils.quoteIdentifier(tablePath.getTableName(), "`", false));
+        queryBuf.append(" FROM ");
+        queryBuf.append(StringUtils.quoteIdentifier(tablePath.getDatabaseName(), "`", false));
+        try (PreparedStatement ps2 = conn.prepareStatement(queryBuf.toString())) {
+            ResultSet rs = ps2.executeQuery();
+            Map<String, Object> result = new HashMap<>();
+            while (rs.next()) {
+                String field = rs.getString("Field");
+                Object defaultValue = rs.getObject("Default");
+                result.put(field, defaultValue);
+            }
+            return result;
+        } catch (Exception e) {
+            throw new CatalogException(
+                    String.format(
+                            "Failed getting table(%s) columns default value",
+                            tablePath.getFullName()),
+                    e);
         }
     }
 
