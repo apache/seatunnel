@@ -50,6 +50,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class MySqlCatalog extends AbstractJdbcCatalog {
 
@@ -62,15 +63,43 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         SYS_DATABASES.add("sys");
     }
 
+    protected final Map<String, Connection> connectionMap;
+
     public MySqlCatalog(
             String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
         super(catalogName, username, pwd, urlInfo);
+        this.connectionMap = new ConcurrentHashMap<>();
+    }
+
+    public Connection getConnection(String url) {
+        if (connectionMap.containsKey(url)) {
+            return connectionMap.get(url);
+        }
+        try {
+            Connection connection = DriverManager.getConnection(url, username, pwd);
+            connectionMap.put(url, connection);
+            return connection;
+        } catch (SQLException e) {
+            throw new CatalogException(String.format("Failed connecting to %s via JDBC.", url), e);
+        }
+    }
+
+    @Override
+    public void close() throws CatalogException {
+        for (Map.Entry<String, Connection> entry : connectionMap.entrySet()) {
+            try {
+                entry.getValue().close();
+            } catch (SQLException e) {
+                throw new CatalogException(
+                        String.format("Failed to close %s via JDBC.", entry.getKey()), e);
+            }
+        }
+        super.close();
     }
 
     @Override
     public List<String> listDatabases() throws CatalogException {
-        try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd);
-                PreparedStatement ps = conn.prepareStatement("SHOW DATABASES;")) {
+        try (PreparedStatement ps = defaultConnection.prepareStatement("SHOW DATABASES;")) {
 
             List<String> databases = new ArrayList<>();
             ResultSet rs = ps.executeQuery();
@@ -97,8 +126,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         }
 
         String dbUrl = getUrlFromDatabaseName(databaseName);
-        try (Connection conn = DriverManager.getConnection(dbUrl, username, pwd);
-                PreparedStatement ps = conn.prepareStatement("SHOW TABLES;")) {
+        try (PreparedStatement ps = getConnection(dbUrl).prepareStatement("SHOW TABLES;")) {
 
             ResultSet rs = ps.executeQuery();
 
@@ -123,7 +151,8 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         }
 
         String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
-        try (Connection conn = DriverManager.getConnection(dbUrl, username, pwd)) {
+        Connection conn = getConnection(dbUrl);
+        try {
             DatabaseMetaData metaData = conn.getMetaData();
             Optional<PrimaryKey> primaryKey =
                     getPrimaryKey(metaData, tablePath.getDatabaseName(), tablePath.getTableName());
@@ -188,8 +217,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
             throws CatalogException {
         String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
         String createTableSql = MysqlCreateTableSqlBuilder.builder(tablePath, table).build();
-        try (Connection conn = DriverManager.getConnection(dbUrl, username, pwd);
-                PreparedStatement ps = conn.prepareStatement(createTableSql)) {
+        try (PreparedStatement ps = getConnection(dbUrl).prepareStatement(createTableSql)) {
             return ps.execute();
         } catch (Exception e) {
             throw new CatalogException(
@@ -200,9 +228,9 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
     @Override
     protected boolean dropTableInternal(TablePath tablePath) throws CatalogException {
         String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
-        try (Connection conn = DriverManager.getConnection(dbUrl, username, pwd);
-                PreparedStatement ps =
-                        conn.prepareStatement(
+        try (PreparedStatement ps =
+                getConnection(dbUrl)
+                        .prepareStatement(
                                 String.format(
                                         "DROP TABLE %s IF EXIST;", tablePath.getFullName()))) {
             // Will there exist concurrent drop for one table?
@@ -215,10 +243,9 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected boolean createDatabaseInternal(String databaseName) throws CatalogException {
-        try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd);
-                PreparedStatement ps =
-                        conn.prepareStatement(
-                                String.format("CREATE DATABASE `%s`;", databaseName))) {
+        try (PreparedStatement ps =
+                defaultConnection.prepareStatement(
+                        String.format("CREATE DATABASE `%s`;", databaseName))) {
             return ps.execute();
         } catch (Exception e) {
             throw new CatalogException(
@@ -231,9 +258,9 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected boolean dropDatabaseInternal(String databaseName) throws CatalogException {
-        try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd);
-                PreparedStatement ps =
-                        conn.prepareStatement(String.format("DROP DATABASE `%s`;", databaseName))) {
+        try (PreparedStatement ps =
+                defaultConnection.prepareStatement(
+                        String.format("DROP DATABASE `%s`;", databaseName))) {
             return ps.execute();
         } catch (Exception e) {
             throw new CatalogException(

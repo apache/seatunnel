@@ -41,8 +41,6 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.utils.JsonUtils;
 
-import org.apache.commons.lang3.StringUtils;
-
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -54,7 +52,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.regex.Pattern;
 
 @Slf4j
 public class CatalogTableUtil implements Serializable {
@@ -126,8 +123,9 @@ public class CatalogTableUtil implements Serializable {
                 .map(
                         catalog -> {
                             long startTime = System.currentTimeMillis();
-                            List<CatalogTable> catalogTables =
-                                    getCatalogTables(catalogConfig, catalog);
+                            catalog.open();
+                            List<CatalogTable> catalogTables = catalog.getTables(catalogConfig);
+                            catalog.close();
                             log.info(
                                     String.format(
                                             "Get catalog tables, cost time: %d",
@@ -135,39 +133,6 @@ public class CatalogTableUtil implements Serializable {
                             return catalogTables;
                         })
                 .orElse(Collections.emptyList());
-    }
-
-    public static List<CatalogTable> getCatalogTables(
-            ReadonlyConfig catalogConfig, Catalog catalog) {
-        // Get the list of specified tables
-        List<String> tableNames = catalogConfig.get(CatalogOptions.TABLE_NAMES);
-        List<CatalogTable> catalogTables = new ArrayList<>();
-        if (tableNames != null && tableNames.size() >= 1) {
-            for (String tableName : tableNames) {
-                catalogTables.add(catalog.getTable(TablePath.of(tableName)));
-            }
-            return catalogTables;
-        }
-
-        // Get the list of table pattern
-        String tablePatternStr = catalogConfig.get(CatalogOptions.TABLE_PATTERN);
-        if (StringUtils.isBlank(tablePatternStr)) {
-            return Collections.emptyList();
-        }
-        Pattern databasePattern =
-                Pattern.compile(catalogConfig.get(CatalogOptions.DATABASE_PATTERN));
-        Pattern tablePattern = Pattern.compile(catalogConfig.get(CatalogOptions.TABLE_PATTERN));
-        List<String> allDatabase = catalog.listDatabases();
-        allDatabase.removeIf(s -> !databasePattern.matcher(s).matches());
-        for (String databaseName : allDatabase) {
-            tableNames = catalog.listTables(databaseName);
-            for (String tableName : tableNames) {
-                if (tablePattern.matcher(databaseName + "." + tableName).matches()) {
-                    catalogTables.add(catalog.getTable(TablePath.of(databaseName, tableName)));
-                }
-            }
-        }
-        return catalogTables;
     }
 
     public static CatalogTableUtil buildWithConfig(Config config) {
