@@ -283,18 +283,22 @@ public class MultipleTableJobConfigParser {
                         TableSourceFactory.class,
                         factoryId,
                         (factory) -> factory.createSource(null));
-        if (fallback) {
+
+        final List<CatalogTable> catalogTables = new ArrayList<>();
+        if (!fallback) {
+            List<CatalogTable> tables =
+                    CatalogTableUtil.getCatalogTables(sourceConfig, classLoader);
+            if (!tables.isEmpty()) {
+                catalogTables.addAll(tables);
+            }
+        }
+
+        if (fallback || catalogTables.isEmpty()) {
             Tuple2<CatalogTable, Action> tuple =
                     fallbackParser.parseSource(sourceConfig, jobConfig, tableId, parallelism);
             return new Tuple2<>(tableId, Collections.singletonList(tuple));
         }
 
-        final List<CatalogTable> catalogTables =
-                CatalogTableUtil.getCatalogTables(sourceConfig, classLoader);
-        if (catalogTables.isEmpty()) {
-            throw new JobDefineCheckException(
-                    "The source needs catalog table, please configure `catalog` or `schema` options.");
-        }
         if (readonlyConfig.get(SourceOptions.DAG_PARSING_MODE) == ParsingMode.SHARDING) {
             CatalogTable shardingTable = catalogTables.get(0);
             catalogTables.clear();
