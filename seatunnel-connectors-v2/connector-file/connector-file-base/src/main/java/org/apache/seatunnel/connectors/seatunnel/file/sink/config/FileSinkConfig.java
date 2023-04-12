@@ -32,6 +32,7 @@ import org.apache.commons.lang3.StringUtils;
 import lombok.Data;
 import lombok.NonNull;
 
+import java.io.File;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -54,7 +55,7 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
     private boolean isPartitionFieldWriteInFile =
             BaseSinkConfig.IS_PARTITION_FIELD_WRITE_IN_FILE.defaultValue();
 
-    private String tmpPath = BaseSinkConfig.TMP_PATH.defaultValue();
+    private String tmpPath = this.path + File.separator + BaseSinkConfig.TMP_PATH.defaultValue();
 
     private String fileNameTimeFormat = BaseSinkConfig.FILENAME_TIME_FORMAT.defaultValue();
 
