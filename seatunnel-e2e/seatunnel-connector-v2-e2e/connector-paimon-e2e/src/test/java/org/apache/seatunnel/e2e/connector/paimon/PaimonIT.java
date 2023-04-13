@@ -36,9 +36,9 @@ import java.nio.file.Path;
 
 @DisabledOnContainer(
         value = TestContainerId.FLINK_1_13,
-        type = {EngineType.SPARK, EngineType.SEATUNNEL},
+        type = {EngineType.SEATUNNEL},
         disabledReason =
-                "Paimon does not support flink 1.13 and all connectors e2e has some issues with spark engine and zeta engine")
+                "Paimon does not support flink 1.13 and all connectors e2e has some issues with zeta engine")
 public class PaimonIT extends TestSuiteBase {
 
     @TestContainerExtension
