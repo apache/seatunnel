@@ -98,6 +98,7 @@ public class SeaTunnelServer
         // type
         taskExecutionService = new TaskExecutionService(nodeEngine, nodeEngine.getProperties());
         nodeEngine.getMetricsRegistry().registerDynamicMetricsProvider(taskExecutionService);
+        // 启动taskExecutionService
         taskExecutionService.start();
         getSlotService();
         coordinatorService =
