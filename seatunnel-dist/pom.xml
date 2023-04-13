@@ -96,6 +96,7 @@
                 <tablestore.version>5.13.9</tablestore.version>
                 <teradata.version>17.20.00.12</teradata.version>
                 <redshift.version>2.1.0.9</redshift.version>
+                <snowflake.version>3.13.29</snowflake.version>
             </properties>
             <dependencies>
                 <!-- starters -->
@@ -547,6 +548,13 @@
                     <groupId>com.amazon.redshift</groupId>
                     <artifactId>redshift-jdbc42</artifactId>
                     <version>${redshift.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>net.snowflake</groupId>
+                    <artifactId>snowflake-jdbc</artifactId>
+                    <version>${snowflake.version}</version>
                     <scope>provided</scope>
                 </dependency>
                 <!-- jdbc driver end -->
