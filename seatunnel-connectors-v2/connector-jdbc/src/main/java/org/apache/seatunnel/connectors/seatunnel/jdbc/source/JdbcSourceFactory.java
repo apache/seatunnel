@@ -155,11 +155,11 @@ public class JdbcSourceFactory implements TableSourceFactory {
                 max =
                         config.getPartitionUpperBound().isPresent()
                                 ? config.getPartitionUpperBound().get()
-                                : Long.parseLong(rs.getString(1));
+                                : rs.getLong(1);
                 min =
                         config.getPartitionLowerBound().isPresent()
                                 ? config.getPartitionLowerBound().get()
-                                : Long.parseLong(rs.getString(2));
+                                : rs.getLong(2);
             }
         } catch (SQLException e) {
             throw new PrepareFailException("jdbc", PluginType.SOURCE, e.toString());
