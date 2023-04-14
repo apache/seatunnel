@@ -108,7 +108,7 @@ public class JdbcSourceSplitEnumerator
                             : enumeratorContext.currentParallelism();
             JdbcNumericBetweenParametersProvider jdbcNumericBetweenParametersProvider =
                     new JdbcNumericBetweenParametersProvider(
-                                    partitionParameter.minValue, partitionParameter.maxValue)
+                                    partitionParameter.getMinValue(), partitionParameter.getMaxValue())
                             .ofBatchNum(partitionNumber);
             Serializable[][] parameterValues =
                     jdbcNumericBetweenParametersProvider.getParameterValues();
