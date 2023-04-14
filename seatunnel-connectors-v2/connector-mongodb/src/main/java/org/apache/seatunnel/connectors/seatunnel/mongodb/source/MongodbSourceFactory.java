@@ -48,7 +48,12 @@ public class MongodbSourceFactory implements TableSourceFactory {
                         MongodbConfig.COLLECTION,
                         CatalogTableUtil.SCHEMA)
                 .optional(
-                        MongodbConfig.MATCHQUERY, MongodbConfig.SPLIT_SIZE, MongodbConfig.SPLIT_KEY)
+                        MongodbConfig.PROJECTION,
+                        MongodbConfig.MATCHQUERY,
+                        MongodbConfig.SPLIT_SIZE,
+                        MongodbConfig.SPLIT_KEY,
+                        MongodbConfig.CURSO_NO_TIMEOUT,
+                        MongodbConfig.FETCH_SIZE)
                 .build();
     }
 

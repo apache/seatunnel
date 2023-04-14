@@ -34,6 +34,7 @@ import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoClientPro
 import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoColloctionProviders;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.DocumentDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.DocumentRowDataDeserializer;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.source.config.MongoReadOptions;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.enumerator.MongoSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.reader.MongoReader;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplit;
@@ -46,10 +47,14 @@ import com.google.auto.service.AutoService;
 
 import java.util.ArrayList;
 
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CONNECTOR_IDENTITY;
+
 @AutoService(SeaTunnelSource.class)
 public class MongodbSource
         implements SeaTunnelSource<SeaTunnelRow, MongoSplit, ArrayList<MongoSplit>>,
                 SupportColumnProjection {
+
+    private static final long serialVersionUID = 1L;
 
     private MongoClientProvider clientProvider;
 
@@ -59,9 +64,11 @@ public class MongodbSource
 
     private SeaTunnelRowType rowType;
 
+    private MongoReadOptions mongoReadOptions;
+
     @Override
     public String getPluginName() {
-        return "MongodbV2";
+        return CONNECTOR_IDENTITY;
     }
 
     @Override
@@ -109,6 +116,19 @@ public class MongodbSource
                                                         MongodbConfig.PROJECTION.key()))
                                         : new BsonDocument())
                         .build();
+
+        mongoReadOptions =
+                MongoReadOptions.builder()
+                        .setFetchSize(
+                                pluginConfig.hasPath(MongodbConfig.FETCH_SIZE.key())
+                                        ? pluginConfig.getInt(MongodbConfig.FETCH_SIZE.key())
+                                        : MongodbConfig.FETCH_SIZE.defaultValue())
+                        .setNoCursorTimeout(
+                                pluginConfig.hasPath(MongodbConfig.CURSO_NO_TIMEOUT.key())
+                                        ? pluginConfig.getBoolean(
+                                                MongodbConfig.CURSO_NO_TIMEOUT.key())
+                                        : MongodbConfig.CURSO_NO_TIMEOUT.defaultValue())
+                        .build();
     }
 
     @Override
@@ -124,7 +144,7 @@ public class MongodbSource
     @Override
     public SourceReader<SeaTunnelRow, MongoSplit> createReader(SourceReader.Context readerContext)
             throws Exception {
-        return new MongoReader(readerContext, clientProvider, deserializer);
+        return new MongoReader(readerContext, clientProvider, deserializer, mongoReadOptions);
     }
 
     @Override

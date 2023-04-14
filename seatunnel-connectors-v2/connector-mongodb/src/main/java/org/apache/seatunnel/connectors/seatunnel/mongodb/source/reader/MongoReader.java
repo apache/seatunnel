@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.DocumentDeserializer;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.source.config.MongoReadOptions;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplit;
 
 import org.bson.Document;
@@ -52,16 +53,18 @@ public class MongoReader implements SourceReader<SeaTunnelRow, MongoSplit> {
 
     private MongoSplit currentSplit;
 
-    private static final int DEFAULT_FETCH_SIZE = 200;
+    private MongoReadOptions readOptions;
 
     public MongoReader(
             SourceReader.Context context,
             MongoClientProvider clientProvider,
-            DocumentDeserializer<SeaTunnelRow> deserializer) {
+            DocumentDeserializer<SeaTunnelRow> deserializer,
+            MongoReadOptions mongoReadOptions) {
         this.deserializer = deserializer;
         this.context = context;
         this.clientProvider = clientProvider;
         pendingSplits = new LinkedBlockingQueue<>();
+        this.readOptions = mongoReadOptions;
     }
 
     @Override
@@ -93,7 +96,9 @@ public class MongoReader implements SourceReader<SeaTunnelRow, MongoSplit> {
                                 .getDefaultCollection()
                                 .find(currentSplit.getQuery())
                                 .projection(currentSplit.getProjection())
-                                .batchSize(DEFAULT_FETCH_SIZE);
+                                .batchSize(readOptions.getFetchSize())
+                                .noCursorTimeout(readOptions.isNoCursorTimeout());
+
                 cursor = rs.iterator();
                 while (cursor.hasNext()) {
                     SeaTunnelRow deserialize = deserializer.deserialize(cursor.next());
