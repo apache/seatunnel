@@ -1,6 +1,6 @@
 # JDBC
 
-> JDBC Mysql source connector
+> JDBC Mysql Source Connector
 
 ## Support those engines
 
@@ -14,11 +14,9 @@
 - [ ] [stream](../../concept/connector-v2-features.md)
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [column projection](../../concept/connector-v2-features.md)
-
-supports query SQL and can achieve projection effect.
-
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [x] [support user-defined split](../../concept/connector-v2-features.md)
+>  supports query SQL and can achieve projection effect.
 
 ## Description
 
@@ -57,7 +55,7 @@ Read external data source data through JDBC.
 
 ## Options
 
-|             name             |  type  | required |     default     |                                                                                                                            Description                                                                                                                            |
+|             name             |  type  | required |     default     |                                                                                                                            description                                                                                                                            |
 |------------------------------|--------|----------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                          | String | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:mysql://localhost:3306:3306/test                                                                                                                                                                            |
 | driver                       | String | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use MySQL the value is `com.mysql.cj.jdbc.Driver`.                                                                                                                                     |
