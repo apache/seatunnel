@@ -36,6 +36,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.auto.service.AutoService;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -102,7 +103,7 @@ public class PostgresDataTypeConvertor implements DataTypeConvertor<String> {
 
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(String connectorDataType) {
-        return null;
+        return toSeaTunnelType(connectorDataType, new HashMap<>(0));
     }
 
     @Override
