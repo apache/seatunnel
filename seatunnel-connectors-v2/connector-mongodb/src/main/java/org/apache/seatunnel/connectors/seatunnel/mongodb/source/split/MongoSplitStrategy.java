@@ -15,25 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
+package org.apache.seatunnel.connectors.seatunnel.mongodb.source.split;
 
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import java.util.List;
 
-import com.google.auto.service.AutoService;
+/** MongoSplitStrategy defines how to partition a Mongo data set into {@link MongoSplit}s. */
+public interface MongoSplitStrategy {
 
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CONNECTOR_IDENTITY;
-
-@AutoService(Factory.class)
-public class MongodbSinkFactory implements TableSinkFactory {
-    @Override
-    public String factoryIdentifier() {
-        return CONNECTOR_IDENTITY;
-    }
-
-    @Override
-    public OptionRule optionRule() {
-        return OptionRule.builder().required().build();
-    }
+    List<MongoSplit> split();
 }

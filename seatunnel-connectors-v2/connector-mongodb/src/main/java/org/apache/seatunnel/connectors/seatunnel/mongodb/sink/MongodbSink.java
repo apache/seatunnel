@@ -20,70 +20,107 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.serialization.DefaultSerializer;
+import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.exception.MongodbConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoClientProvider;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoColloctionProviders;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.DocumentSerializer;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.RowDataDocumentSerializer;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.state.DocumentBulk;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.state.MongodbAggregatedCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.state.MongodbCommitInfo;
 
 import com.google.auto.service.AutoService;
 
 import java.io.IOException;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
+import java.util.Optional;
 
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.COLLECTION;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.URI;
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CONNECTOR_IDENTITY;
 
 @AutoService(SeaTunnelSink.class)
-public class MongodbSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
+public class MongodbSink
+        implements SeaTunnelSink<
+                SeaTunnelRow, DocumentBulk, MongodbCommitInfo, MongodbAggregatedCommitInfo> {
 
-    private SeaTunnelRowType rowType;
+    @Override
+    public Optional<Serializer<DocumentBulk>> getWriterStateSerializer() {
+        return Optional.of(new DefaultSerializer<>());
+    }
 
-    private MongodbConfig params;
+    @Override
+    public Optional<SinkAggregatedCommitter<MongodbCommitInfo, MongodbAggregatedCommitInfo>>
+            createAggregatedCommitter() throws IOException {
+        return Optional.of(new MongodbSinkAggregatedCommitter());
+    }
+
+    @Override
+    public Optional<Serializer<MongodbAggregatedCommitInfo>> getAggregatedCommitInfoSerializer() {
+        return Optional.of(new DefaultSerializer<>());
+    }
+
+    @Override
+    public Optional<Serializer<MongodbCommitInfo>> getCommitInfoSerializer() {
+        return Optional.of(new DefaultSerializer<>());
+    }
+
+    private MongoClientProvider clientProvider;
+    private DocumentSerializer<SeaTunnelRow> serializer;
+
+    private MongoConnectorOptions options;
+
+    private SeaTunnelRowType seaTunnelRowType;
+
+    @Override
+    public void prepare(Config pluginConfig) throws PrepareFailException {
+        MongoConnectorOptions.Builder builder =
+                MongoConnectorOptions.builder()
+                        .withConnectString(
+                                "mongodb://localhost:27017/test?retryWrites=true&writeConcern=majority")
+                        .withDatabase("sink")
+                        .withCollection("test1")
+                        .withTransactionEnable(true)
+                        .withFlushOnCheckpoint(true)
+                        .withFlushSize(1000)
+                        .withFlushInterval(Duration.of(30_000L, ChronoUnit.MILLIS))
+                        .withUpsertEnable(false)
+                        .withUpsertKey(new String[] {});
+        this.options = builder.build();
+        this.clientProvider =
+                MongoColloctionProviders.getBuilder()
+                        .connectionString(
+                                "mongodb://localhost:27017/test?retryWrites=true&writeConcern=majority")
+                        .database("sink")
+                        .collection("test1")
+                        .build();
+    }
 
     @Override
     public String getPluginName() {
-        return "MongoDB";
+        return CONNECTOR_IDENTITY;
     }
 
     @Override
-    public void prepare(Config config) throws PrepareFailException {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(config, URI.key(), DATABASE.key(), COLLECTION.key());
-        if (!result.isSuccess()) {
-            throw new MongodbConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SINK, result.getMsg()));
-        }
-
-        this.params = MongodbConfig.buildWithConfig(config);
-    }
-
-    @Override
-    public void setTypeInfo(SeaTunnelRowType rowType) {
-        this.rowType = rowType;
+    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
+        this.seaTunnelRowType = seaTunnelRowType;
     }
 
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
-        return rowType;
+        return seaTunnelRowType;
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
-            throws IOException {
-        boolean useSimpleTextSchema = CatalogTableUtil.buildSimpleTextSchema().equals(rowType);
-        return new MongodbSinkWriter(rowType, useSimpleTextSchema, params);
+    public SinkWriter<SeaTunnelRow, MongodbCommitInfo, DocumentBulk> createWriter(
+            SinkWriter.Context context) throws IOException {
+        return new MongoBulkWriter(
+                clientProvider, new RowDataDocumentSerializer(seaTunnelRowType), options);
     }
 }

@@ -15,25 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
+package org.apache.seatunnel.connectors.seatunnel.mongodb.serde;
 
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.bson.Document;
 
-import com.google.auto.service.AutoService;
+import java.io.Serializable;
 
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CONNECTOR_IDENTITY;
+/** DocumentDeserializer deserialize {@link Document} into POJOs or other Java objects . */
+public interface DocumentDeserializer<T> extends Serializable {
 
-@AutoService(Factory.class)
-public class MongodbSinkFactory implements TableSinkFactory {
-    @Override
-    public String factoryIdentifier() {
-        return CONNECTOR_IDENTITY;
-    }
-
-    @Override
-    public OptionRule optionRule() {
-        return OptionRule.builder().required().build();
-    }
+    /**
+     * Serialize input Java objects into {@link Document}.
+     *
+     * @param document The input {@link Document}.
+     * @return The serialized object.
+     */
+    T deserialize(Document document);
 }

@@ -30,7 +30,7 @@ public class SeaTunnelApiExample {
 
     public static void main(String[] args)
             throws FileNotFoundException, URISyntaxException, CommandException {
-        String configurePath = args.length > 0 ? args[0] : "/examples/fakesource_to_console.conf";
+        String configurePath = args.length > 0 ? args[0] : "/examples/fakesource_to_mongodb.conf";
         String configFile = getTestConfigFile(configurePath);
         FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
         flinkCommandArgs.setConfigFile(configFile);
