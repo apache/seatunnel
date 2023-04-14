@@ -39,6 +39,7 @@
         <module>connector-file-sftp</module>
         <module>connector-file-s3</module>
         <module>connector-file-oss-jindo</module>
+        <module>connector-file-obs</module>
     </modules>
 
     <properties>
