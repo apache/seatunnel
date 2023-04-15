@@ -57,19 +57,12 @@ public class MongodbBulkWriter
 
     private final RetryPolicy retryPolicy = new RetryPolicy(3, 1000L);
 
-    private transient boolean initialized = false;
-
     private transient volatile boolean closed = false;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MongodbBulkWriter.class);
 
-    private final boolean upsertEnable;
-    private final String[] upsertKeys;
-
     public MongodbBulkWriter(
             DocumentSerializer<SeaTunnelRow> serializer, MongodbWriterOptions options) {
-        this.upsertEnable = options.isUpsertEnable();
-        this.upsertKeys = options.getUpsertKey();
         this.collectionProvider =
                 MongoColloctionProviders.getBuilder()
                         .connectionString(options.getConnectString())
@@ -79,7 +72,7 @@ public class MongodbBulkWriter
         this.collection = collectionProvider.getDefaultCollection();
         this.serializer = serializer;
         this.maxSize = options.getFlushSize();
-        this.flushOnCheckpoint = options.getFlushOnCheckpoint();
+        this.flushOnCheckpoint = options.isFlushOnCheckpoint();
         if (!flushOnCheckpoint && options.getFlushInterval().getSeconds() > 0) {
             this.scheduler = Executors.newScheduledThreadPool(1);
             this.scheduledFuture =
@@ -190,7 +183,7 @@ public class MongodbBulkWriter
             rollBulkIfNeeded(true);
         }
 
-        return Optional.of(new MongodbCommitInfo(collectionProvider, pendingBulks));
+        return Optional.of(new MongodbCommitInfo(pendingBulks));
     }
 
     private void rollBulkIfNeeded() {

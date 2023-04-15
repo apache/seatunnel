@@ -1,4 +1,4 @@
-package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
+package org.apache.seatunnel.connectors.seatunnel.mongodb.sink.commit;
 
 import org.bson.Document;
 

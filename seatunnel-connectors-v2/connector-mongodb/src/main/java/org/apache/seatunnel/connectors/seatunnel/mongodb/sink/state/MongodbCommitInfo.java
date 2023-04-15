@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state;
 
-import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoClientProvider;
-
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -28,7 +26,5 @@ import java.util.List;
 @Data
 @AllArgsConstructor
 public class MongodbCommitInfo implements Serializable {
-
-    MongoClientProvider clientProvider;
     List<DocumentBulk> documentBulks;
 }

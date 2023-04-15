@@ -17,12 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodbv2;
 
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.MongodbSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.source.MongodbSourceFactory;
+
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 class MongodbFactoryTest {
 
     @Test
     void optionRule() {
-        //        Assertions.assertNotNull((new MongodbSourceFactory()).optionRule());
+        Assertions.assertNotNull((new MongodbSourceFactory()).optionRule());
+        Assertions.assertNotNull((new MongodbSinkFactory()).optionRule());
     }
 }

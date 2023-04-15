@@ -1,9 +1,11 @@
 package org.apache.seatunnel.connectors.seatunnel.mongodb.sink.config;
 
+import lombok.Getter;
+
 import java.io.Serializable;
 import java.time.Duration;
 
-/** mongo connector options */
+@Getter
 public class MongodbWriterOptions implements Serializable {
 
     private static final long serialVersionUID = 1;
@@ -39,42 +41,6 @@ public class MongodbWriterOptions implements Serializable {
         this.upsertKey = upsertKey;
     }
 
-    public String getConnectString() {
-        return connectString;
-    }
-
-    public String getDatabase() {
-        return database;
-    }
-
-    public String getCollection() {
-        return collection;
-    }
-
-    public boolean isTransactionEnable() {
-        return transactionEnable;
-    }
-
-    public boolean getFlushOnCheckpoint() {
-        return flushOnCheckpoint;
-    }
-
-    public int getFlushSize() {
-        return flushSize;
-    }
-
-    public Duration getFlushInterval() {
-        return flushInterval;
-    }
-
-    public boolean isUpsertEnable() {
-        return upsertEnable;
-    }
-
-    public String[] getUpsertKey() {
-        return upsertKey;
-    }
-
     public static Builder builder() {
         return new Builder();
     }
@@ -84,9 +50,6 @@ public class MongodbWriterOptions implements Serializable {
         protected String connectString;
         protected String database;
         protected String collection;
-        protected String user;
-        protected String password;
-
         protected boolean transactionEnable;
         protected boolean flushOnCheckpoint;
         protected int flushSize;

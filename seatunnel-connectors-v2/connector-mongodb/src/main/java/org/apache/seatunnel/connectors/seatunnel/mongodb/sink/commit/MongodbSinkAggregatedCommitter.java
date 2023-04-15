@@ -1,7 +1,9 @@
 package org.apache.seatunnel.connectors.seatunnel.mongodb.sink.commit;
 
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.CommittableTransaction;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoClientProvider;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoColloctionProviders;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.config.MongodbWriterOptions;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.DocumentBulk;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.MongodbAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.MongodbCommitInfo;
@@ -24,6 +26,22 @@ import java.util.stream.Collectors;
 public class MongodbSinkAggregatedCommitter
         implements SinkAggregatedCommitter<MongodbCommitInfo, MongodbAggregatedCommitInfo> {
 
+    private final boolean enableUpsert;
+    private final String[] upsertKeys;
+
+    MongoClientProvider collectionProvider;
+
+    public MongodbSinkAggregatedCommitter(MongodbWriterOptions options) {
+        this.enableUpsert = options.isUpsertEnable();
+        this.upsertKeys = options.getUpsertKey();
+        this.collectionProvider =
+                MongoColloctionProviders.getBuilder()
+                        .connectionString(options.getConnectString())
+                        .database(options.getDatabase())
+                        .collection(options.getCollection())
+                        .build();
+    }
+
     @Override
     public List<MongodbAggregatedCommitInfo> commit(
             List<MongodbAggregatedCommitInfo> aggregatedCommitInfo) throws IOException {
@@ -41,31 +59,31 @@ public class MongodbSinkAggregatedCommitter
                 aggregatedCommitInfo.getCommitInfos().stream()
                         .map(this::processCommitInfo)
                         .filter(failedDocumentBulks -> !failedDocumentBulks.isEmpty())
-                        .map(
-                                failedDocumentBulks ->
-                                        new MongodbCommitInfo(
-                                                aggregatedCommitInfo
-                                                        .getCommitInfos()
-                                                        .get(0)
-                                                        .getClientProvider(),
-                                                failedDocumentBulks))
+                        .map(MongodbCommitInfo::new)
                         .collect(Collectors.toList());
 
         return new MongodbAggregatedCommitInfo(failedCommitInfos);
     }
 
     private List<DocumentBulk> processCommitInfo(MongodbCommitInfo commitInfo) {
-        ClientSession clientSession = commitInfo.getClientProvider().getClient().startSession();
-        MongoCollection<Document> collection =
-                commitInfo.getClientProvider().getDefaultCollection();
-
+        ClientSession clientSession = collectionProvider.getClient().startSession();
+        MongoCollection<Document> collection = collectionProvider.getDefaultCollection();
         return commitInfo.getDocumentBulks().stream()
                 .filter(bulk -> !bulk.getDocuments().isEmpty())
                 .filter(
                         bulk -> {
                             try {
-                                CommittableTransaction transaction =
-                                        new CommittableTransaction(collection, bulk.getDocuments());
+                                CommittableTransaction transaction;
+                                if (enableUpsert) {
+                                    transaction =
+                                            new CommittableUpsertTransaction(
+                                                    collection, bulk.getDocuments(), upsertKeys);
+                                } else {
+                                    transaction =
+                                            new CommittableTransaction(
+                                                    collection, bulk.getDocuments());
+                                }
+
                                 int insertedDocs =
                                         clientSession.withTransaction(
                                                 transaction,
@@ -99,7 +117,7 @@ public class MongodbSinkAggregatedCommitter
                 .forEach(
                         commitInfo -> {
                             try (ClientSession clientSession =
-                                    commitInfo.getClientProvider().getClient().startSession()) {
+                                    collectionProvider.getClient().startSession()) {
                                 clientSession.abortTransaction();
                             }
                         });

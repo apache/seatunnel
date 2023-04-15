@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 
-import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.commit.MongodbSinkAggregatedCommitter;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.config.MongodbWriterOptions;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.writer.MongodbBulkWriter;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
@@ -33,9 +30,12 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.RowDataDocumentSerializer;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.commit.MongodbSinkAggregatedCommitter;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.config.MongodbWriterOptions;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.DocumentBulk;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.MongodbAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.MongodbCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.writer.MongodbBulkWriter;
 
 import com.google.auto.service.AutoService;
 
@@ -116,7 +116,7 @@ public class MongodbSink
     @Override
     public Optional<SinkAggregatedCommitter<MongodbCommitInfo, MongodbAggregatedCommitInfo>>
             createAggregatedCommitter() throws IOException {
-        return Optional.of(new MongodbSinkAggregatedCommitter());
+        return Optional.of(new MongodbSinkAggregatedCommitter(options));
     }
 
     @Override
