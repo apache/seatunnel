@@ -93,7 +93,7 @@ public class MongodbConfig {
     public static final Option<Long> MAX_TIME_MIN =
             Options.key("max.time.min")
                     .longType()
-                    .defaultValue(Long.MAX_VALUE)
+                    .defaultValue(Long.MAX_VALUE - 1)
                     .withDescription(
                             "This parameter is a MongoDB query option that limits the maximum execution time for query operations. The value of maxTimeMS is in milliseconds. If the execution time of the query exceeds the specified time limit, MongoDB will terminate the operation and return an error.");
 
@@ -137,16 +137,8 @@ public class MongodbConfig {
                             "MongoDB server normally times out idle cursors after an inactivity period (10 minutes) to prevent excess memory use. Set this option to true to prevent that. However, if the application takes longer than 30 minutes to process the current batch of documents, the session is marked as expired and closed.");
 
     public static final Option<Boolean> UPSERT_ENABLE =
-            Options.key("upsert-enable")
-                    .booleanType()
-                    .defaultValue(false)
-                    .withDescription("");
+            Options.key("upsert-enable").booleanType().defaultValue(false).withDescription("");
 
     public static final Option<List<String>> UPSERT_KEY =
-            Options.key("upsert-key")
-                    .listType()
-                    .noDefaultValue()
-                    .withDescription("");
-
-
+            Options.key("upsert-key").listType().noDefaultValue().withDescription("");
 }

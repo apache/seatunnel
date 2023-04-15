@@ -1,6 +1,5 @@
 package org.apache.seatunnel.connectors.seatunnel.mongodb.sink.writer;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoClientProvider;
@@ -12,8 +11,6 @@ import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.MongodbCommi
 
 import org.bson.Document;
 import org.bson.conversions.Bson;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.mongodb.MongoException;
 import com.mongodb.client.MongoCollection;
@@ -21,8 +18,7 @@ import com.mongodb.client.model.BulkWriteOptions;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.UpdateOneModel;
 import com.mongodb.client.model.UpdateOptions;
-
-import javax.annotation.concurrent.NotThreadSafe;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.time.temporal.ChronoUnit;
