@@ -54,7 +54,7 @@ public class MongoReader implements SourceReader<SeaTunnelRow, MongoSplit> {
 
     private MongoSplit currentSplit;
 
-    private MongodbReadOptions readOptions;
+    private final MongodbReadOptions readOptions;
 
     public MongoReader(
             SourceReader.Context context,

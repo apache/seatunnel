@@ -15,7 +15,9 @@ import com.mongodb.ReadPreference;
 import com.mongodb.TransactionOptions;
 import com.mongodb.WriteConcern;
 import com.mongodb.client.ClientSession;
+import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -29,7 +31,13 @@ public class MongodbSinkAggregatedCommitter
     private final boolean enableUpsert;
     private final String[] upsertKeys;
 
-    MongoClientProvider collectionProvider;
+    private final MongoClientProvider collectionProvider;
+
+    private ClientSession clientSession;
+
+    private MongoClient client;
+
+    private static final long TRANSACTION_TIMEOUT_MS = 60_000L;
 
     public MongodbSinkAggregatedCommitter(MongodbWriterOptions options) {
         this.enableUpsert = options.isUpsertEnable();
@@ -66,7 +74,8 @@ public class MongodbSinkAggregatedCommitter
     }
 
     private List<DocumentBulk> processCommitInfo(MongodbCommitInfo commitInfo) {
-        ClientSession clientSession = collectionProvider.getClient().startSession();
+        client = collectionProvider.getClient();
+        clientSession = client.startSession();
         MongoCollection<Document> collection = collectionProvider.getDefaultCollection();
         return commitInfo.getDocumentBulks().stream()
                 .filter(bulk -> !bulk.getDocuments().isEmpty())
@@ -123,6 +132,15 @@ public class MongodbSinkAggregatedCommitter
                         });
     }
 
+    @SneakyThrows
     @Override
-    public void close() throws IOException {}
+    public void close() throws IOException {
+        long deadline = System.currentTimeMillis() + TRANSACTION_TIMEOUT_MS;
+        while (clientSession.hasActiveTransaction() && System.currentTimeMillis() < deadline) {
+            // wait for active transaction to finish or timeout
+            Thread.sleep(5_000L);
+        }
+        clientSession.close();
+        client.close();
+    }
 }

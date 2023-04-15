@@ -1,13 +1,15 @@
 package org.apache.seatunnel.connectors.seatunnel.mongodb.serde;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.exception.MongodbConnectorException;
 
 import org.bson.Document;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class RowDataDocumentSerializer implements DocumentSerializer<SeaTunnelRow> {
 
@@ -30,7 +32,10 @@ public class RowDataDocumentSerializer implements DocumentSerializer<SeaTunnelRo
             String s = mapper.writeValueAsString(node);
             return Document.parse(s);
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("can not serialize row '" + row + "'. ", e);
+            throw new MongodbConnectorException(
+                    CommonErrorCode.SERIALIZE_OPERATION_FAILED,
+                    "can not serialize row '" + row + "'. ",
+                    e);
         }
     }
 }

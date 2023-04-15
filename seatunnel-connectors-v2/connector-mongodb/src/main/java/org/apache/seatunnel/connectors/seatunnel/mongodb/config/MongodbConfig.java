@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.configuration.Options;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 
 public class MongodbConfig {
 
@@ -134,4 +135,18 @@ public class MongodbConfig {
                     .defaultValue(false)
                     .withDescription(
                             "MongoDB server normally times out idle cursors after an inactivity period (10 minutes) to prevent excess memory use. Set this option to true to prevent that. However, if the application takes longer than 30 minutes to process the current batch of documents, the session is marked as expired and closed.");
+
+    public static final Option<Boolean> UPSERT_ENABLE =
+            Options.key("upsert-enable")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("");
+
+    public static final Option<List<String>> UPSERT_KEY =
+            Options.key("upsert-key")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription("");
+
+
 }

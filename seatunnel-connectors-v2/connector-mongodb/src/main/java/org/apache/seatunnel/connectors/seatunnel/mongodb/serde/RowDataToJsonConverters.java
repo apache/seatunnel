@@ -1,16 +1,18 @@
 package org.apache.seatunnel.connectors.seatunnel.mongodb.serde;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.exception.MongodbConnectorException;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
@@ -99,7 +101,7 @@ public class RowDataToJsonConverters implements Serializable {
         return (mapper, reuse, value) -> {
             int millisecond = (Integer) value;
             LocalTime time = LocalTime.ofSecondOfDay((long) millisecond / 1000L);
-            return mapper.getNodeFactory().textNode(TimeFormats.SQL_TIME_FORMAT.format(time));
+            return mapper.getNodeFactory().textNode(TimeFormat.TIME_FORMAT.format(time));
         };
     }
 
@@ -112,7 +114,6 @@ public class RowDataToJsonConverters implements Serializable {
         final RowDataToJsonConverter elementConverter = createConverter(arrayType.getElementType());
         return (mapper, reuse, value) -> {
             ArrayNode node;
-
             // reuse could be a NullNode if last record is null.
             if (reuse == null || reuse.isNull()) {
                 node = mapper.createArrayNode();
@@ -134,11 +135,10 @@ public class RowDataToJsonConverters implements Serializable {
     private RowDataToJsonConverter createMapConverter(
             String typeSummary, SeaTunnelDataType<?> keyType, SeaTunnelDataType<?> valueType) {
         if (!SqlType.STRING.equals(keyType.getSqlType())) {
-            //            throw new SeaTunnelJsonFormatException(
-            //                    CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-            //                    "JSON format doesn't support non-string as key type of map. The
-            // type is: "
-            //                            + typeSummary);
+            throw new MongodbConnectorException(
+                    CommonErrorCode.UNSUPPORTED_OPERATION,
+                    "JSON format doesn't support non-string as key type of map. The type is: "
+                            + typeSummary);
         }
 
         final RowDataToJsonConverter valueConverter = createConverter(valueType);

@@ -1,5 +1,6 @@
 package org.apache.seatunnel.connectors.seatunnel.mongodb.sink.writer;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoClientProvider;
@@ -10,11 +11,16 @@ import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.DocumentBulk
 import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.MongodbCommitInfo;
 
 import org.bson.Document;
+import org.bson.conversions.Bson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.mongodb.MongoException;
 import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.BulkWriteOptions;
+import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.UpdateOneModel;
+import com.mongodb.client.model.UpdateOptions;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -31,13 +37,13 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
-/** Writer for MongoDB sink. */
+@Slf4j
 public class MongodbBulkWriter
         implements SinkWriter<SeaTunnelRow, MongodbCommitInfo, DocumentBulk> {
 
     private final MongoClientProvider collectionProvider;
 
-    private final transient MongoCollection<Document> collection;
+    private final MongoCollection<Document> collection;
 
     private final ConcurrentLinkedQueue<Document> currentBulk = new ConcurrentLinkedQueue<>();
 
@@ -45,11 +51,11 @@ public class MongodbBulkWriter
 
     private final DocumentSerializer<SeaTunnelRow> serializer;
 
-    private transient ScheduledExecutorService scheduler;
+    private ScheduledExecutorService scheduler;
 
-    private transient ScheduledFuture scheduledFuture;
+    private ScheduledFuture scheduledFuture;
 
-    private transient volatile Exception flushException;
+    private volatile Exception flushException;
 
     private final long maxSize;
 
@@ -57,12 +63,15 @@ public class MongodbBulkWriter
 
     private final RetryPolicy retryPolicy = new RetryPolicy(3, 1000L);
 
-    private transient volatile boolean closed = false;
+    private volatile boolean closed = false;
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(MongodbBulkWriter.class);
+    private final boolean upsertEnable;
+    private final String[] upsertKeys;
 
     public MongodbBulkWriter(
             DocumentSerializer<SeaTunnelRow> serializer, MongodbWriterOptions options) {
+        this.upsertEnable = options.isUpsertEnable();
+        this.upsertKeys = options.getUpsertKey();
         this.collectionProvider =
                 MongoColloctionProviders.getBuilder()
                         .connectionString(options.getConnectString())
@@ -79,7 +88,7 @@ public class MongodbBulkWriter
                     scheduler.scheduleWithFixedDelay(
                             () -> {
                                 synchronized (MongodbBulkWriter.this) {
-                                    if (true && !closed) {
+                                    if (!closed) {
                                         try {
                                             rollBulkIfNeeded(true);
                                             flush();
@@ -100,21 +109,25 @@ public class MongodbBulkWriter
             ensureConnection();
             retryPolicy.reset();
             Iterator<DocumentBulk> iterator = pendingBulks.iterator();
-            while (iterator.hasNext()) {
-                DocumentBulk bulk = iterator.next();
-                do {
-                    try {
-                        // ordered, non-bypass mode
-                        if (bulk.size() > 0) {
-                            collection.insertMany(bulk.getDocuments());
+            if (this.upsertEnable) {
+                flushUpsert(iterator);
+            } else {
+                while (iterator.hasNext()) {
+                    DocumentBulk bulk = iterator.next();
+                    do {
+                        try {
+                            // ordered, non-bypass mode
+                            if (bulk.size() > 0) {
+                                collection.insertMany(bulk.getDocuments());
+                            }
+                            iterator.remove();
+                            break;
+                        } catch (MongoException e) {
+                            // maybe partial failure
+                            log.error("Failed to flush data to MongoDB", e);
                         }
-                        iterator.remove();
-                        break;
-                    } catch (MongoException e) {
-                        // maybe partial failure
-                        LOGGER.error("Failed to flush data to MongoDB", e);
-                    }
-                } while (!closed && retryPolicy.shouldBackoffRetry());
+                    } while (!closed && retryPolicy.shouldBackoffRetry());
+                }
             }
         }
     }
@@ -123,13 +136,12 @@ public class MongodbBulkWriter
         try {
             collection.listIndexes();
         } catch (MongoException e) {
-            LOGGER.warn("Connection is not available, try to reconnect", e);
+            log.warn("Connection is not available, try to reconnect", e);
             collectionProvider.recreateClient();
         }
     }
 
-    @NotThreadSafe
-    class RetryPolicy {
+    static class RetryPolicy {
 
         private final long maxRetries;
 
@@ -240,6 +252,45 @@ public class MongodbBulkWriter
 
         if (collectionProvider != null) {
             collectionProvider.close();
+        }
+    }
+
+    private void flushUpsert(Iterator<DocumentBulk> iterator) {
+        UpdateOptions updateOptions = new UpdateOptions();
+        updateOptions.upsert(true);
+        BulkWriteOptions bulkWriteOptions = new BulkWriteOptions();
+        bulkWriteOptions.ordered(true);
+        while (iterator.hasNext()) {
+            DocumentBulk bulk = iterator.next();
+            do {
+                try {
+                    if (bulk.size() > 0) {
+                        List<Document> documents = bulk.getDocuments();
+                        List<UpdateOneModel<Document>> upserts = new ArrayList<>();
+                        for (Document document : documents) {
+                            List<Bson> filters = new ArrayList<>(upsertKeys.length);
+                            for (String upsertKey : upsertKeys) {
+                                Object o = document.get(upsertKey);
+                                Bson eq = Filters.eq(upsertKey, o);
+                                filters.add(eq);
+                            }
+                            Document update = new Document();
+                            update.append("$set", document);
+                            Bson filter = Filters.and(filters);
+                            UpdateOneModel<Document> updateOneModel =
+                                    new UpdateOneModel<>(filter, update, updateOptions);
+                            upserts.add(updateOneModel);
+                        }
+                        collection.bulkWrite(upserts, bulkWriteOptions);
+                    }
+
+                    iterator.remove();
+                    break;
+                } catch (MongoException e) {
+                    // maybe partial failure
+                    log.error("Failed to flush data to MongoDB", e);
+                }
+            } while (!closed && retryPolicy.shouldBackoffRetry());
         }
     }
 }

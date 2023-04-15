@@ -10,7 +10,9 @@ public class MongodbWriterOptions implements Serializable {
 
     private static final long serialVersionUID = 1;
     protected final String connectString;
+
     protected final String database;
+
     protected final String collection;
 
     protected final boolean transactionEnable;
@@ -72,13 +74,9 @@ public class MongodbWriterOptions implements Serializable {
             return this;
         }
 
-        public Builder withTransactionEnable(boolean transactionEnable) {
-            this.transactionEnable = transactionEnable;
-            return this;
-        }
-
         public Builder withFlushOnCheckpoint(boolean flushOnCheckpoint) {
             this.flushOnCheckpoint = flushOnCheckpoint;
+            this.transactionEnable = flushOnCheckpoint;
             return this;
         }
 

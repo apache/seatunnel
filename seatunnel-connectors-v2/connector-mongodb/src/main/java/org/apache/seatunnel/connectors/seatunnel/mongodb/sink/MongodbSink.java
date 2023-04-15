@@ -40,6 +40,7 @@ import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.writer.MongodbBulk
 import com.google.auto.service.AutoService;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CONNECTOR_IDENTITY;
@@ -81,8 +82,17 @@ public class MongodbSink
                                             ? pluginConfig.getDuration(
                                                     MongodbConfig.BUFFER_FLUSH_INTERVAL.key())
                                             : MongodbConfig.BUFFER_FLUSH_INTERVAL.defaultValue())
-                            .withUpsertEnable(false)
-                            .withUpsertKey(new String[] {});
+                            .withUpsertEnable(
+                                    pluginConfig.hasPath(MongodbConfig.IS_EXACTLY_ONCE.key())
+                                            ? pluginConfig.getBoolean(
+                                            MongodbConfig.IS_EXACTLY_ONCE.key())
+                                            : MongodbConfig.IS_EXACTLY_ONCE.defaultValue())
+                            .withUpsertKey(
+                                    pluginConfig.hasPath(MongodbConfig.UPSERT_KEY.key())
+                                            ? pluginConfig.getList(
+                                            MongodbConfig.UPSERT_KEY.key()).toArray(new String[0]): new String[]{});
+
+
             this.options = builder.build();
         }
     }
