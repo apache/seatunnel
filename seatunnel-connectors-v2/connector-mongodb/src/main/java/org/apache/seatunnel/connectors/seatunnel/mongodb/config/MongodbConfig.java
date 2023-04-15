@@ -88,6 +88,13 @@ public class MongodbConfig {
                     .withDescription(
                             "MongoDB server normally times out idle cursors after an inactivity period (10 minutes) to prevent excess memory use. Set this option to true to prevent that. However, if the application takes longer than 30 minutes to process the current batch of documents, the session is marked as expired and closed.");
 
+    public static final Option<Long> MAX_TIME_MIN =
+            Options.key("max.time.min")
+                    .longType()
+                    .defaultValue(Long.MAX_VALUE)
+                    .withDescription("This parameter is a MongoDB query option that limits the maximum execution time for query operations. The value of maxTimeMS is in milliseconds. If the execution time of the query exceeds the specified time limit, MongoDB will terminate the operation and return an error.");
+
+
     // --------------------------------------------------------------------
     // The following are the sink parameters.
     // --------------------------------------------------------------------

@@ -39,6 +39,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 /** MongoReader reads MongoDB by splits (queries). */
 @Slf4j
@@ -97,7 +98,8 @@ public class MongoReader implements SourceReader<SeaTunnelRow, MongoSplit> {
                                 .find(currentSplit.getQuery())
                                 .projection(currentSplit.getProjection())
                                 .batchSize(readOptions.getFetchSize())
-                                .noCursorTimeout(readOptions.isNoCursorTimeout());
+                                .noCursorTimeout(readOptions.isNoCursorTimeout())
+                                .maxTime(readOptions.getMaxTimeMS(), TimeUnit.MINUTES);
 
                 cursor = rs.iterator();
                 while (cursor.hasNext()) {

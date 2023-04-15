@@ -35,7 +35,7 @@ import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoColloctio
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.DocumentDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.DocumentRowDataDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.config.MongoReadOptions;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.source.enumerator.MongoSplitEnumerator;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.source.enumerator.MongodbSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.reader.MongoReader;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplit;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplitStrategy;
@@ -119,6 +119,10 @@ public class MongodbSource
 
         mongoReadOptions =
                 MongoReadOptions.builder()
+                        .setMaxTimeMS(
+                                pluginConfig.hasPath(MongodbConfig.MAX_TIME_MIN.key())
+                                        ? pluginConfig.getLong(MongodbConfig.MAX_TIME_MIN.key())
+                                        : MongodbConfig.MAX_TIME_MIN.defaultValue())
                         .setFetchSize(
                                 pluginConfig.hasPath(MongodbConfig.FETCH_SIZE.key())
                                         ? pluginConfig.getInt(MongodbConfig.FETCH_SIZE.key())
@@ -150,7 +154,7 @@ public class MongodbSource
     @Override
     public SourceSplitEnumerator<MongoSplit, ArrayList<MongoSplit>> createEnumerator(
             SourceSplitEnumerator.Context<MongoSplit> enumeratorContext) throws Exception {
-        return new MongoSplitEnumerator(enumeratorContext, clientProvider, splitStrategy);
+        return new MongodbSplitEnumerator(enumeratorContext, clientProvider, splitStrategy);
     }
 
     @Override
@@ -158,7 +162,7 @@ public class MongodbSource
             SourceSplitEnumerator.Context<MongoSplit> enumeratorContext,
             ArrayList<MongoSplit> checkpointState)
             throws Exception {
-        return new MongoSplitEnumerator(
+        return new MongodbSplitEnumerator(
                 enumeratorContext, clientProvider, splitStrategy, checkpointState);
     }
 }

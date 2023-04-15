@@ -25,6 +25,7 @@ import java.io.Serializable;
 import static com.google.common.base.Preconditions.checkArgument;
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CURSO_NO_TIMEOUT;
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.FETCH_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.MAX_TIME_MIN;
 
 /** The configuration class for MongoDB source. */
 @EqualsAndHashCode
@@ -37,9 +38,12 @@ public class MongoReadOptions implements Serializable {
 
     private final boolean noCursorTimeout;
 
-    private MongoReadOptions(int fetchSize, boolean noCursorTimeout) {
+    private final long maxTimeMS;
+
+    private MongoReadOptions(int fetchSize, boolean noCursorTimeout, long maxTimeMS) {
         this.fetchSize = fetchSize;
         this.noCursorTimeout = noCursorTimeout;
+        this.maxTimeMS = maxTimeMS;
     }
 
     public static MongoReadOptionsBuilder builder() {
@@ -50,6 +54,8 @@ public class MongoReadOptions implements Serializable {
     public static class MongoReadOptionsBuilder {
         private int fetchSize = FETCH_SIZE.defaultValue();
         private boolean noCursorTimeout = CURSO_NO_TIMEOUT.defaultValue();
+
+        private long maxTimeMin = MAX_TIME_MIN.defaultValue();
 
         private MongoReadOptionsBuilder() {}
 
@@ -70,8 +76,13 @@ public class MongoReadOptions implements Serializable {
             return this;
         }
 
+        public MongoReadOptionsBuilder setMaxTimeMS(long maxTimeMS) {
+            this.maxTimeMin = maxTimeMS;
+            return this;
+        }
+
         public MongoReadOptions build() {
-            return new MongoReadOptions(fetchSize, noCursorTimeout);
+            return new MongoReadOptions(fetchSize, noCursorTimeout, maxTimeMin);
         }
     }
 }

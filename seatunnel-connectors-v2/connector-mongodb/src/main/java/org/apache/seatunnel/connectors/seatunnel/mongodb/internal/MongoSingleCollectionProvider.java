@@ -26,20 +26,13 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import lombok.extern.slf4j.Slf4j;
 
-/** A simple implementation of {@link MongoClientProvider}. */
 @Slf4j
 public class MongoSingleCollectionProvider implements MongoClientProvider {
 
-    /** Connection string to MongoDB standalone instances, replica sets or sharded clusters. */
     private final String connectionString;
 
-    /** The MongoDB defaultDatabase to write to. */
     private final String defaultDatabase;
 
-    /**
-     * The defaultCollection to write to. Must be a existing defaultCollection for MongoDB 4.2 and
-     * earlier versions.
-     */
     private final String defaultCollection;
 
     private transient MongoClient client;

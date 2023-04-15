@@ -36,7 +36,7 @@ import java.util.List;
 
 /** MongoSplitEnumerator generates {@link MongoSplit} according to partition strategies. */
 @Slf4j
-public class MongoSplitEnumerator
+public class MongodbSplitEnumerator
         implements SourceSplitEnumerator<MongoSplit, ArrayList<MongoSplit>> {
 
     private final ArrayList<MongoSplit> pendingSplits = Lists.newArrayList();
@@ -47,14 +47,14 @@ public class MongoSplitEnumerator
 
     private final MongoSplitStrategy strategy;
 
-    public MongoSplitEnumerator(
+    public MongodbSplitEnumerator(
             Context<MongoSplit> context,
             MongoClientProvider clientProvider,
             MongoSplitStrategy strategy) {
         this(context, clientProvider, strategy, Collections.emptyList());
     }
 
-    public MongoSplitEnumerator(
+    public MongodbSplitEnumerator(
             Context<MongoSplit> context,
             MongoClientProvider clientProvider,
             MongoSplitStrategy strategy,
@@ -77,7 +77,7 @@ public class MongoSplitEnumerator
                 "Added {} pending splits for namespace {}.",
                 pendingSplits.size(),
                 namespace.getFullName());
-        assignSplit(context.registeredReaders());
+        assignSplits(context.registeredReaders());
     }
 
     @Override
@@ -105,7 +105,10 @@ public class MongoSplitEnumerator
 
     @Override
     public void registerReader(int subtaskId) {
-        // only add splits if the reader requests
+        log.debug("Register reader {} to MongodbSplitEnumerator.", subtaskId);
+        if (!pendingSplits.isEmpty()) {
+            assignSplits(Collections.singletonList(subtaskId));
+        }
     }
 
     @Override
@@ -118,7 +121,7 @@ public class MongoSplitEnumerator
         // Do nothing
     }
 
-    private void assignSplit(Collection<Integer> readers) {
+    private synchronized void assignSplits(Collection<Integer> readers) {
         log.debug("Assign pendingSplits to readers {}", readers);
         for (int subtaskId : readers) {
             log.info("Received split request from taskId {}.", subtaskId);
