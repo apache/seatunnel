@@ -1,11 +1,13 @@
-package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
+package org.apache.seatunnel.connectors.seatunnel.mongodb.sink.writer;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoClientProvider;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoColloctionProviders;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.DocumentSerializer;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.state.DocumentBulk;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.state.MongodbCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.config.MongodbWriterOptions;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.DocumentBulk;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.MongodbCommitInfo;
 
 import org.bson.Document;
 import org.slf4j.Logger;
@@ -30,17 +32,18 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 /** Writer for MongoDB sink. */
-public class MongoBulkWriter implements SinkWriter<SeaTunnelRow, MongodbCommitInfo, DocumentBulk> {
+public class MongodbBulkWriter
+        implements SinkWriter<SeaTunnelRow, MongodbCommitInfo, DocumentBulk> {
 
     private final MongoClientProvider collectionProvider;
 
-    private transient MongoCollection<Document> collection;
+    private final transient MongoCollection<Document> collection;
 
     private final ConcurrentLinkedQueue<Document> currentBulk = new ConcurrentLinkedQueue<>();
 
     private final List<DocumentBulk> pendingBulks = new ArrayList<>();
 
-    private DocumentSerializer<SeaTunnelRow> serializer;
+    private final DocumentSerializer<SeaTunnelRow> serializer;
 
     private transient ScheduledExecutorService scheduler;
 
@@ -58,18 +61,21 @@ public class MongoBulkWriter implements SinkWriter<SeaTunnelRow, MongodbCommitIn
 
     private transient volatile boolean closed = false;
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(MongoBulkWriter.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(MongodbBulkWriter.class);
 
     private final boolean upsertEnable;
     private final String[] upsertKeys;
 
-    public MongoBulkWriter(
-            MongoClientProvider collectionProvider,
-            DocumentSerializer<SeaTunnelRow> serializer,
-            MongoConnectorOptions options) {
+    public MongodbBulkWriter(
+            DocumentSerializer<SeaTunnelRow> serializer, MongodbWriterOptions options) {
         this.upsertEnable = options.isUpsertEnable();
         this.upsertKeys = options.getUpsertKey();
-        this.collectionProvider = collectionProvider;
+        this.collectionProvider =
+                MongoColloctionProviders.getBuilder()
+                        .connectionString(options.getConnectString())
+                        .database(options.getDatabase())
+                        .collection(options.getCollection())
+                        .build();
         this.collection = collectionProvider.getDefaultCollection();
         this.serializer = serializer;
         this.maxSize = options.getFlushSize();
@@ -79,7 +85,7 @@ public class MongoBulkWriter implements SinkWriter<SeaTunnelRow, MongodbCommitIn
             this.scheduledFuture =
                     scheduler.scheduleWithFixedDelay(
                             () -> {
-                                synchronized (MongoBulkWriter.this) {
+                                synchronized (MongodbBulkWriter.this) {
                                     if (true && !closed) {
                                         try {
                                             rollBulkIfNeeded(true);

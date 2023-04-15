@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.DocumentDeserializer;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.source.config.MongoReadOptions;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.source.config.MongodbReadOptions;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplit;
 
 import org.bson.Document;
@@ -54,18 +54,18 @@ public class MongoReader implements SourceReader<SeaTunnelRow, MongoSplit> {
 
     private MongoSplit currentSplit;
 
-    private MongoReadOptions readOptions;
+    private MongodbReadOptions readOptions;
 
     public MongoReader(
             SourceReader.Context context,
             MongoClientProvider clientProvider,
             DocumentDeserializer<SeaTunnelRow> deserializer,
-            MongoReadOptions mongoReadOptions) {
+            MongodbReadOptions mongodbReadOptions) {
         this.deserializer = deserializer;
         this.context = context;
         this.clientProvider = clientProvider;
         pendingSplits = new LinkedBlockingQueue<>();
-        this.readOptions = mongoReadOptions;
+        this.readOptions = mongodbReadOptions;
     }
 
     @Override

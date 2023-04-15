@@ -1,10 +1,10 @@
-package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
+package org.apache.seatunnel.connectors.seatunnel.mongodb.sink.config;
 
 import java.io.Serializable;
 import java.time.Duration;
 
 /** mongo connector options */
-public class MongoConnectorOptions implements Serializable {
+public class MongodbWriterOptions implements Serializable {
 
     private static final long serialVersionUID = 1;
     protected final String connectString;
@@ -18,7 +18,7 @@ public class MongoConnectorOptions implements Serializable {
     protected final boolean upsertEnable;
     protected final String[] upsertKey;
 
-    public MongoConnectorOptions(
+    public MongodbWriterOptions(
             String connectString,
             String database,
             String collection,
@@ -79,7 +79,7 @@ public class MongoConnectorOptions implements Serializable {
         return new Builder();
     }
 
-    /** Builder For {@link MongoConnectorOptions}. */
+    /** Builder For {@link MongodbWriterOptions}. */
     public static class Builder {
         protected String connectString;
         protected String database;
@@ -139,8 +139,8 @@ public class MongoConnectorOptions implements Serializable {
             return this;
         }
 
-        public MongoConnectorOptions build() {
-            return new MongoConnectorOptions(
+        public MongodbWriterOptions build() {
+            return new MongodbWriterOptions(
                     connectString,
                     database,
                     collection,

@@ -1,12 +1,17 @@
-package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
+package org.apache.seatunnel.connectors.seatunnel.mongodb.sink.commit;
 
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.state.DocumentBulk;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.state.MongodbAggregatedCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.state.MongodbCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.CommittableTransaction;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.DocumentBulk;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.MongodbAggregatedCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.MongodbCommitInfo;
 
 import org.bson.Document;
 
+import com.mongodb.ReadConcern;
+import com.mongodb.ReadPreference;
+import com.mongodb.TransactionOptions;
+import com.mongodb.WriteConcern;
 import com.mongodb.client.ClientSession;
 import com.mongodb.client.MongoCollection;
 import lombok.extern.slf4j.Slf4j;
@@ -59,9 +64,20 @@ public class MongodbSinkAggregatedCommitter
                 .filter(
                         bulk -> {
                             try {
-                                clientSession.startTransaction();
-                                collection.insertMany(bulk.getDocuments());
-                                clientSession.commitTransaction();
+                                CommittableTransaction transaction =
+                                        new CommittableTransaction(collection, bulk.getDocuments());
+                                int insertedDocs =
+                                        clientSession.withTransaction(
+                                                transaction,
+                                                TransactionOptions.builder()
+                                                        .readPreference(ReadPreference.primary())
+                                                        .readConcern(ReadConcern.LOCAL)
+                                                        .writeConcern(WriteConcern.MAJORITY)
+                                                        .build());
+                                log.info(
+                                        "Inserted {} documents into collection {}.",
+                                        insertedDocs,
+                                        collection.getNamespace());
                                 return false;
                             } catch (Exception e) {
                                 log.error("Failed to commit with Mongo transaction.", e);

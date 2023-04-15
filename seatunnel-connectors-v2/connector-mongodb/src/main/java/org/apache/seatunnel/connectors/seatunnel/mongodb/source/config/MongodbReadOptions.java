@@ -30,7 +30,7 @@ import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbCo
 /** The configuration class for MongoDB source. */
 @EqualsAndHashCode
 @Getter
-public class MongoReadOptions implements Serializable {
+public class MongodbReadOptions implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
@@ -40,7 +40,7 @@ public class MongoReadOptions implements Serializable {
 
     private final long maxTimeMS;
 
-    private MongoReadOptions(int fetchSize, boolean noCursorTimeout, long maxTimeMS) {
+    private MongodbReadOptions(int fetchSize, boolean noCursorTimeout, long maxTimeMS) {
         this.fetchSize = fetchSize;
         this.noCursorTimeout = noCursorTimeout;
         this.maxTimeMS = maxTimeMS;
@@ -50,7 +50,7 @@ public class MongoReadOptions implements Serializable {
         return new MongoReadOptionsBuilder();
     }
 
-    /** Builder for {@link MongoReadOptions}. */
+    /** Builder for {@link MongodbReadOptions}. */
     public static class MongoReadOptionsBuilder {
         private int fetchSize = FETCH_SIZE.defaultValue();
         private boolean noCursorTimeout = CURSO_NO_TIMEOUT.defaultValue();
@@ -81,8 +81,8 @@ public class MongoReadOptions implements Serializable {
             return this;
         }
 
-        public MongoReadOptions build() {
-            return new MongoReadOptions(fetchSize, noCursorTimeout, maxTimeMin);
+        public MongodbReadOptions build() {
+            return new MongodbReadOptions(fetchSize, noCursorTimeout, maxTimeMin);
         }
     }
 }

@@ -34,7 +34,7 @@ import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoClientPro
 import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoColloctionProviders;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.DocumentDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.DocumentRowDataDeserializer;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.source.config.MongoReadOptions;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.source.config.MongodbReadOptions;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.enumerator.MongodbSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.reader.MongoReader;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplit;
@@ -64,7 +64,7 @@ public class MongodbSource
 
     private SeaTunnelRowType rowType;
 
-    private MongoReadOptions mongoReadOptions;
+    private MongodbReadOptions mongodbReadOptions;
 
     @Override
     public String getPluginName() {
@@ -95,10 +95,10 @@ public class MongodbSource
         splitStrategy =
                 SamplingSplitStrategy.builder()
                         .setMatchQuery(
-                                pluginConfig.hasPath(MongodbConfig.MATCHQUERY.key())
+                                pluginConfig.hasPath(MongodbConfig.MATCH_QUERY.key())
                                         ? BsonDocument.parse(
                                                 pluginConfig.getString(
-                                                        MongodbConfig.MATCHQUERY.key()))
+                                                        MongodbConfig.MATCH_QUERY.key()))
                                         : new BsonDocument())
                         .setClientProvider(clientProvider)
                         .setSplitKey(
@@ -117,8 +117,8 @@ public class MongodbSource
                                         : new BsonDocument())
                         .build();
 
-        mongoReadOptions =
-                MongoReadOptions.builder()
+        mongodbReadOptions =
+                MongodbReadOptions.builder()
                         .setMaxTimeMS(
                                 pluginConfig.hasPath(MongodbConfig.MAX_TIME_MIN.key())
                                         ? pluginConfig.getLong(MongodbConfig.MAX_TIME_MIN.key())
@@ -148,7 +148,7 @@ public class MongodbSource
     @Override
     public SourceReader<SeaTunnelRow, MongoSplit> createReader(SourceReader.Context readerContext)
             throws Exception {
-        return new MongoReader(readerContext, clientProvider, deserializer, mongoReadOptions);
+        return new MongoReader(readerContext, clientProvider, deserializer, mongodbReadOptions);
     }
 
     @Override

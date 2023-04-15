@@ -1,4 +1,4 @@
-package org.apache.seatunnel.connectors.seatunnel.mongodb.state;
+package org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state;
 
 import org.bson.Document;
 

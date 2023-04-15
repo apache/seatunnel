@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
 import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 
 public class MongodbConfig {
 
@@ -44,8 +45,8 @@ public class MongodbConfig {
                     .noDefaultValue()
                     .withDescription("The name of MongoDB collection to read or write.");
 
-    public static final Option<String> MATCHQUERY =
-            Options.key("matchquery")
+    public static final Option<String> MATCH_QUERY =
+            Options.key("match.query")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Mongodb's query syntax");
@@ -92,24 +93,45 @@ public class MongodbConfig {
             Options.key("max.time.min")
                     .longType()
                     .defaultValue(Long.MAX_VALUE)
-                    .withDescription("This parameter is a MongoDB query option that limits the maximum execution time for query operations. The value of maxTimeMS is in milliseconds. If the execution time of the query exceeds the specified time limit, MongoDB will terminate the operation and return an error.");
-
+                    .withDescription(
+                            "This parameter is a MongoDB query option that limits the maximum execution time for query operations. The value of maxTimeMS is in milliseconds. If the execution time of the query exceeds the specified time limit, MongoDB will terminate the operation and return an error.");
 
     // --------------------------------------------------------------------
     // The following are the sink parameters.
     // --------------------------------------------------------------------
 
-    public static final Option<Integer> SINK_MAX_RETRIES =
-            Options.key("sink.max-retries")
+    public static final Option<Integer> BUFFER_FLUSH_MAX_ROWS =
+            Options.key("buffer-flush.max-rows")
+                    .intType()
+                    .defaultValue(1000)
+                    .withDescription(
+                            "Specifies the maximum number of buffered rows per batch request.");
+
+    public static final Option<Duration> BUFFER_FLUSH_INTERVAL =
+            Options.key("buffer-flush.interval")
+                    .durationType()
+                    .defaultValue(Duration.of(30_000L, ChronoUnit.MILLIS))
+                    .withDescription(
+                            "Specifies the retry time interval if writing records to database failed.");
+
+    public static final Option<Integer> RETRY_MAX =
+            Options.key("retry.max")
                     .intType()
                     .defaultValue(3)
                     .withDescription(
                             "Specifies the max retry times if writing records to database failed.");
 
-    public static final Option<Duration> SINK_RETRY_INTERVAL =
-            Options.key("sink.retry.interval")
+    public static final Option<Duration> RETRY_INTERVAL =
+            Options.key("retry.interval")
                     .durationType()
                     .defaultValue(Duration.ofMillis(1000L))
                     .withDescription(
                             "Specifies the retry time interval if writing records to database failed.");
+
+    public static final Option<Boolean> IS_EXACTLY_ONCE =
+            Options.key("is.exactly-once")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "MongoDB server normally times out idle cursors after an inactivity period (10 minutes) to prevent excess memory use. Set this option to true to prevent that. However, if the application takes longer than 30 minutes to process the current batch of documents, the session is marked as expired and closed.");
 }

@@ -18,8 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig;
 
 import com.google.auto.service.AutoService;
 
@@ -34,6 +36,18 @@ public class MongodbSinkFactory implements TableSinkFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required().build();
+        return OptionRule.builder()
+                .required(
+                        MongodbConfig.COLLECTION,
+                        MongodbConfig.DATABASE,
+                        MongodbConfig.COLLECTION,
+                        CatalogTableUtil.SCHEMA)
+                .optional(
+                        MongodbConfig.BUFFER_FLUSH_INTERVAL,
+                        MongodbConfig.BUFFER_FLUSH_MAX_ROWS,
+                        MongodbConfig.IS_EXACTLY_ONCE,
+                        MongodbConfig.RETRY_MAX,
+                        MongodbConfig.RETRY_INTERVAL)
+                .build();
     }
 }

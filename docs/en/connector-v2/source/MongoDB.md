@@ -6,14 +6,15 @@ The MongoDB Connector provides the ability to read and write data from and to Mo
 This document describes how to set up the MongoDB connector to run data reads against MongoDB.
 
 Support those engines
-------------
+---------------------
 
->Spark
->Flink
->SeaTunnel Zeta
+> Spark
+> Flink
+> SeaTunnel Zeta
 
 Key featuresl
-------------
+-------------
+
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
 - [x] [exactly-once](../../concept/connector-v2-features.md)
@@ -27,7 +28,7 @@ Dependencies
 In order to use the Mongodb connector, the following dependencies are required.
 They can be downloaded via install-plugin.sh or from the Maven central repository.
 
-| MongoDB version |                                                    dependency                                                 |
+| MongoDB version |                                                  dependency                                                   |
 |-----------------|---------------------------------------------------------------------------------------------------------------|
 | universal       | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-mongodb) |
 
@@ -211,7 +212,6 @@ To speed up reading data in parallel source task instances, seatunnel provides a
 - sharded: reads config.chunks (MongoDB splits a sharded collection into chunks, and the range of the chunks are stored within the collection) as the partitions directly. The sharded strategy only used for sharded collection which is fast and even. Read permission of config database is required.
 - default: uses sharded strategy for sharded collections otherwise using split vector strategy.
 
-
 ## Changelog
 
 ### 2.2.0-beta 2022-09-26
@@ -221,3 +221,4 @@ To speed up reading data in parallel source task instances, seatunnel provides a
 ### Next Version
 
 - [Feature]Refactor mongodb source connector([4380](https://github.com/apache/incubator-seatunnel/pull/4380))
+

@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.commit.MongodbSinkAggregatedCommitter;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.config.MongodbWriterOptions;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.writer.MongodbBulkWriter;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
@@ -28,19 +31,15 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoClientProvider;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoColloctionProviders;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.DocumentSerializer;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.RowDataDocumentSerializer;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.state.DocumentBulk;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.state.MongodbAggregatedCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.state.MongodbCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.DocumentBulk;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.MongodbAggregatedCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.MongodbCommitInfo;
 
 import com.google.auto.service.AutoService;
 
 import java.io.IOException;
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CONNECTOR_IDENTITY;
@@ -50,56 +49,42 @@ public class MongodbSink
         implements SeaTunnelSink<
                 SeaTunnelRow, DocumentBulk, MongodbCommitInfo, MongodbAggregatedCommitInfo> {
 
-    @Override
-    public Optional<Serializer<DocumentBulk>> getWriterStateSerializer() {
-        return Optional.of(new DefaultSerializer<>());
-    }
-
-    @Override
-    public Optional<SinkAggregatedCommitter<MongodbCommitInfo, MongodbAggregatedCommitInfo>>
-            createAggregatedCommitter() throws IOException {
-        return Optional.of(new MongodbSinkAggregatedCommitter());
-    }
-
-    @Override
-    public Optional<Serializer<MongodbAggregatedCommitInfo>> getAggregatedCommitInfoSerializer() {
-        return Optional.of(new DefaultSerializer<>());
-    }
-
-    @Override
-    public Optional<Serializer<MongodbCommitInfo>> getCommitInfoSerializer() {
-        return Optional.of(new DefaultSerializer<>());
-    }
-
-    private MongoClientProvider clientProvider;
-    private DocumentSerializer<SeaTunnelRow> serializer;
-
-    private MongoConnectorOptions options;
+    private MongodbWriterOptions options;
 
     private SeaTunnelRowType seaTunnelRowType;
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        MongoConnectorOptions.Builder builder =
-                MongoConnectorOptions.builder()
-                        .withConnectString(
-                                "mongodb://localhost:27017/test?retryWrites=true&writeConcern=majority")
-                        .withDatabase("sink")
-                        .withCollection("test1")
-                        .withTransactionEnable(true)
-                        .withFlushOnCheckpoint(true)
-                        .withFlushSize(1000)
-                        .withFlushInterval(Duration.of(30_000L, ChronoUnit.MILLIS))
-                        .withUpsertEnable(false)
-                        .withUpsertKey(new String[] {});
-        this.options = builder.build();
-        this.clientProvider =
-                MongoColloctionProviders.getBuilder()
-                        .connectionString(
-                                "mongodb://localhost:27017/test?retryWrites=true&writeConcern=majority")
-                        .database("sink")
-                        .collection("test1")
-                        .build();
+        if (pluginConfig.hasPath(MongodbConfig.CONNECTION.key())
+                && pluginConfig.hasPath(MongodbConfig.DATABASE.key())
+                && pluginConfig.hasPath(MongodbConfig.COLLECTION.key())) {
+            String connection = pluginConfig.getString(MongodbConfig.CONNECTION.key());
+            String database = pluginConfig.getString(MongodbConfig.DATABASE.key());
+            String collection = pluginConfig.getString(MongodbConfig.COLLECTION.key());
+            MongodbWriterOptions.Builder builder =
+                    MongodbWriterOptions.builder()
+                            .withConnectString(connection)
+                            .withDatabase(database)
+                            .withCollection(collection)
+                            .withFlushOnCheckpoint(
+                                    pluginConfig.hasPath(MongodbConfig.IS_EXACTLY_ONCE.key())
+                                            ? pluginConfig.getBoolean(
+                                                    MongodbConfig.IS_EXACTLY_ONCE.key())
+                                            : MongodbConfig.IS_EXACTLY_ONCE.defaultValue())
+                            .withFlushSize(
+                                    pluginConfig.hasPath(MongodbConfig.BUFFER_FLUSH_MAX_ROWS.key())
+                                            ? pluginConfig.getInt(
+                                                    MongodbConfig.BUFFER_FLUSH_MAX_ROWS.key())
+                                            : MongodbConfig.BUFFER_FLUSH_MAX_ROWS.defaultValue())
+                            .withFlushInterval(
+                                    pluginConfig.hasPath(MongodbConfig.BUFFER_FLUSH_INTERVAL.key())
+                                            ? pluginConfig.getDuration(
+                                                    MongodbConfig.BUFFER_FLUSH_INTERVAL.key())
+                                            : MongodbConfig.BUFFER_FLUSH_INTERVAL.defaultValue())
+                            .withUpsertEnable(false)
+                            .withUpsertKey(new String[] {});
+            this.options = builder.build();
+        }
     }
 
     @Override
@@ -120,7 +105,27 @@ public class MongodbSink
     @Override
     public SinkWriter<SeaTunnelRow, MongodbCommitInfo, DocumentBulk> createWriter(
             SinkWriter.Context context) throws IOException {
-        return new MongoBulkWriter(
-                clientProvider, new RowDataDocumentSerializer(seaTunnelRowType), options);
+        return new MongodbBulkWriter(new RowDataDocumentSerializer(seaTunnelRowType), options);
+    }
+
+    @Override
+    public Optional<Serializer<DocumentBulk>> getWriterStateSerializer() {
+        return Optional.of(new DefaultSerializer<>());
+    }
+
+    @Override
+    public Optional<SinkAggregatedCommitter<MongodbCommitInfo, MongodbAggregatedCommitInfo>>
+            createAggregatedCommitter() throws IOException {
+        return Optional.of(new MongodbSinkAggregatedCommitter());
+    }
+
+    @Override
+    public Optional<Serializer<MongodbAggregatedCommitInfo>> getAggregatedCommitInfoSerializer() {
+        return Optional.of(new DefaultSerializer<>());
+    }
+
+    @Override
+    public Optional<Serializer<MongodbCommitInfo>> getCommitInfoSerializer() {
+        return Optional.of(new DefaultSerializer<>());
     }
 }

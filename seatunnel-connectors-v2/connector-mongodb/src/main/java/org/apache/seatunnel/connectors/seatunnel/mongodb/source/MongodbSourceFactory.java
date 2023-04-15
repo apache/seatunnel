@@ -49,7 +49,7 @@ public class MongodbSourceFactory implements TableSourceFactory {
                         CatalogTableUtil.SCHEMA)
                 .optional(
                         MongodbConfig.PROJECTION,
-                        MongodbConfig.MATCHQUERY,
+                        MongodbConfig.MATCH_QUERY,
                         MongodbConfig.SPLIT_SIZE,
                         MongodbConfig.SPLIT_KEY,
                         MongodbConfig.CURSO_NO_TIMEOUT,
