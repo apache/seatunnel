@@ -55,7 +55,7 @@ public class OssFileSource extends BaseFileSource {
                         pluginConfig,
                         OssConfig.FILE_PATH.key(),
                         OssConfig.FILE_FORMAT_TYPE.key(),
-                        OssConfig.BUCKET.key(),
+                        OssConfig.ENDPOINT.key(),
                         OssConfig.ACCESS_KEY.key(),
                         OssConfig.ACCESS_SECRET.key(),
                         OssConfig.BUCKET.key());
