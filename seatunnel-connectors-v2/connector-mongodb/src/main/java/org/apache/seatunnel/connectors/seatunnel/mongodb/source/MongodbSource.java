@@ -128,10 +128,10 @@ public class MongodbSource
                                         ? pluginConfig.getInt(MongodbConfig.FETCH_SIZE.key())
                                         : MongodbConfig.FETCH_SIZE.defaultValue())
                         .setNoCursorTimeout(
-                                pluginConfig.hasPath(MongodbConfig.CURSO_NO_TIMEOUT.key())
+                                pluginConfig.hasPath(MongodbConfig.CURSOR_NO_TIMEOUT.key())
                                         ? pluginConfig.getBoolean(
-                                                MongodbConfig.CURSO_NO_TIMEOUT.key())
-                                        : MongodbConfig.CURSO_NO_TIMEOUT.defaultValue())
+                                                MongodbConfig.CURSOR_NO_TIMEOUT.key())
+                                        : MongodbConfig.CURSOR_NO_TIMEOUT.defaultValue())
                         .build();
     }
 

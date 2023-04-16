@@ -20,8 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 public class MongodbConfig {
@@ -52,29 +50,23 @@ public class MongodbConfig {
                     .noDefaultValue()
                     .withDescription("Mongodb's query syntax");
 
+    public static final Option<String> PROJECTION =
+            Options.key("match.projection")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Fields projection by Mongodb");
+
     public static final Option<String> SPLIT_KEY =
-            Options.key("split.key")
+            Options.key("partition.split-key")
                     .stringType()
                     .defaultValue("_id")
                     .withDescription("The key of Mongodb fragmentation");
 
     public static final Option<Long> SPLIT_SIZE =
-            Options.key("split.size")
+            Options.key("partition.split-size")
                     .longType()
                     .defaultValue(64 * 1024 * 1024L)
                     .withDescription("The size of Mongodb fragment");
-
-    public static final Option<Integer> PARTITION_SAMPLES =
-            Options.key("partition.samples")
-                    .intType()
-                    .defaultValue(10)
-                    .withDescription("Fields projection by Mongodb");
-
-    public static final Option<String> PROJECTION =
-            Options.key("projection")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Fields projection by Mongodb");
 
     public static final Option<Integer> FETCH_SIZE =
             Options.key("fetch.size")
@@ -83,7 +75,7 @@ public class MongodbConfig {
                     .withDescription(
                             "Set the number of documents obtained from the server for each batch. Setting the appropriate batch size can improve query performance and avoid the memory pressure caused by obtaining a large amount of data at one time.");
 
-    public static final Option<Boolean> CURSO_NO_TIMEOUT =
+    public static final Option<Boolean> CURSOR_NO_TIMEOUT =
             Options.key("cursor.no-timeout")
                     .booleanType()
                     .defaultValue(true)
@@ -93,7 +85,7 @@ public class MongodbConfig {
     public static final Option<Long> MAX_TIME_MIN =
             Options.key("max.time.min")
                     .longType()
-                    .defaultValue(Long.MAX_VALUE - 1)
+                    .defaultValue(600L)
                     .withDescription(
                             "This parameter is a MongoDB query option that limits the maximum execution time for query operations. The value of maxTimeMS is in milliseconds. If the execution time of the query exceeds the specified time limit, MongoDB will terminate the operation and return an error.");
 
@@ -108,10 +100,10 @@ public class MongodbConfig {
                     .withDescription(
                             "Specifies the maximum number of buffered rows per batch request.");
 
-    public static final Option<Duration> BUFFER_FLUSH_INTERVAL =
+    public static final Option<Long> BUFFER_FLUSH_INTERVAL =
             Options.key("buffer-flush.interval")
-                    .durationType()
-                    .defaultValue(Duration.of(30_000L, ChronoUnit.MILLIS))
+                    .longType()
+                    .defaultValue(30_000L)
                     .withDescription(
                             "Specifies the retry time interval if writing records to database failed.");
 
@@ -122,10 +114,10 @@ public class MongodbConfig {
                     .withDescription(
                             "Specifies the max retry times if writing records to database failed.");
 
-    public static final Option<Duration> RETRY_INTERVAL =
+    public static final Option<Long> RETRY_INTERVAL =
             Options.key("retry.interval")
-                    .durationType()
-                    .defaultValue(Duration.ofMillis(1000L))
+                    .longType()
+                    .defaultValue(1000L)
                     .withDescription(
                             "Specifies the retry time interval if writing records to database failed.");
 
@@ -137,8 +129,15 @@ public class MongodbConfig {
                             "MongoDB server normally times out idle cursors after an inactivity period (10 minutes) to prevent excess memory use. Set this option to true to prevent that. However, if the application takes longer than 30 minutes to process the current batch of documents, the session is marked as expired and closed.");
 
     public static final Option<Boolean> UPSERT_ENABLE =
-            Options.key("upsert-enable").booleanType().defaultValue(false).withDescription("");
+            Options.key("upsert-enable")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Whether to write documents via upsert mode.");
 
     public static final Option<List<String>> UPSERT_KEY =
-            Options.key("upsert-key").listType().noDefaultValue().withDescription("");
+            Options.key("upsert-key")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The primary keys for upsert. Only valid in upsert mode. Keys are in csv format for properties.");
 }

@@ -23,7 +23,7 @@ import lombok.Getter;
 import java.io.Serializable;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CURSO_NO_TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CURSOR_NO_TIMEOUT;
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.FETCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.MAX_TIME_MIN;
 
@@ -53,7 +53,7 @@ public class MongodbReadOptions implements Serializable {
     /** Builder for {@link MongodbReadOptions}. */
     public static class MongoReadOptionsBuilder {
         private int fetchSize = FETCH_SIZE.defaultValue();
-        private boolean noCursorTimeout = CURSO_NO_TIMEOUT.defaultValue();
+        private boolean noCursorTimeout = CURSOR_NO_TIMEOUT.defaultValue();
 
         private long maxTimeMin = MAX_TIME_MIN.defaultValue();
 

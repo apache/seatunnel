@@ -46,8 +46,11 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -66,7 +69,9 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
     private static final String MONGODB_DATABASE = "test_db";
     private static final String MONGODB_SOURCE_TABLE = "source_table";
 
-    private static final Document TEST_DATASET = generateTestDataSet();
+    private static final Random random = new Random();
+
+    private static final List<Document> TEST_DATASET = generateTestDataSet(5);
 
     private GenericContainer<?> mongodbContainer;
     private MongoClient client;
@@ -79,9 +84,9 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testfakeSourceToMongodbSink(TestContainer container)
+    public void testFakeSourceToMongodbSink(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/fakesource_to_mongodb.conf");
+        Container.ExecResult execResult = container.executeJob("/fake_source_to_mongodb.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
@@ -92,65 +97,96 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
         client = MongoClients.create(url);
     }
 
-    private void initSourceData(String database, String table, Document documents) {
+    private void initSourceData(String database, String table, List<Document> documents) {
         MongoCollection<Document> sourceTable = client.getDatabase(database).getCollection(table);
 
         sourceTable.deleteMany(new Document());
-        sourceTable.insertOne(documents);
+        sourceTable.insertMany(documents);
     }
 
-    private static Document generateTestDataSet() {
-        return new Document(
-                        "c_map",
-                        new Document("OQBqH", "wTKAH")
-                                .append("rkvlO", "KXStv")
-                                .append("pCMEX", "CyJKx")
-                                .append("DAgdj", "SMbQe")
-                                .append("dsJag", "jyFsb"))
-                .append(
-                        "c_array",
-                        Arrays.asList(2095115245, 220036717, 1427565674, 454707262, 1254213323))
-                .append("c_string", "rDAya")
-                .append("c_boolean", true)
-                .append("c_tinyint", (byte) 25)
-                .append("c_smallint", (short) 22478)
-                .append("c_int", 1333226130)
-                .append("c_bigint", 2121370000000000000L)
-                .append("c_float", 3.26072E+38f)
-                .append("c_double", 9.9812E+307d)
-                .append("c_bytes", "M0tZdnd3".getBytes(StandardCharsets.UTF_8))
-                .append("c_date", new Date(1655097600000L)) // 2023-06-13
-                .append("c_decimal", new BigDecimal("61746461279068200000"))
-                .append("c_timestamp", new Date(1652770572000L)) // 2023-05-17 00:36:12
-                .append(
-                        "c_row",
-                        new Document(
-                                        "c_map",
-                                        new Document("OQBqH", "wTKAH")
-                                                .append("rkvlO", "KXStv")
-                                                .append("pCMEX", "CyJKx")
-                                                .append("DAgdj", "SMbQe")
-                                                .append("dsJag", "jyFsb"))
-                                .append(
-                                        "c_array",
-                                        Arrays.asList(
-                                                2095115245,
-                                                220036717,
-                                                1427565674,
-                                                454707262,
-                                                1254213323))
-                                .append("c_string", "rDAya")
-                                .append("c_boolean", true)
-                                .append("c_tinyint", (byte) 25)
-                                .append("c_smallint", (short) 22478)
-                                .append("c_int", 1333226130)
-                                .append("c_bigint", 2121370000000000000L)
-                                .append("c_float", 3.26072E+38f)
-                                .append("c_double", 9.9812E+307d)
-                                .append("c_bytes", "M0tZdnd3".getBytes(StandardCharsets.UTF_8))
-                                .append("c_date", new Date(1655097600000L)) // 2023-06-13
-                                .append("c_decimal", new BigDecimal("61746461279068200000"))
-                                .append("c_timestamp", new Date(1652770572000L)));
+    public static List<Document> generateTestDataSet(int count) {
+        List<Document> dataSet = new ArrayList<>();
+
+        for (int i = 0; i < count; i++) {
+            dataSet.add(
+                    new Document(
+                                    "c_map",
+                                    new Document("OQBqH", randomString())
+                                            .append("rkvlO", randomString())
+                                            .append("pCMEX", randomString())
+                                            .append("DAgdj", randomString())
+                                            .append("dsJag", randomString()))
+                            .append(
+                                    "c_array",
+                                    Arrays.asList(
+                                            random.nextInt(),
+                                            random.nextInt(),
+                                            random.nextInt(),
+                                            random.nextInt(),
+                                            random.nextInt()))
+                            .append("c_string", randomString())
+                            .append("c_boolean", random.nextBoolean())
+                            .append("c_tinyint", (byte) random.nextInt(256))
+                            .append("c_smallint", (short) random.nextInt(65536))
+                            .append("c_int", random.nextInt())
+                            .append("c_bigint", random.nextLong())
+                            .append("c_float", random.nextFloat() * Float.MAX_VALUE)
+                            .append("c_double", random.nextDouble() * Double.MAX_VALUE)
+                            .append("c_bytes", randomString().getBytes(StandardCharsets.UTF_8))
+                            .append("c_date", new Date(random.nextLong())) // Random Date
+                            .append("c_decimal", new BigDecimal(random.nextInt(1000000000)))
+                            .append("c_timestamp", new Date(random.nextLong())) // Random Timestamp
+                            .append(
+                                    "c_row",
+                                    new Document(
+                                                    "c_map",
+                                                    new Document("OQBqH", randomString())
+                                                            .append("rkvlO", randomString())
+                                                            .append("pCMEX", randomString())
+                                                            .append("DAgdj", randomString())
+                                                            .append("dsJag", randomString()))
+                                            .append(
+                                                    "c_array",
+                                                    Arrays.asList(
+                                                            random.nextInt(),
+                                                            random.nextInt(),
+                                                            random.nextInt(),
+                                                            random.nextInt(),
+                                                            random.nextInt()))
+                                            .append("c_string", randomString())
+                                            .append("c_boolean", random.nextBoolean())
+                                            .append("c_tinyint", (byte) random.nextInt(256))
+                                            .append("c_smallint", (short) random.nextInt(65536))
+                                            .append("c_int", random.nextInt())
+                                            .append("c_bigint", random.nextLong())
+                                            .append("c_float", random.nextFloat() * Float.MAX_VALUE)
+                                            .append(
+                                                    "c_double",
+                                                    random.nextDouble() * Double.MAX_VALUE)
+                                            .append(
+                                                    "c_bytes",
+                                                    randomString().getBytes(StandardCharsets.UTF_8))
+                                            .append(
+                                                    "c_date",
+                                                    new Date(random.nextLong())) // Random Date
+                                            .append(
+                                                    "c_decimal",
+                                                    new BigDecimal(random.nextInt(1000000000)))
+                                            .append("c_timestamp", new Date(random.nextLong())))
+                            .append("id", i + 1));
+        }
+
+        return dataSet;
+    }
+
+    private static String randomString() {
+        int length = random.nextInt(10) + 1;
+        StringBuilder sb = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
+            char c = (char) (random.nextInt(26) + 'a');
+            sb.append(c);
+        }
+        return sb.toString();
     }
 
     @BeforeAll

@@ -37,36 +37,39 @@ Data Type Mapping
 
 The following table lists the field data type mapping from MongoDB BSON type to Seatunnel data type.
 
-| MongoDB BSON type |  Seatunnel type  |
-|-------------------|------------------|
-| ObjectId          | STRING           |
-| String            | STRING           |
-| Boolean           | BOOLEAN          |
-| Binary            | BINARY           |
-| Int32             | INTEGER          |
-| Int64             | BIGINT           |
-| Double            | DOUBLE           |
-| Decimal128        | DECIMAL          |
-| DateTime          | TIMESTAMP_LTZ(3) |
-| Timestamp         | TIMESTAMP_LTZ(0) |
-| Object            | ROW              |
-| Array             | ARRAY            |
+| MongoDB BSON type | Seatunnel type |
+|-------------------|----------------|
+| ObjectId          | STRING         |
+| String            | STRING         |
+| Null              | Null           |
+| Boolean           | BOOLEAN        |
+| Binary Data       | BINARY         |
+| Int32             | INTEGER        |
+| Int64             | BIGINT         |
+| Double            | DOUBLE         |
+| Decimal128        | DECIMAL        |
+| Date              | Date           |
+| DateTime          | TIME           |
+| Timestamp         | Timestamp      |
+| Object            | ROW            |
+| Array             | ARRAY          |
 
 Connector Options
 -----------------
 
-|       Option       | Required | Default |    Type    |                                                                                                                                                                                                                  Description                                                                                                                                                                                                                  |
-|--------------------|----------|---------|------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| connector          | required | (none)  | String     | The MongoDB connection uri.                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| database           | required | (none)  | String     | The name of MongoDB database to read or write.                                                                                                                                                                                                                                                                                                                                                                                                |
-| collection         | required | (none)  | String     | The name of MongoDB collection to read or write.                                                                                                                                                                                                                                                                                                                                                                                              |
-| schema             | required | (none)  | String     | MongoDB's BSON and seatunnel data structure mapping                                                                                                                                                                                                                                                                                                                                                                                           |
-| match-query        | optional | (none)  | String     | In MongoDB, $match is one of the aggregation pipeline operators, used to filter documents                                                                                                                                                                                                                                                                                                                                                     |
-| projection         | optional | (none)  | String     | In MongoDB, Projection is used to control the fields contained in the query results                                                                                                                                                                                                                                                                                                                                                           |
-| partition.strategy | optional | default | String     | Specifies the partition strategy. Available strategies are `single`, `sample`, `split-vector`, `sharded` and `default`. See the following Partitioned Scan section for more details.                                                                                                                                                                                                                                                          |
-| partition.size     | optional | 64mb    | MemorySize | Specifies the partition memory size.                                                                                                                                                                                                                                                                                                                                                                                                          |
-| partition.samples  | optional | 10      | Integer    | Specifies the samples count per partition. It only takes effect when the partition strategy is sample. The sample partitioner samples the collection, projects and sorts by the partition fields. Then uses every `scan.partition.samples` as the value to use to calculate the partition boundaries. The total number of samples taken is calculated as: `samples per partition * (count of documents / number of documents per partition)`. |
-| no-timeout         | optional | true    | Boolean    | MongoDB server normally times out idle cursors after an inactivity period (10 minutes) to prevent excess memory use. Set this option to true to prevent that. However, if the application takes longer than 30 minutes to process the current batch of documents, the session is marked as expired and closed.                                                                                                                                |
+|        Option         | Required | Default |     Type     |                                            Description                                            |
+|-----------------------|----------|---------|--------------|---------------------------------------------------------------------------------------------------|
+| connector             | required | (none)  | String       | The MongoDB connection uri.                                                                       |
+| database              | required | (none)  | String       | The name of MongoDB database to read or write.                                                    |
+| collection            | required | (none)  | String       | The name of MongoDB collection to read or write.                                                  |
+| schema                | required | (none)  | String       | MongoDB's BSON and seatunnel data structure mapping                                               |
+| buffer-flush.max-rows | optional | 1000    | String       | Specifies the maximum number of buffered rows per batch request.                                  |
+| buffer-flush.interval | optional | 30_000L | String       | Specifies the retry time interval if writing records to database failed, the unit is seconds.     |
+| retry.max             | optional | default | String       | Specifies the max retry times if writing records to database failed.                              |
+| retry.interval        | optional | 1000L   | Duration     | Specifies the retry time interval if writing records to database failed, the unit is millisecond. |
+| is.exactly-once       | optional | false   | Boolean      | Implement the write semantics of only one time (exactly-once).                                    |
+| upsert-enable         | optional | false   | Boolean      | Whether to write documents via upsert mode.                                                       |
+| upsert-key            | optional | (none)  | List<String> | The primary keys for upsert. Only valid in upsert mode. Keys are in csv format for properties.    |
 
 How to create a MongoDB Data synchronization jobs
 -------------------------------------------------
@@ -74,15 +77,40 @@ How to create a MongoDB Data synchronization jobs
 The example below shows how to create a MongoDB data synchronization jobs:
 
 ```bash
--- Set the basic configuration of the task to be performed
+# Set the basic configuration of the task to be performed
 env {
   execution.parallelism = 1
   job.mode = "BATCH"
+  checkpoint.interval  = 1000
 }
 
--- Create a source to connect to Mongodb
+source {
+  FakeSource {
+      row.num = 2
+      bigint.min = 0
+      bigint.max = 10000000
+      split.num = 1
+      split.read-interval = 300
+      schema {
+        fields {
+          c_bigint = bigint
+        }
+      }
+    }
+}
 
--- Console printing of the read Mongodb data
+sink {
+  Mongodb{
+    connection = "mongodb://localhost:27017/test"
+    database = "test"
+    collection = "temp"
+    schema = {
+      fields {
+        c_bigint = bigint
+        }
+    }
+  }
+}
 
 
 }
@@ -91,67 +119,16 @@ env {
 Parameter interpretation
 ------------------------
 
-**MatchQuery Scan**
-
-In MongoDB, $match is one of the aggregation pipeline operators used to filter documents. Its position in the pipeline determines when documents are filtered.
-$match uses MongoDB's standard query operators to filter data. Basically, it can be thought of as the "WHERE" clause in the aggregation pipeline.
-
-Here's a simple $match example, assuming we have a collection called orders and want to filter out documents that meet the status field value of "A":
+**Buffer Flush**
 
 ```bash
-db.orders.aggregate([
-  {
-    $match: {
-      status: "A"
-    }
-  }
-]);
-
-```
-
-In data synchronization scenarios, the matchQuery approach needs to be used early to reduce the number of documents that need to be processed by subsequent operators, thus improving performance.
-Here is a simple example of a seatunnel using $match
-
-```bash
-source {
-  MongoDB {
-    uri = "mongodb://user:password@127.0.0.1:27017"
-    database = "test_db"
-    collection = "orders"
-    matchQuery = "{
-      status: "A"
-    }"
-    schema = {
-      fields {
-        id = bigint
-        status = string
-      }
-    }
-  }
-}
-```
-
-**Projection Scan**
-
-In MongoDB, Projection is used to control which fields are included in the query results. This can be accomplished by specifying which fields need to be returned and which fields do not.
-In the find() method, a projection object can be passed as a second argument. The key of the projection object indicates the fields to include or exclude, and a value of 1 indicates inclusion and 0 indicates exclusion.
-Here is a simple example, assuming we have a collection named users:
-
-```bash
-// Returns only the name and email fields
-db.users.find({}, { name: 1, email: 1 });
-```
-
-In data synchronization scenarios, projection needs to be used early to reduce the number of documents that need to be processed by subsequent operators, thus improving performance.
-Here is a simple example of a seatunnel using projection:
-
-```bash
-source {
+sink {
   MongoDB {
     uri = "mongodb://user:password@127.0.0.1:27017"
     database = "test_db"
     collection = "users"
-    matchQuery = "{ name: 1, email: 1 }"
+    buffer-flush.max-rows = 2000
+    buffer-flush.interval = 1000
     schema = {
       fields {
         id = bigint
@@ -160,16 +137,55 @@ source {
     }
   }
 }
-
 ```
 
-**Partitioned Scan**
-To speed up reading data in parallel source task instances, seatunnel provides a partitioned scan feature for MongoDB collections. The following partitioning strategies are provided.
-- single: treats the entire collection as a single partition.
-- sample: samples the collection and generate partitions which is fast but possibly uneven.
-- split-vector: uses the splitVector command to generate partitions for non-sharded collections which is fast and even. The splitVector permission is required.
-- sharded: reads config.chunks (MongoDB splits a sharded collection into chunks, and the range of the chunks are stored within the collection) as the partitions directly. The sharded strategy only used for sharded collection which is fast and even. Read permission of config database is required.
-- default: uses sharded strategy for sharded collections otherwise using split vector strategy.
+**Upsert**
+
+```bash
+sink {
+  MongoDB {
+    uri = "mongodb://user:password@127.0.0.1:27017"
+    database = "test_db"
+    collection = "users"
+    upsert-enable = true
+    upsert-key = id
+    schema = {
+      fields {
+        id = bigint
+        status = string
+      }
+    }
+  }
+}
+```
+
+**Exactly Once**
+
+when implementing Exactly Once write semantics with Flink or other stream processing frameworks, MongoDB Sink needs to ensure data consistency.
+This means that during checkpoints, the MongodbWriter will confirm that all cached write operations have been correctly written through MongoDB's transaction commit mechanism.
+
+```bash
+env {
+  execution.parallelism = 1
+  job.mode = "BATCH"
+  checkpoint.interval  = 1000
+}
+
+sink {
+  MongoDB {
+    uri = "mongodb://user:password@127.0.0.1:27017"
+    database = "test_db"
+    collection = "users"
+    is.exactly-once = true
+    schema = {
+      fields {
+        id = bigint
+        status = string
+      }
+    }
+  }
+}
+```
 
 ## Changelog
 

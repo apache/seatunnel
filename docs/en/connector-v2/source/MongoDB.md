@@ -37,36 +37,38 @@ Data Type Mapping
 
 The following table lists the field data type mapping from MongoDB BSON type to Seatunnel data type.
 
-| MongoDB BSON type |  Seatunnel type  |
-|-------------------|------------------|
-| ObjectId          | STRING           |
-| String            | STRING           |
-| Boolean           | BOOLEAN          |
-| Binary            | BINARY           |
-| Int32             | INTEGER          |
-| Int64             | BIGINT           |
-| Double            | DOUBLE           |
-| Decimal128        | DECIMAL          |
-| DateTime          | TIMESTAMP_LTZ(3) |
-| Timestamp         | TIMESTAMP_LTZ(0) |
-| Object            | ROW              |
-| Array             | ARRAY            |
-
+| MongoDB BSON type | Seatunnel type |
+|-------------------|----------------|
+| ObjectId          | STRING         |
+| String            | STRING         |
+| Null              | Null           |
+| Boolean           | BOOLEAN        |
+| Binary Data       | BINARY         |
+| Int32             | INTEGER        |
+| Int64             | BIGINT         |
+| Double            | DOUBLE         |
+| Decimal128        | DECIMAL        |
+| Date              | Date           |
+| DateTime          | TIME           |
+| Timestamp         | Timestamp      |
+| Object            | ROW            |
+| Array             | ARRAY          |
 Connector Options
 -----------------
 
-|       Option       | Required | Default |    Type    |                                                                                                                                                                                                                  Description                                                                                                                                                                                                                  |
-|--------------------|----------|---------|------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| connector          | required | (none)  | String     | The MongoDB connection uri.                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| database           | required | (none)  | String     | The name of MongoDB database to read or write.                                                                                                                                                                                                                                                                                                                                                                                                |
-| collection         | required | (none)  | String     | The name of MongoDB collection to read or write.                                                                                                                                                                                                                                                                                                                                                                                              |
-| schema             | required | (none)  | String     | MongoDB's BSON and seatunnel data structure mapping                                                                                                                                                                                                                                                                                                                                                                                           |
-| match-query        | optional | (none)  | String     | In MongoDB, $match is one of the aggregation pipeline operators, used to filter documents                                                                                                                                                                                                                                                                                                                                                     |
-| projection         | optional | (none)  | String     | In MongoDB, Projection is used to control the fields contained in the query results                                                                                                                                                                                                                                                                                                                                                           |
-| partition.strategy | optional | default | String     | Specifies the partition strategy. Available strategies are `single`, `sample`, `split-vector`, `sharded` and `default`. See the following Partitioned Scan section for more details.                                                                                                                                                                                                                                                          |
-| partition.size     | optional | 64mb    | MemorySize | Specifies the partition memory size.                                                                                                                                                                                                                                                                                                                                                                                                          |
-| partition.samples  | optional | 10      | Integer    | Specifies the samples count per partition. It only takes effect when the partition strategy is sample. The sample partitioner samples the collection, projects and sorts by the partition fields. Then uses every `scan.partition.samples` as the value to use to calculate the partition boundaries. The total number of samples taken is calculated as: `samples per partition * (count of documents / number of documents per partition)`. |
-| no-timeout         | optional | true    | Boolean    | MongoDB server normally times out idle cursors after an inactivity period (10 minutes) to prevent excess memory use. Set this option to true to prevent that. However, if the application takes longer than 30 minutes to process the current batch of documents, the session is marked as expired and closed.                                                                                                                                |
+|        Option        | Required |      Default      |  Type   |                                                                                                                                                  Description                                                                                                                                                   |
+|----------------------|----------|-------------------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| connector            | required | (none)            | String  | The MongoDB connection uri.                                                                                                                                                                                                                                                                                    |
+| database             | required | (none)            | String  | The name of MongoDB database to read or write.                                                                                                                                                                                                                                                                 |
+| collection           | required | (none)            | String  | The name of MongoDB collection to read or write.                                                                                                                                                                                                                                                               |
+| schema               | required | (none)            | String  | MongoDB's BSON and seatunnel data structure mapping                                                                                                                                                                                                                                                            |
+| match.query          | optional | (none)            | String  | In MongoDB, $match is one of the aggregation pipeline operators, used to filter documents                                                                                                                                                                                                                      |
+| match.projection     | optional | (none)            | String  | In MongoDB, Projection is used to control the fields contained in the query results                                                                                                                                                                                                                            |
+| partition.split-key  | optional | _id               | String  | The key of Mongodb fragmentation.                                                                                                                                                                                                                                                                              |
+| partition.split-size | optional | 64 * 1024 * 1024L | Long    | The size of Mongodb fragment.                                                                                                                                                                                                                                                                                  |
+| no-timeout           | optional | true              | Boolean | MongoDB server normally times out idle cursors after an inactivity period (10 minutes) to prevent excess memory use. Set this option to true to prevent that. However, if the application takes longer than 30 minutes to process the current batch of documents, the session is marked as expired and closed. |
+| fetch.size           | optional | 2048              | Int     | Set the number of documents obtained from the server for each batch. Setting the appropriate batch size can improve query performance and avoid the memory pressure caused by obtaining a large amount of data at one time.                                                                                    |
+| max.time.min         | optional | 600L              | Long    | This parameter is a MongoDB query option that limits the maximum execution time for query operations. The value of maxTimeMS is in milliseconds. If the execution time of the query exceeds the specified time limit, MongoDB will terminate the operation and return an error.                                |
 
 How to create a MongoDB Data synchronization jobs
 -------------------------------------------------
@@ -159,7 +161,7 @@ source {
     uri = "mongodb://user:password@127.0.0.1:27017"
     database = "test_db"
     collection = "orders"
-    matchQuery = "{
+    match.query = "{
       status: "A"
     }"
     schema = {
@@ -192,7 +194,32 @@ source {
     uri = "mongodb://user:password@127.0.0.1:27017"
     database = "test_db"
     collection = "users"
-    matchQuery = "{ name: 1, email: 1 }"
+    match.projection = "{ name: 1, email: 1 }"
+    schema = {
+      fields {
+        id = bigint
+        status = string
+        name = string
+        email = string
+      }
+    }
+  }
+}
+
+```
+
+**Partitioned Scan**
+To speed up reading data in parallel source task instances, seatunnel provides a partitioned scan feature for MongoDB collections. The following partitioning strategies are provided.
+Users can control data sharding by setting the partition.split-key for sharding keys and partition.split-size for sharding size.
+
+```bash
+source {
+  MongoDB {
+    uri = "mongodb://user:password@127.0.0.1:27017"
+    database = "test_db"
+    collection = "users"
+    partition.split-key = "id"
+    partition.split-size = 1024
     schema = {
       fields {
         id = bigint
@@ -203,14 +230,6 @@ source {
 }
 
 ```
-
-**Partitioned Scan**
-To speed up reading data in parallel source task instances, seatunnel provides a partitioned scan feature for MongoDB collections. The following partitioning strategies are provided.
-- single: treats the entire collection as a single partition.
-- sample: samples the collection and generate partitions which is fast but possibly uneven.
-- split-vector: uses the splitVector command to generate partitions for non-sharded collections which is fast and even. The splitVector permission is required.
-- sharded: reads config.chunks (MongoDB splits a sharded collection into chunks, and the range of the chunks are stored within the collection) as the partitions directly. The sharded strategy only used for sharded collection which is fast and even. Read permission of config database is required.
-- default: uses sharded strategy for sharded collections otherwise using split vector strategy.
 
 ## Changelog
 

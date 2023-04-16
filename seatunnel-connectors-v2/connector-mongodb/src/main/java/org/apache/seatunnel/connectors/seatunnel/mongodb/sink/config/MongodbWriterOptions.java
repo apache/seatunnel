@@ -3,7 +3,6 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.sink.config;
 import lombok.Getter;
 
 import java.io.Serializable;
-import java.time.Duration;
 
 @Getter
 public class MongodbWriterOptions implements Serializable {
@@ -18,9 +17,13 @@ public class MongodbWriterOptions implements Serializable {
     protected final boolean transactionEnable;
     protected final boolean flushOnCheckpoint;
     protected final int flushSize;
-    protected final Duration flushInterval;
+    protected final Long flushInterval;
     protected final boolean upsertEnable;
     protected final String[] upsertKey;
+
+    protected final int retryMax;
+
+    protected final Long retryInterval;
 
     public MongodbWriterOptions(
             String connectString,
@@ -29,9 +32,11 @@ public class MongodbWriterOptions implements Serializable {
             boolean transactionEnable,
             boolean flushOnCheckpoint,
             int flushSize,
-            Duration flushInterval,
+            Long flushInterval,
             boolean upsertEnable,
-            String[] upsertKey) {
+            String[] upsertKey,
+            int retryMax,
+            Long retryInterval) {
         this.connectString = connectString;
         this.database = database;
         this.collection = collection;
@@ -41,6 +46,8 @@ public class MongodbWriterOptions implements Serializable {
         this.flushInterval = flushInterval;
         this.upsertEnable = upsertEnable;
         this.upsertKey = upsertKey;
+        this.retryMax = retryMax;
+        this.retryInterval = retryInterval;
     }
 
     public static Builder builder() {
@@ -55,9 +62,11 @@ public class MongodbWriterOptions implements Serializable {
         protected boolean transactionEnable;
         protected boolean flushOnCheckpoint;
         protected int flushSize;
-        protected Duration flushInterval;
+        protected Long flushInterval;
         protected boolean upsertEnable;
         protected String[] upsertKey;
+        protected int retryMax;
+        protected Long retryInterval;
 
         public Builder withConnectString(String connectString) {
             this.connectString = connectString;
@@ -85,7 +94,7 @@ public class MongodbWriterOptions implements Serializable {
             return this;
         }
 
-        public Builder withFlushInterval(Duration flushInterval) {
+        public Builder withFlushInterval(Long flushInterval) {
             this.flushInterval = flushInterval;
             return this;
         }
@@ -100,6 +109,16 @@ public class MongodbWriterOptions implements Serializable {
             return this;
         }
 
+        public Builder withRetryMax(int retryMax) {
+            this.retryMax = retryMax;
+            return this;
+        }
+
+        public Builder withRetryInterval(Long retryInterval) {
+            this.retryInterval = retryInterval;
+            return this;
+        }
+
         public MongodbWriterOptions build() {
             return new MongodbWriterOptions(
                     connectString,
@@ -110,7 +129,9 @@ public class MongodbWriterOptions implements Serializable {
                     flushSize,
                     flushInterval,
                     upsertEnable,
-                    upsertKey);
+                    upsertKey,
+                    retryMax,
+                    retryInterval);
         }
     }
 }

@@ -78,7 +78,7 @@ public class MongodbSink
                                             : MongodbConfig.BUFFER_FLUSH_MAX_ROWS.defaultValue())
                             .withFlushInterval(
                                     pluginConfig.hasPath(MongodbConfig.BUFFER_FLUSH_INTERVAL.key())
-                                            ? pluginConfig.getDuration(
+                                            ? pluginConfig.getLong(
                                                     MongodbConfig.BUFFER_FLUSH_INTERVAL.key())
                                             : MongodbConfig.BUFFER_FLUSH_INTERVAL.defaultValue())
                             .withUpsertEnable(
@@ -89,10 +89,18 @@ public class MongodbSink
                             .withUpsertKey(
                                     pluginConfig.hasPath(MongodbConfig.UPSERT_KEY.key())
                                             ? pluginConfig
-                                                    .getList(MongodbConfig.UPSERT_KEY.key())
+                                                    .getStringList(MongodbConfig.UPSERT_KEY.key())
                                                     .toArray(new String[0])
-                                            : new String[] {});
-
+                                            : new String[] {})
+                            .withRetryMax(
+                                    pluginConfig.hasPath(MongodbConfig.RETRY_MAX.key())
+                                            ? pluginConfig.getInt(MongodbConfig.RETRY_MAX.key())
+                                            : MongodbConfig.RETRY_MAX.defaultValue())
+                            .withRetryInterval(
+                                    pluginConfig.hasPath(MongodbConfig.RETRY_INTERVAL.key())
+                                            ? pluginConfig.getLong(
+                                                    MongodbConfig.RETRY_INTERVAL.key())
+                                            : MongodbConfig.RETRY_INTERVAL.defaultValue());
             this.options = builder.build();
         }
     }

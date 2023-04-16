@@ -52,7 +52,7 @@ public class MongodbSourceFactory implements TableSourceFactory {
                         MongodbConfig.MATCH_QUERY,
                         MongodbConfig.SPLIT_SIZE,
                         MongodbConfig.SPLIT_KEY,
-                        MongodbConfig.CURSO_NO_TIMEOUT,
+                        MongodbConfig.CURSOR_NO_TIMEOUT,
                         MongodbConfig.FETCH_SIZE,
                         MongodbConfig.MAX_TIME_MIN)
                 .build();

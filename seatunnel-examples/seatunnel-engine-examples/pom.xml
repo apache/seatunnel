@@ -59,12 +59,12 @@
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-mongodb</artifactId>
-            <version>2.3.1-SNAPSHOT</version>
+            <artifactId>connector-console</artifactId>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-console</artifactId>
+            <artifactId>connector-assert</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>

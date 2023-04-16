@@ -19,12 +19,12 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
 public class RowDataToJsonConverters implements Serializable {
@@ -90,19 +90,13 @@ public class RowDataToJsonConverters implements Serializable {
     }
 
     private RowDataToJsonConverter createDateConverter() {
-        return (mapper, reuse, value) -> {
-            int days = (Integer) value;
-            LocalDate date = LocalDate.ofEpochDay(days);
-            return mapper.getNodeFactory().textNode(DateTimeFormatter.ISO_LOCAL_DATE.format(date));
-        };
+        return (mapper, reuse, value) ->
+                mapper.getNodeFactory().textNode(ISO_LOCAL_DATE.format((LocalDate) value));
     }
 
     private RowDataToJsonConverter createTimeConverter() {
-        return (mapper, reuse, value) -> {
-            int millisecond = (Integer) value;
-            LocalTime time = LocalTime.ofSecondOfDay((long) millisecond / 1000L);
-            return mapper.getNodeFactory().textNode(TimeFormat.TIME_FORMAT.format(time));
-        };
+        return (mapper, reuse, value) ->
+                mapper.getNodeFactory().textNode(TimeFormat.TIME_FORMAT.format((LocalTime) value));
     }
 
     private RowDataToJsonConverter createTimestampConverter() {

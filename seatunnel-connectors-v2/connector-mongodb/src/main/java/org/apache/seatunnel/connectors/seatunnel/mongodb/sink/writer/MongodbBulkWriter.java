@@ -21,7 +21,6 @@ import com.mongodb.client.model.UpdateOptions;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -57,7 +56,7 @@ public class MongodbBulkWriter
 
     private final boolean flushOnCheckpoint;
 
-    private final RetryPolicy retryPolicy = new RetryPolicy(3, 1000L);
+    private final RetryPolicy retryPolicy;
 
     private volatile boolean closed = false;
 
@@ -66,6 +65,7 @@ public class MongodbBulkWriter
 
     public MongodbBulkWriter(
             DocumentSerializer<SeaTunnelRow> serializer, MongodbWriterOptions options) {
+        this.retryPolicy = new RetryPolicy(options.getRetryMax(), options.getFlushInterval());
         this.upsertEnable = options.isUpsertEnable();
         this.upsertKeys = options.getUpsertKey();
         this.collectionProvider =
@@ -78,7 +78,7 @@ public class MongodbBulkWriter
         this.serializer = serializer;
         this.maxSize = options.getFlushSize();
         this.flushOnCheckpoint = options.isFlushOnCheckpoint();
-        if (!flushOnCheckpoint && options.getFlushInterval().getSeconds() > 0) {
+        if (!flushOnCheckpoint && options.getFlushInterval() > 0) {
             this.scheduler = Executors.newScheduledThreadPool(1);
             this.scheduledFuture =
                     scheduler.scheduleWithFixedDelay(
@@ -94,8 +94,8 @@ public class MongodbBulkWriter
                                     }
                                 }
                             },
-                            options.getFlushInterval().get(ChronoUnit.SECONDS),
-                            options.getFlushInterval().get(ChronoUnit.SECONDS),
+                            options.getFlushInterval(),
+                            options.getFlushInterval(),
                             TimeUnit.SECONDS);
         }
     }
