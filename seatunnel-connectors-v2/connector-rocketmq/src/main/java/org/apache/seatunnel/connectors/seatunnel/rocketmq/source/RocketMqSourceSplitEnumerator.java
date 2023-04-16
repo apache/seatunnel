@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rocketmq.source;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Maps;
+import org.apache.seatunnel.shade.com.google.common.collect.Sets;
+
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.RocketMqAdminUtil;
@@ -28,8 +31,6 @@ import org.apache.rocketmq.common.admin.TopicOffset;
 import org.apache.rocketmq.common.consumer.ConsumeFromWhere;
 import org.apache.rocketmq.common.message.MessageQueue;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Maps;
-import org.apache.seatunnel.shade.com.google.common.collect.Sets;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
