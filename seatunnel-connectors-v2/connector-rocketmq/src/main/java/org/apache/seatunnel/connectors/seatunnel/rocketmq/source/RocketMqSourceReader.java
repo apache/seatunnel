@@ -28,8 +28,8 @@ import org.apache.seatunnel.connectors.seatunnel.rocketmq.exception.RocketMqConn
 import org.apache.rocketmq.common.message.MessageExt;
 import org.apache.rocketmq.common.message.MessageQueue;
 
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
+import org.apache.seatunnel.shade.com.google.common.collect.Maps;
+import org.apache.seatunnel.shade.com.google.common.collect.Sets;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
