@@ -57,19 +57,19 @@ The following table lists the field data type mapping from MongoDB BSON type to 
 Connector Options
 -----------------
 
-|        Option         | Required | Default |     Type     |                                            Description                                            |
-|-----------------------|----------|---------|--------------|---------------------------------------------------------------------------------------------------|
-| connector             | required | (none)  | String       | The MongoDB connection uri.                                                                       |
-| database              | required | (none)  | String       | The name of MongoDB database to read or write.                                                    |
-| collection            | required | (none)  | String       | The name of MongoDB collection to read or write.                                                  |
-| schema                | required | (none)  | String       | MongoDB's BSON and seatunnel data structure mapping                                               |
-| buffer-flush.max-rows | optional | 1000    | String       | Specifies the maximum number of buffered rows per batch request.                                  |
-| buffer-flush.interval | optional | 30_000L | String       | Specifies the retry time interval if writing records to database failed, the unit is seconds.     |
-| retry.max             | optional | default | String       | Specifies the max retry times if writing records to database failed.                              |
-| retry.interval        | optional | 1000L   | Duration     | Specifies the retry time interval if writing records to database failed, the unit is millisecond. |
-| is.exactly-once       | optional | false   | Boolean      | Implement the write semantics of only one time (exactly-once).                                    |
-| upsert-enable         | optional | false   | Boolean      | Whether to write documents via upsert mode.                                                       |
-| upsert-key            | optional | (none)  | List<String> | The primary keys for upsert. Only valid in upsert mode. Keys are in csv format for properties.    |
+|        Option         | Required | Default |   Type   |                                            Description                                            |
+|-----------------------|----------|---------|----------|---------------------------------------------------------------------------------------------------|
+| connector             | required | (none)  | String   | The MongoDB connection uri.                                                                       |
+| database              | required | (none)  | String   | The name of MongoDB database to read or write.                                                    |
+| collection            | required | (none)  | String   | The name of MongoDB collection to read or write.                                                  |
+| schema                | required | (none)  | String   | MongoDB's BSON and seatunnel data structure mapping                                               |
+| buffer-flush.max-rows | optional | 1000    | String   | Specifies the maximum number of buffered rows per batch request.                                  |
+| buffer-flush.interval | optional | 30_000L | String   | Specifies the retry time interval if writing records to database failed, the unit is seconds.     |
+| retry.max             | optional | default | String   | Specifies the max retry times if writing records to database failed.                              |
+| retry.interval        | optional | 1000L   | Duration | Specifies the retry time interval if writing records to database failed, the unit is millisecond. |
+| is.exactly-once       | optional | false   | Boolean  | Implement the write semantics of only one time (exactly-once).                                    |
+| upsert-enable         | optional | false   | Boolean  | Whether to write documents via upsert mode.                                                       |
+| upsert-key            | optional | (none)  | List     | The primary keys for upsert. Only valid in upsert mode. Keys are in csv format for properties.    |
 
 How to create a MongoDB Data synchronization jobs
 -------------------------------------------------
