@@ -18,33 +18,39 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.util.JdbcCompareUtil;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-import org.junit.jupiter.api.Assertions;
+import org.apache.commons.lang3.tuple.Pair;
 
-import java.io.IOException;
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.utility.DockerLoggerFactory;
+
+import com.google.common.collect.Lists;
+
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class JdbcOceanBasedbIT extends AbstractJdbcIT {
-    private static final String DOCKER_IMAGE = "oceanbase/oceanbase-ce";
-    private static final String NETWORK_ALIASES = "e2e_oceanbase";
+
+    private static final String OCEANBASE_IMAGE = "oceanbase/oceanbase-ce";
+
+    private static final String OCEANBASE_CONTAINER_HOST = "e2e_oceanbaseDb";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final int PORT = 2881;
-    private static final String DATABASE = "test";
+    private static final String DATABASE = "seatunnel";
     private static final String URL =
             "jdbc:mysql://" + HOST + ":" + PORT + "/" + DATABASE + "?createDatabaseIfNotExist=true";
     private static final String USERNAME = "root";
-    private static final String PASSWORD = "";
+    private static final String PASSWORD = "root";
     private static final String SOURCE_TABLE = "e2e_ob_source";
     private static final String SINK_TABLE = "e2e_ob_sink";
     private static final String DRIVER_JAR =
             "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
-    private static final String CONFIG_FILE = "/jdbc_oceanbase_source_and_sink.conf";
+    private static final List<String> CONFIG_FILE =
+            Lists.newArrayList("/jdbc_oceanbase_source_and_sink.conf");
     private static final String COLUMN_STRING =
             "col1,col2,col3,col4,col5,col6,col7,col8,col9,col10,col11,col12,col13,col14,col15,col16,col17,col18,col19,col20,col21,col22,col23,col24,col25,col26,col27";
 
@@ -74,7 +80,7 @@ public class JdbcOceanBasedbIT extends AbstractJdbcIT {
                     + "  `col18` tinyblob DEFAULT NULL COMMENT '第十八列',\n"
                     + "  `col19` longblob DEFAULT NULL COMMENT '第十九列',\n"
                     + "  `col20` mediumblob DEFAULT NULL COMMENT '第二十列',\n"
-                    + "  `col21` binary(16) DEFAULT NULL COMMENT '第二十一 列',\n"
+                    + "  `col21` binary(16) DEFAULT NULL COMMENT '第二十一列',\n"
                     + "  `col22` varbinary(16) DEFAULT NULL COMMENT '第二十二列',\n"
                     + "  `col23` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '第二十三列',\n"
                     + "  `col24` time DEFAULT NULL COMMENT '第二十四列',\n"
@@ -86,7 +92,7 @@ public class JdbcOceanBasedbIT extends AbstractJdbcIT {
                     + SOURCE_TABLE
                     + "'";
 
-    private static final String DDL_SINK =
+    private static final String CREATE_SQL =
             "CREATE TABLE `"
                     + DATABASE
                     + "."
@@ -112,7 +118,7 @@ public class JdbcOceanBasedbIT extends AbstractJdbcIT {
                     + "  `col18` tinyblob DEFAULT NULL COMMENT '第十八列',\n"
                     + "  `col19` longblob DEFAULT NULL COMMENT '第十九列',\n"
                     + "  `col20` mediumblob DEFAULT NULL COMMENT '第二十列',\n"
-                    + "  `col21` binary(16) DEFAULT NULL COMMENT '第二十一 列',\n"
+                    + "  `col21` binary(16) DEFAULT NULL COMMENT '第二十一列',\n"
                     + "  `col22` varbinary(16) DEFAULT NULL COMMENT '第二十二列',\n"
                     + "  `col23` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '第二十三列',\n"
                     + "  `col24` time DEFAULT NULL COMMENT '第二十四列',\n"
@@ -162,10 +168,11 @@ public class JdbcOceanBasedbIT extends AbstractJdbcIT {
     @Override
     JdbcCase getJdbcCase() {
         Map<String, String> containerEnv = new HashMap<>();
+        Pair<String[], List<SeaTunnelRow>> testDataSet = initTestData();
         String jdbcUrl = String.format(URL, PORT, DATABASE);
         return JdbcCase.builder()
-                .dockerImage(DOCKER_IMAGE)
-                .networkAliases(NETWORK_ALIASES)
+                .dockerImage(OCEANBASE_IMAGE)
+                .networkAliases(OCEANBASE_CONTAINER_HOST)
                 .containerEnv(containerEnv)
                 .driverClass(DRIVER_CLASS)
                 .host(HOST)
@@ -175,78 +182,97 @@ public class JdbcOceanBasedbIT extends AbstractJdbcIT {
                 .jdbcUrl(jdbcUrl)
                 .userName(USERNAME)
                 .password(PASSWORD)
-                .dataBase(DATABASE)
+                .database(DATABASE)
                 .sourceTable(SOURCE_TABLE)
-                .driverJar(DRIVER_JAR)
-                .ddlSource(DDL_SOURCE)
-                .ddlSink(DDL_SINK)
-                .initDataSql(INIT_DATA_SQL)
+                .sinkTable(SINK_TABLE)
+                .createSql(CREATE_SQL)
                 .configFile(CONFIG_FILE)
-                .seaTunnelRow(initTestData())
+                .insertSql(INIT_DATA_SQL)
+                .testData(testDataSet)
                 .build();
     }
 
     @Override
-    void compareResult() throws SQLException, IOException {
-        try {
-            Connection connection = initializeJdbcConnection(URL);
-            assertHasData(SOURCE_TABLE);
-            assertHasData(SINK_TABLE);
-            JdbcCompareUtil.compare(
-                    connection,
-                    String.format("select * from %s.%s limit 1", DATABASE, SOURCE_TABLE),
-                    String.format("select * from %s.%s limit 1", DATABASE, SINK_TABLE),
-                    COLUMN_STRING);
+    void compareResult() {}
 
-        } catch (ClassNotFoundException | IllegalAccessException | InstantiationException e) {
-            e.printStackTrace();
+    @Override
+    String driverUrl() {
+        return DRIVER_JAR;
+    }
+
+    @Override
+    Pair<String[], List<SeaTunnelRow>> initTestData() {
+
+        String[] fieldNames =
+                new String[] {
+                    "col1", "col2", "col3", "col4", "col5", "col6", "col7", "col8", "col9", "col10",
+                    "col11", "col12", "col13", "col14", "col15", "col16", "col17", "col18", "col19",
+                    "col20", "col21", "col22", "col23", "col24", "col25", "col26", "col27"
+                };
+
+        List<SeaTunnelRow> rows = new ArrayList<>();
+        for (int i = 0; i < 100; i++) {
+            SeaTunnelRow row =
+                    new SeaTunnelRow(
+                            new Object[] {
+                                100 + i,
+                                2,
+                                3,
+                                4,
+                                5,
+                                6,
+                                7,
+                                8,
+                                9.1,
+                                10.1,
+                                "十一",
+                                "十二",
+                                "十三",
+                                "十四",
+                                "十五",
+                                "十六",
+                                "十七",
+                                "十八",
+                                "十九",
+                                "二十",
+                                "二十一",
+                                "二十二",
+                                "19700101",
+                                "00:00:00",
+                                "19700101",
+                                "19700101",
+                                "1970"
+                            });
+
+            rows.add(row);
         }
+
+        return Pair.of(fieldNames, rows);
     }
 
     @Override
-    void clearSinkTable() {}
+    GenericContainer<?> initContainer() {
+        GenericContainer<?> container =
+                new GenericContainer<>(OCEANBASE_IMAGE)
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(OCEANBASE_CONTAINER_HOST)
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(
+                                        DockerLoggerFactory.getLogger(OCEANBASE_IMAGE)));
 
-    @Override
-    SeaTunnelRow initTestData() {
-        return new SeaTunnelRow(
-                new Object[] {
-                    101,
-                    2,
-                    3,
-                    4,
-                    5,
-                    6,
-                    7,
-                    8,
-                    9.1,
-                    10.1,
-                    "十一",
-                    "十二",
-                    "十三",
-                    "十四",
-                    "十五",
-                    "十六",
-                    "十七",
-                    "十八",
-                    "十九",
-                    "二十",
-                    "二十一",
-                    "二十二",
-                    "19700101",
-                    "00:00:00",
-                    "19700101",
-                    "19700101",
-                    "1970"
-                });
+        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", PORT, PORT)));
+
+        return container;
     }
 
-    private void assertHasData(String table) {
-        try (Statement statement = initializeJdbcConnection(URL).createStatement()) {
-            String sql = String.format("select * from %s.%s limit 1", DATABASE, table);
-            ResultSet source = statement.executeQuery(sql);
-            Assertions.assertTrue(source.next());
+    @Override
+    protected void createSchemaIfNeeded() {
+        String sql = "CREATE DATABASE " + DATABASE;
+        try {
+            connection.prepareStatement(sql).executeUpdate();
         } catch (Exception e) {
-            throw new RuntimeException("test oceanbase server image error", e);
+            throw new SeaTunnelRuntimeException(
+                    JdbcITErrorCode.CREATE_TABLE_FAILED, "Fail to execute sql " + sql, e);
         }
     }
 }
