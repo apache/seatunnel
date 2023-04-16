@@ -283,6 +283,10 @@ public final class ConfigParserUtil {
         return readonlyConfig.getOptional(FACTORY_ID).orElse(readonlyConfig.get(PLUGIN_NAME));
     }
 
+    public static String getFactoryId(Config config) {
+        return getFactoryId(ReadonlyConfig.fromConfig(config));
+    }
+
     private enum VertexStatus {
         CREATED,
         LINKED

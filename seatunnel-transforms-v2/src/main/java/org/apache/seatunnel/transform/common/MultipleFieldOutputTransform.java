@@ -19,12 +19,14 @@ package org.apache.seatunnel.transform.common;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
+import lombok.NoArgsConstructor;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -32,9 +34,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
+@NoArgsConstructor
 public abstract class MultipleFieldOutputTransform extends AbstractCatalogSupportTransform {
 
     private static final String[] TYPE_ARRAY_STRING = new String[0];
@@ -44,10 +48,6 @@ public abstract class MultipleFieldOutputTransform extends AbstractCatalogSuppor
     private String[] outputFieldNames;
     private int[] fieldsIndex;
     private SeaTunnelRowContainerGenerator rowContainerGenerator;
-
-    public MultipleFieldOutputTransform() {
-        super();
-    }
 
     public MultipleFieldOutputTransform(@NonNull CatalogTable inputCatalogTable) {
         super(inputCatalogTable);
@@ -180,11 +180,18 @@ public abstract class MultipleFieldOutputTransform extends AbstractCatalogSuppor
                         .map(Column::getName)
                         .collect(Collectors.toList())
                         .toArray(TYPE_ARRAY_STRING);
-        TableSchema.Builder builder =
-                TableSchema.builder()
-                        .primaryKey(inputCatalogTable.getTableSchema().getPrimaryKey())
-                        .constraintKey(inputCatalogTable.getTableSchema().getConstraintKeys());
-        List<Column> copyInputColumns =
+
+        List<ConstraintKey> copiedConstraintKeys =
+                inputCatalogTable.getTableSchema().getConstraintKeys().stream()
+                        .map(ConstraintKey::copy)
+                        .collect(Collectors.toList());
+
+        TableSchema.Builder builder = TableSchema.builder();
+        if (inputCatalogTable.getTableSchema().getPrimaryKey() != null) {
+            builder = builder.primaryKey(inputCatalogTable.getTableSchema().getPrimaryKey().copy());
+        }
+        builder = builder.constraintKey(copiedConstraintKeys);
+        List<Column> columns =
                 inputCatalogTable.getTableSchema().getColumns().stream()
                         .map(Column::copy)
                         .collect(Collectors.toList());
@@ -192,21 +199,31 @@ public abstract class MultipleFieldOutputTransform extends AbstractCatalogSuppor
         int addFieldCount = 0;
         this.fieldsIndex = new int[outputColumns.length];
         for (int i = 0; i < outputColumns.length; i++) {
-            for (int j = 0; j < copyInputColumns.size(); j++) {
-                if (copyInputColumns.get(j).getName().equals(outputColumns[i].getName())) {
-                    copyInputColumns.set(j, outputColumns[i]);
-                } else {
-                    addFieldCount++;
-                    copyInputColumns.add(outputColumns[i]);
+            Column outputColumn = outputColumns[i];
+            Optional<Column> optional =
+                    columns.stream()
+                            .filter(c -> c.getName().equals(outputColumn.getName()))
+                            .findFirst();
+            if (optional.isPresent()) {
+                Column originalColumn = optional.get();
+                int originalColumnIndex = columns.indexOf(originalColumn);
+                if (!originalColumn.getDataType().equals(outputColumn.getDataType())) {
+                    columns.set(
+                            originalColumnIndex, originalColumn.copy(outputColumn.getDataType()));
                 }
+                fieldsIndex[i] = originalColumnIndex;
+            } else {
+                addFieldCount++;
+                columns.add(outputColumn);
+                fieldsIndex[i] = columns.indexOf(outputColumn);
             }
         }
 
-        TableSchema outputTableSchema = builder.columns(copyInputColumns).build();
+        TableSchema outputTableSchema = builder.columns(columns).build();
         if (addFieldCount > 0) {
             int inputFieldLength =
                     inputCatalogTable.getTableSchema().toPhysicalRowDataType().getTotalFields();
-            int outputFieldLength = copyInputColumns.size();
+            int outputFieldLength = columns.size();
 
             rowContainerGenerator =
                     new SeaTunnelRowContainerGenerator() {
@@ -241,7 +258,7 @@ public abstract class MultipleFieldOutputTransform extends AbstractCatalogSuppor
 
     @Override
     protected TableIdentifier transformTableIdentifier() {
-        return inputCatalogTable.getTableId();
+        return inputCatalogTable.getTableId().copy();
     }
 
     protected abstract Column[] getOutputColumns();

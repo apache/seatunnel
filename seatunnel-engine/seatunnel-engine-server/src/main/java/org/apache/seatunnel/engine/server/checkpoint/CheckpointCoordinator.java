@@ -60,6 +60,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow;
@@ -126,6 +127,8 @@ public class CheckpointCoordinator {
     private final ExecutorService executorService;
 
     private CompletableFuture<CheckpointCoordinatorState> checkpointCoordinatorFuture;
+
+    private AtomicReference<String> errorByPhysicalVertex = new AtomicReference<>();
 
     @SneakyThrows
     public CheckpointCoordinator(
@@ -213,11 +216,15 @@ public class CheckpointCoordinator {
 
     private void handleCoordinatorError(CheckpointCloseReason reason, Throwable e) {
         CheckpointException checkpointException = new CheckpointException(reason, e);
+        errorByPhysicalVertex.compareAndSet(null, ExceptionUtils.getMessage(checkpointException));
+
+        if (checkpointCoordinatorFuture.isDone()) {
+            return;
+        }
         cleanPendingCheckpoint(reason);
         checkpointCoordinatorFuture.complete(
                 new CheckpointCoordinatorState(
-                        CheckpointCoordinatorStatus.FAILED,
-                        ExceptionUtils.getMessage(checkpointException)));
+                        CheckpointCoordinatorStatus.FAILED, errorByPhysicalVertex.get()));
         checkpointManager.handleCheckpointError(pipelineId);
     }
 
@@ -292,6 +299,7 @@ public class CheckpointCoordinator {
 
     protected void restoreCoordinator(boolean alreadyStarted) {
         LOG.info("received restore CheckpointCoordinator with alreadyStarted= " + alreadyStarted);
+        errorByPhysicalVertex = new AtomicReference<>();
         checkpointCoordinatorFuture = new CompletableFuture<>();
         cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET);
         shutdown = false;
@@ -363,10 +371,23 @@ public class CheckpointCoordinator {
     }
 
     public PassiveCompletableFuture<CompletedCheckpoint> startSavepoint() {
+        LOG.info(String.format("Start save point for Job (%s)", jobId));
+        if (!isAllTaskReady) {
+            CompletableFuture savepointFuture = new CompletableFuture();
+            savepointFuture.completeExceptionally(
+                    new CheckpointException(
+                            CheckpointCloseReason.TASK_NOT_ALL_READY_WHEN_SAVEPOINT));
+            return new PassiveCompletableFuture<>(savepointFuture);
+        }
         CompletableFuture<PendingCheckpoint> savepoint =
                 createPendingCheckpoint(Instant.now().toEpochMilli(), SAVEPOINT_TYPE);
         startTriggerPendingCheckpoint(savepoint);
-        return savepoint.join().getCompletableFuture();
+        PendingCheckpoint savepointPendingCheckpoint = savepoint.join();
+        LOG.info(
+                String.format(
+                        "The save point checkpointId is %s",
+                        savepointPendingCheckpoint.getCheckpointId()));
+        return savepointPendingCheckpoint.getCompletableFuture();
     }
 
     private void startTriggerPendingCheckpoint(

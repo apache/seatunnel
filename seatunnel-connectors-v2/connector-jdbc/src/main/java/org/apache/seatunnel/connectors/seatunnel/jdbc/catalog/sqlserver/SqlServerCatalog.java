@@ -119,6 +119,17 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
+    public boolean tableExists(TablePath tablePath) throws CatalogException {
+        try {
+            return databaseExists(tablePath.getDatabaseName())
+                    && listTables(tablePath.getDatabaseName())
+                            .contains(tablePath.getSchemaAndTableName());
+        } catch (DatabaseNotExistException e) {
+            return false;
+        }
+    }
+
+    @Override
     public CatalogTable getTable(TablePath tablePath)
             throws CatalogException, TableNotExistException {
         if (!tableExists(tablePath)) {
@@ -129,10 +140,17 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
         try (Connection conn = DriverManager.getConnection(dbUrl, username, pwd)) {
             DatabaseMetaData metaData = conn.getMetaData();
             Optional<PrimaryKey> primaryKey =
-                    getPrimaryKey(metaData, tablePath.getDatabaseName(), tablePath.getTableName());
+                    getPrimaryKey(
+                            metaData,
+                            tablePath.getDatabaseName(),
+                            tablePath.getSchemaName(),
+                            tablePath.getTableName());
             List<ConstraintKey> constraintKeys =
                     getConstraintKeys(
-                            metaData, tablePath.getDatabaseName(), tablePath.getTableName());
+                            metaData,
+                            tablePath.getDatabaseName(),
+                            tablePath.getSchemaName(),
+                            tablePath.getTableName());
 
             try (PreparedStatement ps =
                     conn.prepareStatement(
@@ -150,7 +168,12 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
                     boolean isNullable =
                             tableMetaData.isNullable(i) == ResultSetMetaData.columnNullable;
                     Object defaultValue =
-                            getColumnDefaultValue(metaData, tablePath.getTableName(), columnName)
+                            getColumnDefaultValue(
+                                            metaData,
+                                            tablePath.getDatabaseName(),
+                                            tablePath.getSchemaName(),
+                                            tablePath.getTableName(),
+                                            columnName)
                                     .orElse(null);
 
                     PhysicalColumn physicalColumn =
@@ -169,7 +192,10 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
                 constraintKeys.forEach(builder::constraintKey);
                 TableIdentifier tableIdentifier =
                         TableIdentifier.of(
-                                catalogName, tablePath.getDatabaseName(), tablePath.getTableName());
+                                catalogName,
+                                tablePath.getDatabaseName(),
+                                tablePath.getSchemaName(),
+                                tablePath.getTableName());
                 return CatalogTable.of(
                         tableIdentifier,
                         builder.build(),
