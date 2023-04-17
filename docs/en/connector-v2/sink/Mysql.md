@@ -14,6 +14,7 @@
 - [X] [stream](../../concept/connector-v2-features.md)
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [cdc](../../concept/connector-v2-features.md)
+
 > Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
 > support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 
@@ -24,9 +25,9 @@ semantics (using XA transaction guarantee).
 
 ## Supported DataSource list
 
-| datasource |          supported versions          |          driver          |                  url                  |                                   maven                                   |
-|------------|--------------------------------------|--------------------------|---------------------------------------|---------------------------------------------------------------------------|
-| mysql      | support version >= 5.7x and <8.0.26x | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306:3306/test | [Download](https://mvnrepository.com/artifact/mysql/mysql-connector-java) |
+| datasource |              supported versions               |          driver          |                  url                  |                                   maven                                   |
+|------------|-----------------------------------------------|--------------------------|---------------------------------------|---------------------------------------------------------------------------|
+| mysql      | Depending on your Database dependency version | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306:3306/test | [Download](https://mvnrepository.com/artifact/mysql/mysql-connector-java) |
 
 ## Database dependency
 
@@ -113,19 +114,18 @@ source {
 }
 
 transform {
-
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
   # please go to https://seatunnel.apache.org/docs/category/transform
 }
 
 sink {
-jdbc {
-    url = "jdbc:mysql://localhost:3306/test"
-    driver = "com.mysql.cj.jdbc.Driver"
-    user = "root"
-    password = "123456"
-    query = "insert into test_table(name,age) values(?,?)"
-    }
+    jdbc {
+        url = "jdbc:mysql://localhost:3306/test"
+        driver = "com.mysql.cj.jdbc.Driver"
+        user = "root"
+        password = "123456"
+        query = "insert into test_table(name,age) values(?,?)"
+        }
   # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
   # please go to https://seatunnel.apache.org/docs/category/sink-v2
 }
@@ -137,7 +137,6 @@ jdbc {
 
 ```
 jdbc {
-
     url = "jdbc:mysql://localhost:3306/test"
     driver = "com.mysql.cj.jdbc.Driver"
 
@@ -153,22 +152,19 @@ jdbc {
 ```
 
 ### CDC(Change data capture) event
+
 > CDC change data is also supported by us
+
 ```
-sink {
-    jdbc {
-        url = "jdbc:mysql://localhost:3306/test"
-        driver = "com.mysql.cj.jdbc.Driver"
-        user = "root"
-        password = "123456"
-        
-        # You need to configure both database and table
-        database = test
-        table = sink_table
-        primary_keys = ["id","name"]
-    }
+jdbc {
+    url = "jdbc:mysql://localhost:3306/test"
+    driver = "com.mysql.cj.jdbc.Driver"
+    user = "root"
+    password = "123456"
+    
+    # You need to configure both database and table
+    database = test
+    table = sink_table
+    primary_keys = ["id","name"]
 }
 ```
-
-
-

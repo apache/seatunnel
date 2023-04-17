@@ -16,7 +16,8 @@
 - [x] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [x] [support user-defined split](../../concept/connector-v2-features.md)
->  supports query SQL and can achieve projection effect.
+
+> supports query SQL and can achieve projection effect.
 
 ## Description
 
@@ -24,9 +25,9 @@ Read external data source data through JDBC.
 
 ## Supported DataSource list
 
-| datasource |          supported versions          |          driver          |                  url                  |                                   maven                                   |
-|------------|--------------------------------------|--------------------------|---------------------------------------|---------------------------------------------------------------------------|
-| mysql      | support version >= 5.7x and <8.0.26x | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306:3306/test | [Download](https://mvnrepository.com/artifact/mysql/mysql-connector-java) |
+| datasource |              supported versions               |          driver          |                  url                  |                                   maven                                   |
+|------------|-----------------------------------------------|--------------------------|---------------------------------------|---------------------------------------------------------------------------|
+| mysql      | Depending on your Database dependency version | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306:3306/test | [Download](https://mvnrepository.com/artifact/mysql/mysql-connector-java) |
 
 ## Database dependency
 
@@ -148,6 +149,4 @@ Jdbc {
     partition_num = 10
 }
 ```
-
-## Changelog
 
