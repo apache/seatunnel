@@ -27,26 +27,36 @@ import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.exception.MongodbConnectorException;
 
 import org.bson.Document;
-import org.bson.types.Decimal128;
 
 import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
+import java.time.temporal.TemporalAccessor;
+import java.time.temporal.TemporalQueries;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_OPERATION;
 
 public class BsonToRowDataConverters implements Serializable {
 
     private static final long serialVersionUID = 1L;
+
+    public static final DateTimeFormatter TIME_FORMAT =
+            new DateTimeFormatterBuilder()
+                    .appendPattern("HH:mm:ss")
+                    .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
+                    .toFormatter();
 
     public BsonToRowDataConverters() {}
 
@@ -83,7 +93,8 @@ public class BsonToRowDataConverters implements Serializable {
                 return (reuse, value) -> {
                     final int precision = ((DecimalType) type).getPrecision();
                     final int scale = ((DecimalType) type).getScale();
-                    return fromBigDecimal(((Decimal128) value).bigDecimalValue(), precision, scale);
+                    BigDecimal bigDecimal = BigDecimal.valueOf((Double) value);
+                    return fromBigDecimal(bigDecimal, precision, scale);
                 };
             case ARRAY:
                 return createArrayConverter((ArrayType<?, ?>) type);
@@ -97,27 +108,25 @@ public class BsonToRowDataConverters implements Serializable {
     }
 
     private BsonToRowDataConverter convertToLocalDate() {
-        return (reuse, value) -> {
-            Instant instant = ((Date) value).toInstant();
-            ZonedDateTime zonedDateTime = instant.atZone(ZoneId.systemDefault());
-            return zonedDateTime.toLocalDate();
-        };
+        return (reuse, value) ->
+                ISO_LOCAL_DATE.parse(value.toString()).query(TemporalQueries.localDate());
     }
 
     private BsonToRowDataConverter convertToLocalTime() {
         return (reuse, value) -> {
-            // Convert Date to Instant
-            Instant instant = ((Date) value).toInstant();
-            // Convert Instant to ZonedDateTime with default system timezone
-            ZonedDateTime zonedDateTime = instant.atZone(ZoneId.systemDefault());
-            // Extract LocalTime from ZonedDateTime
-            return zonedDateTime.toLocalTime();
+            TemporalAccessor parsedTime = TIME_FORMAT.parse(value.toString());
+            return parsedTime.query(TemporalQueries.localTime());
         };
     }
 
     private BsonToRowDataConverter convertToLocalDateTime() {
-        return (reuse, value) ->
-                ((Date) value).toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+        return (reuse, value) -> {
+            TemporalAccessor parsedTimestamp =
+                    DateTimeFormatter.ISO_LOCAL_DATE_TIME.parse(value.toString());
+            LocalTime localTime = parsedTimestamp.query(TemporalQueries.localTime());
+            LocalDate localDate = parsedTimestamp.query(TemporalQueries.localDate());
+            return LocalDateTime.of(localDate, localTime);
+        };
     }
 
     private BsonToRowDataConverter createRowConverter(SeaTunnelRowType type) {
