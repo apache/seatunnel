@@ -44,10 +44,10 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.net.UnknownHostException;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -131,8 +131,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
     }
 
-    private List<String> generateTestDataSet()
-            throws JsonProcessingException, UnknownHostException {
+    private List<String> generateTestDataSet() throws JsonProcessingException {
         String[] fields =
                 new String[] {
                     "c_map",
@@ -170,7 +169,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         BigDecimal.valueOf(11, 1),
                         "test".getBytes(),
                         LocalDate.now().toString(),
-                        LocalDateTime.now().toString()
+                        System.currentTimeMillis()
                     };
             for (int j = 0; j < fields.length; j++) {
                 doc.put(fields[j], values[j]);
@@ -215,6 +214,13 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                             x.remove("_index");
                             x.remove("_type");
                             x.remove("_id");
+                            // I don’t know if converting the test cases in this way complies with
+                            // the CI specification
+                            x.replace(
+                                    "c_timestamp",
+                                    LocalDateTime.parse(x.get("c_timestamp").toString())
+                                            .toInstant(ZoneOffset.UTC)
+                                            .toEpochMilli());
                         });
         List<String> docs =
                 scrollResult.getDocs().stream()

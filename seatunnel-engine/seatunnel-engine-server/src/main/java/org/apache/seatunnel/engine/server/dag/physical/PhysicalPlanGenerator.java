@@ -224,6 +224,7 @@ public class PhysicalPlanGenerator {
         return edges.stream()
                 .filter(s -> s.getLeftVertex().getAction() instanceof SourceAction)
                 .map(s -> (SourceAction<?, ?, ?>) s.getLeftVertex().getAction())
+                .distinct()
                 .collect(Collectors.toList());
     }
 

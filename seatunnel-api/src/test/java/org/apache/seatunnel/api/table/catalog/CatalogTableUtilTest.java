@@ -81,6 +81,11 @@ public class CatalogTableUtilTest {
                         BasicType.STRING_TYPE,
                         new MapType<>(BasicType.STRING_TYPE, ArrayType.INT_ARRAY_TYPE)));
         Assertions.assertEquals(seaTunnelRowType.getFieldType(17).getSqlType(), SqlType.ROW);
+        SeaTunnelRowType nestedRowFieldType = (SeaTunnelRowType) seaTunnelRowType.getFieldType(17);
+        Assertions.assertEquals(
+                "map", nestedRowFieldType.getFieldName(nestedRowFieldType.indexOf("map")));
+        Assertions.assertEquals(
+                "row", nestedRowFieldType.getFieldName(nestedRowFieldType.indexOf("row")));
     }
 
     public static String getTestConfigFile(String configFile)
