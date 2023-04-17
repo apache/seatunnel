@@ -100,7 +100,6 @@ public class MongoReader implements SourceReader<SeaTunnelRow, MongoSplit> {
                                 .batchSize(readOptions.getFetchSize())
                                 .noCursorTimeout(readOptions.isNoCursorTimeout())
                                 .maxTime(readOptions.getMaxTimeMS(), TimeUnit.MINUTES);
-
                 cursor = rs.iterator();
                 while (cursor.hasNext()) {
                     SeaTunnelRow deserialize = deserializer.deserialize(cursor.next());
