@@ -233,6 +233,11 @@ public class RowConverter {
     public static SeaTunnelRow convert(InternalRow rowData, SeaTunnelRowType seaTunnelRowType) {
         Object[] objects = new Object[seaTunnelRowType.getTotalFields()];
         for (int i = 0; i < objects.length; i++) {
+            // judge the field is or not equals null
+            if (rowData.isNullAt(i)) {
+                objects[i] = null;
+                continue;
+            }
             SeaTunnelDataType<?> fieldType = seaTunnelRowType.getFieldType(i);
             switch (fieldType.getSqlType()) {
                 case TINYINT:
@@ -328,6 +333,11 @@ public class RowConverter {
         BinaryWriter binaryWriter = new BinaryRowWriter(binaryRow);
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
         for (int i = 0; i < fieldTypes.length; i++) {
+            // judge the field is or not equals null
+            if (seaTunnelRow.getField(i) == null) {
+                binaryWriter.setNullAt(i);
+                continue;
+            }
             switch (fieldTypes[i].getSqlType()) {
                 case TINYINT:
                     binaryWriter.writeByte(i, (Byte) seaTunnelRow.getField(i));
