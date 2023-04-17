@@ -80,11 +80,13 @@ public class MaxWellToKafkaIT extends TestSuiteBase implements TestResource {
 
     // ----------------------------------------------------------------------------
     // kafka
-    private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:latest";
+    private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.1.7";
 
     private static final String KAFKA_TOPIC = "test-maxwell-sink";
 
-    private static final String KAFKA_HOST = "kafka_e2e";
+    private static final String KAFKA_HOST = "kafka_e2e_maxwell";
+
+    private static final int KAFKA_PORT = 9096;
 
     private static KafkaContainer KAFKA_CONTAINER;
 
@@ -159,6 +161,9 @@ public class MaxWellToKafkaIT extends TestSuiteBase implements TestResource {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(KAFKA_IMAGE_NAME)));
+        KAFKA_CONTAINER.setPortBindings(
+                com.google.common.collect.Lists.newArrayList(
+                        String.format("%s:%s", KAFKA_PORT, KAFKA_PORT)));
     }
 
     private void createPostgreSQLContainer() throws ClassNotFoundException {
@@ -328,5 +333,6 @@ public class MaxWellToKafkaIT extends TestSuiteBase implements TestResource {
         MYSQL_CONTAINER.close();
         KAFKA_CONTAINER.close();
         MAXWELL_CONTAINER.close();
+        POSTGRESQL_CONTAINER.close();
     }
 }
