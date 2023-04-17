@@ -40,6 +40,7 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit.PaimonCommit
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.state.PaimonSinkState;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.paimon.catalog.Catalog;
 import org.apache.paimon.catalog.CatalogContext;
 import org.apache.paimon.catalog.CatalogFactory;
@@ -102,7 +103,7 @@ public class PaimonSink
         final Options options = Options.fromMap(optionsMap);
         final Configuration hadoopConf = new Configuration();
         if (pluginConfig.hasPath(HDFS_SITE_PATH.key())) {
-            hadoopConf.addResource(pluginConfig.getString(HDFS_SITE_PATH.key()));
+            hadoopConf.addResource(new Path(pluginConfig.getString(HDFS_SITE_PATH.key())));
         }
         final CatalogContext catalogContext = CatalogContext.create(options, hadoopConf);
         try (Catalog catalog = CatalogFactory.createCatalog(catalogContext)) {
