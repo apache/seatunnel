@@ -1,12 +1,12 @@
-# JDBC
+# MySQL
 
 > JDBC Mysql Source Connector
 
 ## Support those engines
 
-> Spark <br>
-> Flink <br>
-> Seatunnel Zeta <br>
+> Spark<br>
+> Flink<br>
+> Seatunnel Zeta<br>
 
 ## Key features
 
@@ -64,7 +64,7 @@ Read external data source data through JDBC.
 | password                     | String | No       | -               | Connection instance password                                                                                                                                                                                                                                      |
 | query                        | String | Yes      | -               | Query statement                                                                                                                                                                                                                                                   |
 | connection_check_timeout_sec | Int    | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                |
-| partition_column             | String | No       | -               | The column name for parallelism's partition, only support numeric type.                                                                                                                                                                                           |
+| partition_column             | String | No       | -               | The column name for parallelism's partition, only support numeric type,Only support numeric type primary key, and only can config one column.                                                                                                                     |
 | partition_lower_bound        | Long   | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                  |
 | partition_upper_bound        | Long   | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                  |
 | partition_num                | Int    | No       | job parallelism | The number of partition count, only support positive integer. default value is job parallelism                                                                                                                                                                    |
@@ -79,33 +79,39 @@ Read external data source data through JDBC.
 
 ### simple:
 
-> This is to access your data source according to your query parameter We can use this if we don't have a speed requirement
-
-```
-# Defining the runtime environment
-env {
-  # You can set flink configuration here
-  execution.parallelism = 2
-  job.mode = "BATCH"
-}
+> This example queries type_bin 'table' 16 data in your test "database" in single parallel and queries all of its fields. You can also specify which fields to query for final output to the console.
+>
+> ```
+> # Defining the runtime environment
+> env {
+> # You can set flink configuration here
+> execution.parallelism = 2
+> job.mode = "BATCH"
+> }
+>
+> ```
 
 Jdbc {
-    url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8"
-    driver = "com.mysql.cj.jdbc.Driver"
-    connection_check_timeout_sec = 100
-    user = "root"
-    password = "123456"
-    query = "select * from type_bin"
+url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8"
+driver = "com.mysql.cj.jdbc.Driver"
+connection_check_timeout_sec = 100
+user = "root"
+password = "123456"
+query = "select * from type_bin limit 16"
 }
 
 transform {
-    # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transform/sql
+
+# If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
+
+# please go to https://seatunnel.apache.org/docs/transform/sql
+
 }
 
 sink {
 Console {}
 }
+
 ```
 
 ### parallel:
@@ -113,19 +119,27 @@ Console {}
 > Read your query table in parallel with the shard field you configured and the shard data  You can do this if you want to read the whole table
 
 ```
+
 Jdbc {
-    url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8"
-    driver = "com.mysql.cj.jdbc.Driver"
-    connection_check_timeout_sec = 100
-    user = "root"
-    password = "123456"
-    # Define query logic as required
-    query = "select * from type_bin"
-    # Parallel sharding reads fields
-    partition_column = "id"
-    # Number of fragments
-    partition_num = 10
+url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8"
+driver = "com.mysql.cj.jdbc.Driver"
+connection_check_timeout_sec = 100
+user = "root"
+password = "123456"
+
+# Define query logic as required
+
+query = "select * from type_bin"
+
+# Parallel sharding reads fields
+
+partition_column = "id"
+
+# Number of fragments
+
+partition_num = 10
 }
+
 ```
 
 ### parallel boundary:
@@ -133,20 +147,30 @@ Jdbc {
 > It is more efficient to specify the data within the upper and lower bounds of the query It is more efficient to read your data source according to the upper and lower boundaries you configured
 
 ```
+
 Jdbc {
-    url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8"
-    driver = "com.mysql.cj.jdbc.Driver"
-    connection_check_timeout_sec = 100
-    user = "root"
-    password = "123456"
-    # Define query logic as required
-    query = "select * from type_bin"
-    partition_column = "id"
-    # Read start boundary
-    partition_lower_bound = 1
-    # Read end boundary
-    partition_upper_bound = 500
-    partition_num = 10
+url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8"
+driver = "com.mysql.cj.jdbc.Driver"
+connection_check_timeout_sec = 100
+user = "root"
+password = "123456"
+
+# Define query logic as required
+
+query = "select * from type_bin"
+partition_column = "id"
+
+# Read start boundary
+
+partition_lower_bound = 1
+
+# Read end boundary
+
+partition_upper_bound = 500
+partition_num = 10
 }
+
+```
+
 ```
 
