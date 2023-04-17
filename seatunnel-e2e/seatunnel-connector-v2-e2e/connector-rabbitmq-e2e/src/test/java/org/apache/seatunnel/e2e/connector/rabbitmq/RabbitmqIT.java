@@ -32,6 +32,7 @@ import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import org.junit.jupiter.api.AfterAll;
@@ -66,6 +67,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+@DisabledOnContainer(
+        value = {},
+        type = {},
+        disabledReason = "Override TestSuiteBase @DisabledOnContainer")
 @Slf4j
 public class RabbitmqIT extends TestSuiteBase implements TestResource {
     private static final String IMAGE = "rabbitmq:3-management";
