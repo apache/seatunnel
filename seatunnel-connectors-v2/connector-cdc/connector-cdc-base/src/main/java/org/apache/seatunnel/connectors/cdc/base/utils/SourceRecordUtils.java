@@ -65,7 +65,7 @@ public class SourceRecordUtils {
     public static Long getMessageTimestamp(SourceRecord record) {
         Schema schema = record.valueSchema();
         Struct value = (Struct) record.value();
-        if (schema.field(Envelope.FieldName.SOURCE) == null) {
+        if (schema == null || schema.field(Envelope.FieldName.SOURCE) == null) {
             return null;
         }
 

@@ -28,20 +28,33 @@ env {
 }
 
 source {
-    FakeSource {
-      result_table_name = "fake"
-      row.num = 16
-      schema = {
-        fields {
-          name = "string"
-          age = "int"
-        }
+  FakeSource {
+    result_table_name = "fake"
+    row.num = 16
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
       }
     }
+  }
+}
+
+transform {
+  FieldMapper {
+    source_table_name = "fake"
+    result_table_name = "fake1"
+    field_mapper = {
+      age = age
+      name = new_name
+    }
+  }
 }
 
 sink {
-  Console {}
+  Console {
+    source_table_name = "fake1"
+  }
 }
 
 ```

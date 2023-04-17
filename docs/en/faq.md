@@ -20,7 +20,7 @@ Configure the variable name in the configuration, here is an example of sql tran
 ...
 transform {
   sql {
-    sql = "select * from user_view where city ='"${city}"' and dt = '"${date}"'"
+    query = "select * from user_view where city ='"${city}"' and dt = '"${date}"'"
   }
 }
 ...
@@ -83,12 +83,7 @@ source {
 }
 
 transform {
-	sql {
-	 sql = """
-	 	select .... from hdfs_table 
-	 	join es_table 
-	 	on hdfs_table.uid = es_table.uid where ..."""
-	}
+    ...
 }
 
 sink {

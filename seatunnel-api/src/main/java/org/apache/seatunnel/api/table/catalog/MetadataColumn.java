@@ -64,4 +64,10 @@ public class MetadataColumn extends Column {
         return MetadataColumn.of(
                 name, newType, columnLength, metadataKey, nullable, defaultValue, comment);
     }
+
+    @Override
+    public Column copy() {
+        return MetadataColumn.of(
+                name, dataType, columnLength, metadataKey, nullable, defaultValue, comment);
+    }
 }

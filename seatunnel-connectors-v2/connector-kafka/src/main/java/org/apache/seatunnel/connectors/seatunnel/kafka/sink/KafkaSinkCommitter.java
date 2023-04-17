@@ -17,12 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
 
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 
@@ -34,11 +32,11 @@ import java.util.Properties;
 @Slf4j
 public class KafkaSinkCommitter implements SinkCommitter<KafkaCommitInfo> {
 
-    private final Config pluginConfig;
+    private final ReadonlyConfig pluginConfig;
 
     private KafkaInternalProducer<?, ?> kafkaProducer;
 
-    public KafkaSinkCommitter(Config pluginConfig) {
+    public KafkaSinkCommitter(ReadonlyConfig pluginConfig) {
         this.pluginConfig = pluginConfig;
     }
 
@@ -83,8 +81,6 @@ public class KafkaSinkCommitter implements SinkCommitter<KafkaCommitInfo> {
             this.kafkaProducer.setTransactionalId(commitInfo.getTransactionId());
         } else {
             Properties kafkaProperties = commitInfo.getKafkaProperties();
-            kafkaProperties.setProperty(
-                    ConsumerConfig.CLIENT_ID_CONFIG, "sink-committer-" + this.hashCode());
             kafkaProperties.setProperty(
                     ProducerConfig.TRANSACTIONAL_ID_CONFIG, commitInfo.getTransactionId());
             kafkaProducer =
