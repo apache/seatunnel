@@ -58,9 +58,6 @@ import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 
 @Slf4j
-@DisabledOnContainer(
-        value = {},
-        type = {EngineType.FLINK, EngineType.SPARK})
 public class MongodbIT extends TestSuiteBase implements TestResource {
 
     private static final String MONGODB_IMAGE = "mongo:latest";

@@ -355,7 +355,7 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>connector-mongodb-v2</artifactId>
+                    <artifactId>connector-mongodb</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
