@@ -4,9 +4,9 @@
 
 ## Support those engines
 
-> Spark<br>
-> Flink<br>
-> Seatunnel Zeta<br>
+> Spark<br/>
+> Flink<br/>
+> Seatunnel Zeta<br/>
 
 ## Key features
 
@@ -31,7 +31,7 @@ semantics (using XA transaction guarantee).
 
 ## Database dependency
 
-> Please download the support list corresponding to 'Maven' and copy it to the '$SEATNUNNEL_HOME/plugins/jdbc/lib/' working directory<br>
+> Please download the support list corresponding to 'Maven' and copy it to the '$SEATNUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
 > For example Mysql datasource: cp mysql-connector-java-xxx.jar $SEATNUNNEL_HOME/plugins/jdbc/lib/
 
 ## Data Type Mapping
