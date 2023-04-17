@@ -35,7 +35,7 @@ import java.util.Arrays;
 public class OssFileSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
-        return FileSystemType.OSS.getFileSystemPluginName();
+        return FileSystemType.OSS_JINDO.getFileSystemPluginName();
     }
 
     @Override
