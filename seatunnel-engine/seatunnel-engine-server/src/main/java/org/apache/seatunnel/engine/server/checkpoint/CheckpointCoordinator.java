@@ -371,10 +371,23 @@ public class CheckpointCoordinator {
     }
 
     public PassiveCompletableFuture<CompletedCheckpoint> startSavepoint() {
+        LOG.info(String.format("Start save point for Job (%s)", jobId));
+        if (!isAllTaskReady) {
+            CompletableFuture savepointFuture = new CompletableFuture();
+            savepointFuture.completeExceptionally(
+                    new CheckpointException(
+                            CheckpointCloseReason.TASK_NOT_ALL_READY_WHEN_SAVEPOINT));
+            return new PassiveCompletableFuture<>(savepointFuture);
+        }
         CompletableFuture<PendingCheckpoint> savepoint =
                 createPendingCheckpoint(Instant.now().toEpochMilli(), SAVEPOINT_TYPE);
         startTriggerPendingCheckpoint(savepoint);
-        return savepoint.join().getCompletableFuture();
+        PendingCheckpoint savepointPendingCheckpoint = savepoint.join();
+        LOG.info(
+                String.format(
+                        "The save point checkpointId is %s",
+                        savepointPendingCheckpoint.getCheckpointId()));
+        return savepointPendingCheckpoint.getCompletableFuture();
     }
 
     private void startTriggerPendingCheckpoint(
