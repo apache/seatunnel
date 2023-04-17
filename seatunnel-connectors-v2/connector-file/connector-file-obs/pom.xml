@@ -71,4 +71,10 @@
 
     </dependencies>
 
+    <repositories>
+        <repository>
+            <id>huaweiCloud</id>
+            <url>https://repo.huaweicloud.com/repository/maven/huaweicloudsdk/</url>
+        </repository>
+    </repositories>
 </project>
