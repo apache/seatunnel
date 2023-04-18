@@ -26,6 +26,8 @@ import java.util.Map;
 public class Config {
 
     public static final String CONNECTOR_IDENTITY = "Kafka";
+
+    public static final String DEFAULT_TABLE_ID = "default";
     public static final String REPLICATION_FACTOR = "replication.factor";
 
     /** The default field delimiter is “,” */
@@ -84,25 +86,18 @@ public class Config {
                                     + "Kafka distinguishes different transactions by different transactionId. "
                                     + "This parameter is prefix of kafka transactionId, make sure different job use different prefix.");
 
-    public static final Option<Config> SCHEMA =
-            Options.key("schema")
-                    .objectType(Config.class)
-                    .noDefaultValue()
-                    .withDescription(
-                            "The structure of the data, including field names and field types.");
-
     public static final Option<MessageFormat> FORMAT =
             Options.key("format")
                     .enumType(MessageFormat.class)
-                    .defaultValue(MessageFormat.JSON)
+                    .defaultValue(MessageFormat.TEXT)
                     .withDescription(
-                            "Data format. The default format is json. Optional text format. The default field separator is \", \". "
+                            "Data format. The default format is text. Optional json format. The default field separator is \", \". "
                                     + "If you customize the delimiter, add the \"field_delimiter\" option.");
 
     public static final Option<String> FIELD_DELIMITER =
             Options.key("field_delimiter")
                     .stringType()
-                    .noDefaultValue()
+                    .defaultValue(DEFAULT_FIELD_DELIMITER)
                     .withDescription("Customize the field delimiter for data format.");
 
     public static final Option<Integer> PARTITION =
@@ -141,12 +136,12 @@ public class Config {
                     .noDefaultValue()
                     .withDescription("The time required for consumption mode to be timestamp.");
 
-    public static final Option<Config> START_MODE_OFFSETS =
-            Options.key("start_mode.offsets")
-                    .objectType(Config.class)
-                    .noDefaultValue()
-                    .withDescription(
-                            "The offset required for consumption mode to be specific_offsets.");
+    public static final Option<Map<String, String>> START_MODE_OFFSETS =
+        Options.key("start_mode.offsets")
+            .mapType()
+            .noDefaultValue()
+            .withDescription(
+                "The offset required for consumption mode to be specific_offsets.");
 
     /** Configuration key to define the consumer's partition discovery interval, in milliseconds. */
     public static final Option<Long> KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS =

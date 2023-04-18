@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
+import org.apache.seatunnel.api.serialization.DeserializationSchemaWithTopic;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -150,8 +151,13 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                                                             recordList) {
 
                                                         try {
-                                                            deserializationSchema.deserialize(
+                                                            if (deserializationSchema instanceof DeserializationSchemaWithTopic) {
+                                                                ((DeserializationSchemaWithTopic) deserializationSchema).deserialize(
+                                                                    record.topic(), record.value(), output);
+                                                            } else {
+                                                                deserializationSchema.deserialize(
                                                                     record.value(), output);
+                                                            }
                                                         } catch (IOException e) {
                                                             if (this.messageFormatErrorHandleWay
                                                                     == MessageFormatErrorHandleWay

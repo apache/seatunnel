@@ -32,5 +32,6 @@ public interface SeaTunnelPluginLifeCycle {
      * @throws PrepareFailException if plugin prepare failed, the {@link PrepareFailException} will
      *     throw.
      */
+    @Deprecated
     void prepare(Config pluginConfig) throws PrepareFailException;
 }
