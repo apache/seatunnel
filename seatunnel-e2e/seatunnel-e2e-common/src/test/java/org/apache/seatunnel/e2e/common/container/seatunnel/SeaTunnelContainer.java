@@ -21,7 +21,6 @@ import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
-import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -56,9 +55,6 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         server =
                 new GenericContainer<>(getDockerImage())
                         .withNetwork(NETWORK)
-                        .withCommand(
-                                ContainerUtil.adaptPathForWin(
-                                        Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString()))
                         .withNetworkAliases("server")
                         .withExposedPorts()
                         .withLogConsumer(
@@ -131,7 +127,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
 
     @Override
     protected List<String> getExtraStartShellCommands() {
-        return Collections.emptyList();
+        return Collections.singletonList("-m local");
     }
 
     @Override
