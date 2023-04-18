@@ -21,8 +21,10 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -259,8 +261,7 @@ public class SeaTunnelClientTest {
     }
 
     @Test
-    public void testSavePointAndRestoreWithSavePoint()
-            throws ExecutionException, InterruptedException {
+    public void testSavePointAndRestoreWithSavePoint() throws Exception {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/streaming_fake_to_console.conf");
         JobConfig jobConfig = new JobConfig();
@@ -276,7 +277,24 @@ public class SeaTunnelClientTest {
                 .untilAsserted(
                         () -> Assertions.assertEquals("RUNNING", CLIENT.getJobStatus(jobId)));
 
-        CLIENT.savePointJob(jobId);
+        RetryUtils.retryWithException(
+                () -> {
+                    CLIENT.savePointJob(jobId);
+                    return null;
+                },
+                new RetryUtils.RetryMaterial(
+                        Constant.OPERATION_RETRY_TIME,
+                        true,
+                        exception -> {
+                            // If we do savepoint for a Job which initialization has not been
+                            // completed yet, we will get an error.
+                            // In this test case, we need retry savepoint.
+                            return exception
+                                    .getCause()
+                                    .getMessage()
+                                    .contains("Task not all ready, savepoint error");
+                        },
+                        Constant.OPERATION_RETRY_SLEEP));
 
         await().atMost(30000, TimeUnit.MILLISECONDS)
                 .untilAsserted(

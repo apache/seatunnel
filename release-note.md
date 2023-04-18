@@ -19,6 +19,8 @@
 - [Hbase] Add hbase sink connector #4049
 - [Github] Add Github source connector #4155
 - [CDC] Support export debezium-json format to kafka #4339
+- [RocketMQ] Add RocketMQ source and sink connector #4007
+- [Jdbc] Add vertica connector #4303
 ### Formats
 - [Canal]Support read canal format message #3950
 
@@ -78,6 +80,7 @@
 
 ### Documents
 - [Doc] seatunnel run with flink operator error #3998
+- [Doc] Correct `transform sql` config on fqa.md #4493
 
 ## Test
 ### E2E
