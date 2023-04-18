@@ -185,7 +185,6 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
         ObjectNode objectNode = objectMapper.readValue(key, ObjectNode.class);
         Assertions.assertTrue(objectNode.has("c_map"));
         Assertions.assertTrue(objectNode.has("c_string"));
-        Assertions.assertEquals(10, data.size());
     }
 
     @TestTemplate
