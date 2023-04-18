@@ -49,9 +49,16 @@ public class SourceNoMoreElementOperation extends Operation implements Identifie
         SeaTunnelServer server = getService();
         RetryUtils.retryWithException(
                 () -> {
+                    ClassLoader classLoader =
+                            server.getTaskExecutionService()
+                                    .getExecutionContext(enumeratorTaskID.getTaskGroupLocation())
+                                    .getClassLoader();
+                    ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
+                    Thread.currentThread().setContextClassLoader(classLoader);
                     SourceSplitEnumeratorTask<?> task =
                             server.getTaskExecutionService().getTask(enumeratorTaskID);
                     task.readerFinished(currentTaskID.getTaskID());
+                    Thread.currentThread().setContextClassLoader(oldClassLoader);
                     return null;
                 },
                 new RetryUtils.RetryMaterial(
