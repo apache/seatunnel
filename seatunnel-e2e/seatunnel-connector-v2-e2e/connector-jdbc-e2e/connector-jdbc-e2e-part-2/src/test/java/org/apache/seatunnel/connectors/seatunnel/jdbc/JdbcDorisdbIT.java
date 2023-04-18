@@ -64,7 +64,6 @@ import java.util.stream.Stream;
 import static org.awaitility.Awaitility.given;
 
 @Slf4j
-@Disabled("Doris docker container is unstable")
 public class JdbcDorisdbIT extends TestSuiteBase implements TestResource {
     private static final String DOCKER_IMAGE = "taozex/doris:v1.1.1";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";

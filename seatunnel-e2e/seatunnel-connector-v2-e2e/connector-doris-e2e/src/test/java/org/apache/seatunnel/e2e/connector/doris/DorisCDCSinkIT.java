@@ -55,7 +55,6 @@ import java.util.stream.Stream;
 import static org.awaitility.Awaitility.given;
 
 @Slf4j
-@Disabled
 public class DorisCDCSinkIT extends TestSuiteBase implements TestResource {
     private static final String DOCKER_IMAGE = "zykkk/doris:1.2.2.1-avx2-x86_84";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
