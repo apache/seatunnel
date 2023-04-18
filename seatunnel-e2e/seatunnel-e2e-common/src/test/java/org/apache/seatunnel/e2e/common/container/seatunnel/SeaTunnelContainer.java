@@ -25,7 +25,6 @@ import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
@@ -35,7 +34,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -60,10 +58,8 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(
-                                                "seatunnel-engine:" + JDK_DOCKER_IMAGE)))
-                        .waitingFor(Wait.forListeningPort());
+                                                "seatunnel-engine:" + JDK_DOCKER_IMAGE)));
         copySeaTunnelStarterToContainer(server);
-        server.setExposedPorts(Arrays.asList(5801));
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         PROJECT_ROOT_PATH
