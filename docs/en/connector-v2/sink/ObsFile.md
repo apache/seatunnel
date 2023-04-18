@@ -2,20 +2,13 @@
 
 > Obs file sink connector
 
-## Description
+## Support those engines
 
-Output data to huawei cloud obs file system.
-
-:::tip
-
-If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
-
-If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
-
-We made some trade-offs in order to support more file types, so we used the HDFS protocol for internal access to OBS and this connector need some hadoop dependencies.
-It only supports hadoop version **2.9.X+**.
-
-:::
+> Spark
+>
+> Flink
+>
+> Seatunnel Zeta
 
 ## Key features
 
@@ -31,71 +24,76 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] json
   - [x] excel
 
+## Description
+
+Output data to huawei cloud obs file system.
+
+If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
+
+If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
+
+We made some trade-offs in order to support more file types, so we used the HDFS protocol for internal access to OBS and this connector need some hadoop dependencies.
+It only supports hadoop version **2.9.X+**.
+
+## Required Jar List
+
+|        jar         |     supported versions      |                                                     maven                                                      |
+|--------------------|-----------------------------|----------------------------------------------------------------------------------------------------------------|
+| hadoop-huaweicloud | support version >= 3.1.1.29 | [Download](https://repo.huaweicloud.com/repository/maven/huaweicloudsdk/org/apache/hadoop/hadoop-huaweicloud/) |
+| esdk-obs-java      | support version >= 3.19.7.3 | [Download](https://repo.huaweicloud.com/repository/maven/huaweicloudsdk/com/huawei/storage/esdk-obs-java/)     |
+| okhttp             | support version >= 3.11.0   | [Download](https://repo1.maven.org/maven2/com/squareup/okhttp3/okhttp/)                                        |
+| okio               | support version >= 1.14.0   | [Download](https://repo1.maven.org/maven2/com/squareup/okio/okio/)                                             |
+
+> Please download the support list corresponding to 'Maven' and copy them to the '$SEATNUNNEL_HOME/plugins/jdbc/lib/' working directory.
+>
+> And copy all jars to $SEATNUNNEL_HOME/lib/
+
 ## Options
 
-|               name               |  type   | required |               default value                |                          remarks                          |
-|----------------------------------|---------|----------|--------------------------------------------|-----------------------------------------------------------|
-| path                             | string  | yes      | -                                          |                                                           |
-| bucket                           | string  | yes      | -                                          |                                                           |
-| access_key                       | string  | yes      | -                                          |                                                           |
-| access_secret                    | string  | yes      | -                                          |                                                           |
-| endpoint                         | string  | yes      | -                                          |                                                           |
-| custom_filename                  | boolean | no       | false                                      | Whether you need custom the filename                      |
-| file_name_expression             | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                    |
-| filename_time_format             | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                    |
-| file_format_type                 | string  | no       | "csv"                                      |                                                           |
-| field_delimiter                  | string  | no       | '\001'                                     | Only used when file_format is text                        |
-| row_delimiter                    | string  | no       | "\n"                                       | Only used when file_format is text                        |
-| have_partition                   | boolean | no       | false                                      | Whether you need processing partitions.                   |
-| partition_by                     | array   | no       | -                                          | Only used then have_partition is true                     |
-| partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                     |
-| is_partition_field_write_in_file | boolean | no       | false                                      | Only used then have_partition is true                     |
-| sink_columns                     | array   | no       |                                            | When this parameter is empty, all fields are sink columns |
-| is_enable_transaction            | boolean | no       | true                                       |                                                           |
-| batch_size                       | int     | no       | 1000000                                    |                                                           |
-| compress_codec                   | string  | no       | none                                       |                                                           |
-| common-options                   | object  | no       | -                                          |                                                           |
-| max_rows_in_memory               | int     | no       | -                                          | Only used when file_format is excel.                      |
-| sheet_name                       | string  | no       | Sheet${Random number}                      | Only used when file_format is excel.                      |
+|               name               |  type   | required |                  default                   |                                                                description                                                                 |
+|----------------------------------|---------|----------|--------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------|
+| path                             | string  | yes      | -                                          | The target dir path.                                                                                                                       |
+| bucket                           | string  | yes      | -                                          | The bucket address of obs file system, for example: `obs://obs-bucket-name`.                                                               |
+| access_key                       | string  | yes      | -                                          | The access key of obs file system.                                                                                                         |
+| access_secret                    | string  | yes      | -                                          | The access secret of obs file system.                                                                                                      |
+| endpoint                         | string  | yes      | -                                          | The endpoint of obs file system.                                                                                                           |
+| custom_filename                  | boolean | no       | false                                      | Whether you need custom the filename.                                                                                                      |
+| file_name_expression             | string  | no       | "${transactionId}"                         | Describes the file expression which will be created into the `path`. Only used when custom_filename is true. [Tips](#file_name_expression) |
+| filename_time_format             | string  | no       | "yyyy.MM.dd"                               | Specify the time format of the `path`. Only used when custom_filename is true. [Tips](#filename_time_format)                               |
+| file_format_type                 | string  | no       | "csv"                                      | Supported file types. [Tips](#file_format_type)                                                                                            |
+| field_delimiter                  | string  | no       | '\001'                                     | The separator between columns in a row of data.Only used when file_format is text.                                                         |
+| row_delimiter                    | string  | no       | "\n"                                       | The separator between rows in a file. Only needed by `text` file format.                                                                   |
+| have_partition                   | boolean | no       | false                                      | Whether you need processing partitions.                                                                                                    |
+| partition_by                     | array   | no       | -                                          | Partition data based on selected fields. Only used then have_partition is true.                                                            |
+| partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true.[Tips](#partition_dir_expression)                                                                    |
+| is_partition_field_write_in_file | boolean | no       | false                                      | Only used then have_partition is true.[Tips](#is_partition_field_write_in_file)                                                            |
+| sink_columns                     | array   | no       |                                            | When this parameter is empty, all fields are sink columns.[Tips](#sink_columns)                                                            |
+| is_enable_transaction            | boolean | no       | true                                       | [Tips](#is_enable_transaction)                                                                                                             |
+| batch_size                       | int     | no       | 1000000                                    | [Tips](#batch_size)                                                                                                                        |
+| compress_codec                   | string  | no       | none                                       | [Tips](#compress_codec)                                                                                                                    |
+| common-options                   | object  | no       | -                                          | [Tips](#common_options)                                                                                                                    |
+| max_rows_in_memory               | int     | no       | -                                          | When File Format is Excel,The maximum number of data items that can be cached in the memory.Only used when file_format is excel.           |
+| sheet_name                       | string  | no       | Sheet${Random number}                      | Writer the sheet of the workbook. Only used when file_format is excel.                                                                     |
 
-### path [string]
+### Tips
 
-The target dir path is required.
+#### <span id="file_name_expression"> file_name_expression </span>
 
-### bucket [string]
-
-The bucket address of obs file system, for example: `obs://obs-bucket-name`
-
-### access_key [string]
-
-The access key of obs file system.
-
-### access_secret [string]
-
-The access secret of obs file system.
-
-### endpoint [string]
-
-The endpoint of obs file system.
-
-### custom_filename [boolean]
-
-Whether custom the filename
-
-### file_name_expression [string]
-
-Only used when `custom_filename` is `true`
-
-`file_name_expression` describes the file expression which will be created into the `path`. We can add the variable `${now}` or `${uuid}` in the `file_name_expression`, like `test_${uuid}_${now}`,
-`${now}` represents the current time, and its format can be defined by specifying the option `filename_time_format`.
+> Only used when `custom_filename` is `true`
+>
+> `file_name_expression` describes the file expression which will be created into the `path`.
+>
+> We can add the variable `${now}` or `${uuid}` in the `file_name_expression`, like `test_${uuid}_${now}`,
+>
+> `${now}` represents the current time, and its format can be defined by specifying the option `filename_time_format`.
 
 Please note that, If `is_enable_transaction` is `true`, we will auto add `${transactionId}_` in the head of the file.
 
-### filename_time_format [string]
+#### <span id="filename_time_format"> filename_time_format </span>
 
-Only used when `custom_filename` is `true`
-
-When the format in the `file_name_expression` parameter is `xxxx-${now}` , `filename_time_format` can specify the time format of the path, and the default value is `yyyy.MM.dd` . The commonly used time formats are listed as follows:
+> Only used when `custom_filename` is `true`
+>
+> When the format in the `file_name_expression` parameter is `xxxx-${now}` , `filename_time_format` can specify the time format of the path, and the default value is `yyyy.MM.dd` . The commonly used time formats are listed as follows:
 
 | Symbol |    Description     |
 |--------|--------------------|
@@ -106,92 +104,66 @@ When the format in the `file_name_expression` parameter is `xxxx-${now}` , `file
 | m      | Minute in hour     |
 | s      | Second in minute   |
 
-### file_format_type [string]
+#### <span id="file_format_type"> file_format_type </span>
 
-We supported as the following file types:
-
-`text` `json` `csv` `orc` `parquet` `excel`
+> We supported as the following file types:
+>
+> `text` `json` `csv` `orc` `parquet` `excel`
 
 Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.
 
-### field_delimiter [string]
+#### <span id="partition_dir_expression"> partition_dir_expression </span>
 
-The separator between columns in a row of data. Only needed by `text` file format.
+> Only used when `have_partition` is `true`.
+>
+> If the `partition_by` is specified, we will generate the corresponding partition directory based on the partition information, and the final file will be placed in the partition directory.
+>
+> Default `partition_dir_expression` is `${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/`. `k0` is the first partition field and `v0` is the value of the first partition field.
 
-### row_delimiter [string]
+#### <span id="is_partition_field_write_in_file"> is_partition_field_write_in_file </span>
 
-The separator between rows in a file. Only needed by `text` file format.
+> Only used when `have_partition` is `true`.
+>
+> If `is_partition_field_write_in_file` is `true`, the partition field and the value of it will be write into data file.
+>
+> For example, if you want to write a Hive Data File, Its value should be `false`.
 
-### have_partition [boolean]
+#### <span id="sink_columns"> sink_columns </span>
 
-Whether you need processing partitions.
+> Which columns need be written to file, default value is all the columns get from `Transform` or `Source`.
+> The order of the fields determines the order in which the file is actually written.
 
-### partition_by [array]
+#### <span id="is_enable_transaction"> is_enable_transaction </span>
 
-Only used when `have_partition` is `true`.
+> If `is_enable_transaction` is true, we will ensure that data will not be lost or duplicated when it is written to the target directory.
+>
+> Please note that, If `is_enable_transaction` is `true`, we will auto add `${transactionId}_` in the head of the file. Only support `true` now.
 
-Partition data based on selected fields.
+#### <span id="batch_size"> batch_size </span>
 
-### partition_dir_expression [string]
+> The maximum number of rows in a file. For SeaTunnel Engine, the number of lines in the file is determined by `batch_size` and `checkpoint.interval` jointly decide. If the value of `checkpoint.interval` is large enough, sink writer will write rows in a file until the rows in the file larger than `batch_size`. If `checkpoint.interval` is small, the sink writer will create a new file when a new checkpoint trigger.
 
-Only used when `have_partition` is `true`.
+#### <span id="compress_codec"> compress_codec </span>
 
-If the `partition_by` is specified, we will generate the corresponding partition directory based on the partition information, and the final file will be placed in the partition directory.
+> The compress codec of files and the details that supported as the following shown:
+>
+> - txt: `lzo` `none`
+> - json: `lzo` `none`
+> - csv: `lzo` `none`
+> - orc: `lzo` `snappy` `lz4` `zlib` `none`
+> - parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`
 
-Default `partition_dir_expression` is `${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/`. `k0` is the first partition field and `v0` is the value of the first partition field.
+Please note that excel type does not support any compression format
 
-### is_partition_field_write_in_file [boolean]
+#### <span id="common_options"> common options </span>
 
-Only used when `have_partition` is `true`.
+> Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
 
-If `is_partition_field_write_in_file` is `true`, the partition field and the value of it will be write into data file.
+## Task Example
 
-For example, if you want to write a Hive Data File, Its value should be `false`.
+### text file
 
-### sink_columns [array]
-
-Which columns need be written to file, default value is all the columns get from `Transform` or `Source`.
-The order of the fields determines the order in which the file is actually written.
-
-### is_enable_transaction [boolean]
-
-If `is_enable_transaction` is true, we will ensure that data will not be lost or duplicated when it is written to the target directory.
-
-Please note that, If `is_enable_transaction` is `true`, we will auto add `${transactionId}_` in the head of the file.
-
-Only support `true` now.
-
-### batch_size [int]
-
-The maximum number of rows in a file. For SeaTunnel Engine, the number of lines in the file is determined by `batch_size` and `checkpoint.interval` jointly decide. If the value of `checkpoint.interval` is large enough, sink writer will write rows in a file until the rows in the file larger than `batch_size`. If `checkpoint.interval` is small, the sink writer will create a new file when a new checkpoint trigger.
-
-### compress_codec [string]
-
-The compress codec of files and the details that supported as the following shown:
-
-- txt: `lzo` `none`
-- json: `lzo` `none`
-- csv: `lzo` `none`
-- orc: `lzo` `snappy` `lz4` `zlib` `none`
-- parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`
-
-Tips: excel type does not support any compression format
-
-### common options
-
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
-
-### max_rows_in_memory [int]
-
-When File Format is Excel,The maximum number of data items that can be cached in the memory.
-
-### sheet_name [string]
-
-Writer the sheet of the workbook
-
-## Example
-
-For text file format with `have_partition` and `custom_filename` and `sink_columns`
+> For text file format with `have_partition` and `custom_filename` and `sink_columns`
 
 ```hocon
 
@@ -217,7 +189,9 @@ For text file format with `have_partition` and `custom_filename` and `sink_colum
 
 ```
 
-For parquet file format with `have_partition` and `sink_columns`
+### parquet file
+
+> For parquet file format with `have_partition` and `sink_columns`
 
 ```hocon
 
@@ -237,9 +211,11 @@ For parquet file format with `have_partition` and `sink_columns`
 
 ```
 
-For orc file format simple config
+### orc file
 
-```bash
+> For orc file format simple config
+
+```hocon
 
   ObsFile {
     path="/seatunnel/sink"
@@ -254,7 +230,7 @@ For orc file format simple config
 
 ## Changelog
 
-### 2.3.1-SNAPSHOT 2023-04-14
+### next version
 
 - Add OBS Sink Connector
 
