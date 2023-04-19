@@ -21,7 +21,9 @@ import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.SerializableFunct
 import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.config.MongodbWriterOptions;
 
 import org.bson.BsonDocument;
-import org.bson.BsonValue;
+
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
 public class MongoKeyExtractor implements SerializableFunction<BsonDocument, BsonDocument> {
 
@@ -35,11 +37,10 @@ public class MongoKeyExtractor implements SerializableFunction<BsonDocument, Bso
 
     @Override
     public BsonDocument apply(BsonDocument bsonDocument) {
-        BsonDocument filterConditions = new BsonDocument();
-        for (String key : upsertKey) {
-            BsonValue bsonValue = bsonDocument.get(key);
-            filterConditions.append(key, bsonValue);
-        }
-        return filterConditions;
+        return Arrays.stream(upsertKey)
+                .filter(bsonDocument::containsKey)
+                .collect(
+                        Collectors.toMap(
+                                key -> key, bsonDocument::get, (v1, v2) -> v1, BsonDocument::new));
     }
 }
