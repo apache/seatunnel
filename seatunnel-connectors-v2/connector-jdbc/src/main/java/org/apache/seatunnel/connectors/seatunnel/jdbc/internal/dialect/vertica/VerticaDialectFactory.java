@@ -15,19 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.vertica;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
 
-import java.io.Serializable;
+import com.google.auto.service.AutoService;
 
-@Data
-@AllArgsConstructor
-public class PartitionParameter implements Serializable {
+/** Factory for {@link VerticaDialect}. */
+@AutoService(JdbcDialectFactory.class)
+public class VerticaDialectFactory implements JdbcDialectFactory {
+    @Override
+    public boolean acceptsURL(String url) {
+        return url.startsWith("jdbc:vertica:");
+    }
 
-    String partitionColumnName;
-    long minValue;
-    long maxValue;
-    Integer partitionNumber;
+    @Override
+    public JdbcDialect create() {
+        return new VerticaDialect();
+    }
 }

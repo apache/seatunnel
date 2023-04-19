@@ -20,6 +20,7 @@
 - [Github] Add Github source connector #4155
 - [CDC] Support export debezium-json format to kafka #4339
 - [RocketMQ] Add RocketMQ source and sink connector #4007
+- [Jdbc] Add vertica connector #4303
 ### Formats
 - [Canal]Support read canal format message #3950
 - [MaxWell] Support read canal MaxWell message #4428

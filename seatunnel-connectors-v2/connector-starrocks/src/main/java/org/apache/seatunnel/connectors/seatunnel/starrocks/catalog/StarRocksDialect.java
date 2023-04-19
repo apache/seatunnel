@@ -15,19 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
+package org.apache.seatunnel.connectors.seatunnel.starrocks.catalog;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlDialect;
 
-import java.io.Serializable;
-
-@Data
-@AllArgsConstructor
-public class PartitionParameter implements Serializable {
-
-    String partitionColumnName;
-    long minValue;
-    long maxValue;
-    Integer partitionNumber;
+public class StarRocksDialect extends MysqlDialect {
+    @Override
+    public String dialectName() {
+        return "StarRocks";
+    }
 }

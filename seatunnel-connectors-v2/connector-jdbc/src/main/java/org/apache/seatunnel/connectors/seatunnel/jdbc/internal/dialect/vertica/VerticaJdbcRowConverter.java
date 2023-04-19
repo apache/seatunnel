@@ -15,19 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.vertica;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 
-import java.io.Serializable;
-
-@Data
-@AllArgsConstructor
-public class PartitionParameter implements Serializable {
-
-    String partitionColumnName;
-    long minValue;
-    long maxValue;
-    Integer partitionNumber;
+public class VerticaJdbcRowConverter extends AbstractJdbcRowConverter {
+    @Override
+    public String converterName() {
+        return "Vertica";
+    }
 }

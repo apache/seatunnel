@@ -15,34 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.vertica;
 
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-public class SqlServerDialect implements JdbcDialect {
+public class VerticaDialect implements JdbcDialect {
     @Override
     public String dialectName() {
-        return "Sqlserver";
+        return "Vertica";
     }
 
     @Override
     public JdbcRowConverter getRowConverter() {
-        return new SqlserverJdbcRowConverter();
+        return new VerticaJdbcRowConverter();
     }
 
     @Override
     public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
-        return new SqlserverTypeMapper();
+        return new VerticaTypeMapper();
+    }
+
+    @Override
+    public String quoteIdentifier(String identifier) {
+        return "\"" + identifier + "\"";
     }
 
     @Override
@@ -57,13 +59,13 @@ public class SqlServerDialect implements JdbcDialect {
                         .map(fieldName -> ":" + fieldName + " " + quoteIdentifier(fieldName))
                         .collect(Collectors.joining(", "));
 
-        String usingClause = String.format("SELECT %s", valuesBinding);
+        String usingClause = String.format("SELECT %s FROM DUAL", valuesBinding);
         String onConditions =
                 Arrays.stream(uniqueKeyFields)
                         .map(
                                 fieldName ->
                                         String.format(
-                                                "[TARGET].%s=[SOURCE].%s",
+                                                "TARGET.%s=SOURCE.%s",
                                                 quoteIdentifier(fieldName),
                                                 quoteIdentifier(fieldName)))
                         .collect(Collectors.joining(" AND "));
@@ -72,7 +74,7 @@ public class SqlServerDialect implements JdbcDialect {
                         .map(
                                 fieldName ->
                                         String.format(
-                                                "[TARGET].%s=[SOURCE].%s",
+                                                "TARGET.%s=SOURCE.%s",
                                                 quoteIdentifier(fieldName),
                                                 quoteIdentifier(fieldName)))
                         .collect(Collectors.joining(", "));
@@ -82,17 +84,18 @@ public class SqlServerDialect implements JdbcDialect {
                         .collect(Collectors.joining(", "));
         String insertValues =
                 Arrays.stream(fieldNames)
-                        .map(fieldName -> "[SOURCE]." + quoteIdentifier(fieldName))
+                        .map(fieldName -> "SOURCE." + quoteIdentifier(fieldName))
                         .collect(Collectors.joining(", "));
+
         String upsertSQL =
                 String.format(
-                        "MERGE INTO %s.%s AS [TARGET]"
-                                + " USING (%s) AS [SOURCE]"
-                                + " ON (%s)"
+                        " MERGE INTO %s.%s TARGET"
+                                + " USING (%s) SOURCE"
+                                + " ON (%s) "
                                 + " WHEN MATCHED THEN"
                                 + " UPDATE SET %s"
                                 + " WHEN NOT MATCHED THEN"
-                                + " INSERT (%s) VALUES (%s);",
+                                + " INSERT (%s) VALUES (%s)",
                         database,
                         tableName,
                         usingClause,
@@ -102,32 +105,5 @@ public class SqlServerDialect implements JdbcDialect {
                         insertValues);
 
         return Optional.of(upsertSQL);
-    }
-
-    @Override
-    public String listDatabases() {
-        return "SELECT NAME FROM SYS.DATABASES";
-    }
-
-    @Override
-    public String listTableSql(String databaseName) {
-        return "SELECT TABLE_SCHEMA, TABLE_NAME FROM "
-                + databaseName
-                + ".INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'";
-    }
-
-    @Override
-    public String getTableName(ResultSet rs) throws SQLException {
-        return rs.getString(1) + "." + rs.getString(2);
-    }
-
-    @Override
-    public String getTableName(TablePath tablePath) {
-        return tablePath.getSchemaName() + "." + tablePath.getTableName();
-    }
-
-    @Override
-    public String getUrlFromDatabaseName(String baseUrl, String databaseName, String suffix) {
-        return baseUrl + ";databaseName=" + databaseName + ";" + suffix;
     }
 }

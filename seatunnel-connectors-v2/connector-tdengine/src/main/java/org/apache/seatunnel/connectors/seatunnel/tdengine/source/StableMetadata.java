@@ -15,19 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
+package org.apache.seatunnel.connectors.seatunnel.tdengine.source;
+
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.List;
 
 @Data
 @AllArgsConstructor
-public class PartitionParameter implements Serializable {
-
-    String partitionColumnName;
-    long minValue;
-    long maxValue;
-    Integer partitionNumber;
+public class StableMetadata implements Serializable {
+    private final SeaTunnelRowType rowType;
+    private final String timestampFieldName;
+    private final List<String> subTableNames;
 }

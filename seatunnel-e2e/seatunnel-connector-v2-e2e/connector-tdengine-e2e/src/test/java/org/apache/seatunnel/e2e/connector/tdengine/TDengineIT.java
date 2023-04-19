@@ -20,6 +20,7 @@ package org.apache.seatunnel.e2e.connector.tdengine;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -48,6 +49,10 @@ import java.util.stream.Stream;
 import static org.awaitility.Awaitility.given;
 
 @Slf4j
+@DisabledOnContainer(
+        value = {},
+        type = {},
+        disabledReason = "Override TestSuiteBase @DisabledOnContainer")
 public class TDengineIT extends TestSuiteBase implements TestResource {
     private static final String DOCKER_IMAGE = "tdengine/tdengine:3.0.2.1";
     private static final String NETWORK_ALIASES1 = "flink_e2e_tdengine_src";

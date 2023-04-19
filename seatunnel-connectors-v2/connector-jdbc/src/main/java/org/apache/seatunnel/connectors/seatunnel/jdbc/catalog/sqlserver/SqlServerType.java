@@ -140,7 +140,7 @@ public enum SqlServerType implements SQLType {
     public static Pair<SqlServerType, Map<String, Object>> parse(String fullTypeName) {
         Map<String, Object> params = new HashMap<>();
         String typeName = fullTypeName;
-        if (fullTypeName.indexOf("(") != -1) {
+        if (fullTypeName.contains("(")) {
             typeName = fullTypeName.substring(0, fullTypeName.indexOf("(")).trim();
             String paramsStr =
                     fullTypeName.substring(
