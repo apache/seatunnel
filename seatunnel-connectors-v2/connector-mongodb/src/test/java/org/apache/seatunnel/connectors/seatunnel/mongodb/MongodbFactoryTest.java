@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.mongodbv2;
+package org.apache.seatunnel.connectors.seatunnel.mongodb;
 
 import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.MongodbSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.MongodbSourceFactory;
