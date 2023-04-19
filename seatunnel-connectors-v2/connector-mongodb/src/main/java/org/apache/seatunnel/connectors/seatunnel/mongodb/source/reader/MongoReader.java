@@ -26,7 +26,7 @@ import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.DocumentDeseriali
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.config.MongodbReadOptions;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplit;
 
-import org.bson.Document;
+import org.bson.BsonDocument;
 
 import com.google.common.base.Preconditions;
 import com.mongodb.client.FindIterable;
@@ -50,7 +50,7 @@ public class MongoReader implements SourceReader<SeaTunnelRow, MongoSplit> {
     private final SourceReader.Context context;
     private final MongoClientProvider clientProvider;
 
-    private transient MongoCursor<Document> cursor;
+    private transient MongoCursor<BsonDocument> cursor;
 
     private MongoSplit currentSplit;
 
@@ -92,7 +92,7 @@ public class MongoReader implements SourceReader<SeaTunnelRow, MongoSplit> {
                     return;
                 }
                 log.info("Prepared to read split {}", currentSplit.splitId());
-                FindIterable<Document> rs =
+                FindIterable<BsonDocument> rs =
                         clientProvider
                                 .getDefaultCollection()
                                 .find(currentSplit.getQuery())

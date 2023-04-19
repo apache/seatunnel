@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.internal;
 
+import org.bson.BsonDocument;
 import org.bson.Document;
 
 import com.google.common.base.Preconditions;
@@ -39,7 +40,8 @@ public class MongoSingleCollectionProvider implements MongoClientProvider {
 
     private transient MongoDatabase database;
 
-    private transient MongoCollection<Document> collection;
+    private transient MongoCollection<BsonDocument> collection;
+    private transient MongoCollection<Document> collection1;
 
     public MongoSingleCollectionProvider(
             String connectionString, String defaultDatabase, String defaultCollection) {
@@ -72,10 +74,11 @@ public class MongoSingleCollectionProvider implements MongoClientProvider {
     }
 
     @Override
-    public MongoCollection<Document> getDefaultCollection() {
+    public MongoCollection<BsonDocument> getDefaultCollection() {
         synchronized (this) {
             if (collection == null) {
-                collection = getDefaultDatabase().getCollection(defaultCollection);
+                collection =
+                        getDefaultDatabase().getCollection(defaultCollection, BsonDocument.class);
             }
         }
         return collection;

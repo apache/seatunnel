@@ -17,42 +17,57 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.serde;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
-
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.exception.MongodbConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.config.MongodbWriterOptions;
 
-import org.bson.Document;
+import org.bson.BsonDocument;
+import org.bson.conversions.Bson;
+
+import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.InsertOneModel;
+import com.mongodb.client.model.UpdateOneModel;
+import com.mongodb.client.model.UpdateOptions;
+import com.mongodb.client.model.WriteModel;
+
+import java.util.List;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class RowDataDocumentSerializer implements DocumentSerializer<SeaTunnelRow> {
 
-    private final RowDataToJsonConverters.RowDataToJsonConverter jsonConverter;
+    private final RowDataToBsonConverters.RowDataToBsonConverter rowDataToBsonConverter;
+    private final Boolean isUpsertEnable;
 
-    private transient ObjectNode node;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final Function<BsonDocument, BsonDocument> filterConditions;
 
-    public RowDataDocumentSerializer(SeaTunnelDataType<?> type) {
-        this.jsonConverter = new RowDataToJsonConverters().createConverter(type);
+    public RowDataDocumentSerializer(
+            RowDataToBsonConverters.RowDataToBsonConverter rowDataToBsonConverter,
+            MongodbWriterOptions options,
+            Function<BsonDocument, BsonDocument> filterConditions) {
+        this.rowDataToBsonConverter = rowDataToBsonConverter;
+        this.isUpsertEnable = options.isUpsertEnable();
+        this.filterConditions = filterConditions;
     }
 
     @Override
-    public Document serialize(SeaTunnelRow row) {
-        if (node == null) {
-            node = mapper.createObjectNode();
+    public WriteModel<BsonDocument> serialize(SeaTunnelRow row) {
+        final BsonDocument bsonDocument = rowDataToBsonConverter.convert(row);
+        if (isUpsertEnable) {
+            Bson filter = generateFilter(filterConditions.apply(bsonDocument));
+            bsonDocument.remove("_id");
+            BsonDocument update = new BsonDocument("$set", bsonDocument);
+            return new UpdateOneModel<>(filter, update, new UpdateOptions().upsert(true));
+        } else {
+            return new InsertOneModel<>(bsonDocument);
         }
-        try {
-            jsonConverter.convert(mapper, node, row);
-            String s = mapper.writeValueAsString(node);
-            return Document.parse(s);
-        } catch (JsonProcessingException e) {
-            throw new MongodbConnectorException(
-                    CommonErrorCode.SERIALIZE_OPERATION_FAILED,
-                    "can not serialize row '" + row + "'. ",
-                    e);
-        }
+    }
+
+    public static Bson generateFilter(BsonDocument filterConditions) {
+        List<Bson> filters =
+                filterConditions.entrySet().stream()
+                        .map(entry -> Filters.eq(entry.getKey(), entry.getValue()))
+                        .collect(Collectors.toList());
+
+        return Filters.and(filters);
     }
 }

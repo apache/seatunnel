@@ -31,10 +31,8 @@ public class MongodbWriterOptions implements Serializable {
 
     protected final String collection;
 
-    protected final boolean transactionEnable;
-    protected final boolean flushOnCheckpoint;
     protected final int flushSize;
-    protected final Long flushInterval;
+    protected final Long batchIntervalMs;
     protected final boolean upsertEnable;
     protected final String[] upsertKey;
 
@@ -46,10 +44,8 @@ public class MongodbWriterOptions implements Serializable {
             String connectString,
             String database,
             String collection,
-            boolean transactionEnable,
-            boolean flushOnCheckpoint,
             int flushSize,
-            Long flushInterval,
+            Long batchIntervalMs,
             boolean upsertEnable,
             String[] upsertKey,
             int retryMax,
@@ -57,10 +53,8 @@ public class MongodbWriterOptions implements Serializable {
         this.connectString = connectString;
         this.database = database;
         this.collection = collection;
-        this.transactionEnable = transactionEnable;
-        this.flushOnCheckpoint = flushOnCheckpoint;
         this.flushSize = flushSize;
-        this.flushInterval = flushInterval;
+        this.batchIntervalMs = batchIntervalMs;
         this.upsertEnable = upsertEnable;
         this.upsertKey = upsertKey;
         this.retryMax = retryMax;
@@ -76,10 +70,8 @@ public class MongodbWriterOptions implements Serializable {
         protected String connectString;
         protected String database;
         protected String collection;
-        protected boolean transactionEnable;
-        protected boolean flushOnCheckpoint;
         protected int flushSize;
-        protected Long flushInterval;
+        protected Long batchIntervalMs;
         protected boolean upsertEnable;
         protected String[] upsertKey;
         protected int retryMax;
@@ -100,19 +92,13 @@ public class MongodbWriterOptions implements Serializable {
             return this;
         }
 
-        public Builder withFlushOnCheckpoint(boolean flushOnCheckpoint) {
-            this.flushOnCheckpoint = flushOnCheckpoint;
-            this.transactionEnable = flushOnCheckpoint;
-            return this;
-        }
-
         public Builder withFlushSize(int flushSize) {
             this.flushSize = flushSize;
             return this;
         }
 
-        public Builder withFlushInterval(Long flushInterval) {
-            this.flushInterval = flushInterval;
+        public Builder withBatchIntervalMs(Long batchIntervalMs) {
+            this.batchIntervalMs = batchIntervalMs;
             return this;
         }
 
@@ -141,10 +127,8 @@ public class MongodbWriterOptions implements Serializable {
                     connectString,
                     database,
                     collection,
-                    transactionEnable,
-                    flushOnCheckpoint,
                     flushSize,
-                    flushInterval,
+                    batchIntervalMs,
                     upsertEnable,
                     upsertKey,
                     retryMax,

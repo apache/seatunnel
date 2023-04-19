@@ -20,8 +20,12 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.serde;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.exception.MongodbConnectorException;
 
-import org.bson.Document;
+import org.bson.BsonDocument;
+import org.bson.BsonValue;
+
+import static org.apache.seatunnel.common.exception.CommonErrorCode.ILLEGAL_ARGUMENT;
 
 public class DocumentRowDataDeserializer implements DocumentDeserializer<SeaTunnelRow> {
 
@@ -31,9 +35,9 @@ public class DocumentRowDataDeserializer implements DocumentDeserializer<SeaTunn
 
     private final BsonToRowDataConverters bsonConverters;
 
-    public DocumentRowDataDeserializer(String[] fieldNames, SeaTunnelDataType dataTypes) {
+    public DocumentRowDataDeserializer(String[] fieldNames, SeaTunnelDataType<?> dataTypes) {
         if (fieldNames == null || fieldNames.length < 1) {
-            throw new IllegalArgumentException("fieldName is empty");
+            throw new MongodbConnectorException(ILLEGAL_ARGUMENT, "fieldName is empty");
         }
 
         this.bsonConverters = new BsonToRowDataConverters();
@@ -42,13 +46,13 @@ public class DocumentRowDataDeserializer implements DocumentDeserializer<SeaTunn
     }
 
     @Override
-    public SeaTunnelRow deserialize(Document document) {
+    public SeaTunnelRow deserialize(BsonDocument bsonDocument) {
         SeaTunnelRow rowData = new SeaTunnelRow(fieldNames.length);
         for (int i = 0; i < fieldNames.length; i++) {
             String fieldName = this.fieldNames[i];
-            Object o = document.get(fieldName);
+            BsonValue o = bsonDocument.get(fieldName);
             SeaTunnelDataType<?> fieldType = fieldTypes[i];
-            rowData.setField(i, bsonConverters.createConverter(fieldType).convert(null, o));
+            rowData.setField(i, bsonConverters.createConverter(fieldType).convert(o));
         }
         return rowData;
     }

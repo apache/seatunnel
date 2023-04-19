@@ -17,7 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.serde;
 
+import org.bson.BsonDocument;
 import org.bson.Document;
+
+import com.mongodb.client.model.WriteModel;
 
 import java.io.Serializable;
 
@@ -30,5 +33,5 @@ public interface DocumentSerializer<T> extends Serializable {
      * @param object The input object.
      * @return The serialized {@link Document}.
      */
-    Document serialize(T object);
+    WriteModel<BsonDocument> serialize(T object);
 }

@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.internal;
 
-import org.bson.Document;
+import org.bson.BsonDocument;
 
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
@@ -47,7 +47,7 @@ public interface MongoClientProvider extends Serializable {
      *
      * @return Current {@link MongoCollection}.
      */
-    MongoCollection<Document> getDefaultCollection();
+    MongoCollection<BsonDocument> getDefaultCollection();
 
     /**
      * Recreate a client. Used typically when a connection is timed out or lost.
