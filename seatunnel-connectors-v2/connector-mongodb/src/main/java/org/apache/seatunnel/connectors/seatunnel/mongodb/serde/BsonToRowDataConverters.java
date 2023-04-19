@@ -332,7 +332,7 @@ public class BsonToRowDataConverters implements Serializable {
         };
     }
 
-    private static BigDecimal fromBigDecimal(BigDecimal bd, int precision, int scale) {
+    public static BigDecimal fromBigDecimal(BigDecimal bd, int precision, int scale) {
         bd = bd.setScale(scale, RoundingMode.HALF_UP);
         if (bd.precision() > precision) {
             return null;

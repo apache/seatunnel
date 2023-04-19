@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.mongodb.serde;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -29,6 +30,7 @@ import org.apache.seatunnel.connectors.seatunnel.mongodb.exception.MongodbConnec
 import org.bson.BsonArray;
 import org.bson.BsonBinary;
 import org.bson.BsonBoolean;
+import org.bson.BsonDateTime;
 import org.bson.BsonDecimal128;
 import org.bson.BsonDocument;
 import org.bson.BsonDouble;
@@ -42,13 +44,18 @@ import org.bson.types.Decimal128;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import static org.apache.seatunnel.api.table.type.SqlType.NULL;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_DATA_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.ENCODE_VALUE_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.serde.BsonToRowDataConverters.fromBigDecimal;
 
 public class RowDataToBsonConverters implements Serializable {
 
@@ -126,7 +133,13 @@ public class RowDataToBsonConverters implements Serializable {
 
                     @Override
                     public BsonValue apply(Object value) {
-                        return new BsonInt32((int) value);
+                        int intValue =
+                                value instanceof Byte
+                                        ? ((Byte) value) & 0xFF
+                                        : value instanceof Short
+                                                ? ((Short) value).intValue()
+                                                : (int) value;
+                        return new BsonInt32(intValue);
                     }
                 };
             case BIGINT:
@@ -145,7 +158,11 @@ public class RowDataToBsonConverters implements Serializable {
 
                     @Override
                     public BsonValue apply(Object value) {
-                        return new BsonDouble((double) value);
+                        double v =
+                                value instanceof Float
+                                        ? ((Float) value).doubleValue()
+                                        : (double) value;
+                        return new BsonDouble(v);
                     }
                 };
             case STRING:
@@ -182,19 +199,48 @@ public class RowDataToBsonConverters implements Serializable {
                     }
                 };
             case DATE:
-                // return this.createDateConverter();
-            case TIME:
-                // return this.createTimeConverter();
+                return new SerializableFunction<Object, BsonValue>() {
+                    private static final long serialVersionUID = 1L;
+
+                    @Override
+                    public BsonValue apply(Object value) {
+                        LocalDate localDate = (LocalDate) value;
+                        return new BsonDateTime(
+                                localDate
+                                        .atStartOfDay(ZoneId.systemDefault())
+                                        .toInstant()
+                                        .toEpochMilli());
+                    }
+                };
             case TIMESTAMP:
-                // return this.createTimestampConverter();
+                return new SerializableFunction<Object, BsonValue>() {
+                    private static final long serialVersionUID = 1L;
+
+                    @Override
+                    public BsonValue apply(Object value) {
+                        LocalDateTime localDateTime = (LocalDateTime) value;
+                        return new BsonDateTime(
+                                localDateTime
+                                        .atZone(ZoneId.systemDefault())
+                                        .toInstant()
+                                        .toEpochMilli());
+                    }
+                };
             case DECIMAL:
                 return new SerializableFunction<Object, BsonValue>() {
                     private static final long serialVersionUID = 1L;
 
                     @Override
                     public BsonValue apply(Object value) {
+                        DecimalType decimalType = (DecimalType) type;
                         BigDecimal decimalVal = (BigDecimal) value;
-                        return new BsonDecimal128(new Decimal128(decimalVal));
+                        return new BsonDecimal128(
+                                new Decimal128(
+                                        Objects.requireNonNull(
+                                                fromBigDecimal(
+                                                        decimalVal,
+                                                        decimalType.getPrecision(),
+                                                        decimalType.getScale()))));
                     }
                 };
             case ARRAY:
