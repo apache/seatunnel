@@ -20,34 +20,27 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.serialization.DefaultSerializer;
-import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
+import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.RowDataDocumentSerializer;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.commit.MongodbSinkAggregatedCommitter;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.RowDataToBsonConverters;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.config.MongodbWriterOptions;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.DocumentBulk;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.MongodbAggregatedCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.MongodbCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.writer.MongodbBulkWriter;
 
 import com.google.auto.service.AutoService;
 
 import java.io.IOException;
-import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CONNECTOR_IDENTITY;
 
 @AutoService(SeaTunnelSink.class)
-public class MongodbSink
-        implements SeaTunnelSink<
-                SeaTunnelRow, DocumentBulk, MongodbCommitInfo, MongodbAggregatedCommitInfo> {
+public class MongodbSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     private MongodbWriterOptions options;
 
@@ -66,32 +59,27 @@ public class MongodbSink
                             .withConnectString(connection)
                             .withDatabase(database)
                             .withCollection(collection)
-                            .withFlushOnCheckpoint(
-                                    pluginConfig.hasPath(MongodbConfig.IS_EXACTLY_ONCE.key())
-                                            ? pluginConfig.getBoolean(
-                                                    MongodbConfig.IS_EXACTLY_ONCE.key())
-                                            : MongodbConfig.IS_EXACTLY_ONCE.defaultValue())
                             .withFlushSize(
                                     pluginConfig.hasPath(MongodbConfig.BUFFER_FLUSH_MAX_ROWS.key())
                                             ? pluginConfig.getInt(
                                                     MongodbConfig.BUFFER_FLUSH_MAX_ROWS.key())
                                             : MongodbConfig.BUFFER_FLUSH_MAX_ROWS.defaultValue())
-                            .withFlushInterval(
+                            .withBatchIntervalMs(
                                     pluginConfig.hasPath(MongodbConfig.BUFFER_FLUSH_INTERVAL.key())
                                             ? pluginConfig.getLong(
                                                     MongodbConfig.BUFFER_FLUSH_INTERVAL.key())
                                             : MongodbConfig.BUFFER_FLUSH_INTERVAL.defaultValue())
-                            .withUpsertEnable(
-                                    pluginConfig.hasPath(MongodbConfig.IS_EXACTLY_ONCE.key())
-                                            ? pluginConfig.getBoolean(
-                                                    MongodbConfig.IS_EXACTLY_ONCE.key())
-                                            : MongodbConfig.IS_EXACTLY_ONCE.defaultValue())
                             .withUpsertKey(
                                     pluginConfig.hasPath(MongodbConfig.UPSERT_KEY.key())
                                             ? pluginConfig
                                                     .getStringList(MongodbConfig.UPSERT_KEY.key())
                                                     .toArray(new String[0])
                                             : new String[] {})
+                            .withUpsertEnable(
+                                    pluginConfig.hasPath(MongodbConfig.UPSERT_ENABLE.key())
+                                            ? pluginConfig.getBoolean(
+                                                    MongodbConfig.UPSERT_ENABLE.key())
+                                            : MongodbConfig.UPSERT_ENABLE.defaultValue())
                             .withRetryMax(
                                     pluginConfig.hasPath(MongodbConfig.RETRY_MAX.key())
                                             ? pluginConfig.getInt(MongodbConfig.RETRY_MAX.key())
@@ -121,29 +109,13 @@ public class MongodbSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, MongodbCommitInfo, DocumentBulk> createWriter(
-            SinkWriter.Context context) throws IOException {
-        return new MongodbBulkWriter(new RowDataDocumentSerializer(seaTunnelRowType), options);
-    }
-
-    @Override
-    public Optional<Serializer<DocumentBulk>> getWriterStateSerializer() {
-        return Optional.of(new DefaultSerializer<>());
-    }
-
-    @Override
-    public Optional<SinkAggregatedCommitter<MongodbCommitInfo, MongodbAggregatedCommitInfo>>
-            createAggregatedCommitter() throws IOException {
-        return Optional.of(new MongodbSinkAggregatedCommitter(options));
-    }
-
-    @Override
-    public Optional<Serializer<MongodbAggregatedCommitInfo>> getAggregatedCommitInfoSerializer() {
-        return Optional.of(new DefaultSerializer<>());
-    }
-
-    @Override
-    public Optional<Serializer<MongodbCommitInfo>> getCommitInfoSerializer() {
-        return Optional.of(new DefaultSerializer<>());
+    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
+            throws IOException {
+        return new MongodbBulkWriter(
+                new RowDataDocumentSerializer(
+                        RowDataToBsonConverters.createConverter(seaTunnelRowType),
+                        options,
+                        new MongoKeyExtractor(options)),
+                options);
     }
 }

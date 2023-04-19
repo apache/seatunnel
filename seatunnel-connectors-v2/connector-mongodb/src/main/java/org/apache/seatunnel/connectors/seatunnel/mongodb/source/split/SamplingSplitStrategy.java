@@ -85,7 +85,7 @@ public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
                     MongoSplitUtils.createMongoSplit(
                             0, matchQuery, projection, splitKey, null, null));
         }
-        List<Document> samples = sampleCollection(numSamples);
+        List<BsonDocument> samples = sampleCollection(numSamples);
         if (samples.size() == 0) {
             return Collections.emptyList();
         }
@@ -117,7 +117,7 @@ public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
         }
     }
 
-    private List<Document> sampleCollection(int numSamples) {
+    private List<BsonDocument> sampleCollection(int numSamples) {
         return clientProvider
                 .getDefaultCollection()
                 .aggregate(

@@ -20,11 +20,19 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
+import org.bson.json.JsonMode;
+import org.bson.json.JsonWriterSettings;
+
 import java.util.List;
 
 public class MongodbConfig {
 
     public static final String CONNECTOR_IDENTITY = "Mongodb";
+
+    public static final String ENCODE_VALUE_FIELD = "_value";
+
+    public static final JsonWriterSettings DEFAULT_JSON_WRITER_SETTINGS =
+            JsonWriterSettings.builder().outputMode(JsonMode.EXTENDED).build();
 
     public static final Option<String> CONNECTION =
             Options.key("connection")
@@ -120,13 +128,6 @@ public class MongodbConfig {
                     .defaultValue(1000L)
                     .withDescription(
                             "Specifies the retry time interval if writing records to database failed.");
-
-    public static final Option<Boolean> IS_EXACTLY_ONCE =
-            Options.key("is.exactly-once")
-                    .booleanType()
-                    .defaultValue(false)
-                    .withDescription(
-                            "MongoDB server normally times out idle cursors after an inactivity period (10 minutes) to prevent excess memory use. Set this option to true to prevent that. However, if the application takes longer than 30 minutes to process the current batch of documents, the session is marked as expired and closed.");
 
     public static final Option<Boolean> UPSERT_ENABLE =
             Options.key("upsert-enable")
