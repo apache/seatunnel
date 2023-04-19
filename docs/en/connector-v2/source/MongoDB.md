@@ -41,18 +41,24 @@ The following table lists the field data type mapping from MongoDB BSON type to 
 |-------------------|----------------|
 | ObjectId          | STRING         |
 | String            | STRING         |
-| Null              | Null           |
 | Boolean           | BOOLEAN        |
-| Binary Data       | BINARY         |
+| Binary            | BINARY         |
 | Int32             | INTEGER        |
-| Int64             | BIGINT         |
+| -                 | TINYINT        |
+| -                 | SMALLINT       |
+| -                 | BIGINT         |
 | Double            | DOUBLE         |
+| -                 | FLOAT          |
 | Decimal128        | DECIMAL        |
 | Date              | Date           |
-| DateTime          | TIME           |
+| -                 | TIME           |
 | Timestamp         | Timestamp      |
 | Object            | ROW            |
 | Array             | ARRAY          |
+
+tips：
+1.When using the DECIMAL type in SeaTunnel, be aware that the maximum range cannot exceed 34 digits, which means you should use decimal(34, 18).
+
 Connector Options
 -----------------
 
