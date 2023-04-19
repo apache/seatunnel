@@ -25,9 +25,9 @@ semantics (using XA transaction guarantee).
 
 ## Supported DataSource list
 
-| datasource |              supported versions               |          driver          |                  url                  |                                   maven                                   |
-|------------|-----------------------------------------------|--------------------------|---------------------------------------|---------------------------------------------------------------------------|
-| mysql      | Depending on your Database dependency version | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306:3306/test | [Download](https://mvnrepository.com/artifact/mysql/mysql-connector-java) |
+| datasource |                    supported versions                    |          driver          |                  url                  |                                   maven                                   |
+|------------|----------------------------------------------------------|--------------------------|---------------------------------------|---------------------------------------------------------------------------|
+| mysql      | Different dependency version has different driver class. | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306:3306/test | [Download](https://mvnrepository.com/artifact/mysql/mysql-connector-java) |
 
 ## Database dependency
 
