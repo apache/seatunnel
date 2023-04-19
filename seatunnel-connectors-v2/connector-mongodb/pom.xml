@@ -30,7 +30,7 @@
     <name>SeaTunnel : Connectors V2 : Mongodb</name>
 
     <properties>
-        <mongodb.version>3.12.11</mongodb.version>
+        <mongo.driver.version>4.7.1</mongo.driver.version>
     </properties>
 
     <dependencies>
@@ -48,8 +48,20 @@
 
         <dependency>
             <groupId>org.mongodb</groupId>
-            <artifactId>mongodb-driver</artifactId>
-            <version>${mongodb.version}</version>
+            <artifactId>mongodb-driver-sync</artifactId>
+            <version>${mongo.driver.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mongodb</groupId>
+            <artifactId>mongodb-driver-core</artifactId>
+            <version>${mongo.driver.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mongodb</groupId>
+            <artifactId>bson</artifactId>
+            <version>${mongo.driver.version}</version>
         </dependency>
     </dependencies>
 </project>

@@ -15,14 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.mongodb.data;
+package org.apache.seatunnel.connectors.seatunnel.mongodb.serde;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-
+import org.bson.BsonDocument;
 import org.bson.Document;
+
+import com.mongodb.client.model.WriteModel;
 
 import java.io.Serializable;
 
-public interface Deserializer extends Serializable {
-    SeaTunnelRow deserialize(Document document);
+/** DocumentSerializer serialize POJOs or other Java objects into {@link Document}. */
+public interface DocumentSerializer<T> extends Serializable {
+
+    /**
+     * Serialize input Java objects into {@link Document}.
+     *
+     * @param object The input object.
+     * @return The serialized {@link Document}.
+     */
+    WriteModel<BsonDocument> serialize(T object);
 }
