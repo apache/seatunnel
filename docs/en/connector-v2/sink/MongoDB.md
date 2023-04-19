@@ -8,9 +8,9 @@ This document describes how to set up the MongoDB connector to run data reads ag
 Support those engines
 ---------------------
 
-> Spark
-> Flink
-> SeaTunnel Zeta
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
 
 Key featuresl
 -------------
@@ -146,7 +146,10 @@ sink {
 }
 ```
 
-**Upsert**
+**Idempotent Writes**
+If upsert-key is defined in the configuration, the MongoDB sink will use upsert semantics instead of regular INSERT statements. We combine the primary keys declared in upsert-key as the MongoDB reserved primary key and use upsert mode for writing to ensure idempotent writes.
+
+In the event of a failure, Seatunnel jobs will recover from the last successful checkpoint and reprocess, which may result in duplicate message processing during recovery. It is highly recommended to use upsert mode, as it helps to avoid violating database primary key constraints and generating duplicate data if records need to be reprocessed.
 
 ```bash
 sink {

@@ -8,9 +8,9 @@ This document describes how to set up the MongoDB connector to run data reads ag
 Support those engines
 ---------------------
 
-> Spark
-> Flink
-> SeaTunnel Zeta
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
 
 Key featuresl
 -------------
