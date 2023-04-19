@@ -88,8 +88,10 @@ public class StarRocksSinkWriter
         try {
             record = serializer.serialize(element);
         } catch (Exception e) {
-            log.error("serialize failed. Row={}", element);
-            throw e;
+            throw new StarRocksConnectorException(
+                    CommonErrorCode.WRITER_OPERATION_FAILED,
+                    "serialize failed. Row={" + element + "}",
+                    e);
         }
         manager.write(record);
     }

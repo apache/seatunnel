@@ -38,16 +38,16 @@ import org.apache.seatunnel.connectors.seatunnel.tdengine.state.TDengineSourceSt
 import org.apache.seatunnel.connectors.seatunnel.tdengine.typemapper.TDengineTypeMapper;
 
 import org.apache.commons.lang3.ArrayUtils;
-import org.apache.commons.lang3.StringUtils;
 
 import com.google.auto.service.AutoService;
-import com.google.common.collect.Lists;
 import lombok.SneakyThrows;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.DATABASE;
@@ -67,7 +67,7 @@ import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengine
 public class TDengineSource
         implements SeaTunnelSource<SeaTunnelRow, TDengineSourceSplit, TDengineSourceState> {
 
-    private SeaTunnelRowType seaTunnelRowType;
+    private StableMetadata stableMetadata;
     private TDengineSourceConfig tdengineSourceConfig;
 
     @Override
@@ -87,45 +87,7 @@ public class TDengineSource
                     "TDengine connection require url/database/stable/username/password. All of these must not be empty.");
         }
         tdengineSourceConfig = buildSourceConfig(pluginConfig);
-
-        // add subtable_name and tags to `seaTunnelRowType`
-        SeaTunnelRowType originRowType = getSTableMetaInfo(tdengineSourceConfig);
-        seaTunnelRowType = addHiddenAttribute(originRowType);
-    }
-
-    @SneakyThrows
-    private SeaTunnelRowType getSTableMetaInfo(TDengineSourceConfig config) {
-        String jdbcUrl =
-                StringUtils.join(
-                        config.getUrl(),
-                        config.getDatabase(),
-                        "?user=",
-                        config.getUsername(),
-                        "&password=",
-                        config.getPassword());
-        Connection conn = DriverManager.getConnection(jdbcUrl);
-        List<String> fieldNames = Lists.newArrayList();
-        List<SeaTunnelDataType<?>> fieldTypes = Lists.newArrayList();
-        try (Statement statement = conn.createStatement()) {
-            final ResultSet metaResultSet =
-                    statement.executeQuery(
-                            "desc " + config.getDatabase() + "." + config.getStable());
-            while (metaResultSet.next()) {
-                fieldNames.add(metaResultSet.getString(1));
-                fieldTypes.add(TDengineTypeMapper.mapping(metaResultSet.getString(2)));
-            }
-        }
-        return new SeaTunnelRowType(
-                fieldNames.toArray(new String[0]), fieldTypes.toArray(new SeaTunnelDataType<?>[0]));
-    }
-
-    private SeaTunnelRowType addHiddenAttribute(SeaTunnelRowType originRowType) {
-        // 0-subtable_name / 1-n field_names /
-        String[] fieldNames = ArrayUtils.add(originRowType.getFieldNames(), 0, "subtable_name");
-        // n+1-> tags
-        SeaTunnelDataType<?>[] fieldTypes =
-                ArrayUtils.add(originRowType.getFieldTypes(), 0, BasicType.STRING_TYPE);
-        return new SeaTunnelRowType(fieldNames, fieldTypes);
+        stableMetadata = getStableMetadata(tdengineSourceConfig);
     }
 
     @Override
@@ -135,7 +97,7 @@ public class TDengineSource
 
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return seaTunnelRowType;
+        return stableMetadata.getRowType();
     }
 
     @Override
@@ -147,7 +109,7 @@ public class TDengineSource
     public SourceSplitEnumerator<TDengineSourceSplit, TDengineSourceState> createEnumerator(
             SourceSplitEnumerator.Context<TDengineSourceSplit> enumeratorContext) {
         return new TDengineSourceSplitEnumerator(
-                seaTunnelRowType, tdengineSourceConfig, enumeratorContext);
+                stableMetadata, tdengineSourceConfig, enumeratorContext);
     }
 
     @Override
@@ -155,6 +117,66 @@ public class TDengineSource
             SourceSplitEnumerator.Context<TDengineSourceSplit> enumeratorContext,
             TDengineSourceState checkpointState) {
         return new TDengineSourceSplitEnumerator(
-                seaTunnelRowType, tdengineSourceConfig, checkpointState, enumeratorContext);
+                stableMetadata, tdengineSourceConfig, checkpointState, enumeratorContext);
+    }
+
+    private StableMetadata getStableMetadata(TDengineSourceConfig config) throws SQLException {
+        String timestampFieldName = null;
+        List<String> subTableNames = new ArrayList<>();
+        List<String> fieldNames = new ArrayList<>();
+        List<SeaTunnelDataType<?>> fieldTypes = new ArrayList<>();
+
+        String jdbcUrl =
+                String.join(
+                        "",
+                        config.getUrl(),
+                        config.getDatabase(),
+                        "?user=",
+                        config.getUsername(),
+                        "&password=",
+                        config.getPassword());
+        try (Connection conn = DriverManager.getConnection(jdbcUrl)) {
+            try (Statement statement = conn.createStatement()) {
+                ResultSet metaResultSet =
+                        statement.executeQuery(
+                                "desc " + config.getDatabase() + "." + config.getStable());
+                while (metaResultSet.next()) {
+                    if (timestampFieldName == null) {
+                        timestampFieldName = metaResultSet.getString(1);
+                    }
+                    fieldNames.add(metaResultSet.getString(1));
+                    fieldTypes.add(TDengineTypeMapper.mapping(metaResultSet.getString(2)));
+                }
+            }
+            try (Statement statement = conn.createStatement()) {
+                String metaSQL =
+                        "select table_name from information_schema.ins_tables where db_name = '"
+                                + config.getDatabase()
+                                + "' and stable_name='"
+                                + config.getStable()
+                                + "';";
+                ResultSet subTableNameResultSet = statement.executeQuery(metaSQL);
+                while (subTableNameResultSet.next()) {
+                    String subTableName = subTableNameResultSet.getString(1);
+                    subTableNames.add(subTableName);
+                }
+            }
+        }
+
+        SeaTunnelRowType rowType = addHiddenAttribute(fieldNames, fieldTypes);
+        return new StableMetadata(rowType, timestampFieldName, subTableNames);
+    }
+
+    private SeaTunnelRowType addHiddenAttribute(
+            List<String> fieldNames, List<SeaTunnelDataType<?>> fieldTypes) {
+        // add subtable_name and tags to `seaTunnelRowType`
+        // 0-subtable_name / 1-n field_names /
+        String[] newFieldNames =
+                ArrayUtils.add(fieldNames.toArray(new String[0]), 0, "subtable_name");
+        // n+1-> tags
+        SeaTunnelDataType<?>[] newFieldTypes =
+                ArrayUtils.add(
+                        fieldTypes.toArray(new SeaTunnelDataType[0]), 0, BasicType.STRING_TYPE);
+        return new SeaTunnelRowType(newFieldNames, newFieldTypes);
     }
 }

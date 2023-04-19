@@ -74,12 +74,14 @@ import lombok.Getter;
 import lombok.NonNull;
 
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.stream.Collectors;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
 
@@ -448,53 +450,81 @@ public class JobMaster {
     }
 
     public List<RawJobMetrics> getCurrJobMetrics() {
-        return getCurrJobMetrics(ownedSlotProfilesIMap.values());
+        return getCurrJobMetrics(
+                ownedSlotProfilesIMap.keySet().stream()
+                        .filter(
+                                pipelineLocation ->
+                                        pipelineLocation.getJobId()
+                                                == this.getJobImmutableInformation().getJobId())
+                        .collect(Collectors.toList()));
+    }
+
+    public List<RawJobMetrics> getCurrJobMetrics(List<PipelineLocation> pipelineLocations) {
+        Map<TaskGroupLocation, Address> taskGroupLocationSlotProfileMap = new HashMap<>();
+
+        ownedSlotProfilesIMap.forEach(
+                (pipelineLocation, map) -> {
+                    if (pipelineLocations.contains(pipelineLocation)) {
+                        map.forEach(
+                                (taskGroupLocation, slotProfile) -> {
+                                    if (taskGroupLocation.getJobId()
+                                            == this.getJobImmutableInformation().getJobId()) {
+                                        taskGroupLocationSlotProfileMap.put(
+                                                taskGroupLocation, slotProfile.getWorker());
+                                    }
+                                });
+                    }
+                });
+
+        Map<Address, List<TaskGroupLocation>> taskGroupLocationMap = new HashMap<>();
+
+        for (Map.Entry<TaskGroupLocation, Address> entry :
+                taskGroupLocationSlotProfileMap.entrySet()) {
+            taskGroupLocationMap
+                    .computeIfAbsent(entry.getValue(), k -> new ArrayList<>())
+                    .add(entry.getKey());
+        }
+
+        return getCurrJobMetrics(taskGroupLocationMap);
     }
 
     public List<RawJobMetrics> getCurrJobMetrics(
-            Collection<Map<TaskGroupLocation, SlotProfile>> groupLocations) {
+            Map<Address, List<TaskGroupLocation>> groupLocationMap) {
         List<RawJobMetrics> metrics = new ArrayList<>();
-        for (Map<TaskGroupLocation, SlotProfile> groupLocation : groupLocations) {
-            groupLocation.forEach(
-                    (taskGroupLocation, slotProfile) -> {
-                        if (taskGroupLocation.getJobId()
-                                == this.getJobImmutableInformation().getJobId()) {
-                            try {
-                                if (nodeEngine
-                                                .getClusterService()
-                                                .getMember(slotProfile.getWorker())
-                                        != null) {
-                                    RawJobMetrics rawJobMetrics =
-                                            (RawJobMetrics)
-                                                    NodeEngineUtil.sendOperationToMemberNode(
-                                                                    nodeEngine,
-                                                                    new GetTaskGroupMetricsOperation(
-                                                                            taskGroupLocation),
-                                                                    slotProfile.getWorker())
-                                                            .get();
-                                    metrics.add(rawJobMetrics);
-                                }
-                            }
-                            // HazelcastInstanceNotActiveException. It means that the node is
-                            // offline, so waiting for the taskGroup to restore can be successful
-                            catch (HazelcastInstanceNotActiveException e) {
-                                LOGGER.warning(
-                                        String.format(
-                                                "%s get current job metrics with exception: %s.",
-                                                taskGroupLocation, ExceptionUtils.getMessage(e)));
-                            } catch (Exception e) {
-                                throw new SeaTunnelException(e.getMessage());
-                            }
+
+        groupLocationMap.forEach(
+                (address, taskGroupLocations) -> {
+                    try {
+                        if (nodeEngine.getClusterService().getMember(address) != null) {
+                            RawJobMetrics rawJobMetrics =
+                                    (RawJobMetrics)
+                                            NodeEngineUtil.sendOperationToMemberNode(
+                                                            nodeEngine,
+                                                            new GetTaskGroupMetricsOperation(
+                                                                    taskGroupLocations),
+                                                            address)
+                                                    .get();
+                            metrics.add(rawJobMetrics);
                         }
-                    });
-        }
+                    }
+                    // HazelcastInstanceNotActiveException. It means that the node is
+                    // offline, so waiting for the taskGroup to restore can be successful
+                    catch (HazelcastInstanceNotActiveException e) {
+                        LOGGER.warning(
+                                String.format(
+                                        "%s get current job metrics with exception: %s.",
+                                        Arrays.toString(taskGroupLocations.toArray()),
+                                        ExceptionUtils.getMessage(e)));
+                    } catch (Exception e) {
+                        throw new SeaTunnelEngineException(ExceptionUtils.getMessage(e));
+                    }
+                });
         return metrics;
     }
 
     public void savePipelineMetricsToHistory(PipelineLocation pipelineLocation) {
         List<RawJobMetrics> currJobMetrics =
-                this.getCurrJobMetrics(
-                        Collections.singleton(this.getOwnedSlotProfiles(pipelineLocation)));
+                this.getCurrJobMetrics(Collections.singletonList(pipelineLocation));
         JobMetrics jobMetrics = JobMetricsUtil.toJobMetrics(currJobMetrics);
         long jobId = this.getJobImmutableInformation().getJobId();
         synchronized (this) {
@@ -594,6 +624,11 @@ public class JobMaster {
 
     /** Execute savePoint, which will cause the job to end. */
     public CompletableFuture<Void> savePoint() {
+        LOGGER.info(
+                String.format(
+                        "Begin do save point for Job %s (%s) ",
+                        jobImmutableInformation.getJobConfig().getName(),
+                        jobImmutableInformation.getJobId()));
         PassiveCompletableFuture<CompletedCheckpoint>[] passiveCompletableFutures =
                 checkpointManager.triggerSavePoints();
         return CompletableFuture.allOf(passiveCompletableFutures);
