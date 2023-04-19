@@ -8,7 +8,7 @@ Split a field into multiple fields according to the specified delimiter, and sup
 
 ## Options
 
-|   name   | type            | required | default value |
+|   name   |      type       | required | default value |
 |----------|-----------------|----------|---------------|
 | splitOPs | List\<SplitOP\> | yes      |               |
 
