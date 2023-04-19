@@ -56,25 +56,25 @@ public class MongodbConfig {
             Options.key("match.query")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Mongodb's query syntax");
+                    .withDescription("Mongodb's query syntax.");
 
     public static final Option<String> PROJECTION =
             Options.key("match.projection")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Fields projection by Mongodb");
+                    .withDescription("Fields projection by Mongodb.");
 
     public static final Option<String> SPLIT_KEY =
             Options.key("partition.split-key")
                     .stringType()
                     .defaultValue("_id")
-                    .withDescription("The key of Mongodb fragmentation");
+                    .withDescription("The key of Mongodb fragmentation.");
 
     public static final Option<Long> SPLIT_SIZE =
             Options.key("partition.split-size")
                     .longType()
                     .defaultValue(64 * 1024 * 1024L)
-                    .withDescription("The size of Mongodb fragment");
+                    .withDescription("The size of Mongodb fragment.");
 
     public static final Option<Integer> FETCH_SIZE =
             Options.key("fetch.size")
