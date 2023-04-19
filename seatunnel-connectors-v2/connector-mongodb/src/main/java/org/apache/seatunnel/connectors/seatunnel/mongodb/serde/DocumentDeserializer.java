@@ -18,17 +18,16 @@
 package org.apache.seatunnel.connectors.seatunnel.mongodb.serde;
 
 import org.bson.BsonDocument;
-import org.bson.Document;
 
 import java.io.Serializable;
 
-/** DocumentDeserializer deserialize {@link Document} into POJOs or other Java objects . */
+/** DocumentDeserializer deserialize {@link BsonDocument} into POJOs or other Java objects . */
 public interface DocumentDeserializer<T> extends Serializable {
 
     /**
-     * Serialize input Java objects into {@link Document}.
+     * Serialize input Java objects into {@link BsonDocument}.
      *
-     * @param document The input {@link Document}.
+     * @param bsonDocument The input {@link BsonDocument}.
      * @return The serialized object.
      */
     T deserialize(BsonDocument bsonDocument);
