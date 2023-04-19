@@ -34,6 +34,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 
 import static org.apache.seatunnel.common.exception.CommonErrorCode.WRITER_OPERATION_FAILED;
 
@@ -89,28 +91,45 @@ public class MongodbBulkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             // no records to write
             return;
         }
-        for (int i = 0; i <= maxRetries; i++) {
-            try {
-                lastSendTime = System.currentTimeMillis();
-                collectionProvider.getDefaultCollection().bulkWrite(bulkRequests);
-                bulkRequests.clear();
-                break;
-            } catch (MongoException e) {
-                log.debug("Bulk Write to MongoDB failed, retry times = {}", i, e);
-                if (i >= maxRetries) {
-                    throw new MongodbConnectorException(
-                            WRITER_OPERATION_FAILED, "Bulk Write to MongoDB failed", e);
-                }
-                try {
-                    Thread.sleep(retryIntervalMs * (i + 1));
-                } catch (InterruptedException ex) {
-                    Thread.currentThread().interrupt();
-                    throw new MongodbConnectorException(
-                            WRITER_OPERATION_FAILED,
-                            "Unable to flush; interrupted while doing another attempt",
-                            e);
-                }
-            }
+
+        boolean success =
+                IntStream.rangeClosed(0, maxRetries)
+                        .anyMatch(
+                                i -> {
+                                    try {
+                                        lastSendTime = System.currentTimeMillis();
+                                        collectionProvider
+                                                .getDefaultCollection()
+                                                .bulkWrite(bulkRequests);
+                                        bulkRequests.clear();
+                                        return true;
+                                    } catch (MongoException e) {
+                                        log.debug(
+                                                "Bulk Write to MongoDB failed, retry times = {}",
+                                                i,
+                                                e);
+                                        if (i >= maxRetries) {
+                                            throw new MongodbConnectorException(
+                                                    WRITER_OPERATION_FAILED,
+                                                    "Bulk Write to MongoDB failed",
+                                                    e);
+                                        }
+                                        try {
+                                            TimeUnit.MILLISECONDS.sleep(retryIntervalMs * (i + 1));
+                                        } catch (InterruptedException ex) {
+                                            Thread.currentThread().interrupt();
+                                            throw new MongodbConnectorException(
+                                                    WRITER_OPERATION_FAILED,
+                                                    "Unable to flush; interrupted while doing another attempt",
+                                                    e);
+                                        }
+                                        return false;
+                                    }
+                                });
+
+        if (!success) {
+            throw new MongodbConnectorException(
+                    WRITER_OPERATION_FAILED, "Bulk Write to MongoDB failed after max retries");
         }
     }
 
