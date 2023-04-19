@@ -17,41 +17,69 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.sink;
 
+import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.client.StarRocksSinkManager;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StarRocksSinkManagerV2;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadManager;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksCsvSerializer;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksISerializer;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksJsonSerializer;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksSinkOP;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.committer.StarRocksCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.state.StarRocksSinkState;
 
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
+public class StarRocksSinkWriter
+        implements SinkWriter<SeaTunnelRow, StarRocksCommitInfo, StarRocksSinkState> {
 
     private final StarRocksISerializer serializer;
-    private final StarRocksSinkManager manager;
+    private final StreamLoadManager manager;
+    private SinkConfig sinkConfig;
 
-    public StarRocksSinkWriter(SinkConfig sinkConfig, SeaTunnelRowType seaTunnelRowType) {
+    public StarRocksSinkWriter(
+            SinkConfig sinkConfig,
+            SeaTunnelRowType seaTunnelRowType,
+            List<StarRocksSinkState> starRocksSinkStates) {
+        this.sinkConfig = sinkConfig;
         List<String> fieldNames =
                 Arrays.stream(seaTunnelRowType.getFieldNames()).collect(Collectors.toList());
         if (sinkConfig.isEnableUpsertDelete()) {
             fieldNames.add(StarRocksSinkOP.COLUMN_KEY);
         }
+
         this.serializer = createSerializer(sinkConfig, seaTunnelRowType);
-        this.manager = new StarRocksSinkManager(sinkConfig, fieldNames);
+        this.manager =
+                sinkConfig.isEnable2PC()
+                        ? new StarRocksSinkManagerV2(sinkConfig)
+                        : new StarRocksSinkManager(sinkConfig, fieldNames);
+        // restore to re commit transaction
+        if (!starRocksSinkStates.isEmpty()) {
+            try {
+                manager.commit(starRocksSinkStates.get(0).getCheckpointId());
+            } catch (Exception e) {
+                String errorMsg =
+                        String.format(
+                                "Try to commit starRocks sinkStates %s failed",
+                                starRocksSinkStates);
+                throw new StarRocksConnectorException(
+                        CommonErrorCode.FILE_OPERATION_FAILED, errorMsg, e);
+            }
+        }
     }
 
     @Override
@@ -68,10 +96,26 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
 
     @SneakyThrows
     @Override
-    public Optional<Void> prepareCommit() {
+    public Optional<StarRocksCommitInfo> prepareCommit() {
+        if (!sinkConfig.isEnable2PC()) {
+            return Optional.empty();
+        }
         // Flush to storage before snapshot state is performed
-        manager.flush();
-        return super.prepareCommit();
+        return manager.prepareCommit();
+    }
+
+    @Override
+    public void abortPrepare() {
+        if (sinkConfig.isEnable2PC()) {
+            manager.abort();
+        }
+    }
+
+    public List<StarRocksSinkState> snapshotState(long checkpointId) throws IOException {
+        if (sinkConfig.isEnable2PC()) {
+            return manager.snapshot(checkpointId);
+        }
+        return Collections.emptyList();
     }
 
     @Override

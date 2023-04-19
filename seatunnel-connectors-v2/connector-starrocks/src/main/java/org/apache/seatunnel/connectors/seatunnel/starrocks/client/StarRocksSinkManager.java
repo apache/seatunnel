@@ -17,9 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
 
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadManager;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.committer.StarRocksCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.state.StarRocksSinkState;
 
 import com.google.common.base.Strings;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -29,6 +32,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -36,7 +40,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
-public class StarRocksSinkManager {
+public class StarRocksSinkManager implements StreamLoadManager {
 
     private final SinkConfig sinkConfig;
     private final List<byte[]> batchList;
@@ -84,6 +88,9 @@ public class StarRocksSinkManager {
         }
     }
 
+    @Override
+    public void init() {}
+
     public synchronized void write(String record) throws IOException {
         tryInit();
         checkFlushException();
@@ -96,6 +103,12 @@ public class StarRocksSinkManager {
             flush();
         }
     }
+
+    @Override
+    public void callback(StreamLoadResponse response) {}
+
+    @Override
+    public void callback(Throwable e) {}
 
     public synchronized void close() throws IOException {
         if (scheduledFuture != null) {
@@ -155,6 +168,26 @@ public class StarRocksSinkManager {
         batchList.clear();
         batchRowCount = 0;
         batchBytesSize = 0;
+    }
+
+    @Override
+    public ArrayList<StarRocksSinkState> snapshot(long checkpointId) {
+        return null;
+    }
+
+    @Override
+    public Optional<StarRocksCommitInfo> prepareCommit() {
+        return Optional.empty();
+    }
+
+    @Override
+    public boolean commit(long checkpointId) {
+        return false;
+    }
+
+    @Override
+    public boolean abort() {
+        return false;
     }
 
     private void checkFlushException() {

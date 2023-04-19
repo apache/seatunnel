@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
 
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
@@ -38,23 +39,25 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_FAILED;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_LABEL_ABORTED;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_LABEL_COMMITTED;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_LABEL_EXISTED;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_LABEL_PREPARE;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_LABEL_UNKNOWN;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_LABEL_VISIBLE;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_SUCCESS;
+
 public class StarRocksStreamLoadVisitor {
 
     private static final Logger LOG = LoggerFactory.getLogger(StarRocksStreamLoadVisitor.class);
 
     private final HttpHelper httpHelper = new HttpHelper();
+    private final StreamLoadHelper streamLoadHelper = new StreamLoadHelper();
+
     private static final int MAX_SLEEP_TIME = 5;
 
     private final SinkConfig sinkConfig;
-    private long pos;
-    private static final String RESULT_FAILED = "Fail";
-    private static final String RESULT_SUCCESS = "Success";
-    private static final String RESULT_LABEL_EXISTED = "Label Already Exists";
-    private static final String LAEBL_STATE_VISIBLE = "VISIBLE";
-    private static final String LAEBL_STATE_COMMITTED = "COMMITTED";
-    private static final String RESULT_LABEL_PREPARE = "PREPARE";
-    private static final String RESULT_LABEL_ABORTED = "ABORTED";
-    private static final String RESULT_LABEL_UNKNOWN = "UNKNOWN";
 
     private List<String> fieldNames;
 
@@ -64,7 +67,7 @@ public class StarRocksStreamLoadVisitor {
     }
 
     public Boolean doStreamLoad(StarRocksFlushTuple flushData) throws IOException {
-        String host = getAvailableHost();
+        String host = streamLoadHelper.getAvailableHost(sinkConfig.getNodeUrls());
         if (null == host) {
             throw new StarRocksConnectorException(
                     CommonErrorCode.ILLEGAL_ARGUMENT,
@@ -133,18 +136,6 @@ public class StarRocksStreamLoadVisitor {
             checkLabelState(host, flushData.getLabel());
         }
         return RESULT_SUCCESS.equals(loadResult.get(keyStatus));
-    }
-
-    private String getAvailableHost() {
-        List<String> hostList = sinkConfig.getNodeUrls();
-        long tmp = pos + hostList.size();
-        for (; pos < tmp; pos++) {
-            String host = "http://" + hostList.get((int) (pos % hostList.size()));
-            if (httpHelper.tryHttpConnection(host)) {
-                return host;
-            }
-        }
-        return null;
     }
 
     private byte[] joinRows(List<byte[]> rows, int totalBytes) {
@@ -222,8 +213,8 @@ public class StarRocksStreamLoadVisitor {
                 }
                 LOG.info(String.format("Checking label[%s] state[%s]\n", label, labelState));
                 switch (labelState) {
-                    case LAEBL_STATE_VISIBLE:
-                    case LAEBL_STATE_COMMITTED:
+                    case RESULT_LABEL_VISIBLE:
+                    case RESULT_LABEL_COMMITTED:
                         return;
                     case RESULT_LABEL_PREPARE:
                         continue;

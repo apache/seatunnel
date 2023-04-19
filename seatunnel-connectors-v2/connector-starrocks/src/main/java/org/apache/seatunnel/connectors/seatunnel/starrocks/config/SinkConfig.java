@@ -55,6 +55,8 @@ public class SinkConfig implements Serializable {
     private int retryBackoffMultiplierMs;
     private int maxRetryBackoffMs;
     private boolean enableUpsertDelete;
+    private long sinkChunkLimit;
+    private boolean enable2PC;
 
     private String saveModeCreateTemplate;
 
@@ -89,6 +91,18 @@ public class SinkConfig implements Serializable {
         config.getOptional(StarRocksSinkOptions.COLUMN_SEPARATOR)
                 .ifPresent(sinkConfig::setColumnSeparator);
         sinkConfig.setLoadFormat(config.get(StarRocksSinkOptions.LOAD_FORMAT));
+        config.getOptional(StarRocksSinkOptions.SINK_CHUNK_LIMIT)
+                .ifPresent(
+                        x -> {
+                            if (sinkConfig.getLoadFormat() == StreamLoadFormat.JSON) {
+                                sinkConfig.setSinkChunkLimit(
+                                        Math.min(3221225472L, sinkConfig.getSinkChunkLimit()));
+                            } else {
+                                sinkConfig.setSinkChunkLimit(
+                                        Math.min(10737418240L, sinkConfig.getSinkChunkLimit()));
+                            }
+                        });
+        config.getOptional(StarRocksSinkOptions.ENABLE_2PC).ifPresent(sinkConfig::setEnable2PC);
         return sinkConfig;
     }
 }

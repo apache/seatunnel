@@ -26,6 +26,10 @@ import java.util.Map;
 
 @SuppressWarnings("MagicNumber")
 public interface StarRocksSinkOptions {
+    public static final long KILO_BYTES_SCALE = 1024L;
+    public static final long MEGA_BYTES_SCALE = KILO_BYTES_SCALE * KILO_BYTES_SCALE;
+    public static final long GIGA_BYTES_SCALE = MEGA_BYTES_SCALE * KILO_BYTES_SCALE;
+
     Option<List<String>> NODE_URLS =
             Options.key("nodeUrls")
                     .listType()
@@ -133,4 +137,16 @@ public interface StarRocksSinkOptions {
                     .enumType(StreamLoadFormat.class)
                     .defaultValue(StreamLoadFormat.JSON)
                     .withDescription("");
+
+    Option<Long> SINK_CHUNK_LIMIT =
+            Options.key("starrocks.config.chunk_limit")
+                    .longType()
+                    .defaultValue(3 * GIGA_BYTES_SCALE)
+                    .withDescription("Data chunk size in a http request for stream load");
+
+    Option<Boolean> ENABLE_2PC =
+            Options.key("enable-2pc")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription("enable 2PC while loading");
 }

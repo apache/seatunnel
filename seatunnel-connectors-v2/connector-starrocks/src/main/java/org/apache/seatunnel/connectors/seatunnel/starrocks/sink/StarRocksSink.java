@@ -22,8 +22,11 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
+import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportDataSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -31,24 +34,30 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.catalog.StarRocksCatalog;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.catalog.StarRocksCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.committer.StarRocksCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.committer.StarRocksCommitInfoSerializer;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.committer.StarRocksCommitter;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.state.StarRocksSinkState;
 
 import org.apache.commons.lang3.StringUtils;
 
 import com.google.auto.service.AutoService;
 import lombok.NoArgsConstructor;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 @NoArgsConstructor
 @AutoService(SeaTunnelSink.class)
-public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
-        implements SupportDataSaveMode {
+public class StarRocksSink
+        implements SeaTunnelSink<
+                        SeaTunnelRow, StarRocksSinkState, StarRocksCommitInfo, StarRocksCommitInfo>,
+                SupportDataSaveMode {
 
     private SeaTunnelRowType seaTunnelRowType;
     private SinkConfig sinkConfig;
@@ -112,8 +121,36 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
-        return new StarRocksSinkWriter(sinkConfig, seaTunnelRowType);
+    public SinkWriter<SeaTunnelRow, StarRocksCommitInfo, StarRocksSinkState> createWriter(
+            SinkWriter.Context context) {
+        return new StarRocksSinkWriter(sinkConfig, seaTunnelRowType, Collections.emptyList());
+    }
+
+    @Override
+    public SinkWriter<SeaTunnelRow, StarRocksCommitInfo, StarRocksSinkState> restoreWriter(
+            SinkWriter.Context context, List<StarRocksSinkState> states) {
+        return new StarRocksSinkWriter(sinkConfig, seaTunnelRowType, states);
+    }
+
+    @Override
+    public Optional<SinkCommitter<StarRocksCommitInfo>> createCommitter() throws IOException {
+        return Optional.of(new StarRocksCommitter(sinkConfig));
+    }
+
+    @Override
+    public Optional<Serializer<StarRocksCommitInfo>> getCommitInfoSerializer() {
+        return Optional.of(new StarRocksCommitInfoSerializer());
+    }
+
+    @Override
+    public Optional<SinkAggregatedCommitter<StarRocksCommitInfo, StarRocksCommitInfo>>
+            createAggregatedCommitter() throws IOException {
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<Serializer<StarRocksCommitInfo>> getAggregatedCommitInfoSerializer() {
+        return Optional.empty();
     }
 
     @Override
