@@ -8,11 +8,11 @@ Split a field into multiple fields according to the specified delimiter, and sup
 
 ## Options
 
-|   name   |     type      | required | default value |
-|----------|---------------|----------|---------------|
-| splitOPs | List<SplitOP> | yes      |               |
+|   name   | type            | required | default value |
+|----------|-----------------|----------|---------------|
+| splitOPs | List\<SplitOP\> | yes      |               |
 
-### splitOPs [List<SplitOP>]
+### splitOPs [List\<SplitOP\>]
 
 A list of field splitting operations, each element represents the splitting of a field, and the definition of the operation is as follows:
 
