@@ -40,7 +40,7 @@ field name（string）
 
 ### field_type [string]
 
-field type (string),  e.g. `string,boolean,byte,short,int,long,float,double,char,void,BigInteger,BigDecimal,Instant`
+field type (string),  e.g. `string,boolean,tinyint(byte),smallint(short),int,bigint(long),float,double,null(void),timestamp,datetime,time`
 
 ### field_value [ConfigList]
 

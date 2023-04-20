@@ -96,11 +96,15 @@ public class AssertRuleParser {
         TYPES.put("boolean", BasicType.BOOLEAN_TYPE);
         TYPES.put("byte", BasicType.BYTE_TYPE);
         TYPES.put("short", BasicType.SHORT_TYPE);
+        TYPES.put("tinyint", BasicType.BYTE_TYPE);
+        TYPES.put("smallint", BasicType.SHORT_TYPE);
         TYPES.put("int", BasicType.INT_TYPE);
+        TYPES.put("bigint", BasicType.LONG_TYPE);
         TYPES.put("long", BasicType.LONG_TYPE);
         TYPES.put("float", BasicType.FLOAT_TYPE);
         TYPES.put("double", BasicType.DOUBLE_TYPE);
         TYPES.put("void", BasicType.VOID_TYPE);
+        TYPES.put("null", BasicType.VOID_TYPE);
         TYPES.put("timestamp", LocalTimeType.LOCAL_DATE_TIME_TYPE);
         TYPES.put("datetime", LocalTimeType.LOCAL_DATE_TIME_TYPE);
         TYPES.put("date", LocalTimeType.LOCAL_DATE_TYPE);
