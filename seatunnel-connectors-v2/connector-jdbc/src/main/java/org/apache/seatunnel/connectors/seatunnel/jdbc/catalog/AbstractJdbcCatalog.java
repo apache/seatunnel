@@ -179,9 +179,10 @@ public abstract class AbstractJdbcCatalog implements Catalog {
                     fullTableName.append(rs.getString(i)).append("\\.");
                 }
             }
-            TablePath.of(fullTableName.substring(0, fullTableName.length() - 1));
 
-            tables.add(TablePath.of(fullTableName.toString()).getTableName());
+            tables.add(
+                    TablePath.of(fullTableName.substring(0, fullTableName.length() - 1))
+                            .getTableName());
 
             return tables;
         } catch (Exception e) {
