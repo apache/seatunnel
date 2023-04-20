@@ -46,8 +46,7 @@ public abstract class AbstractSplitEnumerator
     protected final Map<Integer, List<IcebergFileScanTaskSplit>> pendingSplits;
 
     protected IcebergTableLoader icebergTableLoader;
-    @Getter
-    private volatile boolean isOpen = false;
+    @Getter private volatile boolean isOpen = false;
 
     public AbstractSplitEnumerator(
             @NonNull SourceSplitEnumerator.Context<IcebergFileScanTaskSplit> context,
