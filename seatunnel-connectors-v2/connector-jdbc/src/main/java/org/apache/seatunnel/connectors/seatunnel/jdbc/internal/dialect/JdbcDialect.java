@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 
@@ -192,5 +194,41 @@ public interface JdbcDialect extends Serializable {
             Connection conn, JdbcSourceConfig jdbcSourceConfig) throws SQLException {
         PreparedStatement ps = conn.prepareStatement(jdbcSourceConfig.getQuery());
         return ps.getMetaData();
+    }
+
+    default String listDatabases() {
+        return "SHOW DATABASES;";
+    }
+
+    default String getUrlFromDatabaseName(String baseUrl, String databaseName, String suffix) {
+        return baseUrl + databaseName + suffix;
+    }
+
+    default String createDatabaseSql(String databaseName) {
+        return String.format("CREATE DATABASE IF NOT EXISTS %s;", quoteIdentifier(databaseName));
+    }
+
+    default String dropDatabaseSql(String databaseName) {
+        return String.format("DROP DATABASE IF EXISTS %s;", quoteIdentifier(databaseName));
+    }
+
+    default String getTableName(ResultSet rs) throws SQLException {
+        return rs.getString(1);
+    }
+
+    default String getTableName(TablePath tablePath) {
+        return tablePath.getTableName();
+    }
+
+    default String listTableSql(String databaseName) {
+        return "SHOW TABLES;";
+    }
+
+    default String getDropTableSql(String tableName) {
+        return String.format("DROP TABLE %s IF EXIST;", tableName);
+    }
+
+    default String createTableSql(TablePath tablePath, CatalogTable catalogTable) {
+        return "";
     }
 }
