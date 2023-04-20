@@ -248,7 +248,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 taskGroup =
                         nodeEngine.getSerializationService().toObject(taskImmutableInfo.getGroup());
             }
-            logger.fine(
+            logger.info(
                     String.format(
                             "deploying task %s, executionId [%s]",
                             taskGroup.getTaskGroupLocation(), taskImmutableInfo.getExecutionId()));
@@ -287,6 +287,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
         try {
             taskGroup.init();
+            logger.info(
+                    String.format(
+                            "deploying TaskGroup %s init success",
+                            taskGroup.getTaskGroupLocation()));
             Collection<Task> tasks = taskGroup.getTasks();
             CompletableFuture<Void> cancellationFuture = new CompletableFuture<>();
             TaskGroupExecutionTracker executionTracker =
@@ -322,6 +326,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             submitThreadShareTask(executionTracker, byCooperation.get(true));
             submitBlockingTask(executionTracker, byCooperation.get(false));
             taskGroup.setTasksContext(taskExecutionContextMap);
+            logger.info(
+                    String.format(
+                            "deploying TaskGroup %s success", taskGroup.getTaskGroupLocation()));
         } catch (Throwable t) {
             logger.severe(ExceptionUtils.getMessage(t));
             resultFuture.completeExceptionally(t);

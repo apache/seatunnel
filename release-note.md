@@ -20,10 +20,15 @@
 - [Github] Add Github source connector #4155
 - [CDC] Support export debezium-json format to kafka #4339
 - [GoogleFirestore] Support Google Firestore sink #4304
+- [RocketMQ] Add RocketMQ source and sink connector #4007
+- [Jdbc] Add vertica connector #4303
+
 ### Formats
 - [Canal]Support read canal format message #3950
 
 ## Improves
+### Core
+- [Starter][Spark] Push transform operation from Spark Driver to Executors #4502
 ### Connectors
 - [CDC]Add mysql-cdc source factory #3791
 - [JDBC]Fix the problem that the exception cannot be thrown normally #3796
@@ -45,6 +50,7 @@
 - [API]Add get source method to all source connector #3846
 - [Hive] Support read user-defined partitions #3842
 - [SelectDB Cloud] Support SelectDB Cloud Sink Connector #3958
+- [File] add file excel sink and source #4164
 - [Hive] Support read text table & Column projection #4105
 - [File] Support column projection #4105
 - [Github] Add github source connector #4155
@@ -58,7 +64,6 @@
 - [Storage] Remove seatunnel-api from engine storage. #3834
 - [Core] change queue to disruptor. #3847
 - [Improve] Statistics server job and system resource usage. #3982
-- 
 ## Bug Fixes
 ### Connectors
 - [ClickHouse File] Fix ClickhouseFile Committer Serializable Problems #3803
@@ -73,9 +78,11 @@
 - [Checkpoint] Add savepoint and restore with savepoint #3930
 - [Core]Fix Local Mode can't deserialize split (#3817)
 - [Metrics] Fix Metrics will lose when Job be canceled or restart. #3797 #3977
+- [Restapi] add get running job info by jobId. #4140
 
 ### Documents
 - [Doc] seatunnel run with flink operator error #3998
+- [Doc] Correct `transform sql` config on fqa.md #4493
 
 ## Test
 ### E2E

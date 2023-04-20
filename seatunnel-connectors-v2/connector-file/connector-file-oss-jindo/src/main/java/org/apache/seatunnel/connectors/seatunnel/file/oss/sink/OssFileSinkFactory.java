@@ -31,7 +31,7 @@ import com.google.auto.service.AutoService;
 public class OssFileSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
-        return FileSystemType.OSS.getFileSystemPluginName();
+        return FileSystemType.OSS_JINDO.getFileSystemPluginName();
     }
 
     @Override

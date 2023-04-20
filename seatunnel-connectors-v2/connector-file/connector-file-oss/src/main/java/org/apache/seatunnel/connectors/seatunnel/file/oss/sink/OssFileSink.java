@@ -47,7 +47,7 @@ public class OssFileSink extends BaseFileSink {
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
                         OssConfig.FILE_PATH.key(),
-                        OssConfig.BUCKET.key(),
+                        OssConfig.ENDPOINT.key(),
                         OssConfig.ACCESS_KEY.key(),
                         OssConfig.ACCESS_SECRET.key(),
                         OssConfig.BUCKET.key());

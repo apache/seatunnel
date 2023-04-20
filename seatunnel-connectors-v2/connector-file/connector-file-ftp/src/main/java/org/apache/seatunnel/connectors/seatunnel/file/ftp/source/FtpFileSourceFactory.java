@@ -53,7 +53,8 @@ public class FtpFileSourceFactory implements TableSourceFactory {
                         BaseSourceConfig.DELIMITER)
                 .conditional(
                         BaseSourceConfig.FILE_FORMAT_TYPE,
-                        Arrays.asList(FileFormat.TEXT, FileFormat.JSON),
+                        Arrays.asList(
+                                FileFormat.TEXT, FileFormat.JSON, FileFormat.EXCEL, FileFormat.CSV),
                         CatalogTableUtil.SCHEMA)
                 .optional(BaseSourceConfig.PARSE_PARTITION_FROM_PATH)
                 .optional(BaseSourceConfig.DATE_FORMAT)

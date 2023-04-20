@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.engine.client;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
-
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.client.job.JobClient;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
@@ -41,7 +39,6 @@ import java.util.Map;
 import java.util.Set;
 
 public class SeaTunnelClient implements SeaTunnelClientInstance {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private final SeaTunnelHazelcastClient hazelcastClient;
     @Getter private final JobClient jobClient;
 
