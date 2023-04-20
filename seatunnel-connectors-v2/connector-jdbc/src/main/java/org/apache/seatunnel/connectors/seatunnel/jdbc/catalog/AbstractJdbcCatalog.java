@@ -173,9 +173,15 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
             List<String> tables = new ArrayList<>();
 
+            StringBuilder fullTableName = new StringBuilder();
             while (rs.next()) {
-                tables.add(jdbcDialect.getTableName(rs));
+                for (int i = 0; i < rs.getMetaData().getColumnCount(); i++) {
+                    fullTableName.append(rs.getString(i)).append("\\.");
+                }
             }
+            TablePath.of(fullTableName.substring(0, fullTableName.length() - 1));
+
+            tables.add(TablePath.of(fullTableName.toString()).getTableName());
 
             return tables;
         } catch (Exception e) {
@@ -290,8 +296,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     public boolean tableExists(TablePath tablePath) throws CatalogException {
         try {
             return databaseExists(tablePath.getDatabaseName())
-                    && listTables(tablePath.getDatabaseName())
-                            .contains(jdbcDialect.getTableName(tablePath));
+                    && listTables(tablePath.getDatabaseName()).contains(tablePath.getTableName());
         } catch (DatabaseNotExistException e) {
             return false;
         }
@@ -337,7 +342,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
                     conn.prepareStatement(
                             String.format(
                                     "SELECT * FROM %s WHERE 1 = 0;",
-                                    tablePath.getFullNameWithQuoted("\"")))) {
+                                    tablePath.getFullNameWithQuoted(jdbcDialect.getQuoted())))) {
                 ResultSetMetaData tableMetaData = ps.getMetaData();
                 TableSchema.Builder builder = TableSchema.builder();
                 // add column

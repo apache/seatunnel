@@ -212,14 +212,6 @@ public interface JdbcDialect extends Serializable {
         return String.format("DROP DATABASE IF EXISTS %s;", quoteIdentifier(databaseName));
     }
 
-    default String getTableName(ResultSet rs) throws SQLException {
-        return rs.getString(1);
-    }
-
-    default String getTableName(TablePath tablePath) {
-        return tablePath.getTableName();
-    }
-
     default String listTableSql(String databaseName) {
         return "SHOW TABLES;";
     }
@@ -230,5 +222,9 @@ public interface JdbcDialect extends Serializable {
 
     default String createTableSql(TablePath tablePath, CatalogTable catalogTable) {
         return "";
+    }
+
+    default String getQuoted() {
+        return "\"";
     }
 }
