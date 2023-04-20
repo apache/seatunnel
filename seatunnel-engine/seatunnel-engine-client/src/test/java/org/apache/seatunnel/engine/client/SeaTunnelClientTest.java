@@ -223,7 +223,11 @@ public class SeaTunnelClientTest {
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("fake_to_console1");
 
-        ClientJobProxy execute1 = CLIENT.createExecutionContext(filePath, jobConfig).execute();
+        SeaTunnelClient seaTunnelClient = createSeaTunnelClient();
+        JobClient jobClient = seaTunnelClient.getJobClient();
+
+        ClientJobProxy execute1 =
+                seaTunnelClient.createExecutionContext(filePath, jobConfig).execute();
         long jobId1 = execute1.getJobId();
 
         execute1.waitForJobComplete();
@@ -231,8 +235,10 @@ public class SeaTunnelClientTest {
         filePath = TestUtils.getResource("streaming_fake_to_console.conf");
         jobConfig = new JobConfig();
         jobConfig.setName("fake_to_console2");
-        ClientJobProxy execute2 = CLIENT.createExecutionContext(filePath, jobConfig).execute();
-        ClientJobProxy execute3 = CLIENT.createExecutionContext(filePath, jobConfig).execute();
+        ClientJobProxy execute2 =
+                seaTunnelClient.createExecutionContext(filePath, jobConfig).execute();
+        ClientJobProxy execute3 =
+                seaTunnelClient.createExecutionContext(filePath, jobConfig).execute();
 
         long jobId2 = execute2.getJobId();
         long jobId3 = execute3.getJobId();
@@ -241,29 +247,25 @@ public class SeaTunnelClientTest {
                 .untilAsserted(
                         () ->
                                 Assertions.assertTrue(
-                                        CLIENT.getJobClient()
-                                                        .getJobStatus(jobId1)
-                                                        .equals("FINISHED")
-                                                && CLIENT.getJobClient()
-                                                        .getJobStatus(jobId2)
-                                                        .equals("RUNNING")
-                                                && CLIENT.getJobClient()
+                                        jobClient.getJobStatus(jobId1).equals("FINISHED")
+                                                && jobClient.getJobStatus(jobId2).equals("RUNNING")
+                                                && jobClient
                                                         .getJobStatus(jobId3)
                                                         .equals("RUNNING")));
 
-        System.out.println(CLIENT.getJobClient().getRunningJobMetrics());
+        System.out.println(jobClient.getRunningJobMetrics());
 
         await().atMost(30000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
-                            String runningJobMetrics = CLIENT.getJobClient().getRunningJobMetrics();
+                            String runningJobMetrics = jobClient.getRunningJobMetrics();
                             Assertions.assertTrue(
                                     runningJobMetrics.contains(jobId2 + "")
                                             && runningJobMetrics.contains(jobId3 + ""));
                         });
 
-        CLIENT.getJobClient().cancelJob(jobId2);
-        CLIENT.getJobClient().cancelJob(jobId3);
+        jobClient.cancelJob(jobId2);
+        jobClient.cancelJob(jobId3);
     }
 
     @Test
