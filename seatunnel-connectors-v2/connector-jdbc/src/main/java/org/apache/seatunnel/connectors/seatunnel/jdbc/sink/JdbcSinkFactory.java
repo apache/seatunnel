@@ -74,7 +74,7 @@ public class JdbcSinkFactory implements TableSinkFactory {
         }
         final ReadonlyConfig options = config;
         JdbcSinkConfig sinkConfig = JdbcSinkConfig.of(config);
-        JdbcDialect dialect = JdbcDialectLoader.load(sinkConfig.getJdbcConnectionConfig().getUrl());
+        JdbcDialect dialect = JdbcDialectLoader.load(sinkConfig.getJdbcConnectionConfig().getUrl(), sinkConfig.getJdbcConnectionConfig().getDriverType());
         return () ->
                 new JdbcSink(
                         options,

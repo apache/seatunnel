@@ -101,7 +101,7 @@ public class JdbcSink
     public void prepare(Config pluginConfig) throws PrepareFailException {
         this.config = ReadonlyConfig.fromConfig(pluginConfig);
         this.jdbcSinkConfig = JdbcSinkConfig.of(config);
-        this.dialect = JdbcDialectLoader.load(jdbcSinkConfig.getJdbcConnectionConfig().getUrl());
+        this.dialect = JdbcDialectLoader.load(jdbcSinkConfig.getJdbcConnectionConfig().getUrl(), jdbcSinkConfig.getJdbcConnectionConfig().getDriverType());
         this.dataSaveMode = DataSaveMode.KEEP_SCHEMA_AND_DATA;
     }
 

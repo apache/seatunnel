@@ -81,7 +81,7 @@ public class JdbcSourceFactory implements TableSourceFactory {
         JdbcConnectionProvider connectionProvider =
                 new SimpleJdbcConnectionProvider(config.getJdbcConnectionConfig());
         final String querySql = config.getQuery();
-        JdbcDialect dialect = JdbcDialectLoader.load(config.getJdbcConnectionConfig().getUrl());
+        JdbcDialect dialect = JdbcDialectLoader.load(config.getJdbcConnectionConfig().getUrl(), config.getJdbcConnectionConfig().getDriverType());
         TableSchema tableSchema = catalogTable.getTableSchema();
         SeaTunnelRowType rowType = tableSchema.toPhysicalRowDataType();
         Optional<PartitionParameter> partitionParameter =

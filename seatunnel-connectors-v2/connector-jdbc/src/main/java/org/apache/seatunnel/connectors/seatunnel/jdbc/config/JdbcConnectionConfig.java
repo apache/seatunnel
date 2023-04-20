@@ -27,6 +27,7 @@ public class JdbcConnectionConfig implements Serializable {
 
     public String url;
     public String driverName;
+    public String driverType;
     public int connectionCheckTimeoutSeconds =
             JdbcOptions.CONNECTION_CHECK_TIMEOUT_SEC.defaultValue();
     public int maxRetries = JdbcOptions.MAX_RETRIES.defaultValue();
@@ -48,6 +49,7 @@ public class JdbcConnectionConfig implements Serializable {
     public static JdbcConnectionConfig of(ReadonlyConfig config) {
         JdbcConnectionConfig.Builder builder = JdbcConnectionConfig.builder();
         builder.url(config.get(JdbcOptions.URL));
+        builder.driverType(config.get(JdbcOptions.DRIVER_TYPE));
         builder.driverName(config.get(JdbcOptions.DRIVER));
         builder.autoCommit(config.get(JdbcOptions.AUTO_COMMIT));
         builder.maxRetries(config.get(JdbcOptions.MAX_RETRIES));
@@ -71,6 +73,10 @@ public class JdbcConnectionConfig implements Serializable {
 
     public String getDriverName() {
         return driverName;
+    }
+
+    public Optional<String> getDriverType() {
+        return Optional.ofNullable(driverType);
     }
 
     public boolean isAutoCommit() {
@@ -120,6 +126,7 @@ public class JdbcConnectionConfig implements Serializable {
     public static final class Builder {
         private String url;
         private String driverName;
+        private String driverType;
         private int connectionCheckTimeoutSeconds =
                 JdbcOptions.CONNECTION_CHECK_TIMEOUT_SEC.defaultValue();
         private int maxRetries = JdbcOptions.MAX_RETRIES.defaultValue();
@@ -145,6 +152,10 @@ public class JdbcConnectionConfig implements Serializable {
             return this;
         }
 
+        public Builder driverType(String driverType) {
+            this.driverType = driverType;
+            return this;
+        }
         public Builder connectionCheckTimeoutSeconds(int connectionCheckTimeoutSeconds) {
             this.connectionCheckTimeoutSeconds = connectionCheckTimeoutSeconds;
             return this;
@@ -205,6 +216,7 @@ public class JdbcConnectionConfig implements Serializable {
             jdbcConnectionConfig.batchSize = this.batchSize;
             jdbcConnectionConfig.batchIntervalMs = this.batchIntervalMs;
             jdbcConnectionConfig.driverName = this.driverName;
+            jdbcConnectionConfig.driverType = this.driverType;
             jdbcConnectionConfig.maxRetries = this.maxRetries;
             jdbcConnectionConfig.password = this.password;
             jdbcConnectionConfig.connectionCheckTimeoutSeconds = this.connectionCheckTimeoutSeconds;

@@ -44,6 +44,7 @@
         <redshift.version>2.1.0.9</redshift.version>
         <saphana.version>2.14.7</saphana.version>
         <vertica.version>12.0.3-0</vertica.version>
+        <oceanbase.version>1.1.10</oceanbase.version>
     </properties>
 
     <dependencyManagement>
@@ -129,6 +130,12 @@
                 <version>${vertica.version}</version>
                 <scope>provided</scope>
             </dependency>
+            <dependency>
+                <groupId>com.alipay.oceanbase</groupId>
+                <artifactId>oceanbase-client</artifactId>
+                <version>${oceanbase.version}</version>
+                <scope>provided</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -144,7 +151,10 @@
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
         </dependency>
-
+        <dependency>
+            <groupId>com.alipay.oceanbase</groupId>
+            <artifactId>oceanbase-client</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>

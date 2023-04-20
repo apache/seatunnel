@@ -22,12 +22,14 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 
 import com.google.auto.service.AutoService;
 
+import java.util.Optional;
+
 /** Factory for {@link DB2Dialect}. */
 @AutoService(JdbcDialectFactory.class)
 public class DB2DialectFactory implements JdbcDialectFactory {
 
     @Override
-    public boolean acceptsURL(String url) {
+    public boolean acceptsURL(String url, Optional<String> driverTye) {
         return url.startsWith("jdbc:db2:");
     }
 

@@ -22,11 +22,13 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 
 import com.google.auto.service.AutoService;
 
+import java.util.Optional;
+
 /** Factory for {@link MysqlDialect}. */
 @AutoService(JdbcDialectFactory.class)
 public class MySqlDialectFactory implements JdbcDialectFactory {
     @Override
-    public boolean acceptsURL(String url) {
+    public boolean acceptsURL(String url, Optional<String> driverTye) {
         return url.startsWith("jdbc:mysql:");
     }
 

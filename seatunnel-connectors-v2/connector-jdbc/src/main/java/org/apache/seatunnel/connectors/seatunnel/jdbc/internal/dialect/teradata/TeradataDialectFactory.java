@@ -22,11 +22,13 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 
 import com.google.auto.service.AutoService;
 
+import java.util.Optional;
+
 @AutoService(JdbcDialectFactory.class)
 public class TeradataDialectFactory implements JdbcDialectFactory {
 
     @Override
-    public boolean acceptsURL(String url) {
+    public boolean acceptsURL(String url, Optional<String> driverTye) {
         return url.startsWith("jdbc:teradata:");
     }
 

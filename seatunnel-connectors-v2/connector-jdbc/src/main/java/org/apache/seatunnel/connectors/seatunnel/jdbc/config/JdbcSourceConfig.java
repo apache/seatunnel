@@ -32,6 +32,7 @@ public class JdbcSourceConfig implements Serializable {
 
     private JdbcConnectionConfig jdbcConnectionConfig;
     public String query;
+    public String driverType;
     private String partitionColumn;
     private Long partitionUpperBound;
     private Long partitionLowerBound;
@@ -43,6 +44,7 @@ public class JdbcSourceConfig implements Serializable {
         builder.jdbcConnectionConfig(JdbcConnectionConfig.of(config));
         builder.query(config.get(JdbcOptions.QUERY));
         builder.fetchSize(config.get(JdbcOptions.FETCH_SIZE));
+        config.getOptional(JdbcOptions.DRIVER_TYPE).ifPresent(builder::driverType);
         config.getOptional(JdbcOptions.PARTITION_COLUMN).ifPresent(builder::partitionColumn);
         config.getOptional(JdbcOptions.PARTITION_UPPER_BOUND)
                 .ifPresent(builder::partitionUpperBound);
