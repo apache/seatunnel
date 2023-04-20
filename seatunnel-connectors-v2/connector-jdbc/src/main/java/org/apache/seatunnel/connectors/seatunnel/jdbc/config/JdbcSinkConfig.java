@@ -39,6 +39,7 @@ public class JdbcSinkConfig implements Serializable {
     private String table;
     private List<String> primaryKeys;
     private boolean supportUpsertByQueryPrimaryKeyExist;
+    private boolean isPrimaryKeyUpdated;
 
     public static JdbcSinkConfig of(ReadonlyConfig config) {
         JdbcSinkConfig.Builder builder = JdbcSinkConfig.builder();
@@ -49,6 +50,8 @@ public class JdbcSinkConfig implements Serializable {
         config.getOptional(JdbcOptions.TABLE).ifPresent(builder::table);
         config.getOptional(SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST)
                 .ifPresent(builder::supportUpsertByQueryPrimaryKeyExist);
+        config.getOptional(SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST)
+                .ifPresent(builder::isPrimaryKeyUpdated);
         config.getOptional(JdbcOptions.QUERY).ifPresent(builder::simpleSql);
         return builder.build();
     }

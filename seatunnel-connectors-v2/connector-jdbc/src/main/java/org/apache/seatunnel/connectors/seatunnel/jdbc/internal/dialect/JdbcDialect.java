@@ -103,7 +103,21 @@ public interface JdbcDialect extends Serializable {
      * @return the dialects {@code UPDATE} statement.
      */
     default String getUpdateStatement(
-            String database, String tableName, String[] fieldNames, String[] conditionFields) {
+            String database,
+            String tableName,
+            String[] fieldNames,
+            String[] conditionFields,
+            boolean isPrimaryKeyUpdated) {
+
+        fieldNames =
+                Arrays.stream(fieldNames)
+                        .filter(
+                                fieldName ->
+                                        isPrimaryKeyUpdated
+                                                || !Arrays.asList(conditionFields)
+                                                        .contains(fieldName))
+                        .toArray(String[]::new);
+
         String setClause =
                 Arrays.stream(fieldNames)
                         .map(fieldName -> format("%s = :%s", quoteIdentifier(fieldName), fieldName))
