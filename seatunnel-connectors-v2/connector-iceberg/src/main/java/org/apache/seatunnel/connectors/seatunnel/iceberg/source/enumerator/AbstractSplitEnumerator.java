@@ -22,6 +22,7 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFileScanTaskSplit;
 
+import lombok.Getter;
 import org.apache.iceberg.Table;
 
 import lombok.NonNull;
@@ -45,6 +46,8 @@ public abstract class AbstractSplitEnumerator
     protected final Map<Integer, List<IcebergFileScanTaskSplit>> pendingSplits;
 
     protected IcebergTableLoader icebergTableLoader;
+    @Getter
+    private volatile boolean isOpen = false;
 
     public AbstractSplitEnumerator(
             @NonNull SourceSplitEnumerator.Context<IcebergFileScanTaskSplit> context,
@@ -59,6 +62,7 @@ public abstract class AbstractSplitEnumerator
     public void open() {
         icebergTableLoader = IcebergTableLoader.create(sourceConfig);
         icebergTableLoader.open();
+        isOpen = true;
     }
 
     @Override
@@ -70,6 +74,7 @@ public abstract class AbstractSplitEnumerator
     @Override
     public void close() throws IOException {
         icebergTableLoader.close();
+        isOpen = false;
     }
 
     @Override
