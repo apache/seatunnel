@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.PluginType;
@@ -200,7 +201,10 @@ public class JdbcSourceFactory implements TableSourceFactory {
     }
 
     private static boolean isNumericType(SeaTunnelDataType<?> type) {
-        return type.equals(BasicType.INT_TYPE) || type.equals(BasicType.LONG_TYPE);
+        // Currently, only numeric types are supported for reading partition keys
+        return type.equals(BasicType.INT_TYPE)
+                || type.equals(BasicType.LONG_TYPE)
+                || type.equals(new DecimalType(20, 0));
     }
 
     @Override
