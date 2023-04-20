@@ -177,7 +177,8 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                 createRecordEmitter(sourceConfig, readerContext.getMetricsContext()),
                 new SourceReaderOptions(readonlyConfig),
                 readerContext,
-                sourceConfig);
+                sourceConfig,
+                deserializationSchema);
     }
 
     protected RecordEmitter<SourceRecords, T, SourceSplitStateBase> createRecordEmitter(

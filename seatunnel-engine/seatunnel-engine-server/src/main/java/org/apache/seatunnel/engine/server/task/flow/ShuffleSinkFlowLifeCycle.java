@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
+import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.engine.core.dag.actions.ShuffleAction;
 import org.apache.seatunnel.engine.core.dag.actions.ShuffleStrategy;
@@ -95,6 +96,12 @@ public class ShuffleSinkFlowLifeCycle extends AbstractFlowLifeCycle
                     throw new RuntimeException(e);
                 }
             }
+        } else if (record.getData() instanceof SchemaChangeEvent) {
+            if (prepareClose) {
+                return;
+            }
+
+            shuffleItem(record);
         } else {
             if (prepareClose) {
                 return;

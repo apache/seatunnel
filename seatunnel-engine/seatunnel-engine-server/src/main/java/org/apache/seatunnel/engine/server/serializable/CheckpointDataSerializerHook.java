@@ -25,6 +25,8 @@ import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskRestore
 import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskStartOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
+import org.apache.seatunnel.engine.server.checkpoint.operation.TriggerSchemaChangeAfterCheckpointOperation;
+import org.apache.seatunnel.engine.server.checkpoint.operation.TriggerSchemaChangeBeforeCheckpointOperation;
 
 import com.hazelcast.internal.serialization.DataSerializerHook;
 import com.hazelcast.internal.serialization.impl.FactoryIdHelper;
@@ -41,8 +43,9 @@ public final class CheckpointDataSerializerHook implements DataSerializerHook {
 
     public static final int NOTIFY_TASK_RESTORE_OPERATOR = 5;
     public static final int NOTIFY_TASK_START_OPERATOR = 6;
-
     public static final int CHECKPOINT_ERROR_REPORT_OPERATOR = 7;
+    public static final int TRIGGER_SCHEMA_CHANGE_BEFORE_CHECKPOINT_OPERATOR = 8;
+    public static final int TRIGGER_SCHEMA_CHANGE_AFTER_CHECKPOINT_OPERATOR = 9;
 
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
@@ -78,6 +81,10 @@ public final class CheckpointDataSerializerHook implements DataSerializerHook {
                     return new NotifyTaskStartOperation();
                 case CHECKPOINT_ERROR_REPORT_OPERATOR:
                     return new CheckpointErrorReportOperation();
+                case TRIGGER_SCHEMA_CHANGE_BEFORE_CHECKPOINT_OPERATOR:
+                    return new TriggerSchemaChangeBeforeCheckpointOperation();
+                case TRIGGER_SCHEMA_CHANGE_AFTER_CHECKPOINT_OPERATOR:
+                    return new TriggerSchemaChangeAfterCheckpointOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
@@ -195,6 +196,12 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     }
                 }
                 runningTask.ack(barrier);
+            } else if (record.getData() instanceof SchemaChangeEvent) {
+                if (prepareClose) {
+                    return;
+                }
+                SchemaChangeEvent event = (SchemaChangeEvent) record.getData();
+                writer.applySchemaChange(event);
             } else {
                 if (prepareClose) {
                     return;

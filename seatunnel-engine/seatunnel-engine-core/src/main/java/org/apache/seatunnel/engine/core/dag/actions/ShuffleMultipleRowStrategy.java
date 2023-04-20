@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.core.dag.actions;
 
+import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -73,7 +74,14 @@ public class ShuffleMultipleRowStrategy extends ShuffleStrategy {
 
     @Override
     public String createShuffleKey(Record<?> record, int pipelineId, int inputIndex) {
-        String tableId = ((SeaTunnelRow) record.getData()).getTableId();
+        String tableId;
+        if (record.getData() instanceof SeaTunnelRow) {
+            tableId = ((SeaTunnelRow) record.getData()).getTableId();
+        } else if (record.getData() instanceof SchemaChangeEvent) {
+            tableId = ((SchemaChangeEvent) record.getData()).tablePath().toString();
+        } else {
+            throw new UnsupportedOperationException("Unsupported record: " + record);
+        }
         return generateQueueName(pipelineId, inputIndex, tableId);
     }
 

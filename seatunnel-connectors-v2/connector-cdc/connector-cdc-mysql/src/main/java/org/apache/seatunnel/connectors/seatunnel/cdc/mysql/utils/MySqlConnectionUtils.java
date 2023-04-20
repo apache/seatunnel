@@ -130,7 +130,7 @@ public class MySqlConnectionUtils {
 
     // --------------------------------------------------------------------------------------------
 
-    private static MySqlValueConverters getValueConverters(MySqlConnectorConfig dbzMySqlConfig) {
+    public static MySqlValueConverters getValueConverters(MySqlConnectorConfig dbzMySqlConfig) {
         TemporalPrecisionMode timePrecisionMode = dbzMySqlConfig.getTemporalPrecisionMode();
         JdbcValueConverters.DecimalMode decimalMode = dbzMySqlConfig.getDecimalMode();
         String bigIntUnsignedHandlingModeStr =

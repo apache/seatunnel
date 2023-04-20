@@ -36,4 +36,6 @@ public interface DebeziumDeserializationSchema<T> extends Serializable {
     void deserialize(SourceRecord record, Collector<T> out) throws Exception;
 
     SeaTunnelDataType<T> getProducedType();
+
+    default void restoreCheckpointProducedType(SeaTunnelDataType<T> checkpointDataType) {}
 }

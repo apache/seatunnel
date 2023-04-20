@@ -42,11 +42,14 @@ import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeSchema;
 import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.schema.MySqlSchemaChangeResolver;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffsetFactory;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalogFactory;
 
 import com.google.auto.service.AutoService;
+import io.debezium.connector.mysql.MySqlConnectorConfig;
 import lombok.NoArgsConstructor;
 
 import java.time.ZoneId;
@@ -122,6 +125,13 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
                         .setPhysicalRowType(physicalRowType)
                         .setResultTypeInfo(physicalRowType)
                         .setServerTimeZone(ZoneId.of(zoneId))
+                        .setSchemaChangeResolver(
+                                new MySqlSchemaChangeResolver(
+                                        MySqlConnectionUtils.getValueConverters(
+                                                (MySqlConnectorConfig)
+                                                        configFactory
+                                                                .create(0)
+                                                                .getDbzConnectorConfig())))
                         .build();
     }
 
