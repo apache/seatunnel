@@ -49,6 +49,8 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoCursor;
+import com.mongodb.client.model.Sorts;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -59,6 +61,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.net.HttpURLConnection.HTTP_OK;
@@ -68,35 +71,53 @@ import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 public class MongodbIT extends TestSuiteBase implements TestResource {
 
     private static final String MONGODB_IMAGE = "mongo:latest";
+
     private static final String MONGODB_CONTAINER_HOST = "e2e_mongodb";
+
     private static final int MONGODB_PORT = 27017;
+
     private static final String MONGODB_DATABASE = "test_db";
+
     private static final String MONGODB_SOURCE_TABLE = "source_table";
 
-    private static final List<Document> TEST_DATASET = generateTestDataSet(0, 10);
+    private static final String MONGODB_QUERY_TABLE = "sink_matchQuery_table";
+
+    private static final String MONGODB_SINK_TABLE = "sink_table";
+
+    private static final List<Document> TEST_DATASET = generateTestDataSet();
 
     private GenericContainer<?> mongodbContainer;
+
     private MongoClient client;
 
     @TestTemplate
-    public void testMongodbSourceToAssertSink(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/mongodb_source_to_assert.conf");
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-    }
-
-    @TestTemplate
     public void testMongodb(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/mongodb_source_and_sink.conf");
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        Container.ExecResult sourceResult = container.executeJob("/mongodb_source_to_assert.conf");
+        Assertions.assertEquals(0, sourceResult.getExitCode(), sourceResult.getStderr());
+
+        Container.ExecResult SourceToSinkResult =
+                container.executeJob("/mongodb_source_and_sink.conf");
+        Assertions.assertEquals(
+                0, SourceToSinkResult.getExitCode(), SourceToSinkResult.getStderr());
+
+        Assertions.assertIterableEquals(
+                TEST_DATASET.stream().peek(e -> e.remove("_id")).collect(Collectors.toList()),
+                readSinkData().stream().peek(e -> e.remove("_id")).collect(Collectors.toList()));
+
+        dropTable(MONGODB_SINK_TABLE);
     }
 
     @TestTemplate
     public void testMongodbMatchQuery(TestContainer container)
             throws IOException, InterruptedException {
+        Container.ExecResult insetResult = container.executeJob("/fake_to_mongodb.conf");
+        Assertions.assertEquals(0, insetResult.getExitCode(), insetResult.getStderr());
+
         Container.ExecResult execResult =
                 container.executeJob("/mongodb_source_matchQuery_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        dropTable(MONGODB_QUERY_TABLE);
     }
 
     public void initConnection() {
@@ -106,14 +127,19 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
         client = MongoClients.create(url);
     }
 
-    private void initSourceData(String database, String table, List<Document> documents) {
-        MongoCollection<Document> sourceTable = client.getDatabase(database).getCollection(table);
-
-        sourceTable.deleteMany(new Document());
-        sourceTable.insertMany(documents);
+    public void dropTable(String table) {
+        client.getDatabase(MONGODB_DATABASE).getCollection(table).drop();
     }
 
-    private static List<Document> generateTestDataSet(int start, int end) {
+    private void initSourceData() {
+        MongoCollection<Document> sourceTable =
+                client.getDatabase(MongodbIT.MONGODB_DATABASE)
+                        .getCollection(MongodbIT.MONGODB_SOURCE_TABLE);
+        sourceTable.deleteMany(new Document());
+        sourceTable.insertMany(MongodbIT.TEST_DATASET);
+    }
+
+    private static List<Document> generateTestDataSet() {
         SeaTunnelRowType seatunnelRowType =
                 new SeaTunnelRowType(
                         new String[] {
@@ -151,11 +177,11 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
         Serializer serializer = new DefaultSerializer(seatunnelRowType);
 
         List<Document> documents = new ArrayList<>();
-        for (int i = start; i < end; i++) {
+        for (int i = 0; i < 10; i++) {
             SeaTunnelRow row =
                     new SeaTunnelRow(
                             new Object[] {
-                                Long.valueOf(i),
+                                (long) i,
                                 Collections.singletonMap("key", Short.parseShort("1")),
                                 new Byte[] {Byte.parseByte("1")},
                                 "string",
@@ -203,7 +229,18 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .atMost(180, TimeUnit.SECONDS)
                 .untilAsserted(this::initConnection);
-        this.initSourceData(MONGODB_DATABASE, MONGODB_SOURCE_TABLE, TEST_DATASET);
+        this.initSourceData();
+    }
+
+    private List<Document> readSinkData() {
+        MongoCollection<Document> sinkTable =
+                client.getDatabase(MONGODB_DATABASE).getCollection(MongodbIT.MONGODB_SINK_TABLE);
+        MongoCursor<Document> cursor = sinkTable.find().sort(Sorts.ascending("id")).cursor();
+        List<Document> documents = new ArrayList<>();
+        while (cursor.hasNext()) {
+            documents.add(cursor.next());
+        }
+        return documents;
     }
 
     @AfterAll
