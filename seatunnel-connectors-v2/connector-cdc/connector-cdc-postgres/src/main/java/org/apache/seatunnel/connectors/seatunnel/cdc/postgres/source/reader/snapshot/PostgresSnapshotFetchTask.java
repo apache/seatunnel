@@ -36,7 +36,8 @@ public class PostgresSnapshotFetchTask implements FetchTask<SourceSplitBase> {
 
     @Override
     public void execute(FetchTask.Context context) throws Exception {
-        PostgresSourceFetchTaskContext sourceFetchContext = (PostgresSourceFetchTaskContext) context;
+        PostgresSourceFetchTaskContext sourceFetchContext =
+                (PostgresSourceFetchTaskContext) context;
         taskRunning = true;
         snapshotSplitReadTask =
                 new PostgresSnapshotSplitReadTask(

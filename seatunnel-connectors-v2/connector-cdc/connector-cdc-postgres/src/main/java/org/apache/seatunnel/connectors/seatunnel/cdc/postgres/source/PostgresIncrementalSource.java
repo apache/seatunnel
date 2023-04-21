@@ -62,25 +62,32 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
 
     @SuppressWarnings("unchecked")
     @Override
-    public DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(ReadonlyConfig config) {
-        PostgresSourceConfig postgresSourceConfig = (PostgresSourceConfig) this.configFactory.create(0);
-        TableId tableId = this.dataSourceDialect.discoverDataCollections(postgresSourceConfig).get(0);
+    public DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(
+            ReadonlyConfig config) {
+        PostgresSourceConfig postgresSourceConfig =
+                (PostgresSourceConfig) this.configFactory.create(0);
+        TableId tableId =
+                this.dataSourceDialect.discoverDataCollections(postgresSourceConfig).get(0);
 
         PostgresConnectorConfig dbzConnectorConfig = postgresSourceConfig.getDbzConnectorConfig();
 
-        PostgresConnection postgresConnection = new PostgresConnection(dbzConnectorConfig.getJdbcConfig());
+        PostgresConnection postgresConnection =
+                new PostgresConnection(dbzConnectorConfig.getJdbcConfig());
 
-        Table table = ((PostgresDialect) dataSourceDialect).queryTableSchema(postgresConnection, tableId).getTable();
+        Table table =
+                ((PostgresDialect) dataSourceDialect)
+                        .queryTableSchema(postgresConnection, tableId)
+                        .getTable();
 
         SeaTunnelRowType seaTunnelRowType = PostgresTypeUtils.convertFromTable(table);
 
         String zoneId = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
-        return (DebeziumDeserializationSchema<T>) SeaTunnelRowDebeziumDeserializeSchema.builder()
-                .setPhysicalRowType(seaTunnelRowType)
-                .setResultTypeInfo(seaTunnelRowType)
-                .setServerTimeZone(ZoneId.of(zoneId))
-                .build();
-
+        return (DebeziumDeserializationSchema<T>)
+                SeaTunnelRowDebeziumDeserializeSchema.builder()
+                        .setPhysicalRowType(seaTunnelRowType)
+                        .setResultTypeInfo(seaTunnelRowType)
+                        .setServerTimeZone(ZoneId.of(zoneId))
+                        .build();
     }
 
     @Override
@@ -90,6 +97,7 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
 
     @Override
     public OffsetFactory createOffsetFactory(ReadonlyConfig config) {
-        return new LsnOffsetFactory((PostgresSourceConfigFactory) configFactory, (PostgresDialect) dataSourceDialect);
+        return new LsnOffsetFactory(
+                (PostgresSourceConfigFactory) configFactory, (PostgresDialect) dataSourceDialect);
     }
 }

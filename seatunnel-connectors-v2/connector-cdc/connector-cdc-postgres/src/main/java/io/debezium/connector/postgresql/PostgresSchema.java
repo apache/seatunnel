@@ -17,6 +17,12 @@
 
 package io.debezium.connector.postgresql;
 
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.errors.ConnectException;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.debezium.annotation.NotThreadSafe;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
 import io.debezium.connector.postgresql.connection.ServerInfo;
@@ -28,10 +34,6 @@ import io.debezium.relational.TableSchemaBuilder;
 import io.debezium.relational.Tables;
 import io.debezium.schema.TopicSelector;
 import io.debezium.util.SchemaNameAdjuster;
-import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.errors.ConnectException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -41,10 +43,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Component that records the schema information for the {@link PostgresConnector}. The schema information contains
- * the {@link Tables table definitions} and the Kafka Connect {@link #schemaFor(TableId) Schema}s for each table, where the
- * {@link Schema} excludes any columns that have been {@link PostgresConnectorConfig#COLUMN_EXCLUDE_LIST specified} in the
- * configuration.
+ * Component that records the schema information for the {@link PostgresConnector}. The schema
+ * information contains the {@link Tables table definitions} and the Kafka Connect {@link
+ * #schemaFor(TableId) Schema}s for each table, where the {@link Schema} excludes any columns that
+ * have been {@link PostgresConnectorConfig#COLUMN_EXCLUDE_LIST specified} in the configuration.
  */
 @NotThreadSafe
 public class PostgresSchema extends RelationalDatabaseSchema {
@@ -59,15 +61,24 @@ public class PostgresSchema extends RelationalDatabaseSchema {
     private final boolean readToastableColumns;
 
     /**
-     * Create a schema component given the supplied {@link PostgresConnectorConfig Postgres connector configuration}.
+     * Create a schema component given the supplied {@link PostgresConnectorConfig Postgres
+     * connector configuration}.
      *
      * @param config the connector configuration, which is presumed to be valid
      */
-    public PostgresSchema(PostgresConnectorConfig config, TypeRegistry typeRegistry,
-                          TopicSelector<TableId> topicSelector, PostgresValueConverter valueConverter) {
-        super(config, topicSelector, new Filters(config).tableFilter(),
-            config.getColumnFilter(), getTableSchemaBuilder(config, valueConverter), false,
-            config.getKeyMapper());
+    public PostgresSchema(
+            PostgresConnectorConfig config,
+            TypeRegistry typeRegistry,
+            TopicSelector<TableId> topicSelector,
+            PostgresValueConverter valueConverter) {
+        super(
+                config,
+                topicSelector,
+                new Filters(config).tableFilter(),
+                config.getColumnFilter(),
+                getTableSchemaBuilder(config, valueConverter),
+                false,
+                config.getKeyMapper());
 
         this.typeRegistry = typeRegistry;
         this.tableIdToToastableColumns = new HashMap<>();
@@ -75,20 +86,28 @@ public class PostgresSchema extends RelationalDatabaseSchema {
         this.readToastableColumns = config.skipRefreshSchemaOnMissingToastableData();
     }
 
-    private static TableSchemaBuilder getTableSchemaBuilder(PostgresConnectorConfig config, PostgresValueConverter valueConverter) {
-        return new TableSchemaBuilder(valueConverter, SchemaNameAdjuster.create(), config.customConverterRegistry(), config.getSourceInfoStructMaker().schema(),
-            config.getSanitizeFieldNames());
+    private static TableSchemaBuilder getTableSchemaBuilder(
+            PostgresConnectorConfig config, PostgresValueConverter valueConverter) {
+        return new TableSchemaBuilder(
+                valueConverter,
+                SchemaNameAdjuster.create(),
+                config.customConverterRegistry(),
+                config.getSourceInfoStructMaker().schema(),
+                config.getSanitizeFieldNames());
     }
 
     /**
-     * Initializes the content for this schema by reading all the database information from the supplied connection.
+     * Initializes the content for this schema by reading all the database information from the
+     * supplied connection.
      *
-     * @param connection               a {@link JdbcConnection} instance, never {@code null}
-     * @param printReplicaIdentityInfo whether or not to look and print out replica identity information about the tables
+     * @param connection a {@link JdbcConnection} instance, never {@code null}
+     * @param printReplicaIdentityInfo whether or not to look and print out replica identity
+     *     information about the tables
      * @return this object so methods can be chained together; never null
      * @throws SQLException if there is a problem obtaining the schema from the database server
      */
-    protected PostgresSchema refresh(PostgresConnection connection, boolean printReplicaIdentityInfo) throws SQLException {
+    protected PostgresSchema refresh(
+            PostgresConnection connection, boolean printReplicaIdentityInfo) throws SQLException {
         // read all the information from the DB
         connection.readSchema(tables(), null, null, getTableFilter(), null, true);
         if (printReplicaIdentityInfo) {
@@ -105,8 +124,13 @@ public class PostgresSchema extends RelationalDatabaseSchema {
 
     private void printReplicaIdentityInfo(PostgresConnection connection, TableId tableId) {
         try {
-            ServerInfo.ReplicaIdentity replicaIdentity = connection.readReplicaIdentityInfo(tableId);
-            LOGGER.info("REPLICA IDENTITY for '{}' is '{}'; {}", tableId, replicaIdentity, replicaIdentity.description());
+            ServerInfo.ReplicaIdentity replicaIdentity =
+                    connection.readReplicaIdentityInfo(tableId);
+            LOGGER.info(
+                    "REPLICA IDENTITY for '{}' is '{}'; {}",
+                    tableId,
+                    replicaIdentity,
+                    replicaIdentity.description());
         } catch (SQLException e) {
             LOGGER.warn("Cannot determine REPLICA IDENTITY info for '{}'", tableId);
         }
@@ -115,12 +139,15 @@ public class PostgresSchema extends RelationalDatabaseSchema {
     /**
      * Refreshes this schema's content for a particular table
      *
-     * @param connection              a {@link JdbcConnection} instance, never {@code null}
-     * @param tableId                 the table identifier; may not be null
-     * @param refreshToastableColumns refreshes the cache of toastable columns for `tableId`, if {@code true}
+     * @param connection a {@link JdbcConnection} instance, never {@code null}
+     * @param tableId the table identifier; may not be null
+     * @param refreshToastableColumns refreshes the cache of toastable columns for `tableId`, if
+     *     {@code true}
      * @throws SQLException if there is a problem refreshing the schema from the database server
      */
-    protected void refresh(PostgresConnection connection, TableId tableId, boolean refreshToastableColumns) throws SQLException {
+    protected void refresh(
+            PostgresConnection connection, TableId tableId, boolean refreshToastableColumns)
+            throws SQLException {
         Tables temp = new Tables();
         connection.readSchema(temp, null, null, tableId::equals, null, true);
 
@@ -144,9 +171,7 @@ public class PostgresSchema extends RelationalDatabaseSchema {
         return !getTableFilter().isIncluded(id);
     }
 
-    /**
-     * Discard any currently-cached schemas and rebuild them using the filters.
-     */
+    /** Discard any currently-cached schemas and rebuild them using the filters. */
     protected void refreshSchemas() {
         clearSchemas();
 
@@ -156,45 +181,58 @@ public class PostgresSchema extends RelationalDatabaseSchema {
 
     private void refreshToastableColumnsMap(PostgresConnection connection, TableId tableId) {
         // This method populates the list of 'toastable' columns for `tableId`.
-        // A toastable column is one that has storage strategy 'x' (inline-compressible + secondary storage enabled),
+        // A toastable column is one that has storage strategy 'x' (inline-compressible + secondary
+        // storage enabled),
         // 'e' (secondary storage enabled), or 'm' (inline-compressible).
         //
-        // Note that, rather confusingly, the 'm' storage strategy does in fact permit secondary storage, but only as a
+        // Note that, rather confusingly, the 'm' storage strategy does in fact permit secondary
+        // storage, but only as a
         // last resort.
         //
-        // Also, we cannot account for the possibility that future versions of PostgreSQL introduce new storage strategies
-        // that include secondary storage. We should move to native decoding in PG 10 and get rid of this hacky code
+        // Also, we cannot account for the possibility that future versions of PostgreSQL introduce
+        // new storage strategies
+        // that include secondary storage. We should move to native decoding in PG 10 and get rid of
+        // this hacky code
         // before that possibility is realized.
 
-        // Collect the non-system (attnum > 0), present (not attisdropped) column names that are toastable.
+        // Collect the non-system (attnum > 0), present (not attisdropped) column names that are
+        // toastable.
         //
         // NOTE (Ian Axelrod):
-        // I Would prefer to use data provided by PgDatabaseMetaData, but the PG JDBC driver does not expose storage type
-        // information. Thus, we need to make a separate query. If we are refreshing schemas rarely, this is not a big
+        // I Would prefer to use data provided by PgDatabaseMetaData, but the PG JDBC driver does
+        // not expose storage type
+        // information. Thus, we need to make a separate query. If we are refreshing schemas rarely,
+        // this is not a big
         // deal.
         List<String> toastableColumns = new ArrayList<>();
         String relName = tableId.table();
-        String schema = tableId.schema() != null && tableId.schema().length() > 0 ? tableId.schema() : "public";
-        String statement = "select att.attname" +
-            " from pg_attribute att " +
-            " join pg_class tbl on tbl.oid = att.attrelid" +
-            " join pg_namespace ns on tbl.relnamespace = ns.oid" +
-            " where tbl.relname = ?" +
-            " and ns.nspname = ?" +
-            " and att.attnum > 0" +
-            " and att.attstorage in ('x', 'e', 'm')" +
-            " and not att.attisdropped;";
+        String schema =
+                tableId.schema() != null && tableId.schema().length() > 0
+                        ? tableId.schema()
+                        : "public";
+        String statement =
+                "select att.attname"
+                        + " from pg_attribute att "
+                        + " join pg_class tbl on tbl.oid = att.attrelid"
+                        + " join pg_namespace ns on tbl.relnamespace = ns.oid"
+                        + " where tbl.relname = ?"
+                        + " and ns.nspname = ?"
+                        + " and att.attnum > 0"
+                        + " and att.attstorage in ('x', 'e', 'm')"
+                        + " and not att.attisdropped;";
 
         try {
-            connection.prepareQuery(statement,
-                stmt -> {
-                    stmt.setString(1, relName);
-                    stmt.setString(2, schema);
-                }, rs -> {
-                    while (rs.next()) {
-                        toastableColumns.add(rs.getString(1));
-                    }
-                });
+            connection.prepareQuery(
+                    statement,
+                    stmt -> {
+                        stmt.setString(1, relName);
+                        stmt.setString(2, schema);
+                    },
+                    rs -> {
+                        while (rs.next()) {
+                            toastableColumns.add(rs.getString(1));
+                        }
+                    });
             if (!connection.connection().getAutoCommit()) {
                 connection.connection().commit();
             }
@@ -210,7 +248,9 @@ public class PostgresSchema extends RelationalDatabaseSchema {
         if (tableId == null) {
             return null;
         }
-        return tableId.schema() == null ? new TableId(tableId.catalog(), PUBLIC_SCHEMA_NAME, tableId.table()) : tableId;
+        return tableId.schema() == null
+                ? new TableId(tableId.catalog(), PUBLIC_SCHEMA_NAME, tableId.table())
+                : tableId;
     }
 
     public TypeRegistry getTypeRegistry() {
@@ -225,13 +265,16 @@ public class PostgresSchema extends RelationalDatabaseSchema {
      * Applies schema changes for the specified table.
      *
      * @param relationId the postgres relation unique identifier for the table
-     * @param table      externally constructed table, typically from the decoder; must not be null
+     * @param table externally constructed table, typically from the decoder; must not be null
      */
     public void applySchemaChangesForTable(int relationId, Table table) {
         assert table != null;
 
         if (isFilteredOut(table.id())) {
-            LOGGER.trace("Skipping schema refresh for table '{}' with relation '{}' as table is filtered", table.id(), relationId);
+            LOGGER.trace(
+                    "Skipping schema refresh for table '{}' with relation '{}' as table is filtered",
+                    table.id(),
+                    relationId);
             return;
         }
 
@@ -241,10 +284,10 @@ public class PostgresSchema extends RelationalDatabaseSchema {
 
     /**
      * Resolve a {@link Table} based on a supplied table relation unique identifier.
-     * <p>
-     * This implementation relies on a prior call to {@link #applySchemaChangesForTable(int, Table)} to have
-     * applied schema changes from a replication stream with the {@code relationId} for the relationship to exist
-     * and be capable of lookup.
+     *
+     * <p>This implementation relies on a prior call to {@link #applySchemaChangesForTable(int,
+     * Table)} to have applied schema changes from a replication stream with the {@code relationId}
+     * for the relationship to exist and be capable of lookup.
      *
      * @param relationId the unique table relation identifier
      * @return the resolved table or null

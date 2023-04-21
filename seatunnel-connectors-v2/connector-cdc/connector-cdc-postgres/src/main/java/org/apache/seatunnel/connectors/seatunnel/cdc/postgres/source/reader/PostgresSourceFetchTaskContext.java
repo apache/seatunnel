@@ -29,6 +29,9 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSou
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnOffset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils.PostgresUtils;
 
+import org.apache.kafka.connect.errors.ConnectException;
+import org.apache.kafka.connect.source.SourceRecord;
+
 import io.debezium.DebeziumException;
 import io.debezium.connector.base.ChangeEventQueue;
 import io.debezium.connector.postgresql.PostgresConnectorConfig;
@@ -59,8 +62,6 @@ import io.debezium.util.LoggingContext;
 import io.debezium.util.Metronome;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.connect.errors.ConnectException;
-import org.apache.kafka.connect.source.SourceRecord;
 
 import java.sql.SQLException;
 import java.time.Duration;
@@ -73,13 +74,11 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
 
     private final PostgresConnection dataConnection;
 
-    @Getter
-    private ReplicationConnection replicationConnection;
+    @Getter private ReplicationConnection replicationConnection;
 
     private final PostgresEventMetadataProvider metadataProvider;
 
-    @Getter
-    private Snapshotter snapshotter;
+    @Getter private Snapshotter snapshotter;
     private PostgresSchema databaseSchema;
     private PostgresOffsetContext offsetContext;
     private TopicSelector<TableId> topicSelector;
@@ -87,8 +86,7 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     private ChangeEventQueue<DataChangeEvent> queue;
     private PostgresErrorHandler errorHandler;
 
-    @Getter
-    private PostgresTaskContext taskContext;
+    @Getter private PostgresTaskContext taskContext;
 
     private SnapshotChangeEventSourceMetrics snapshotChangeEventSourceMetrics;
 
@@ -119,23 +117,30 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
 
         this.topicSelector = PostgresTopicSelector.create(connectorConfig);
 
-        final PostgresConnection.PostgresValueConverterBuilder valueConverterBuilder = typeRegistry -> PostgresValueConverter.of(
-                connectorConfig,
-                dataConnection.getDatabaseCharset(),
-                typeRegistry);
+        final PostgresConnection.PostgresValueConverterBuilder valueConverterBuilder =
+                typeRegistry ->
+                        PostgresValueConverter.of(
+                                connectorConfig, dataConnection.getDatabaseCharset(), typeRegistry);
         final TypeRegistry typeRegistry = dataConnection.getTypeRegistry();
 
-        this.databaseSchema = new PostgresSchema(connectorConfig, typeRegistry, topicSelector, valueConverterBuilder.build(typeRegistry));
+        this.databaseSchema =
+                new PostgresSchema(
+                        connectorConfig,
+                        typeRegistry,
+                        topicSelector,
+                        valueConverterBuilder.build(typeRegistry));
         this.taskContext = new PostgresTaskContext(connectorConfig, databaseSchema, topicSelector);
         this.offsetContext =
                 loadStartingOffsetState(
                         new PostgresOffsetContext.Loader(connectorConfig), sourceSplitBase);
 
         final int queueSize =
-                sourceSplitBase.isSnapshotSplit() ? Integer.MAX_VALUE
+                sourceSplitBase.isSnapshotSplit()
+                        ? Integer.MAX_VALUE
                         : getSourceConfig().getDbzConnectorConfig().getMaxQueueSize();
 
-        LoggingContext.PreviousContext previousContext = taskContext.configureLoggingContext(CONTEXT_NAME);
+        LoggingContext.PreviousContext previousContext =
+                taskContext.configureLoggingContext(CONTEXT_NAME);
         try {
             // Print out the server information
             SlotState slotInfo = null;
@@ -143,9 +148,13 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                 if (log.isInfoEnabled()) {
                     log.info(dataConnection.serverInfo().toString());
                 }
-                slotInfo = dataConnection.getReplicationSlotState(connectorConfig.slotName(), connectorConfig.plugin().getPostgresPluginName());
+                slotInfo =
+                        dataConnection.getReplicationSlotState(
+                                connectorConfig.slotName(),
+                                connectorConfig.plugin().getPostgresPluginName());
             } catch (SQLException e) {
-                log.warn("unable to load info of replication slot, Debezium will try to create the slot");
+                log.warn(
+                        "unable to load info of replication slot, Debezium will try to create the slot");
             }
 
             if (offsetContext == null) {
@@ -160,18 +169,25 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
             SlotCreationResult slotCreatedInfo = null;
             if (snapshotter.shouldStream()) {
                 final boolean doSnapshot = snapshotter.shouldSnapshot();
-                this.replicationConnection = createReplicationConnection(this.taskContext,
-                        doSnapshot, connectorConfig.maxRetries(), connectorConfig.retryDelay());
+                this.replicationConnection =
+                        createReplicationConnection(
+                                this.taskContext,
+                                doSnapshot,
+                                connectorConfig.maxRetries(),
+                                connectorConfig.retryDelay());
 
                 // we need to create the slot before we start streaming if it doesn't exist
-                // otherwise we can't stream back changes happening while the snapshot is taking place
+                // otherwise we can't stream back changes happening while the snapshot is taking
+                // place
                 if (slotInfo == null) {
                     try {
-                        slotCreatedInfo = replicationConnection.createReplicationSlot().orElse(null);
+                        slotCreatedInfo =
+                                replicationConnection.createReplicationSlot().orElse(null);
                     } catch (SQLException ex) {
                         String message = "Creation of replication slot failed";
                         if (ex.getMessage().contains("already exists")) {
-                            message += "; when setting up multiple connectors for the same database host, please make sure to use a distinct replication slot name for each.";
+                            message +=
+                                    "; when setting up multiple connectors for the same database host, please make sure to use a distinct replication slot name for each.";
                         }
                         throw new DebeziumException(message, ex);
                     }
@@ -192,7 +208,8 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                             .maxBatchSize(connectorConfig.getMaxBatchSize())
                             .maxQueueSize(queueSize)
                             .maxQueueSizeInBytes(connectorConfig.getMaxQueueSizeInBytes())
-                            .loggingContextSupplier(() -> taskContext.configureLoggingContext(CONTEXT_NAME))
+                            .loggingContextSupplier(
+                                    () -> taskContext.configureLoggingContext(CONTEXT_NAME))
                             // do not buffer any element, we use signal event
                             // .buffering()
                             .build();
@@ -209,8 +226,8 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                             schemaNameAdjuster);
 
             this.snapshotChangeEventSourceMetrics =
-                    new DefaultChangeEventSourceMetricsFactory().getSnapshotMetrics(
-                            taskContext, queue, metadataProvider);
+                    new DefaultChangeEventSourceMetricsFactory()
+                            .getSnapshotMetrics(taskContext, queue, metadataProvider);
 
             this.errorHandler = new PostgresErrorHandler(connectorConfig.getLogicalName(), queue);
         } finally {
@@ -276,18 +293,21 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         return PostgresUtils.getLsnPosition(sourceRecord);
     }
 
-    /**
-     * Loads the connector's persistent offset (if present) via the given loader.
-     */
+    /** Loads the connector's persistent offset (if present) via the given loader. */
     private PostgresOffsetContext loadStartingOffsetState(
             PostgresOffsetContext.Loader loader, SourceSplitBase split) {
         Offset offset =
-                split.isSnapshotSplit() ? LsnOffset.INITIAL_OFFSET
+                split.isSnapshotSplit()
+                        ? LsnOffset.INITIAL_OFFSET
                         : split.asIncrementalSplit().getStartupOffset();
         return loader.load(offset.getOffset());
     }
 
-    public ReplicationConnection createReplicationConnection(PostgresTaskContext taskContext, boolean doSnapshot, int maxRetries, Duration retryDelay)
+    public ReplicationConnection createReplicationConnection(
+            PostgresTaskContext taskContext,
+            boolean doSnapshot,
+            int maxRetries,
+            Duration retryDelay)
             throws ConnectException {
         final Metronome metronome = Metronome.parker(retryDelay, Clock.SYSTEM);
         short retryCount = 0;
@@ -295,20 +315,25 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         while (retryCount <= maxRetries) {
             try {
                 return taskContext.createReplicationConnection(doSnapshot);
-            }
-            catch (SQLException ex) {
+            } catch (SQLException ex) {
                 retryCount++;
                 if (retryCount > maxRetries) {
-                    log.error("Too many errors connecting to server. All {} retries failed.", maxRetries);
+                    log.error(
+                            "Too many errors connecting to server. All {} retries failed.",
+                            maxRetries);
                     throw new ConnectException(ex);
                 }
 
-                log.warn("Error connecting to server; will attempt retry {} of {} after {} " +
-                        "seconds. Exception message: {}", retryCount, maxRetries, retryDelay.getSeconds(), ex.getMessage());
+                log.warn(
+                        "Error connecting to server; will attempt retry {} of {} after {} "
+                                + "seconds. Exception message: {}",
+                        retryCount,
+                        maxRetries,
+                        retryDelay.getSeconds(),
+                        ex.getMessage());
                 try {
                     metronome.pause();
-                }
-                catch (InterruptedException e) {
+                } catch (InterruptedException e) {
                     log.warn("Connection retry sleep interrupted by exception: " + e);
                     Thread.currentThread().interrupt();
                 }

@@ -24,13 +24,14 @@ import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnOffset;
 
+import org.apache.kafka.connect.source.SourceRecord;
+
 import io.debezium.connector.postgresql.connection.Lsn;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Column;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
-import org.apache.kafka.connect.source.SourceRecord;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -42,74 +43,72 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * The utils for SqlServer data source.
- */
+/** The utils for SqlServer data source. */
 public class PostgresUtils {
-    private PostgresUtils() {
-    }
+    private PostgresUtils() {}
 
     public static Object[] queryMinMax(JdbcConnection jdbc, TableId tableId, String columnName)
-        throws SQLException {
+            throws SQLException {
         final String minMaxQuery =
-            String.format(
-                "SELECT MIN(%s), MAX(%s) FROM %s",
-                quote(columnName), quote(columnName), quote(tableId));
+                String.format(
+                        "SELECT MIN(%s), MAX(%s) FROM %s",
+                        quote(columnName), quote(columnName), quote(tableId));
         return jdbc.queryAndMap(
-            minMaxQuery,
-            rs -> {
-                if (!rs.next()) {
-                    // this should never happen
-                    throw new SQLException(
-                        String.format(
-                            "No result returned after running query [%s]",
-                            minMaxQuery));
-                }
-                return SourceRecordUtils.rowToArray(rs, 2);
-            });
+                minMaxQuery,
+                rs -> {
+                    if (!rs.next()) {
+                        // this should never happen
+                        throw new SQLException(
+                                String.format(
+                                        "No result returned after running query [%s]",
+                                        minMaxQuery));
+                    }
+                    return SourceRecordUtils.rowToArray(rs, 2);
+                });
     }
 
     public static long queryApproximateRowCnt(JdbcConnection jdbc, TableId tableId)
-        throws SQLException {
+            throws SQLException {
         // The statement used to get approximate row count which is less
         // accurate than COUNT(*), but is more efficient for large table.
         final String useDatabaseStatement = String.format("USE %s;", quote(tableId.catalog()));
         final String rowCountQuery =
-            String.format("SELECT reltuples FROM pg_class r WHERE relkind = 'r' AND relname = '%s';",
-                tableId.table());
+                String.format(
+                        "SELECT reltuples FROM pg_class r WHERE relkind = 'r' AND relname = '%s';",
+                        tableId.table());
         jdbc.executeWithoutCommitting(useDatabaseStatement);
         return jdbc.queryAndMap(
-            rowCountQuery,
-            rs -> {
-                if (!rs.next()) {
-                    throw new SQLException(
-                        String.format(
-                            "No result returned after running query [%s]",
-                            rowCountQuery));
-                }
-                return rs.getLong(1);
-            });
+                rowCountQuery,
+                rs -> {
+                    if (!rs.next()) {
+                        throw new SQLException(
+                                String.format(
+                                        "No result returned after running query [%s]",
+                                        rowCountQuery));
+                    }
+                    return rs.getLong(1);
+                });
     }
 
     public static Object queryMin(
-        JdbcConnection jdbc, TableId tableId, String columnName, Object excludedLowerBound)
-        throws SQLException {
+            JdbcConnection jdbc, TableId tableId, String columnName, Object excludedLowerBound)
+            throws SQLException {
         final String minQuery =
-            String.format(
-                "SELECT MIN(%s) FROM %s WHERE %s > ?",
-                quote(columnName), quote(tableId), quote(columnName));
+                String.format(
+                        "SELECT MIN(%s) FROM %s WHERE %s > ?",
+                        quote(columnName), quote(tableId), quote(columnName));
         return jdbc.prepareQueryAndMap(
-            minQuery,
-            ps -> ps.setObject(1, excludedLowerBound),
-            rs -> {
-                if (!rs.next()) {
-                    // this should never happen
-                    throw new SQLException(
-                        String.format(
-                            "No result returned after running query [%s]", minQuery));
-                }
-                return rs.getObject(1);
-            });
+                minQuery,
+                ps -> ps.setObject(1, excludedLowerBound),
+                rs -> {
+                    if (!rs.next()) {
+                        // this should never happen
+                        throw new SQLException(
+                                String.format(
+                                        "No result returned after running query [%s]", minQuery));
+                    }
+                    return rs.getObject(1);
+                });
     }
 
     /**
@@ -117,46 +116,46 @@ public class PostgresUtils {
      * was read from the database.
      */
     public static Object queryNextChunkMax(
-        JdbcConnection jdbc,
-        TableId tableId,
-        String splitColumnName,
-        int chunkSize,
-        Object includedLowerBound)
-        throws SQLException {
+            JdbcConnection jdbc,
+            TableId tableId,
+            String splitColumnName,
+            int chunkSize,
+            Object includedLowerBound)
+            throws SQLException {
         String quotedColumn = quote(splitColumnName);
         String query =
-            String.format(
-                "SELECT MAX(%s) FROM ("
-                    + "SELECT TOP (%s) %s FROM %s WHERE %s >= ? ORDER BY %s ASC "
-                    + ") AS T",
-                quotedColumn,
-                chunkSize,
-                quotedColumn,
-                quote(tableId),
-                quotedColumn,
-                quotedColumn);
+                String.format(
+                        "SELECT MAX(%s) FROM ("
+                                + "SELECT TOP (%s) %s FROM %s WHERE %s >= ? ORDER BY %s ASC "
+                                + ") AS T",
+                        quotedColumn,
+                        chunkSize,
+                        quotedColumn,
+                        quote(tableId),
+                        quotedColumn,
+                        quotedColumn);
         return jdbc.prepareQueryAndMap(
-            query,
-            ps -> ps.setObject(1, includedLowerBound),
-            rs -> {
-                if (!rs.next()) {
-                    // this should never happen
-                    throw new SQLException(
-                        String.format(
-                            "No result returned after running query [%s]", query));
-                }
-                return rs.getObject(1);
-            });
+                query,
+                ps -> ps.setObject(1, includedLowerBound),
+                rs -> {
+                    if (!rs.next()) {
+                        // this should never happen
+                        throw new SQLException(
+                                String.format(
+                                        "No result returned after running query [%s]", query));
+                    }
+                    return rs.getObject(1);
+                });
     }
 
     public static SeaTunnelRowType getSplitType(Table table) {
         List<Column> primaryKeys = table.primaryKeyColumns();
         if (primaryKeys.isEmpty()) {
             throw new SeaTunnelException(
-                String.format(
-                    "Incremental snapshot for tables requires primary key,"
-                        + " but table %s doesn't have primary key.",
-                    table.id()));
+                    String.format(
+                            "Incremental snapshot for tables requires primary key,"
+                                    + " but table %s doesn't have primary key.",
+                            table.id()));
         }
 
         // use first field in primary key as the split key
@@ -164,8 +163,9 @@ public class PostgresUtils {
     }
 
     public static SeaTunnelRowType getSplitType(Column splitColumn) {
-        return new SeaTunnelRowType(new String[]{splitColumn.name()},
-            new SeaTunnelDataType<?>[]{PostgresTypeUtils.convertFromColumn(splitColumn)});
+        return new SeaTunnelRowType(
+                new String[] {splitColumn.name()},
+                new SeaTunnelDataType<?>[] {PostgresTypeUtils.convertFromColumn(splitColumn)});
     }
 
     public static Offset getLsnPosition(SourceRecord record) {
@@ -175,14 +175,13 @@ public class PostgresUtils {
     public static LsnOffset getLsnPosition(Map<String, ?> offset) {
         Map<String, String> offsetStrMap = new HashMap<>();
         for (Map.Entry<String, ?> entry : offset.entrySet()) {
-            offsetStrMap.put(entry.getKey(), entry.getValue() == null ? null : entry.getValue().toString());
+            offsetStrMap.put(
+                    entry.getKey(), entry.getValue() == null ? null : entry.getValue().toString());
         }
         return new LsnOffset(offsetStrMap);
     }
 
-    /**
-     * Fetch current largest log sequence number (LSN) of the database.
-     */
+    /** Fetch current largest log sequence number (LSN) of the database. */
     public static LsnOffset currentLsn(PostgresConnection connection) {
         try {
             final Lsn lsn = Lsn.valueOf(connection.currentXLogLocation());
@@ -193,26 +192,22 @@ public class PostgresUtils {
         }
     }
 
-    /**
-     * Get split scan query for the given table.
-     */
+    /** Get split scan query for the given table. */
     public static String buildSplitScanQuery(
-        TableId tableId, SeaTunnelRowType rowType, boolean isFirstSplit, boolean isLastSplit) {
+            TableId tableId, SeaTunnelRowType rowType, boolean isFirstSplit, boolean isLastSplit) {
         return buildSplitQuery(tableId, rowType, isFirstSplit, isLastSplit, -1, true);
     }
 
-    /**
-     * Get table split data PreparedStatement.
-     */
+    /** Get table split data PreparedStatement. */
     public static PreparedStatement readTableSplitDataStatement(
-        JdbcConnection jdbc,
-        String sql,
-        boolean isFirstSplit,
-        boolean isLastSplit,
-        Object[] splitStart,
-        Object[] splitEnd,
-        int primaryKeyNum,
-        int fetchSize) {
+            JdbcConnection jdbc,
+            String sql,
+            boolean isFirstSplit,
+            boolean isLastSplit,
+            Object[] splitStart,
+            Object[] splitEnd,
+            int primaryKeyNum,
+            int fetchSize) {
         try {
             final PreparedStatement statement = initStatement(jdbc, sql, fetchSize);
             if (isFirstSplit && isLastSplit) {
@@ -243,7 +238,7 @@ public class PostgresUtils {
     private static String getPrimaryKeyColumnsProjection(SeaTunnelRowType rowType) {
         StringBuilder sql = new StringBuilder();
         for (Iterator<String> fieldNamesIt = Arrays.stream(rowType.getFieldNames()).iterator();
-             fieldNamesIt.hasNext(); ) {
+                fieldNamesIt.hasNext(); ) {
             sql.append(fieldNamesIt.next());
             if (fieldNamesIt.hasNext()) {
                 sql.append(" , ");
@@ -253,12 +248,12 @@ public class PostgresUtils {
     }
 
     private static String buildSplitQuery(
-        TableId tableId,
-        SeaTunnelRowType rowType,
-        boolean isFirstSplit,
-        boolean isLastSplit,
-        int limitSize,
-        boolean isScanningData) {
+            TableId tableId,
+            SeaTunnelRowType rowType,
+            boolean isFirstSplit,
+            boolean isLastSplit,
+            int limitSize,
+            boolean isScanningData) {
         final String condition;
 
         if (isFirstSplit && isLastSplit) {
@@ -291,22 +286,21 @@ public class PostgresUtils {
 
         if (isScanningData) {
             return buildSelectWithRowLimits(
-                tableId, limitSize, "*", Optional.ofNullable(condition), Optional.empty());
+                    tableId, limitSize, "*", Optional.ofNullable(condition), Optional.empty());
         } else {
-            final String orderBy =
-                String.join(", ", rowType.getFieldNames());
+            final String orderBy = String.join(", ", rowType.getFieldNames());
             return buildSelectWithBoundaryRowLimits(
-                tableId,
-                limitSize,
-                getPrimaryKeyColumnsProjection(rowType),
-                getMaxPrimaryKeyColumnsProjection(rowType),
-                Optional.ofNullable(condition),
-                orderBy);
+                    tableId,
+                    limitSize,
+                    getPrimaryKeyColumnsProjection(rowType),
+                    getMaxPrimaryKeyColumnsProjection(rowType),
+                    Optional.ofNullable(condition),
+                    orderBy);
         }
     }
 
     private static PreparedStatement initStatement(JdbcConnection jdbc, String sql, int fetchSize)
-        throws SQLException {
+            throws SQLException {
         final Connection connection = jdbc.connection();
         connection.setAutoCommit(false);
         final PreparedStatement statement = connection.prepareStatement(sql);
@@ -317,7 +311,7 @@ public class PostgresUtils {
     private static String getMaxPrimaryKeyColumnsProjection(SeaTunnelRowType rowType) {
         StringBuilder sql = new StringBuilder();
         for (Iterator<String> fieldNamesIt = Arrays.stream(rowType.getFieldNames()).iterator();
-             fieldNamesIt.hasNext(); ) {
+                fieldNamesIt.hasNext(); ) {
             sql.append("MAX(" + fieldNamesIt.next() + ")");
             if (fieldNamesIt.hasNext()) {
                 sql.append(" , ");
@@ -327,11 +321,11 @@ public class PostgresUtils {
     }
 
     private static String buildSelectWithRowLimits(
-        TableId tableId,
-        int limit,
-        String projection,
-        Optional<String> condition,
-        Optional<String> orderBy) {
+            TableId tableId,
+            int limit,
+            String projection,
+            Optional<String> condition,
+            Optional<String> orderBy) {
         final StringBuilder sql = new StringBuilder("SELECT ");
         if (limit > 0) {
             sql.append(" TOP( ").append(limit).append(") ");
@@ -367,9 +361,9 @@ public class PostgresUtils {
     }
 
     private static void addPrimaryKeyColumnsToCondition(
-        SeaTunnelRowType rowType, StringBuilder sql, String predicate) {
+            SeaTunnelRowType rowType, StringBuilder sql, String predicate) {
         for (Iterator<String> fieldNamesIt = Arrays.stream(rowType.getFieldNames()).iterator();
-             fieldNamesIt.hasNext(); ) {
+                fieldNamesIt.hasNext(); ) {
             sql.append(fieldNamesIt.next()).append(predicate);
             if (fieldNamesIt.hasNext()) {
                 sql.append(" AND ");
@@ -378,12 +372,12 @@ public class PostgresUtils {
     }
 
     private static String buildSelectWithBoundaryRowLimits(
-        TableId tableId,
-        int limit,
-        String projection,
-        String maxColumnProjection,
-        Optional<String> condition,
-        String orderBy) {
+            TableId tableId,
+            int limit,
+            String projection,
+            String maxColumnProjection,
+            Optional<String> condition,
+            String orderBy) {
         final StringBuilder sql = new StringBuilder("SELECT ");
         sql.append(maxColumnProjection);
         sql.append(" FROM (");

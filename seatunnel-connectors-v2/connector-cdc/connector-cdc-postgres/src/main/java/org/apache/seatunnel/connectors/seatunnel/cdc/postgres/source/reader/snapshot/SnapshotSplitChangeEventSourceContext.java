@@ -23,8 +23,8 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnO
 import io.debezium.pipeline.source.spi.ChangeEventSource;
 
 /**
- * {@link ChangeEventSource.ChangeEventSourceContext} implementation that keeps low/high
- * watermark for each {@link SnapshotSplit}.
+ * {@link ChangeEventSource.ChangeEventSourceContext} implementation that keeps low/high watermark
+ * for each {@link SnapshotSplit}.
  */
 public class SnapshotSplitChangeEventSourceContext
         implements ChangeEventSource.ChangeEventSourceContext {

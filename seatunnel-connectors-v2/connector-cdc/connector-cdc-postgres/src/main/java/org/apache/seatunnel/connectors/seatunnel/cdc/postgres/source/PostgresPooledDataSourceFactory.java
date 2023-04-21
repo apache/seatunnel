@@ -20,9 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionPoolFactory;
 
-/**
- * Factory to create {@link JdbcConnectionPoolFactory} for Postgre SQL.
- */
+/** Factory to create {@link JdbcConnectionPoolFactory} for Postgre SQL. */
 public class PostgresPooledDataSourceFactory extends JdbcConnectionPoolFactory {
 
     private static final String URL_PATTERN = "jdbc:postgresql://%s:%s/%s";

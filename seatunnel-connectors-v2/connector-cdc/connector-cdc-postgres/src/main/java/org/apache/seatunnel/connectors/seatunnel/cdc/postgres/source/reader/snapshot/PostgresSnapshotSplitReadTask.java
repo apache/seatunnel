@@ -23,6 +23,8 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.Watermar
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnOffset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils.PostgresUtils;
 
+import org.apache.kafka.connect.errors.ConnectException;
+
 import io.debezium.DebeziumException;
 import io.debezium.connector.postgresql.PostgresConnectorConfig;
 import io.debezium.connector.postgresql.PostgresOffsetContext;
@@ -45,7 +47,6 @@ import io.debezium.util.ColumnUtils;
 import io.debezium.util.Strings;
 import io.debezium.util.Threads;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.connect.errors.ConnectException;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -57,9 +58,7 @@ import java.time.Duration;
 @Slf4j
 public class PostgresSnapshotSplitReadTask extends AbstractSnapshotChangeEventSource {
 
-    /**
-     * Interval for showing a log statement with the progress while scanning a single table.
-     */
+    /** Interval for showing a log statement with the progress while scanning a single table. */
     private static final Duration LOG_INTERVAL = Duration.ofMillis(10_000);
 
     private final PostgresConnectorConfig connectorConfig;
@@ -146,30 +145,28 @@ public class PostgresSnapshotSplitReadTask extends AbstractSnapshotChangeEventSo
     }
 
     @Override
-    protected AbstractSnapshotChangeEventSource.SnapshottingTask getSnapshottingTask(OffsetContext previousOffset) {
+    protected AbstractSnapshotChangeEventSource.SnapshottingTask getSnapshottingTask(
+            OffsetContext previousOffset) {
         return new SnapshottingTask(false, true);
     }
 
     @Override
-    protected AbstractSnapshotChangeEventSource.SnapshotContext prepare(ChangeEventSource.ChangeEventSourceContext changeEventSourceContext)
-            throws Exception {
+    protected AbstractSnapshotChangeEventSource.SnapshotContext prepare(
+            ChangeEventSource.ChangeEventSourceContext changeEventSourceContext) throws Exception {
         return new SqlSeverSnapshotContext();
     }
 
-    private void createDataEvents(
-            SqlSeverSnapshotContext snapshotContext,
-            TableId tableId)
+    private void createDataEvents(SqlSeverSnapshotContext snapshotContext, TableId tableId)
             throws Exception {
-        EventDispatcher.SnapshotReceiver snapshotReceiver = dispatcher.getSnapshotChangeEventReceiver();
+        EventDispatcher.SnapshotReceiver snapshotReceiver =
+                dispatcher.getSnapshotChangeEventReceiver();
         log.debug("Snapshotting table {}", tableId);
         createDataEventsForTable(
                 snapshotContext, snapshotReceiver, databaseSchema.tableFor(tableId));
         snapshotReceiver.completeSnapshot();
     }
 
-    /**
-     * Dispatches the data change events for the records of a single table.
-     */
+    /** Dispatches the data change events for the records of a single table. */
     private void createDataEventsForTable(
             SqlSeverSnapshotContext snapshotContext,
             EventDispatcher.SnapshotReceiver snapshotReceiver,
@@ -177,10 +174,7 @@ public class PostgresSnapshotSplitReadTask extends AbstractSnapshotChangeEventSo
             throws InterruptedException {
 
         long exportStart = clock.currentTimeInMillis();
-        log.info(
-                "Exporting data from split '{}' of table {}",
-                snapshotSplit.splitId(),
-                table.id());
+        log.info("Exporting data from split '{}' of table {}", snapshotSplit.splitId(), table.id());
 
         final String selectSql =
                 PostgresUtils.buildSplitScanQuery(
@@ -195,16 +189,16 @@ public class PostgresSnapshotSplitReadTask extends AbstractSnapshotChangeEventSo
                 selectSql);
 
         try (PreparedStatement selectStatement =
-                     PostgresUtils.readTableSplitDataStatement(
-                             jdbcConnection,
-                             selectSql,
-                             snapshotSplit.getSplitStart() == null,
-                             snapshotSplit.getSplitEnd() == null,
-                             new Object[]{snapshotSplit.getSplitStart()},
-                             new Object[]{snapshotSplit.getSplitEnd()},
-                             snapshotSplit.getSplitKeyType().getTotalFields(),
-                             connectorConfig.getQueryFetchSize());
-             ResultSet rs = selectStatement.executeQuery()) {
+                        PostgresUtils.readTableSplitDataStatement(
+                                jdbcConnection,
+                                selectSql,
+                                snapshotSplit.getSplitStart() == null,
+                                snapshotSplit.getSplitEnd() == null,
+                                new Object[] {snapshotSplit.getSplitStart()},
+                                new Object[] {snapshotSplit.getSplitEnd()},
+                                snapshotSplit.getSplitKeyType().getTotalFields(),
+                                connectorConfig.getQueryFetchSize());
+                ResultSet rs = selectStatement.executeQuery()) {
 
             ColumnUtils.ColumnArray columnArray = ColumnUtils.toArray(rs, table);
             long rows = 0;
@@ -215,8 +209,7 @@ public class PostgresSnapshotSplitReadTask extends AbstractSnapshotChangeEventSo
                 final Object[] row = new Object[columnArray.getGreatestColumnPosition()];
                 for (int i = 0; i < columnArray.getColumns().length; i++) {
                     Column actualColumn = table.columns().get(i);
-                    row[columnArray.getColumns()[i].position() - 1] =
-                            readField(rs, i + 1);
+                    row[columnArray.getColumns()[i].position() - 1] = readField(rs, i + 1);
                 }
                 if (logTimer.expired()) {
                     long stop = clock.currentTimeInMillis();
@@ -253,9 +246,7 @@ public class PostgresSnapshotSplitReadTask extends AbstractSnapshotChangeEventSo
         return Threads.timer(clock, LOG_INTERVAL);
     }
 
-    private Object readField(
-            ResultSet rs, int columnIndex)
-            throws SQLException {
+    private Object readField(ResultSet rs, int columnIndex) throws SQLException {
         final ResultSetMetaData metaData = rs.getMetaData();
         final int columnType = metaData.getColumnType(columnIndex);
 

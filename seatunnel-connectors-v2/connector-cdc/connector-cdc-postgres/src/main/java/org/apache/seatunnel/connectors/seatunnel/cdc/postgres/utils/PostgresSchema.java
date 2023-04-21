@@ -64,7 +64,8 @@ public class PostgresSchema {
             sqlServerConnection.readSchema(
                     tables, tableId.catalog(), tableId.schema(), null, null, false);
             Table table = tables.forTable(tableId);
-            TableChanges.TableChange tableChange = new TableChanges.TableChange(TableChanges.TableChangeType.CREATE, table);
+            TableChanges.TableChange tableChange =
+                    new TableChanges.TableChange(TableChanges.TableChangeType.CREATE, table);
             tableChangeMap.put(tableId, tableChange);
         } catch (SQLException e) {
             throw new SeaTunnelException(

@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.option.PostgresOptions;
@@ -26,6 +24,8 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.option.PostgresOpt
 import io.debezium.connector.postgresql.PostgresConnector;
 
 import java.util.Properties;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
 

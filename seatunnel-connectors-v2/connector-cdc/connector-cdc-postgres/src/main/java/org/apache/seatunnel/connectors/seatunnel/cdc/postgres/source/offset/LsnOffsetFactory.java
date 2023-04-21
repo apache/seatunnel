@@ -37,8 +37,7 @@ public class LsnOffsetFactory extends OffsetFactory {
 
     private final PostgresDialect dialect;
 
-    public LsnOffsetFactory(PostgresSourceConfigFactory configFactory,
-                            PostgresDialect dialect) {
+    public LsnOffsetFactory(PostgresSourceConfigFactory configFactory, PostgresDialect dialect) {
         this.sourceConfig = configFactory.create(0);
         this.dialect = dialect;
     }

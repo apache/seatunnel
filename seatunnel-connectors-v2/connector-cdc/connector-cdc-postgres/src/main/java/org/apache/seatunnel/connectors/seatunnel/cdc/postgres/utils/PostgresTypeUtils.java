@@ -31,8 +31,7 @@ import java.sql.Types;
 import java.util.List;
 
 public class PostgresTypeUtils {
-    private PostgresTypeUtils() {
-    }
+    private PostgresTypeUtils() {}
 
     public static SeaTunnelDataType<?> convertFromColumn(Column column) {
         switch (column.jdbcType()) {
@@ -85,7 +84,9 @@ public class PostgresTypeUtils {
         String[] fieldNames = columns.stream().map(Column::name).toArray(String[]::new);
 
         SeaTunnelDataType<?>[] fieldTypes =
-                columns.stream().map(PostgresTypeUtils::convertFromColumn).toArray(SeaTunnelDataType[]::new);
+                columns.stream()
+                        .map(PostgresTypeUtils::convertFromColumn)
+                        .toArray(SeaTunnelDataType[]::new);
 
         return new SeaTunnelRowType(fieldNames, fieldTypes);
     }

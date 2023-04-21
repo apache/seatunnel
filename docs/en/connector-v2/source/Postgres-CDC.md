@@ -19,7 +19,7 @@ describes how to setup the PostgreSQL CDC connector to run SQL queries against P
 
 ## Options
 
-| name                                           | type     | required | default value |
+|                      name                      |   type   | required | default value |
 |------------------------------------------------|----------|----------|---------------|
 | hostname                                       | String   | Yes      | -             |
 | port                                           | Integer  | No       | 3306          |
@@ -211,3 +211,4 @@ source {
 ### next version
 
 - Add Postgres CDC Source Connector
+

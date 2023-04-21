@@ -33,18 +33,18 @@ public class LsnOffset extends Offset {
     public static final LsnOffset NO_STOPPING_OFFSET = new LsnOffset(Lsn.valueOf(Long.MAX_VALUE));
 
     /**
-     * the position in the server WAL for a particular event; may be null indicating that this information is not available.
+     * the position in the server WAL for a particular event; may be null indicating that this
+     * information is not available.
      */
     private Lsn lsn;
 
     /**
-     * the ID of the transaction that generated the transaction; may be null if this information is not available.
+     * the ID of the transaction that generated the transaction; may be null if this information is
+     * not available.
      */
     private Long txId;
 
-    /**
-     * the xmin of the slot, may be null.
-     */
+    /** the xmin of the slot, may be null. */
     private Long xmin;
 
     public LsnOffset(Map<String, String> offset) {

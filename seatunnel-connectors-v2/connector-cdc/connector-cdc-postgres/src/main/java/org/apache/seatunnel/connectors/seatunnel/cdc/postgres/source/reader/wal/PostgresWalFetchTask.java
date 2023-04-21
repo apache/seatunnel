@@ -36,24 +36,27 @@ public class PostgresWalFetchTask implements FetchTask<SourceSplitBase> {
 
     @Override
     public void execute(FetchTask.Context context) throws Exception {
-        PostgresSourceFetchTaskContext sourceFetchContext = (PostgresSourceFetchTaskContext) context;
+        PostgresSourceFetchTaskContext sourceFetchContext =
+                (PostgresSourceFetchTaskContext) context;
         taskRunning = true;
 
-        PostgresStreamingChangeEventSource streamingChangeEventSource = new PostgresStreamingChangeEventSource(
-                sourceFetchContext.getDbzConnectorConfig(),
-                sourceFetchContext.getSnapshotter(),
-                sourceFetchContext.getDataConnection(),
-                sourceFetchContext.getDispatcher(),
-                sourceFetchContext.getErrorHandler(),
-                Clock.SYSTEM,
-                sourceFetchContext.getDatabaseSchema(),
-                sourceFetchContext.getTaskContext(),
-                sourceFetchContext.getReplicationConnection());
+        PostgresStreamingChangeEventSource streamingChangeEventSource =
+                new PostgresStreamingChangeEventSource(
+                        sourceFetchContext.getDbzConnectorConfig(),
+                        sourceFetchContext.getSnapshotter(),
+                        sourceFetchContext.getDataConnection(),
+                        sourceFetchContext.getDispatcher(),
+                        sourceFetchContext.getErrorHandler(),
+                        Clock.SYSTEM,
+                        sourceFetchContext.getDatabaseSchema(),
+                        sourceFetchContext.getTaskContext(),
+                        sourceFetchContext.getReplicationConnection());
 
         TransactionLogSplitChangeEventSourceContext changeEventSourceContext =
                 new TransactionLogSplitChangeEventSourceContext();
 
-        streamingChangeEventSource.execute(changeEventSourceContext, sourceFetchContext.getOffsetContext());
+        streamingChangeEventSource.execute(
+                changeEventSourceContext, sourceFetchContext.getOffsetContext());
     }
 
     @Override
