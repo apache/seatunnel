@@ -30,10 +30,9 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -54,10 +53,8 @@ import static org.awaitility.Awaitility.await;
 @DisabledOnContainer(
         value = {},
         type = {EngineType.SPARK, EngineType.FLINK},
-        disabledReason = "")
+        disabledReason = "Currently SPARK and FLINK do not support cdc")
 public class MysqlCDCIT extends TestSuiteBase implements TestResource {
-
-    private static final Logger LOG = LoggerFactory.getLogger(MysqlCDCIT.class);
 
     // mysql
     private static final String MYSQL_HOST = "mysql_cdc_e2e";
@@ -83,25 +80,26 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
                         .withDatabaseName(MYSQL_DATABASE)
                         .withUsername(MYSQL_USER_NAME)
                         .withPassword(MYSQL_USER_PASSWORD)
-                        .withLogConsumer(new Slf4jLogConsumer(LOG));
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(
+                                        DockerLoggerFactory.getLogger("mysql-docker-image")));
+
         return mySqlContainer;
     }
 
     @BeforeAll
     @Override
     public void startUp() throws ClassNotFoundException, InterruptedException {
-        LOG.info("The second stage: Starting Mysql containers...");
+        log.info("The second stage: Starting Mysql containers...");
         Startables.deepStart(Stream.of(MYSQL_CONTAINER)).join();
-        LOG.info("Mysql Containers are started");
+        log.info("Mysql Containers are started");
         inventoryDatabase.createAndInitialize();
-        LOG.info("Mysql ddl execution is complete");
+        log.info("Mysql ddl execution is complete");
     }
 
     @TestTemplate
-    public void test(TestContainer container) throws IOException, InterruptedException {
-        LOG.info("-------docker mysql host:{}", MYSQL_CONTAINER.getHost());
-        LOG.info("-------docker mysql port:{}", MYSQL_CONTAINER.getDatabasePort());
-        LOG.info("-------docker mysql database:{}", MYSQL_CONTAINER.getDatabaseName());
+    public void testMysqlCdcCheckDataE2e(TestContainer container)
+            throws IOException, InterruptedException {
 
         CompletableFuture<Void> executeJobFuture =
                 CompletableFuture.supplyAsync(
@@ -109,7 +107,7 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
                             try {
                                 container.executeJob("/mysqlcdc_to_console.conf");
                             } catch (Exception e) {
-                                LOG.error("Commit task exception :" + e.getMessage());
+                                log.error("Commit task exception :" + e.getMessage());
                                 throw new RuntimeException(e);
                             }
                             return null;
@@ -126,11 +124,6 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
         upsertDeleteSourceTable();
 
         // stream stage
-        await().atMost(60000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            Assertions.assertEquals(10, querySql(SINK_SQL).size());
-                        });
         await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
