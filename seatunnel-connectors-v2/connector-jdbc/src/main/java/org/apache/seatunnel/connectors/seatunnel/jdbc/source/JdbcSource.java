@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
@@ -47,6 +46,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.auto.service.AutoService;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
 import java.sql.ResultSetMetaData;
@@ -101,7 +101,9 @@ public class JdbcSource
                 new SimpleJdbcConnectionProvider(jdbcSourceConfig.getJdbcConnectionConfig());
         this.query = jdbcSourceConfig.getQuery();
         this.jdbcDialect =
-                JdbcDialectLoader.load(jdbcSourceConfig.getJdbcConnectionConfig().getUrl(), jdbcSourceConfig.getJdbcConnectionConfig().getDriverType());
+                JdbcDialectLoader.load(
+                        jdbcSourceConfig.getJdbcConnectionConfig().getUrl(),
+                        jdbcSourceConfig.getJdbcConnectionConfig().getDriverType());
         try (Connection connection = jdbcConnectionProvider.getOrEstablishConnection()) {
             this.typeInfo = initTableField(connection);
             this.partitionParameter =

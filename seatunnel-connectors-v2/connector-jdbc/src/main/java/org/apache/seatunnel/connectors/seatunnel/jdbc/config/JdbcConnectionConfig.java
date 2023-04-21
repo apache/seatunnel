@@ -156,6 +156,7 @@ public class JdbcConnectionConfig implements Serializable {
             this.driverType = driverType;
             return this;
         }
+
         public Builder connectionCheckTimeoutSeconds(int connectionCheckTimeoutSeconds) {
             this.connectionCheckTimeoutSeconds = connectionCheckTimeoutSeconds;
             return this;

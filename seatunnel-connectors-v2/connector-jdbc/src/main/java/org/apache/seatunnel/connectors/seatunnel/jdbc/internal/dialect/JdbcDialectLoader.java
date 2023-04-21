@@ -23,7 +23,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorExc
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
 import java.util.stream.Collectors;
 
 /** Utility for working with {@link JdbcDialect}. */
@@ -54,7 +53,9 @@ public final class JdbcDialectLoader {
         }
 
         final List<JdbcDialectFactory> matchingFactories =
-                foundFactories.stream().filter(f -> f.acceptsURL(url, driverTye)).collect(Collectors.toList());
+                foundFactories.stream()
+                        .filter(f -> f.acceptsURL(url, driverTye))
+                        .collect(Collectors.toList());
 
         if (matchingFactories.isEmpty()) {
             throw new JdbcConnectorException(

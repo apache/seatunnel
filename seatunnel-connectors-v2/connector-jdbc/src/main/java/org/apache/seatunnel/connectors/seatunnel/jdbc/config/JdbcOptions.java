@@ -35,7 +35,8 @@ public interface JdbcOptions {
                     .intType()
                     .defaultValue(30)
                     .withDescription("connection check time second");
-    Option<String> DRIVER_TYPE = Options.key("driver_type").stringType().noDefaultValue().withDescription("driver_type");
+    Option<String> DRIVER_TYPE =
+            Options.key("driver_type").stringType().noDefaultValue().withDescription("driver_type");
 
     Option<Integer> MAX_RETRIES =
             Options.key("max_retries").intType().defaultValue(0).withDescription("max_retired");

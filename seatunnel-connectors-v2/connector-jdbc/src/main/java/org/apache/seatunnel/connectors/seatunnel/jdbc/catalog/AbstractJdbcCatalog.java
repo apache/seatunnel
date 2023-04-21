@@ -81,7 +81,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         this.defaultUrl = urlInfo.getOrigin();
         this.suffix = urlInfo.getSuffix();
 
-        this.jdbcDialect = JdbcDialectLoader.load(this.baseUrl ,Optional.empty());
+        this.jdbcDialect = JdbcDialectLoader.load(this.baseUrl, Optional.empty());
     }
 
     @Override

@@ -96,6 +96,7 @@
                 <tablestore.version>5.13.9</tablestore.version>
                 <teradata.version>17.20.00.12</teradata.version>
                 <redshift.version>2.1.0.9</redshift.version>
+                <oceanbase.version>1.1.10</oceanbase.version>
             </properties>
             <dependencies>
                 <!-- starters -->
@@ -489,6 +490,12 @@
 
                 <!-- jdbc driver -->
                 <dependency>
+                    <groupId>com.alipay.oceanbase</groupId>
+                    <artifactId>oceanbase-client</artifactId>
+                    <version>${oceanbase.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
                     <groupId>com.aliyun.phoenix</groupId>
                     <artifactId>ali-phoenix-shaded-thin-client</artifactId>
                     <version>${phoenix.version}</version>
@@ -571,6 +578,7 @@
                     <version>1.11.271</version>
                     <scope>provided</scope>
                 </dependency>
+
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
