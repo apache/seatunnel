@@ -22,14 +22,6 @@ def get_cv2_modules(files):
     get_modules(files, 1, "connector-", "seatunnel-connectors-v2")
 
 
-def get_cv2_flink_e2e_modules(files):
-    get_modules(files, 2, "connector-", "seatunnel-flink-connector-v2-e2e")
-
-
-def get_cv2_spark_e2e_modules(files):
-    get_modules(files, 2, "connector-", "seatunnel-spark-connector-v2-e2e")
-
-
 def get_cv2_e2e_modules(files):
     get_modules(files, 2, "connector-", "seatunnel-connector-v2-e2e")
 
