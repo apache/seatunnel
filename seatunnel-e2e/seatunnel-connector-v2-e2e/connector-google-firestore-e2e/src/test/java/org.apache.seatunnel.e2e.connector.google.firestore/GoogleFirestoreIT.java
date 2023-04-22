@@ -32,6 +32,8 @@ import org.testcontainers.containers.Container;
 
 import com.google.api.core.ApiFuture;
 import com.google.auth.oauth2.GoogleCredentials;
+import com.google.cloud.Timestamp;
+import com.google.cloud.firestore.Blob;
 import com.google.cloud.firestore.CollectionReference;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.FirestoreOptions;
@@ -42,8 +44,15 @@ import com.typesafe.config.ConfigFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Base64;
+import java.util.Collections;
+import java.util.Date;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Disabled("Disabled because it needs google firestore database to run this test")
 public class GoogleFirestoreIT extends TestSuiteBase implements TestResource {
@@ -96,8 +105,34 @@ public class GoogleFirestoreIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode());
 
         List<QueryDocumentSnapshot> documents = readSinkDataset();
-        Assertions.assertTrue(documents.size() > 1);
+        Assertions.assertTrue(documents.size() >= 1);
         Assertions.assertEquals(15, documents.get(0).getData().size());
+        List<Object> expected =
+                Stream.of(
+                                15987L,
+                                Timestamp.of(
+                                        Date.from(
+                                                LocalDateTime.parse("2023-04-22T23:20:58")
+                                                        .toInstant(ZoneOffset.UTC))),
+                                "2924137191386439303744.39292216",
+                                Collections.singletonList(10L),
+                                56387395L,
+                                Blob.fromBytes(Base64.getDecoder().decode("bWlJWmo=")),
+                                true,
+                                Timestamp.of(
+                                        Date.from(
+                                                LocalDate.parse("2023-04-22")
+                                                        .atStartOfDay(ZoneOffset.UTC)
+                                                        .toInstant())),
+                                "c_string",
+                                1.23,
+                                1.23,
+                                7084913402530365000L,
+                                null,
+                                Collections.singletonMap("a", "b"),
+                                117L)
+                        .collect(Collectors.toList());
+        Assertions.assertIterableEquals(expected, documents.get(0).getData().values());
     }
 
     private List<QueryDocumentSnapshot> readSinkDataset() throws Exception {

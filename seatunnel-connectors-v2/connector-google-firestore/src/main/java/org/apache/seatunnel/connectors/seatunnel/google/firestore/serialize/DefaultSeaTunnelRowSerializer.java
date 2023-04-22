@@ -85,7 +85,7 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                 return Date.from(localDate.atStartOfDay(ZoneOffset.UTC).toInstant());
             case TIMESTAMP:
                 LocalDateTime localDateTime = (LocalDateTime) fieldValue;
-                return Timestamp.of(java.sql.Timestamp.valueOf(localDateTime));
+                return Timestamp.of(Date.from(localDateTime.toInstant(ZoneOffset.UTC)));
             case ARRAY:
                 ArrayType arrayType = (ArrayType) seaTunnelDataType;
                 Object[] array = (Object[]) fieldValue;
