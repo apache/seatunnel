@@ -17,28 +17,20 @@
  * under the License.
  *
  */
+package org.apache.seatunnel.engine.imap.storage.file.wal.reader;
 
-package org.apache.seatunnel.engine.imap.storage.file;
+import org.apache.seatunnel.engine.serializer.api.Serializer;
 
-import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
-import org.apache.seatunnel.engine.imap.storage.api.IMapStorageFactory;
-import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 
-import com.google.auto.service.AutoService;
+import java.io.IOException;
+import java.util.List;
 
-import java.util.Map;
+public interface IFileReader<R> {
+    String identifier();
 
-@AutoService(IMapStorageFactory.class)
-public class IMapFileStorageFactory implements IMapStorageFactory {
-    @Override
-    public String factoryIdentifier() {
-        return "hdfs";
-    }
+    void initialize(FileSystem fs, Serializer serializer) throws IOException;
 
-    @Override
-    public IMapStorage create(Map<String, Object> initMap) throws IMapStorageException {
-        IMapFileStorage iMapFileStorage = new IMapFileStorage();
-        iMapFileStorage.initialize(initMap);
-        return iMapFileStorage;
-    }
+    List<R> readAllData(Path parentPath) throws IOException;
 }

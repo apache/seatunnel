@@ -21,6 +21,7 @@
 package org.apache.seatunnel.engine.imap.storage.file.disruptor;
 
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
+import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
 import org.apache.seatunnel.engine.imap.storage.file.future.RequestFuture;
 import org.apache.seatunnel.engine.imap.storage.file.future.RequestFutureCache;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
@@ -59,7 +60,8 @@ public class WALDisruptorTest {
     @Test
     void testProducerAndConsumer() throws IOException {
         FS = FileSystem.get(CONF);
-        DISRUPTOR = new WALDisruptor(FS, FILEPATH, new ProtoStuffSerializer());
+        DISRUPTOR =
+                new WALDisruptor(FS, FileConfiguration.HDFS, FILEPATH, new ProtoStuffSerializer());
         IMapFileData data;
         for (int i = 0; i < 100; i++) {
             data =
