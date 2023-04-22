@@ -27,8 +27,6 @@ import org.apache.seatunnel.core.starter.execution.RuntimeEnvironment;
 
 import org.apache.spark.SparkConf;
 import org.apache.spark.sql.SparkSession;
-import org.apache.spark.streaming.Seconds;
-import org.apache.spark.streaming.StreamingContext;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -37,15 +35,13 @@ import java.util.List;
 
 @Slf4j
 public class SparkRuntimeEnvironment implements RuntimeEnvironment {
-    private static final long DEFAULT_SPARK_STREAMING_DURATION = 5;
     private static final String PLUGIN_NAME_KEY = "plugin_name";
+
     private static volatile SparkRuntimeEnvironment INSTANCE = null;
 
     private SparkConf sparkConf;
 
     private SparkSession sparkSession;
-
-    private StreamingContext streamingContext;
 
     private Config config;
 
@@ -54,6 +50,8 @@ public class SparkRuntimeEnvironment implements RuntimeEnvironment {
     private JobMode jobMode;
 
     private String jobName = Constants.LOGO;
+
+    private CheckpointConfig checkpointConfig;
 
     private SparkRuntimeEnvironment(Config config) {
         this.setEnableHive(checkIsContainHive(config));
@@ -106,12 +104,12 @@ public class SparkRuntimeEnvironment implements RuntimeEnvironment {
             this.jobName = config.getString("job.name");
         }
         sparkConf = createSparkConf();
+        checkpointConfig = new CheckpointConfig(config, sparkConf);
         SparkSession.Builder builder = SparkSession.builder().config(sparkConf);
         if (enableHive) {
             builder.enableHiveSupport();
         }
         this.sparkSession = builder.getOrCreate();
-        createStreamingContext();
         return this;
     }
 
@@ -119,12 +117,12 @@ public class SparkRuntimeEnvironment implements RuntimeEnvironment {
         return this.sparkSession;
     }
 
-    public StreamingContext getStreamingContext() {
-        return this.streamingContext;
-    }
-
     public SparkConf getSparkConf() {
         return this.sparkConf;
+    }
+
+    public CheckpointConfig getCheckpointConfig() {
+        return checkpointConfig;
     }
 
     private SparkConf createSparkConf() {
@@ -138,16 +136,6 @@ public class SparkRuntimeEnvironment implements RuntimeEnvironment {
                                         String.valueOf(entry.getValue().unwrapped())));
         sparkConf.setAppName(jobName);
         return sparkConf;
-    }
-
-    private void createStreamingContext() {
-        SparkConf conf = this.sparkSession.sparkContext().getConf();
-        long duration =
-                conf.getLong("spark.stream.batchDuration", DEFAULT_SPARK_STREAMING_DURATION);
-        if (this.streamingContext == null) {
-            this.streamingContext =
-                    new StreamingContext(sparkSession.sparkContext(), Seconds.apply(duration));
-        }
     }
 
     protected boolean checkIsContainHive(Config config) {

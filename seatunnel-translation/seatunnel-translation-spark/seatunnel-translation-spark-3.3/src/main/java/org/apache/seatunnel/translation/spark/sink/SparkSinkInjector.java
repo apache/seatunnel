@@ -24,7 +24,6 @@ import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.spark.sql.DataFrameWriter;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.streaming.DataStreamWriter;
-import org.apache.spark.sql.streaming.OutputMode;
 
 public class SparkSinkInjector {
 
@@ -33,7 +32,6 @@ public class SparkSinkInjector {
     public static DataStreamWriter<Row> inject(
             DataStreamWriter<Row> dataset, SeaTunnelSink<?, ?, ?, ?> sink) {
         return dataset.format(SINK_NAME)
-                .outputMode(OutputMode.Append())
                 .option(Constants.SINK_SERIALIZATION, SerializationUtils.objectToString(sink));
     }
 

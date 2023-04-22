@@ -67,14 +67,6 @@
         </dependency>
         <!--   seatunnel connectors   -->
 
-        <!--spark-->
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-streaming_${scala.binary.version}</artifactId>
-            <version>${spark.2.4.0.version}</version>
-            <scope>${spark.scope}</scope>
-        </dependency>
-
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-core_${scala.binary.version}</artifactId>
@@ -107,6 +99,7 @@
             <artifactId>lz4</artifactId>
             <version>1.3.0</version>
         </dependency>
+
     </dependencies>
 
 </project>

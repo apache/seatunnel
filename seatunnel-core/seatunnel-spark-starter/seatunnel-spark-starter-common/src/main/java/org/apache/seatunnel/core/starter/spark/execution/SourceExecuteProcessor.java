@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.common.Constants;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
@@ -68,19 +69,12 @@ public class SourceExecuteProcessor
                                         CommonOptions.PARALLELISM.key(),
                                         CommonOptions.PARALLELISM.defaultValue());
             }
-            Dataset<Row> dataset =
-                    sparkRuntimeEnvironment
-                            .getSparkSession()
-                            .read()
-                            .format(SeaTunnelSource.class.getSimpleName())
-                            .option(CommonOptions.PARALLELISM.key(), parallelism)
-                            .option(
-                                    Constants.SOURCE_SERIALIZATION,
-                                    SerializationUtils.objectToString(source))
-                            .schema(
-                                    (StructType)
-                                            TypeConverterUtils.convert(source.getProducedType()))
-                            .load();
+            Dataset<Row> dataset;
+            if (jobContext.getJobMode() == JobMode.BATCH) {
+                dataset = batch(parallelism, source);
+            } else {
+                dataset = streaming(parallelism, source);
+            }
             sources.add(dataset);
             registerInputTempView(pluginConfigs.get(i), dataset);
         }
@@ -107,5 +101,27 @@ public class SourceExecuteProcessor
         }
         sparkRuntimeEnvironment.registerPlugin(new ArrayList<>(jars));
         return sources;
+    }
+
+    private Dataset<Row> batch(int parallelism, SeaTunnelSource<?, ?, ?> source) {
+        return sparkRuntimeEnvironment
+                .getSparkSession()
+                .read()
+                .format(SeaTunnelSource.class.getSimpleName())
+                .option(CommonOptions.PARALLELISM.key(), parallelism)
+                .option(Constants.SOURCE_SERIALIZATION, SerializationUtils.objectToString(source))
+                .schema((StructType) TypeConverterUtils.convert(source.getProducedType()))
+                .load();
+    }
+
+    private Dataset<Row> streaming(int parallelism, SeaTunnelSource<?, ?, ?> source) {
+        return sparkRuntimeEnvironment
+                .getSparkSession()
+                .readStream()
+                .format(SeaTunnelSource.class.getSimpleName())
+                .option(CommonOptions.PARALLELISM.key(), parallelism)
+                .option(Constants.SOURCE_SERIALIZATION, SerializationUtils.objectToString(source))
+                .schema((StructType) TypeConverterUtils.convert(source.getProducedType()))
+                .load();
     }
 }

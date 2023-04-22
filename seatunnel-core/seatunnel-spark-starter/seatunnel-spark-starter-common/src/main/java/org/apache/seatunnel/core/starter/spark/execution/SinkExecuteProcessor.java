@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SupportDataSaveMode;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
@@ -35,12 +36,16 @@ import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SaveMode;
+import org.apache.spark.sql.streaming.OutputMode;
+import org.apache.spark.sql.streaming.StreamingQueryException;
+import org.apache.spark.sql.streaming.Trigger;
 
 import com.google.common.collect.Lists;
 
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 public class SinkExecuteProcessor
@@ -104,8 +109,6 @@ public class SinkExecuteProcessor
                                         CommonOptions.PARALLELISM.key(),
                                         CommonOptions.PARALLELISM.defaultValue());
             }
-            dataset.sparkSession().read().option(CommonOptions.PARALLELISM.key(), parallelism);
-            // TODO modify checkpoint location
             seaTunnelSink.setTypeInfo(
                     (SeaTunnelRowType) TypeConverterUtils.convert(dataset.schema()));
             if (SupportDataSaveMode.class.isAssignableFrom(seaTunnelSink.getClass())) {
@@ -113,12 +116,42 @@ public class SinkExecuteProcessor
                 DataSaveMode dataSaveMode = saveModeSink.getUserConfigSaveMode();
                 saveModeSink.handleSaveMode(dataSaveMode);
             }
-            SparkSinkInjector.inject(dataset.write(), seaTunnelSink)
-                    .option("checkpointLocation", "/tmp")
-                    .mode(SaveMode.Append)
-                    .save();
+            if (jobContext.getJobMode() == JobMode.BATCH) {
+                batch(dataset, seaTunnelSink, parallelism);
+            } else {
+                streaming(dataset, seaTunnelSink, parallelism);
+            }
         }
         // the sink is the last stream
         return null;
+    }
+
+    private void batch(
+            Dataset<Row> dataset, SeaTunnelSink<?, ?, ?, ?> seaTunnelSink, int parallelism) {
+        SparkSinkInjector.inject(dataset.write(), seaTunnelSink)
+                .options(sparkRuntimeEnvironment.getCheckpointConfig().batchConf())
+                .mode(SaveMode.Append)
+                .save();
+    }
+
+    private void streaming(
+            Dataset<Row> dataset, SeaTunnelSink<?, ?, ?, ?> seaTunnelSink, int parallelism) {
+        dataset.sparkSession().readStream().option(CommonOptions.PARALLELISM.key(), parallelism);
+        try {
+            SparkSinkInjector.inject(dataset.writeStream(), seaTunnelSink)
+                    .outputMode(OutputMode.Append())
+                    .options(sparkRuntimeEnvironment.getCheckpointConfig().microBatchConf())
+                    .trigger(
+                            Trigger.ProcessingTime(
+                                    sparkRuntimeEnvironment
+                                            .getCheckpointConfig()
+                                            .getTriggerProcessingInterval()))
+                    .start()
+                    .awaitTermination();
+        } catch (StreamingQueryException | TimeoutException e) {
+            throw new RuntimeException(e);
+        } finally {
+            dataset.sparkSession().close();
+        }
     }
 }
