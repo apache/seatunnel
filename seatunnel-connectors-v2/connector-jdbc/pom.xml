@@ -43,6 +43,7 @@
         <teradata.version>17.20.00.12</teradata.version>
         <redshift.version>2.1.0.9</redshift.version>
         <saphana.version>2.14.7</saphana.version>
+        <vertica.version>12.0.3-0</vertica.version>
     </properties>
 
     <dependencyManagement>
@@ -122,6 +123,12 @@
                 <version>${saphana.version}</version>
                 <scope>provided</scope>
             </dependency>
+            <dependency>
+                <groupId>com.vertica.jdbc</groupId>
+                <artifactId>vertica-jdbc</artifactId>
+                <version>${vertica.version}</version>
+                <scope>provided</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -183,6 +190,11 @@
         <dependency>
             <groupId>com.sap.cloud.db.jdbc</groupId>
             <artifactId>ngdbc</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.vertica.jdbc</groupId>
+            <artifactId>vertica-jdbc</artifactId>
         </dependency>
     </dependencies>
 </project>

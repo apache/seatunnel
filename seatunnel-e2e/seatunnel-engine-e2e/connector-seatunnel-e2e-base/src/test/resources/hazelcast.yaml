@@ -40,4 +40,4 @@ hazelcast:
     hazelcast.tcp.join.port.try.count: 30
     hazelcast.slow.operation.detector.stacktrace.logging.enabled: true
     hazelcast.logging.type: log4j2
-    hazelcast.operation.generic.thread.count: 50
+    hazelcast.operation.generic.thread.count: 200

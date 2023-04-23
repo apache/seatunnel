@@ -19,6 +19,8 @@
 - [Hbase] Add hbase sink connector #4049
 - [Github] Add Github source connector #4155
 - [CDC] Support export debezium-json format to kafka #4339
+- [RocketMQ] Add RocketMQ source and sink connector #4007
+- [Jdbc] Add vertica connector #4303
 ### Formats
 - [Canal]Support read canal format message #3950
 
@@ -68,6 +70,7 @@
 - [Kudu] Fix connector source snapshot state NPE #4027
 - [Maxcompute] Fix some data type parse fail #3894
 - [Doris] Fix content-length header already present #4277
+- [Iceberg] Fix iceberg source stream mode init error #4638
 
 ### Zeta Engine
 - [Checkpoint] Fix Checkpoint Continue Trigger After Job CANCELED #3808
@@ -78,6 +81,7 @@
 
 ### Documents
 - [Doc] seatunnel run with flink operator error #3998
+- [Doc] Correct `transform sql` config on fqa.md #4493
 
 ## Test
 ### E2E
