@@ -22,14 +22,6 @@ def get_cv2_modules(files):
     get_modules(files, 1, "connector-", "seatunnel-connectors-v2")
 
 
-def get_cv2_flink_e2e_modules(files):
-    get_modules(files, 2, "connector-", "seatunnel-flink-connector-v2-e2e")
-
-
-def get_cv2_spark_e2e_modules(files):
-    get_modules(files, 2, "connector-", "seatunnel-spark-connector-v2-e2e")
-
-
 def get_cv2_e2e_modules(files):
     get_modules(files, 2, "connector-", "seatunnel-connector-v2-e2e")
 
@@ -152,6 +144,8 @@ def get_deleted_modules(files):
 def get_sub_it_modules(modules, total_num, current_num):
     modules_arr = modules.split(",")
     modules_arr.remove("connector-jdbc-e2e")
+    modules_arr.remove("connector-kafka-e2e")
+    modules_arr.remove("connector-rocketmq-e2e")
     output = ""
     for i, module in enumerate(modules_arr):
         if len(module) > 0 and i % int(total_num) == int(current_num):

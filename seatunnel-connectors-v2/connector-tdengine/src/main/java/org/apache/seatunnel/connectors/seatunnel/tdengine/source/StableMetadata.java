@@ -15,17 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.connector.http;
+package org.apache.seatunnel.connectors.seatunnel.tdengine.source;
 
-public class HttpGitlabIT extends HttpIT {
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
-    @Override
-    public String getITTestConf() {
-        return "/gitlab_json_to_assert.conf";
-    }
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
-    @Override
-    public String getMockServerConfig() {
-        return "/mockserver-gitlab-config.json";
-    }
+import java.io.Serializable;
+import java.util.List;
+
+@Data
+@AllArgsConstructor
+public class StableMetadata implements Serializable {
+    private final SeaTunnelRowType rowType;
+    private final String timestampFieldName;
+    private final List<String> subTableNames;
 }
