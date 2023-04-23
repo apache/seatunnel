@@ -788,8 +788,8 @@ public class ClusterFaultToleranceIT {
                             + "    hazelcast.tcp.join.port.try.count: 30\n"
                             + "    hazelcast.invocation.retry.pause.millis: 2000\n"
                             + "    hazelcast.slow.operation.detector.stacktrace.logging.enabled: true\n"
-                            + "    hazelcast.logging.type: log4j2\n";
-
+                            + "    hazelcast.logging.type: log4j2\n"
+                            + "    hazelcast.operation.generic.thread.count: 200\n";
             Config hazelcastConfig = Config.loadFromString(yaml);
             hazelcastConfig.setClusterName(TestUtils.getClusterName(testClusterName));
             SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
@@ -873,8 +873,10 @@ public class ClusterFaultToleranceIT {
             CompletableFuture<JobStatus> waitForJobCompleteFuture =
                     CompletableFuture.supplyAsync(newClientJobProxy::waitForJobComplete);
 
+            Thread.sleep(10000);
+
             Awaitility.await()
-                    .atMost(600000, TimeUnit.MILLISECONDS)
+                    .atMost(100000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
                                 // Wait job write all rows in file
