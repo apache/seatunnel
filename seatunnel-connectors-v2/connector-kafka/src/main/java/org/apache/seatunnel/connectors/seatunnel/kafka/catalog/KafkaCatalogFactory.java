@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.catalog;
 
-import static org.apache.seatunnel.api.table.catalog.CatalogTableUtil.FIELDS;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.BOOTSTRAP_SERVERS;
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.Catalog;
@@ -29,7 +26,8 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.config.Config;
 
 import com.google.auto.service.AutoService;
 
-import java.util.Map;
+import static org.apache.seatunnel.api.table.catalog.CatalogTableUtil.FIELDS;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.BOOTSTRAP_SERVERS;
 
 @AutoService(Factory.class)
 public class KafkaCatalogFactory implements CatalogFactory {

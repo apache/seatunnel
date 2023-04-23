@@ -23,14 +23,13 @@ import java.io.IOException;
 
 public interface DeserializationSchemaWithTopic<T> extends DeserializationSchema<T> {
 
-
     /**
      * Deserializes the byte message.
      *
-     * @param topic   The topic of message
+     * @param topic The topic of message
      * @param message The message, as a byte array.
      * @return The deserialized message as an SeaTunnel Row (null if the message cannot be
-     * deserialized).
+     *     deserialized).
      */
     T deserialize(String topic, byte[] message) throws IOException;
 
@@ -44,5 +43,4 @@ public interface DeserializationSchemaWithTopic<T> extends DeserializationSchema
             throw new IOException(e);
         }
     }
-
 }

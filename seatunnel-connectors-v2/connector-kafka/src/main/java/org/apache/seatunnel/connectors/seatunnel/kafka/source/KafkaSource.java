@@ -17,19 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.BOOTSTRAP_SERVERS;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.COMMIT_ON_CHECKPOINT;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CONSUMER_GROUP;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FIELD_DELIMITER;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FORMAT;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.MESSAGE_FORMAT_ERROR_HANDLE_WAY_OPTION;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PATTERN;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE_OFFSETS;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE_TIMESTAMP;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TOPIC;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
@@ -57,21 +45,34 @@ import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.kafka.common.TopicPartition;
 
 import com.google.auto.service.AutoService;
 import lombok.NoArgsConstructor;
-import org.apache.kafka.common.TopicPartition;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.BOOTSTRAP_SERVERS;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.COMMIT_ON_CHECKPOINT;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CONSUMER_GROUP;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FIELD_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.MESSAGE_FORMAT_ERROR_HANDLE_WAY_OPTION;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PATTERN;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE_OFFSETS;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE_TIMESTAMP;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TOPIC;
+
 @AutoService(SeaTunnelSource.class)
 @NoArgsConstructor
 public class KafkaSource
-    implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSplit, KafkaSourceState>,
-    SupportParallelism {
+        implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSplit, KafkaSourceState>,
+                SupportParallelism {
 
     private final ConsumerMetadata metadata = new ConsumerMetadata();
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
@@ -79,8 +80,7 @@ public class KafkaSource
     private JobContext jobContext;
     private long discoveryIntervalMillis;
     private MessageFormatErrorHandleWay messageFormatErrorHandleWay =
-        MessageFormatErrorHandleWay.FAIL;
-
+            MessageFormatErrorHandleWay.FAIL;
 
     public KafkaSource(ReadonlyConfig option, SeaTunnelDataType<SeaTunnelRow> dataType) {
 
@@ -100,7 +100,7 @@ public class KafkaSource
                 long currentTimestamp = System.currentTimeMillis();
                 if (startOffsetsTimestamp < 0 || startOffsetsTimestamp > currentTimestamp) {
                     throw new IllegalArgumentException(
-                        "start_mode.timestamp The value is smaller than 0 or smaller than the current time");
+                            "start_mode.timestamp The value is smaller than 0 or smaller than the current time");
                 }
                 this.metadata.setStartOffsetsTimestamp(startOffsetsTimestamp);
                 break;
@@ -108,23 +108,22 @@ public class KafkaSource
                 Map<String, String> offsets = option.get(START_MODE_OFFSETS);
                 if (offsets.isEmpty()) {
                     throw new IllegalArgumentException(
-                        "start mode is "
-                            + StartMode.SPECIFIC_OFFSETS
-                            + "but no specific offsets were specified.");
+                            "start mode is "
+                                    + StartMode.SPECIFIC_OFFSETS
+                                    + "but no specific offsets were specified.");
                 }
                 Map<TopicPartition, Long> specificStartOffsets = new HashMap<>();
                 offsets.keySet()
-                    .forEach(
-                        key -> {
-                            int splitIndex = key.lastIndexOf("-");
-                            String topic = key.substring(0, splitIndex);
-                            String partition = key.substring(splitIndex + 1);
-                            long offset = Long.parseLong(offsets.get(key));
-                            TopicPartition topicPartition =
-                                new TopicPartition(
-                                    topic, Integer.parseInt(partition));
-                            specificStartOffsets.put(topicPartition, offset);
-                        });
+                        .forEach(
+                                key -> {
+                                    int splitIndex = key.lastIndexOf("-");
+                                    String topic = key.substring(0, splitIndex);
+                                    String partition = key.substring(splitIndex + 1);
+                                    long offset = Long.parseLong(offsets.get(key));
+                                    TopicPartition topicPartition =
+                                            new TopicPartition(topic, Integer.parseInt(partition));
+                                    specificStartOffsets.put(topicPartition, offset);
+                                });
                 this.metadata.setSpecificStartOffsets(specificStartOffsets);
                 break;
             default:
@@ -134,13 +133,12 @@ public class KafkaSource
         this.discoveryIntervalMillis = option.get(KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS);
 
         if (option.get(KAFKA_CONFIG) != null) {
-            option.get(KAFKA_CONFIG).forEach(
-                (key, value) ->
-                    this.metadata.getProperties().put(key, value));
+            option.get(KAFKA_CONFIG)
+                    .forEach((key, value) -> this.metadata.getProperties().put(key, value));
         }
 
         MessageFormatErrorHandleWay formatErrorWayOption =
-            option.get(MESSAGE_FORMAT_ERROR_HANDLE_WAY_OPTION);
+                option.get(MESSAGE_FORMAT_ERROR_HANDLE_WAY_OPTION);
         switch (formatErrorWayOption) {
             case FAIL:
             case SKIP:
@@ -152,14 +150,13 @@ public class KafkaSource
 
         this.typeInfo = dataType;
         setDeserialization(option, dataType);
-
     }
 
     @Override
     public Boundedness getBoundedness() {
         return JobMode.BATCH.equals(jobContext.getJobMode())
-            ? Boundedness.BOUNDED
-            : Boundedness.UNBOUNDED;
+                ? Boundedness.BOUNDED
+                : Boundedness.UNBOUNDED;
     }
 
     @Override
@@ -170,7 +167,7 @@ public class KafkaSource
     @Override
     public void prepare(Config config) throws PrepareFailException {
         CheckResult result =
-            CheckConfigUtil.checkAllExists(config, TOPIC.key(), BOOTSTRAP_SERVERS.key());
+                CheckConfigUtil.checkAllExists(config, TOPIC.key(), BOOTSTRAP_SERVERS.key());
         // TODO remove
     }
 
@@ -181,25 +178,25 @@ public class KafkaSource
 
     @Override
     public SourceReader<SeaTunnelRow, KafkaSourceSplit> createReader(
-        SourceReader.Context readerContext) throws Exception {
+            SourceReader.Context readerContext) throws Exception {
         return new KafkaSourceReader(
-            this.metadata, deserializationSchema, readerContext, messageFormatErrorHandleWay);
+                this.metadata, deserializationSchema, readerContext, messageFormatErrorHandleWay);
     }
 
     @Override
     public SourceSplitEnumerator<KafkaSourceSplit, KafkaSourceState> createEnumerator(
-        SourceSplitEnumerator.Context<KafkaSourceSplit> enumeratorContext) throws Exception {
+            SourceSplitEnumerator.Context<KafkaSourceSplit> enumeratorContext) throws Exception {
         return new KafkaSourceSplitEnumerator(
-            this.metadata, enumeratorContext, discoveryIntervalMillis);
+                this.metadata, enumeratorContext, discoveryIntervalMillis);
     }
 
     @Override
     public SourceSplitEnumerator<KafkaSourceSplit, KafkaSourceState> restoreEnumerator(
-        SourceSplitEnumerator.Context<KafkaSourceSplit> enumeratorContext,
-        KafkaSourceState checkpointState)
-        throws Exception {
+            SourceSplitEnumerator.Context<KafkaSourceSplit> enumeratorContext,
+            KafkaSourceState checkpointState)
+            throws Exception {
         return new KafkaSourceSplitEnumerator(
-            this.metadata, enumeratorContext, checkpointState, discoveryIntervalMillis);
+                this.metadata, enumeratorContext, checkpointState, discoveryIntervalMillis);
     }
 
     @Override
@@ -207,43 +204,47 @@ public class KafkaSource
         this.jobContext = jobContext;
     }
 
-    private void setDeserialization(ReadonlyConfig option, SeaTunnelDataType<SeaTunnelRow> dataType) {
+    private void setDeserialization(
+            ReadonlyConfig option, SeaTunnelDataType<SeaTunnelRow> dataType) {
         deserializationSchema = getDeserializationSchema(option, dataType);
     }
 
-
-    private DeserializationSchema<SeaTunnelRow> getDeserializationSchema(ReadonlyConfig option, SeaTunnelDataType<SeaTunnelRow> typeInfo) {
+    private DeserializationSchema<SeaTunnelRow> getDeserializationSchema(
+            ReadonlyConfig option, SeaTunnelDataType<SeaTunnelRow> typeInfo) {
         MessageFormat format = option.get(FORMAT);
         switch (format) {
             case JSON:
                 if (typeInfo instanceof SeaTunnelRowType) {
                     return new JsonDeserializationSchema(false, false, (SeaTunnelRowType) typeInfo);
                 } else {
-                    throw new KafkaConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported multi-table format: " + format);
+                    throw new KafkaConnectorException(
+                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            "Unsupported multi-table format: " + format);
                 }
             case TEXT:
                 if (typeInfo instanceof SeaTunnelRowType) {
-                    return
-                        TextDeserializationSchema.builder()
+                    return TextDeserializationSchema.builder()
                             .seaTunnelRowType((SeaTunnelRowType) typeInfo)
                             .delimiter(option.get(FIELD_DELIMITER))
                             .build();
                 } else {
-                    throw new KafkaConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported multi-table format: " + format);
+                    throw new KafkaConnectorException(
+                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            "Unsupported multi-table format: " + format);
                 }
             case CANAL_JSON:
                 if (typeInfo instanceof SeaTunnelRowType) {
-                    return
-                        CanalJsonDeserializationSchema.builder((SeaTunnelRowType) typeInfo)
+                    return CanalJsonDeserializationSchema.builder((SeaTunnelRowType) typeInfo)
                             .setIgnoreParseErrors(true)
                             .build();
                 } else {
-                    throw new KafkaConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported multi-table format: " + format);
+                    throw new KafkaConnectorException(
+                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            "Unsupported multi-table format: " + format);
                 }
             default:
                 throw new SeaTunnelJsonFormatException(
-                    CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + format);
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + format);
         }
     }
-
 }

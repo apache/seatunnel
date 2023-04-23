@@ -59,21 +59,20 @@ import java.util.regex.Pattern;
 @Slf4j
 public class CatalogTableUtil implements Serializable {
     public static final Option<Map<String, String>> SCHEMA =
-        Options.key("schema").mapType().noDefaultValue().withDescription("SeaTunnel Schema");
+            Options.key("schema").mapType().noDefaultValue().withDescription("SeaTunnel Schema");
 
     public static final Option<Map<String, String>> FIELDS =
-        Options.key("schema.fields")
-            .mapType()
-            .noDefaultValue()
-            .withDescription("SeaTunnel Schema Fields");
+            Options.key("schema.fields")
+                    .mapType()
+                    .noDefaultValue()
+                    .withDescription("SeaTunnel Schema Fields");
     private static final String FIELD_KEY = "fields";
 
     private static final SeaTunnelRowType SIMPLE_SCHEMA =
-        new SeaTunnelRowType(
-            new String[]{"content"}, new SeaTunnelDataType<?>[]{BasicType.STRING_TYPE});
+            new SeaTunnelRowType(
+                    new String[] {"content"}, new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
 
-    @Getter
-    private final CatalogTable catalogTable;
+    @Getter private final CatalogTable catalogTable;
 
     private CatalogTableUtil(CatalogTable catalogTable) {
         this.catalogTable = catalogTable;
@@ -174,34 +173,34 @@ public class CatalogTableUtil implements Serializable {
     public static CatalogTableUtil buildWithReadonlyConfig(ReadonlyConfig option) {
         if (option.get(FIELDS) == null) {
             throw new RuntimeException(
-                "Schema config need option [schema], please correct your config first");
+                    "Schema config need option [schema], please correct your config first");
         }
         TableSchema tableSchema = parseTableSchema(option.get(FIELDS));
         return new CatalogTableUtil(
-            CatalogTable.of(
-                // TODO: other table info
-                TableIdentifier.of("", "", ""),
-                tableSchema,
-                new HashMap<>(),
-                new ArrayList<>(),
-                ""));
+                CatalogTable.of(
+                        // TODO: other table info
+                        TableIdentifier.of("", "", ""),
+                        tableSchema,
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        ""));
     }
 
     public static CatalogTableUtil buildWithConfig(Config config) {
         CheckResult checkResult = CheckConfigUtil.checkAllExists(config, "schema");
         if (!checkResult.isSuccess()) {
             throw new RuntimeException(
-                "Schema config need option [schema], please correct your config first");
+                    "Schema config need option [schema], please correct your config first");
         }
         TableSchema tableSchema = parseTableSchema(config.getConfig("schema"));
         return new CatalogTableUtil(
-            CatalogTable.of(
-                // TODO: other table info
-                TableIdentifier.of("", "", ""),
-                tableSchema,
-                new HashMap<>(),
-                new ArrayList<>(),
-                ""));
+                CatalogTable.of(
+                        // TODO: other table info
+                        TableIdentifier.of("", "", ""),
+                        tableSchema,
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        ""));
     }
 
     public static SeaTunnelRowType buildSimpleTextSchema() {
@@ -394,5 +393,4 @@ public class CatalogTableUtil implements Serializable {
         }
         return TableSchema.builder().columns(columns).build();
     }
-
 }

@@ -151,12 +151,18 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                                                             recordList) {
 
                                                         try {
-                                                            if (deserializationSchema instanceof DeserializationSchemaWithTopic) {
-                                                                ((DeserializationSchemaWithTopic) deserializationSchema).deserialize(
-                                                                    record.topic(), record.value(), output);
+                                                            if (deserializationSchema
+                                                                    instanceof
+                                                                    DeserializationSchemaWithTopic) {
+                                                                ((DeserializationSchemaWithTopic)
+                                                                                deserializationSchema)
+                                                                        .deserialize(
+                                                                                record.topic(),
+                                                                                record.value(),
+                                                                                output);
                                                             } else {
                                                                 deserializationSchema.deserialize(
-                                                                    record.value(), output);
+                                                                        record.value(), output);
                                                             }
                                                         } catch (IOException e) {
                                                             if (this.messageFormatErrorHandleWay

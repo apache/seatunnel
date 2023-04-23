@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.catalog;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -34,12 +32,15 @@ import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * This is a KafkaCatalog implementation.
@@ -56,8 +57,11 @@ public class KafkaCatalog implements Catalog {
     private AdminClient adminClient;
 
     public KafkaCatalog(String catalogName, ReadonlyConfig options, String bootstrapServers) {
-        this.catalogName = checkNotNull(catalogName, "catalogName cannot be null, please use schema to " +
-            "configure the data structure");
+        this.catalogName =
+                checkNotNull(
+                        catalogName,
+                        "catalogName cannot be null, please use schema to "
+                                + "configure the data structure");
         this.bootstrapServers = checkNotNull(bootstrapServers, "bootstrapServers cannot be null");
         this.options = checkNotNull(options, "options cannot be null");
     }
@@ -104,13 +108,16 @@ public class KafkaCatalog implements Catalog {
     @Override
     public CatalogTable getTable(TablePath tablePath)
             throws CatalogException, TableNotExistException {
-        TableSchema tableSchema = CatalogTableUtil.buildWithReadonlyConfig(options).getCatalogTable().getTableSchema();
+        TableSchema tableSchema =
+                CatalogTableUtil.buildWithReadonlyConfig(options)
+                        .getCatalogTable()
+                        .getTableSchema();
         return CatalogTable.of(
-            TableIdentifier.of(catalogName, "default", "default"),
-            tableSchema,
-            Collections.emptyMap(),
-            Collections.emptyList(),
-            "");
+                TableIdentifier.of(catalogName, "default", "default"),
+                tableSchema,
+                Collections.emptyMap(),
+                Collections.emptyList(),
+                "");
     }
 
     @Override

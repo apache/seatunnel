@@ -137,11 +137,11 @@ public class Config {
                     .withDescription("The time required for consumption mode to be timestamp.");
 
     public static final Option<Map<String, String>> START_MODE_OFFSETS =
-        Options.key("start_mode.offsets")
-            .mapType()
-            .noDefaultValue()
-            .withDescription(
-                "The offset required for consumption mode to be specific_offsets.");
+            Options.key("start_mode.offsets")
+                    .mapType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The offset required for consumption mode to be specific_offsets.");
 
     /** Configuration key to define the consumer's partition discovery interval, in milliseconds. */
     public static final Option<Long> KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS =

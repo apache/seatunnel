@@ -56,23 +56,24 @@ public class KafkaSourceFactory implements TableSourceFactory {
                         Config.PATTERN,
                         Config.CONSUMER_GROUP,
                         Config.COMMIT_ON_CHECKPOINT,
-                    Config.KAFKA_CONFIG,
-                    CatalogTableUtil.SCHEMA,
-                    Config.FORMAT,
-                    Config.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS)
-            .conditional(Config.START_MODE, StartMode.TIMESTAMP, Config.START_MODE_TIMESTAMP)
-            .conditional(
-                Config.START_MODE, StartMode.SPECIFIC_OFFSETS, Config.START_MODE_OFFSETS)
-            .build();
+                        Config.KAFKA_CONFIG,
+                        CatalogTableUtil.SCHEMA,
+                        Config.FORMAT,
+                        Config.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS)
+                .conditional(Config.START_MODE, StartMode.TIMESTAMP, Config.START_MODE_TIMESTAMP)
+                .conditional(
+                        Config.START_MODE, StartMode.SPECIFIC_OFFSETS, Config.START_MODE_OFFSETS)
+                .build();
     }
 
     @Override
-    public <T, SplitT extends SourceSplit, StateT extends Serializable> TableSource<T, SplitT, StateT> createSource(TableFactoryContext context) {
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableFactoryContext context) {
         return () -> {
             SeaTunnelDataType<SeaTunnelRow> dataType;
             if (context.getCatalogTables().size() == 1) {
                 dataType =
-                    context.getCatalogTables().get(0).getTableSchema().toPhysicalRowDataType();
+                        context.getCatalogTables().get(0).getTableSchema().toPhysicalRowDataType();
             } else {
                 Map<String, SeaTunnelRowType> rowTypeMap = new HashMap<>();
                 for (CatalogTable catalogTable : context.getCatalogTables()) {
@@ -81,7 +82,8 @@ public class KafkaSourceFactory implements TableSourceFactory {
                 }
                 dataType = new MultipleRowType(rowTypeMap);
             }
-            return (SeaTunnelSource<T, SplitT, StateT>) new KafkaSource(context.getOptions(), dataType);
+            return (SeaTunnelSource<T, SplitT, StateT>)
+                    new KafkaSource(context.getOptions(), dataType);
         };
     }
 
