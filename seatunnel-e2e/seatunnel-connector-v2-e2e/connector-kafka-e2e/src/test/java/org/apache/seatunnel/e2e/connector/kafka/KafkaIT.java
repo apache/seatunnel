@@ -34,6 +34,7 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunne
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -67,15 +68,20 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 @Slf4j
+@DisabledOnContainer(
+        value = {},
+        disabledReason = "Override TestSuiteBase @DisabledOnContainer")
 public class KafkaIT extends TestSuiteBase implements TestResource {
     private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.0.9";
 
@@ -152,6 +158,18 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
         String topicName = "test_text_topic";
         Map<String, String> data = getKafkaConsumerData(topicName);
+        Assertions.assertEquals(10, data.size());
+    }
+
+    @TestTemplate
+    public void testDefaultRandomSinkKafka(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/kafka_default_sink_fake_to_kafka.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        String topicName = "topic_default_sink_test";
+        List<String> data = getKafkaConsumerListData(topicName);
         Assertions.assertEquals(10, data.size());
     }
 
@@ -388,6 +406,28 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 for (ConsumerRecord<String, String> record : records) {
                     if (lastProcessedOffset < record.offset()) {
                         data.put(record.key(), record.value());
+                    }
+                    lastProcessedOffset = record.offset();
+                }
+            } while (lastProcessedOffset < endOffset - 1);
+        }
+        return data;
+    }
+
+    private List<String> getKafkaConsumerListData(String topicName) {
+        List<String> data = new ArrayList<>();
+        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
+            consumer.subscribe(Arrays.asList(topicName));
+            Map<TopicPartition, Long> offsets =
+                    consumer.endOffsets(Arrays.asList(new TopicPartition(topicName, 0)));
+            Long endOffset = offsets.entrySet().iterator().next().getValue();
+            Long lastProcessedOffset = -1L;
+
+            do {
+                ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
+                for (ConsumerRecord<String, String> record : records) {
+                    if (lastProcessedOffset < record.offset()) {
+                        data.add(record.value());
                     }
                     lastProcessedOffset = record.offset();
                 }

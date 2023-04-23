@@ -80,7 +80,7 @@ public class CheckpointBarrierTriggerOperation extends TaskOperation {
                                     .getTaskGroup()
                                     .getTask(taskLocation.getTaskID());
                     try {
-                        log.debug("CheckpointBarrierTriggerOperation [{}]" + taskLocation);
+                        log.debug("CheckpointBarrierTriggerOperation [{}]", taskLocation);
                         task.triggerBarrier(barrier);
                     } catch (Exception e) {
                         sneakyThrow(e);
