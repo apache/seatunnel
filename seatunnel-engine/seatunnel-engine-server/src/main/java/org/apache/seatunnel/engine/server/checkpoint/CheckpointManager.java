@@ -269,11 +269,19 @@ public class CheckpointManager {
     }
 
     protected InvocationFuture<?> sendOperationToMemberNode(TaskOperation operation) {
+        log.debug(
+                "Sead Operation : "
+                        + operation.getClass().getSimpleName()
+                        + " to "
+                        + jobMaster.queryTaskGroupAddress(
+                                operation.getTaskLocation().getTaskGroupLocation())
+                        + " for task group:"
+                        + operation.getTaskLocation().getTaskGroupLocation());
         return NodeEngineUtil.sendOperationToMemberNode(
                 nodeEngine,
                 operation,
                 jobMaster.queryTaskGroupAddress(
-                        operation.getTaskLocation().getTaskGroupLocation().getTaskGroupId()));
+                        operation.getTaskLocation().getTaskGroupLocation()));
     }
 
     /**

@@ -37,7 +37,9 @@ import net.sf.jsqlparser.statement.select.Select;
 import net.sf.jsqlparser.statement.select.SelectExpressionItem;
 import net.sf.jsqlparser.statement.select.SelectItem;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.ServiceLoader;
 
 public class ZetaSQLEngine implements SQLEngine {
     private String inputTableName;
@@ -56,8 +58,12 @@ public class ZetaSQLEngine implements SQLEngine {
         this.inputTableName = inputTableName;
         this.sql = sql;
 
-        this.zetaSQLType = new ZetaSQLType(inputRowType);
-        this.zetaSQLFunction = new ZetaSQLFunction(inputRowType, zetaSQLType);
+        List<ZetaUDF> udfList = new ArrayList<>();
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        ServiceLoader.load(ZetaUDF.class, classLoader).forEach(udfList::add);
+
+        this.zetaSQLType = new ZetaSQLType(inputRowType, udfList);
+        this.zetaSQLFunction = new ZetaSQLFunction(inputRowType, zetaSQLType, udfList);
         this.zetaSQLFilter = new ZetaSQLFilter(zetaSQLFunction);
 
         parseSQL();
@@ -83,10 +89,7 @@ public class ZetaSQLEngine implements SQLEngine {
             }
             Select select = (Select) statement;
             if (!(select.getSelectBody() instanceof PlainSelect)) {
-                throw new IllegalArgumentException("Unsupported SQL syntax: %s");
-            }
-            if (!(select.getSelectBody() instanceof PlainSelect)) {
-                throw new IllegalArgumentException("Unsupported SQL syntax: %s");
+                throw new IllegalArgumentException("Unsupported SQL syntax");
             }
             PlainSelect selectBody = (PlainSelect) select.getSelectBody();
 

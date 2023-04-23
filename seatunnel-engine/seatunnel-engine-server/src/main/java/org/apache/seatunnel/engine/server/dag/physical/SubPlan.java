@@ -82,7 +82,7 @@ public class SubPlan {
     private final PipelineLocation pipelineLocation;
 
     /** The error throw by physicalVertex, should be set when physicalVertex throw error. */
-    private final AtomicReference<String> errorByPhysicalVertex = new AtomicReference<>();
+    private AtomicReference<String> errorByPhysicalVertex = new AtomicReference<>();
 
     private final ExecutorService executorService;
 
@@ -140,6 +140,8 @@ public class SubPlan {
     }
 
     public synchronized PassiveCompletableFuture<PipelineExecutionState> initStateFuture() {
+        // reset errorByPhysicalVertex when restore pipeline
+        errorByPhysicalVertex = new AtomicReference<>();
         physicalVertexList.forEach(
                 physicalVertex -> {
                     addPhysicalVertexCallBack(physicalVertex.initStateFuture());

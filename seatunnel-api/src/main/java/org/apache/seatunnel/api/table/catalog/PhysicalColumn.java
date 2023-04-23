@@ -57,4 +57,9 @@ public class PhysicalColumn extends Column {
     public Column copy(SeaTunnelDataType<?> newType) {
         return PhysicalColumn.of(name, newType, columnLength, nullable, defaultValue, comment);
     }
+
+    @Override
+    public Column copy() {
+        return PhysicalColumn.of(name, dataType, columnLength, nullable, defaultValue, comment);
+    }
 }

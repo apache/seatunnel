@@ -24,7 +24,6 @@ import lombok.Data;
 
 import java.io.Serializable;
 import java.util.List;
-import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST;
 
@@ -45,17 +44,12 @@ public class JdbcSinkConfig implements Serializable {
         JdbcSinkConfig.Builder builder = JdbcSinkConfig.builder();
         builder.jdbcConnectionConfig(JdbcConnectionConfig.of(config));
         builder.isExactlyOnce(config.get(JdbcOptions.IS_EXACTLY_ONCE));
-        Optional<String> optionalTable = config.getOptional(JdbcOptions.TABLE);
-        Optional<String> optionalDatabase = config.getOptional(JdbcOptions.DATABASE);
-        if (optionalTable.isPresent() && optionalDatabase.isPresent()) {
-            builder.table(optionalTable.get());
-            builder.database(optionalDatabase.get());
-            config.getOptional(JdbcOptions.PRIMARY_KEYS).ifPresent(builder::primaryKeys);
-            builder.supportUpsertByQueryPrimaryKeyExist(
-                    config.get(SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST));
-        } else {
-            builder.simpleSql(config.get(JdbcOptions.QUERY));
-        }
+        config.getOptional(JdbcOptions.PRIMARY_KEYS).ifPresent(builder::primaryKeys);
+        config.getOptional(JdbcOptions.DATABASE).ifPresent(builder::database);
+        config.getOptional(JdbcOptions.TABLE).ifPresent(builder::table);
+        config.getOptional(SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST)
+                .ifPresent(builder::supportUpsertByQueryPrimaryKeyExist);
+        config.getOptional(JdbcOptions.QUERY).ifPresent(builder::simpleSql);
         return builder.build();
     }
 }
