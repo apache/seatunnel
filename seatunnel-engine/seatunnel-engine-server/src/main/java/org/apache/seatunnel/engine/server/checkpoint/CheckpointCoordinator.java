@@ -397,7 +397,7 @@ public class CheckpointCoordinator {
                     LOG.info("wait checkpoint completed: " + pendingCheckpoint.getCheckpointId());
                     PassiveCompletableFuture<CompletedCheckpoint> completableFuture =
                             pendingCheckpoint.getCompletableFuture();
-                    completableFuture.whenComplete(
+                    completableFuture.whenCompleteAsync(
                             (completedCheckpoint, error) -> {
                                 if (error != null) {
                                     handleCoordinatorError(
@@ -417,7 +417,8 @@ public class CheckpointCoordinator {
                                     LOG.info(
                                             "skip this checkpoint cause by completedCheckpoint is null");
                                 }
-                            });
+                            },
+                            executorService);
 
                     // Trigger the barrier and wait for all tasks to ACK
                     LOG.debug("trigger checkpoint barrier {}", pendingCheckpoint.getInfo());
@@ -451,7 +452,7 @@ public class CheckpointCoordinator {
                                                 != null
                                         && !pendingCheckpoint.isFullyAcknowledged()) {
                                     if (tolerableFailureCheckpoints-- <= 0) {
-                                        LOG.debug(
+                                        LOG.info(
                                                 "timeout checkpoint: "
                                                         + pendingCheckpoint.getInfo());
                                         handleCoordinatorError(

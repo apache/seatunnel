@@ -61,7 +61,7 @@ import static org.awaitility.Awaitility.given;
 @Slf4j
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SEATUNNEL, EngineType.SPARK},
+        type = {EngineType.SPARK},
         disabledReason =
                 "There is a conflict of thrift version between IoTDB and Spark.Therefore. Refactor starter module, so disabled in flink")
 public class IoTDBIT extends TestSuiteBase implements TestResource {
