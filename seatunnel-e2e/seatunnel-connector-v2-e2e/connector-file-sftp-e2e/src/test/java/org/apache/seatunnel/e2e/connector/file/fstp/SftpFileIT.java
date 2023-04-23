@@ -92,7 +92,7 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testsftpFileReadAndWrite(TestContainer container)
+    public void testSftpFileReadAndWrite(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult excelWriteResult =
                 container.executeJob("/excel/fakesource_to_sftp_excel.conf");
@@ -189,7 +189,7 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
 
             fis.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("File to sftpServer with custom path operation exception", e);
         } finally {
             if (channelSftp != null) {
                 channelSftp.exit();
