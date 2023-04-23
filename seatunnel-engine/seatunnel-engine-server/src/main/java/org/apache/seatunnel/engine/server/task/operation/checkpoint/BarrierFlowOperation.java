@@ -81,7 +81,7 @@ public class BarrierFlowOperation extends TaskOperation {
                                     .getTaskGroup()
                                     .getTask(taskLocation.getTaskID());
                     try {
-                        log.debug("BarrierFlowOperation [{}]" + taskLocation);
+                        log.debug("BarrierFlowOperation [{}]", taskLocation);
                         task.triggerBarrier(barrier);
                     } catch (Exception e) {
                         log.warn(ExceptionUtils.getMessage(e));
