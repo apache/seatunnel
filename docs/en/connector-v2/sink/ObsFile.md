@@ -168,7 +168,7 @@ Please note that excel type does not support any compression format
 ```hocon
 
   ObsFile {
-    path="/seatunnel/sink"
+    path="/seatunnel/text"
     bucket = "obs://obs-bucket-name"
     access_key = "xxxxxxxxxxx"
     access_secret = "xxxxxxxxxxx"
@@ -196,7 +196,7 @@ Please note that excel type does not support any compression format
 ```hocon
 
   ObsFile {
-    path = "/seatunnel/sink"
+    path = "/seatunnel/parquet"
     bucket = "obs://obs-bucket-name"
     access_key = "xxxxxxxxxxx"
     access_secret = "xxxxxxxxxxxxxxxxx"
@@ -218,7 +218,7 @@ Please note that excel type does not support any compression format
 ```hocon
 
   ObsFile {
-    path="/seatunnel/sink"
+    path="/seatunnel/orc"
     bucket = "obs://obs-bucket-name"
     access_key = "xxxxxxxxxxx"
     access_secret = "xxxxxxxxxxx"
@@ -228,9 +228,60 @@ Please note that excel type does not support any compression format
 
 ```
 
+### json file
+
+> For json file format simple config
+
+```hcocn
+
+   ObsFile {
+       path = "/seatunnel/json"
+       bucket = "obs://obs-bucket-name"
+       access_key = "xxxxxxxxxxx"
+       access_secret = "xxxxxxxxxxx"
+       endpoint = "obs.xxxxx.myhuaweicloud.com"
+       file_format_type = "json"
+   }
+
+```
+
+### excel file
+
+> For excel file format simple config
+
+```hcocn
+
+   ObsFile {
+       path = "/seatunnel/excel"
+       bucket = "obs://obs-bucket-name"
+       access_key = "xxxxxxxxxxx"
+       access_secret = "xxxxxxxxxxx"
+       endpoint = "obs.xxxxx.myhuaweicloud.com"
+       file_format_type = "excel"
+   }
+
+```
+
+### csv file
+
+> For csv file format simple config
+
+```hcocn
+
+   ObsFile {
+       path = "/seatunnel/csv"
+       bucket = "obs://obs-bucket-name"
+       access_key = "xxxxxxxxxxx"
+       access_secret = "xxxxxxxxxxx"
+       endpoint = "obs.xxxxx.myhuaweicloud.com"
+       file_format_type = "csv"
+   }
+
+```
+
 ## Changelog
 
 ### next version
 
-- Add OBS Sink Connector
+- Add Obs Sink Connector
 

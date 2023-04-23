@@ -239,7 +239,43 @@ schema {
 
 ## Task Example
 
+### text file
+
+> For text file format simple config
+
+```hocon
+
+  ObsFile {
+    path = "/seatunnel/text"
+    bucket = "obs://obs-bucket-name"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
+    endpoint = "obs.xxxxxx.myhuaweicloud.com"
+    file_format_type = "text"
+  }
+
+```
+
+### parquet file
+
+> For parquet file format simple config
+
+```hocon
+
+  ObsFile {
+    path = "/seatunnel/parquet"
+    bucket = "obs://obs-bucket-name"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
+    endpoint = "obs.xxxxxx.myhuaweicloud.com"
+    file_format_type = "parquet"
+  }
+
+```
+
 ### orc file
+
+> For orc file format simple config
 
 ```hocon
 
@@ -256,6 +292,8 @@ schema {
 
 ### json file
 
+> For json file format simple config
+
 ```hocon
 
   ObsFile {
@@ -265,12 +303,41 @@ schema {
     access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
     endpoint = "obs.xxxxxx.myhuaweicloud.com"
     file_format_type = "json"
-    schema {
-      fields {
-        id = int 
-        name = string
-      }
-    }
+  }
+
+```
+
+### excel file
+
+> For excel file format simple config
+
+```hocon
+
+  ObsFile {
+    path = "/seatunnel/excel"
+    bucket = "obs://obs-bucket-name"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
+    endpoint = "obs.xxxxxx.myhuaweicloud.com"
+    file_format_type = "excel"
+  }
+
+```
+
+### csv file
+
+> For csv file format simple config
+
+```hocon
+
+  ObsFile {
+    path = "/seatunnel/csv"
+    bucket = "obs://obs-bucket-name"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
+    endpoint = "obs.xxxxxx.myhuaweicloud.com"
+    file_format_type = "csv"
+    delimiter = ","
   }
 
 ```
@@ -279,5 +346,5 @@ schema {
 
 ### next version
 
-- Add OBS File Source Connector
+- Add Obs File Source Connector
 
