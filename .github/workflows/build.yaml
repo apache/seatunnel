@@ -3,10 +3,10 @@ name: Build Tarball
 on:
   pull_request:
     branches:
-      - "business-dev"
+      - "WT-2.4.4-dev"
   push:
     branches:
-      - "business-dev"
+      - "WT-2.4.4-dev"
   workflow_dispatch:
 
 env:

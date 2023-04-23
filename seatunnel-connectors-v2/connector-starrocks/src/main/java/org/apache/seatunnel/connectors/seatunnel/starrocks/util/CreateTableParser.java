@@ -41,7 +41,7 @@ public class CreateTableParser {
                 insideParentheses = true;
                 columnBuilder.append(c);
             } else if ((c == ',' || c == ')') && !insideParentheses) {
-                parseColumn(columnBuilder.toString(), columns, startIndex + i);
+                parseColumn(columnBuilder.toString(), columns, startIndex + i + 1);
                 columnBuilder.setLength(0);
             } else if (c == ')') {
                 insideParentheses = false;
@@ -54,7 +54,7 @@ public class CreateTableParser {
     }
 
     private static void parseColumn(
-            String columnString, Map<String, ColumnInfo> columnList, int index) {
+            String columnString, Map<String, ColumnInfo> columnList, int suffixIndex) {
         Matcher matcher = COLUMN_PATTERN.matcher(columnString.trim());
         if (matcher.matches()) {
             String columnName = matcher.group(1);
@@ -65,21 +65,31 @@ public class CreateTableParser {
                     || columnBuilder.toString().toUpperCase().contains("CREATE TABLE")) {
                 return;
             }
-            columnList.put(columnName, new ColumnInfo(columnName, otherInfo, index));
+            int endIndex =
+                    suffixIndex
+                            - columnString
+                                    .substring(
+                                            columnString.indexOf(columnName) + columnName.length())
+                                    .length();
+            int startIndex =
+                    suffixIndex - columnString.substring(columnString.indexOf(columnName)).length();
+            columnList.put(columnName, new ColumnInfo(columnName, otherInfo, startIndex, endIndex));
         }
     }
 
     @Getter
     public static final class ColumnInfo {
 
-        public ColumnInfo(String name, String info, int index) {
+        public ColumnInfo(String name, String info, int startIndex, int endIndex) {
             this.name = name;
             this.info = info;
-            this.index = index;
+            this.startIndex = startIndex;
+            this.endIndex = endIndex;
         }
 
         String name;
         String info;
-        int index;
+        int startIndex;
+        int endIndex;
     }
 }

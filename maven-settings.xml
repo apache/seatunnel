@@ -18,8 +18,8 @@
     <servers>
         <server>
             <id>github</id>
-            <username>${env.GH_USERNAME}</username>
-            <password>${env.GH_TOKEN}</password>
+            <username>${env.GITHUB_USERNAME}</username>
+            <password>${env.GITHUB_TOKEN}</password>
         </server>
     </servers>
 </settings>
