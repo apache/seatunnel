@@ -125,6 +125,46 @@ sink {
 Parameter interpretation
 ------------------------
 
+**MongoDB database connection URI examples**
+
+Unauthenticated single node connection:
+
+```bash
+mongodb://127.0.0.0:27017/mydb
+```
+
+Replica set connection:
+
+```bash
+mongodb://127.0.0.0:27017/mydb?replicaSet=xxx
+```
+
+Authenticated replica set connection:
+
+```bash
+mongodb://admin:password@127.0.0.0:27017/mydb?replicaSet=xxx&authSource=admin
+```
+
+Multi-node replica set connection:
+
+```bash
+mongodb://127.0.0..1:27017,127.0.0..2:27017,127.0.0.3:27017/mydb?replicaSet=xxx
+```
+
+Sharded cluster connection:
+
+```bash
+mongodb://127.0.0.0:27017/mydb
+```
+
+Multiple mongos connections:
+
+```bash
+mongodb://192.168.0.1:27017,192.168.0.2:27017,192.168.0.3:27017/mydb
+```
+
+Note: The username and password in the URI must be URL-encoded before being concatenated into the connection string.
+
 **Buffer Flush**
 
 ```bash

@@ -67,8 +67,8 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
     private static final String MONGODB_DATABASE = "test_db";
 
     private static final String MONGODB_SOURCE_TABLE = "test_match_op_db";
-    private static final String MONGODB_SINK_TABLE = "sink_table";
-    private static final String MONGODB_UPDATE_TABLE = "update_table";
+    private static final String MONGODB_SINK_TABLE = "test_source_sink_table";
+    private static final String MONGODB_UPDATE_TABLE = "test_update_table";
 
     private GenericContainer<?> mongodbContainer;
     private MongoClient client;

@@ -151,6 +151,46 @@ sink {
 Parameter interpretation
 ------------------------
 
+**MongoDB database connection URI examples**
+
+Unauthenticated single node connection:
+
+```bash
+mongodb://192.168.0.100:27017/mydb
+```
+
+Replica set connection:
+
+```bash
+mongodb://192.168.0.100:27017/mydb?replicaSet=xxx
+```
+
+Authenticated replica set connection:
+
+```bash
+mongodb://admin:password@192.168.0.100:27017/mydb?replicaSet=xxx&authSource=admin
+```
+
+Multi-node replica set connection:
+
+```bash
+mongodb://192.168.0.1:27017,192.168.0.2:27017,192.168.0.3:27017/mydb?replicaSet=xxx
+```
+
+Sharded cluster connection:
+
+```bash
+mongodb://192.168.0.100:27017/mydb
+```
+
+Multiple mongos connections:
+
+```bash
+mongodb://192.168.0.1:27017,192.168.0.2:27017,192.168.0.3:27017/mydb
+```
+
+Note: The username and password in the URI must be URL-encoded before being concatenated into the connection string.
+
 **MatchQuery Scan**
 
 In data synchronization scenarios, the matchQuery approach needs to be used early to reduce the number of documents that need to be processed by subsequent operators, thus improving performance.
@@ -174,6 +214,7 @@ source {
 ```
 
 The following are examples of MatchQuery query statements of various data types:
+
 ```bash
 # Query Boolean type
 "{c_boolean:true}"
