@@ -33,11 +33,9 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.Elasticsear
 
 import com.google.auto.service.AutoService;
 
-import java.util.Collections;
-
-import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.BATCH_INTERVAL_MS;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.MAX_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.MAX_RETRY_COUNT;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.BATCH_INTERVAL_MS;
 
 @AutoService(SeaTunnelSink.class)
 public class ElasticsearchSink
@@ -96,12 +94,6 @@ public class ElasticsearchSink
     public SinkWriter<SeaTunnelRow, ElasticsearchCommitInfo, ElasticsearchSinkState> createWriter(
             SinkWriter.Context context) {
         return new ElasticsearchSinkWriter(
-                context,
-                seaTunnelRowType,
-                pluginConfig,
-                maxBatchSize,
-                maxRetryCount,
-                batchIntervalMs,
-                Collections.emptyList());
+                context, seaTunnelRowType, pluginConfig, maxBatchSize, maxRetryCount,batchIntervalMs);
     }
 }

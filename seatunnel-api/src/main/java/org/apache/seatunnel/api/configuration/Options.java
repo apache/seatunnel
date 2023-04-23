@@ -23,6 +23,7 @@ import org.apache.commons.lang3.StringUtils;
 
 import lombok.NonNull;
 
+import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.time.Duration;
 import java.util.List;
@@ -130,8 +131,31 @@ public class Options {
          * Defines that the value of the option should be a list of properties, which can be
          * represented as {@code List<T>}.
          */
-        public <T> TypedOptionBuilder<List<T>> listType(Class<T> option) {
-            return new TypedOptionBuilder<>(key, new TypeReference<List<T>>() {});
+        public <T> TypedOptionBuilder<List<T>> listType(Class<T> subClass) {
+            return new TypedOptionBuilder<>(
+                    key,
+                    new TypeReference<List<T>>() {
+                        @Override
+                        public Type getType() {
+                            return new ParameterizedType() {
+
+                                @Override
+                                public Type[] getActualTypeArguments() {
+                                    return new Type[] {subClass};
+                                }
+
+                                @Override
+                                public Type getRawType() {
+                                    return List.class;
+                                }
+
+                                @Override
+                                public Type getOwnerType() {
+                                    return null;
+                                }
+                            };
+                        }
+                    });
         }
 
         public <T> TypedOptionBuilder<T> objectType(Class<T> option) {

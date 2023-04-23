@@ -82,7 +82,7 @@ public class SubPlan {
     private final PipelineLocation pipelineLocation;
 
     /** The error throw by physicalVertex, should be set when physicalVertex throw error. */
-    private final AtomicReference<String> errorByPhysicalVertex = new AtomicReference<>();
+    private AtomicReference<String> errorByPhysicalVertex = new AtomicReference<>();
 
     private final ExecutorService executorService;
 
@@ -140,6 +140,8 @@ public class SubPlan {
     }
 
     public synchronized PassiveCompletableFuture<PipelineExecutionState> initStateFuture() {
+        // reset errorByPhysicalVertex when restore pipeline
+        errorByPhysicalVertex = new AtomicReference<>();
         physicalVertexList.forEach(
                 physicalVertex -> {
                     addPhysicalVertexCallBack(physicalVertex.initStateFuture());
@@ -196,8 +198,8 @@ public class SubPlan {
                                         checkpointCoordinatorState
                                                 .getCheckpointCoordinatorStatus())) {
                                     pipelineStatus = PipelineStatus.FAILED;
-                                    errorByPhysicalVertex.set(
-                                            checkpointCoordinatorState.getThrowableMsg());
+                                    errorByPhysicalVertex.compareAndSet(
+                                            null, checkpointCoordinatorState.getThrowableMsg());
                                 }
                             } else {
                                 pipelineStatus = PipelineStatus.FINISHED;
@@ -211,14 +213,14 @@ public class SubPlan {
                                         checkpointCoordinatorState
                                                 .getCheckpointCoordinatorStatus())) {
                                     pipelineStatus = PipelineStatus.FAILED;
-                                    errorByPhysicalVertex.set(
-                                            checkpointCoordinatorState.getThrowableMsg());
+                                    errorByPhysicalVertex.compareAndSet(
+                                            null, checkpointCoordinatorState.getThrowableMsg());
                                 } else if (CheckpointCoordinatorStatus.CANCELED.equals(
                                         checkpointCoordinatorState
                                                 .getCheckpointCoordinatorStatus())) {
                                     pipelineStatus = PipelineStatus.CANCELED;
-                                    errorByPhysicalVertex.set(
-                                            checkpointCoordinatorState.getThrowableMsg());
+                                    errorByPhysicalVertex.compareAndSet(
+                                            null, checkpointCoordinatorState.getThrowableMsg());
                                 }
                             }
 

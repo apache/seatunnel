@@ -77,8 +77,7 @@ public class ElasticsearchSinkWriter
             Config pluginConfig,
             int maxBatchSize,
             int maxRetryCount,
-            int batchIntervalMs,
-            List<ElasticsearchSinkState> elasticsearchStates) {
+            int batchIntervalMs) {
         this.context = context;
         this.maxBatchSize = maxBatchSize;
         this.batchIntervalMs = batchIntervalMs;

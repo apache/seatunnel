@@ -53,7 +53,7 @@ import java.util.Set;
 
 public class MySqlCatalog extends AbstractJdbcCatalog {
 
-    private static final Set<String> SYS_DATABASES = new HashSet<>(4);
+    protected static final Set<String> SYS_DATABASES = new HashSet<>(4);
 
     static {
         SYS_DATABASES.add("information_schema");

@@ -20,15 +20,15 @@ package org.apache.seatunnel.engine.server.checkpoint;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 
 import com.hazelcast.jet.datamodel.Tuple2;
+import com.sun.jersey.client.impl.CopyOnWriteHashMap;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 /** checkpoint plan info */
 @Getter
@@ -61,12 +61,12 @@ public class CheckpointPlan {
     private final Map<TaskLocation, Set<Tuple2<ActionStateKey, Integer>>> subtaskActions;
 
     public static final class Builder {
-        private final Set<TaskLocation> pipelineSubtasks = new HashSet<>();
-        private final Set<TaskLocation> startingSubtasks = new HashSet<>();
-        private final Map<ActionStateKey, Integer> pipelineActions = new HashMap<>();
+        private final Set<TaskLocation> pipelineSubtasks = new CopyOnWriteArraySet<>();
+        private final Set<TaskLocation> startingSubtasks = new CopyOnWriteArraySet<>();
+        private final Map<ActionStateKey, Integer> pipelineActions = new CopyOnWriteHashMap<>();
 
         private final Map<TaskLocation, Set<Tuple2<ActionStateKey, Integer>>> subtaskActions =
-                new HashMap<>();
+                new CopyOnWriteHashMap<>();
 
         private Builder() {}
 

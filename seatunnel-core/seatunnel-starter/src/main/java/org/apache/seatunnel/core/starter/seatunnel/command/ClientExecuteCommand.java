@@ -84,7 +84,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                                 StringUtils.isNotEmpty(clusterName)
                                         ? clusterName
                                         : Constant.DEFAULT_SEATUNNEL_CLUSTER_NAME);
-                instance = createServerInLocal(clusterName);
+                instance = createServerInLocal(clusterName, seaTunnelConfig);
             }
             if (StringUtils.isNotEmpty(clusterName)) {
                 seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
@@ -138,6 +138,13 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 startTime = LocalDateTime.now();
                 // create job proxy
                 ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+                if (clientCommandArgs.isAsync()) {
+                    if (clientCommandArgs.getMasterType().equals(MasterType.LOCAL)) {
+                        log.warn("The job is running in local mode, can not use async mode.");
+                    } else {
+                        return;
+                    }
+                }
                 // register cancelJob hook
                 Runtime.getRuntime()
                         .addShutdownHook(
@@ -220,8 +227,8 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         }
     }
 
-    private HazelcastInstance createServerInLocal(String clusterName) {
-        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+    private HazelcastInstance createServerInLocal(
+            String clusterName, SeaTunnelConfig seaTunnelConfig) {
         seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
         return HazelcastInstanceFactory.newHazelcastInstance(
                 seaTunnelConfig.getHazelcastConfig(),

@@ -41,14 +41,8 @@ public interface EnvCommonOptions {
     Option<JobMode> JOB_MODE =
             Options.key("job.mode")
                     .enumType(JobMode.class)
-                    .noDefaultValue()
+                    .defaultValue(JobMode.BATCH)
                     .withDescription("The job mode of this job, support Batch and Stream");
-
-    Option<ParsingMode> DAG_PARSING_MODE =
-            Options.key("dag-parsing.mode")
-                    .enumType(ParsingMode.class)
-                    .defaultValue(ParsingMode.SINGLENESS)
-                    .withDescription("Whether to enable parsing support for multi-table jobs");
 
     Option<Long> CHECKPOINT_INTERVAL =
             Options.key("checkpoint.interval")

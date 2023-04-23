@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -105,5 +106,13 @@ public abstract class AbstractSeaTunnelTransform implements SeaTunnelTransform<S
         System.arraycopy(rowType.getFieldTypes(), 0, fieldTypes, 0, fieldTypes.length);
 
         return new SeaTunnelRowType(fieldNames, fieldTypes);
+    }
+
+    @Override
+    public CatalogTable getProducedCatalogTable() {
+        throw new UnsupportedOperationException(
+                String.format(
+                        "Connector %s must implement TableTransformFactory.createTransform method",
+                        getPluginName()));
     }
 }
