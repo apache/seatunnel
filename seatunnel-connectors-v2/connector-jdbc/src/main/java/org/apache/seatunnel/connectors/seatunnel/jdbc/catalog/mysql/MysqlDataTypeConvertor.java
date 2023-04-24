@@ -89,13 +89,26 @@ public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
             MysqlType mysqlType, Map<String, Object> dataTypeProperties)
             throws DataTypeConvertException {
         checkNotNull(mysqlType, "mysqlType can not be null");
-
+        int precision;
+        int scale;
         switch (mysqlType) {
             case NULL:
                 return BasicType.VOID_TYPE;
             case BOOLEAN:
                 return BasicType.BOOLEAN_TYPE;
             case BIT:
+                precision = (Integer) dataTypeProperties.get(MysqlDataTypeConvertor.PRECISION);
+                if (precision == 1) {
+                    return BasicType.BOOLEAN_TYPE;
+                } else if (precision <= 8) {
+                    return BasicType.BYTE_TYPE;
+                } else if (precision <= 16) {
+                    return BasicType.SHORT_TYPE;
+                } else if (precision <= 32) {
+                    return BasicType.INT_TYPE;
+                } else {
+                    return BasicType.LONG_TYPE;
+                }
             case TINYINT:
                 return BasicType.BYTE_TYPE;
             case TINYINT_UNSIGNED:
@@ -143,9 +156,8 @@ public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
             case BIGINT_UNSIGNED:
             case DECIMAL:
             case DECIMAL_UNSIGNED:
-                Integer precision =
-                        MapUtils.getInteger(dataTypeProperties, PRECISION, DEFAULT_PRECISION);
-                Integer scale = MapUtils.getInteger(dataTypeProperties, SCALE, DEFAULT_SCALE);
+                precision = MapUtils.getInteger(dataTypeProperties, PRECISION, DEFAULT_PRECISION);
+                scale = MapUtils.getInteger(dataTypeProperties, SCALE, DEFAULT_SCALE);
                 return new DecimalType(precision, scale);
                 // TODO: support 'SET' & 'YEAR' type
             default:
