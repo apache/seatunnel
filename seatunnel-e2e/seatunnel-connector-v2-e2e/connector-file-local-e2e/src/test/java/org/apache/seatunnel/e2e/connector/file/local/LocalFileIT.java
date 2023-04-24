@@ -77,7 +77,7 @@ public class LocalFileIT extends TestSuiteBase {
         Container.ExecResult excelProjectionReadResult =
                 container.executeJob("/excel/local_excel_projection_to_assert.conf");
         Assertions.assertEquals(
-                0, excelReadResult.getExitCode(), excelProjectionReadResult.getStderr());
+                0, excelProjectionReadResult.getExitCode(), excelProjectionReadResult.getStderr());
         // test write local text file
         Container.ExecResult textWriteResult =
                 container.executeJob("/text/fake_to_local_file_text.conf");
