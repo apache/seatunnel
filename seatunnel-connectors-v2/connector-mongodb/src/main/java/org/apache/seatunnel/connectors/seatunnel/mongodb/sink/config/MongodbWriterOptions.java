@@ -44,6 +44,8 @@ public class MongodbWriterOptions implements Serializable {
 
     protected final Long retryInterval;
 
+    protected final boolean transactionEnable;
+
     public MongodbWriterOptions(
             String connectString,
             String database,
@@ -53,7 +55,8 @@ public class MongodbWriterOptions implements Serializable {
             boolean upsertEnable,
             String[] upsertKey,
             int retryMax,
-            Long retryInterval) {
+            Long retryInterval,
+            boolean transactionEnable) {
         this.connectString = connectString;
         this.database = database;
         this.collection = collection;
@@ -63,6 +66,7 @@ public class MongodbWriterOptions implements Serializable {
         this.upsertKey = upsertKey;
         this.retryMax = retryMax;
         this.retryInterval = retryInterval;
+        this.transactionEnable = transactionEnable;
     }
 
     public static Builder builder() {
@@ -80,6 +84,7 @@ public class MongodbWriterOptions implements Serializable {
         protected String[] upsertKey;
         protected int retryMax;
         protected Long retryInterval;
+        protected boolean transactionEnable;
 
         public Builder withConnectString(String connectString) {
             this.connectString = connectString;
@@ -121,6 +126,11 @@ public class MongodbWriterOptions implements Serializable {
             return this;
         }
 
+        public Builder withTransactionEnable(Boolean transactionEnable) {
+            this.transactionEnable = transactionEnable;
+            return this;
+        }
+
         public Builder withRetryInterval(Long retryInterval) {
             this.retryInterval = retryInterval;
             return this;
@@ -136,7 +146,8 @@ public class MongodbWriterOptions implements Serializable {
                     upsertEnable,
                     upsertKey,
                     retryMax,
-                    retryInterval);
+                    retryInterval,
+                    transactionEnable);
         }
     }
 }

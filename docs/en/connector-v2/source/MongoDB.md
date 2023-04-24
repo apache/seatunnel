@@ -46,13 +46,13 @@ The following table lists the field data type mapping from MongoDB BSON type to 
 | Int32             | INTEGER        |
 | -                 | TINYINT        |
 | -                 | SMALLINT       |
-| -                 | BIGINT         |
+| Int64             | BIGINT         |
 | Double            | DOUBLE         |
 | -                 | FLOAT          |
 | Decimal128        | DECIMAL        |
 | Date              | Date           |
 | -                 | TIME           |
-| Timestamp         | Timestamp      |
+| Date              | Timestamp      |
 | Object            | ROW            |
 | Array             | ARRAY          |
 
@@ -84,6 +84,7 @@ Connector Options
 | cursor.no-timeout    | optional | true              | Boolean | MongoDB server normally times out idle cursors after an inactivity period (10 minutes) to prevent excess memory use. Set this option to true to prevent that. However, if the application takes longer than 30 minutes to process the current batch of documents, the session is marked as expired and closed. |
 | fetch.size           | optional | 2048              | Int     | Set the number of documents obtained from the server for each batch. Setting the appropriate batch size can improve query performance and avoid the memory pressure caused by obtaining a large amount of data at one time.                                                                                    |
 | max.time-min         | optional | 600L              | Long    | This parameter is a MongoDB query option that limits the maximum execution time for query operations. The value of maxTimeMin is in Minute. If the execution time of the query exceeds the specified time limit, MongoDB will terminate the operation and return an error.                                     |
+| flat.sync-string     | optional | true              | Boolean | By utilizing flatSyncString, only one field attribute value can be set, and the field type must be a String. This operation will perform a string mapping on a single MongoDB data entry.                                                                                                                      |
 
 How to create a MongoDB Data synchronization jobs
 -------------------------------------------------
@@ -283,6 +284,167 @@ source {
   }
 }
 
+```
+
+**Flat Sync String**
+By utilizing `flat.sync-string`, only one field attribute value can be set, and the field type must be a String.
+This operation will perform a string mapping on a single MongoDB data entry.
+
+```bash
+source {
+  MongoDB {
+    uri = "mongodb://user:password@127.0.0.1:27017"
+    database = "test_db"
+    collection = "users"
+    flat.sync-string = true
+    schema = {
+      fields {
+        data = string
+      }
+    }
+  }
+}
+```
+
+Use the data samples synchronized with modified parameters, such as the following:
+
+```json
+{
+  "_id":{
+    "$oid":"643d41f5fdc6a52e90e59cbf"
+  },
+  "c_map":{
+    "OQBqH":"jllt",
+    "rkvlO":"pbfdf",
+    "pCMEX":"hczrdtve",
+    "DAgdj":"t",
+    "dsJag":"voo"
+  },
+  "c_array":[
+    {
+      "$numberInt":"-865590937"
+    },
+    {
+      "$numberInt":"833905600"
+    },
+    {
+      "$numberInt":"-1104586446"
+    },
+    {
+      "$numberInt":"2076336780"
+    },
+    {
+      "$numberInt":"-1028688944"
+    }
+  ],
+  "c_string":"bddkzxr",
+  "c_boolean":false,
+  "c_tinyint":{
+    "$numberInt":"39"
+  },
+  "c_smallint":{
+    "$numberInt":"23672"
+  },
+  "c_int":{
+    "$numberInt":"-495763561"
+  },
+  "c_bigint":{
+    "$numberLong":"3768307617923954543"
+  },
+  "c_float":{
+    "$numberDouble":"5.284220288280258E37"
+  },
+  "c_double":{
+    "$numberDouble":"1.1706091642478246E308"
+  },
+  "c_bytes":{
+    "$binary":{
+      "base64":"ZWJ4",
+      "subType":"00"
+    }
+  },
+  "c_date":{
+    "$date":{
+      "$numberLong":"1686614400000"
+    }
+  },
+  "c_decimal":{
+    "$numberDecimal":"683265300"
+  },
+  "c_timestamp":{
+    "$date":{
+      "$numberLong":"1684283772000"
+    }
+  },
+  "c_row":{
+    "c_map":{
+      "OQBqH":"cbrzhsktmm",
+      "rkvlO":"qtaov",
+      "pCMEX":"tuq",
+      "DAgdj":"jzop",
+      "dsJag":"vwqyxtt"
+    },
+    "c_array":[
+      {
+        "$numberInt":"1733526799"
+      },
+      {
+        "$numberInt":"-971483501"
+      },
+      {
+        "$numberInt":"-1716160960"
+      },
+      {
+        "$numberInt":"-919976360"
+      },
+      {
+        "$numberInt":"727499700"
+      }
+    ],
+    "c_string":"oboislr",
+    "c_boolean":true,
+    "c_tinyint":{
+      "$numberInt":"-66"
+    },
+    "c_smallint":{
+      "$numberInt":"1308"
+    },
+    "c_int":{
+      "$numberInt":"-1573886733"
+    },
+    "c_bigint":{
+      "$numberLong":"4877994302999518682"
+    },
+    "c_float":{
+      "$numberDouble":"1.5353209063652051E38"
+    },
+    "c_double":{
+      "$numberDouble":"1.1952441956458565E308"
+    },
+    "c_bytes":{
+      "$binary":{
+        "base64":"cWx5Ymp0Yw==",
+        "subType":"00"
+      }
+    },
+    "c_date":{
+      "$date":{
+        "$numberLong":"1686614400000"
+      }
+    },
+    "c_decimal":{
+      "$numberDecimal":"656406177"
+    },
+    "c_timestamp":{
+      "$date":{
+        "$numberLong":"1684283772000"
+      }
+    }
+  },
+  "id":{
+    "$numberInt":"2"
+  }
+}
 ```
 
 ## Changelog

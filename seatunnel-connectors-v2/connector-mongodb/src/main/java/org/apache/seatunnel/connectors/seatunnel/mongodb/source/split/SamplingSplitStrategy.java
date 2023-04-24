@@ -107,13 +107,18 @@ public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
         BsonDocument statsCmd = new BsonDocument("collStats", new BsonString(collectionName));
         Document res = clientProvider.getDefaultDatabase().runCommand(statsCmd);
         long total = res.getInteger("count");
-        long avgDocumentBytes = res.getInteger("avgObjSize");
+        Object avgDocumentBytes = res.get("avgObjSize");
+        long avgObjSize = 0L;
+        if (avgDocumentBytes instanceof Integer) {
+            avgObjSize = ((Integer) avgDocumentBytes).longValue();
+        } else if (avgDocumentBytes instanceof Double) {
+            avgObjSize = ((Double) avgDocumentBytes).longValue();
+        }
         if (matchQuery == null || matchQuery.isEmpty()) {
-            return ImmutablePair.of(total, avgDocumentBytes);
+            return ImmutablePair.of(total, avgObjSize);
         } else {
             return ImmutablePair.of(
-                    clientProvider.getDefaultCollection().countDocuments(matchQuery),
-                    avgDocumentBytes);
+                    clientProvider.getDefaultCollection().countDocuments(matchQuery), avgObjSize);
         }
     }
 

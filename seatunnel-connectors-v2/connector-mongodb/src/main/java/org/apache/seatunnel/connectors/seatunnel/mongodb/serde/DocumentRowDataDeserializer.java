@@ -25,7 +25,9 @@ import org.apache.seatunnel.connectors.seatunnel.mongodb.exception.MongodbConnec
 import org.bson.BsonDocument;
 import org.bson.BsonValue;
 
+import static org.apache.seatunnel.api.table.type.SqlType.STRING;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.ILLEGAL_ARGUMENT;
+import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_OPERATION;
 
 public class DocumentRowDataDeserializer implements DocumentDeserializer<SeaTunnelRow> {
 
@@ -34,19 +36,32 @@ public class DocumentRowDataDeserializer implements DocumentDeserializer<SeaTunn
     private final SeaTunnelDataType<?>[] fieldTypes;
 
     private final BsonToRowDataConverters bsonConverters;
+    private final Boolean flatSyncString;
 
-    public DocumentRowDataDeserializer(String[] fieldNames, SeaTunnelDataType<?> dataTypes) {
+    public DocumentRowDataDeserializer(
+            String[] fieldNames, SeaTunnelDataType<?> dataTypes, Boolean flatSyncString) {
         if (fieldNames == null || fieldNames.length < 1) {
             throw new MongodbConnectorException(ILLEGAL_ARGUMENT, "fieldName is empty");
         }
-
         this.bsonConverters = new BsonToRowDataConverters();
         this.fieldNames = fieldNames;
         this.fieldTypes = ((SeaTunnelRowType) dataTypes).getFieldTypes();
+        this.flatSyncString = flatSyncString;
     }
 
     @Override
     public SeaTunnelRow deserialize(BsonDocument bsonDocument) {
+        if (flatSyncString) {
+            if (fieldNames.length != 1 && fieldTypes[0].getSqlType() != STRING) {
+                throw new MongodbConnectorException(
+                        UNSUPPORTED_OPERATION,
+                        "By utilizing flatSyncString, only one field attribute value can be set, and the field type must be a String. This operation will perform a string mapping on a single MongoDB data entry.");
+            }
+            SeaTunnelRow rowData = new SeaTunnelRow(fieldNames.length);
+            rowData.setField(
+                    0, bsonConverters.createConverter(fieldTypes[0]).convert(bsonDocument));
+            return rowData;
+        }
         SeaTunnelRow rowData = new SeaTunnelRow(fieldNames.length);
         for (int i = 0; i < fieldNames.length; i++) {
             String fieldName = this.fieldNames[i];

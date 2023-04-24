@@ -383,6 +383,9 @@ public class BsonToRowDataConverters implements Serializable {
         if (bsonValue.isObjectId()) {
             return bsonValue.asObjectId().getValue().toHexString();
         }
+        if (bsonValue.isDocument()) {
+            return bsonValue.asDocument().toJson(DEFAULT_JSON_WRITER_SETTINGS);
+        }
         return new BsonDocument(ENCODE_VALUE_FIELD, bsonValue).toJson(DEFAULT_JSON_WRITER_SETTINGS);
     }
 

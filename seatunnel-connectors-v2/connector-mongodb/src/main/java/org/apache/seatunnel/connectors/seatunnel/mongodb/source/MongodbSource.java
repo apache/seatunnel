@@ -91,7 +91,11 @@ public class MongodbSource
         } else {
             this.rowType = CatalogTableUtil.buildSimpleTextSchema();
         }
-        deserializer = new DocumentRowDataDeserializer(rowType.getFieldNames(), rowType);
+        deserializer =
+                new DocumentRowDataDeserializer(
+                        rowType.getFieldNames(),
+                        rowType,
+                        pluginConfig.getBoolean(MongodbConfig.FLAT_SYNC_STRING.key()));
         splitStrategy =
                 SamplingSplitStrategy.builder()
                         .setMatchQuery(

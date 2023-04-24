@@ -27,7 +27,7 @@ import java.util.List;
 
 public class MongodbConfig {
 
-    public static final String CONNECTOR_IDENTITY = "Mongodb";
+    public static final String CONNECTOR_IDENTITY = "MongoDB";
 
     public static final String ENCODE_VALUE_FIELD = "_value";
 
@@ -97,6 +97,13 @@ public class MongodbConfig {
                     .withDescription(
                             "This parameter is a MongoDB query option that limits the maximum execution time for query operations. The value of maxTimeMS is in milliseconds. If the execution time of the query exceeds the specified time limit, MongoDB will terminate the operation and return an error.");
 
+    public static final Option<Boolean> FLAT_SYNC_STRING =
+            Options.key("flat.sync-string")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "By utilizing flatSyncString, only one field attribute value can be set, and the field type must be a String. This operation will perform a string mapping on a single MongoDB data entry.");
+
     // --------------------------------------------------------------------
     // The following are the sink parameters.
     // --------------------------------------------------------------------
@@ -141,4 +148,10 @@ public class MongodbConfig {
                     .noDefaultValue()
                     .withDescription(
                             "The primary keys for upsert. Only valid in upsert mode. Keys are in csv format for properties.");
+
+    public static final Option<Boolean> TRANSACTION_ENABLE =
+            Options.key("transaction-enable")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Turn on the transaction submission of mongodb.");
 }
