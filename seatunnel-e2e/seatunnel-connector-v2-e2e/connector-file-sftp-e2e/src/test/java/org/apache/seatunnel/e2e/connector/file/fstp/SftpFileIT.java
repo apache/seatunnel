@@ -19,7 +19,6 @@ package org.apache.seatunnel.e2e.connector.file.fstp;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
@@ -37,6 +36,7 @@ import com.jcraft.jsch.ChannelSftp;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.Session;
 import com.jcraft.jsch.SftpException;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
@@ -51,7 +51,6 @@ import java.util.stream.Stream;
 
 @DisabledOnContainer(
         value = {TestContainerId.SPARK_2_4},
-        type = {EngineType.SEATUNNEL},
         disabledReason = "The apache-compress version is not compatible with apache-poi")
 @Slf4j
 public class SftpFileIT extends TestSuiteBase implements TestResource {
@@ -147,6 +146,7 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    @SneakyThrows
     public static void tmpFileToSftpServerWithCustomPath(
             String host,
             int port,
@@ -188,8 +188,6 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
             channelSftp.put(fis, localFilePath.getName());
 
             fis.close();
-        } catch (Exception e) {
-            log.error("File to sftpServer with custom path operation exception", e);
         } finally {
             if (channelSftp != null) {
                 channelSftp.exit();
