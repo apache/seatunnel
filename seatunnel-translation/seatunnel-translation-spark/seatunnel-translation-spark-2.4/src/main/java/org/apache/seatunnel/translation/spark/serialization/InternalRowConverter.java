@@ -47,6 +47,10 @@ import org.apache.spark.sql.types.Decimal;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.unsafe.types.UTF8String;
 
+import scala.Tuple2;
+import scala.collection.immutable.HashMap.HashTrieMap;
+import scala.collection.mutable.WrappedArray;
+
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.Date;
@@ -97,8 +101,11 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             case ARRAY:
                 // if string array, we need to covert every item in array from String to UTF8String
                 if (((ArrayType<?, ?>) dataType).getElementType().equals(BasicType.STRING_TYPE)) {
-                    String[] fields = (String[]) field;
-                    Object[] objects = Arrays.stream(fields).map(UTF8String::fromString).toArray();
+                    Object[] fields = (Object[]) field;
+                    Object[] objects =
+                            Arrays.stream(fields)
+                                    .map(v -> UTF8String.fromString((String) v))
+                                    .toArray();
                     return ArrayData.toArrayData(objects);
                 }
                 // except string, now only support convert boolean int tinyint smallint bigint float
@@ -158,6 +165,26 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         return newMap;
     }
 
+    private static Map<Object, Object> reconvertMap(
+            HashTrieMap hashTrieMap, MapType<?, ?> mapType) {
+        if (hashTrieMap == null || hashTrieMap.size() == 0) {
+            return Collections.emptyMap();
+        }
+        Map<Object, Object> newMap = new HashMap<>(hashTrieMap.size());
+        int num = hashTrieMap.size();
+        SeaTunnelDataType<?> keyType = mapType.getKeyType();
+        SeaTunnelDataType<?> valueType = mapType.getValueType();
+        scala.collection.immutable.List<?> list = hashTrieMap.keySet().toList();
+        for (int i = 0; i < num; i++) {
+            Object key = list.apply(i);
+            Object value = hashTrieMap.get(key);
+            key = reconvert(key, keyType);
+            value = reconvert(value, valueType);
+            newMap.put(key, value);
+        }
+        return newMap;
+    }
+
     private static MutableValue createMutableValue(SeaTunnelDataType<?> dataType) {
         switch (dataType.getSqlType()) {
             case BOOLEAN:
@@ -209,13 +236,31 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 return Timestamp.from(InstantConverterUtils.ofEpochMicro((long) field))
                         .toLocalDateTime();
             case MAP:
-                return reconvertMap((MapData) field, (MapType<?, ?>) dataType);
+                if (field instanceof MapData) {
+                    return reconvertMap((MapData) field, (MapType<?, ?>) dataType);
+                } else if (field instanceof HashTrieMap) {
+                    return reconvertMap((HashTrieMap) field, (MapType<?, ?>) dataType);
+                } else {
+                    throw new RuntimeException(
+                            String.format(
+                                    "SeaTunnel unsupported Spark internal Map type: %s ",
+                                    field.getClass()));
+                }
             case STRING:
                 return field.toString();
             case DECIMAL:
                 return ((Decimal) field).toJavaBigDecimal();
             case ARRAY:
-                return reconvertArray((ArrayData) field, (ArrayType<?, ?>) dataType);
+                if (field instanceof ArrayData) {
+                    return reconvertArray((ArrayData) field, (ArrayType<?, ?>) dataType);
+                } else if (field instanceof WrappedArray.ofRef) {
+                    return reconvertArray((WrappedArray.ofRef) field, (ArrayType<?, ?>) dataType);
+                } else {
+                    throw new RuntimeException(
+                            String.format(
+                                    "SeaTunnel unsupported Spark internal Array type: %s ",
+                                    field.getClass()));
+                }
             default:
                 return field;
         }
@@ -245,6 +290,18 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         return newArray;
     }
 
+    private static Object reconvertArray(
+            WrappedArray.ofRef<?> arrayData, ArrayType<?, ?> arrayType) {
+        if (arrayData == null || arrayData.size() == 0) {
+            return Collections.emptyList().toArray();
+        }
+        Object[] newArray = new Object[arrayData.size()];
+        for (int i = 0; i < arrayData.size(); i++) {
+            newArray[i] = reconvert(arrayData.apply(i), arrayType.getElementType());
+        }
+        return newArray;
+    }
+
     public Object[] convertToFields(InternalRow internalRow, StructType structType) {
         Object[] fields =
                 Arrays.stream(((SpecificInternalRow) internalRow).values())
@@ -253,17 +310,56 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         int len = structType.fields().length;
         for (int i = 0; i < len; i++) {
             DataType dataType = structType.fields()[i].dataType();
-            Object field = fields[i];
-            if (dataType == DataTypes.TimestampType && field instanceof Long) {
-                fields[i] = Timestamp.from(InstantConverterUtils.ofEpochMicro((long) field));
-            }
-            if (dataType == DataTypes.DateType && field instanceof Integer) {
-                fields[i] = Date.valueOf(LocalDate.ofEpochDay((int) field));
-            }
-            if (field instanceof UTF8String) {
-                fields[i] = field.toString();
-            }
+            fields[i] = convertToField(fields[i], dataType);
         }
         return fields;
+    }
+
+    private Object convertToField(Object internalRowField, DataType dataType) {
+        if (dataType == DataTypes.TimestampType && internalRowField instanceof Long) {
+            return Timestamp.from(InstantConverterUtils.ofEpochMicro((long) internalRowField));
+        } else if (dataType == DataTypes.DateType && internalRowField instanceof Integer) {
+            return Date.valueOf(LocalDate.ofEpochDay((int) internalRowField));
+        } else if (dataType == DataTypes.StringType && internalRowField instanceof UTF8String) {
+            return internalRowField.toString();
+        } else if (dataType instanceof org.apache.spark.sql.types.MapType
+                && internalRowField instanceof MapData) {
+            MapData mapData = (MapData) internalRowField;
+
+            scala.collection.immutable.HashMap<Object, Object> newMap =
+                    new scala.collection.immutable.HashMap<>();
+
+            if (mapData.numElements() == 0) {
+                return newMap;
+            }
+            org.apache.spark.sql.types.MapType mapType =
+                    (org.apache.spark.sql.types.MapType) dataType;
+
+            int num = mapData.numElements();
+            Object[] keys = mapData.keyArray().toObjectArray(mapType.keyType());
+            Object[] values = mapData.valueArray().toObjectArray(mapType.valueType());
+            for (int i = 0; i < num; i++) {
+                keys[i] = convertToField(keys[i], mapType.keyType());
+                values[i] = convertToField(values[i], mapType.valueType());
+                Tuple2<Object, Object> tuple2 = new Tuple2<>(keys[i], values[i]);
+                newMap = newMap.$plus(tuple2);
+            }
+            return newMap;
+        } else if (dataType instanceof org.apache.spark.sql.types.ArrayType
+                && internalRowField instanceof ArrayData) {
+            ArrayData arrayData = (ArrayData) internalRowField;
+            if (arrayData.numElements() == 0) {
+                return new WrappedArray.ofRef(new Object[0]);
+            }
+            org.apache.spark.sql.types.ArrayType arrayType =
+                    (org.apache.spark.sql.types.ArrayType) dataType;
+            Object[] values = arrayData.array();
+            int num = arrayData.numElements();
+            for (int i = 0; i < num; i++) {
+                values[i] = convertToField(values[i], arrayType.elementType());
+            }
+            return new WrappedArray.ofRef(values);
+        }
+        return internalRowField;
     }
 }
