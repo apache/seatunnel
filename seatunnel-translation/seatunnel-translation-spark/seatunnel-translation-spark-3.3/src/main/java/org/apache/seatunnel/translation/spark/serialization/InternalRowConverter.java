@@ -113,6 +113,9 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 // double, because SeaTunnel Array only support these types
                 return ArrayData.toArrayData(field);
             default:
+                if (field instanceof scala.Some) {
+                    return ((scala.Some) field).get();
+                }
                 return field;
         }
     }

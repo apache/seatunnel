@@ -111,8 +111,18 @@ public abstract class RowConverter<T> implements Serializable {
                     return true;
                 } else {
                     Map.Entry<?, ?> entry = mapField.entrySet().stream().findFirst().get();
-                    return validate(entry.getKey(), mapType.getKeyType())
-                            && validate(entry.getValue(), mapType.getValueType());
+                    Object key = entry.getKey();
+                    if (key instanceof scala.Some) {
+                        scala.Some some = (scala.Some) key;
+                        key = some.get();
+                    }
+                    Object value = entry.getValue();
+                    if (value instanceof scala.Some) {
+                        scala.Some some = (scala.Some) value;
+                        value = some.get();
+                    }
+                    return validate(key, mapType.getKeyType())
+                            && validate(value, mapType.getValueType());
                 }
             case ROW:
                 if (!(field instanceof SeaTunnelRow)) {
