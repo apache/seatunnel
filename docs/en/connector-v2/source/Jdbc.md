@@ -97,9 +97,6 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed
 in parallel according to the concurrency of tasks.
 
-defaultRowFetchSize param is very import for JDBC Source to read data from Redshift use Redshift driver.
-If defaultRowFetchSize is not set , the Redshift will return all data to seatunnel source reader and the source may oom.
-
 ## appendix
 
 there are some reference value for params above.
@@ -152,6 +149,26 @@ Jdbc {
     partition_num = 10
 }
 ```
+
+redshift:
+
+```
+Jdbc {
+    url = "jdbc:redshift://localhost:5439/testdb?defaultRowFetchSize=1000"
+    driver = "com.amazon.redshift.jdbc42.Driver"
+    connection_check_timeout_sec = 100
+    user = "root"
+    password = "123456"
+    query = "select * from type_bin"
+}
+```
+
+:::tip
+
+defaultRowFetchSize param is very import for JDBC Source to read data from Redshift use Redshift driver.
+If defaultRowFetchSize is not set , the Redshift will return all data to seatunnel source reader and the source may oom.
+
+:::
 
 ## Changelog
 
