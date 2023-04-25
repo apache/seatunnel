@@ -60,6 +60,7 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public final class InternalRowConverter extends RowConverter<InternalRow> {
@@ -170,7 +171,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         if (hashTrieMap == null || hashTrieMap.size() == 0) {
             return Collections.emptyMap();
         }
-        Map<Object, Object> newMap = new HashMap<>(hashTrieMap.size());
+        Map<Object, Object> newMap = new LinkedHashMap<>(hashTrieMap.size());
         int num = hashTrieMap.size();
         SeaTunnelDataType<?> keyType = mapType.getKeyType();
         SeaTunnelDataType<?> valueType = mapType.getValueType();
