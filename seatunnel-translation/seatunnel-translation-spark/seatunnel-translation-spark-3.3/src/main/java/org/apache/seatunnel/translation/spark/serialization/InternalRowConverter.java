@@ -249,7 +249,11 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             case STRING:
                 return field.toString();
             case DECIMAL:
-                return ((Decimal) field).toJavaBigDecimal();
+                if (field instanceof Decimal) {
+                    return ((Decimal) field).toJavaBigDecimal();
+                } else if (field instanceof BigDecimal) {
+                    return field;
+                }
             case ARRAY:
                 if (field instanceof ArrayData) {
                     return reconvertArray((ArrayData) field, (ArrayType<?, ?>) dataType);
