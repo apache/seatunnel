@@ -22,15 +22,19 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.SupportMultipleTable;
+import org.apache.seatunnel.api.table.factory.TableFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.Config;
 
 import com.google.auto.service.AutoService;
+
+import java.util.Collections;
 
 import static org.apache.seatunnel.api.table.catalog.CatalogTableUtil.FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.BOOTSTRAP_SERVERS;
 
 @AutoService(Factory.class)
-public class KafkaCatalogFactory implements CatalogFactory {
+public class KafkaCatalogFactory implements CatalogFactory, SupportMultipleTable {
 
     @Override
     public Catalog createCatalog(String catalogName, ReadonlyConfig options) {
@@ -46,5 +50,10 @@ public class KafkaCatalogFactory implements CatalogFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder().required(FIELDS, BOOTSTRAP_SERVERS).build();
+    }
+
+    @Override
+    public Result applyTables(TableFactoryContext context) {
+        return SupportMultipleTable.Result.of(context.getCatalogTables(), Collections.emptyList());
     }
 }
