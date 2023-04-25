@@ -44,6 +44,7 @@
         <redshift.version>2.1.0.9</redshift.version>
         <saphana.version>2.14.7</saphana.version>
         <snowflake.version>3.13.29</snowflake.version>
+        <vertica.version>12.0.3-0</vertica.version>
     </properties>
 
     <dependencyManagement>
@@ -123,11 +124,16 @@
                 <version>${saphana.version}</version>
                 <scope>provided</scope>
             </dependency>
-
             <dependency>
                 <groupId>net.snowflake</groupId>
                 <artifactId>snowflake-jdbc</artifactId>
                 <version>${snowflake.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.vertica.jdbc</groupId>
+                <artifactId>vertica-jdbc</artifactId>
+                <version>${vertica.version}</version>
                 <scope>provided</scope>
             </dependency>
         </dependencies>
@@ -197,6 +203,9 @@
             <groupId>net.snowflake</groupId>
             <artifactId>snowflake-jdbc</artifactId>
         </dependency>
-
+        <dependency>
+            <groupId>com.vertica.jdbc</groupId>
+            <artifactId>vertica-jdbc</artifactId>
+        </dependency>
     </dependencies>
 </project>
