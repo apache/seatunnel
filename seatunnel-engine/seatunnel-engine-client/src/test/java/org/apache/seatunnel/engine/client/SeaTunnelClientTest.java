@@ -23,6 +23,7 @@ import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
+import org.apache.seatunnel.engine.client.job.JobClient;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
@@ -35,10 +36,8 @@ import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 import org.apache.commons.lang3.StringUtils;
 
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
@@ -63,7 +62,6 @@ public class SeaTunnelClientTest {
 
     private static SeaTunnelConfig SEATUNNEL_CONFIG = ConfigProvider.locateAndGetSeaTunnelConfig();
     private static HazelcastInstance INSTANCE;
-    private static SeaTunnelClient CLIENT;
 
     @BeforeAll
     public static void beforeClass() throws Exception {
@@ -77,17 +75,17 @@ public class SeaTunnelClientTest {
                         new SeaTunnelNodeContext(ConfigProvider.locateAndGetSeaTunnelConfig()));
     }
 
-    @BeforeEach
-    void setUp() {
+    private SeaTunnelClient createSeaTunnelClient() {
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
         clientConfig.setClusterName(TestUtils.getClusterName("SeaTunnelClientTest"));
-        CLIENT = new SeaTunnelClient(clientConfig);
+        return new SeaTunnelClient(clientConfig);
     }
 
     @Test
     public void testSayHello() {
         String msg = "Hello world";
-        String s = CLIENT.printMessageToMaster(msg);
+        SeaTunnelClient seaTunnelClient = createSeaTunnelClient();
+        String s = seaTunnelClient.printMessageToMaster(msg);
         Assertions.assertEquals(msg, s);
     }
 
@@ -96,10 +94,12 @@ public class SeaTunnelClientTest {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/client_test.conf");
         JobConfig jobConfig = new JobConfig();
-        jobConfig.setName("fake_to_file");
+        jobConfig.setName("testExecuteJob");
+
+        SeaTunnelClient seaTunnelClient = createSeaTunnelClient();
 
         JobExecutionEnvironment jobExecutionEnv =
-                CLIENT.createExecutionContext(filePath, jobConfig);
+                seaTunnelClient.createExecutionContext(filePath, jobConfig);
 
         try {
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
@@ -127,10 +127,13 @@ public class SeaTunnelClientTest {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/client_test.conf");
         JobConfig jobConfig = new JobConfig();
-        jobConfig.setName("fake_to_console");
+        jobConfig.setName("testGetJobState");
+
+        SeaTunnelClient seaTunnelClient = createSeaTunnelClient();
+        JobClient jobClient = seaTunnelClient.getJobClient();
 
         JobExecutionEnvironment jobExecutionEnv =
-                CLIENT.createExecutionContext(filePath, jobConfig);
+                seaTunnelClient.createExecutionContext(filePath, jobConfig);
 
         try {
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
@@ -145,15 +148,18 @@ public class SeaTunnelClientTest {
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
-                                            CLIENT.getJobDetailStatus(jobId).contains("RUNNING")
-                                                    && CLIENT.listJobStatus().contains("RUNNING")));
+                                            jobClient.getJobDetailStatus(jobId).contains("RUNNING")
+                                                    && jobClient
+                                                            .listJobStatus(true)
+                                                            .contains("RUNNING")));
 
             await().atMost(30000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
-                                            CLIENT.getJobDetailStatus(jobId).contains("FINISHED")
-                                                    && CLIENT.listJobStatus()
+                                            jobClient.getJobDetailStatus(jobId).contains("FINISHED")
+                                                    && jobClient
+                                                            .listJobStatus(true)
                                                             .contains("FINISHED")));
 
         } catch (ExecutionException | InterruptedException e) {
@@ -166,10 +172,13 @@ public class SeaTunnelClientTest {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/client_test.conf");
         JobConfig jobConfig = new JobConfig();
-        jobConfig.setName("fake_to_console");
+        jobConfig.setName("testGetJobMetrics");
+
+        SeaTunnelClient seaTunnelClient = createSeaTunnelClient();
+        JobClient jobClient = seaTunnelClient.getJobClient();
 
         JobExecutionEnvironment jobExecutionEnv =
-                CLIENT.createExecutionContext(filePath, jobConfig);
+                seaTunnelClient.createExecutionContext(filePath, jobConfig);
 
         try {
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
@@ -184,11 +193,12 @@ public class SeaTunnelClientTest {
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
-                                            CLIENT.getJobDetailStatus(jobId).contains("FINISHED")
-                                                    && CLIENT.listJobStatus()
+                                            jobClient.getJobDetailStatus(jobId).contains("FINISHED")
+                                                    && jobClient
+                                                            .listJobStatus(true)
                                                             .contains("FINISHED")));
 
-            String jobMetrics = CLIENT.getJobMetrics(jobId);
+            String jobMetrics = jobClient.getJobMetrics(jobId);
 
             Assertions.assertTrue(jobMetrics.contains(SOURCE_RECEIVED_COUNT));
             Assertions.assertTrue(jobMetrics.contains(SOURCE_RECEIVED_QPS));
@@ -205,10 +215,12 @@ public class SeaTunnelClientTest {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/streaming_fake_to_console.conf");
         JobConfig jobConfig = new JobConfig();
-        jobConfig.setName("streaming_fake_to_console");
+        jobConfig.setName("testCancelJob");
 
+        SeaTunnelClient seaTunnelClient = createSeaTunnelClient();
+        JobClient jobClient = seaTunnelClient.getJobClient();
         JobExecutionEnvironment jobExecutionEnv =
-                CLIENT.createExecutionContext(filePath, jobConfig);
+                seaTunnelClient.createExecutionContext(filePath, jobConfig);
 
         final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
@@ -216,13 +228,13 @@ public class SeaTunnelClientTest {
 
         await().atMost(30000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
-                        () -> Assertions.assertEquals("RUNNING", CLIENT.getJobStatus(jobId)));
+                        () -> Assertions.assertEquals("RUNNING", jobClient.getJobStatus(jobId)));
 
-        CLIENT.cancelJob(jobId);
+        jobClient.cancelJob(jobId);
 
         await().atMost(30000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
-                        () -> Assertions.assertEquals("CANCELED", CLIENT.getJobStatus(jobId)));
+                        () -> Assertions.assertEquals("CANCELED", jobClient.getJobStatus(jobId)));
     }
 
     @Test
@@ -232,8 +244,11 @@ public class SeaTunnelClientTest {
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("fake_to_console");
 
+        SeaTunnelClient seaTunnelClient = createSeaTunnelClient();
+        JobClient jobClient = seaTunnelClient.getJobClient();
+
         JobExecutionEnvironment jobExecutionEnv =
-                CLIENT.createExecutionContext(filePath, jobConfig);
+                seaTunnelClient.createExecutionContext(filePath, jobConfig);
 
         try {
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
@@ -241,17 +256,18 @@ public class SeaTunnelClientTest {
             long jobId = clientJobProxy.getJobId();
 
             // Running
-            Assertions.assertNotNull(CLIENT.getJobInfo(jobId));
+            Assertions.assertNotNull(jobClient.getJobInfo(jobId));
 
             await().atMost(180000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
-                                            CLIENT.getJobDetailStatus(jobId).contains("FINISHED")
-                                                    && CLIENT.listJobStatus()
+                                            jobClient.getJobDetailStatus(jobId).contains("FINISHED")
+                                                    && jobClient
+                                                            .listJobStatus(true)
                                                             .contains("FINISHED")));
             // Finished
-            JobDAGInfo jobInfo = CLIENT.getJobInfo(jobId);
+            JobDAGInfo jobInfo = jobClient.getJobInfo(jobId);
             Assertions.assertTrue(
                     StringUtils.isNotEmpty(new ObjectMapper().writeValueAsString(jobInfo)));
 
@@ -267,19 +283,22 @@ public class SeaTunnelClientTest {
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("streaming_fake_to_console.conf");
 
+        SeaTunnelClient seaTunnelClient = createSeaTunnelClient();
+        JobClient jobClient = seaTunnelClient.getJobClient();
+
         JobExecutionEnvironment jobExecutionEnv =
-                CLIENT.createExecutionContext(filePath, jobConfig);
+                seaTunnelClient.createExecutionContext(filePath, jobConfig);
         final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
         CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
         long jobId = clientJobProxy.getJobId();
 
         await().atMost(30000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
-                        () -> Assertions.assertEquals("RUNNING", CLIENT.getJobStatus(jobId)));
+                        () -> Assertions.assertEquals("RUNNING", jobClient.getJobStatus(jobId)));
 
         RetryUtils.retryWithException(
                 () -> {
-                    CLIENT.savePointJob(jobId);
+                    jobClient.savePointJob(jobId);
                     return null;
                 },
                 new RetryUtils.RetryMaterial(
@@ -298,25 +317,20 @@ public class SeaTunnelClientTest {
 
         await().atMost(30000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
-                        () -> Assertions.assertEquals("FINISHED", CLIENT.getJobStatus(jobId)));
+                        () -> Assertions.assertEquals("FINISHED", jobClient.getJobStatus(jobId)));
 
         Thread.sleep(1000);
-        CLIENT.restoreExecutionContext(filePath, jobConfig, jobId).execute();
+        seaTunnelClient.restoreExecutionContext(filePath, jobConfig, jobId).execute();
 
         await().atMost(30000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
-                        () -> Assertions.assertEquals("RUNNING", CLIENT.getJobStatus(jobId)));
+                        () -> Assertions.assertEquals("RUNNING", jobClient.getJobStatus(jobId)));
 
-        CLIENT.cancelJob(jobId);
+        jobClient.cancelJob(jobId);
 
         await().atMost(30000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
-                        () -> Assertions.assertEquals("CANCELED", CLIENT.getJobStatus(jobId)));
-    }
-
-    @AfterEach
-    void tearDown() {
-        CLIENT.close();
+                        () -> Assertions.assertEquals("CANCELED", jobClient.getJobStatus(jobId)));
     }
 
     @AfterAll
