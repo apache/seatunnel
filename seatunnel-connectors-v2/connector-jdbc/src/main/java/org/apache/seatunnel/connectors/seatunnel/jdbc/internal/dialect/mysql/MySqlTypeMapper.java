@@ -99,14 +99,8 @@ public class MySqlTypeMapper implements JdbcDialectTypeMapper {
             case MYSQL_BIT:
                 if (precision == 1) {
                     return BasicType.BOOLEAN_TYPE;
-                } else if (precision <= 8) {
-                    return BasicType.BYTE_TYPE;
-                } else if (precision <= 16) {
-                    return BasicType.SHORT_TYPE;
-                } else if (precision <= 32) {
-                    return BasicType.INT_TYPE;
                 } else {
-                    return BasicType.LONG_TYPE;
+                    return PrimitiveByteArrayType.INSTANCE;
                 }
             case MYSQL_TINYINT:
             case MYSQL_TINYINT_UNSIGNED:
