@@ -113,13 +113,11 @@ public abstract class RowConverter<T> implements Serializable {
                     Map.Entry<?, ?> entry = mapField.entrySet().stream().findFirst().get();
                     Object key = entry.getKey();
                     if (key instanceof scala.Some) {
-                        scala.Some some = (scala.Some) key;
-                        key = some.get();
+                        key = ((scala.Some<?>) key).get();
                     }
                     Object value = entry.getValue();
                     if (value instanceof scala.Some) {
-                        scala.Some some = (scala.Some) value;
-                        value = some.get();
+                        value = ((scala.Some<?>) value).get();
                     }
                     return validate(key, mapType.getKeyType())
                             && validate(value, mapType.getValueType());

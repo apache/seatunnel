@@ -114,7 +114,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 return ArrayData.toArrayData(field);
             default:
                 if (field instanceof scala.Some) {
-                    return ((scala.Some) field).get();
+                    return ((scala.Some<?>) field).get();
                 }
                 return field;
         }
