@@ -36,7 +36,6 @@ import com.jcraft.jsch.ChannelSftp;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.Session;
 import com.jcraft.jsch.SftpException;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
@@ -146,7 +145,6 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    @SneakyThrows
     public static void tmpFileToSftpServerWithCustomPath(
             String host,
             int port,
@@ -188,6 +186,8 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
             channelSftp.put(fis, localFilePath.getName());
 
             fis.close();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         } finally {
             if (channelSftp != null) {
                 channelSftp.exit();
