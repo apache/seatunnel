@@ -31,21 +31,13 @@ import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.utility.MountableFile;
 
-import com.jcraft.jsch.ChannelSftp;
-import com.jcraft.jsch.JSch;
-import com.jcraft.jsch.Session;
-import com.jcraft.jsch.SftpException;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.StringTokenizer;
 import java.util.stream.Stream;
 
 @DisabledOnContainer(
@@ -56,13 +48,13 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
 
     private static final String SFTP_IMAGE = "atmoz/sftp:latest";
 
-    private static final String SFTP_CONTAINER_HOST = "sft";
+    private static final String SFTP_CONTAINER_HOST = "sftp";
 
     private static final int SFTP_PORT = 22;
 
     private static final int SFTP_BIND_PORT = 2222;
 
-    private static final String USERNAME = "foo";
+    private static final String USERNAME = "seatunnel";
 
     private static final String PASSWORD = "pass";
 
@@ -71,7 +63,6 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
     @BeforeAll
     @Override
     public void startUp() throws Exception {
-
         sftpContainer =
                 new GenericContainer<>(SFTP_IMAGE)
                         .withEnv("SFTP_USERS", USERNAME + ":" + PASSWORD)
@@ -84,20 +75,33 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
         sftpContainer.start();
         Startables.deepStart(Stream.of(sftpContainer)).join();
         log.info("Sftp container started");
-        String host = sftpContainer.getContainerIpAddress();
-        int mappedPort = sftpContainer.getMappedPort(SFTP_PORT);
-        initDate(host, mappedPort);
+        Path jsonPath = ContainerUtil.getResourcesFile("/json/e2e.json").toPath();
+        Path textPath = ContainerUtil.getResourcesFile("/text/e2e.txt").toPath();
+        Path excelPath = ContainerUtil.getResourcesFile("/excel/e2e.xlsx").toPath();
+        sftpContainer.copyFileToContainer(
+                MountableFile.forHostPath(jsonPath),
+                "/home/seatunnel/tmp/seatunnel/read/json/name=tyrantlucifer/hobby=coding/e2e.json");
+        sftpContainer.copyFileToContainer(
+                MountableFile.forHostPath(textPath),
+                "/home/seatunnel/tmp/seatunnel/read/text/name=tyrantlucifer/hobby=coding/e2e.txt");
+        sftpContainer.copyFileToContainer(
+                MountableFile.forHostPath(excelPath),
+                "/home/seatunnel/tmp/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xlsx");
+        sftpContainer.execInContainer("sh", "-c", "chown -R seatunnel /home/seatunnel/tmp/");
     }
 
     @TestTemplate
     public void testSftpFileReadAndWrite(TestContainer container)
             throws IOException, InterruptedException {
+        // test write sftp excel file
         Container.ExecResult excelWriteResult =
                 container.executeJob("/excel/fakesource_to_sftp_excel.conf");
         Assertions.assertEquals(0, excelWriteResult.getExitCode(), excelWriteResult.getStderr());
+        // test read sftp excel file
         Container.ExecResult excelReadResult =
                 container.executeJob("/excel/sftp_excel_to_assert.conf");
         Assertions.assertEquals(0, excelReadResult.getExitCode(), excelReadResult.getStderr());
+        // test read sftp excel file with projection
         Container.ExecResult excelProjectionReadResult =
                 container.executeJob("/excel/sftp_excel_projection_to_assert.conf");
         Assertions.assertEquals(
@@ -126,76 +130,6 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
         Container.ExecResult jsonReadResult =
                 container.executeJob("/json/sftp_file_json_to_assert.conf");
         Assertions.assertEquals(0, jsonReadResult.getExitCode());
-    }
-
-    public static void initDate(String host, int mappedPort) {
-        Map<String, String> filesMap = new HashMap<>();
-        filesMap.put(
-                "/excel/e2e.xlsx", "/tmp/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/");
-        filesMap.put("/json/e2e.json", "/tmp/seatunnel/read/json/name=tyrantlucifer/hobby=coding/");
-        filesMap.put("/text/e2e.txt", "/tmp/seatunnel/read/text/name=tyrantlucifer/hobby=coding/");
-
-        for (Map.Entry<String, String> entry : filesMap.entrySet()) {
-            String localPath = entry.getKey();
-            String remotePath = entry.getValue();
-            Path path = ContainerUtil.getResourcesFile(localPath).toPath();
-
-            tmpFileToSftpServerWithCustomPath(
-                    host, mappedPort, USERNAME, PASSWORD, path.toFile(), remotePath);
-        }
-    }
-
-    public static void tmpFileToSftpServerWithCustomPath(
-            String host,
-            int port,
-            String username,
-            String password,
-            File localFilePath,
-            String remotePath) {
-        JSch jsch = new JSch();
-        Session session = null;
-        ChannelSftp channelSftp = null;
-
-        try {
-            session = jsch.getSession(username, host, port);
-            session.setPassword(password);
-            java.util.Properties config = new java.util.Properties();
-            config.put("StrictHostKeyChecking", "no");
-            config.put("PreferredAuthentications", "password");
-            session.setConfig(config);
-            session.connect();
-
-            channelSftp = (ChannelSftp) session.openChannel("sftp");
-            channelSftp.connect();
-
-            StringTokenizer token = new StringTokenizer(remotePath, "/");
-            String path = "";
-
-            while (token.hasMoreTokens()) {
-                path = path + "/" + token.nextToken();
-                try {
-                    channelSftp.cd(path);
-                } catch (SftpException e) {
-                    channelSftp.mkdir(path);
-                    channelSftp.cd(path);
-                }
-            }
-
-            FileInputStream fis = new FileInputStream(localFilePath);
-
-            channelSftp.put(fis, localFilePath.getName());
-
-            fis.close();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        } finally {
-            if (channelSftp != null) {
-                channelSftp.exit();
-            }
-            if (session != null) {
-                session.disconnect();
-            }
-        }
     }
 
     @AfterAll
