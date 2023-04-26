@@ -17,9 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.Catalog;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.factory.CatalogFactory;
+import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -48,7 +57,11 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -76,6 +89,10 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     protected GenericContainer<?> dbServer;
     protected JdbcCase jdbcCase;
     protected Connection connection;
+
+    protected Catalog defaultCatalog;
+
+    private static final String CATALOG_NAME = "default_catalog";
 
     abstract JdbcCase getJdbcCase();
 
@@ -212,14 +229,87 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                 .atMost(360, TimeUnit.SECONDS)
                 .untilAsserted(() -> this.initializeJdbcConnection(jdbcCase.getJdbcUrl()));
 
+        testCatalogUp();
+        insertTestData();
+    }
+
+    private void testCatalogUp() {
+        Optional<CatalogFactory> factory =
+                FactoryUtil.discoverOptionalFactory(
+                        Thread.currentThread().getContextClassLoader(),
+                        CatalogFactory.class,
+                        getJdbcCase().getIdentifier());
+        if (factory.isPresent()) {
+            CatalogFactory catalogFactory = factory.get();
+            Map<String, Object> inMap = new HashMap<>();
+            inMap.put(JdbcCatalogOptions.BASE_URL.key(), jdbcCase.getJdbcUrl());
+            inMap.put(JdbcCatalogOptions.USERNAME.key(), jdbcCase.getUserName());
+            inMap.put(JdbcCatalogOptions.PASSWORD.key(), jdbcCase.getPassword());
+            ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(inMap);
+            defaultCatalog = catalogFactory.createCatalog(CATALOG_NAME, readonlyConfig);
+
+            defaultCatalog.createDatabase(TablePath.of(jdbcCase.getDatabase(), null), true);
+
+            defaultCatalog.createTable(
+                    TablePath.of(jdbcCase.getDatabase(), jdbcCase.getSourceTable()),
+                    CatalogTable.of(
+                            TableIdentifier.of(
+                                    CATALOG_NAME,
+                                    jdbcCase.getDatabase(),
+                                    jdbcCase.getSourceTable()),
+                            TableSchema.builder().columns(jdbcCase.getColumns()).build(),
+                            Collections.emptyMap(),
+                            Collections.emptyList(),
+                            ""),
+                    true);
+
+            defaultCatalog.createTable(
+                    TablePath.of(jdbcCase.getDatabase(), jdbcCase.getSourceTable()),
+                    CatalogTable.of(
+                            TableIdentifier.of(
+                                    CATALOG_NAME, jdbcCase.getDatabase(), jdbcCase.getSinkTable()),
+                            TableSchema.builder().columns(jdbcCase.getColumns()).build(),
+                            Collections.emptyMap(),
+                            Collections.emptyList(),
+                            ""),
+                    true);
+
+            return;
+        }
+
         createSchemaIfNeeded();
         createNeededTables();
-        insertTestData();
+    }
+
+    private void testCatalogDown() {
+        if (defaultCatalog != null) {
+            defaultCatalog.dropTable(
+                    TablePath.of(jdbcCase.getDatabase(), jdbcCase.getSourceTable()), true);
+
+            Assertions.assertFalse(
+                    defaultCatalog.tableExists(
+                            TablePath.of(jdbcCase.getDatabase(), jdbcCase.getSourceTable())));
+
+            defaultCatalog.dropTable(
+                    TablePath.of(jdbcCase.getDatabase(), jdbcCase.getSinkTable()), true);
+
+            Assertions.assertFalse(
+                    defaultCatalog.tableExists(
+                            TablePath.of(jdbcCase.getDatabase(), jdbcCase.getSinkTable())));
+
+            defaultCatalog.dropDatabase(TablePath.of(jdbcCase.getDatabase(), null), true);
+
+            Assertions.assertFalse(
+                    defaultCatalog.tableExists(TablePath.of(jdbcCase.getDatabase(), null)));
+
+            defaultCatalog.close();
+        }
     }
 
     @Override
     public void tearDown() throws SQLException {
         if (dbServer != null) {
+            testCatalogDown();
             dbServer.close();
         }
 

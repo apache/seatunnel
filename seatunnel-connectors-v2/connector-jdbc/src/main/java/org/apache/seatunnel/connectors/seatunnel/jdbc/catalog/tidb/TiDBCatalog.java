@@ -23,7 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog
 public class TiDBCatalog extends MySqlCatalog {
 
     public TiDBCatalog(
-        String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
+            String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
         super(catalogName, username, pwd, urlInfo);
         sysDatabases.clear();
         sysDatabases.add("information_schema");

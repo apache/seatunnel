@@ -33,7 +33,7 @@ import java.util.Map;
 public class MySqlCatalog extends AbstractJdbcCatalog {
 
     public MySqlCatalog(
-        String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
+            String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
         super(catalogName, username, pwd, urlInfo);
         sysDatabases.add("information_schema");
         sysDatabases.add("mysql");
@@ -47,7 +47,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
      */
     @Override
     public SeaTunnelDataType<?> fromJdbcType(ResultSetMetaData metadata, int colIndex)
-        throws SQLException {
+            throws SQLException {
         MysqlType mysqlType = MysqlType.getByName(metadata.getColumnTypeName(colIndex));
         Map<String, Object> dataTypeProperties = new HashMap<>();
         dataTypeProperties.put(MysqlDataTypeConvertor.PRECISION, metadata.getPrecision(colIndex));

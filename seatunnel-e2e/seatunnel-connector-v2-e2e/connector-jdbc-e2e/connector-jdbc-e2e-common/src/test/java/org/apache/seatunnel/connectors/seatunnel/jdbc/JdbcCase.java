@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.apache.commons.lang3.tuple.Pair;
@@ -50,4 +51,6 @@ public class JdbcCase {
     private List<String> configFile;
     private Pair<String[], List<SeaTunnelRow>> testData;
     private Map<String, String> containerEnv;
+    private String identifier;
+    private List<Column> Columns;
 }

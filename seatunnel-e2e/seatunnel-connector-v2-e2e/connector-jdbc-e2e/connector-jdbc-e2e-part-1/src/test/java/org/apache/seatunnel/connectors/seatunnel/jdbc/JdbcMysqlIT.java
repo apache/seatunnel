@@ -18,6 +18,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.apache.commons.lang3.tuple.Pair;
@@ -103,6 +109,48 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     + "    `c_integer_unsigned`   int(10) unsigned      DEFAULT NULL\n"
                     + ");";
 
+    private static final String[] FIELD_NAMES =
+            new String[] {
+                "c_bit",
+                "c_boolean",
+                "c_tinyint",
+                "c_tinyint_unsigned",
+                "c_smallint",
+                "c_smallint_unsigned",
+                "c_mediumint",
+                "c_mediumint_unsigned",
+                "c_int",
+                "c_integer",
+                "c_year",
+                "c_int_unsigned",
+                "c_integer_unsigned",
+                "c_bigint",
+                "c_bigint_unsigned",
+                "c_decimal",
+                "c_decimal_unsigned",
+                "c_float",
+                "c_float_unsigned",
+                "c_double",
+                "c_double_unsigned",
+                "c_char",
+                "c_tinytext",
+                "c_mediumtext",
+                "c_text",
+                "c_varchar",
+                "c_json",
+                "c_longtext",
+                "c_date",
+                "c_datetime",
+                "c_timestamp",
+                "c_tinyblob",
+                "c_mediumblob",
+                "c_blob",
+                "c_longblob",
+                "c_varbinary",
+                "c_binary"
+            };
+    private static final String IDENTIFIER = "MySQL";
+
     @Override
     JdbcCase getJdbcCase() {
         Map<String, String> containerEnv = new HashMap<>();
@@ -111,6 +159,59 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         String[] fieldNames = testDataSet.getKey();
 
         String insertSql = insertTable(MYSQL_DATABASE, MYSQL_SOURCE, fieldNames);
+
+        List<Column> columns = new ArrayList<>();
+
+        columns.add(PhysicalColumn.of("c_bit", BasicType.BOOLEAN_TYPE, 1, true, "", ""));
+        columns.add(PhysicalColumn.of("c_boolean", BasicType.INT_TYPE, 1, true, "", ""));
+        columns.add(PhysicalColumn.of("c_tinyint", BasicType.INT_TYPE, 4, true, "", ""));
+        columns.add(PhysicalColumn.of("c_tinyint_unsigned", BasicType.INT_TYPE, 3, true, "", ""));
+        columns.add(PhysicalColumn.of("c_smallint", BasicType.INT_TYPE, 6, true, "", ""));
+        columns.add(PhysicalColumn.of("c_smallint_unsigned", BasicType.INT_TYPE, 5, true, "", ""));
+        columns.add(PhysicalColumn.of("c_mediumint", BasicType.INT_TYPE, 9, true, "", ""));
+        columns.add(PhysicalColumn.of("c_mediumint_unsigned", BasicType.INT_TYPE, 8, true, "", ""));
+        columns.add(PhysicalColumn.of("c_int", BasicType.INT_TYPE, 11, true, "", ""));
+        columns.add(PhysicalColumn.of("c_integer", BasicType.INT_TYPE, 11, true, "", ""));
+        columns.add(PhysicalColumn.of("c_bigint", BasicType.LONG_TYPE, 1, true, "", ""));
+        columns.add(
+                PhysicalColumn.of("c_bigint_unsigned", new DecimalType(20, 0), 1, true, "", ""));
+        columns.add(PhysicalColumn.of("c_decimal", new DecimalType(20, 0), 1, true, "", ""));
+        columns.add(
+                PhysicalColumn.of("c_decimal_unsigned", new DecimalType(38, 18), 1, true, "", ""));
+        columns.add(PhysicalColumn.of("c_float", BasicType.FLOAT_TYPE, 1, true, "", ""));
+        columns.add(PhysicalColumn.of("c_float_unsigned", BasicType.FLOAT_TYPE, 1, true, "", ""));
+        columns.add(PhysicalColumn.of("c_double", BasicType.DOUBLE_TYPE, 1, true, "", ""));
+        columns.add(PhysicalColumn.of("c_double_unsigned", BasicType.DOUBLE_TYPE, 1, true, "", ""));
+        columns.add(PhysicalColumn.of("c_char", BasicType.STRING_TYPE, 1, true, "", ""));
+        columns.add(PhysicalColumn.of("c_tinytext", BasicType.STRING_TYPE, 1, true, "", ""));
+        columns.add(PhysicalColumn.of("c_mediumtext", BasicType.STRING_TYPE, 1, true, "", ""));
+        columns.add(PhysicalColumn.of("c_text", BasicType.STRING_TYPE, 1, true, "", ""));
+        columns.add(PhysicalColumn.of("c_varchar", BasicType.STRING_TYPE, 255, true, "", ""));
+        columns.add(PhysicalColumn.of("c_json", BasicType.STRING_TYPE, 1, true, "", ""));
+        columns.add(PhysicalColumn.of("c_longtext", BasicType.STRING_TYPE, 1, true, "", ""));
+        columns.add(PhysicalColumn.of("c_date", LocalTimeType.LOCAL_DATE_TYPE, 1, true, "", ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "c_datetime", LocalTimeType.LOCAL_DATE_TIME_TYPE, 1, true, "", ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "c_timestamp", LocalTimeType.LOCAL_DATE_TIME_TYPE, 1, true, "", ""));
+        columns.add(
+                PhysicalColumn.of("c_tinyblob", PrimitiveByteArrayType.INSTANCE, 1, true, "", ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "c_mediumblob", PrimitiveByteArrayType.INSTANCE, 1, true, "", ""));
+        columns.add(PhysicalColumn.of("c_blob", PrimitiveByteArrayType.INSTANCE, 1, true, "", ""));
+        columns.add(
+                PhysicalColumn.of("c_longblob", PrimitiveByteArrayType.INSTANCE, 1, true, "", ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "c_varbinary", PrimitiveByteArrayType.INSTANCE, 255, true, "", ""));
+        columns.add(
+                PhysicalColumn.of("c_binary", PrimitiveByteArrayType.INSTANCE, 1, true, "", ""));
+        columns.add(PhysicalColumn.of("c_year", BasicType.INT_TYPE, 4, true, "", ""));
+        columns.add(PhysicalColumn.of("c_int_unsigned", BasicType.LONG_TYPE, 10, true, "", ""));
+        columns.add(PhysicalColumn.of("c_integer_unsigned", BasicType.LONG_TYPE, 10, true, "", ""));
 
         return JdbcCase.builder()
                 .dockerImage(MYSQL_IMAGE)
@@ -131,6 +232,8 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
                 .testData(testDataSet)
+                .Columns(columns)
+                .identifier(IDENTIFIER)
                 .build();
     }
 
@@ -144,46 +247,6 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
 
     @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
-        String[] fieldNames =
-                new String[] {
-                    "c_bit",
-                    "c_boolean",
-                    "c_tinyint",
-                    "c_tinyint_unsigned",
-                    "c_smallint",
-                    "c_smallint_unsigned",
-                    "c_mediumint",
-                    "c_mediumint_unsigned",
-                    "c_int",
-                    "c_integer",
-                    "c_year",
-                    "c_int_unsigned",
-                    "c_integer_unsigned",
-                    "c_bigint",
-                    "c_bigint_unsigned",
-                    "c_decimal",
-                    "c_decimal_unsigned",
-                    "c_float",
-                    "c_float_unsigned",
-                    "c_double",
-                    "c_double_unsigned",
-                    "c_char",
-                    "c_tinytext",
-                    "c_mediumtext",
-                    "c_text",
-                    "c_varchar",
-                    "c_json",
-                    "c_longtext",
-                    "c_date",
-                    "c_datetime",
-                    "c_timestamp",
-                    "c_tinyblob",
-                    "c_mediumblob",
-                    "c_blob",
-                    "c_longblob",
-                    "c_varbinary",
-                    "c_binary"
-                };
 
         List<SeaTunnelRow> rows = new ArrayList<>();
         for (int i = 0; i < 100; i++) {
@@ -231,7 +294,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
             rows.add(row);
         }
 
-        return Pair.of(fieldNames, rows);
+        return Pair.of(FIELD_NAMES, rows);
     }
 
     @Override
