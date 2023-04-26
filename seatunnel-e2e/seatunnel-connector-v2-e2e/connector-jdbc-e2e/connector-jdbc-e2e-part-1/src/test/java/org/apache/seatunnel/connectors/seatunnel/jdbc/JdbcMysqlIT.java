@@ -174,36 +174,36 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         columns.add(PhysicalColumn.of("c_integer", BasicType.INT_TYPE, 11, true, "", ""));
         columns.add(PhysicalColumn.of("c_bigint", BasicType.LONG_TYPE, 1, true, "", ""));
         columns.add(
-                PhysicalColumn.of("c_bigint_unsigned", new DecimalType(20, 0), 1, true, "", ""));
-        columns.add(PhysicalColumn.of("c_decimal", new DecimalType(20, 0), 1, true, "", ""));
+                PhysicalColumn.of("c_bigint_unsigned", new DecimalType(20, 0), null, true, "", ""));
+        columns.add(PhysicalColumn.of("c_decimal", new DecimalType(20, 0), null, true, "", ""));
         columns.add(
-                PhysicalColumn.of("c_decimal_unsigned", new DecimalType(38, 18), 1, true, "", ""));
-        columns.add(PhysicalColumn.of("c_float", BasicType.FLOAT_TYPE, 1, true, "", ""));
-        columns.add(PhysicalColumn.of("c_float_unsigned", BasicType.FLOAT_TYPE, 1, true, "", ""));
-        columns.add(PhysicalColumn.of("c_double", BasicType.DOUBLE_TYPE, 1, true, "", ""));
-        columns.add(PhysicalColumn.of("c_double_unsigned", BasicType.DOUBLE_TYPE, 1, true, "", ""));
+                PhysicalColumn.of("c_decimal_unsigned", new DecimalType(38, 18), null, true, "", ""));
+        columns.add(PhysicalColumn.of("c_float", BasicType.FLOAT_TYPE, null, true, "", ""));
+        columns.add(PhysicalColumn.of("c_float_unsigned", BasicType.FLOAT_TYPE, null, true, "", ""));
+        columns.add(PhysicalColumn.of("c_double", BasicType.DOUBLE_TYPE, null, true, "", ""));
+        columns.add(PhysicalColumn.of("c_double_unsigned", BasicType.DOUBLE_TYPE, null, true, "", ""));
         columns.add(PhysicalColumn.of("c_char", BasicType.STRING_TYPE, 1, true, "", ""));
-        columns.add(PhysicalColumn.of("c_tinytext", BasicType.STRING_TYPE, 1, true, "", ""));
-        columns.add(PhysicalColumn.of("c_mediumtext", BasicType.STRING_TYPE, 1, true, "", ""));
-        columns.add(PhysicalColumn.of("c_text", BasicType.STRING_TYPE, 1, true, "", ""));
+        columns.add(PhysicalColumn.of("c_tinytext", BasicType.STRING_TYPE, null, true, "", ""));
+        columns.add(PhysicalColumn.of("c_mediumtext", BasicType.STRING_TYPE, null, true, "", ""));
+        columns.add(PhysicalColumn.of("c_text", BasicType.STRING_TYPE, null, true, "", ""));
         columns.add(PhysicalColumn.of("c_varchar", BasicType.STRING_TYPE, 255, true, "", ""));
-        columns.add(PhysicalColumn.of("c_json", BasicType.STRING_TYPE, 1, true, "", ""));
-        columns.add(PhysicalColumn.of("c_longtext", BasicType.STRING_TYPE, 1, true, "", ""));
-        columns.add(PhysicalColumn.of("c_date", LocalTimeType.LOCAL_DATE_TYPE, 1, true, "", ""));
+        columns.add(PhysicalColumn.of("c_json", BasicType.STRING_TYPE, null, true, "", ""));
+        columns.add(PhysicalColumn.of("c_longtext", BasicType.STRING_TYPE, null, true, "", ""));
+        columns.add(PhysicalColumn.of("c_date", LocalTimeType.LOCAL_DATE_TYPE, null, true, "", ""));
         columns.add(
                 PhysicalColumn.of(
-                        "c_datetime", LocalTimeType.LOCAL_DATE_TIME_TYPE, 1, true, "", ""));
+                        "c_datetime", LocalTimeType.LOCAL_DATE_TIME_TYPE, null, true, "", ""));
         columns.add(
                 PhysicalColumn.of(
-                        "c_timestamp", LocalTimeType.LOCAL_DATE_TIME_TYPE, 1, true, "", ""));
+                        "c_timestamp", LocalTimeType.LOCAL_DATE_TIME_TYPE, null, true, "", ""));
         columns.add(
-                PhysicalColumn.of("c_tinyblob", PrimitiveByteArrayType.INSTANCE, 1, true, "", ""));
+                PhysicalColumn.of("c_tinyblob", PrimitiveByteArrayType.INSTANCE, null, true, "", ""));
         columns.add(
                 PhysicalColumn.of(
-                        "c_mediumblob", PrimitiveByteArrayType.INSTANCE, 1, true, "", ""));
-        columns.add(PhysicalColumn.of("c_blob", PrimitiveByteArrayType.INSTANCE, 1, true, "", ""));
+                        "c_mediumblob", PrimitiveByteArrayType.INSTANCE, null, true, "", ""));
+        columns.add(PhysicalColumn.of("c_blob", PrimitiveByteArrayType.INSTANCE, null, true, "", ""));
         columns.add(
-                PhysicalColumn.of("c_longblob", PrimitiveByteArrayType.INSTANCE, 1, true, "", ""));
+                PhysicalColumn.of("c_longblob", PrimitiveByteArrayType.INSTANCE, null, true, "", ""));
         columns.add(
                 PhysicalColumn.of(
                         "c_varbinary", PrimitiveByteArrayType.INSTANCE, 255, true, "", ""));

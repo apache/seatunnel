@@ -427,8 +427,11 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         checkNotNull(tablePath, "Table path cannot be null");
         checkNotNull(tablePath.getDatabaseName(), "Database name cannot be null");
 
-        if (databaseExists(tablePath.getDatabaseName())) {
+        boolean exists = databaseExists(tablePath.getDatabaseName());
+        if (exists && !ignoreIfExists) {
             throw new DatabaseAlreadyExistException(catalogName, tablePath.getDatabaseName());
+        } else if (exists) {
+            return;
         }
         if (!createDatabaseInternal(tablePath.getDatabaseName()) && !ignoreIfExists) {
             throw new DatabaseAlreadyExistException(catalogName, tablePath.getDatabaseName());

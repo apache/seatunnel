@@ -166,7 +166,7 @@ public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
             case STRING:
                 return MysqlType.VARCHAR;
             case BOOLEAN:
-                return MysqlType.BOOLEAN;
+                return MysqlType.BIT;
             case TINYINT:
                 return MysqlType.TINYINT;
             case SMALLINT:

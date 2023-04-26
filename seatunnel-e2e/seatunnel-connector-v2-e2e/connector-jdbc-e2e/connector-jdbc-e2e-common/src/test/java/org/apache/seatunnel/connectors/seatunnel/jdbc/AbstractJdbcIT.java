@@ -242,7 +242,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         if (factory.isPresent()) {
             CatalogFactory catalogFactory = factory.get();
             Map<String, Object> inMap = new HashMap<>();
-            inMap.put(JdbcCatalogOptions.BASE_URL.key(), jdbcCase.getJdbcUrl());
+            inMap.put(JdbcCatalogOptions.BASE_URL.key(), jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost()));
             inMap.put(JdbcCatalogOptions.USERNAME.key(), jdbcCase.getUserName());
             inMap.put(JdbcCatalogOptions.PASSWORD.key(), jdbcCase.getPassword());
             ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(inMap);
