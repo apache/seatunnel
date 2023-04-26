@@ -221,7 +221,7 @@ public interface JdbcDialect extends Serializable {
     }
 
     default String createTableSql(TablePath tablePath, CatalogTable catalogTable) {
-        return "";
+        throw new UnsupportedOperationException();
     }
 
     default String getQuoted() {
