@@ -225,6 +225,9 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                 isFirst = false;
             } else if (value instanceof ObjectNode) {
                 value = ((ObjectNode) value).get(key);
+                if (value instanceof TextNode) {
+                    value = ((TextNode) value).textValue();
+                }
             }
         }
         return value;
