@@ -40,7 +40,6 @@ jobs:
             -Dmaven.test.skip \
             -Dcheckstyle.skip=true \
             -Dlicense.skipAddThirdParty=true \
-            -Prelease \
             ${{ github.event.inputs.maven-profiles }} \
             package
       - uses: whaleops/actions/seatunnel/build-and-upload-tar@main
